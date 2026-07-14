@@ -29,13 +29,11 @@ interface SelectedAction {
     name: string;
     type: string | null;
     is_signature: boolean;
-    borrow_exclusion: string | null;
 }
 
 interface SelectedAbility {
     id: string;
     name: string;
-    borrow_exclusion: string | null;
 }
 
 interface CrewCardRow {
@@ -47,8 +45,8 @@ interface CrewCardRow {
     requires_token_choice: boolean;
     requires_marker_choice: boolean;
     requires_upgrade_type_choice: boolean;
-    actions: { id: number; name: string; is_signature: boolean; borrow_exclusion: string | null }[];
-    abilities: { id: number; name: string; borrow_exclusion: string | null }[];
+    actions: { id: number; name: string; is_signature: boolean }[];
+    abilities: { id: number; name: string }[];
 }
 
 const props = defineProps<{
@@ -57,7 +55,6 @@ const props = defineProps<{
     all_abilities: AbilityOption[];
     masters: { id: number; display_name: string }[];
     custom_masters: { id: number; display_name: string }[];
-    borrow_exclusion_options: Array<{ name: string; value: string }>;
 }>();
 
 const form = ref({
@@ -98,7 +95,7 @@ const filteredActionOptions = computed(() => {
 });
 
 const addAction = (opt: ActionOption) => {
-    selectedActions.value.push({ id: String(opt.id), name: opt.name, type: opt.type, is_signature: false, borrow_exclusion: null });
+    selectedActions.value.push({ id: String(opt.id), name: opt.name, type: opt.type, is_signature: false });
     actionSearch.value = '';
 };
 
@@ -115,7 +112,7 @@ const filteredAbilityOptions = computed(() => {
 });
 
 const addAbility = (opt: AbilityOption) => {
-    selectedAbilities.value.push({ id: String(opt.id), name: opt.name, borrow_exclusion: null });
+    selectedAbilities.value.push({ id: String(opt.id), name: opt.name });
     abilitySearch.value = '';
 };
 
@@ -124,8 +121,8 @@ const removeAbility = (idx: number) => selectedAbilities.value.splice(idx, 1);
 const submit = () => {
     const payload = {
         ...form.value,
-        actions: selectedActions.value.map((a) => ({ id: Number(a.id), is_signature: a.is_signature, borrow_exclusion: a.borrow_exclusion })),
-        abilities: selectedAbilities.value.map((a) => ({ id: Number(a.id), borrow_exclusion: a.borrow_exclusion })),
+        actions: selectedActions.value.map((a) => ({ id: Number(a.id), is_signature: a.is_signature })),
+        abilities: selectedAbilities.value.map((a) => ({ id: Number(a.id) })),
     };
     if (props.item) router.post(route('admin.campaign.crew-cards.update', props.item.id), payload);
     else router.post(route('admin.campaign.crew-cards.store'), payload);
@@ -148,12 +145,10 @@ onMounted(() => {
         name: a.name,
         type: actionLookup.get(a.id)?.type ?? null,
         is_signature: a.is_signature,
-        borrow_exclusion: a.borrow_exclusion,
     }));
     selectedAbilities.value = props.item.abilities.map((a) => ({
         id: String(a.id),
         name: a.name,
-        borrow_exclusion: a.borrow_exclusion,
     }));
 });
 </script>
@@ -203,38 +198,21 @@ onMounted(() => {
                     <InputError :message="usePage().props.errors.master_type" />
                 </div>
 
-                <!-- Actions: inline list with per-action signature checkbox + Tier-4 borrow exclusion -->
+                <!-- Actions: inline list with per-action signature checkbox -->
                 <div>
                     <Label>Linked Actions</Label>
                     <div class="mt-1 space-y-1">
                         <EmptyState v-if="selectedActions.length === 0" compact title="No actions linked yet" description="" />
-                        <div v-for="(action, idx) in selectedActions" :key="action.id + '-' + idx" class="space-y-1.5 rounded-md border px-2 py-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="flex-1 truncate text-sm font-medium">{{ action.name }}</span>
-                                <Badge v-if="action.type" variant="secondary" class="shrink-0 px-1 py-0 text-[10px]">{{ action.type }}</Badge>
-                                <label class="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                    <Checkbox :checked="action.is_signature" @update:checked="(v: boolean) => (action.is_signature = v)" />
-                                    Signature
-                                </label>
-                                <button class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
-                                    <X class="size-3.5" />
-                                </button>
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="shrink-0 text-[10px] text-muted-foreground">Tier-4 borrow:</span>
-                                <Select
-                                    :model-value="action.borrow_exclusion ?? '__none__'"
-                                    @update:model-value="(v) => (action.borrow_exclusion = v === '__none__' ? null : (v as string))"
-                                >
-                                    <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">Eligible</SelectItem>
-                                        <SelectItem v-for="opt in borrow_exclusion_options" :key="opt.value" :value="opt.value">
-                                            Excluded — {{ opt.name }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div v-for="(action, idx) in selectedActions" :key="action.id + '-' + idx" class="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                            <span class="flex-1 truncate text-sm font-medium">{{ action.name }}</span>
+                            <Badge v-if="action.type" variant="secondary" class="shrink-0 px-1 py-0 text-[10px]">{{ action.type }}</Badge>
+                            <label class="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                                <Checkbox :checked="action.is_signature" @update:checked="(v: boolean) => (action.is_signature = v)" />
+                                Signature
+                            </label>
+                            <button class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
+                                <X class="size-3.5" />
+                            </button>
                         </div>
                     </div>
                     <!-- Search to add more actions -->
@@ -259,33 +237,16 @@ onMounted(() => {
                     <InputError :message="usePage().props.errors['actions']" />
                 </div>
 
-                <!-- Abilities: same inline list pattern as Actions, for Tier-4 borrow exclusion -->
+                <!-- Abilities: same inline list pattern as Actions -->
                 <div>
                     <Label>Linked Abilities</Label>
                     <div class="mt-1 space-y-1">
                         <EmptyState v-if="selectedAbilities.length === 0" compact title="No abilities linked yet" description="" />
-                        <div v-for="(ability, idx) in selectedAbilities" :key="ability.id + '-' + idx" class="space-y-1.5 rounded-md border px-2 py-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="flex-1 truncate text-sm font-medium">{{ ability.name }}</span>
-                                <button class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeAbility(idx)">
-                                    <X class="size-3.5" />
-                                </button>
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="shrink-0 text-[10px] text-muted-foreground">Tier-4 borrow:</span>
-                                <Select
-                                    :model-value="ability.borrow_exclusion ?? '__none__'"
-                                    @update:model-value="(v) => (ability.borrow_exclusion = v === '__none__' ? null : (v as string))"
-                                >
-                                    <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="__none__">Eligible</SelectItem>
-                                        <SelectItem v-for="opt in borrow_exclusion_options" :key="opt.value" :value="opt.value">
-                                            Excluded — {{ opt.name }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div v-for="(ability, idx) in selectedAbilities" :key="ability.id + '-' + idx" class="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                            <span class="flex-1 truncate text-sm font-medium">{{ ability.name }}</span>
+                            <button class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeAbility(idx)">
+                                <X class="size-3.5" />
+                            </button>
                         </div>
                     </div>
                     <!-- Search to add more abilities -->

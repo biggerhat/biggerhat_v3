@@ -1668,38 +1668,6 @@ it('Phase 4 Crew Card advancement rejects a master-tied row whose master is outs
     expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
 });
 
-it('advancement_catalogs.crew_card excludes a card with a power-bar-excluded action or ability (pg 32, 54)', function () {
-    [$user, , $crew, $game] = aftermathFixture();
-    $aftermath = CampaignAftermath::factory()->create([
-        'campaign_game_id' => $game->id,
-        'campaign_crew_id' => $crew->id,
-        'current_phase' => 4,
-        'hand_drawn' => [],
-    ]);
-    buildLeaderFor($crew, $user);
-
-    $eligible = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Eligible Effect']);
-
-    $excludedViaAction = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Power Bar Effect']);
-    $action = \App\Models\Action::factory()->create();
-    $excludedViaAction->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
-
-    $excludedViaAbility = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Card Swap Effect']);
-    $ability = \App\Models\Ability::factory()->create();
-    $excludedViaAbility->abilities()->attach($ability->id, ['borrow_exclusion' => 'card_swap']);
-
-    $this->actingAs($user)
-        ->get(route('campaigns.aftermaths.show', $aftermath))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($eligible, $excludedViaAction, $excludedViaAbility) {
-            $ids = collect($rows)->pluck('id');
-
-            return $ids->contains($eligible->id)
-                && ! $ids->contains($excludedViaAction->id)
-                && ! $ids->contains($excludedViaAbility->id);
-        }));
-});
-
 it('advancement_catalogs.crew_card exposes the generated card image', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1723,37 +1691,6 @@ it('advancement_catalogs.crew_card exposes the generated card image', function (
 
             return $match && $match['front_image'] === 'campaign-crew-cards/123/front.png';
         }));
-});
-
-it('Phase 4 Crew Card advancement rejects a card with a power-bar-excluded action (pg 32, 54)', function () {
-    [$user, , $crew, $game] = aftermathFixture();
-    $aftermath = CampaignAftermath::factory()->create([
-        'campaign_game_id' => $game->id,
-        'campaign_crew_id' => $crew->id,
-        'current_phase' => 4,
-        'hand_drawn' => [],
-    ]);
-    buildLeaderFor($crew, $user);
-
-    $excludedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create();
-    $action = \App\Models\Action::factory()->create();
-    $excludedEffect->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
-
-    $this->actingAs($user)
-        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
-            'bruiser_killed_non_peon' => false,
-            'strategist_interacted' => false,
-            'lost' => false,
-            'advancements' => [[
-                'source_table' => 'crew_card',
-                'catalog_id' => $excludedEffect->id,
-                'position_in_xp_track' => 6,
-            ]],
-        ])
-        ->assertRedirect();
-
-    expect($aftermath->fresh()->current_phase)->toBe(4);
-    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
 });
 
 it('Phase 4 Crew Card advancement derives source_master_id from the catalog row, not the client', function () {

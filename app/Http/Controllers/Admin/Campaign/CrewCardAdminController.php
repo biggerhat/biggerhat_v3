@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin\Campaign;
 
-use App\Enums\Campaign\CrewCardBorrowExclusionEnum;
 use App\Enums\CharacterStationEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Campaign\StoreCrewCardRequest;
@@ -60,7 +59,6 @@ class CrewCardAdminController extends Controller
                 ->where('current', true)
                 ->orderBy('display_name')
                 ->get(['id', 'display_name', 'faction']),
-            'borrow_exclusion_options' => fn () => CrewCardBorrowExclusionEnum::toSelectOptions(),
         ];
     }
 
@@ -72,17 +70,11 @@ class CrewCardAdminController extends Controller
     public function edit(Request $request, CampaignCrewCard $crewCard)
     {
         $crewCard->load(['actions:id,name', 'abilities:id,name']);
-        // Map actions/abilities to include pivot data so the form can pre-populate signature flags + borrow exclusions.
+        // Map actions to include pivot data so the form can pre-populate signature flags.
         $crewCard->setRelation('actions', $crewCard->actions->map(fn ($a) => [
             'id' => $a->id,
             'name' => $a->name,
             'is_signature' => (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
-            'borrow_exclusion' => $a->pivot->borrow_exclusion, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
-        ])->values());
-        $crewCard->setRelation('abilities', $crewCard->abilities->map(fn ($a) => [
-            'id' => $a->id,
-            'name' => $a->name,
-            'borrow_exclusion' => $a->pivot->borrow_exclusion, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
         ])->values());
 
         return inertia('Admin/Campaign/CrewCard/Form', array_merge(
@@ -143,40 +135,30 @@ class CrewCardAdminController extends Controller
     }
 
     /**
-     * Build a sync map for the actions pivot with the is_signature_action
-     * flag + Tier-4 borrow exclusion reason (pg 32, 54).
+     * Build a sync map for the actions pivot with the is_signature_action flag.
      *
-     * @param  array<int, array{id: int, is_signature: bool, borrow_exclusion?: string|null}>  $actionsInput
-     * @return array<int, array{is_signature_action: bool, borrow_exclusion: string|null}>
+     * @param  array<int, array{id: int, is_signature: bool}>  $actionsInput
+     * @return array<int, array{is_signature_action: bool}>
      */
     private function actionSyncMap(array $actionsInput): array
     {
         $map = [];
         foreach ($actionsInput as $entry) {
-            $map[(int) $entry['id']] = [
-                'is_signature_action' => (bool) ($entry['is_signature'] ?? false),
-                'borrow_exclusion' => $entry['borrow_exclusion'] ?? null,
-            ];
+            $map[(int) $entry['id']] = ['is_signature_action' => (bool) ($entry['is_signature'] ?? false)];
         }
 
         return $map;
     }
 
     /**
-     * Build a sync map for the abilities pivot with the Tier-4 borrow
-     * exclusion reason (pg 32, 54).
+     * Build a sync map (plain id list) for the abilities pivot.
      *
-     * @param  array<int, array{id: int, borrow_exclusion?: string|null}>  $abilitiesInput
-     * @return array<int, array{borrow_exclusion: string|null}>
+     * @param  array<int, array{id: int}>  $abilitiesInput
+     * @return array<int, int>
      */
     private function abilitySyncMap(array $abilitiesInput): array
     {
-        $map = [];
-        foreach ($abilitiesInput as $entry) {
-            $map[(int) $entry['id']] = ['borrow_exclusion' => $entry['borrow_exclusion'] ?? null];
-        }
-
-        return $map;
+        return array_map(fn ($entry) => (int) $entry['id'], $abilitiesInput);
     }
 
     public function delete(Request $request, CampaignCrewCard $crewCard)

@@ -397,15 +397,6 @@ class AftermathCatalog
                 ->with(['actions:id,name', 'abilities:id,name', 'master:id,faction,display_name'])
                 ->orderBy('name')
                 ->get()
-                // Tier-4 Crew Card Advancement (pg 32, 54): "Effects that
-                // reference a power bar or cause the crew card to be swapped
-                // with a different crew card may not be chosen." The app
-                // borrows a whole CampaignCrewCard row as one unit (not
-                // individual actions/abilities within it), so any excluded
-                // action/ability makes the whole card ineligible to borrow —
-                // it's unaffected as that crew's own starter effect.
-                ->reject(fn (CampaignCrewCard $c) => $c->actions->contains(fn (Action $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from BelongsToMany)
-                    || $c->abilities->contains(fn (Ability $a) => $a->pivot->borrow_exclusion !== null)) // @phpstan-ignore property.notFound (pivot from BelongsToMany)
                 ->map(fn (CampaignCrewCard $c) => [
                     'id' => $c->id,
                     'name' => $c->name,

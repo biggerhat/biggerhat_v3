@@ -253,15 +253,15 @@ class TournamentRoundController extends Controller
             ->get();
 
         $pairedGames->each(function (TournamentGame $game) use ($tournament, $round) {
-                if ($game->playerOne->user_id) {
-                    User::find($game->playerOne->user_id)
-                        ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name));
-                }
-                if ($game->playerTwo->user_id) {
-                    User::find($game->playerTwo->user_id)
-                        ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name));
-                }
-            });
+            if ($game->playerOne->user_id) {
+                User::find($game->playerOne->user_id)
+                    ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name));
+            }
+            if ($game->playerTwo->user_id) {
+                User::find($game->playerTwo->user_id)
+                    ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name));
+            }
+        });
 
         $this->broadcastUpdate($tournament, 'pairings_generated');
 

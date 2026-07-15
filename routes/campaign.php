@@ -63,6 +63,11 @@ Route::middleware(['campaign.access'])->group(function () {
         Route::post('/campaigns/{campaign}/delete', [CampaignController::class, 'destroy'])->name('campaigns.destroy');
         Route::post('/campaigns/{campaign}/join-link/regenerate', [CampaignController::class, 'regenerateJoinLink'])
             ->name('campaigns.join-link.regenerate');
+        // A multiplayer campaign only auto-stubs a crew for solo campaigns —
+        // the organizer (or any other existing member, e.g. after a data
+        // inconsistency) has no other path to play their own campaign.
+        Route::post('/campaigns/{campaign}/join-as-player', [CampaignController::class, 'joinAsPlayer'])
+            ->name('campaigns.join-as-player');
 
         // Invitations — only the organizer can create/revoke; accept is the
         // invitee's action and binds via token.

@@ -69,6 +69,10 @@ interface CrewCardEffectRow {
     front_image: string | null;
     actions: CrewCardLinkedAction[];
     abilities: CrewCardLinkedAbility[];
+    // A standalone trigger pick (pg 32: only when listed individually on the
+    // original card) — always empty for the starter effect and generic
+    // pg 15-16 catalog rows, since only a real Crew Card Upgrade can have one.
+    triggers: Array<{ id: number; name: string; suits: string | null; stone_cost: number; description: string | null }>;
 }
 
 interface ActionData {
@@ -245,16 +249,14 @@ interface AdvancementTaken {
     id: number;
     position_in_xp_track: number;
     source_table: string;
-    catalog_id: number | null;
     free_choice: Record<string, unknown> | null;
     // Any Joker (Action/Ability, pg 49/51) — the ally an action/ability was freely picked from.
     free_choice_source_name: string | null;
-    // Tier-4 Crew Card (pg 32, 54) — resolved server-side since the catalog
-    // lookup used for every other table excludes effects already held.
-    crew_card_name: string | null;
-    applied_to_custom_character_id: number | null;
-    applied_to_action_index: number;
-    from_equipment_id: number | null;
+    // Server-resolved display chain (AftermathCatalog::advancementContextChain()):
+    // Attack/Tac Mod -> Mod > Action > Unit/Equipment; Action/Ability/Summoning ->
+    // Effect > Unit; Totem -> the crew's actual totem name; Crew Card -> the
+    // picked Ability/Action/Trigger's own name. Join with " > " to display.
+    context_chain: string[];
     acquired_at: string;
 }
 interface CatalogRow {
@@ -441,23 +443,15 @@ const SOURCE_TABLE_LABELS: Record<string, string> = {
     crew_card: 'Crew Card',
 };
 
+// Short single name — used for the compact XP-track slot label. The full
+// chain (advancementChainLabel below) is for the Advancement Log itself.
 const advancementName = (a: AdvancementTaken): string =>
-    // Crew Card (pg 32, 54): resolved server-side, since the catalog list
-    // excludes effects this crew already holds (can't be picked twice).
-    a.crew_card_name ??
-    catalogRowsFor(a.source_table).find((r) => r.id === a.catalog_id)?.name ??
-    SOURCE_TABLE_LABELS[a.source_table] ??
-    a.source_table.replace(/_/g, ' ');
+    a.context_chain[0] ?? SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ');
 
-// Attack/Tactical Mod target label (pg 31, 38-43) — omitted for the Leader's
-// own action (the default), shown for Totem/Equipment/the specific Leader
-// action so the log records exactly where the effect went.
-const advancementTargetLabel = (a: AdvancementTaken): string | null => {
-    if (a.from_equipment_id != null) return props.equipment.find((e) => e.id === a.from_equipment_id)?.name ?? 'Equipment';
-    if (a.applied_to_custom_character_id != null) return 'Totem';
-    if (a.applied_to_action_index >= 0) return props.leader?.actions?.[a.applied_to_action_index]?.name ?? null;
-    return null;
-};
+// Full context chain for the Advancement Log (pg 31/38-43/49/51/32/54) —
+// server-resolved per source_table, see AftermathCatalog::advancementContextChain().
+const advancementChainLabel = (a: AdvancementTaken): string =>
+    a.context_chain.length ? a.context_chain.join(' > ') : SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ');
 
 // Extra attribution context beyond the name/target — who a free-picked
 // action/ability came from. Returns null when there's nothing more to say.
@@ -1675,8 +1669,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <span class="flex flex-wrap items-center gap-2">
                             <Badge variant="outline" class="text-[10px]">Box {{ a.position_in_xp_track + 1 }}</Badge>
                             <span class="text-muted-foreground">{{ SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ') }}</span>
-                            <span class="font-medium">{{ advancementName(a) }}</span>
-                            <Badge v-if="advancementTargetLabel(a)" variant="outline" class="text-[10px]">{{ advancementTargetLabel(a) }}</Badge>
+                            <span class="font-medium">{{ advancementChainLabel(a) }}</span>
                             <span v-if="advancementContext(a)" class="text-[11px] text-muted-foreground">{{ advancementContext(a) }}</span>
                         </span>
                         <span v-if="a.acquired_at" class="text-[10px] text-muted-foreground">{{ new Date(a.acquired_at).toLocaleDateString() }}</span>
@@ -1698,6 +1691,17 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <div class="mb-1 flex items-center gap-2 text-[10px] text-muted-foreground">
                             <Badge v-if="entry.week_number != null" variant="outline" class="text-[10px]">Week {{ entry.week_number }}</Badge>
                             <span>{{ new Date(entry.created_at).toLocaleDateString() }}</span>
+                            <!-- entry.id is the aftermath's own id — the Aftermath
+                                 wizard's Phase 6 review, never deleted (only locked).
+                                 Owner-only: CampaignAftermathController::show() gates
+                                 on crew ownership, same condition as view_mode.is_owner. -->
+                            <Link
+                                v-if="view_mode.is_owner"
+                                :href="route('campaigns.aftermaths.show', entry.id)"
+                                class="text-primary underline"
+                            >
+                                View Game Log
+                            </Link>
                         </div>
                         <p class="whitespace-pre-wrap">{{ entry.story_entry }}</p>
                         <p v-if="storyTallyParts(entry.tally).length" class="mt-1.5 text-[11px] text-muted-foreground">
@@ -1780,6 +1784,10 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <div v-if="c.effect.actions.length" class="mt-2 space-y-2">
                                 <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
                                 <ActionCard v-for="ac in c.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
+                            </div>
+                            <div v-if="c.effect.triggers.length" class="mt-2 space-y-2">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Triggers</p>
+                                <TriggerCard v-for="tg in c.effect.triggers" :key="`catg-${tg.id}`" :trigger="tg"><template #footer></template></TriggerCard>
                             </div>
                         </div>
                     </template>

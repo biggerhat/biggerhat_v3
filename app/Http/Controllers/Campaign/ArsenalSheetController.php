@@ -16,6 +16,7 @@ use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Services\CampaignRules;
 use App\Support\Campaign\AftermathCatalog;
+use App\Support\Campaign\CombinedCrewCardEffects;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -70,12 +71,6 @@ class ArsenalSheetController extends Controller
         $crew->load([
             'leader',
             'totem',
-            // Load full action + trigger data so ActionCard/AbilityCard can render properly.
-            'crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
-            'crewCardEffect.abilities',
-            // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
-            'crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
-            'crewCardAdvancements.crewCardEffect.abilities',
             // Keywords have no faction column — the crew's faction is separate.
             'keywordOne:id,name',
             'keywordTwo:id,name',
@@ -89,6 +84,11 @@ class ArsenalSheetController extends Controller
                 'gainedAbilities:id,name,description',
             ]),
         ]);
+        // Starter + Tier-4 borrowed effects (pg 32, 54) — full action/trigger
+        // data so ActionCard/AbilityCard/TriggerCard can render properly, and
+        // (for a real Upgrade source) triggers loaded via morphWith(), since
+        // CampaignCrewCard has no triggers() relation to call uniformly.
+        CombinedCrewCardEffects::eagerLoad($crew);
 
         // Propagate crew card action pivot signature flag so `is_signature` on
         // each serialized action reflects the crew-card-specific value.
@@ -150,14 +150,15 @@ class ArsenalSheetController extends Controller
                     // serialized as loaded relations; their `description` column
                     // matches what ActionCard/AbilityCard expect.
                     'crew_card_effect' => $crew->crewCardEffect
-                        ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description])
+                        ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description, 'triggers' => []])
                         : null,
-                    // Tier-4 borrowed effects (pg 32, 54) — stack alongside the starter.
+                    // Tier-4 borrowed effects (pg 32, 54) — stack alongside the
+                    // starter. Resolves to the single picked item (pg 32) for a
+                    // new-style crew_upgrade pick, or the whole card otherwise —
+                    // see CombinedCrewCardEffects::advancementEffectRow().
                     'crew_card_advancements' => $crew->crewCardAdvancements->map(fn ($adv) => [
                         'id' => $adv->id,
-                        'effect' => $adv->crewCardEffect
-                            ? array_merge($adv->crewCardEffect->toArray(), ['body' => $adv->crewCardEffect->description])
-                            : null,
+                        'effect' => CombinedCrewCardEffects::advancementEffectRow($adv),
                     ])->all(),
                     'arsenal_models' => $crew->arsenalModels->map(fn ($m) => [
                         'id' => $m->id,
@@ -194,7 +195,7 @@ class ArsenalSheetController extends Controller
                     ->where('custom_character_id', $leader->id)
                     ->orderBy('position_in_xp_track')
                     ->get()
-                    ->map(function (CampaignLeaderAdvancement $a) use ($crew) {
+                    ->map(function (CampaignLeaderAdvancement $a) {
                         // Any Joker (Action/Ability, pg 49/51) free-picks an
                         // ally's own action/ability — resolve the ally's name
                         // so the log reads as "from Rusty Alyce", not a bare id.
@@ -204,31 +205,17 @@ class ArsenalSheetController extends Controller
                             $freeChoiceSourceName = Character::query()->whereKey($sourceCharacterId)->value('display_name');
                         }
 
-                        // Tier-4 Crew Card (pg 32, 54) — resolve the effect's
-                        // own name. `advancement_catalogs.crew_card` excludes effects
-                        // this crew already holds (so the same effect can't be
-                        // picked twice), so once an effect is taken, the
-                        // client-side catalog lookup used to resolve every
-                        // other table's name can no longer find it — resolve
-                        // it here instead, from the already-eager-loaded
-                        // `crewCardAdvancements` bookkeeping row. catalog_core_id
-                        // === the CampaignCrewCard id for this table (see
-                        // LeaderAdvancementService::resolveCoreCatalogId()).
-                        $heldCrewCard = $a->source_table === AdvancementTableEnum::CrewCard
-                            ? $crew->crewCardAdvancements->firstWhere('crew_card_effect_id', $a->catalog_core_id)
-                            : null;
-
                         return [
                             'id' => $a->id,
                             'position_in_xp_track' => $a->position_in_xp_track,
                             'source_table' => $a->source_table->value,
-                            'catalog_id' => $a->catalog_core_id,
                             'free_choice' => $a->free_choice,
                             'free_choice_source_name' => $freeChoiceSourceName,
-                            'crew_card_name' => $heldCrewCard?->crewCardEffect?->name,
-                            'applied_to_custom_character_id' => $a->applied_to_custom_character_id,
-                            'applied_to_action_index' => $a->applied_to_action_index,
-                            'from_equipment_id' => $a->from_equipment_id,
+                            // Attack/Tac Mod: Mod > Action > Unit/Equipment;
+                            // Action/Ability/Summoning: Effect > Unit; Totem:
+                            // the crew's actual totem name; Crew Card: the
+                            // picked Ability/Action/Trigger's own name.
+                            'context_chain' => AftermathCatalog::advancementContextChain($a),
                             'acquired_at' => $a->acquired_at,
                         ];
                     })

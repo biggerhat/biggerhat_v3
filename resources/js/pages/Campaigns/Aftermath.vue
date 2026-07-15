@@ -289,13 +289,21 @@ interface CatalogRow {
     requires_marker_choice?: boolean;
     requires_upgrade_type_choice?: boolean;
     // Crew Card table only — which of the two Tier-4 pools this row came from
-    // (pg 32, 54): the fixed generic catalog, or a real keyword-matched Crew
-    // Card Upgrade. Submitted back as crew_card_source alongside catalog_id.
+    // (pg 32, 54): the fixed generic catalog (whole-row, one named effect per
+    // row), or a single action/ability/standalone-trigger printed on a real
+    // keyword-matched Crew Card Upgrade — "'effect' refers to a single
+    // ability, action, or trigger." Submitted back as crew_card_source
+    // alongside catalog_id.
     source?: 'campaign_crew_card' | 'crew_upgrade';
-    // crew_upgrade rows only — tokens/markers granted directly alongside the
-    // card's actions/abilities (no separate constrained-pool choice step).
-    tokens?: Array<{ id: number; name: string }>;
-    markers?: Array<{ id: number; name: string }>;
+    // crew_upgrade rows only: which single item this row is, and which card
+    // it came from (id/name) — id is what catalog_id/crew_card_item_type
+    // submit back, source_id is what crew_card_upgrade_id submits back.
+    item_type?: 'action' | 'ability' | 'trigger';
+    source_id?: number;
+    source_name?: string;
+    // Restriction qualifying text (pg 32, 54) carried over from the original
+    // card, e.g. "Friendly Ten Thunders models gain the following action:".
+    qualifier?: string | null;
 }
 interface ChoiceOption {
     // int for a token/marker, enum-value string for an upgrade type.
@@ -390,6 +398,12 @@ interface AdvDraft {
     // Crew Card table only (pg 17-18): the token/marker/upgrade-type pick a
     // borrowed effect requires, if any.
     crew_card_choice_id: number | string | null;
+    // Crew Card table only: disambiguates catalog_id, since crew_upgrade rows
+    // there expose an item's own id (Action/Ability/Trigger) — a different
+    // id space than campaign_crew_card rows (CampaignCrewCard), so plain
+    // numeric ids alone can collide across the two pools mixed into one list.
+    crew_card_item_type: 'action' | 'ability' | 'trigger' | null;
+    crew_card_source_id: number | null;
 }
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
@@ -431,6 +445,8 @@ watch(
                     free_choice_source_character_id: null,
                     free_choice_label: null,
                     crew_card_choice_id: null,
+                    crew_card_item_type: null,
+                    crew_card_source_id: null,
                 };
             }
         }
@@ -452,6 +468,8 @@ const onSourceTableChange = (position: number) => {
     d.free_choice_source_character_id = null;
     d.free_choice_label = null;
     d.crew_card_choice_id = null;
+    d.crew_card_item_type = null;
+    d.crew_card_source_id = null;
 };
 
 const onCatalogChange = (position: number) => {
@@ -462,7 +480,7 @@ const onCatalogChange = (position: number) => {
         d.totem_name = row?.name ?? null;
     }
     // Switching away from the Any Joker row clears a stale free pick.
-    const row = catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id);
+    const row = selectedDraftRow(position);
     if (!row?.is_joker) {
         d.free_choice_source_id = null;
         d.free_choice_source_character_id = null;
@@ -571,9 +589,23 @@ const catalogRowsFor = (table: string): CatalogRow[] => {
     return (advancement_catalogs.value as Record<string, CatalogRow[]>)[table] ?? [];
 };
 
+// Crew Card's flat pool mixes two different backing tables (CampaignCrewCard
+// whole rows, and individual Action/Ability/Trigger rows for crew_upgrade
+// picks) into one list — their numeric ids aren't from the same id space, so
+// a plain `row.id` can collide between the two. Every other table's list is
+// single-source and never needs this, so it degenerates to a plain id there.
+const rowIdentity = (row: CatalogRow): string => (row.source === 'crew_upgrade' ? `cu:${row.item_type}:${row.id}` : `${row.id}`);
+
 const selectedDraftRow = (position: number): CatalogRow | null => {
     const d = advDrafts.value[position];
     if (!d || d.catalog_id == null) return null;
+    if (d.crew_card_item_type) {
+        return (
+            catalogRowsFor(d.source_table).find(
+                (r) => r.item_type === d.crew_card_item_type && r.source_id === d.crew_card_source_id && r.id === d.catalog_id,
+            ) ?? null
+        );
+    }
     return catalogRowsFor(d.source_table).find((r) => r.id === d.catalog_id) ?? null;
 };
 
@@ -652,6 +684,11 @@ const submitAdvanceLeader = () => {
                     source_table: d.source_table,
                     catalog_id: d.catalog_id,
                     crew_card_source: isCrewCard ? (selectedDraftRow(adv.position_in_xp_track)?.source ?? 'campaign_crew_card') : undefined,
+                    // crew_upgrade rows only (pg 32): catalog_id above is the
+                    // picked item's own id (action/ability/trigger) — these
+                    // pin down which item and which card it came from.
+                    crew_card_item_type: isCrewCard ? selectedDraftRow(adv.position_in_xp_track)?.item_type : undefined,
+                    crew_card_upgrade_id: isCrewCard ? selectedDraftRow(adv.position_in_xp_track)?.source_id : undefined,
                     applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
                     applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
                     applied_to_custom_character_id:
@@ -811,10 +848,6 @@ const submitInjuries = () => {
     } as Record<string, unknown>);
 };
 
-const finalize = () =>
-    router.post(route('campaigns.aftermaths.finalize', props.aftermath.id), {
-        story_entry: storyEntry.value || null,
-    });
 </script>
 
 <template>
@@ -939,8 +972,9 @@ const finalize = () =>
                         </label>
                     </div>
                 </div>
-                <div class="flex justify-end gap-2">
+                <div class="flex items-center justify-between">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
+                    <div v-else />
                     <Button :disabled="!is_owner" @click="submitPayday">Confirm &amp; advance</Button>
                 </div>
             </CardContent>
@@ -995,17 +1029,16 @@ const finalize = () =>
                     </ul>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <span class="text-sm">
-                        Total:
-                        <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
-                    </span>
-                    <div class="flex gap-2">
-                        <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
-                        <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
-                            {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
-                        </Button>
-                    </div>
+                <span class="text-sm">
+                    Total:
+                    <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
+                </span>
+                <div class="flex items-center justify-between">
+                    <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
+                    <div v-else />
+                    <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
+                        {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
+                    </Button>
                 </div>
                 <p v-if="barterTotalCc > aftermath.crew.scrip" class="text-right text-xs text-destructive">
                     Not enough scrip — needs {{ barterTotalCc }}, have {{ aftermath.crew.scrip }}.
@@ -1115,10 +1148,18 @@ const finalize = () =>
                                 </SelectContent>
                             </Select>
                             <Select
-                                :model-value="advDrafts[adv.position_in_xp_track].catalog_id?.toString() ?? '__none__'"
+                                :model-value="
+                                    advDrafts[adv.position_in_xp_track].catalog_id !== null
+                                        ? (selectedDraftRow(adv.position_in_xp_track) ? rowIdentity(selectedDraftRow(adv.position_in_xp_track)!) : '__none__')
+                                        : '__none__'
+                                "
                                 @update:model-value="
                                     (v) => {
-                                        advDrafts[adv.position_in_xp_track].catalog_id = v === '__none__' ? null : Number(v);
+                                        const d = advDrafts[adv.position_in_xp_track];
+                                        const row = v === '__none__' ? null : eligibleCatalogRows(d.source_table).find((r) => rowIdentity(r) === v);
+                                        d.catalog_id = row?.id ?? null;
+                                        d.crew_card_item_type = row?.item_type ?? null;
+                                        d.crew_card_source_id = row?.source_id ?? null;
                                         onCatalogChange(adv.position_in_xp_track);
                                     }
                                 "
@@ -1130,29 +1171,20 @@ const finalize = () =>
                                     <SelectItem value="__none__">— pick a row —</SelectItem>
                                     <SelectItem
                                         v-for="row in eligibleCatalogRows(advDrafts[adv.position_in_xp_track].source_table)"
-                                        :key="row.id"
-                                        :value="row.id.toString()"
+                                        :key="rowIdentity(row)"
+                                        :value="rowIdentity(row)"
                                     >
-                                        {{ row.name }}<template v-if="row.source === 'crew_upgrade'"> (keyword-matched)</template>
+                                        {{ row.name
+                                        }}<template v-if="row.source === 'crew_upgrade'"> — from {{ row.source_name }} (keyword-matched)</template>
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <!-- Crew Card: tokens/markers a keyword-matched Crew Card Upgrade grants directly (pg 32, 54) -->
+                            <!-- Crew Card: qualifying restriction text carried over from the original card (pg 32, 54) -->
                             <p
-                                v-if="
-                                    advDrafts[adv.position_in_xp_track].source_table === 'crew_card' &&
-                                    ((selectedDraftRow(adv.position_in_xp_track)?.tokens?.length ?? 0) > 0 ||
-                                        (selectedDraftRow(adv.position_in_xp_track)?.markers?.length ?? 0) > 0)
-                                "
-                                class="text-[11px] text-muted-foreground"
+                                v-if="advDrafts[adv.position_in_xp_track].source_table === 'crew_card' && selectedDraftRow(adv.position_in_xp_track)?.qualifier"
+                                class="text-[11px] font-medium italic text-muted-foreground"
                             >
-                                Also grants:
-                                <template v-for="t in selectedDraftRow(adv.position_in_xp_track)?.tokens ?? []" :key="'t' + t.id"
-                                    >{{ t.name }} token
-                                </template>
-                                <template v-for="m in selectedDraftRow(adv.position_in_xp_track)?.markers ?? []" :key="'m' + m.id"
-                                    >{{ m.name }} marker
-                                </template>
+                                {{ selectedDraftRow(adv.position_in_xp_track)!.qualifier }}
                             </p>
                             <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                             <div v-if="isSelectedRowJoker(adv.position_in_xp_track)" class="space-y-1 rounded border p-2">
@@ -1393,20 +1425,25 @@ const finalize = () =>
                                 <ActionCard
                                     v-if="
                                         advDrafts[adv.position_in_xp_track].source_table === 'action' ||
-                                        advDrafts[adv.position_in_xp_track].source_table === 'summoning'
+                                        advDrafts[adv.position_in_xp_track].source_table === 'summoning' ||
+                                        selectedDraftRow(adv.position_in_xp_track)?.item_type === 'action'
                                     "
                                     :action="selectedDraftRow(adv.position_in_xp_track)!"
                                     :hide-footer="true"
                                 />
                                 <AbilityCard
-                                    v-else-if="advDrafts[adv.position_in_xp_track].source_table === 'ability'"
+                                    v-else-if="
+                                        advDrafts[adv.position_in_xp_track].source_table === 'ability' ||
+                                        selectedDraftRow(adv.position_in_xp_track)?.item_type === 'ability'
+                                    "
                                     :ability="selectedDraftRow(adv.position_in_xp_track)!"
                                     :hide-footer="true"
                                 />
                                 <TriggerCard
                                     v-else-if="
                                         advDrafts[adv.position_in_xp_track].source_table === 'attack_mod' ||
-                                        advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod'
+                                        advDrafts[adv.position_in_xp_track].source_table === 'tactical_mod' ||
+                                        selectedDraftRow(adv.position_in_xp_track)?.item_type === 'trigger'
                                     "
                                     :trigger="selectedDraftRow(adv.position_in_xp_track)!"
                                 >
@@ -1423,10 +1460,13 @@ const finalize = () =>
                     </div>
                 </fieldset>
 
-                <div class="flex justify-end gap-2">
+                <div class="flex items-center justify-between">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
-                    <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip phase</Button>
-                    <Button :disabled="!is_owner" @click="submitAdvanceLeader">Confirm Advancements &amp; advance</Button>
+                    <div v-else />
+                    <div class="flex gap-2">
+                        <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip phase</Button>
+                        <Button :disabled="!is_owner" @click="submitAdvanceLeader">Confirm Advancements &amp; advance</Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -1503,8 +1543,9 @@ const finalize = () =>
                     </ul>
                 </div>
 
-                <div class="flex justify-end gap-2">
+                <div class="flex items-center justify-between">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
+                    <div v-else />
                     <Button :disabled="!is_owner || doctorAttempts.length > aftermath.crew.scrip" @click="submitDoctor"> Apply &amp; advance </Button>
                 </div>
                 <p v-if="doctorAttempts.length > aftermath.crew.scrip" class="text-right text-xs text-destructive">
@@ -1616,8 +1657,9 @@ const finalize = () =>
                     </ul>
                 </div>
 
-                <div class="flex justify-end gap-2">
+                <div class="flex items-center justify-between">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
+                    <div v-else />
                     <Button :disabled="!is_owner" @click="phase6Step = 'review'">Review &amp; continue →</Button>
                 </div>
             </CardContent>
@@ -1701,10 +1743,6 @@ const finalize = () =>
                 </p>
             </CardHeader>
         </Card>
-
-        <div v-if="is_owner && aftermath.status !== 'locked'" class="mt-4 flex justify-end">
-            <Button variant="ghost" size="sm" @click="finalize">Close aftermath without finishing</Button>
-        </div>
     </div>
 </template>
 

@@ -287,6 +287,67 @@ it('joinPublic bounces an unauthenticated visitor to login and back', function (
     expect(session('url.intended'))->toBe(route('campaigns.join', $campaign->uuid));
 });
 
+it('joinAsPlayer backfills a crew for the organizer of a multiplayer campaign, who has no other path to one', function () {
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $organizer->id)->exists())->toBeFalse();
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.join-as-player', $campaign))
+        ->assertRedirect(route('campaigns.show', $campaign));
+
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $organizer->id)->exists())->toBeTrue();
+    // Doesn't create a second CampaignPlayer row — they already have one.
+    expect(CampaignPlayer::where('campaign_id', $campaign->id)->where('user_id', $organizer->id)->count())->toBe(1);
+});
+
+it('joinAsPlayer is idempotent — does not create a second crew', function () {
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($organizer)->post(route('campaigns.join-as-player', $campaign))->assertRedirect();
+    $this->actingAs($organizer)->post(route('campaigns.join-as-player', $campaign))->assertRedirect();
+
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $organizer->id)->count())->toBe(1);
+});
+
+it('joinAsPlayer rejects a non-member', function () {
+    $organizer = invUser();
+    $stranger = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($stranger)
+        ->post(route('campaigns.join-as-player', $campaign))
+        ->assertStatus(403);
+
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $stranger->id)->exists())->toBeFalse();
+});
+
+it('joinAsPlayer rejects solo campaigns — the organizer already has a crew there', function () {
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    $campaign->update(['is_solo' => true]);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.join-as-player', $campaign))
+        ->assertRedirect();
+
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $organizer->id)->exists())->toBeFalse();
+});
+
+it('joinAsPlayer rejects ended campaigns', function () {
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    $campaign->update(['status' => CampaignStatusEnum::Ended]);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.join-as-player', $campaign))
+        ->assertRedirect();
+
+    expect(CampaignCrew::where('campaign_id', $campaign->id)->where('user_id', $organizer->id)->exists())->toBeFalse();
+});
+
 it('regenerateJoinLink changes the uuid and invalidates the old link', function () {
     $organizer = invUser();
     $visitor = invUser();

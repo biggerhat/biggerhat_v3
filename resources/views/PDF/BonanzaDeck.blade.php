@@ -80,7 +80,10 @@
         $tn = $action->target_number !== null ? $action->target_number : '-';
         $dmg = ($action->damage !== null && $action->damage !== '') ? $action->damage : '-';
         $stone = $action->stone_cost ? str_repeat('<span class="gi">s</span>', $action->stone_cost) . ' ' : '';
-        $sig = $action->is_signature ? '<span class="gi">f</span> ' : '';
+        // Mirrors LootEffectText.vue's actionWithSignature() — the loaded
+        // relation is BelongsToMany::withPivot('is_signature_action', …), so
+        // the flag lives on the pivot, not a top-level is_signature attribute.
+        $sig = ($action->pivot->is_signature_action ?? false) ? '<span class="gi">f</span> ' : '';
 
         $h = '<div class="act">';
         $h .= '<table class="act-tbl"><tr class="act-hdr"><td class="act-name">' . ucfirst($action->type ?? 'Melee') . ' Action</td>'

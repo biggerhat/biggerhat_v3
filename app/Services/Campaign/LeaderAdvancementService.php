@@ -219,21 +219,33 @@ class LeaderAdvancementService
                 }
             }
 
-            // Tier-4 Crew Card (pg 32, 54) has two distinct pools: any real
-            // Crew Card Upgrade sharing a keyword with this crew (source
-            // 'crew_upgrade' — keyword membership on the Upgrade itself is
-            // the sole eligibility gate, no master-selection step), or the
+            // Tier-4 Crew Card (pg 32, 54) has two distinct pools: a single
+            // action, ability, or standalone trigger printed on any real Crew
+            // Card Upgrade sharing a keyword with this crew (source
+            // 'crew_upgrade' — pg 32: "'effect' refers to a single ability,
+            // action, or trigger"; keyword membership on the Upgrade itself
+            // is the sole eligibility gate, no master-selection step), or the
             // generic, fixed pg 15-16 catalog Starting Arsenal also draws
-            // from (source 'campaign_crew_card', the default).
+            // from (source 'campaign_crew_card', the default) — each row
+            // there already models one named effect, so it stays whole-row.
             if ($table === AdvancementTableEnum::CrewCard && $catalogId !== null) {
                 $source = ($a['crew_card_source'] ?? null) === 'crew_upgrade' ? 'crew_upgrade' : 'campaign_crew_card';
 
                 if ($source === 'crew_upgrade') {
+                    // $catalogId is the picked item's own id (an Action/
+                    // Ability/Trigger row) here, not the source card's —
+                    // matches every other single-item advancement table.
+                    $itemType = $a['crew_card_item_type'] ?? null;
+                    $upgradeId = isset($a['crew_card_upgrade_id']) ? (int) $a['crew_card_upgrade_id'] : null;
+                    if (! in_array($itemType, ['action', 'ability', 'trigger'], true) || $upgradeId === null) {
+                        return 'A Crew Card advancement must pick one specific action, ability, or trigger.';
+                    }
+
                     $crew = CampaignCrew::find($leader->campaign_crew_id);
                     $keywordIds = $crew ? array_values(array_filter([$crew->keyword_1_id, $crew->keyword_2_id])) : [];
                     $upgrade = ! empty($keywordIds)
                         ? Upgrade::query()->forCrews()
-                            ->whereKey($catalogId)
+                            ->whereKey($upgradeId)
                             ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
                             ->with('actions', 'abilities', 'triggers')
                             ->first()
@@ -242,17 +254,29 @@ class LeaderAdvancementService
                         return 'That Crew Card must share a keyword with your crew.';
                     }
 
-                    $hasExcludedEffect = $upgrade->actions->contains(fn (Action $act) => $act->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from MorphToMany)
-                        || $upgrade->abilities->contains(fn (Ability $ab) => $ab->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from MorphToMany)
-                        || $upgrade->triggers->contains(fn (Trigger $t) => $t->pivot->borrow_exclusion !== null); // @phpstan-ignore property.notFound (pivot from MorphToMany)
-                    if ($hasExcludedEffect) {
-                        return 'This Crew Card effect references a power bar or crew-card swap and cannot be borrowed via advancement.';
+                    $item = match ($itemType) {
+                        'action' => $upgrade->actions->firstWhere('id', $catalogId),
+                        'ability' => $upgrade->abilities->firstWhere('id', $catalogId),
+                        // Standalone only (pg 32) — a trigger nested under an
+                        // action isn't independently pickable.
+                        'trigger' => $upgrade->triggers->firstWhere('id', $catalogId),
+                    };
+                    if (! $item) {
+                        return 'That effect is not printed on the selected Crew Card.';
+                    }
+                    if ($item->pivot->borrow_exclusion !== null) { // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        return 'This effect references a power bar or crew-card swap and cannot be borrowed via advancement.';
                     }
 
                     $alreadyHeld = CampaignCrewCardAdvancement::query()
                         ->where('campaign_crew_id', $leader->campaign_crew_id)
-                        ->where('crew_card_effect_id', $catalogId)
+                        ->where('crew_card_effect_id', $upgradeId)
                         ->where('crew_card_effect_type', Upgrade::class)
+                        ->where(fn ($q) => $q
+                            // Legacy whole-card row from before this granularity
+                            // change — treat as already holding every item.
+                            ->whereNull('crew_card_item_type')
+                            ->orWhere(fn ($q2) => $q2->where('crew_card_item_type', $itemType)->where('crew_card_item_id', $catalogId)))
                         ->exists();
                     if ($alreadyHeld) {
                         return 'This crew already holds that Crew Card effect.';
@@ -374,6 +398,17 @@ class LeaderAdvancementService
 
             $advancementRow = $this->resolveAdvancementRow($table, $catalogId);
             $freeChoice = is_array($a['free_choice'] ?? null) ? $a['free_choice'] : null;
+            // Crew Card (crew_upgrade source, pg 32): record the exact picked
+            // item here (not client input elsewhere) so revertAdvancement()
+            // can find the matching CampaignCrewCardAdvancement row precisely
+            // instead of guessing by source card id alone.
+            if ($table === AdvancementTableEnum::CrewCard && ($a['crew_card_source'] ?? null) === 'crew_upgrade') {
+                $freeChoice = [
+                    'crew_card_item_type' => $a['crew_card_item_type'] ?? null,
+                    'crew_card_item_id' => $catalogId,
+                    'crew_card_upgrade_id' => isset($a['crew_card_upgrade_id']) ? (int) $a['crew_card_upgrade_id'] : null,
+                ];
+            }
             $coreCatalogId = $this->resolveCoreCatalogId($table, $catalogId, $advancementRow, $freeChoice);
 
             // Attack/Tactical Mod target (pg 31, 38-43): resolves to the Leader
@@ -448,6 +483,8 @@ class LeaderAdvancementService
                         $sourceAftermathId,
                         is_array($a['crew_card_choice'] ?? null) ? $a['crew_card_choice'] : null,
                         ($a['crew_card_source'] ?? null) === 'crew_upgrade' ? 'crew_upgrade' : 'campaign_crew_card',
+                        $a['crew_card_item_type'] ?? null,
+                        isset($a['crew_card_upgrade_id']) ? (int) $a['crew_card_upgrade_id'] : null,
                     )
                     : null,
                 default => null,
@@ -470,6 +507,8 @@ class LeaderAdvancementService
         ?int $sourceAftermathId,
         ?array $crewCardChoiceInput,
         string $source,
+        ?string $itemType = null,
+        ?int $upgradeId = null,
     ): void {
         if ($leader->campaign_crew_id === null) {
             return;
@@ -477,14 +516,18 @@ class LeaderAdvancementService
 
         // A keyword-matched Crew Card Upgrade has no single "source master"
         // (keyword membership on the Upgrade itself is the eligibility gate,
-        // not a specific master) and no token/marker/upgrade-type sub-pick —
-        // its own tokens/markers are granted directly alongside its
-        // actions/abilities.
+        // not a specific master) and no token/marker/upgrade-type sub-pick.
+        // $catalogId is the picked item's own id here (validate() already
+        // confirmed it belongs to $upgradeId and isn't excluded/held) — the
+        // source card id, not the item id, is what crew_card_effect_id
+        // stores, matching every other Crew Card advancement row.
         if ($source === 'crew_upgrade') {
             CampaignCrewCardAdvancement::create([
                 'campaign_crew_id' => $leader->campaign_crew_id,
-                'crew_card_effect_id' => $catalogId,
+                'crew_card_effect_id' => $upgradeId,
                 'crew_card_effect_type' => Upgrade::class,
+                'crew_card_item_type' => $itemType,
+                'crew_card_item_id' => $catalogId,
                 'crew_card_choice' => null,
                 'acquired_aftermath_id' => $sourceAftermathId,
             ]);
@@ -947,15 +990,25 @@ class LeaderAdvancementService
         if ($advancement->source_table === AdvancementTableEnum::CrewCard) {
             // Crew Card advancements stack onto CampaignCrewCardAdvancement,
             // not the leader's actions/abilities JSON — remove the matching row.
-            // Narrow edge case: crew_card_effect_id can collide across the two
-            // polymorphic source tables (CampaignCrewCard vs Upgrade), so this
-            // could in theory match the wrong row if a crew somehow holds both
-            // a Pool A and Pool B pick with the same numeric id.
-            $rowId = CampaignCrewCardAdvancement::query()
-                ->where('campaign_crew_id', $crew->id)
-                ->where('crew_card_effect_id', $advancement->advancement_catalog_id)
-                ->latest('id')
-                ->value('id');
+            // crew_upgrade-source rows (pg 32, single-item picks) store the
+            // exact item picked in free_choice (create() puts it there) —
+            // match on that plus crew_card_effect_type so it can't collide
+            // with a campaign_crew_card row that happens to share a numeric
+            // id. Rows with no free_choice here are either a campaign_crew_card
+            // row (never had one) or a crew_upgrade row from before this
+            // granularity change (no item to pin down) — both are matched by
+            // crew_card_effect_id alone, scoped to "no item_type" so a
+            // precise new-style crew_upgrade row can never be mismatched here.
+            $upgradeId = $advancement->free_choice['crew_card_upgrade_id'] ?? null;
+            $query = CampaignCrewCardAdvancement::query()->where('campaign_crew_id', $crew->id);
+            $query = $upgradeId !== null
+                ? $query->where('crew_card_effect_id', $upgradeId)
+                    ->where('crew_card_effect_type', Upgrade::class)
+                    ->where('crew_card_item_type', $advancement->free_choice['crew_card_item_type'] ?? null)
+                    ->where('crew_card_item_id', $advancement->free_choice['crew_card_item_id'] ?? null)
+                : $query->where('crew_card_effect_id', $advancement->advancement_catalog_id)
+                    ->whereNull('crew_card_item_type');
+            $rowId = $query->latest('id')->value('id');
             if ($rowId) {
                 CampaignCrewCardAdvancement::destroy($rowId);
                 GenerateCombinedCrewCardImage::dispatch($crew->id)->afterCommit();

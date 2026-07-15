@@ -1631,7 +1631,7 @@ it('Phase 4 Crew Card advancement requiring a token choice stores the resolved p
     expect($stacked->crew_card_choice)->toMatchArray(['type' => 'token', 'id' => $token->id, 'name' => 'Fast']);
 });
 
-it('advancement_catalogs.crew_card includes a keyword-matched Crew Card Upgrade, tagged crew_upgrade', function () {
+it('advancement_catalogs.crew_card flattens a keyword-matched Crew Card Upgrade into individual action/ability rows, tagged crew_upgrade (pg 32)', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -1645,48 +1645,39 @@ it('advancement_catalogs.crew_card includes a keyword-matched Crew Card Upgrade,
 
     $matching = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value, 'name' => 'Matching Card']);
     $matching->keywords()->attach($keyword);
+    $matchingAction = \App\Models\Action::factory()->create(['name' => 'Matching Action']);
+    $matching->actions()->attach($matchingAction->id);
+    $matchingAbility = \App\Models\Ability::factory()->create(['name' => 'Matching Ability']);
+    $matching->abilities()->attach($matchingAbility->id);
+
     $unrelatedKeyword = \App\Models\Keyword::factory()->create();
     $nonMatching = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value, 'name' => 'Non-Matching Card']);
     $nonMatching->keywords()->attach($unrelatedKeyword);
+    $nonMatchingAction = \App\Models\Action::factory()->create();
+    $nonMatching->actions()->attach($nonMatchingAction->id);
 
     $this->actingAs($user)
         ->get(route('campaigns.aftermaths.show', $aftermath))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($matching, $nonMatching) {
+        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($matching, $matchingAction, $matchingAbility, $nonMatchingAction) {
             $rows = collect($rows);
-            $match = $rows->firstWhere('id', $matching->id);
+            // Action/Ability ids come from separate tables and can legitimately
+            // collide (both start from 1) — item_type disambiguates.
+            $actionRow = $rows->first(fn ($r) => $r['item_type'] === 'action' && $r['id'] === $matchingAction->id);
+            $abilityRow = $rows->first(fn ($r) => $r['item_type'] === 'ability' && $r['id'] === $matchingAbility->id);
 
-            return $match
-                && $match['source'] === 'crew_upgrade'
-                && ! $rows->contains(fn ($r) => $r['id'] === $nonMatching->id && ($r['source'] ?? null) === 'crew_upgrade');
+            return $actionRow
+                && $actionRow['item_type'] === 'action'
+                && $actionRow['source'] === 'crew_upgrade'
+                && $actionRow['source_id'] === $matching->id
+                && $actionRow['source_name'] === 'Matching Card'
+                && $abilityRow
+                && $abilityRow['item_type'] === 'ability'
+                && ! $rows->contains(fn ($r) => $r['id'] === $nonMatchingAction->id && ($r['source'] ?? null) === 'crew_upgrade');
         }));
 });
 
-it('advancement_catalogs.crew_card excludes a keyword-matched Crew Card Upgrade with a power-bar-excluded action (pg 32, 54)', function () {
-    [$user, , $crew, $game] = aftermathFixture();
-    $aftermath = CampaignAftermath::factory()->create([
-        'campaign_game_id' => $game->id,
-        'campaign_crew_id' => $crew->id,
-        'current_phase' => 4,
-        'hand_drawn' => [],
-    ]);
-    buildLeaderFor($crew, $user);
-    $keyword = \App\Models\Keyword::factory()->create();
-    $crew->update(['keyword_1_id' => $keyword->id]);
-
-    $excluded = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
-    $excluded->keywords()->attach($keyword);
-    $action = \App\Models\Action::factory()->create();
-    $excluded->actions()->attach($action->id, ['borrow_exclusion' => 'power_bar']);
-
-    $this->actingAs($user)
-        ->get(route('campaigns.aftermaths.show', $aftermath))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', fn ($rows) => ! collect($rows)
-            ->contains(fn ($r) => $r['id'] === $excluded->id && ($r['source'] ?? null) === 'crew_upgrade')));
-});
-
-it('Phase 4 Crew Card advancement (crew_upgrade source) grants a keyword-matched Crew Card Upgrade', function () {
+it('advancement_catalogs.crew_card excludes only the power-bar-excluded item, not the whole Crew Card Upgrade (pg 32, 54)', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
         'campaign_game_id' => $game->id,
@@ -1700,6 +1691,42 @@ it('Phase 4 Crew Card advancement (crew_upgrade source) grants a keyword-matched
 
     $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
     $upgrade->keywords()->attach($keyword);
+    $excludedAction = \App\Models\Action::factory()->create();
+    $upgrade->actions()->attach($excludedAction->id, ['borrow_exclusion' => 'power_bar']);
+    $eligibleAbility = \App\Models\Ability::factory()->create();
+    $upgrade->abilities()->attach($eligibleAbility->id);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($excludedAction, $eligibleAbility) {
+            $rows = collect($rows);
+
+            // Action/Ability ids come from separate tables and can legitimately
+            // collide (both start from 1) — item_type disambiguates.
+            return ! $rows->contains(fn ($r) => $r['item_type'] === 'action' && $r['id'] === $excludedAction->id && ($r['source'] ?? null) === 'crew_upgrade')
+                && $rows->contains(fn ($r) => $r['item_type'] === 'ability' && $r['id'] === $eligibleAbility->id && ($r['source'] ?? null) === 'crew_upgrade');
+        }));
+});
+
+it('Phase 4 Crew Card advancement (crew_upgrade source) grants a single picked action, not every item on the Crew Card Upgrade', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->keywords()->attach($keyword);
+    $action = \App\Models\Action::factory()->create();
+    $upgrade->actions()->attach($action->id);
+    $ability = \App\Models\Ability::factory()->create();
+    $upgrade->abilities()->attach($ability->id);
 
     $this->actingAs($user)
         ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
@@ -1708,8 +1735,10 @@ it('Phase 4 Crew Card advancement (crew_upgrade source) grants a keyword-matched
             'lost' => false,
             'advancements' => [[
                 'source_table' => 'crew_card',
-                'catalog_id' => $upgrade->id,
+                'catalog_id' => $action->id,
                 'crew_card_source' => 'crew_upgrade',
+                'crew_card_item_type' => 'action',
+                'crew_card_upgrade_id' => $upgrade->id,
                 'position_in_xp_track' => 6,
             ]],
         ])
@@ -1719,6 +1748,118 @@ it('Phase 4 Crew Card advancement (crew_upgrade source) grants a keyword-matched
     expect($stacked)->toHaveCount(1);
     expect($stacked->first()->crew_card_effect_id)->toBe($upgrade->id);
     expect($stacked->first()->crew_card_effect_type)->toBe(\App\Models\Upgrade::class);
+    expect($stacked->first()->crew_card_item_type)->toBe('action');
+    expect($stacked->first()->crew_card_item_id)->toBe($action->id);
+
+    // Only the picked action shows up on the generated combined card — the
+    // ability sitting on the same source Upgrade was never chosen.
+    $crew->refresh();
+    \App\Support\Campaign\CombinedCrewCardEffects::eagerLoad($crew);
+    $items = \App\Support\Campaign\CombinedCrewCardEffects::build($crew);
+    expect($items)->toHaveCount(1);
+    expect($items[0]['type'])->toBe('action');
+    expect($items[0]['data']['name'])->toBe($action->name);
+});
+
+it('Phase 4 Crew Card advancement (crew_upgrade source) rejects picking an item not printed on the selected Crew Card', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->keywords()->attach($keyword);
+    $strayAction = \App\Models\Action::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $strayAction->id,
+                'crew_card_source' => 'crew_upgrade',
+                'crew_card_item_type' => 'action',
+                'crew_card_upgrade_id' => $upgrade->id,
+                'position_in_xp_track' => 6,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
+});
+
+it('Phase 4 Crew Card advancement (crew_upgrade source) rejects re-picking the same item, but allows a different one from the same card', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $keyword = \App\Models\Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->keywords()->attach($keyword);
+    $action = \App\Models\Action::factory()->create();
+    $upgrade->actions()->attach($action->id);
+    $ability = \App\Models\Ability::factory()->create();
+    $upgrade->abilities()->attach($ability->id);
+
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $upgrade->id,
+        'crew_card_effect_type' => \App\Models\Upgrade::class,
+        'crew_card_item_type' => 'action',
+        'crew_card_item_id' => $action->id,
+    ]);
+
+    // Re-picking the already-held action is rejected.
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $action->id,
+                'crew_card_source' => 'crew_upgrade',
+                'crew_card_item_type' => 'action',
+                'crew_card_upgrade_id' => $upgrade->id,
+                'position_in_xp_track' => 6,
+            ]],
+        ])
+        ->assertRedirect();
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(1);
+
+    // Picking the ability from the same card is still allowed.
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'crew_card',
+                'catalog_id' => $ability->id,
+                'crew_card_source' => 'crew_upgrade',
+                'crew_card_item_type' => 'ability',
+                'crew_card_upgrade_id' => $upgrade->id,
+                'position_in_xp_track' => 6,
+            ]],
+        ])
+        ->assertRedirect();
+    expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(2);
 });
 
 it('Phase 4 Crew Card advancement (crew_upgrade source) rejects a card that does not share the crew\'s keyword', function () {

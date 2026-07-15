@@ -14,7 +14,7 @@ enum ResistanceTypeEnum: string implements HasDefaultEnumMethods
     case Defense = 'Df';
     case Willpower = 'Wp';
     case DefenseWillpower = 'Df/Wp';
-    case Move = 'Mv';
+    case Move = 'Sp';
     case Size = 'Sz';
     case X = 'X';
     case Star = '*';

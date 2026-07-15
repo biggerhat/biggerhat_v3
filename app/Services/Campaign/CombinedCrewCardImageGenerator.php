@@ -34,8 +34,13 @@ class CombinedCrewCardImageGenerator
         $browsershot = Browsershot::url($url)
             ->noSandbox()
             ->select($selector)
-            // Same fixed 550x950 capture canvas as CrewCardImageGenerator.
-            ->windowSize(750, 1100)
+            // CombinedCrewCardFace picks its own tarot-proportioned box,
+            // tiered up (to a max of 1150x1986) as the crew's held effects
+            // grow — the viewport just needs to comfortably exceed the
+            // largest tier plus the capture page's padding so Chrome never
+            // has to reflow the fixed-width card; the element screenshot
+            // itself captures exactly whatever size #card-crew rendered at.
+            ->windowSize(1300, 2200)
             ->deviceScaleFactor(2)
             ->waitUntilNetworkIdle()
             ->timeout(60);

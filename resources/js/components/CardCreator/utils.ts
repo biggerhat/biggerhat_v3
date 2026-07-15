@@ -39,6 +39,23 @@ export function contentScaleClass(charCount: number): 'scale-sm' | 'scale-md' | 
     return 'scale-xl';
 }
 
+// Tarot proportions (550x950), tiered up as content grows — used by the
+// headless-capture pages (CaptureCombinedCrewCard.vue, Capture.vue) to size
+// their wrapper div so the card grows to fit content instead of the face
+// component shrinking its own text into a fixed box. Each capture-only face
+// picks its own width/height for `CombinedCrewCardFace`, but `CardFrontFace`/
+// `CardBackFace` are also embedded inside a fixed-aspect responsive
+// container elsewhere (CardRenderer.vue's live flip-preview), so for those
+// two the sizing has to live in the capture page instead of the component.
+const TAROT_RATIO = 950 / 550;
+const TAROT_WIDTH_TIERS = [550, 650, 750, 850, 950, 1050, 1150];
+
+export function tarotCardSize(totalChars: number): { width: number; height: number } {
+    const tierIndex = Math.min(Math.floor(totalChars / 900), TAROT_WIDTH_TIERS.length - 1);
+    const width = TAROT_WIDTH_TIERS[tierIndex];
+    return { width, height: Math.round(width * TAROT_RATIO) };
+}
+
 let cachedFontCSS: string | null = null;
 
 export async function fetchFontEmbedCSS(): Promise<string> {

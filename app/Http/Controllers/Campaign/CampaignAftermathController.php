@@ -948,6 +948,11 @@ class CampaignAftermathController extends Controller
             // Crew Card table (pg 32, 54): which of the two Tier-4 pools
             // catalog_id resolves against — see StoreLeaderAdvancementRequest.
             'advancements.*.crew_card_source' => ['nullable', 'string', 'in:campaign_crew_card,crew_upgrade'],
+            // crew_upgrade source only (pg 32): catalog_id above is the picked
+            // item's own id (an Action/Ability/Trigger row) — these two pin
+            // down which single item and which source card it came from.
+            'advancements.*.crew_card_item_type' => ['nullable', 'string', 'in:action,ability,trigger'],
+            'advancements.*.crew_card_upgrade_id' => ['nullable', 'integer'],
         ]);
 
         $aftermath->loadMissing('crew');

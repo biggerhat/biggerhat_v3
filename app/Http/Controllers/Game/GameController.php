@@ -771,7 +771,7 @@ class GameController extends Controller
             return collect();
         }
 
-        return collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew));
+        return collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew, $campaignCrew->leader));
     }
 
     /**
@@ -840,7 +840,7 @@ class GameController extends Controller
             return [];
         }
 
-        return \App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew);
+        return \App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew, $campaignCrew->leader);
     }
 
     /**

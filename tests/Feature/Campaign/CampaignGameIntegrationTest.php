@@ -637,6 +637,63 @@ it('submitCampaignCrew carries equipment actions/abilities into attached_upgrade
     expect(collect($trinket['abilities'])->pluck('name')->all())->toBe(['Static Charge']);
 });
 
+it('submitCampaignCrew merges a Trigger-type Attack Mod advancement into the equipment action\'s own triggers, not just the base catalog', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $leader = CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Eq Leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Advanced Trinket']);
+    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack']);
+    $equipmentUpgrade->actions()->attach($action->id, ['is_signature_action' => false]);
+    $equipment = \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
+
+    $realTrigger = \App\Models\Trigger::factory()->create(['name' => 'Vicious Cut', 'description' => 'Push the target 3".']);
+    $advancementRow = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['trigger_id' => $realTrigger->id, 'flip_value' => 5]);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'advancement_catalog_id' => $advancementRow->id,
+        'from_equipment_id' => $equipment->id,
+        'applied_to_action_id' => $action->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    // Assigned to the Leader, not the hired model — this equipment now has
+    // an advancement tied to it (pg 31), so it can only go to Leader/Totem.
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => [$arsenalModel->id],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => 'leader'],
+            ],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $leaderMember = \App\Models\GameCrewMember::where('game_id', $game->id)
+        ->where('game_player_id', $player->id)
+        ->where('hiring_category', 'leader')
+        ->first();
+
+    $trinket = collect($leaderMember->attached_upgrades)->firstWhere('name', 'Advanced Trinket');
+    $grantedAction = collect($trinket['actions'])->firstWhere('name', 'Granted Slash');
+    expect(collect($grantedAction['triggers'])->pluck('name')->all())->toContain('Vicious Cut');
+    expect(collect($grantedAction['triggers'])->firstWhere('name', 'Vicious Cut')['description'])->toBe('Push the target 3".');
+});
+
 it('submitCampaignCrew rejects an equipment_assignments target outside the Leader/hired set', function () {
     [$userA, , , $crewA, , $game] = campaignGameSetup();
 
@@ -654,6 +711,61 @@ it('submitCampaignCrew rejects an equipment_assignments target outside the Leade
         ->assertStatus(422);
 
     expect(\App\Models\GameCrewMember::where('game_id', $game->id)->exists())->toBeFalse();
+});
+
+it('submitCampaignCrew rejects assigning advancement-tied equipment to a hired model, but allows the Leader (pg 31)', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $leader = CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Advanced Eq Leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Locked Trinket']);
+    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack']);
+    $equipmentUpgrade->actions()->attach($action->id, ['is_signature_action' => false]);
+    $equipment = \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $equipmentUpgrade->id]);
+
+    $advancementRow = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['flip_value' => 5]);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'advancement_catalog_id' => $advancementRow->id,
+        'from_equipment_id' => $equipment->id,
+        'applied_to_action_id' => $action->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    // Rejected: assigning to the hired model instead of the Leader.
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => [$arsenalModel->id],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => (string) $arsenalModel->id],
+            ],
+        ])
+        ->assertStatus(422);
+    expect(\App\Models\GameCrewMember::where('game_id', $game->id)->exists())->toBeFalse();
+
+    // Allowed: assigning to the Leader.
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => [$arsenalModel->id],
+            'equipment_assignments' => [
+                ['equipment_id' => $equipmentUpgrade->id, 'target' => 'leader'],
+            ],
+        ])
+        ->assertOk();
 });
 
 it('submitCampaignCrew assigns owned equipment to a Tier-3 Totem', function () {
@@ -834,6 +946,7 @@ it('character_upgrades at InProgress offers the campaign crew\'s own earned equi
                 'plentiful' => 2,
                 'power_bar_count' => $owned->power_bar_count,
                 'description' => $owned->description,
+                'is_advanced' => false,
                 'actions' => [],
                 'abilities' => [],
             ]])

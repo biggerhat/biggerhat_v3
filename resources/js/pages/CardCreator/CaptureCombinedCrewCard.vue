@@ -48,11 +48,13 @@ defineProps<{
 <template>
     <Head title="Crew Card capture" />
 
-    <!-- Single face only, same fixed 550x950 pixel size as CaptureCrewCard —
-         App\Services\Campaign\CombinedCrewCardImageGenerator's Browsershot
-         capture has a deterministic bounding box. -->
+    <!-- No sizing here — CombinedCrewCardFace picks its own width/height
+         (tarot-proportioned, tiered up as content grows) since it's the one
+         that knows the content volume. display: inline-block makes this
+         wrapper hug that exact box so Browsershot's #card-crew element
+         screenshot captures precisely the card, not a full-width wrapper. -->
     <div class="bg-transparent p-8">
-        <div id="card-crew" style="width: 550px; height: 950px">
+        <div id="card-crew" style="display: inline-block">
             <CombinedCrewCardFace :crew-name="crewName" :items="items" />
         </div>
     </div>

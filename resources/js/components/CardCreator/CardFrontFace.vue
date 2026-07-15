@@ -70,12 +70,15 @@ const nameFontSize = computed(() => {
     return 'text-lg';
 });
 
-const abilityFontSize = computed(() => {
-    const total = props.abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0);
-    if (total > 1200) return 'text-xs leading-5';
-    if (total > 800) return 'text-sm leading-5';
-    return 'text-base leading-6';
-});
+// This face is embedded two ways: the fixed-size headless capture page
+// (Capture.vue, which sizes its own wrapper div to fit content — see
+// tarotCardSize() in utils.ts) and CardRenderer.vue's responsive, fixed-
+// aspect-ratio live flip-preview (used across the Card Creator tools and the
+// Arsenal Sheet) — so this component itself stays a flexible h-full/w-full
+// box rather than picking its own pixel size, and relies on GameText's
+// abilities section using one comfortably large size rather than the old
+// aggregate-char-count shrink (which fought Capture.vue's box just as much
+// as CombinedCrewCardFace's old shrink logic did before that got fixed).
 </script>
 
 <template>
@@ -204,13 +207,8 @@ const abilityFontSize = computed(() => {
         </div>
 
         <!-- Abilities -->
-        <div
-            v-if="abilities.length"
-            class="overflow-hidden px-2.5 py-2"
-            :class="abilityFontSize"
-            :style="{ background: `hsl(var(${factionVar}) / 0.08)` }"
-        >
-            <div v-for="ability in abilities" :key="ability.name" class="mb-1 last:mb-0">
+        <div v-if="abilities.length" class="px-2.5 py-2 text-base leading-6" :style="{ background: `hsl(var(${factionVar}) / 0.08)` }">
+            <div v-for="ability in abilities" :key="ability.name" class="mb-1.5 last:mb-0">
                 <span class="font-bold">
                     <GameIcon v-if="ability.costs_stone" type="soulstone" class-name="text-sm" />
                     <GameIcon

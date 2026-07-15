@@ -70,6 +70,10 @@ interface CampaignOwnedEquipment {
     plentiful: number;
     power_bar_count: number | null;
     description: string | null;
+    // Pg 31: once an Attack/Tactical Mod advancement targets an
+    // equipment-granted action, that equipment is tied to the Leader/Totem
+    // going forward — can't be assigned to any other hired model.
+    is_advanced: boolean;
 }
 
 const props = defineProps<{
@@ -230,7 +234,11 @@ const equipmentSlots = computed<EquipmentSlot[]>(() =>
         })),
     ),
 );
-const equipmentTargetOptions = computed(() => {
+// Per-equipment-id target options — advanced equipment (pg 31: tied to the
+// Leader/Totem once an Attack/Tactical Mod advancement targets it) drops the
+// hired-model options entirely, since assigning it there would just be
+// rejected server-side.
+const equipmentTargetOptionsFor = (equipmentId: number) => {
     // Disambiguate when the same catalog model is hired more than once this
     // game (multiple selected arsenal rows sharing a name) — otherwise the
     // dropdown would show two identical, unpickable-apart "Guild Guard" entries.
@@ -240,22 +248,25 @@ const equipmentTargetOptions = computed(() => {
         if (name) nameCounts[name] = (nameCounts[name] ?? 0) + 1;
     }
     const seen: Record<string, number> = {};
+    const isAdvanced = props.campaignOwnedEquipment.find((e) => e.id === equipmentId)?.is_advanced ?? false;
 
     return [
         { value: 'leader', label: 'Leader' },
         ...(props.campaignTotem ? [{ value: 'totem', label: props.campaignTotem.name }] : []),
-        ...selectedArsenalIds.value.map((id) => {
-            const name = props.campaignArsenal.find((a) => a.id === id)?.name ?? `#${id}`;
-            if ((nameCounts[name] ?? 0) > 1) {
-                seen[name] = (seen[name] ?? 0) + 1;
+        ...(isAdvanced
+            ? []
+            : selectedArsenalIds.value.map((id) => {
+                  const name = props.campaignArsenal.find((a) => a.id === id)?.name ?? `#${id}`;
+                  if ((nameCounts[name] ?? 0) > 1) {
+                      seen[name] = (seen[name] ?? 0) + 1;
 
-                return { value: String(id), label: `${name} (${seen[name]})` };
-            }
+                      return { value: String(id), label: `${name} (${seen[name]})` };
+                  }
 
-            return { value: String(id), label: name };
-        }),
+                  return { value: String(id), label: name };
+              })),
     ];
-});
+};
 // Drop any assignment whose target was deselected from the crew.
 watch(selectedArsenalIds, () => {
     const validTargets = new Set(['__none__', 'leader', 'totem', ...selectedArsenalIds.value.map(String)]);
@@ -371,6 +382,14 @@ const confirmCampaignCrew = () => {
                         <div v-for="slot in equipmentSlots" :key="slot.key" class="flex items-center justify-between gap-2 text-sm">
                             <span class="min-w-0 truncate"
                                 >{{ slot.name }} <span v-if="slot.copyLabel" class="text-xs text-muted-foreground">({{ slot.copyLabel }})</span>
+                                <Badge
+                                    v-if="campaignOwnedEquipment.find((e) => e.id === slot.equipmentId)?.is_advanced"
+                                    variant="outline"
+                                    class="ml-1 text-[9px]"
+                                    title="Has an advancement tied to it — Leader/Totem only"
+                                >
+                                    Advanced
+                                </Badge>
                             </span>
                             <Select
                                 :model-value="equipmentTargets[slot.key] ?? '__none__'"
@@ -381,7 +400,7 @@ const confirmCampaignCrew = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="__none__">Unassigned</SelectItem>
-                                    <SelectItem v-for="opt in equipmentTargetOptions" :key="opt.value" :value="opt.value">
+                                    <SelectItem v-for="opt in equipmentTargetOptionsFor(slot.equipmentId)" :key="opt.value" :value="opt.value">
                                         {{ opt.label }}
                                     </SelectItem>
                                 </SelectContent>

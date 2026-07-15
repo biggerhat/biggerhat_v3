@@ -5,6 +5,8 @@ namespace App\Support\Campaign;
 use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Enums\CharacterStationEnum;
+use App\Enums\CrewUpgradeRestrictionDescriptorTypeEnum;
+use App\Enums\CrewUpgradeRestrictionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Models\Ability;
@@ -22,8 +24,6 @@ use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Character;
 use App\Models\CustomCharacter;
-use App\Models\Marker;
-use App\Models\Token;
 use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Database\Eloquent\Builder;
@@ -289,13 +289,28 @@ class AftermathCatalog
         // starter effect + any effects already borrowed) so the same effect
         // can't be picked twice. Split by source type since CampaignCrewCard
         // and Upgrade ids can collide across the two tables.
+        //
+        // The Upgrade (crew_upgrade) source picks a single action/ability/
+        // trigger (pg 32), not the whole card, so "already held" there is
+        // tracked per item — keyed "{upgradeId}:{itemType}:{itemId}" since
+        // the same effect appearing on two different cards is a distinct
+        // pick (its restriction/limitation travels with the card it came
+        // from). Rows predating that granularity change (crew_card_item_type
+        // null) have no way to know which single item was actually picked,
+        // so they're treated as "this crew already holds everything this
+        // card ever granted" and the whole card is skipped.
         $heldCampaignCrewCardIds = [];
-        $heldUpgradeIds = [];
+        $heldUpgradeItemKeys = [];
+        $legacyWholeHeldUpgradeIds = [];
         if ($crew) {
             $heldCampaignCrewCardIds = array_values(array_filter([$crew->crew_card_effect_id]));
             foreach ($crew->crewCardAdvancements as $advancement) {
                 if ($advancement->crew_card_effect_type === Upgrade::class) {
-                    $heldUpgradeIds[] = $advancement->crew_card_effect_id;
+                    if ($advancement->crew_card_item_type && $advancement->crew_card_item_id) {
+                        $heldUpgradeItemKeys[] = "{$advancement->crew_card_effect_id}:{$advancement->crew_card_item_type}:{$advancement->crew_card_item_id}";
+                    } else {
+                        $legacyWholeHeldUpgradeIds[] = $advancement->crew_card_effect_id;
+                    }
                 } else {
                     $heldCampaignCrewCardIds[] = $advancement->crew_card_effect_id;
                 }
@@ -407,10 +422,16 @@ class AftermathCatalog
                 ->all(),
             // Tier-4 Crew Card (pg 32, 54) pool: rulebook allows either (a) the
             // fixed pg 15-16 generic list — the same catalog Starting Arsenal
-            // draws from, source 'campaign_crew_card' — or (b) any real Crew
-            // Card Upgrade sharing one of the crew's keywords, source
-            // 'crew_upgrade'. No master-selection step: keyword membership on
-            // the Upgrade itself is the sole eligibility gate.
+            // draws from, source 'campaign_crew_card', where each admin-authored
+            // row already models a single named effect so the whole row can
+            // stay the pickable unit — or (b) any single action, ability, or
+            // standalone trigger printed on a real Crew Card Upgrade sharing one
+            // of the crew's keywords, source 'crew_upgrade'. Pg 32: "'effect'
+            // refers to a single ability, action, or trigger. Other effects may
+            // not be chosen" — so (b) is a flat pool of individual items, not
+            // whole cards, unlike (a). No master-selection step either way:
+            // keyword membership on the Upgrade itself is the sole eligibility
+            // gate for (b).
             'crew_card' => [
                 ...CampaignCrewCard::query()
                     ->when(! empty($heldCampaignCrewCardIds), fn ($q) => $q->whereNotIn('id', $heldCampaignCrewCardIds))
@@ -433,36 +454,121 @@ class AftermathCatalog
                         'requires_upgrade_type_choice' => (bool) $c->requires_upgrade_type_choice,
                     ])
                     ->all(),
-                ...(empty($keywordIds) ? [] : Upgrade::query()
-                    ->forCrews()
-                    ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
-                    ->when(! empty($heldUpgradeIds), fn ($q) => $q->whereNotIn('id', $heldUpgradeIds))
-                    ->with(['actions:id,name', 'abilities:id,name', 'triggers:id,name', 'tokens:id,name', 'markers:id,name'])
-                    ->orderBy('name')
-                    ->get()
-                    // An excluded action/ability/trigger (pg 32, 54: "references
-                    // a power bar or causes the crew card to be swapped") makes
-                    // the whole card ineligible to borrow.
-                    ->reject(fn (Upgrade $u) => $u->actions->contains(fn (Action $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from MorphToMany)
-                        || $u->abilities->contains(fn (Ability $a) => $a->pivot->borrow_exclusion !== null) // @phpstan-ignore property.notFound (pivot from MorphToMany)
-                        || $u->triggers->contains(fn (Trigger $t) => $t->pivot->borrow_exclusion !== null)) // @phpstan-ignore property.notFound (pivot from MorphToMany)
-                    ->map(fn (Upgrade $u) => [
-                        'id' => $u->id,
-                        'source' => 'crew_upgrade',
-                        'name' => $u->name,
-                        'body' => $u->description,
-                        'front_image' => $u->front_image,
-                        'actions' => $u->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
-                        'abilities' => $u->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
-                        // Granted directly alongside the card's actions/abilities
-                        // — no separate constrained-pool choice step, unlike the
-                        // generic catalog above.
-                        'tokens' => $u->tokens->map(fn (Token $t) => ['id' => $t->id, 'name' => $t->name]),
-                        'markers' => $u->markers->map(fn (Marker $m) => ['id' => $m->id, 'name' => $m->name]),
-                    ])
-                    ->all()),
+                ...self::crewUpgradeCrewCardItems($keywordIds, $heldUpgradeItemKeys, $legacyWholeHeldUpgradeIds),
             ],
         ];
+    }
+
+    /**
+     * Flat pool of individual action/ability/(standalone) trigger items
+     * borrowable from a keyword-matched Crew Card Upgrade (pg 32, 54) — one
+     * entry per pickable item, not one per card, since "'effect' refers to a
+     * single ability, action, or trigger." Shaped to match the plain
+     * 'action'/'ability' advancement-catalog rows above (same field names)
+     * so the same ActionCard/AbilityCard/TriggerCard components can render
+     * them directly; a nested action's own triggers are included on it
+     * (pg 32: "if an action is chosen, it will automatically come with any
+     * associated triggers") but aren't separately pickable rows.
+     *
+     * @param  array<int, int>  $keywordIds
+     * @param  array<int, string>  $heldItemKeys  "{upgradeId}:{itemType}:{itemId}" already picked
+     * @param  array<int, int>  $legacyWholeHeldUpgradeIds  Upgrade ids granted whole under the pre-granularity scheme
+     * @return array<int, array<string, mixed>>
+     */
+    private static function crewUpgradeCrewCardItems(array $keywordIds, array $heldItemKeys, array $legacyWholeHeldUpgradeIds): array
+    {
+        if (empty($keywordIds)) {
+            return [];
+        }
+
+        $rows = [];
+
+        Upgrade::query()
+            ->forCrews()
+            ->whereHas('keywords', fn ($k) => $k->whereIn('keywords.id', $keywordIds))
+            ->when(! empty($legacyWholeHeldUpgradeIds), fn ($q) => $q->whereNotIn('id', $legacyWholeHeldUpgradeIds))
+            ->with(['actions:id,name,type,stone_cost,range,range_type,stat,stat_suits,stat_modifier,resisted_by,target_number,target_suits,damage,description,is_signature', 'actions.triggers:id,name,suits,stone_cost,description', 'abilities:id,name,suits,defensive_ability_type,costs_stone,description', 'triggers:id,name,suits,stone_cost,description'])
+            ->orderBy('name')
+            ->get()
+            ->each(function (Upgrade $u) use (&$rows, $heldItemKeys) {
+                $held = fn (string $type, int $id) => in_array("{$u->id}:{$type}:{$id}", $heldItemKeys, true);
+                $qualifier = fn (?string $restriction, CrewUpgradeRestrictionDescriptorTypeEnum $type) => $restriction === null
+                    ? null
+                    : CrewUpgradeRestrictionEnum::tryFrom($restriction)?->descriptor($type);
+
+                foreach ($u->actions as $a) {
+                    if ($a->pivot->borrow_exclusion !== null || $held('action', $a->id)) { // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        continue;
+                    }
+                    $rows[] = [
+                        'id' => $a->id,
+                        'item_type' => 'action',
+                        'source' => 'crew_upgrade',
+                        'source_id' => $u->id,
+                        'source_name' => $u->name,
+                        'name' => $a->name,
+                        'qualifier' => $qualifier($a->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Action), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        'body' => $a->description,
+                        'description' => $a->description,
+                        'type' => $a->type,
+                        'stat' => $a->stat,
+                        'stat_suits' => $a->stat_suits,
+                        'stat_modifier' => $a->stat_modifier,
+                        'range' => $a->range,
+                        'range_type' => $a->range_type,
+                        'resisted_by' => $a->resisted_by,
+                        'target_number' => $a->target_number,
+                        'target_suits' => $a->target_suits,
+                        'damage' => $a->damage,
+                        'stone_cost' => $a->stone_cost ?? 0,
+                        'is_signature' => (bool) $a->is_signature,
+                        'triggers' => self::triggerSummaries($a->triggers),
+                    ];
+                }
+                foreach ($u->abilities as $a) {
+                    if ($a->pivot->borrow_exclusion !== null || $held('ability', $a->id)) { // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        continue;
+                    }
+                    $rows[] = [
+                        'id' => $a->id,
+                        'item_type' => 'ability',
+                        'source' => 'crew_upgrade',
+                        'source_id' => $u->id,
+                        'source_name' => $u->name,
+                        'name' => $a->name,
+                        'qualifier' => $qualifier($a->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Ability), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        'body' => $a->description,
+                        'description' => $a->description,
+                        'suits' => $a->suits,
+                        'defensive_ability_type' => $a->defensive_ability_type,
+                        'costs_stone' => (bool) $a->costs_stone,
+                    ];
+                }
+                // Standalone triggers only (pg 32: "a trigger may only be
+                // chosen in the case that a trigger is listed individually on
+                // the card") — nested action triggers already ride along with
+                // their action above, not offered as their own pickable row.
+                foreach ($u->triggers as $t) {
+                    if ($t->pivot->borrow_exclusion !== null || $held('trigger', $t->id)) { // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        continue;
+                    }
+                    $rows[] = [
+                        'id' => $t->id,
+                        'item_type' => 'trigger',
+                        'source' => 'crew_upgrade',
+                        'source_id' => $u->id,
+                        'source_name' => $u->name,
+                        'name' => $t->name,
+                        'qualifier' => $qualifier($t->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Trigger), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                        'body' => $t->description,
+                        'description' => $t->description,
+                        'suits' => $t->suits,
+                        'stone_cost' => $t->stone_cost,
+                    ];
+                }
+            });
+
+        return $rows;
     }
 
     /**
@@ -535,10 +641,25 @@ class AftermathCatalog
      * `attached_upgrades` — shared by Game Tracker's in-play "attach
      * upgrade" editor and by equipment assignment at crew selection.
      *
-     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: mixed, plentiful: int, power_bar_count: int|null, description: string|null, actions: array<int, array<string, mixed>>, abilities: array<int, array<string, mixed>>}>
+     * Optional `$leader` merges any Trigger-type Attack/Tactical Mod
+     * advancement into its target action's own triggers, matching
+     * ownedEquipment() (the Arsenal Sheet's equivalent) — without this the
+     * Game Tracker showed the action but silently dropped the advancement's
+     * trigger. Since this method groups by catalog type (fungible copies,
+     * not the specific instance an advancement is keyed to), a trigger shows
+     * on the group if ANY owned copy carries it.
+     *
+     * Also flags `is_advanced` (pg 31: once an Attack/Tactical Mod
+     * advancement targets an equipment-granted action, the Leader must keep
+     * re-equipping that specific item) — enforced as an assignment
+     * restriction in GameSetupController::resolveEquipmentAssignments().
+     *
+     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: mixed, plentiful: int, power_bar_count: int|null, description: string|null, is_advanced: bool, actions: array<int, array<string, mixed>>, abilities: array<int, array<string, mixed>>}>
      */
-    public static function ownedEquipmentForAttachment(CampaignCrew $crew): array
+    public static function ownedEquipmentForAttachment(CampaignCrew $crew, ?CustomCharacter $leader = null): array
     {
+        $advancementInfo = self::equipmentAdvancementInfo($leader?->id);
+
         return CampaignEquipment::query()
             ->where('campaign_crew_id', $crew->id)
             ->active()
@@ -553,11 +674,23 @@ class AftermathCatalog
             ->get()
             ->filter(fn (CampaignEquipment $e) => $e->catalog !== null)
             ->groupBy('equipment_upgrade_id')
-            ->map(function (Collection $owned) {
+            ->map(function (Collection $owned) use ($advancementInfo) {
                 $u = $owned->first()->catalog;
                 $u->actions->each(
                     fn (Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from morphedByMany)
                 );
+                // Merge in any Trigger-type mod keyed to any owned instance
+                // of this catalog upgrade (see docblock above).
+                $triggersByActionId = [];
+                $isAdvanced = false;
+                foreach ($owned->pluck('id') as $instanceId) {
+                    if (isset($advancementInfo[$instanceId])) {
+                        $isAdvanced = true;
+                    }
+                    foreach ($advancementInfo[$instanceId]['triggers_by_action_id'] ?? [] as $actionId => $triggers) {
+                        $triggersByActionId[$actionId] = array_merge($triggersByActionId[$actionId] ?? [], $triggers);
+                    }
+                }
 
                 return [
                     'id' => $u->id,
@@ -569,6 +702,7 @@ class AftermathCatalog
                     'plentiful' => $owned->count(),
                     'power_bar_count' => $u->power_bar_count,
                     'description' => $u->description,
+                    'is_advanced' => $isAdvanced,
                     'actions' => $u->actions->map(fn (Action $a) => [
                         'name' => $a->name,
                         'type' => $a->type,
@@ -584,7 +718,7 @@ class AftermathCatalog
                         'target_suits' => $a->target_suits,
                         'damage' => $a->damage,
                         'description' => $a->description,
-                        'triggers' => self::triggerSummaries($a->triggers),
+                        'triggers' => array_merge(self::triggerSummaries($a->triggers), $triggersByActionId[$a->id] ?? []),
                     ])->all(),
                     'abilities' => $u->abilities->map(fn (Ability $ab) => [
                         'name' => $ab->name,
@@ -735,7 +869,19 @@ class AftermathCatalog
             AdvancementTableEnum::Ability => self::advancementAbilityName($row->advancement_catalog_id),
             AdvancementTableEnum::Totem => CustomCharacter::find($row->advancement_catalog_id)?->name,
             AdvancementTableEnum::Summoning => Action::find($row->catalog_core_id)?->name,
-            AdvancementTableEnum::CrewCard => CampaignCrewCard::find($row->advancement_catalog_id)?->name,
+            // crew_upgrade source (pg 32, single-item picks): advancement_catalog_id
+            // is the picked item's own id — resolve via whichever table
+            // create() tagged it as in free_choice. Everything else
+            // (campaign_crew_card source, or a legacy pre-granularity
+            // crew_upgrade row with no free_choice) is a whole-card id.
+            AdvancementTableEnum::CrewCard => isset($row->free_choice['crew_card_upgrade_id'])
+                ? match ($row->free_choice['crew_card_item_type'] ?? null) {
+                    'action' => Action::find($row->advancement_catalog_id)?->name,
+                    'ability' => Ability::find($row->advancement_catalog_id)?->name,
+                    'trigger' => Trigger::find($row->advancement_catalog_id)?->name,
+                    default => null,
+                }
+            : (CampaignCrewCard::find($row->advancement_catalog_id)?->name ?? Upgrade::find($row->advancement_catalog_id)?->name), // @phpstan-ignore nullsafe.neverNull
         };
 
         return $name ?? $row->source_table->label();
@@ -757,7 +903,7 @@ class AftermathCatalog
 
         $targetId = $row->applied_to_custom_character_id ?? $row->custom_character_id;
 
-        return CustomCharacter::find($targetId)->name ?? 'Leader';
+        return CustomCharacter::find($targetId)?->name ?? 'Leader'; // @phpstan-ignore nullsafe.neverNull
     }
 
     private static function advancementActionName(?int $advancementActionId): ?string
@@ -778,5 +924,71 @@ class AftermathCatalog
         $row = AdvancementAbility::query()->with('ability:id,name')->find($advancementAbilityId);
 
         return $row?->ability->name ?? $row?->talent_name;
+    }
+
+    /**
+     * The specific action an Attack/Tactical Mod advancement modifies —
+     * `applied_to_action_index` indexes the target's `actions[]` JSON
+     * (Leader or Totem), or `applied_to_action_id` is a real `actions.id`
+     * row for an Equipment-granted action.
+     */
+    private static function advancementModActionName(CampaignLeaderAdvancement $row): ?string
+    {
+        if ($row->from_equipment_id !== null) {
+            return $row->applied_to_action_id ? Action::find($row->applied_to_action_id)?->name : null;
+        }
+
+        $target = CustomCharacter::find($row->applied_to_custom_character_id ?? $row->custom_character_id);
+        $idx = $row->applied_to_action_index;
+
+        return ($target && $idx >= 0) ? ($target->actions[$idx]['name'] ?? null) : null;
+    }
+
+    /**
+     * The Totem advancement's own created unit — unlike every other table,
+     * `advancement_catalog_id` here is the stock template row, not the
+     * crew-specific instance (the player names/sizes it themselves in the
+     * Aftermath wizard, see `LeaderAdvancementService::createTotemFromTemplate()`).
+     */
+    private static function advancementTotemUnitName(CampaignLeaderAdvancement $row): ?string
+    {
+        $leaderCrewId = CustomCharacter::find($row->custom_character_id)?->campaign_crew_id;
+        if ($leaderCrewId === null) {
+            return null;
+        }
+
+        return CustomCharacter::query()
+            ->where('campaign_crew_id', $leaderCrewId)
+            ->where('is_campaign_totem', true)
+            ->where('current', true)
+            ->value('name');
+    }
+
+    /**
+     * Ordered display chain for the Arsenal Sheet Advancement Log, joined
+     * with " > " client-side:
+     * - Attack/Tactical Mod: Mod name > Action name > Unit/Equipment name
+     * - Action/Ability/Summoning: Effect name > Unit name
+     * - Totem: the crew's actual current totem's own (possibly renamed) name
+     * - Crew Card: the picked Ability/Action/Trigger's own name only — no
+     *   unit context, it's a card-level effect, not applied to a model
+     *
+     * @return array<int, string>
+     */
+    public static function advancementContextChain(CampaignLeaderAdvancement $row): array
+    {
+        return match ($row->source_table) {
+            AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod => array_values(array_filter([
+                self::advancementDisplayName($row),
+                self::advancementModActionName($row),
+                self::advancementTargetName($row),
+            ])),
+            AdvancementTableEnum::Action, AdvancementTableEnum::Ability, AdvancementTableEnum::Summoning => array_values(array_filter([
+                self::advancementDisplayName($row),
+                self::advancementTargetName($row),
+            ])),
+            AdvancementTableEnum::Totem => array_values(array_filter([self::advancementTotemUnitName($row)])),
+            AdvancementTableEnum::CrewCard => array_values(array_filter([self::advancementDisplayName($row)])),
+        };
     }
 }

@@ -129,3 +129,15 @@ it('Starting Arsenal dispatches a combined card regeneration', function () {
 
     Bus::assertDispatched(GenerateCombinedCrewCardImage::class, fn ($job) => $job->campaignCrewId === $crew->id);
 });
+
+it('app:regenerate-crew-card-images re-queues generation for every crew with a starter effect, skipping crews without one', function () {
+    Bus::fake();
+    [, $crewWithStarter] = combinedCardFixture();
+    $crewWithStarter->update(['crew_card_effect_id' => CampaignCrewCard::factory()->create()->id]);
+    [, $crewWithoutStarter] = combinedCardFixture();
+
+    $this->artisan('app:regenerate-crew-card-images')->assertExitCode(0);
+
+    Bus::assertDispatched(GenerateCombinedCrewCardImage::class, fn ($job) => $job->campaignCrewId === $crewWithStarter->id);
+    Bus::assertNotDispatched(GenerateCombinedCrewCardImage::class, fn ($job) => $job->campaignCrewId === $crewWithoutStarter->id);
+});

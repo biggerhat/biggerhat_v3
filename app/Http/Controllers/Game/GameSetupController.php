@@ -930,7 +930,7 @@ class GameSetupController extends Controller
             return [];
         }
 
-        $owned = collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($crew))->keyBy('id');
+        $owned = collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($crew, $crew->leader))->keyBy('id');
         $usedCounts = [];
         $byTarget = [];
 
@@ -949,6 +949,14 @@ class GameSetupController extends Controller
                 }
             } elseif ($target !== 'leader' && ! in_array($target, $arsenalModelIds, true)) {
                 return 'Equipment can only be assigned to the Leader, Totem, or a model you\'re hiring this game.';
+            }
+
+            // Pg 31: once an Attack/Tactical Mod advancement targets an
+            // equipment-granted action, that equipment is tied to the Leader
+            // (or Totem) going forward — no longer assignable to another
+            // hired model.
+            if ($entry['is_advanced'] && $target !== 'leader' && $target !== 'totem') {
+                return "{$entry['name']} has an advancement tied to it and can only be assigned to the Leader or Totem.";
             }
 
             $usedCounts[$equipmentId] = ($usedCounts[$equipmentId] ?? 0) + 1;

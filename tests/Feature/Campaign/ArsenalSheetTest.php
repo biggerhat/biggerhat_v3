@@ -456,6 +456,11 @@ it('leader_advancements resolves a held Crew Card effect\'s name, since the cata
     \App\Models\Campaign\CampaignLeaderAdvancement::create([
         'custom_character_id' => $leader->id,
         'source_table' => \App\Enums\Campaign\AdvancementTableEnum::CrewCard->value,
+        // Real app-created rows always have both set identically for this
+        // table (resolveCoreCatalogId() falls through to $catalogId, since
+        // CrewCard has no AdvancementAction/AdvancementAbility row to resolve
+        // a "core" id from) — set both here to match.
+        'advancement_catalog_id' => $borrowedEffect->id,
         'catalog_core_id' => $borrowedEffect->id,
         'applied_to_action_index' => -1,
         'position_in_xp_track' => 0,
@@ -466,9 +471,130 @@ it('leader_advancements resolves a held Crew Card effect\'s name, since the cata
         ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('leader_advancements.0.crew_card_name', 'Borrowed Boon')
+            ->where('leader_advancements.0.context_chain', ['Borrowed Boon'])
             ->has('leader_advancements.0.acquired_at')
         );
+});
+
+it('crew_card_advancements exposes only the single picked item for a new-style crew_upgrade Tier-4 pick, not the whole source card', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value, 'name' => 'Source Card']);
+    $pickedAction = \App\Models\Action::factory()->create(['name' => 'Picked Action', 'description' => 'Picked action text']);
+    $otherAbility = \App\Models\Ability::factory()->create(['name' => 'Not Picked Ability']);
+    $upgrade->actions()->attach($pickedAction->id);
+    $upgrade->abilities()->attach($otherAbility->id);
+
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $upgrade->id,
+        'crew_card_effect_type' => \App\Models\Upgrade::class,
+        'crew_card_item_type' => 'action',
+        'crew_card_item_id' => $pickedAction->id,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.crew_card_advancements.0.effect.name', 'Picked Action')
+            ->where('crew.crew_card_advancements.0.effect.body', 'Picked action text')
+            ->where('crew.crew_card_advancements.0.effect.abilities', [])
+            ->has('crew.crew_card_advancements.0.effect.actions', 1)
+        );
+});
+
+it('leader_advancements context_chain shows Mod > Action > Unit for an Attack Mod applied to a Totem action', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Chain Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+    ]);
+    $totem = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'name' => 'Rat King',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5,
+        'base' => 30,
+        'actions' => [['name' => 'Gnaw', 'type' => 'attack', 'stat' => 5]],
+    ]);
+    $mod = \App\Models\Campaign\AdvancementAttackMod::factory()->create(['name' => 'Precise Strike']);
+
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'advancement_catalog_id' => $mod->id,
+        'catalog_core_id' => $mod->id,
+        'applied_to_custom_character_id' => $totem->id,
+        'applied_to_action_index' => 0,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('leader_advancements.0.context_chain', ['Precise Strike', 'Gnaw', 'Rat King']));
+});
+
+it('leader_advancements context_chain resolves the Totem advancement to its own player-chosen name, not the template', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Totem Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+    ]);
+    $template = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'is_campaign_totem_template' => true,
+        'name' => 'Stock Totem Template',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+    ]);
+    // The player renamed their totem — the actual created instance, not the template.
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'name' => 'My Custom Totem',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+    ]);
+
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::Totem->value,
+        'advancement_catalog_id' => $template->id,
+        'catalog_core_id' => $template->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('leader_advancements.0.context_chain', ['My Custom Totem']));
 });
 
 it('leader_advancements resolves the ally an Any-Joker action/ability was freely picked from', function () {

@@ -26,10 +26,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * anymore. Display context (whose crew this belongs to) is derived live from
  * the holding crew's own current Leader instead.
  *
+ * `crew_card_item_type`/`crew_card_item_id` (pg 32: "'effect' refers to a
+ * single ability, action, or trigger") pin down exactly which item on the
+ * source card was picked — only ever set when crew_card_effect_type is
+ * Upgrade::class. Null on that source means a legacy pre-granularity row
+ * (treat as "holds every item this card ever granted"); always null for
+ * CampaignCrewCard::class source rows, which stay whole-row.
+ *
  * @property int $id
  * @property int $campaign_crew_id
  * @property int $crew_card_effect_id
  * @property string $crew_card_effect_type CampaignCrewCard::class or Upgrade::class
+ * @property string|null $crew_card_item_type 'action'|'ability'|'trigger', Upgrade source only
+ * @property int|null $crew_card_item_id
  * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
  * @property int|null $acquired_aftermath_id
  * @property-read CampaignCrew $crew

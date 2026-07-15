@@ -68,6 +68,11 @@ class StoreLeaderAdvancementRequest extends FormRequest
             // catalog_id resolves against — the fixed generic catalog
             // (default) or a real keyword-matched Crew Card Upgrade.
             'crew_card_source' => ['nullable', 'string', 'in:campaign_crew_card,crew_upgrade'],
+            // crew_upgrade source only (pg 32): catalog_id above is the picked
+            // item's own id (an Action/Ability/Trigger row) — these two pin
+            // down which single item and which source card it came from.
+            'crew_card_item_type' => ['nullable', 'string', 'in:action,ability,trigger'],
+            'crew_card_upgrade_id' => ['nullable', 'integer'],
         ];
     }
 }

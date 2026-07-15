@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 
 const confirmDialog = useConfirm();
+const toast = useToast();
 const page = usePage();
 const authUserId = computed(() => (page.props.auth as any)?.user?.id ?? null);
 
@@ -76,6 +78,14 @@ const props = defineProps<{
     active_solo_game: ActiveSoloGame | null;
 }>();
 
+// A multiplayer campaign only auto-stubs a crew for solo campaigns — an
+// existing member (usually the organizer, who's a CampaignPlayer from
+// creation but never went through the invite-accept/join-link crew-creation
+// flow) has no crew of their own to actually play with otherwise.
+const myCrew = computed(() => props.campaign.crews.find((c) => c.user?.id === authUserId.value) ?? null);
+const isMember = computed(() => props.campaign.players.some((p) => p.user_id === authUserId.value));
+const joinAsPlayer = (campaignId: number) => router.post(route('campaigns.join-as-player', campaignId));
+
 const activeSoloGameStatusLabel = (status: string): string =>
     (
         {
@@ -101,8 +111,14 @@ const statusVariant = computed((): 'default' | 'outline' | 'destructive' | 'seco
 
 const inviteForm = ref({ email: '', user_id: null as number | null, expires_in_days: 14 });
 const invitePickedUser = ref<{ id: number; name: string } | null>(null);
+// The Send button previously had no in-flight/error state at all — a
+// validation failure (e.g. a stale search-picked user, or the strict
+// email:rfc rule rejecting an unusual-but-valid address) produced zero
+// visible feedback, which read as the form "freezing" rather than failing.
+const invitePending = ref(false);
 
 const sendInvite = (campaignId: number) => {
+    invitePending.value = true;
     router.post(
         route('campaigns.invitations.store', campaignId),
         {
@@ -116,6 +132,13 @@ const sendInvite = (campaignId: number) => {
                 inviteForm.value.user_id = null;
                 invitePickedUser.value = null;
                 inviteSearch.value = '';
+                toast.success('Invitation sent.');
+            },
+            onError: (errors) => {
+                toast.error('Could not send that invitation', { description: Object.values(errors)[0] ?? 'Please check the details and try again.' });
+            },
+            onFinish: () => {
+                invitePending.value = false;
             },
         },
     );
@@ -287,6 +310,13 @@ const deleteCampaign = async (id: number) => {
                 Invite Link
             </Button>
             <Button
+                v-if="!campaign.is_solo && campaign.status !== 'ended' && isMember && !myCrew"
+                variant="outline"
+                @click="joinAsPlayer(campaign.id)"
+            >
+                Join as a Player
+            </Button>
+            <Button
                 v-if="is_organizer && campaign.status === 'active' && campaign.current_week < campaign.length_weeks"
                 variant="outline"
                 @click="advanceWeek(campaign.id)"
@@ -430,8 +460,12 @@ const deleteCampaign = async (id: number) => {
                         <Input type="number" v-model.number="inviteForm.expires_in_days" />
                     </div>
                     <div class="flex items-end">
-                        <Button class="w-full" @click="sendInvite(campaign.id)" :disabled="!inviteForm.email && !invitePickedUser">
-                            Send Invitation
+                        <Button
+                            class="w-full"
+                            @click="sendInvite(campaign.id)"
+                            :disabled="(!inviteForm.email && !invitePickedUser) || invitePending"
+                        >
+                            {{ invitePending ? 'Sending…' : 'Send Invitation' }}
                         </Button>
                     </div>
                 </div>

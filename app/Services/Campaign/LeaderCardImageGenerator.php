@@ -54,15 +54,16 @@ class LeaderCardImageGenerator
         $browsershot = Browsershot::url($url)
             ->noSandbox()
             ->select($selector)
-            // Capture.vue lays both 550x950 card divs out side by side
-            // (flex gap-8, p-8 outer padding) — that's 2*550 + 32 (gap) + 64
-            // (padding) = 1196px wide, and 950 + 64 (padding) = 1014px tall.
-            // A too-small viewport both clips the tall dimension (reported
-            // as a squashed, single-face image) AND — more subtly — lets
-            // flexbox's default shrink-to-fit narrow each card below its
-            // real 550px width once the pair no longer fits. Sized with
-            // margin above both minimums so neither happens.
-            ->windowSize(1300, 1100)
+            // CardFrontFace/CardBackFace each pick their own tarot-proportioned
+            // box, tiered up (to a max of 1150x1986) as the character's own
+            // content grows — Capture.vue lays both out side by side (flex
+            // gap-8, p-8 outer padding), so the viewport just needs to
+            // comfortably exceed two max-tier cards plus padding/gap so Chrome
+            // never has to reflow either fixed-width card; the element
+            // screenshot itself captures exactly whatever size each face
+            // rendered at (mergeSideBySide() below reads real dimensions back
+            // via getimagesize(), so front/back need not match).
+            ->windowSize(2500, 2100)
             ->deviceScaleFactor(2)
             ->waitUntilNetworkIdle()
             ->timeout(60);

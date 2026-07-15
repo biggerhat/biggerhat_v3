@@ -270,6 +270,41 @@ class CampaignController extends Controller
     }
 
     /**
+     * A multiplayer campaign only auto-stubs a `CampaignCrew` for the
+     * organizer on solo campaigns (`store()`) — for multiplayer ones the
+     * organizer is a `CampaignPlayer` from creation but has no path to a
+     * crew of their own, since `joinPublic()`/invitation-accept both
+     * short-circuit once the user is already a member. Requires already
+     * being a member (organizer or invited player) — this isn't a second
+     * "join" path, just backfilling the crew half of membership.
+     */
+    public function joinAsPlayer(Request $request, Campaign $campaign)
+    {
+        $isMember = $campaign->players()->where('user_id', $request->user()->id)->exists();
+        if (! $isMember) {
+            abort(403);
+        }
+
+        if ($campaign->is_solo) {
+            return redirect()->route('campaigns.show', $campaign)
+                ->withMessage('This is a solo campaign — you already have a crew.', null, MessageTypeEnum::error);
+        }
+
+        if ($campaign->status === CampaignStatusEnum::Ended) {
+            return redirect()->route('campaigns.show', $campaign)
+                ->withMessage('This campaign has ended.', null, MessageTypeEnum::error);
+        }
+
+        CampaignCrew::firstOrCreate(
+            ['campaign_id' => $campaign->id, 'user_id' => $request->user()->id],
+            ['name' => $request->user()->name."'s Crew"],
+        );
+
+        return redirect()->route('campaigns.show', $campaign)
+            ->withMessage("You're all set — build your crew below!");
+    }
+
+    /**
      * Invalidates the current public join link by assigning a fresh uuid —
      * unlike a Game's uuid (hours-lived), a Campaign's link stays valid for
      * the life of the campaign (weeks), so a leaked link needs a way to be

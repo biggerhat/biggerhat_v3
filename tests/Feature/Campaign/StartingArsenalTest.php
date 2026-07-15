@@ -162,6 +162,7 @@ it('saves the crew card to the Card Creator when named, and updates on re-save',
     $upgrade = \App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->first();
     expect($upgrade)->not->toBeNull();
     expect($upgrade->domain->value)->toBe('crew');
+    expect($upgrade->is_campaign_crew_card)->toBeTrue();
 
     // Re-saving with the same name updates the existing card rather than duplicating.
     $this->actingAs($user)
@@ -173,6 +174,30 @@ it('saves the crew card to the Card Creator when named, and updates on re-save',
         ->assertRedirect();
 
     expect(\App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->count())->toBe(1);
+});
+
+it('blocks deleting the saved crew card from the generic Card Creator editor', function () {
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'My Crew Card',
+        ])
+        ->assertRedirect();
+
+    $upgrade = \App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->firstOrFail();
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.upgrades.destroy', $upgrade->id))
+        ->assertStatus(422)
+        ->assertJson(['success' => false]);
+
+    expect(\App\Models\CustomUpgrade::find($upgrade->id))->not->toBeNull();
 });
 
 it('does not save a Card Creator card when no name is given', function () {

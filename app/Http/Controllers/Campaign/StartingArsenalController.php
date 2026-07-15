@@ -270,7 +270,7 @@ class StartingArsenalController extends Controller
             ->first();
 
         if ($existing) {
-            $existing->update(['display_name' => $name, 'faction' => $faction, 'content_blocks' => $blocks]);
+            $existing->update(['display_name' => $name, 'faction' => $faction, 'content_blocks' => $blocks, 'is_campaign_crew_card' => true]);
 
             return;
         }
@@ -283,6 +283,7 @@ class StartingArsenalController extends Controller
             'domain' => UpgradeDomainTypeEnum::Crew->value,
             'faction' => $faction,
             'content_blocks' => $blocks,
+            'is_campaign_crew_card' => true,
         ]);
     }
 

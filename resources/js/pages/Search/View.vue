@@ -35,6 +35,7 @@ import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FilterPanel from '@/components/FilterPanel.vue';
 import InertiaPagination from '@/components/InertiaPagination.vue';
+import InfiniteScrollSentinel from '@/components/InfiniteScrollSentinel.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import SearchableMultiselect from '@/components/SearchableMultiselect.vue';
 import TableSkeleton from '@/components/TableSkeleton.vue';
@@ -45,6 +46,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
@@ -1689,7 +1692,61 @@ const handleSearchInput = () => {
     }
 };
 
-const resultCount = computed(() => props.results?.data?.length ?? 0);
+// Infinite scroll: an alternative to page-number pagination that accumulates
+// every loaded page's results into one growing list instead of replacing it.
+const infiniteScroll = ref(false);
+const accumulatedResults = ref<any[]>([]);
+const loadingMore = ref(false);
+
+const displayResults = computed(() => (infiniteScroll.value ? accumulatedResults.value : (props.results?.data ?? [])));
+const hasMoreResults = computed(() => (props.results?.current_page ?? 1) < (props.results?.last_page ?? 1));
+
+// Any response with current_page 1 is a fresh search (filters/sort/toggle-on), not a "load more" — reset instead of appending.
+watch(
+    () => props.results,
+    (newResults) => {
+        if (!infiniteScroll.value) return;
+        if ((newResults?.current_page ?? 1) <= 1) {
+            accumulatedResults.value = [...(newResults?.data ?? [])];
+        } else {
+            accumulatedResults.value = [...accumulatedResults.value, ...(newResults?.data ?? [])];
+        }
+        loadingMore.value = false;
+    },
+);
+
+watch(infiniteScroll, (enabled) => {
+    if (!enabled) return;
+    accumulatedResults.value = [...(props.results?.data ?? [])];
+    // Restart from page 1 so the accumulated list has no gap.
+    if ((props.results?.current_page ?? 1) > 1) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('page');
+        router.get(url.pathname + url.search, {}, { only: ['results', 'result_count'], preserveState: true, replace: true });
+    }
+});
+
+const loadMoreResults = () => {
+    if (loadingMore.value || !hasMoreResults.value) return;
+    loadingMore.value = true;
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', String((props.results?.current_page ?? 1) + 1));
+    router.get(
+        url.pathname + url.search,
+        {},
+        {
+            only: ['results', 'result_count'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            onFinish: () => {
+                loadingMore.value = false;
+            },
+        },
+    );
+};
+
+const resultCount = computed(() => displayResults.value.length);
 const { delays } = useStaggeredEntry(resultCount);
 
 const isLoading = ref(false);
@@ -1988,6 +2045,10 @@ onUnmounted(() => {
                 <Badge v-if="activeFilterCount > 0" variant="secondary" class="text-xs">
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
                 </Badge>
+                <div class="hidden items-center gap-1.5 sm:flex">
+                    <Switch id="infinite-scroll-toggle" v-model="infiniteScroll" />
+                    <Label for="infinite-scroll-toggle" class="cursor-pointer text-xs font-medium text-muted-foreground">Infinite Scroll</Label>
+                </div>
                 <!-- Mobile-only filter trigger -->
                 <div class="md:hidden">
                     <FilterPanel :filter-count="activeFilterCount" @filter="filter" @clear="clear">
@@ -3280,20 +3341,20 @@ onUnmounted(() => {
 
                 <!-- Results area -->
                 <div class="min-w-0 flex-1">
-                    <div v-if="isLoading && filterParams.page_view === 'table'" class="overflow-auto">
+                    <div v-if="isLoading && !loadingMore && filterParams.page_view === 'table'" class="overflow-auto">
                         <TableSkeleton :rows="8" :cols="7" />
                     </div>
-                    <div v-else-if="isLoading">
+                    <div v-else-if="isLoading && !loadingMore">
                         <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                             <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
                         </div>
                     </div>
                     <div v-else-if="filterParams.page_view === 'table'" class="overflow-auto">
-                        <div v-if="props.results.data?.some((r: any) => r.result_type === 'upgrade')" class="mb-6">
+                        <div v-if="displayResults.some((r: any) => r.result_type === 'upgrade')" class="mb-6">
                             <h3 class="mb-3 text-sm font-semibold text-muted-foreground">Matching Upgrades</h3>
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
                                 <div
-                                    v-for="item in props.results.data?.filter((r: any) => r.result_type === 'upgrade')"
+                                    v-for="item in displayResults.filter((r: any) => r.result_type === 'upgrade')"
                                     :key="`upgrade-${item.id}`"
                                     class="text-center"
                                 >
@@ -3313,12 +3374,19 @@ onUnmounted(() => {
                                 </div>
                             </div>
                         </div>
-                        <CharacterTable :characters="props.results.data?.filter((r: any) => r.result_type === 'character') ?? []" />
-                        <InertiaPagination :paginator="props.results" :only="['results', 'result_count']" />
+                        <CharacterTable :characters="displayResults.filter((r: any) => r.result_type === 'character')" />
+                        <template v-if="infiniteScroll">
+                            <InfiniteScrollSentinel v-if="hasMoreResults" :loading="loadingMore" @visible="loadMoreResults" />
+                            <p v-if="loadingMore" class="py-4 text-center text-xs text-muted-foreground">Loading more…</p>
+                            <p v-else-if="!hasMoreResults && displayResults.length" class="py-4 text-center text-xs text-muted-foreground">
+                                All {{ props.results.total }} results loaded.
+                            </p>
+                        </template>
+                        <InertiaPagination v-else :paginator="props.results" :only="['results', 'result_count']" />
                     </div>
                     <div v-else-if="filterParams.page_view === 'full'">
-                        <template v-if="props.results?.data?.length">
-                            <template v-for="item in props.results.data" :key="`${item.result_type}-${item.id}`">
+                        <template v-if="displayResults.length">
+                            <template v-for="item in displayResults" :key="`${item.result_type}-${item.id}`">
                                 <CharacterView
                                     v-if="item.result_type === 'character' && item.standard_miniatures?.[0]"
                                     :character="item"
@@ -3368,11 +3436,18 @@ onUnmounted(() => {
                                 </Button>
                             </div>
                         </EmptyState>
-                        <InertiaPagination :paginator="props.results" :only="['results', 'result_count']" />
+                        <template v-if="infiniteScroll">
+                            <InfiniteScrollSentinel v-if="hasMoreResults" :loading="loadingMore" @visible="loadMoreResults" />
+                            <p v-if="loadingMore" class="py-4 text-center text-xs text-muted-foreground">Loading more…</p>
+                            <p v-else-if="!hasMoreResults && displayResults.length" class="py-4 text-center text-xs text-muted-foreground">
+                                All {{ props.results.total }} results loaded.
+                            </p>
+                        </template>
+                        <InertiaPagination v-else :paginator="props.results" :only="['results', 'result_count']" />
                     </div>
                     <div v-else>
-                        <div v-if="props.results?.data?.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                            <template v-for="(item, idx) in props.results.data" :key="`${item.result_type}-${item.id}`">
+                        <div v-if="displayResults.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                            <template v-for="(item, idx) in displayResults" :key="`${item.result_type}-${item.id}`">
                                 <div v-if="item.result_type === 'upgrade'" class="animate-fade-in-up opacity-0" :style="delays[idx]">
                                     <div class="w-full rounded-lg text-center transition-shadow duration-300 hover:shadow-lg hover:shadow-black/20">
                                         <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>
@@ -3448,7 +3523,14 @@ onUnmounted(() => {
                                 </Button>
                             </div>
                         </EmptyState>
-                        <InertiaPagination :paginator="props.results" :only="['results', 'result_count']" />
+                        <template v-if="infiniteScroll">
+                            <InfiniteScrollSentinel v-if="hasMoreResults" :loading="loadingMore" @visible="loadMoreResults" />
+                            <p v-if="loadingMore" class="py-4 text-center text-xs text-muted-foreground">Loading more…</p>
+                            <p v-else-if="!hasMoreResults && displayResults.length" class="py-4 text-center text-xs text-muted-foreground">
+                                All {{ props.results.total }} results loaded.
+                            </p>
+                        </template>
+                        <InertiaPagination v-else :paginator="props.results" :only="['results', 'result_count']" />
                     </div>
                 </div>
             </div>

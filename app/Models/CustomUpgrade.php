@@ -29,6 +29,7 @@ class CustomUpgrade extends Model
             'domain' => UpgradeDomainTypeEnum::class,
             'faction' => FactionEnum::class,
             'is_public' => 'boolean',
+            'is_campaign_crew_card' => 'boolean',
             'content_blocks' => 'array',
             'back_tokens' => 'array',
             'back_markers' => 'array',

@@ -70,6 +70,16 @@ class CustomUpgradeController extends Controller
     {
         $this->authorize('delete', $customUpgrade);
 
+        // Mirrors the Campaign Leader/Totem guard on CustomCharacterController —
+        // this row is the snapshot StartingArsenalController saves into the
+        // owner's Card Creator library when they name their crew card.
+        if ($customUpgrade->is_campaign_crew_card) {
+            return response()->json([
+                'success' => false,
+                'message' => "{$customUpgrade->display_name} is tied to a Campaign crew and can't be deleted here.",
+            ], 422);
+        }
+
         $customUpgrade->delete();
 
         return response()->json(['success' => true]);

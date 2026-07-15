@@ -175,6 +175,21 @@ it('blocks a non-owner from deleting an upgrade', function () {
     expect(CustomUpgrade::find($upgrade->id))->not->toBeNull();
 });
 
+it('blocks deleting a Campaign crew card — it\'s the snapshot saved from Starting Arsenal', function () {
+    $user = User::factory()->create();
+    $crewCard = CustomUpgrade::create(array_merge(cuValidPayload(['domain' => 'crew']), [
+        'user_id' => $user->id,
+        'is_campaign_crew_card' => true,
+    ]));
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.upgrades.destroy', $crewCard->id))
+        ->assertStatus(422)
+        ->assertJson(['success' => false]);
+
+    expect(CustomUpgrade::find($crewCard->id))->not->toBeNull();
+});
+
 it('serves the public share page without auth, regardless of is_public', function () {
     $user = User::factory()->create();
     $upgrade = CustomUpgrade::create(array_merge(cuValidPayload(), ['user_id' => $user->id, 'is_public' => false]));

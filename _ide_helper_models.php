@@ -652,6 +652,8 @@ namespace App\Models\Campaign{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Character $character
  * @property-read \App\Models\Campaign\CampaignCrew $crew
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $gainedAbilities
+ * @property-read int|null $gained_abilities_count
  * @property-read \App\Models\Keyword|null $grantedKeyword
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Campaign\CampaignArsenalModelInjury> $injuries
  * @property-read int|null $injuries_count
@@ -735,6 +737,8 @@ namespace App\Models\Campaign{
  * @property int|null $keyword_1_id
  * @property int|null $keyword_2_id
  * @property int|null $crew_card_effect_id
+ * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
+ * @property string|null $crew_card_front_image generated image combining the starter effect + every held Tier-4 borrow — see CombinedCrewCardEffects
  * @property int $scrip
  * @property int $total_wins
  * @property \Carbon\CarbonImmutable|null $retired_at
@@ -753,7 +757,6 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew query()
- * @property array<array-key, mixed>|null $crew_card_choice
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read int|null $crew_card_advancements_count
@@ -761,6 +764,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardEffectId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardFrontImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereKeyword1Id($value)
@@ -781,17 +785,22 @@ namespace App\Models\Campaign{
 
 namespace App\Models\Campaign{
 /**
- * A starting Crew Card option for the Starting Arsenal wizard (pg 15).
+ * A starting Crew Card option for the Starting Arsenal wizard (pg 15) —
+ * also borrowable via Tier-4 Crew Card Advancement (pg 32, 54) as the
+ * always-generic fallback pool alongside the real, keyword-matched
+ * Crew Card Upgrade catalog (see AftermathCatalog::advancementCatalogs()).
  * 
  * These replace the interim approach of tagging Ability rows with
  * is_crew_card_effect=true — crew cards can have richer structure than
  * a single ability description allows.
+ * 
+ * Deliberately has no "master this is printed on" field — it's a shared
+ * catalog row any crew can pick, so any master/faction theming is derived
+ * live from the holding crew's own current Leader at display time instead.
  *
  * @property int $id
  * @property string $name
  * @property string|null $description
- * @property int|null $master_id the master this card is actually printed on (nullable — some rows are generic/unassigned)
- * @property string|null $master_type Character::class or CustomCharacter::class — a Crew Card can be printed on a custom-built Campaign Leader, not just an official master
  * @property bool $requires_token_choice
  * @property bool $requires_marker_choice
  * @property bool $requires_upgrade_type_choice
@@ -800,19 +809,18 @@ namespace App\Models\Campaign{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $actions
  * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $abilities
  * @property-read \Illuminate\Database\Eloquent\Collection<int, CampaignCrew> $crews
- * @property-read Character|CustomCharacter|null $master
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard query()
+ * @property string|null $front_image
  * @property-read int|null $abilities_count
  * @property-read int|null $actions_count
  * @property-read int|null $crews_count
  * @method static \Database\Factories\Campaign\CampaignCrewCardFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereFrontImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereMasterId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereMasterType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresMarkerChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCard whereRequiresTokenChoice($value)
@@ -826,22 +834,39 @@ namespace App\Models\Campaign{
 
 namespace App\Models\Campaign{
 /**
- * A Tier-4 Crew Card advancement (pg 32, 54) — an extra effect borrowed from
- * a crew card associated with a master sharing one of this crew's keywords,
- * added to the crew's own crew card. Unlike the starter effect
+ * A Tier-4 Crew Card advancement (pg 32, 54) — an extra effect borrowed
+ * either from the generic pg 15-16 catalog (`CampaignCrewCard`) or from a
+ * real, keyword-matched Crew Card Upgrade (`Upgrade::forCrews()`), added to
+ * the crew's own crew card. Unlike the starter effect
  * (`CampaignCrew::crew_card_effect_id`, a single FK), these accumulate: a
  * crew can hold its starter effect plus any number of Tier-4 borrows.
+ * 
+ * `crew_card_effect_id`/`crew_card_effect_type` is polymorphic (no DB-level
+ * FK) since a single column can't reference both source tables.
+ * 
+ * Deliberately has no "source master" attribution — the real catalog pool is
+ * keyword-matched (no single associated master) and the generic pool is
+ * always generic, so there's no single truth to attribute a borrow to
+ * anymore. Display context (whose crew this belongs to) is derived live from
+ * the holding crew's own current Leader instead.
+ * 
+ * `crew_card_item_type`/`crew_card_item_id` (pg 32: "'effect' refers to a
+ * single ability, action, or trigger") pin down exactly which item on the
+ * source card was picked — only ever set when crew_card_effect_type is
+ * Upgrade::class. Null on that source means a legacy pre-granularity row
+ * (treat as "holds every item this card ever granted"); always null for
+ * CampaignCrewCard::class source rows, which stay whole-row.
  *
  * @property int $id
  * @property int $campaign_crew_id
  * @property int $crew_card_effect_id
- * @property int|null $source_master_id
- * @property string|null $source_master_type Character::class or CustomCharacter::class
+ * @property string $crew_card_effect_type CampaignCrewCard::class or Upgrade::class
+ * @property string|null $crew_card_item_type 'action'|'ability'|'trigger', Upgrade source only
+ * @property int|null $crew_card_item_id
  * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
  * @property int|null $acquired_aftermath_id
  * @property-read CampaignCrew $crew
- * @property-read CampaignCrewCard $crewCardEffect
- * @property-read Character|CustomCharacter|null $sourceMaster
+ * @property-read CampaignCrewCard|Upgrade $crewCardEffect
  * @property-read CampaignAftermath|null $sourceAftermath
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -854,9 +879,10 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardEffectId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardEffectType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardItemId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereCrewCardItemType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereSourceMasterId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereSourceMasterType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrewCardAdvancement whereUpdatedAt($value)
  * @mixin \Eloquent
  */
@@ -1147,6 +1173,8 @@ namespace App\Models\Campaign{
  * when an injury/doctor result is a red joker. Any-joker → Doppelganger
  * (free copy in the arsenal).
  *
+ * @property int|null $ability_id
+ * @property-read Ability|null $ability
  * @property int $id
  * @property string $name
  * @property string $body
@@ -1158,6 +1186,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereAbilityId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereBody($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LuckyMiss whereFlipValue($value)
@@ -1616,6 +1645,7 @@ namespace App\Models{
  * @property string $display_name
  * @property string $slug
  * @property \App\Enums\UpgradeDomainTypeEnum $domain
+ * @property bool $is_campaign_crew_card
  * @property string|null $type
  * @property string|null $limitations
  * @property int|null $plentiful
@@ -1643,6 +1673,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomUpgrade whereDomain($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomUpgrade whereFaction($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomUpgrade whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomUpgrade whereIsCampaignCrewCard($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomUpgrade whereIsPublic($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomUpgrade whereKeywordName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomUpgrade whereLimitations($value)
@@ -1769,6 +1800,7 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
  * @property-read int|null $activities_count
+ * @property-read \App\Models\Campaign\CampaignGame|null $campaignGame
  * @property-read \App\Models\User $creator
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GameCrewMember> $crewMembers
  * @property-read int|null $crew_members_count
@@ -1841,6 +1873,7 @@ namespace App\Models{
  * @property int|null $willpower
  * @property int|null $speed
  * @property int|null $size
+ * @property array<array-key, mixed>|null $characteristics
  * @property bool $is_killed
  * @property bool $is_summoned
  * @property bool $is_activated
@@ -1870,6 +1903,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereAttachedUpgrades($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereBackImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCharacterId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCharacteristics($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCost($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|GameCrewMember whereCurrentHealth($value)

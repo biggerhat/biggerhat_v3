@@ -42,6 +42,8 @@ interface CustomUpgrade {
     master_name: string | null;
     share_code: string;
     updated_at: string;
+    // A crew card saved from Starting Arsenal can't be deleted here — see performDelete().
+    is_campaign_crew_card: boolean;
 }
 
 const props = defineProps<{
@@ -61,6 +63,7 @@ const characterUpgrades = computed(() => props.upgrades.filter((u) => u.domain =
 // into. Server-enforced (see CustomCharacterController::destroy()); this
 // just keeps the user from hitting the error in the first place.
 const isCampaignLinked = (character: CustomCharacter) => character.is_campaign_leader || character.is_campaign_totem;
+const isCampaignLinkedCrewCard = (upgrade: CustomUpgrade) => upgrade.is_campaign_crew_card;
 
 const deleteDialogOpen = ref(false);
 const deleteTarget = ref<{ id: number; display_name: string; type: 'character' | 'upgrade' } | null>(null);
@@ -73,6 +76,7 @@ const confirmDeleteCharacter = (character: CustomCharacter) => {
 };
 
 const confirmDeleteUpgrade = (upgrade: CustomUpgrade) => {
+    if (isCampaignLinkedCrewCard(upgrade)) return;
     deleteTarget.value = { id: upgrade.id, display_name: upgrade.display_name, type: 'upgrade' };
     deleteDialogOpen.value = true;
 };
@@ -196,7 +200,9 @@ const stationLabel = (station: string | null) => {
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
                             </div>
                             <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white">Campaign</Badge>
+                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white"
+                                >Campaign</Badge
+                            >
                         </div>
                         <CardContent class="p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">
@@ -266,6 +272,9 @@ const stationLabel = (station: string | null) => {
                                 <span class="text-[10px] font-medium uppercase tracking-wider opacity-40">Crew Card</span>
                             </div>
                             <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
+                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white">
+                                Campaign
+                            </Badge>
                         </div>
                         <CardContent class="p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">
@@ -288,8 +297,10 @@ const stationLabel = (station: string | null) => {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    class="text-xs text-destructive hover:bg-destructive/10"
-                                    aria-label="Delete"
+                                    :disabled="isCampaignLinkedCrewCard(card)"
+                                    :class="['text-xs', !isCampaignLinkedCrewCard(card) && 'text-destructive hover:bg-destructive/10']"
+                                    :aria-label="isCampaignLinkedCrewCard(card) ? 'Cannot delete — tied to a Campaign crew' : 'Delete'"
+                                    :title="isCampaignLinkedCrewCard(card) ? 'Tied to a Campaign crew — saved from Starting Arsenal' : undefined"
                                     @click="confirmDeleteUpgrade(card)"
                                 >
                                     <Trash2 class="size-3" />

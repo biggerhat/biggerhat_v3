@@ -15,9 +15,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type { SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { refDebounced } from '@vueuse/core';
-import { BookMarked, Check, ChevronDown, Link2, Loader2, Search, Sparkles, X } from 'lucide-vue-next';
+import { BookMarked, Check, ChevronDown, Heart, Link2, Loader2, Plus, Search, Sparkles, X } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 interface BoxCharacterMiniature {
@@ -66,6 +66,45 @@ const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth?.user);
 const collectionPackageIds = computed(() => new Set(page.props.auth?.collection_package_ids ?? []));
 const isCollected = (pkgId: number) => collectionPackageIds.value.has(pkgId);
+
+const wishlistPackageIds = computed(() => {
+    const ids = new Set<number>();
+    for (const wl of Object.values(page.props.auth?.wishlist_items ?? {})) {
+        for (const id of wl.packages) ids.add(id);
+    }
+    return ids;
+});
+const isWishlisted = (pkgId: number) => wishlistPackageIds.value.has(pkgId);
+
+// Track per-package in-flight state so we can disable that row's Add button
+// while the request is pending — prevents double-clicks creating dupes.
+// Mirrors Packages/Index.vue's addPackageToCollection.
+const addingPackageIds = ref<Set<number>>(new Set());
+const addPackageToCollection = (packageId: number) => {
+    if (addingPackageIds.value.has(packageId)) return;
+
+    // Optimistic update with rollback on failure.
+    const pkgIds = page.props.auth.collection_package_ids;
+    const wasAbsent = !pkgIds.includes(packageId);
+    if (wasAbsent) pkgIds.push(packageId);
+
+    router.post(
+        route('collection.add_package'),
+        { package_id: packageId },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['auth'],
+            onStart: () => addingPackageIds.value.add(packageId),
+            onError: () => {
+                if (wasAbsent) {
+                    page.props.auth.collection_package_ids = pkgIds.filter((id) => id !== packageId);
+                }
+            },
+            onFinish: () => addingPackageIds.value.delete(packageId),
+        },
+    );
+};
 
 // Collection membership for individual models is tracked by miniature id
 // (same source CharacterCardView.vue reads), not character id — a character
@@ -554,28 +593,28 @@ const copyLink = async () => {
             <div v-else class="space-y-2">
                 <Collapsible v-for="box in sortedBoxes" :key="box.slug" :open="isOpen(box.slug)" @update:open="toggleBox(box.slug)">
                     <div class="rounded-lg border">
-                        <!-- Name always gets its own full-width line so a long
-                             box name never gets squeezed by badges/MSRP/model
-                             count — those flow into a second, wrapping line of
-                             small muted text instead of competing for the same
-                             row (the previous single-row layout is what made
-                             the name unreadable on narrow screens). Same
-                             structure at every breakpoint, just column vs
-                             row. -->
-                        <CollapsibleTrigger
-                            class="flex w-full flex-col gap-1.5 px-4 py-3 text-left hover:bg-muted/50 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3"
-                        >
+                        <!-- Name is a plain link, not part of the toggle button
+                             below it — clicking it navigates to the package
+                             page and nothing else. It still gets its own
+                             full-width line so a long name never gets
+                             squeezed by badges/MSRP/model count, which flow
+                             into a second, wrapping line instead of competing
+                             for the same row. Only that second line (and its
+                             chevron) toggles the collapsible; clicking
+                             anywhere on the name never does. -->
+                        <div class="flex w-full flex-col gap-1.5 px-4 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
                             <div class="flex min-w-0 items-center gap-2">
                                 <Link
                                     :href="route('packages.view', { package: box.slug })"
                                     class="min-w-0 flex-1 truncate font-semibold text-primary hover:underline sm:flex-initial"
-                                    @click.stop
                                 >
                                     {{ box.name }}
                                 </Link>
                                 <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:hidden" :class="{ 'rotate-180': isOpen(box.slug) }" />
                             </div>
-                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                            <CollapsibleTrigger
+                                class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-2 text-left text-xs text-muted-foreground hover:bg-muted/50 sm:py-1"
+                            >
                                 <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
                                 <span v-if="box.legacy_m3e_name" class="hidden shrink-0 sm:inline">(M3E: {{ box.legacy_m3e_name }})</span>
                                 <span
@@ -587,14 +626,25 @@ const copyLink = async () => {
                                     <BookMarked class="size-3.5" />
                                     <span class="hidden sm:inline">Collected</span>
                                 </span>
+                                <button
+                                    v-else-if="isLoggedIn"
+                                    class="flex shrink-0 items-center gap-1 rounded text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                                    title="Add to Collection"
+                                    :disabled="addingPackageIds.has(box.id)"
+                                    @click.stop="addPackageToCollection(box.id)"
+                                >
+                                    <Plus class="size-3.5" />
+                                    <span class="hidden sm:inline">Add to Collection</span>
+                                </button>
+                                <span v-if="isWishlisted(box.id)" class="flex shrink-0 items-center gap-1" style="color: #f43f5e" title="On Wishlist">
+                                    <Heart class="size-3.5 fill-current" />
+                                    <span class="hidden sm:inline">Wishlisted</span>
+                                </span>
                                 <span v-if="formatMsrp(box.msrp)" class="shrink-0 font-medium">{{ formatMsrp(box.msrp) }}</span>
                                 <span class="shrink-0">{{ box.characters.length }} {{ box.characters.length === 1 ? 'model' : 'models' }}</span>
-                                <ChevronDown
-                                    class="hidden h-4 w-4 shrink-0 transition-transform sm:ml-1 sm:block"
-                                    :class="{ 'rotate-180': isOpen(box.slug) }"
-                                />
-                            </div>
-                        </CollapsibleTrigger>
+                                <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:ml-1" :class="{ 'rotate-180': isOpen(box.slug) }" />
+                            </CollapsibleTrigger>
+                        </div>
                         <CollapsibleContent class="border-t px-4 py-4">
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
                                 <div

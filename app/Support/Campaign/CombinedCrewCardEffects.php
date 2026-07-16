@@ -31,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class CombinedCrewCardEffects
 {
     /**
-     * @return array<int, array{type: 'action'|'ability'|'trigger', qualifier: string|null, data: array<string, mixed>}>
+     * @return array<int, array{type: 'action'|'ability'|'trigger'|'text', qualifier: string|null, data: array<string, mixed>}>
      */
     public static function build(CampaignCrew $crew): array
     {
@@ -39,6 +39,9 @@ class CombinedCrewCardEffects
 
         $starter = $crew->crewCardEffect;
         if ($starter) {
+            if ($starter->description) {
+                $items[] = ['type' => 'text', 'qualifier' => null, 'data' => ['body' => $starter->description]];
+            }
             foreach ($starter->actions as $action) {
                 $items[] = ['type' => 'action', 'qualifier' => null, 'data' => self::shapeAction($action)];
             }

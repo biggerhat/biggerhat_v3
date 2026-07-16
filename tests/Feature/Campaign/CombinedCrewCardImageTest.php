@@ -105,6 +105,21 @@ it('capture page includes a standalone trigger from a keyword-matched Crew Card 
         }));
 });
 
+it('capture page includes the starter effect\'s own description as a text item', function () {
+    [, $crew] = combinedCardFixture();
+
+    $starter = CampaignCrewCard::factory()->create(['description' => 'This crew card grants a permanent boon.']);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('items', function ($items) {
+            $match = collect($items)->firstWhere('data.body', 'This crew card grants a permanent boon.');
+
+            return $match && $match['type'] === 'text' && $match['qualifier'] === null;
+        }));
+});
+
 it('Starting Arsenal dispatches a combined card regeneration', function () {
     Bus::fake();
     [$user, $crew] = combinedCardFixture();

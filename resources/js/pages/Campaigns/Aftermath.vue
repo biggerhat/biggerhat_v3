@@ -929,7 +929,10 @@ const submitInjuries = () => {
                     <Label>Schemes completed (0–3)</Label>
                     <Input type="number" min="0" max="3" v-model.number="handForm.schemes_completed" />
                 </div>
-                <Button :disabled="!is_owner" @click="drawHand">Confirm — draw my hand</Button>
+                <div class="flex items-center justify-between">
+                    <div />
+                    <Button :disabled="!is_owner" @click="drawHand">Confirm — draw my hand</Button>
+                </div>
             </CardContent>
         </Card>
 
@@ -1555,7 +1558,7 @@ const submitInjuries = () => {
         </Card>
 
         <!-- Phase 6 — flips sub-step -->
-        <Card v-if="aftermath.current_phase === 6 && phase6Step === 'flips'" class="mb-4">
+        <Card v-if="aftermath.current_phase === 6 && phase6Step === 'flips' && aftermath.status !== 'locked'" class="mb-4">
             <CardHeader>
                 <CardTitle>Phase 6 — Determine Injuries</CardTitle>
                 <p class="text-sm text-muted-foreground">
@@ -1666,7 +1669,7 @@ const submitInjuries = () => {
         </Card>
 
         <!-- Phase 6 — review sub-step: nothing here is persisted until "Lock it in" -->
-        <Card v-if="aftermath.current_phase === 6 && phase6Step === 'review'" class="mb-4 border-primary/50">
+        <Card v-if="aftermath.current_phase === 6 && phase6Step === 'review' && aftermath.status !== 'locked'" class="mb-4 border-primary/50">
             <CardHeader>
                 <CardTitle>Review before locking</CardTitle>
                 <p class="text-sm text-muted-foreground">

@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\AdvancementTableEnum;
+use App\Enums\CharacterStationEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
+use App\Http\Requests\Campaign\AddManualEquipmentRequest;
 use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignAftermath;
+use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
@@ -49,6 +53,45 @@ class ArsenalSheetController extends Controller
         }
 
         return $this->render($campaign, $crew, isMember: true, isOwner: $user && $user->id === $crew->user_id);
+    }
+
+    /**
+     * Ad-hoc arsenal model add — for something that happened at the table
+     * outside the normal Starting Arsenal/Weekly Hire flow (e.g. a summoned
+     * or otherwise gained model). No hireability restriction and no scrip
+     * cost by design — the crew owner self-reports what already occurred.
+     */
+    public function addManualArsenalModel(AddManualArsenalModelRequest $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        $validated = $request->validated();
+        $character = Character::select('id', 'display_name', 'station')->findOrFail($validated['character_id']);
+
+        CampaignArsenalModel::create([
+            'campaign_crew_id' => $crew->id,
+            'character_id' => $character->id,
+            'label' => $validated['label'] ?? null,
+            'is_peon' => $character->station === CharacterStationEnum::Peon,
+            'acquired_week' => $campaign->current_week,
+            'acquired_via' => 'manual',
+        ]);
+
+        return redirect()->back()->withMessage("{$character->display_name} added to the arsenal.");
+    }
+
+    /**
+     * Ad-hoc equipment add — mirrors addManualArsenalModel() for equipment
+     * gained outside the normal Barter/Aftermath flow.
+     */
+    public function addManualEquipment(AddManualEquipmentRequest $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        $validated = $request->validated();
+        $equipment = CampaignEquipment::create([
+            'campaign_crew_id' => $crew->id,
+            'equipment_upgrade_id' => $validated['equipment_upgrade_id'],
+            'source' => 'manual',
+        ]);
+
+        return redirect()->back()->withMessage("{$equipment->catalog?->name} added to the equipment locker.");
     }
 
     /**
@@ -242,6 +285,9 @@ class ArsenalSheetController extends Controller
             // what actually changed that week (pulled from tables that are
             // already per-aftermath-linked — no new schema needed).
             'story_log' => $this->storyLog($crew),
+            // Only the owner can add equipment ad hoc — no need to load the
+            // full catalog for viewers/the public share link.
+            'equipment_catalog' => $isOwner ? fn () => AftermathCatalog::equipment() : null,
             'view_mode' => [
                 'is_member' => $isMember,
                 'is_owner' => $isOwner,
@@ -290,7 +336,6 @@ class ArsenalSheetController extends Controller
     {
         $aftermaths = CampaignAftermath::query()
             ->where('campaign_crew_id', $crew->id)
-            ->whereNotNull('story_entry')
             ->with('campaignGame:id,week_number,crew_a_id,crew_b_id')
             ->orderBy('created_at')
             ->get();

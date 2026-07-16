@@ -37,14 +37,18 @@ interface AbilityData {
     description: string | null;
 }
 
+interface TextData {
+    body: string;
+}
+
 interface CombinedItem {
-    type: 'action' | 'ability' | 'trigger';
+    type: 'action' | 'ability' | 'trigger' | 'text';
     // Restriction qualifying text (pg 32, 54) — printed above the effect it
     // gates, e.g. "Friendly Ten Thunders models gain the following action:".
     // Null for the starter effect and any generic-catalog Tier-4 borrow,
     // since only a real Crew Card Upgrade's restriction pivot can produce one.
     qualifier: string | null;
-    data: ActionData | AbilityData | TriggerData;
+    data: ActionData | AbilityData | TriggerData | TextData;
 }
 
 const props = defineProps<{
@@ -63,6 +67,9 @@ const WIDTH_TIERS = [550, 650, 750, 850, 950, 1050, 1150];
 
 const totalContentChars = computed(() => {
     return props.items.reduce((sum, item) => {
+        if (item.type === 'text') {
+            return sum + (item.data as TextData).body.length;
+        }
         const d = item.data as ActionData & AbilityData;
         const qualifierChars = item.qualifier?.length ?? 0;
         const triggerChars = 'triggers' in d ? d.triggers.reduce((ts, t) => ts + (t.description?.length ?? 0) + t.name.length, 0) : 0;
@@ -79,6 +86,7 @@ const cardHeight = computed(() => Math.round(cardWidth.value * TAROT_RATIO));
 const isAction = (item: CombinedItem): item is CombinedItem & { data: ActionData } => item.type === 'action';
 const isAbility = (item: CombinedItem): item is CombinedItem & { data: AbilityData } => item.type === 'ability';
 const isTrigger = (item: CombinedItem): item is CombinedItem & { data: TriggerData } => item.type === 'trigger';
+const isText = (item: CombinedItem): item is CombinedItem & { data: TextData } => item.type === 'text';
 </script>
 
 <template>
@@ -108,8 +116,13 @@ const isTrigger = (item: CombinedItem): item is CombinedItem & { data: TriggerDa
                     {{ item.qualifier }}
                 </p>
 
+                <!-- Starter effect's own flavor/rule text -->
+                <div v-if="isText(item)" class="px-2 py-1.5 text-white/80">
+                    <GameText :text="item.data.body" icon-class="h-3.5 inline-block align-text-bottom" />
+                </div>
+
                 <!-- Ability -->
-                <div v-if="isAbility(item)" class="px-2 py-1.5">
+                <div v-else-if="isAbility(item)" class="px-2 py-1.5">
                     <span class="font-bold">
                         <GameIcon v-if="item.data.costs_stone" type="soulstone" class-name="text-sm" />
                         <GameIcon

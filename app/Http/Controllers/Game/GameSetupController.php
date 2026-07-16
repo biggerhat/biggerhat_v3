@@ -984,23 +984,66 @@ class GameSetupController extends Controller
      * `attached_upgrades`. Unlike equipment these are permanent and carried
      * into every game the model is hired for — never an optional pick.
      *
-     * @return array<int, array{id: int, name: string, front_image: string|null, back_image: string|null}>
+     * Includes full actions/abilities (same shape as ownedEquipmentForAttachment())
+     * so the in-play attached-upgrade drawer can render the injury's real
+     * effect instead of falling back to just its flavor description.
+     *
+     * @return array<int, array{id: int, name: string, front_image: string|null, back_image: string|null, description: string|null, actions: array<int, array<string, mixed>>, abilities: array<int, array<string, mixed>>}>
      */
     private function injuryUpgrades(string $column, int $id): array
     {
         return \App\Models\Campaign\CampaignArsenalModelInjury::query()
             ->where($column, $id)
-            ->with('injury:id,name,front_image,back_image,description')
+            ->with([
+                'injury:id,name,front_image,back_image,description',
+                'injury.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'injury.abilities',
+            ])
             ->get()
             ->pluck('injury')
             ->filter()
-            ->map(fn (\App\Models\Upgrade $u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'front_image' => $u->front_image,
-                'back_image' => $u->back_image,
-                'description' => $u->description,
-            ])
+            ->map(function (\App\Models\Upgrade $u) {
+                $u->actions->each(
+                    fn (\App\Models\Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                );
+
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'front_image' => $u->front_image,
+                    'back_image' => $u->back_image,
+                    'description' => $u->description,
+                    'actions' => $u->actions->map(fn (\App\Models\Action $a) => [
+                        'name' => $a->name,
+                        'type' => $a->type,
+                        'is_signature' => $a->is_signature,
+                        'stone_cost' => $a->stone_cost,
+                        'range' => $a->range,
+                        'range_type' => $a->range_type,
+                        'stat' => $a->stat,
+                        'stat_suits' => $a->stat_suits,
+                        'stat_modifier' => $a->stat_modifier,
+                        'resisted_by' => $a->resisted_by,
+                        'target_number' => $a->target_number,
+                        'target_suits' => $a->target_suits,
+                        'damage' => $a->damage,
+                        'description' => $a->description,
+                        'triggers' => $a->triggers->map(fn (\App\Models\Trigger $t) => [
+                            'name' => $t->name,
+                            'suits' => $t->suits,
+                            'stone_cost' => $t->stone_cost,
+                            'description' => $t->description,
+                        ])->all(),
+                    ])->all(),
+                    'abilities' => $u->abilities->map(fn (\App\Models\Ability $a) => [
+                        'name' => $a->name,
+                        'suits' => $a->suits,
+                        'defensive_ability_type' => $a->defensive_ability_type,
+                        'costs_stone' => $a->costs_stone,
+                        'description' => $a->description,
+                    ])->all(),
+                ];
+            })
             ->values()
             ->all();
     }

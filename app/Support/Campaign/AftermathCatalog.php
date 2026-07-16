@@ -970,8 +970,10 @@ class AftermathCatalog
      * - Attack/Tactical Mod: Mod name > Action name > Unit/Equipment name
      * - Action/Ability/Summoning: Effect name > Unit name
      * - Totem: the crew's actual current totem's own (possibly renamed) name
-     * - Crew Card: the picked Ability/Action/Trigger's own name only — no
-     *   unit context, it's a card-level effect, not applied to a model
+     * - Crew Card: the picked Ability/Action/Trigger's own name for a
+     *   granular pick (pg 32), or the card's name plus a comma-joined list of
+     *   everything it grants for a whole-card pick (no unit context either
+     *   way — it's a card-level effect, not applied to a model)
      *
      * @return array<int, string>
      */
@@ -988,7 +990,32 @@ class AftermathCatalog
                 self::advancementTargetName($row),
             ])),
             AdvancementTableEnum::Totem => array_values(array_filter([self::advancementTotemUnitName($row)])),
-            AdvancementTableEnum::CrewCard => array_values(array_filter([self::advancementDisplayName($row)])),
+            AdvancementTableEnum::CrewCard => self::advancementCrewCardContextChain($row),
         };
+    }
+
+    /**
+     * A granular pick (pg 32, crew_upgrade source with free_choice) already
+     * names the single action/ability/trigger — nothing more to add. A
+     * whole-card pick (the generic pg 15-16 catalog, or a legacy
+     * pre-granularity crew_upgrade row) only shows the card's own name via
+     * advancementDisplayName(), so append what it actually grants.
+     *
+     * @return array<int, string>
+     */
+    private static function advancementCrewCardContextChain(CampaignLeaderAdvancement $row): array
+    {
+        $name = self::advancementDisplayName($row);
+
+        if (isset($row->free_choice['crew_card_upgrade_id'])) {
+            return array_values(array_filter([$name]));
+        }
+
+        $effect = CampaignCrewCard::find($row->advancement_catalog_id) ?? Upgrade::find($row->advancement_catalog_id);
+        $granted = $effect
+            ? $effect->actions->pluck('name')->merge($effect->abilities->pluck('name'))->all()
+            : [];
+
+        return array_values(array_filter([$name, $granted ? implode(', ', $granted) : null]));
     }
 }

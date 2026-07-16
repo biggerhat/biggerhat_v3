@@ -524,6 +524,38 @@ it('submitCampaignCrew carries injuries from a previous aftermath onto the leade
         ->and(collect($hiredMember->attached_upgrades)->pluck('name')->all())->toBe(['Severe Amputation']);
 });
 
+it('submitCampaignCrew carries an injury\'s granted actions/abilities into attached_upgrades, not just the description', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+
+    $injuryUpgrade = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Rattled Nerves']);
+    $action = \App\Models\Action::factory()->create(['name' => 'Flinch']);
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Shaky Hands']);
+    $injuryUpgrade->actions()->attach($action->id, ['is_signature_action' => false]);
+    $injuryUpgrade->abilities()->attach($ability->id);
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $arsenalModel->id,
+        'injury_upgrade_id' => $injuryUpgrade->id,
+    ]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => [$arsenalModel->id],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $hiredMember = \App\Models\GameCrewMember::where('game_id', $game->id)
+        ->where('game_player_id', $player->id)
+        ->firstWhere('display_name', $hired->display_name);
+
+    $injury = collect($hiredMember->attached_upgrades)->firstWhere('name', 'Rattled Nerves');
+    expect(collect($injury['actions'])->pluck('name')->all())->toBe(['Flinch']);
+    expect(collect($injury['abilities'])->pluck('name')->all())->toBe(['Shaky Hands']);
+});
+
 it('submitCampaignCrew assigns owned equipment to the Leader or a specific hire (pg 19)', function () {
     [$userA, , , $crewA, , $game] = campaignGameSetup();
 

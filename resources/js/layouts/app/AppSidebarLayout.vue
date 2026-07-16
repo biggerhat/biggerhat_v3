@@ -20,7 +20,15 @@ withDefaults(defineProps<Props>(), {
 });
 
 const page = usePage();
-const pageKey = computed(() => page.url);
+// Keyed on the component, not the full URL: query-string-only navigations
+// (pagination, in-place filters, infinite scroll's own `router.get` calls)
+// share the same page component and must NOT replay the exit/enter
+// transition — doing so unmounts the whole slotted page subtree, wiping any
+// local component state (e.g. Search/View's Infinite Scroll toggle) even
+// though the visit passed `preserveState: true`. Keying on the URL only
+// makes sense for genuine page-to-page navigation, which is exactly when
+// the Inertia component name changes.
+const pageKey = computed(() => page.component);
 
 // Bridge server-side session flash messages → toasts. The flash payload is
 // shared via HandleInertiaRequests and changes on every Inertia navigation.

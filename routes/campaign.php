@@ -107,6 +107,11 @@ Route::middleware(['campaign.access'])->group(function () {
         // Arsenal Sheet (authenticated path — public share is above).
         Route::get('/campaigns/{campaign}/crews/{crew}/arsenal', [ArsenalSheetController::class, 'show'])
             ->name('campaigns.crews.arsenal.show');
+        // Ad-hoc unit/equipment adds — mid-game events outside Starting Arsenal/Weekly Hire/Aftermath.
+        Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/models', [ArsenalSheetController::class, 'addManualArsenalModel'])
+            ->name('campaigns.crews.arsenal.models.store');
+        Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/equipment', [ArsenalSheetController::class, 'addManualEquipment'])
+            ->name('campaigns.crews.arsenal.equipment.store');
 
         // Weekly cycle. Organizer advances the week (+ rolls Weekly Event if enabled).
         Route::post('/campaigns/{campaign}/weeks/advance', [WeeklyCycleController::class, 'advance'])

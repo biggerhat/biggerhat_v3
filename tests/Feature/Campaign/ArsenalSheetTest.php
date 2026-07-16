@@ -136,7 +136,7 @@ it('exposes arsenal models + crew card effect in the payload', function () {
         );
 });
 
-it('exposes story_log entries in chronological order, only for locked aftermaths with a written entry', function () {
+it('exposes story_log entries in chronological order, including games with no story written', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
 
@@ -155,7 +155,7 @@ it('exposes story_log entries in chronological order, only for locked aftermaths
         'campaign_game_id' => $gameB->id,
         'campaign_crew_id' => $crew->id,
         'status' => 'locked',
-        'story_entry' => null, // no entry written — must not appear
+        'story_entry' => null, // no entry written — still appears, just without story text
         'created_at' => now()->subDay(),
     ]);
     \App\Models\Campaign\CampaignAftermath::factory()->create([
@@ -170,10 +170,12 @@ it('exposes story_log entries in chronological order, only for locked aftermaths
         ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('story_log', 2)
+            ->has('story_log', 3)
             ->where('story_log.0.story_entry', 'First game of the campaign.')
             ->where('story_log.0.week_number', 1)
-            ->where('story_log.1.story_entry', 'Second entry, more recent.')
+            ->where('story_log.1.story_entry', null)
+            ->where('story_log.1.week_number', 2)
+            ->where('story_log.2.story_entry', 'Second entry, more recent.')
         );
 });
 
@@ -476,6 +478,50 @@ it('leader_advancements resolves a held Crew Card effect\'s name, since the cata
         );
 });
 
+it('leader_advancements context_chain lists a whole-card Crew Card grant\'s actions/abilities alongside its name', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Log Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'base' => 30,
+    ]);
+
+    $borrowedEffect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash']);
+    $grantedAction = \App\Models\Action::factory()->create(['name' => 'Swing']);
+    $grantedAbility = \App\Models\Ability::factory()->create(['name' => 'Aegis']);
+    $borrowedEffect->actions()->attach($grantedAction->id, ['is_signature_action' => false]);
+    $borrowedEffect->abilities()->attach($grantedAbility->id);
+
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $borrowedEffect->id,
+        'crew_card_effect_type' => CampaignCrewCard::class,
+    ]);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::CrewCard->value,
+        'advancement_catalog_id' => $borrowedEffect->id,
+        'catalog_core_id' => $borrowedEffect->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('leader_advancements.0.context_chain', ['Loot Their Stash', 'Swing, Aegis'])
+        );
+});
+
 it('crew_card_advancements exposes only the single picked item for a new-style crew_upgrade Tier-4 pick, not the whole source card', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -711,4 +757,85 @@ it('exposes an arsenal model\'s permanently gained Abilities from a Lucky Miss r
             ->where('crew.arsenal_models.0.gained_abilities.0.name', 'Uncanny Luck')
             ->where('crew.arsenal_models.0.gained_abilities.0.description', 'Once per turn...')
         );
+});
+
+it('addManualArsenalModel lets the crew owner add a unit outside the normal hire flow, no restrictions', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $character = Character::factory()->create(['display_name' => 'Ad Hoc Ally']);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.models.store', [$campaign, $crew->share_code]), [
+            'character_id' => $character->id,
+            'label' => 'Summoned mid-game',
+        ])
+        ->assertRedirect();
+
+    $model = CampaignArsenalModel::where('campaign_crew_id', $crew->id)->where('character_id', $character->id)->first();
+    expect($model)->not->toBeNull()
+        ->and($model->label)->toBe('Summoned mid-game')
+        ->and($model->acquired_via)->toBe('manual')
+        ->and($model->acquired_week)->toBe($campaign->current_week);
+});
+
+it('addManualArsenalModel rejects a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $character = Character::factory()->create();
+
+    $this->actingAs($other)
+        ->post(route('campaigns.crews.arsenal.models.store', [$campaign, $crew->share_code]), ['character_id' => $character->id])
+        ->assertForbidden();
+
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
+it('addManualArsenalModel rejects an unknown character_id', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.models.store', [$campaign, $crew->share_code]), ['character_id' => 999999])
+        ->assertSessionHasErrors('character_id');
+});
+
+it('addManualEquipment lets the crew owner add equipment outside the normal Barter/Aftermath flow', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $equipment = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Found Trinket']);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.equipment.store', [$campaign, $crew->share_code]), [
+            'equipment_upgrade_id' => $equipment->id,
+        ])
+        ->assertRedirect();
+
+    $row = \App\Models\Campaign\CampaignEquipment::where('campaign_crew_id', $crew->id)->where('equipment_upgrade_id', $equipment->id)->first();
+    expect($row)->not->toBeNull()->and($row->source)->toBe('manual');
+});
+
+it('addManualEquipment rejects a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $equipment = \App\Models\Upgrade::factory()->campaignEquipment()->create();
+
+    $this->actingAs($other)
+        ->post(route('campaigns.crews.arsenal.equipment.store', [$campaign, $crew->share_code]), ['equipment_upgrade_id' => $equipment->id])
+        ->assertForbidden();
+
+    expect(\App\Models\Campaign\CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
+it('addManualEquipment rejects an upgrade that is not a campaign equipment catalog row', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $notEquipment = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Character->value]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.equipment.store', [$campaign, $crew->share_code]), [
+            'equipment_upgrade_id' => $notEquipment->id,
+        ])
+        ->assertSessionHasErrors('equipment_upgrade_id');
 });

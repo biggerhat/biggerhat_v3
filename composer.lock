@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "362c56f1f9a07224cfc0c36defb9029e",
+    "content-hash": "c9f6ee6d7d11efa1ef0f5ea1eebdcd1c",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -9223,71 +9223,6 @@
                 "source": "https://github.com/webmozarts/assert/tree/1.11.0"
             },
             "time": "2022-06-03T18:03:27+00:00"
-        },
-        {
-            "name": "well35/laravel-enum-objects",
-            "version": "v0.2.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Well35/laravel-enum-objects.git",
-                "reference": "be4b4abba3988a4a79826bb7665d98010d6cb711"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Well35/laravel-enum-objects/zipball/be4b4abba3988a4a79826bb7665d98010d6cb711",
-                "reference": "be4b4abba3988a4a79826bb7665d98010d6cb711",
-                "shasum": ""
-            },
-            "require": {
-                "illuminate/console": "^11.0|^12.0",
-                "illuminate/support": "^11.0|^12.0",
-                "php": "^8.4"
-            },
-            "require-dev": {
-                "orchestra/testbench": "^9.0|^10.0",
-                "pestphp/pest": "^3.8",
-                "phpstan/phpstan": "^2.2"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Well35\\EnumObjects\\EnumObjectsServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Well35\\EnumObjects\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "well35",
-                    "role": "Maintainer"
-                },
-                {
-                    "name": "IronSinew",
-                    "role": "Original concept"
-                }
-            ],
-            "description": "Generate frontend enum objects from PHP enums, so backend enums are the single source of truth.",
-            "keywords": [
-                "codegen",
-                "enum",
-                "frontend",
-                "laravel",
-                "typescript"
-            ],
-            "support": {
-                "issues": "https://github.com/Well35/laravel-enum-objects/issues",
-                "source": "https://github.com/Well35/laravel-enum-objects/tree/v0.2.0"
-            },
-            "time": "2026-07-15T20:49:48+00:00"
         }
     ],
     "packages-dev": [
@@ -12963,7 +12898,7 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.4",
+        "php": "^8.2",
         "ext-gd": "*"
     },
     "platform-dev": {},

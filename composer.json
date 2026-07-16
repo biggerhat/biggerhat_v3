@@ -9,7 +9,7 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.4",
+        "php": "^8.2",
         "ext-gd": "*",
         "barryvdh/laravel-dompdf": "^3.1",
         "dedoc/scramble": "^0.13.14",
@@ -27,8 +27,7 @@
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-analytics": "^5.6",
         "spatie/laravel-permission": "^6.16",
-        "tightenco/ziggy": "^2.4",
-        "well35/laravel-enum-objects": "^0.2.0"
+        "tightenco/ziggy": "^2.4"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.5",

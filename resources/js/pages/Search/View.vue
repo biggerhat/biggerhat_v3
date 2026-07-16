@@ -52,7 +52,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { cleanObject } from '@/composables/CleanObject';
-import { CharacterStationEnum } from '@/types/generated/CharacterStationEnum';
 
 const booleanOptions = [
     { name: 'Yes', value: 'true' },
@@ -1426,8 +1425,8 @@ const selectNameSuggestion = (item: any) => {
 
 // --- Feature 8: Search presets ---
 const searchPresets = [
-    { label: 'All Masters', params: { station: CharacterStationEnum.Master.value } },
-    { label: 'Cheap Minions (Cost <= 5)', params: { station: CharacterStationEnum.Minion.value, cost_max: '5' } },
+    { label: 'All Masters', params: { station: 'master' } },
+    { label: 'Cheap Minions (Cost <= 5)', params: { station: 'minion', cost_max: '5' } },
     { label: 'Fast Models (Speed >= 6)', params: { speed_min: '6' } },
     { label: 'Tanky (Health >= 10)', params: { health_min: '10' } },
     { label: 'High Defense (Defense >= 6)', params: { defense_min: '6' } },

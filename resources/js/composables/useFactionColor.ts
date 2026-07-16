@@ -1,9 +1,12 @@
-import { FactionEnum } from '@/types/generated/FactionEnum';
-
-const FACTION_COLOR_BY_SLUG: Record<string, string> = Object.fromEntries(Object.values(FactionEnum).map((f) => [f.value, f.color]));
-
 export function useFactionColor(factionSlug: string): string {
-    return FACTION_COLOR_BY_SLUG[factionSlug] ?? factionSlug;
+    switch (factionSlug) {
+        case 'explorers_society':
+            return 'explorerssociety';
+        case 'ten_thunders':
+            return 'tenthunders';
+        default:
+            return factionSlug;
+    }
 }
 
 /**

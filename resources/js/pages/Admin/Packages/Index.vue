@@ -15,20 +15,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useVueTable } from '@tanstack/vue-table';
 
 const showUnattachedOnly = ref(false);
+const showNeedsReviewOnly = ref(false);
 const searchText = ref('');
 
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
-    const { search, unattachedOnly } = filterValue as { search: string; unattachedOnly: boolean };
+    const { search, unattachedOnly, needsReviewOnly } = filterValue as { search: string; unattachedOnly: boolean; needsReviewOnly: boolean };
     const term = search.toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
 
-    const matchesSearch = !term || name.includes(term);
+    let matches = !term || name.includes(term);
 
     if (unattachedOnly) {
-        return matchesSearch && row.original.characters_count === 0 && row.original.miniatures_count === 0 && row.original.tos_units_count === 0;
+        matches = matches && row.original.characters_count === 0 && row.original.miniatures_count === 0 && row.original.tos_units_count === 0;
     }
 
-    return matchesSearch;
+    if (needsReviewOnly) {
+        matches = matches && !!row.original.is_auto_generated;
+    }
+
+    return matches;
 };
 
 const columns: ColumnDef<any>[] = [
@@ -36,7 +41,21 @@ const columns: ColumnDef<any>[] = [
         accessorKey: 'name',
         header: () => h('div', {}, 'Name'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('name'));
+            const nodes = [h('span', {}, row.getValue('name') as string)];
+            if (row.original.is_auto_generated) {
+                nodes.push(
+                    h(
+                        Badge,
+                        {
+                            variant: 'outline',
+                            class: 'ml-2 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400',
+                            title: 'Derived from the box-contents reference data — needs review',
+                        },
+                        () => 'Needs Review',
+                    ),
+                );
+            }
+            return h('div', {}, nodes);
         },
     },
     {
@@ -121,7 +140,11 @@ const props = defineProps<{
 
 const sorting = ref<SortingState>([]);
 
-const globalFilterValue = computed(() => ({ search: searchText.value, unattachedOnly: showUnattachedOnly.value }));
+const globalFilterValue = computed(() => ({
+    search: searchText.value,
+    unattachedOnly: showUnattachedOnly.value,
+    needsReviewOnly: showNeedsReviewOnly.value,
+}));
 
 const table = useVueTable({
     get data() {
@@ -163,6 +186,10 @@ const table = useVueTable({
                 <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
                     <Checkbox :checked="showUnattachedOnly" @update:checked="(val: boolean) => (showUnattachedOnly = val)" />
                     Unattached only
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
+                    <Checkbox :checked="showNeedsReviewOnly" @update:checked="(val: boolean) => (showNeedsReviewOnly = val)" />
+                    Needs review only
                 </label>
             </div>
             <div>Total {{ table.getFilteredRowModel().rows.length }}</div>

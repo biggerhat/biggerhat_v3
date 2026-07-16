@@ -175,6 +175,7 @@ it('includes msrp, category, and character keywords in box contents', function (
             ->component('Packages/Contents')
             ->where('packages.0.msrp', 4500)
             ->where('packages.0.category', 'core_box')
+            ->where('packages.0.is_auto_generated', false)
             ->where('packages.0.characters.0.keywords.0', 'Academic')
             ->has('categories')
             ->has('keywords')

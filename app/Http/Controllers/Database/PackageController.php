@@ -111,6 +111,7 @@ class PackageController extends Controller
                 'category' => $package->category?->value,
                 'category_label' => $package->category?->label(),
                 'msrp' => $package->msrp,
+                'is_auto_generated' => $package->is_auto_generated,
                 'characters' => $package->characters->map(fn (Character $c) => [
                     'display_name' => $c->display_name,
                     'slug' => $c->slug,

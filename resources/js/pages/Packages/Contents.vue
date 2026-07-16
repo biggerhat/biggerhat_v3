@@ -39,6 +39,7 @@ interface Box {
     category: string | null;
     category_label: string | null;
     msrp: number | null;
+    is_auto_generated: boolean;
     characters: BoxCharacter[];
 }
 
@@ -189,6 +190,14 @@ const hasActiveFilters = computed(() => isFiltering.value);
                                     {{ box.name }}
                                 </Link>
                                 <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
+                                <Badge
+                                    v-if="box.is_auto_generated"
+                                    variant="outline"
+                                    class="shrink-0 border-amber-500/50 text-xs text-amber-600 dark:text-amber-400"
+                                    title="Derived from the box-contents reference data — not an official Wyrd product listing yet"
+                                >
+                                    Unverified
+                                </Badge>
                                 <span v-if="box.legacy_m3e_name" class="hidden shrink-0 text-xs text-muted-foreground sm:inline">
                                     (M3E: {{ box.legacy_m3e_name }})
                                 </span>

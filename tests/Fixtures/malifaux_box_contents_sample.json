@@ -62,5 +62,13 @@
         "keyword": "Woe",
         "m4e_box": "Pandora Tyrant Torn",
         "m3e_box": null
+    },
+    {
+        "model_name": "Kandara",
+        "copies": 2,
+        "faction": "Arcanists",
+        "keyword": "Academic",
+        "m4e_box": "Totally New Unreleased Box",
+        "m3e_box": null
     }
 ]

@@ -33,6 +33,7 @@ class Package extends Model
             'game_system' => GameSystemEnum::class,
             'factions' => 'array',
             'is_preassembled' => 'boolean',
+            'is_auto_generated' => 'boolean',
             'released_at' => 'date',
         ];
     }

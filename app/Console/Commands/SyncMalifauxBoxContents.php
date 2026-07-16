@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\GameSystemEnum;
+use App\Enums\PackageCategoryEnum;
 use App\Models\Character;
 use App\Models\Package;
 use Illuminate\Console\Command;
@@ -39,33 +40,22 @@ class SyncMalifauxBoxContents extends Command
         $rows = json_decode(File::get($path), true);
         $grouped = collect($rows)->groupBy('m4e_box');
 
-        $this->allCharacters = Character::all();
+        $this->allCharacters = Character::with('keywords')->get();
         $this->allPackages = Package::whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])->get();
 
         $commit = (bool) $this->option('commit');
 
         $boxesMatched = 0;
-        $boxesUnmatched = [];
+        $boxesCreated = 0;
         $charactersMatched = 0;
         $charactersUnmatched = [];
 
         foreach ($grouped as $boxName => $items) {
-            $package = $this->matchPackage($boxName);
-
-            if (! $package) {
-                $boxesUnmatched[] = $boxName;
-                $this->line("<comment>?</comment> {$boxName} — no matching Package");
-                foreach ($items as $item) {
-                    $this->line("    (skipped) {$item['model_name']}");
-                }
-
-                continue;
-            }
-
-            $boxesMatched++;
-            $this->line("<info>✓</info> {$boxName} → {$package->name}");
-
+            // Match characters first — a box with no Package match still
+            // needs its matched characters to derive factions/keywords for
+            // the auto-created Package below.
             $syncData = [];
+            $matchedCharacters = collect();
             foreach ($items as $item) {
                 $character = $this->allCharacters->first(
                     fn (Character $c) => $this->namesMatch($c->display_name, $item['model_name'])
@@ -73,6 +63,7 @@ class SyncMalifauxBoxContents extends Command
 
                 if ($character) {
                     $charactersMatched++;
+                    $matchedCharacters->push($character);
                     $syncData[$character->id] = ['quantity' => $item['copies']];
                     $this->line("    <info>✓</info> {$item['model_name']} (x{$item['copies']}) → {$character->display_name}");
                 } else {
@@ -81,10 +72,39 @@ class SyncMalifauxBoxContents extends Command
                 }
             }
 
-            if ($commit) {
+            $package = $this->matchPackage($boxName);
+            $m3eName = $items->pluck('m3e_box')->filter()->first();
+
+            if ($package) {
+                $boxesMatched++;
+                $this->line("<info>✓</info> {$boxName} → {$package->name}");
+            } else {
+                $boxesCreated++;
+                $factions = $matchedCharacters->pluck('faction')->unique()->map(fn ($f) => $f->value)->values()->all();
+                $keywordNames = $matchedCharacters->flatMap->keywords->pluck('name')->unique()->values();
+
+                if ($commit) {
+                    $package = Package::create([
+                        'name' => $boxName,
+                        'game_system' => GameSystemEnum::Malifaux,
+                        'category' => PackageCategoryEnum::Other,
+                        'factions' => $factions ?: null,
+                        'is_auto_generated' => true,
+                    ]);
+                    $this->line("<info>+</info> {$boxName} — no matching Package, created one (factions: ".(implode(', ', $factions) ?: 'none').', keywords: '.($keywordNames->implode(', ') ?: 'none').')');
+                } else {
+                    $this->line("<comment>?</comment> {$boxName} — no matching Package (would create one; factions: ".(implode(', ', $factions) ?: 'none').', keywords: '.($keywordNames->implode(', ') ?: 'none').')');
+                }
+            }
+
+            if ($commit && $package) {
                 $package->characters()->syncWithoutDetaching($syncData);
 
-                $m3eName = $items->pluck('m3e_box')->filter()->first();
+                if ($package->is_auto_generated) {
+                    $keywordIds = $matchedCharacters->flatMap->keywords->pluck('id')->unique()->values();
+                    $package->keywords()->syncWithoutDetaching($keywordIds);
+                }
+
                 if ($m3eName && ! $package->legacy_m3e_name) {
                     $package->update(['legacy_m3e_name' => $m3eName]);
                 }
@@ -93,23 +113,22 @@ class SyncMalifauxBoxContents extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            'Boxes matched: %d/%d. Characters matched: %d/%d.',
+            'Boxes matched: %d/%d. Boxes %s: %d. Characters matched: %d/%d.',
             $boxesMatched,
             $grouped->count(),
+            $commit ? 'created' : 'that would be created',
+            $boxesCreated,
             $charactersMatched,
             $charactersMatched + count($charactersUnmatched),
         ));
 
-        if ($boxesUnmatched) {
-            $this->warn('Unmatched boxes ('.count($boxesUnmatched).'): '.implode('; ', $boxesUnmatched));
-        }
         if ($charactersUnmatched) {
             $this->warn('Unmatched characters ('.count($charactersUnmatched).'): '.implode('; ', array_unique($charactersUnmatched)));
         }
 
         if (! $commit) {
             $this->newLine();
-            $this->comment('Dry run only — re-run with --commit to write quantities and legacy box names.');
+            $this->comment('Dry run only — re-run with --commit to write quantities, legacy box names, and create Packages for unmatched boxes.');
         }
 
         return self::SUCCESS;

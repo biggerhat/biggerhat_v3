@@ -105,13 +105,16 @@ class PackageController extends Controller
             ->orderBy('name')
             ->get()
             ->map(fn (Package $package) => [
+                'id' => $package->id,
                 'name' => $package->name,
                 'slug' => $package->slug,
                 'legacy_m3e_name' => $package->legacy_m3e_name,
                 'category' => $package->category?->value,
                 'category_label' => $package->category?->label(),
                 'msrp' => $package->msrp,
+                'released_at' => $package->released_at,
                 'is_auto_generated' => $package->is_auto_generated,
+                'is_standard_edition' => in_array(SculptVersionEnum::from($package->sculpt_version), SculptVersionEnum::standardEditions(), true),
                 'characters' => $package->characters->map(fn (Character $c) => [
                     'display_name' => $c->display_name,
                     'slug' => $c->slug,

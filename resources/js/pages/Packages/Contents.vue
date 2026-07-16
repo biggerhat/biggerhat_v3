@@ -534,7 +534,7 @@ const copyLink = async () => {
         </div>
 
         <div class="container mx-auto mb-4 sm:px-4">
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
                 <button
                     v-for="(faction, key) in factions"
                     :key="key"
@@ -554,41 +554,45 @@ const copyLink = async () => {
             <div v-else class="space-y-2">
                 <Collapsible v-for="box in sortedBoxes" :key="box.slug" :open="isOpen(box.slug)" @update:open="toggleBox(box.slug)">
                     <div class="rounded-lg border">
-                        <CollapsibleTrigger class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/50">
+                        <!-- Name always gets its own full-width line so a long
+                             box name never gets squeezed by badges/MSRP/model
+                             count — those flow into a second, wrapping line of
+                             small muted text instead of competing for the same
+                             row (the previous single-row layout is what made
+                             the name unreadable on narrow screens). Same
+                             structure at every breakpoint, just column vs
+                             row. -->
+                        <CollapsibleTrigger
+                            class="flex w-full flex-col gap-1.5 px-4 py-3 text-left hover:bg-muted/50 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3"
+                        >
                             <div class="flex min-w-0 items-center gap-2">
                                 <Link
                                     :href="route('packages.view', { package: box.slug })"
-                                    class="truncate font-semibold text-primary hover:underline"
+                                    class="min-w-0 flex-1 truncate font-semibold text-primary hover:underline sm:flex-initial"
                                     @click.stop
                                 >
                                     {{ box.name }}
                                 </Link>
-                                <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
-                                <Badge
-                                    v-if="box.is_auto_generated"
-                                    variant="outline"
-                                    class="shrink-0 border-amber-500/50 text-xs text-amber-600 dark:text-amber-400"
-                                    title="Derived from the box-contents reference data — not an official Wyrd product listing yet"
-                                >
-                                    Unverified
-                                </Badge>
-                                <span v-if="box.legacy_m3e_name" class="hidden shrink-0 text-xs text-muted-foreground sm:inline">
-                                    (M3E: {{ box.legacy_m3e_name }})
-                                </span>
+                                <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:hidden" :class="{ 'rotate-180': isOpen(box.slug) }" />
                             </div>
-                            <div class="flex shrink-0 items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
+                                <span v-if="box.legacy_m3e_name" class="hidden shrink-0 sm:inline">(M3E: {{ box.legacy_m3e_name }})</span>
                                 <span
                                     v-if="isCollected(box.id)"
-                                    class="flex items-center gap-1 text-[11px]"
+                                    class="flex shrink-0 items-center gap-1"
                                     style="color: #059669"
                                     title="In Collection"
                                 >
                                     <BookMarked class="size-3.5" />
                                     <span class="hidden sm:inline">Collected</span>
                                 </span>
-                                <span v-if="formatMsrp(box.msrp)" class="text-xs font-medium text-muted-foreground">{{ formatMsrp(box.msrp) }}</span>
-                                <span class="text-xs text-muted-foreground">{{ box.characters.length }} models</span>
-                                <ChevronDown class="h-4 w-4 shrink-0 transition-transform" :class="{ 'rotate-180': isOpen(box.slug) }" />
+                                <span v-if="formatMsrp(box.msrp)" class="shrink-0 font-medium">{{ formatMsrp(box.msrp) }}</span>
+                                <span class="shrink-0">{{ box.characters.length }} {{ box.characters.length === 1 ? 'model' : 'models' }}</span>
+                                <ChevronDown
+                                    class="hidden h-4 w-4 shrink-0 transition-transform sm:ml-1 sm:block"
+                                    :class="{ 'rotate-180': isOpen(box.slug) }"
+                                />
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent class="border-t px-4 py-4">

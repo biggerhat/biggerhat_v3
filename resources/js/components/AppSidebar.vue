@@ -4,11 +4,21 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar,
+} from '@/components/ui/sidebar';
 import { buildMainNav, buildTosNav } from '@/lib/navData';
 import { type NavItem, SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { useSwipe } from '@vueuse/core';
+import { computed, onMounted } from 'vue';
 import AppLogo from './AppLogo.vue';
 import GameSystemSwitcher from './GameSystemSwitcher.vue';
 
@@ -82,6 +92,24 @@ const mainNavItems = computed(() =>
 // duplicate link — the sidebar footer still renders NavFooter for the
 // guest-only Login item below.
 const footerNavItems: NavItem[] = [];
+
+const { isMobile, openMobile, setOpenMobile } = useSidebar();
+
+// Swipe-right-from-the-edge opens the mobile sidebar. Restricted to swipes
+// starting within EDGE_ZONE_PX of the left edge so it doesn't hijack normal
+// horizontal scrolling elsewhere on the page (wide tables, card carousels).
+const EDGE_ZONE_PX = 24;
+
+onMounted(() => {
+    const { coordsStart, direction } = useSwipe(window, {
+        onSwipeEnd() {
+            if (!isMobile.value || openMobile.value) return;
+            if (direction.value === 'right' && coordsStart.x <= EDGE_ZONE_PX) {
+                setOpenMobile(true);
+            }
+        },
+    });
+});
 </script>
 
 <template>

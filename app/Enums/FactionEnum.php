@@ -7,6 +7,7 @@ use App\Models\Character;
 use App\Models\Keyword;
 use App\Traits\UsesEnumLabels;
 use App\Traits\UsesEnumSelectOptions;
+use Well35\EnumObjects\Attributes\ComputedProperty;
 
 enum FactionEnum: string implements HasDefaultEnumMethods
 {
@@ -50,6 +51,7 @@ enum FactionEnum: string implements HasDefaultEnumMethods
         return $cache = $details;
     }
 
+    #[ComputedProperty]
     public function color(): string
     {
         return match ($this) {
@@ -65,6 +67,7 @@ enum FactionEnum: string implements HasDefaultEnumMethods
         };
     }
 
+    #[ComputedProperty]
     public function logo(): string
     {
         return match ($this) {

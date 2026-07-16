@@ -225,6 +225,7 @@ Route::prefix('upgrades')->name('upgrades.')->group(function () {
 
 Route::prefix('packages')->name('packages.')->group(function () {
     Route::get('/', [PackageController::class, 'index'])->name('index');
+    Route::get('/contents', [PackageController::class, 'contents'])->name('contents');
     Route::get('/{package}', [PackageController::class, 'view'])->name('view');
 });
 

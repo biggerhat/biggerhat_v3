@@ -131,3 +131,31 @@ it('returns 404 for nonexistent package', function () {
 
     $response->assertNotFound();
 });
+
+it('displays the box contents page with only packages that have characters attached', function () {
+    $withCharacters = Package::factory()->create(['name' => 'Has Characters']);
+    $withCharacters->characters()->attach(Character::factory()->create(), ['quantity' => 3]);
+    Package::factory()->create(['name' => 'No Characters']);
+
+    $response = $this->get(route('packages.contents'));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Packages/Contents')
+            ->has('packages', 1)
+            ->where('packages.0.name', 'Has Characters')
+            ->where('packages.0.characters.0.quantity', 3)
+        );
+});
+
+it('excludes TOS-only packages from box contents', function () {
+    Package::factory()->tos()->create()->characters()->attach(Character::factory()->create());
+
+    $response = $this->get(route('packages.contents'));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Packages/Contents')
+            ->has('packages', 0)
+        );
+});

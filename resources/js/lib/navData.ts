@@ -11,6 +11,7 @@ import {
     BarChart3,
     BookOpen,
     Bot,
+    Boxes,
     Calendar,
     Coins,
     Dice6,
@@ -276,6 +277,12 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     title: 'Packages',
                     href: route('packages.index'),
                     icon: Package,
+                },
+                {
+                    title: 'Box Contents',
+                    href: route('packages.contents'),
+                    icon: Boxes,
+                    keywords: 'box contents core box expansion miniatures models per box',
                 },
                 {
                     title: 'Lore',

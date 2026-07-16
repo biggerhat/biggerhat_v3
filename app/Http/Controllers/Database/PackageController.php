@@ -91,6 +91,45 @@ class PackageController extends Controller
         ]);
     }
 
+    /**
+     * A single flat, searchable reference of every box's contents — the
+     * counterpart to browsing/viewing packages one at a time above. Small
+     * enough to ship as one payload (a few hundred rows) so search/filter
+     * runs client-side with no extra round trips.
+     */
+    public function contents()
+    {
+        $packages = Package::whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])
+            ->whereHas('characters')
+            ->with('characters.standardMiniatures')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Package $package) => [
+                'name' => $package->name,
+                'slug' => $package->slug,
+                'legacy_m3e_name' => $package->legacy_m3e_name,
+                'category' => $package->category?->value,
+                'category_label' => $package->category?->label(),
+                'characters' => $package->characters->map(fn (Character $c) => [
+                    'display_name' => $c->display_name,
+                    'slug' => $c->slug,
+                    'faction' => $c->faction->value,
+                    'faction_label' => $c->faction->label(),
+                    'faction_color' => $c->faction->color(),
+                    'quantity' => $c->pivot->quantity ?? 1,
+                    'standard_miniature' => $c->standardMiniatures->first() ? [
+                        'id' => $c->standardMiniatures->first()->id,
+                        'slug' => $c->standardMiniatures->first()->slug,
+                    ] : null,
+                ])->sortBy('display_name')->values(),
+            ]);
+
+        return inertia('Packages/Contents', [
+            'packages' => $packages,
+            'factions' => fn () => FactionEnum::buildDetails(),
+        ]);
+    }
+
     public function view(Request $request, Package $package)
     {
         abort_if(! in_array($package->game_system, [GameSystemEnum::Malifaux, GameSystemEnum::Both], true), 404);

@@ -98,7 +98,12 @@ const { isMobile, openMobile, setOpenMobile } = useSidebar();
 // Swipe-right-from-the-edge opens the mobile sidebar. Restricted to swipes
 // starting within EDGE_ZONE_PX of the left edge so it doesn't hijack normal
 // horizontal scrolling elsewhere on the page (wide tables, card carousels).
-const EDGE_ZONE_PX = 24;
+// Deliberately generous (not a razor-thin hitbox): real thumbs rarely start
+// a swipe within a couple pixels of the true bezel, and many phones/browsers
+// already reserve a slim strip at the true edge for their own back-gesture,
+// so a narrow zone can end up entirely inside territory a real device never
+// even reports touchstart for.
+const EDGE_ZONE_PX = 56;
 
 onMounted(() => {
     const { coordsStart, direction } = useSwipe(window, {

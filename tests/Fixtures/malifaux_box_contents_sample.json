@@ -1,0 +1,50 @@
+[
+    {
+        "model_name": "Sandeep Desai, Font of Magic",
+        "copies": 1,
+        "faction": "Arcanists",
+        "keyword": "Academic",
+        "m4e_box": "Sandeep Font of Magic",
+        "m3e_box": "Maintain the Balance"
+    },
+    {
+        "model_name": "Four Winds Golem",
+        "copies": 1,
+        "faction": "Arcanists",
+        "keyword": "Academic",
+        "m4e_box": "Sandeep Font of Magic",
+        "m3e_box": "Maintain the Balance"
+    },
+    {
+        "model_name": "Kandara",
+        "copies": 3,
+        "faction": "Arcanists",
+        "keyword": "Academic",
+        "m4e_box": "Sandeep Font of Magic",
+        "m3e_box": "Peer Review"
+    },
+    {
+        "model_name": "Sandeep Desai, The Quiet Flame",
+        "copies": 1,
+        "faction": "Arcanists",
+        "keyword": "Academic",
+        "m4e_box": "Sandeep The Quite Flame",
+        "m3e_box": "Sandeep Core"
+    },
+    {
+        "model_name": "Sonnia Criid, Unrelenting",
+        "copies": 1,
+        "faction": "Guild",
+        "keyword": "WitchHunter",
+        "m4e_box": "Sonnia Criid Unrelenting",
+        "m3e_box": null
+    },
+    {
+        "model_name": "Nobody Matches This Model",
+        "copies": 1,
+        "faction": "Guild",
+        "keyword": "WitchHunter",
+        "m4e_box": "Some Unreleased Box Nobody Has",
+        "m3e_box": null
+    }
+]

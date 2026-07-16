@@ -1,0 +1,4610 @@
+[
+  {
+    "model_name": "Sandeep Desai, Font of Magic",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep Font of Magic",
+    "m3e_box": "Maintain the Balance"
+  },
+  {
+    "model_name": "Four Winds Golem",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep Font of Magic",
+    "m3e_box": "Maintain the Balance"
+  },
+  {
+    "model_name": "Kandara",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep Font of Magic",
+    "m3e_box": "Peer Review"
+  },
+  {
+    "model_name": "Oxfordian Mage",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep Font of Magic",
+    "m3e_box": "Peer Review"
+  },
+  {
+    "model_name": "Wind Gamin",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep Font of Magic",
+    "m3e_box": "Poisoned Storm"
+  },
+  {
+    "model_name": "Essence of Power",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep Font of Magic",
+    "m3e_box": "Peer Review"
+  },
+  {
+    "model_name": "Sandeep Desai, The Quiet Flame",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep The Quite Flame",
+    "m3e_box": "Sandeep Core"
+  },
+  {
+    "model_name": "Kudra",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep The Quite Flame",
+    "m3e_box": "Sandeep Core"
+  },
+  {
+    "model_name": "Shastar Vidiya Guard",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep The Quite Flame",
+    "m3e_box": "Sandeep Core"
+  },
+  {
+    "model_name": "Banasuva",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Academic",
+    "m4e_box": "Sandeep The Quite Flame",
+    "m3e_box": "Sandeep Core"
+  },
+  {
+    "model_name": "Rusty Alyce, Rider Remade",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Rider Remade",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Abomination",
+    "copies": 4,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Rider Remade",
+    "m3e_box": "Desolation"
+  },
+  {
+    "model_name": "Desolation Engine",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Rider Remade",
+    "m3e_box": "Desolation"
+  },
+  {
+    "model_name": "Soul Battery (Totem)",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Rider Remade",
+    "m3e_box": "Bargains Made"
+  },
+  {
+    "model_name": "Rusty Alyce, Trigger Happy",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Trigger Happy",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Marlena Webster",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Trigger Happy",
+    "m3e_box": "Marlena Webster"
+  },
+  {
+    "model_name": "Scavenger",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Trigger Happy",
+    "m3e_box": "Levitcus Core"
+  },
+  {
+    "model_name": "Hollow Waif",
+    "copies": 2,
+    "faction": "Outcasts",
+    "keyword": "Amalgam",
+    "m4e_box": "Alyce Trigger Happy",
+    "m3e_box": "Levitcus Core"
+  },
+  {
+    "model_name": "Self-Repair Bots",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Clockwork Queen the Paradox",
+    "m3e_box": null
+  },
+  {
+    "model_name": "The Kitchen Sink",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Clockwork Queen the Paradox",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Goop",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Clockwork Queen the Paradox",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Mr. Ambrose",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Clockwork Queen the Paradox",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Clockwork Queen, The Paradox",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Clockwork Queen the Paradox",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Mechanical Misfit",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Clockwork Queen, Matriarch of the Machine",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Bucket Bot",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "The Fortune Teller",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Steiner",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Ampersand",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Chiaki The Beacon",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo Pathseeker",
+    "m3e_box": "Desendants and Guardians"
+  },
+  {
+    "model_name": "Izamu The Armor",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo Pathseeker",
+    "m3e_box": "Yan Lo Core"
+  },
+  {
+    "model_name": "Yan Lo, Pathseeker",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo Pathseeker",
+    "m3e_box": "Yan Lo Core"
+  },
+  {
+    "model_name": "Gokudo",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo Pathseeker",
+    "m3e_box": "Youko Core"
+  },
+  {
+    "model_name": "Soul Porter",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo Pathseeker",
+    "m3e_box": "Yan Lo Core"
+  },
+  {
+    "model_name": "Yan Lo, The Spirit Walker",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo The Spirit Walker",
+    "m3e_box": "Seeking the Blade"
+  },
+  {
+    "model_name": "Ashigaru",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo The Spirit Walker",
+    "m3e_box": "Eternal Servitude"
+  },
+  {
+    "model_name": "Yin The Penangalan",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo The Spirit Walker",
+    "m3e_box": "Eternal Servitude"
+  },
+  {
+    "model_name": "Manos The Risen",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo The Spirit Walker",
+    "m3e_box": "Eternal Servitude"
+  },
+  {
+    "model_name": "Toshiro The Daimyo",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Ancestor",
+    "m4e_box": "Yan Lo The Spirit Walker",
+    "m3e_box": "Eternal Servitude"
+  },
+  {
+    "model_name": "Uncle Bogg",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Bally-hoo Bucket",
+    "m3e_box": "In the Saddle"
+  },
+  {
+    "model_name": "The Clampetts, Bally-Hoo Bucket",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Bally-hoo Bucket",
+    "m3e_box": "Clampettes Core"
+  },
+  {
+    "model_name": "Buckaroo",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Bally-hoo Bucket",
+    "m3e_box": "In the Saddle"
+  },
+  {
+    "model_name": "Judd and Honey",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Bally-hoo Bucket",
+    "m3e_box": "Unconventional Tactics"
+  },
+  {
+    "model_name": "Aunty Mel",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Fisherfolk",
+    "m3e_box": "Clampettes Core"
+  },
+  {
+    "model_name": "The Clampetts, Fisherfolk",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Fisherfolk",
+    "m3e_box": "Unconventional Tactics"
+  },
+  {
+    "model_name": "Skulker Skin",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Fisherfolk",
+    "m3e_box": "Clampettes Core"
+  },
+  {
+    "model_name": "Bruce",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Angler",
+    "m4e_box": "Clampets Fisherfolk",
+    "m3e_box": "Clampettes Core"
+  },
+  {
+    "model_name": "Lord Cooper, Huntmaster",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Huntmaster",
+    "m3e_box": "Survival of the Fittest"
+  },
+  {
+    "model_name": "Cypsis Corps",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Huntmaster",
+    "m3e_box": "On the Hunt"
+  },
+  {
+    "model_name": "Vatagi Huntsman",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Huntmaster",
+    "m3e_box": "On the Hunt"
+  },
+  {
+    "model_name": "Empyrean Eagle",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Huntmaster",
+    "m3e_box": "Survival of the Fittest"
+  },
+  {
+    "model_name": "Model 9",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Manhunter",
+    "m3e_box": "Lord Cooper Core"
+  },
+  {
+    "model_name": "Lord Cooper, Manhunter",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Manhunter",
+    "m3e_box": "Lord Cooper Core"
+  },
+  {
+    "model_name": "Runaway",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Manhunter",
+    "m3e_box": "Lord Cooper Core"
+  },
+  {
+    "model_name": "Artemis",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Manhunter",
+    "m3e_box": "Lord Cooper Core"
+  },
+  {
+    "model_name": "Ullr",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Apex",
+    "m4e_box": "Cooper Manhunter",
+    "m3e_box": "Lord Cooper Core"
+  },
+  {
+    "model_name": "Charles Hoffman, Inventor",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Inventor",
+    "m3e_box": "Remade and Reforged"
+  },
+  {
+    "model_name": "Guardian",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Inventor",
+    "m3e_box": "Protect and Serve"
+  },
+  {
+    "model_name": "Watcher",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Inventor",
+    "m3e_box": "Keeping the Peace"
+  },
+  {
+    "model_name": "Edie Clark (Old Metallurgist)",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Inventor",
+    "m3e_box": "Remade and Reforged"
+  },
+  {
+    "model_name": "Melissa K.O.R.E.",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Steel Sculptor",
+    "m3e_box": "Hoffman Core"
+  },
+  {
+    "model_name": "Charles Hoffman, Steel Sculptor",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Steel Sculptor",
+    "m3e_box": "Hoffman Core"
+  },
+  {
+    "model_name": "Hunter",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Steel Sculptor",
+    "m3e_box": "Hoffman Core"
+  },
+  {
+    "model_name": "Mechanical Attendant",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Augmented",
+    "m4e_box": "Hoffman Steel Sculptor",
+    "m3e_box": "Hoffman Core"
+  },
+  {
+    "model_name": "Pearl Musgrove",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Dead Man Walking",
+    "m3e_box": "Showdown"
+  },
+  {
+    "model_name": "Parker Barrows, Dead Man Walking",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Dead Man Walking",
+    "m3e_box": "Parker Core"
+  },
+  {
+    "model_name": "Convict Gunslinger",
+    "copies": 2,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Dead Man Walking",
+    "m3e_box": "Folsom Prison Blues"
+  },
+  {
+    "model_name": "Dead Outlaws",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Dead Man Walking",
+    "m3e_box": "Dead Outlaws"
+  },
+  {
+    "model_name": "Ashen Echo",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Dead Man Walking",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Sue",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Dead Man Walking",
+    "m3e_box": "Folsom Prison Blues"
+  },
+  {
+    "model_name": "Mad Dog Brackett",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Most Wanted",
+    "m3e_box": "Parker Core"
+  },
+  {
+    "model_name": "Parker Barrows, Most Wanted",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Most Wanted",
+    "m3e_box": "Showdown"
+  },
+  {
+    "model_name": "Bandido",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Most Wanted",
+    "m3e_box": "Parker Core"
+  },
+  {
+    "model_name": "Doc Mitchell",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Bandit",
+    "m4e_box": "Parker Most Wanted",
+    "m3e_box": "Parker Core"
+  },
+  {
+    "model_name": "Abyssal Anchor",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Silken King Colosus",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Silken King, Colossus",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Silken King Colosus",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Coronator of the Crown",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Silken King Colosus",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Dynast Bram",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Silken King Colosus",
+    "m3e_box": null
+  },
+  {
+    "model_name": "The Crowned",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Silken King Colosus",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Gift of Thorns",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Silken King Colosus",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Shorebound Sentinel",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Silken King, Long Live",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Urchin",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "The Colony",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "The Silent Siren",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Banished",
+    "m4e_box": "Two Player Starter",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Som'er Teeth Jones, Bayou Boss",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Bayou Boss",
+    "m3e_box": "Somer Core"
+  },
+  {
+    "model_name": "Good Ol Boy",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Bayou Boss",
+    "m3e_box": "Somer Core"
+  },
+  {
+    "model_name": "Lenny Jones",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Bayou Boss",
+    "m3e_box": "Somer Core"
+  },
+  {
+    "model_name": "Skeeter",
+    "copies": 2,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Bayou Boss",
+    "m3e_box": "Somer Core"
+  },
+  {
+    "model_name": "Som'er Teeth Jones, Loot Monger",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Loot Monger",
+    "m3e_box": "Hats Off"
+  },
+  {
+    "model_name": "Georgy And Olaf",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Loot Monger",
+    "m3e_box": "Hootenanny"
+  },
+  {
+    "model_name": "Gremlin Crier",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Loot Monger",
+    "m3e_box": "Listen Up!"
+  },
+  {
+    "model_name": "Spit Hog",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "BigHat",
+    "m4e_box": "Som'er Loot Monger",
+    "m3e_box": "Deliverance"
+  },
+  {
+    "model_name": "Nekima, Nephilim Queen",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Nephilim Queen",
+    "m3e_box": "Monstrous"
+  },
+  {
+    "model_name": "Nekima, Broodmother",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Nephilim Queen",
+    "m3e_box": "Nekima Core"
+  },
+  {
+    "model_name": "Mature Nephilim",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Nephilim Queen",
+    "m3e_box": "Nekima Core"
+  },
+  {
+    "model_name": "Blood Hunter",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Nephilim Queen",
+    "m3e_box": "Nekima Core"
+  },
+  {
+    "model_name": "Young Nephilim",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Nephilim Queen",
+    "m3e_box": "Nekima Core/Blood Brood"
+  },
+  {
+    "model_name": "Hayreddin",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Broodmother",
+    "m3e_box": "Blood Ritual"
+  },
+  {
+    "model_name": "Black Blood Shaman",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Broodmother",
+    "m3e_box": "Blood Ritual"
+  },
+  {
+    "model_name": "Terror Tot",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Broodmother",
+    "m3e_box": "Blood Brood"
+  },
+  {
+    "model_name": "Crumb",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Broodmother",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Young Nephilim",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Brood",
+    "m4e_box": "Nekima Broodmother",
+    "m3e_box": "Nekima Core/Blood Brood"
+  },
+  {
+    "model_name": "Tiri, The Architect",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Architect",
+    "m3e_box": "Ruins of a Lost Age"
+  },
+  {
+    "model_name": "Ancient Construct",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Architect",
+    "m3e_box": "Forge a New Path"
+  },
+  {
+    "model_name": "Oro Boro",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Architect",
+    "m3e_box": "Tiri Core"
+  },
+  {
+    "model_name": "The First Light",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Architect",
+    "m3e_box": "Forge a New Path"
+  },
+  {
+    "model_name": "Kett",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Nomad",
+    "m3e_box": "Tiri Core"
+  },
+  {
+    "model_name": "Tiri, The Nomad",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Nomad",
+    "m3e_box": "Tiri Core"
+  },
+  {
+    "model_name": "Parson",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Nomad",
+    "m3e_box": "Tenacious Traditions"
+  },
+  {
+    "model_name": "The Iron Matron",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Nomad",
+    "m3e_box": "Tenacious Traditions"
+  },
+  {
+    "model_name": "Unseelie Engine",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Bygone",
+    "m4e_box": "Tiri Nomad",
+    "m3e_box": "Ruins of a Lost Age"
+  },
+  {
+    "model_name": "Nexus, Heart of the Hive",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Cadmus",
+    "m4e_box": "Nexus Heart of the Hive",
+    "m3e_box": "Nexus Core Box"
+  },
+  {
+    "model_name": "Eyes and Ears",
+    "copies": 5,
+    "faction": "Explorer's Society",
+    "keyword": "Cadmus",
+    "m4e_box": "Nexus Heart of the Hive",
+    "m3e_box": "Nexus Core Box"
+  },
+  {
+    "model_name": "Shambling Nest",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "Cadmus",
+    "m4e_box": "Nexus Heart of the Hive",
+    "m3e_box": "Nexus Core Box"
+  },
+  {
+    "model_name": "Nexus, One of Many",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Cadmus",
+    "m4e_box": "Nexus One of Many",
+    "m3e_box": "Best Kept Secrets"
+  },
+  {
+    "model_name": "Spelleater",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Cadmus",
+    "m4e_box": "Nexus One of Many",
+    "m3e_box": "Hush"
+  },
+  {
+    "model_name": "Archivist",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Cadmus",
+    "m4e_box": "Nexus One of Many",
+    "m3e_box": "Hush"
+  },
+  {
+    "model_name": "Cavatica",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Cadmus",
+    "m4e_box": "Nexus One of Many",
+    "m3e_box": "Best Kept Secrets"
+  },
+  {
+    "model_name": "Kings Wall",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Artillerist",
+    "m3e_box": "Tull Core"
+  },
+  {
+    "model_name": "Harold Tull, Artillerist",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Artillerist",
+    "m3e_box": "Tull Core"
+  },
+  {
+    "model_name": "Sapper",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Artillerist",
+    "m3e_box": "Tull Core"
+  },
+  {
+    "model_name": "Walking Cannon",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Artillerist",
+    "m3e_box": "Tull Core"
+  },
+  {
+    "model_name": "Louisa Fusi",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Dead Silent",
+    "m3e_box": "Into the Fray"
+  },
+  {
+    "model_name": "Harold Tull, Dead Silent",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Dead Silent",
+    "m3e_box": "Unconventional Tactics"
+  },
+  {
+    "model_name": "Rocketeer",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Dead Silent",
+    "m3e_box": "Into the Fray"
+  },
+  {
+    "model_name": "Smokestack",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Dead Silent",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Rosie Hill",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Dead Silent",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Jasper Gray",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Dead Silent",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Mariya Dyatlov",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Cavalier",
+    "m4e_box": "Tull Dead Silent",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Marcus, Alpha",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Alpha",
+    "m3e_box": "Survival of the Fittest"
+  },
+  {
+    "model_name": "Sabertooth Cerberus",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Alpha",
+    "m3e_box": "Primal Fury"
+  },
+  {
+    "model_name": "Slate Ridge Mauler",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Alpha",
+    "m3e_box": "Slate Ridge"
+  },
+  {
+    "model_name": "Razorspine Rattler",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Alpha",
+    "m3e_box": "Razorspine Rattlers"
+  },
+  {
+    "model_name": "Cojo",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Alpha",
+    "m3e_box": "Primal Fury"
+  },
+  {
+    "model_name": "Moleman",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Alpha",
+    "m3e_box": "Slate Ridge"
+  },
+  {
+    "model_name": "Marcus, Monstermaker",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Monstermaker",
+    "m3e_box": "Marcus Core"
+  },
+  {
+    "model_name": "Order Initiate",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Monstermaker",
+    "m3e_box": "Marcus Core"
+  },
+  {
+    "model_name": "Myranda",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Monstermaker",
+    "m3e_box": "Marcus Core"
+  },
+  {
+    "model_name": "Jackalope",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Chimera",
+    "m4e_box": "Marcus Monstermaker",
+    "m3e_box": "Marcus Core"
+  },
+  {
+    "model_name": "Rasputina, Abominable",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Abominable",
+    "m3e_box": "Coldsnap"
+  },
+  {
+    "model_name": "Blessed of December",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Abominable",
+    "m3e_box": "The Ten Peaks"
+  },
+  {
+    "model_name": "Kaltgeist",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Abominable",
+    "m3e_box": "Coldsnap"
+  },
+  {
+    "model_name": "Silent One",
+    "copies": 2,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Abominable",
+    "m3e_box": "The Ten Peaks"
+  },
+  {
+    "model_name": "Mara",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Abominable",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Snow Storm",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Winter's Teeth",
+    "m3e_box": "Rasputina Core"
+  },
+  {
+    "model_name": "Rasputina, Winter's Teeth",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Winter's Teeth",
+    "m3e_box": "Rasputina Core"
+  },
+  {
+    "model_name": "December Acolyte",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Winter's Teeth",
+    "m3e_box": "Rasputina Core"
+  },
+  {
+    "model_name": "Wendigo",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "December",
+    "m4e_box": "Rasputina Winter's Teeth",
+    "m3e_box": "Rasputina Core"
+  },
+  {
+    "model_name": "Jin Baccara",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Double Agent",
+    "m3e_box": "Hidden Allegiances"
+  },
+  {
+    "model_name": "English Ivan, Double Agent",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Double Agent",
+    "m3e_box": "Hidden Allegiances"
+  },
+  {
+    "model_name": "Brocken Spectre",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Double Agent",
+    "m3e_box": "English Ivan Core"
+  },
+  {
+    "model_name": "Nocturne",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Double Agent",
+    "m3e_box": "Dark Reflections"
+  },
+  {
+    "model_name": "Mr. Mordrake, Bump in the Night",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Double Agent",
+    "m3e_box": "English Ivan Core"
+  },
+  {
+    "model_name": "Gibson De Walt",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Obscura",
+    "m3e_box": "English Ivan Core"
+  },
+  {
+    "model_name": "English Ivan, Obscura",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Obscura",
+    "m3e_box": "Dark Reflections"
+  },
+  {
+    "model_name": "Daeva",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Obscura",
+    "m3e_box": "English Ivan Core"
+  },
+  {
+    "model_name": "Mr. Mordrake, Silent Witness",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Obscura",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Eva Havenhand",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "DUA",
+    "m4e_box": "English Ivan Obscura",
+    "m3e_box": "English Ivan Core"
+  },
+  {
+    "model_name": "Lucius Mattheson, Dishonorable",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, Dishonorable",
+    "m3e_box": "Best Kept Secrets"
+  },
+  {
+    "model_name": "False Witness",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, Dishonorable",
+    "m3e_box": "Internal Investigations"
+  },
+  {
+    "model_name": "Investigator",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, Dishonorable",
+    "m3e_box": "Internal Investigations"
+  },
+  {
+    "model_name": "Jane Doe",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, Dishonorable",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Alan Reid",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, Dishonorable",
+    "m3e_box": "Internal Investigations"
+  },
+  {
+    "model_name": "Lucius Mattheson, In Plain Sight",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, In Plain Sight",
+    "m3e_box": "Lucius Core"
+  },
+  {
+    "model_name": "Guild Lawyer",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, In Plain Sight",
+    "m3e_box": "Lucius Core"
+  },
+  {
+    "model_name": "The Scribe",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, In Plain Sight",
+    "m3e_box": "Lucius Core"
+  },
+  {
+    "model_name": "Agent 46",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Elite",
+    "m4e_box": "Lucius Mattheson, In Plain Sight",
+    "m3e_box": "Lucius Core"
+  },
+  {
+    "model_name": "Maxine Agassiz, Monomaniacle",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine Monomaniacal",
+    "m3e_box": "Navigating Chaos"
+  },
+  {
+    "model_name": "Harata Ngaatoro",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine Monomoniacal",
+    "m3e_box": "Turning Tides"
+  },
+  {
+    "model_name": "Harpooner",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine Monomoniacal",
+    "m3e_box": "Turning Tides"
+  },
+  {
+    "model_name": "Tidecaller",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine Monomoniacal",
+    "m3e_box": "Turning Tides"
+  },
+  {
+    "model_name": "Beau Fishbocker",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine Monomoniacal",
+    "m3e_box": "Navigating Chaos"
+  },
+  {
+    "model_name": "Maxine Agassiz The Renowned",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine The Renowned",
+    "m3e_box": "Maxine Core"
+  },
+  {
+    "model_name": "Kiya Manimi",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine The Renowned",
+    "m3e_box": "Turning Tides"
+  },
+  {
+    "model_name": "Machinist",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine The Renowned",
+    "m3e_box": "Maxine Core"
+  },
+  {
+    "model_name": "Orville Agassiz",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "EVS",
+    "m4e_box": "Maxine The Renowned",
+    "m3e_box": "Maxine Core"
+  },
+  {
+    "model_name": "Rafkin",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Insanitary",
+    "m3e_box": "Surgical Staff"
+  },
+  {
+    "model_name": "Dr. McMourning, Malpractitioner",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Insanitary",
+    "m3e_box": "McMourning Core"
+  },
+  {
+    "model_name": "Kentauroi",
+    "copies": 2,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Insanitary",
+    "m3e_box": "Stitched and Sewn"
+  },
+  {
+    "model_name": "Little Gasser",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Insanitary",
+    "m3e_box": "Stitched and Sewn"
+  },
+  {
+    "model_name": "Corpse Curator",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Insanitary",
+    "m3e_box": "Self Made"
+  },
+  {
+    "model_name": "Sebastian",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Malpracticioner",
+    "m3e_box": "McMourning Core"
+  },
+  {
+    "model_name": "Dr. McMourning, Insanitary",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Malpracticioner",
+    "m3e_box": "Self Made"
+  },
+  {
+    "model_name": "Flesh Construct",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Malpracticioner",
+    "m3e_box": "McMourning Core"
+  },
+  {
+    "model_name": "Zombie Chihuahua",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Experimental",
+    "m4e_box": "McMourning Malpracticioner",
+    "m3e_box": "McMourning Core"
+  },
+  {
+    "model_name": "Titania, Autumn Queen",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Autumn Queen",
+    "m3e_box": "Titania Core"
+  },
+  {
+    "model_name": "Bultungin",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Autumn Queen",
+    "m3e_box": "The Howling"
+  },
+  {
+    "model_name": "Rougarou",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Autumn Queen",
+    "m3e_box": "The Howling"
+  },
+  {
+    "model_name": "Erymanthian Boar",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Autumn Queen",
+    "m3e_box": "Protected Domain"
+  },
+  {
+    "model_name": "Aeslin",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Withered Rose",
+    "m3e_box": "Titania Core"
+  },
+  {
+    "model_name": "Titania, Withered Rose",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Withered Rose",
+    "m3e_box": "Protected Domain"
+  },
+  {
+    "model_name": "Autumn Knight",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Withered Rose",
+    "m3e_box": "Titania Core"
+  },
+  {
+    "model_name": "Gorar",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Fae",
+    "m4e_box": "Titania Withered Rose",
+    "m3e_box": "Titania Core"
+  },
+  {
+    "model_name": "Francisco Ortega",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita La Diabla",
+    "m3e_box": "Perdita Core"
+  },
+  {
+    "model_name": "Perdita Ortega, La Diabla",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita La Diabla",
+    "m3e_box": "Perdita Core"
+  },
+  {
+    "model_name": "Papa Loco",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita La Diabla",
+    "m3e_box": "Perdita Core"
+  },
+  {
+    "model_name": "Abuela Ortega",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita La Diabla",
+    "m3e_box": "Perdita Core"
+  },
+  {
+    "model_name": "Nino Ortega",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita La Diabla",
+    "m3e_box": "Perdita Core"
+  },
+  {
+    "model_name": "Santiago Ortega",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita La Diabla",
+    "m3e_box": "Perdita Core"
+  },
+  {
+    "model_name": "Perdita Ortega, Neverborn Hunter",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita Neverborn Hunter",
+    "m3e_box": "Behind the Trigger"
+  },
+  {
+    "model_name": "Monster Hunter",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita Neverborn Hunter",
+    "m3e_box": "Latigo Reserves"
+  },
+  {
+    "model_name": "Pistolero De Latigo",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita Neverborn Hunter",
+    "m3e_box": "Latigo Reserves"
+  },
+  {
+    "model_name": "Sly \"Six-Shots\"",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Family",
+    "m4e_box": "Perdita Neverborn Hunter",
+    "m3e_box": "Behind the Trigger"
+  },
+  {
+    "model_name": "Molly Squidpiddge, Chaotic Conductor",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Conductor of Chaos",
+    "m3e_box": "Monstrous"
+  },
+  {
+    "model_name": "Archie",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Conductor of Chaos",
+    "m3e_box": "The Lost"
+  },
+  {
+    "model_name": "Crooligan",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Conductor of Chaos",
+    "m3e_box": "The Lost"
+  },
+  {
+    "model_name": "Night Terror",
+    "copies": 2,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Conductor of Chaos",
+    "m3e_box": "Call to Madness"
+  },
+  {
+    "model_name": "The Forgotten Marshal",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Conductor of Chaos",
+    "m3e_box": "Call to Madness"
+  },
+  {
+    "model_name": "Noxious Nephilim",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Conductor of Chaos",
+    "m3e_box": "Monstrous"
+  },
+  {
+    "model_name": "Molly Squidpiddge, Harbinger of Havoc",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Harbinger of Havoc",
+    "m3e_box": "Molly Core"
+  },
+  {
+    "model_name": "Philip and the Nanny",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Harbinger of Havoc",
+    "m3e_box": "Molly Core"
+  },
+  {
+    "model_name": "Rabble Riser",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Harbinger of Havoc",
+    "m3e_box": "Molly Core"
+  },
+  {
+    "model_name": "Necrotic Machine",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Forgotten",
+    "m4e_box": "Molly Harbinger of Havoc",
+    "m3e_box": "Molly Core"
+  },
+  {
+    "model_name": "Mei Feng, Foreman",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Foreman",
+    "m3e_box": "Scrapyard"
+  },
+  {
+    "model_name": "Neil Henry",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Foreman",
+    "m3e_box": "Explosive Material"
+  },
+  {
+    "model_name": "Willie",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Foreman",
+    "m3e_box": "Explosive Material"
+  },
+  {
+    "model_name": "Metal Gamin",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Foreman",
+    "m3e_box": "Heavy Metal"
+  },
+  {
+    "model_name": "Rock Hopper",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Foreman",
+    "m3e_box": "Scrapyard"
+  },
+  {
+    "model_name": "Metal Golem",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Foreman",
+    "m3e_box": "Heavy Metal"
+  },
+  {
+    "model_name": "Kang",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Sentinel of Steel",
+    "m3e_box": "Mei Feng Core"
+  },
+  {
+    "model_name": "Mei Feng, Sentinel of Steel",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Sentinel of Steel",
+    "m3e_box": "Mei Feng Core"
+  },
+  {
+    "model_name": "Steelworker (Old Rail Worker)",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Sentinel of Steel",
+    "m3e_box": "Mei Feng Core"
+  },
+  {
+    "model_name": "Forgeling",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Foundry",
+    "m4e_box": "Mei Feng Sentinel of Steel",
+    "m3e_box": "Mei Feng Core"
+  },
+  {
+    "model_name": "Von Schill, Iron Heart",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill Iron Heart",
+    "m3e_box": "Remade and Reforged"
+  },
+  {
+    "model_name": "Freikorps Engineer",
+    "copies": 2,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill Iron Heart",
+    "m3e_box": "Cutting Edge Technology"
+  },
+  {
+    "model_name": "Hannah Lovelace",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill Iron Heart",
+    "m3e_box": "Between the Ley Lines"
+  },
+  {
+    "model_name": "Lazarus",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill Iron Heart",
+    "m3e_box": "Cutting Edge Technology"
+  },
+  {
+    "model_name": "Ms. Weiss (Old Librarian)",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill Iron Heart",
+    "m3e_box": "Between the Ley Lines"
+  },
+  {
+    "model_name": "Von Schill, The Veteran",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill The Veteran",
+    "m3e_box": "Von Schill Core"
+  },
+  {
+    "model_name": "Arik Schottemer",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill The Veteran",
+    "m3e_box": "Von Schill Core"
+  },
+  {
+    "model_name": "Freikorpsman",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill The Veteran",
+    "m3e_box": "Von Schill Core"
+  },
+  {
+    "model_name": "Steam Trunk",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Freikorps",
+    "m4e_box": "Von Schill The Veteran",
+    "m3e_box": "Von Schill Core"
+  },
+  {
+    "model_name": "Paul Crockett",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Badlands Sherrif",
+    "m3e_box": "Primal Fury"
+  },
+  {
+    "model_name": "Cornelius Basse, Badlands Sheriff",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Badlands Sherrif",
+    "m3e_box": "Showdown"
+  },
+  {
+    "model_name": "Bernadette Basse, Bravo",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Badlands Sherrif",
+    "m3e_box": "Basse Core"
+  },
+  {
+    "model_name": "Austringer",
+    "copies": 2,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Badlands Sherrif",
+    "m3e_box": "From Above"
+  },
+  {
+    "model_name": "Clockwork Trap",
+    "copies": 4,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Badlands Sherrif",
+    "m3e_box": "Trappers"
+  },
+  {
+    "model_name": "Trained Raptor",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Badlands Sherrif",
+    "m3e_box": "From Above"
+  },
+  {
+    "model_name": "Cornelius Basse, Lone Verdict",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Lone Verdict",
+    "m3e_box": "Basse Core"
+  },
+  {
+    "model_name": "Bernadette Basse, Furtive",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Lone Verdict",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Jonathan Reichart",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Lone Verdict",
+    "m3e_box": "Basse Core"
+  },
+  {
+    "model_name": "Frontiersman",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Frontier",
+    "m4e_box": "Basse Lone Verdict",
+    "m3e_box": "Basse Core"
+  },
+  {
+    "model_name": "Dashel Barker Butcher",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Butcher",
+    "m3e_box": "They All Fall Down"
+  },
+  {
+    "model_name": "Sergeant",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Butcher",
+    "m3e_box": "Rank and File"
+  },
+  {
+    "model_name": "Warden",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Butcher",
+    "m3e_box": "Crime and Punishment"
+  },
+  {
+    "model_name": "Disease Containment Unit",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Butcher",
+    "m3e_box": "They All Fall Down"
+  },
+  {
+    "model_name": "Dashel Barker The Old Guard",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Old Guard",
+    "m3e_box": "Dashel Core"
+  },
+  {
+    "model_name": "Rifleman",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Old Guard",
+    "m3e_box": "Dashel Core"
+  },
+  {
+    "model_name": "Taggart Queeg",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Old Guard",
+    "m3e_box": "Dashel Core"
+  },
+  {
+    "model_name": "The Dispatcher",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Guard",
+    "m4e_box": "Dashel The Old Guard",
+    "m3e_box": "Dashel Core"
+  },
+  {
+    "model_name": "Gwyneth Maddox",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Dark Bet",
+    "m3e_box": "Friendly Faces"
+  },
+  {
+    "model_name": "Jakob Lynch, Dark Bet",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Dark Bet",
+    "m3e_box": "Lynch Core"
+  },
+  {
+    "model_name": "Beckoner",
+    "copies": 2,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Dark Bet",
+    "m3e_box": "Friendly Faces"
+  },
+  {
+    "model_name": "Hungering Darkness, Eclipse",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Dark Bet",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Mr. Graves",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Dark Bet",
+    "m3e_box": "Dark Dealings"
+  },
+  {
+    "model_name": "Mr. Tannen",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Dark Bet",
+    "m3e_box": "Dark Dealings"
+  },
+  {
+    "model_name": "Jakob Lynch, Wildcard",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Wildcard",
+    "m3e_box": "Bargains Made"
+  },
+  {
+    "model_name": "Illuminated",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Wildcard",
+    "m3e_box": "Lynch Core"
+  },
+  {
+    "model_name": "Hungering Darkness, Beneath the Bets",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Wildcard",
+    "m3e_box": "Lynch Core"
+  },
+  {
+    "model_name": "Kitty Dumont",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Honeypot",
+    "m4e_box": "Lynch Wildcard",
+    "m3e_box": "Lynch Core"
+  },
+  {
+    "model_name": "The First Mate",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Cloudchaser",
+    "m3e_box": "Zipp Core"
+  },
+  {
+    "model_name": "Captain Zipp, Cloudchaser",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Cloudchaser",
+    "m3e_box": "Navigating Chaos"
+  },
+  {
+    "model_name": "Iron Wing",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Cloudchaser",
+    "m3e_box": "Zipp Core"
+  },
+  {
+    "model_name": "Earl Burns",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Cloudchaser",
+    "m3e_box": "Zipp Core"
+  },
+  {
+    "model_name": "Captain Zipp, Dread Pirate",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Dread Pirate",
+    "m3e_box": "Zipp Core"
+  },
+  {
+    "model_name": "Wrastler",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Dread Pirate",
+    "m3e_box": "Off the Top Rope"
+  },
+  {
+    "model_name": "Mancha Roja",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Dread Pirate",
+    "m3e_box": "Off the Top Rope"
+  },
+  {
+    "model_name": "Burt Jebson",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Dread Pirate",
+    "m3e_box": "Pig Trouble"
+  },
+  {
+    "model_name": "Gracie",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Infamous",
+    "m4e_box": "Zipp Dread Pirate",
+    "m3e_box": "Pig Trouble"
+  },
+  {
+    "model_name": "Phiona Gage",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie The Tattler",
+    "m3e_box": "Nellie Core"
+  },
+  {
+    "model_name": "Nellie Cochrane, The Tattler",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie The Tattler",
+    "m3e_box": "A Twisted Tale"
+  },
+  {
+    "model_name": "Field Reporter",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie The Tattler",
+    "m3e_box": "Nellie Core"
+  },
+  {
+    "model_name": "The Printing Press",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie The Tattler",
+    "m3e_box": "Nellie Core"
+  },
+  {
+    "model_name": "Allison Dade",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie Voice of Disorder",
+    "m3e_box": "Scooped"
+  },
+  {
+    "model_name": "Nellie Cochrane, Voice of Disorder",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie Voice of Disorder",
+    "m3e_box": "Nellie Core"
+  },
+  {
+    "model_name": "Newsie",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie Voice of Disorder",
+    "m3e_box": "Scooped"
+  },
+  {
+    "model_name": "Undercover Reporter",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie Voice of Disorder",
+    "m3e_box": "Scooped"
+  },
+  {
+    "model_name": "Auguste Hart",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Journalist",
+    "m4e_box": "Nellie Voice of Disorder",
+    "m3e_box": "A Twisted Tale"
+  },
+  {
+    "model_name": "Ophelia LaCroix, Overloaded",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Overloaded",
+    "m3e_box": "Behind the Trigger"
+  },
+  {
+    "model_name": "Sammy LaCroix",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Overloaded",
+    "m3e_box": "Copycats"
+  },
+  {
+    "model_name": "Merris LaCroix",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Overloaded",
+    "m3e_box": "When Pigs Fly"
+  },
+  {
+    "model_name": "Old Cranky",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Overloaded",
+    "m3e_box": "Listen Up!"
+  },
+  {
+    "model_name": "Pere Ravage",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Overloaded",
+    "m3e_box": "Copycats"
+  },
+  {
+    "model_name": "Rami LaCroix",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Overloaded",
+    "m3e_box": "Copycats"
+  },
+  {
+    "model_name": "Raphael LaCroix",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Overloaded",
+    "m3e_box": "Copycats"
+  },
+  {
+    "model_name": "Francois LaCroix",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Red Cage Raider",
+    "m3e_box": "Ophelia Core"
+  },
+  {
+    "model_name": "Ophelia LaCroix, Red Cage Raider",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Red Cage Raider",
+    "m3e_box": "Behind the Trigger"
+  },
+  {
+    "model_name": "LaCroix Raider",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Red Cage Raider",
+    "m3e_box": "Ophelia Core"
+  },
+  {
+    "model_name": "Young LaCroix",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Kin",
+    "m4e_box": "Ophelia Red Cage Raider",
+    "m3e_box": "Ophelia Core"
+  },
+  {
+    "model_name": "Yamaziko",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Fractured",
+    "m3e_box": "Crime Syndicate"
+  },
+  {
+    "model_name": "Misaki Katanaka, Fractured",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Fractured",
+    "m3e_box": "Misaki Core"
+  },
+  {
+    "model_name": "Katanaka Crime Boss",
+    "copies": 2,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Fractured",
+    "m3e_box": "Crime Syndicate"
+  },
+  {
+    "model_name": "Katanaka Sniper",
+    "copies": 2,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Fractured",
+    "m3e_box": "Crime Syndicate"
+  },
+  {
+    "model_name": "Wanyudo",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Fractured",
+    "m3e_box": "Kharmic Debt"
+  },
+  {
+    "model_name": "Ototo",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Oyabun",
+    "m3e_box": "Misaki Core"
+  },
+  {
+    "model_name": "Misaki Katanaka, Oyabun",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Oyabun",
+    "m3e_box": "Hidden Allegiances"
+  },
+  {
+    "model_name": "Torakage",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Oyabun",
+    "m3e_box": "Misaki Core"
+  },
+  {
+    "model_name": "Shang",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "LastBlossom",
+    "m4e_box": "Misaki Oyabun",
+    "m3e_box": "Misaki Core"
+  },
+  {
+    "model_name": "Toni Ironsides, Troubleshooter",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Troubleshooter",
+    "m3e_box": "Ironsides Core"
+  },
+  {
+    "model_name": "Union Journeymen (Old Union Miners)",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Troubleshooter",
+    "m3e_box": "Ironsides Core"
+  },
+  {
+    "model_name": "Mouse",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Troubleshooter",
+    "m3e_box": "Ironsides Core"
+  },
+  {
+    "model_name": "Amina Naidu",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Troubleshooter",
+    "m3e_box": "Ironsides Core"
+  },
+  {
+    "model_name": "Joss",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Union President",
+    "m3e_box": "Support Staff"
+  },
+  {
+    "model_name": "The Captain",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Union President",
+    "m3e_box": "Troubleshooters"
+  },
+  {
+    "model_name": "Toni Ironsides, Union President",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Union President",
+    "m3e_box": "Down to Business"
+  },
+  {
+    "model_name": "Gunsmith",
+    "copies": 2,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Union President",
+    "m3e_box": "Troubleshooters"
+  },
+  {
+    "model_name": "Saboteur",
+    "copies": 2,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Union President",
+    "m3e_box": "Crack in the Foundation"
+  },
+  {
+    "model_name": "Fitzsimmons",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "M&SU",
+    "m4e_box": "Toni Union President",
+    "m3e_box": "Troubleshooters"
+  },
+  {
+    "model_name": "The Judge",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Arbiter of the Undead",
+    "m3e_box": "Lady J Core"
+  },
+  {
+    "model_name": "Lady Justice, Arbiter of the Undead",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Arbiter of the Undead",
+    "m3e_box": "Lady J Core"
+  },
+  {
+    "model_name": "Death Marshal",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Arbiter of the Undead",
+    "m3e_box": "Lady J Core"
+  },
+  {
+    "model_name": "Scales Of Justice",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Arbiter of the Undead",
+    "m3e_box": "Lady J Core"
+  },
+  {
+    "model_name": "Lady Justice, Death Touched",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Deathtouched",
+    "m3e_box": "Foward and Back"
+  },
+  {
+    "model_name": "Exorcist",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Deathtouched",
+    "m3e_box": "Six Feet Under"
+  },
+  {
+    "model_name": "Domador De Cadaveres",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Deathtouched",
+    "m3e_box": "Wake the Dead"
+  },
+  {
+    "model_name": "Asset 17",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Deathtouched",
+    "m3e_box": null
+  },
+  {
+    "model_name": "The Jury",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Deathtouched",
+    "m3e_box": "Wake the Dead"
+  },
+  {
+    "model_name": "The Lone Marshal",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "Marshal",
+    "m4e_box": "Lady Justice Deathtouched",
+    "m3e_box": "Six Feet Under"
+  },
+  {
+    "model_name": "Vanessa Chambers",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Ashes and Blood",
+    "m3e_box": "Viktorias Core"
+  },
+  {
+    "model_name": "Viktoria Chambers, Ashes and Blood",
+    "copies": 2,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Ashes and Blood",
+    "m3e_box": "Viktorias Core"
+  },
+  {
+    "model_name": "Ronin",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Ashes and Blood",
+    "m3e_box": "Viktorias Core"
+  },
+  {
+    "model_name": "Taelor",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Twinblade",
+    "m3e_box": "Loyalty to the Coin"
+  },
+  {
+    "model_name": "Viktoria Chambers, Twin Blades",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Twinblade",
+    "m3e_box": "Seeking the Blade"
+  },
+  {
+    "model_name": "Desperate Mercenary",
+    "copies": 2,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Twinblade",
+    "m3e_box": "Hired Killers"
+  },
+  {
+    "model_name": "Big Jake",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Twinblade",
+    "m3e_box": "Loyalty to the Coin"
+  },
+  {
+    "model_name": "Bishop",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Twinblade",
+    "m3e_box": "Hired Killers"
+  },
+  {
+    "model_name": "Student of Conflict",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Twinblade",
+    "m3e_box": "Loyalty to the Coin"
+  },
+  {
+    "model_name": "Kenshiro The Tactician",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Mercenary",
+    "m4e_box": "Viktoria Twinblade",
+    "m3e_box": "Seeking the Blade"
+  },
+  {
+    "model_name": "Shenlong, Dragon's Breath",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong Dragon's Breath",
+    "m3e_box": "Shenlong Core"
+  },
+  {
+    "model_name": "River Monk (Old Various Monks)",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong Dragon's Breath",
+    "m3e_box": "Shenlong Core"
+  },
+  {
+    "model_name": "Sensei Yu",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong Dragon's Breath",
+    "m3e_box": "Shenlong Core"
+  },
+  {
+    "model_name": "Aspiring Student",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong Dragon's Breath",
+    "m3e_box": "Shenlong Core"
+  },
+  {
+    "model_name": "Shenlong, Dragon's Breath",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong The Teacher",
+    "m3e_box": "Maintain the Balance"
+  },
+  {
+    "model_name": "Lotus Eater",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong The Teacher",
+    "m3e_box": "Lotus Eaters"
+  },
+  {
+    "model_name": "Thunder Archer",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong The Teacher",
+    "m3e_box": "Crime Syndicate"
+  },
+  {
+    "model_name": "Mu Long",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Monk",
+    "m4e_box": "Shenlong The Teacher",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Coppelius",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Fast Asleep",
+    "m3e_box": "Dreamer Core"
+  },
+  {
+    "model_name": "The Dreamer, Fast Asleep",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Fast Asleep",
+    "m3e_box": "Dreamer Core"
+  },
+  {
+    "model_name": "Alp",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Fast Asleep",
+    "m3e_box": "Dreamer Core"
+  },
+  {
+    "model_name": "Lord Chompy Bits, Dreamlord",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Fast Asleep",
+    "m3e_box": "Dreamer Core"
+  },
+  {
+    "model_name": "The Dreamer, Insomniac",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Insomniac",
+    "m3e_box": "Realm Beyond"
+  },
+  {
+    "model_name": "Lord Chompy Bits, Lurking Lullaby",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Insomniac",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Stitched Together",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Insomniac",
+    "m3e_box": "Deep Sleep"
+  },
+  {
+    "model_name": "Daydream",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Nightmare",
+    "m4e_box": "Dreamer Insomniac",
+    "m3e_box": "Deep Sleep"
+  },
+  {
+    "model_name": "Tara, Timeless",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Timeless",
+    "m3e_box": "Forward and Back"
+  },
+  {
+    "model_name": "Void Hunter",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Timeless",
+    "m3e_box": "Servants of the Void"
+  },
+  {
+    "model_name": "Scion Of The Void",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Timeless",
+    "m3e_box": "Servants of the Void"
+  },
+  {
+    "model_name": "Thirty Three",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Timeless",
+    "m3e_box": "Foward and Back"
+  },
+  {
+    "model_name": "The Nothing Beast",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Voidcaller",
+    "m3e_box": "Tara Core"
+  },
+  {
+    "model_name": "Tara, Voidcaller",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Voidcaller",
+    "m3e_box": "Tara Core"
+  },
+  {
+    "model_name": "Void Wretch",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Voidcaller",
+    "m3e_box": "Tara Core"
+  },
+  {
+    "model_name": "Karina",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Obliteration",
+    "m4e_box": "Tara Voidcaller",
+    "m3e_box": "Tara Core"
+  },
+  {
+    "model_name": "Ohaguro Bettari",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Oni Mother",
+    "m3e_box": "Asami Core"
+  },
+  {
+    "model_name": "Asami Tanaka, Oni Mother",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Oni Mother",
+    "m3e_box": "Asami Core"
+  },
+  {
+    "model_name": "Yokai",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Oni Mother",
+    "m3e_box": "Asami Core"
+  },
+  {
+    "model_name": "Amanjaku",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Oni Mother",
+    "m3e_box": "Asami Core"
+  },
+  {
+    "model_name": "Lady Yume",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Shintaku",
+    "m3e_box": "Realm Beyond"
+  },
+  {
+    "model_name": "Asami Tanaka, Shintaku",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Shintaku",
+    "m3e_box": "Realm Beyod"
+  },
+  {
+    "model_name": "Akaname",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Shintaku",
+    "m3e_box": "Akaname"
+  },
+  {
+    "model_name": "Obsidian Oni",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Shintaku",
+    "m3e_box": "Ancient Evil"
+  },
+  {
+    "model_name": "Ama No Zako",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Oni",
+    "m4e_box": "Asami Shintaku",
+    "m3e_box": "Ancient Evil"
+  },
+  {
+    "model_name": "Cassandra Felton",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Star of the Show",
+    "m3e_box": "Colette Core"
+  },
+  {
+    "model_name": "Colette Du Bois, Star of the Show",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Star of the Show",
+    "m3e_box": "Colette Core"
+  },
+  {
+    "model_name": "Showgirl",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Star of the Show",
+    "m3e_box": "Colette Core"
+  },
+  {
+    "model_name": "Mechanical Dove",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Star of the Show",
+    "m3e_box": "Colette Core"
+  },
+  {
+    "model_name": "Shadowlark",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Smuggler",
+    "m3e_box": "Shadowlark"
+  },
+  {
+    "model_name": "Colette Du Bois, Smuggler",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Smuggler",
+    "m3e_box": "All the Worlds a Stage"
+  },
+  {
+    "model_name": "Blackbird",
+    "copies": 2,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Smuggler",
+    "m3e_box": "Blackbird"
+  },
+  {
+    "model_name": "Angelica Durand",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Smuggler",
+    "m3e_box": "Center Stage"
+  },
+  {
+    "model_name": "Carlos Vasquez",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Smuggler",
+    "m3e_box": "Center Stage"
+  },
+  {
+    "model_name": "Dorian Crowe",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Performer",
+    "m4e_box": "Colette Smuggler",
+    "m3e_box": "All the Worlds a Stage"
+  },
+  {
+    "model_name": "Hamelin, The Piper",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin the Piper",
+    "m3e_box": "They All Fall Down"
+  },
+  {
+    "model_name": "Malifaux Rat",
+    "copies": 8,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin the Piper",
+    "m3e_box": "Hamelin Core/Brotherhood of the Rat"
+  },
+  {
+    "model_name": "Rat Catcher",
+    "copies": 2,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin the Piper",
+    "m3e_box": "Brotherhood of the Rat"
+  },
+  {
+    "model_name": "Rat King",
+    "copies": 2,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin the Piper",
+    "m3e_box": "Brotherhood of the Rat"
+  },
+  {
+    "model_name": "Benny Wolcomb",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin the Piper",
+    "m3e_box": "Tainted Filth"
+  },
+  {
+    "model_name": "Hamelin, Plaguebringer",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin Plaguebringer",
+    "m3e_box": "Hamelin Core"
+  },
+  {
+    "model_name": "Nix",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin Plaguebringer",
+    "m3e_box": "Hamelin Core"
+  },
+  {
+    "model_name": "Obedient Wretch",
+    "copies": 1,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin Plaguebringer",
+    "m3e_box": "Hamelin Core"
+  },
+  {
+    "model_name": "Stolen",
+    "copies": 3,
+    "faction": "Outcasts",
+    "keyword": "Plague",
+    "m4e_box": "Hamelin Plaguebringer",
+    "m3e_box": "Hamelin Core"
+  },
+  {
+    "model_name": "Bill Algren",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Silk of the Lotus",
+    "m3e_box": "Youko Core"
+  },
+  {
+    "model_name": "Youko Hamasaki, Silk of the Lotus",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Silk of the Lotus",
+    "m3e_box": "Youko Core"
+  },
+  {
+    "model_name": "Courtisan (Old Geisha)",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Silk of the Lotus",
+    "m3e_box": "Youko Core"
+  },
+  {
+    "model_name": "Chiyo Hamasaki",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Silk of the Lotus",
+    "m3e_box": "Youko Core"
+  },
+  {
+    "model_name": "Hinamatsu",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Unseen",
+    "m3e_box": "Hinamatsu"
+  },
+  {
+    "model_name": "Youko Hamasaki, Unseen",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Unseen",
+    "m3e_box": "Trade Secrets"
+  },
+  {
+    "model_name": "Charm Warder",
+    "copies": 2,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Unseen",
+    "m3e_box": "Charm Warders"
+  },
+  {
+    "model_name": "Kunoichi",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "Qi-and-Gong",
+    "m4e_box": "Youko Unseen",
+    "m3e_box": "Kunoichi"
+  },
+  {
+    "model_name": "Seamus, aka Sebastian Baker",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus aka Sebastian Baker",
+    "m3e_box": "Seamus Core"
+  },
+  {
+    "model_name": "Dead Dandy",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus aka Sebastian Baker",
+    "m3e_box": "High Society"
+  },
+  {
+    "model_name": "White Rabbit Co.",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus aka Sebastian Baker",
+    "m3e_box": "Hats Off"
+  },
+  {
+    "model_name": "Bete Noire",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus aka Sebastian Baker",
+    "m3e_box": "High Society"
+  },
+  {
+    "model_name": "Mourner",
+    "copies": 2,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus aka Sebastian Baker",
+    "m3e_box": "Mourners"
+  },
+  {
+    "model_name": "Madame Sybelle",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus The Last Whisper",
+    "m3e_box": "Seamus Core"
+  },
+  {
+    "model_name": "Seamus, the Last Breath",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus The Last Whisper",
+    "m3e_box": "Hats Off"
+  },
+  {
+    "model_name": "Dead Doxy",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus The Last Whisper",
+    "m3e_box": "High Society"
+  },
+  {
+    "model_name": "Copycat Killer",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Redchapel",
+    "m4e_box": "Seamus The Last Whisper",
+    "m3e_box": "Seamus Core"
+  },
+  {
+    "model_name": "Linh Ly, Bibliothecary",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Bibliothecary",
+    "m3e_box": "Linh Ly Core"
+  },
+  {
+    "model_name": "Bookkeeper",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Bibliothecary",
+    "m3e_box": "Linh Ly Core"
+  },
+  {
+    "model_name": "Map Map",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Bibliothecary",
+    "m3e_box": "Linh Ly Core"
+  },
+  {
+    "model_name": "Jade Rabbit",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Bibliothecary",
+    "m3e_box": "Linh Ly Core"
+  },
+  {
+    "model_name": "Linh Ly, Storyteller",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Storyteller",
+    "m3e_box": "Untold Tales"
+  },
+  {
+    "model_name": "Calligrapher",
+    "copies": 3,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Storyteller",
+    "m3e_box": "Lifted from the Page"
+  },
+  {
+    "model_name": "Miya Murakami",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Storyteller",
+    "m3e_box": "Untold Tales"
+  },
+  {
+    "model_name": "Story of Raijin",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Storyteller",
+    "m3e_box": "Legendly Figures"
+  },
+  {
+    "model_name": "Story of Sun Wukong",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Storyteller",
+    "m3e_box": "Legendly Figures"
+  },
+  {
+    "model_name": "Story of Thanh Giong",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Storyteller",
+    "m3e_box": "Legendly Figures"
+  },
+  {
+    "model_name": "Paper Tiger",
+    "copies": 1,
+    "faction": "Ten Thunders",
+    "keyword": "RedLibrary",
+    "m4e_box": "Linh Ly Storyteller",
+    "m3e_box": "Lifted from the Page"
+  },
+  {
+    "model_name": "Kastore, Awakened",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Awakened",
+    "m3e_box": "Ruins of a Lost Age"
+  },
+  {
+    "model_name": "Blood Vessel",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Awakened",
+    "m3e_box": "Kastore Core"
+  },
+  {
+    "model_name": "Gwyll",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Awakened",
+    "m3e_box": "Kastore Core"
+  },
+  {
+    "model_name": "Marathine",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Awakened",
+    "m3e_box": "Kastore Core"
+  },
+  {
+    "model_name": "Kastore, Fevrent",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Fevrent",
+    "m3e_box": "Ruins of a Lost Age"
+  },
+  {
+    "model_name": "Athorak",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Fevrent",
+    "m3e_box": "Deep in the Dark"
+  },
+  {
+    "model_name": "Barbaros",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Fevrent",
+    "m3e_box": "Barbaros"
+  },
+  {
+    "model_name": "Cavern Nephilim",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Fevrent",
+    "m3e_box": "Deep in the Dark"
+  },
+  {
+    "model_name": "White Eyes",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Fevrent",
+    "m3e_box": "The Hushed Corpse"
+  },
+  {
+    "model_name": "Urnbearer",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Returned",
+    "m4e_box": "Kastore Fevrent",
+    "m3e_box": "The Hushed Corpse"
+  },
+  {
+    "model_name": "Reva Cortinas, Death Shepard",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Death Shepard",
+    "m3e_box": "Reva Core"
+  },
+  {
+    "model_name": "Shield Bearer",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Death Shepard",
+    "m3e_box": "Reva Core"
+  },
+  {
+    "model_name": "Vincent St Clair",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Death Shepard",
+    "m3e_box": "Reva Core"
+  },
+  {
+    "model_name": "Corpse Candle",
+    "copies": 2,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Death Shepard",
+    "m3e_box": "Reva Core"
+  },
+  {
+    "model_name": "Reva Cortinas, Luminary",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Luminary",
+    "m3e_box": "Embrace the Ember"
+  },
+  {
+    "model_name": "Draugr",
+    "copies": 2,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Luminary",
+    "m3e_box": "Draugr"
+  },
+  {
+    "model_name": "Lampad",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Luminary",
+    "m3e_box": "The Returned"
+  },
+  {
+    "model_name": "Restless Spirit",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Luminary",
+    "m3e_box": "The Returned"
+  },
+  {
+    "model_name": "Temperance",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Revenant",
+    "m4e_box": "Reva Luminary",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Euripides",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Hierophant",
+    "m3e_box": "Euripides Core"
+  },
+  {
+    "model_name": "Gigant",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Hierophant",
+    "m3e_box": "Euripides Core"
+  },
+  {
+    "model_name": "Thoon",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Hierophant",
+    "m3e_box": "Euripides Core"
+  },
+  {
+    "model_name": "Primordial Magic",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Hierophant",
+    "m3e_box": "Euripides Core"
+  },
+  {
+    "model_name": "Euripides, Old One Eye",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Old One-Eye",
+    "m3e_box": "Coldsnap"
+  },
+  {
+    "model_name": "Cyclops",
+    "copies": 2,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Old One-Eye",
+    "m3e_box": "Cyclops"
+  },
+  {
+    "model_name": "Geryon",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Old One-Eye",
+    "m3e_box": "Geryon"
+  },
+  {
+    "model_name": "Strix",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Savage",
+    "m4e_box": "Euripides Old One-Eye",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Jedza, Everlasting",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Everlasting",
+    "m3e_box": "Fates Entwined"
+  },
+  {
+    "model_name": "Austera and Twigge",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Everlasting",
+    "m3e_box": "Austera and Twigge"
+  },
+  {
+    "model_name": "Grave Goo",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Everlasting",
+    "m3e_box": "Here Lies"
+  },
+  {
+    "model_name": "Moorwraith",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Everlasting",
+    "m3e_box": "Here Lies"
+  },
+  {
+    "model_name": "The Damned",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Everlasting",
+    "m3e_box": "The Damned"
+  },
+  {
+    "model_name": "The Kurgan",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Everlasting",
+    "m3e_box": "Fates Entwined"
+  },
+  {
+    "model_name": "Jedza, The Wanderer",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Wanderer",
+    "m3e_box": "Jedza Core"
+  },
+  {
+    "model_name": "Lamplighter",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Wanderer",
+    "m3e_box": "Jedza Core"
+  },
+  {
+    "model_name": "Mikhail XVI",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Wanderer",
+    "m3e_box": "Jedza Core"
+  },
+  {
+    "model_name": "Sophie",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Seeker",
+    "m4e_box": "Jedza Wanderer",
+    "m3e_box": "Jedza Core"
+  },
+  {
+    "model_name": "Old Major",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Hogfather",
+    "m3e_box": "Ulix Core"
+  },
+  {
+    "model_name": "Ulix Turner, Hogfather",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Hogfather",
+    "m3e_box": "Ulix Core"
+  },
+  {
+    "model_name": "Wild Boars",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Hogfather",
+    "m3e_box": "Ulix Core"
+  },
+  {
+    "model_name": "Penelope",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Hogfather",
+    "m3e_box": "Ulix Core"
+  },
+  {
+    "model_name": "Ulix Turner, Porkbelly Protector",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Porkbelly Protector",
+    "m3e_box": "Protected Domain"
+  },
+  {
+    "model_name": "Piglet",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Porkbelly Protector",
+    "m3e_box": "Makin Bacon/Mudlight Whispers"
+  },
+  {
+    "model_name": "War Pig",
+    "copies": 2,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Porkbelly Protector",
+    "m3e_box": "War Pigs"
+  },
+  {
+    "model_name": "The Sow",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Sooey",
+    "m4e_box": "Ulix Porkbelly Protector",
+    "m3e_box": "Makin Bacon"
+  },
+  {
+    "model_name": "Zoraida, Bog Witch",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Bog Witch",
+    "m3e_box": "Zoraida Core"
+  },
+  {
+    "model_name": "Voodoo Doll",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Bog Witch",
+    "m3e_box": "Zoraida Core"
+  },
+  {
+    "model_name": "Bad Juju",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Bog Witch",
+    "m3e_box": "Zoraida Core"
+  },
+  {
+    "model_name": "Waldgeist",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Bog Witch",
+    "m3e_box": "Zoraida Core"
+  },
+  {
+    "model_name": "Zoraida, Swamp Hag",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Swamp Hag",
+    "m3e_box": "Fates Entwined"
+  },
+  {
+    "model_name": "Mirewing",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Swamp Hag",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Adze",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Swamp Hag",
+    "m3e_box": "A Light in the Dark"
+  },
+  {
+    "model_name": "Grootslang",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Swamp Hag",
+    "m3e_box": "Grootslang"
+  },
+  {
+    "model_name": "Will o' the Wisp",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Swampfiend",
+    "m4e_box": "Zoraida Swamp Hag",
+    "m3e_box": "A Light in the Dark"
+  },
+  {
+    "model_name": "Corvis Rook",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen Rail Magnate",
+    "m3e_box": "Dirty Work"
+  },
+  {
+    "model_name": "Anya Lycarayen, Rail Magnate",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen Rail Magnate",
+    "m3e_box": "Anya Core"
+  },
+  {
+    "model_name": "Drudge",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen Rail Magnate",
+    "m3e_box": "Down to Business"
+  },
+  {
+    "model_name": "The Brass Bull",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen Rail Magnate",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Winston Finnigan",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen The Resolute",
+    "m3e_box": "Anya Core"
+  },
+  {
+    "model_name": "Anya Lycarayen, The Resolute",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen The Resolute",
+    "m3e_box": "Down to Business"
+  },
+  {
+    "model_name": "Operative",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen The Resolute",
+    "m3e_box": "Dirty Work"
+  },
+  {
+    "model_name": "Surveyor",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen The Resolute",
+    "m3e_box": "Anya Core"
+  },
+  {
+    "model_name": "Sovereign",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Syndicate",
+    "m4e_box": "Anya Lycarayen The Resolute",
+    "m3e_box": "Anya Core"
+  },
+  {
+    "model_name": "Jack Daw, Ensouled",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Ensouled",
+    "m3e_box": "A Twisted Tale"
+  },
+  {
+    "model_name": "Drowned",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Ensouled",
+    "m3e_box": "Undertow"
+  },
+  {
+    "model_name": "Jaakuna Ubume",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Ensouled",
+    "m3e_box": "Undertow"
+  },
+  {
+    "model_name": "The Ferryman",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Ensouled",
+    "m3e_box": "The Ferryman"
+  },
+  {
+    "model_name": "Montressor",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Spirit of Betrayal",
+    "m3e_box": "Jack Daw Core"
+  },
+  {
+    "model_name": "Kari Zotiko",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Spirit of Betrayal",
+    "m3e_box": "Kari Zotiko"
+  },
+  {
+    "model_name": "Jack Daw, Spirit of Betrayal",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Spirit of Betrayal",
+    "m3e_box": "Jack Daw Core"
+  },
+  {
+    "model_name": "Guilty",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Spirit of Betrayal",
+    "m3e_box": "Jack Daw Core"
+  },
+  {
+    "model_name": "Lady Ligeia",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Tormented",
+    "m4e_box": "Jack Daw Spirit of Betrayal",
+    "m3e_box": "Jack Daw Core"
+  },
+  {
+    "model_name": "Anna Lovelace",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Admissions Executive",
+    "m3e_box": "Von Schtook Core"
+  },
+  {
+    "model_name": "Prof. Von Schtook, Admissions Executive",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Admissions Executive",
+    "m3e_box": "Von Schtook Core"
+  },
+  {
+    "model_name": "Undergraduate",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Admissions Executive",
+    "m3e_box": "Von Schtook Core"
+  },
+  {
+    "model_name": "Research Assistant",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Admissions Executive",
+    "m3e_box": "Von Schtook Core"
+  },
+  {
+    "model_name": "The Valedictorian",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Stargazer",
+    "m3e_box": "Honor Roll"
+  },
+  {
+    "model_name": "Prof. Von Schtook, Stargazer",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Stargazer",
+    "m3e_box": "Method to the Madness"
+  },
+  {
+    "model_name": "Student of Sinew",
+    "copies": 2,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Stargazer",
+    "m3e_box": "Study Group"
+  },
+  {
+    "model_name": "Student of Steel",
+    "copies": 2,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Stargazer",
+    "m3e_box": "Honor Roll"
+  },
+  {
+    "model_name": "Backup Assistant",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Stargazer",
+    "m3e_box": "Method to the Madness"
+  },
+  {
+    "model_name": "Student of Viscera",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Transmortis",
+    "m4e_box": "Von Schtook Stargazer",
+    "m3e_box": "Study Group"
+  },
+  {
+    "model_name": "The Brewmaster, Moonshiner",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Moonshiner",
+    "m3e_box": "Trade Secrets"
+  },
+  {
+    "model_name": "Popcorn Turner",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Moonshiner",
+    "m3e_box": "Terror in a Barrel"
+  },
+  {
+    "model_name": "Cooper Jones",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Moonshiner",
+    "m3e_box": "Terror in a Barrel"
+  },
+  {
+    "model_name": "Shojo",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Moonshiner",
+    "m3e_box": "Trade Secrets"
+  },
+  {
+    "model_name": "Tanuki",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Moonshiner",
+    "m3e_box": "Tanuki"
+  },
+  {
+    "model_name": "The Brewmaster, Proof-Prophet",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Proof-Prophet",
+    "m3e_box": "Brewmaster Core"
+  },
+  {
+    "model_name": "Fingers Leong",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Proof-Prophet",
+    "m3e_box": "Brewmaster Core"
+  },
+  {
+    "model_name": "Moon Shinobi",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Proof-Prophet",
+    "m3e_box": "Brewmaster Core"
+  },
+  {
+    "model_name": "Apprentice Wesley",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tri-Chi",
+    "m4e_box": "Brewmaster Proof-Prophet",
+    "m3e_box": "Brewmaster Core"
+  },
+  {
+    "model_name": "Mah Tucket, Mecha Mee-Maw",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Mecha Mee-Maw",
+    "m3e_box": "Mah Tucket Core"
+  },
+  {
+    "model_name": "Rooster Rider",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Mecha Mee-Maw",
+    "m3e_box": "Rooster Riders"
+  },
+  {
+    "model_name": "Test Subject",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Mecha Mee-Maw",
+    "m3e_box": "Weird Science"
+  },
+  {
+    "model_name": "Big Brain Brin",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Mecha Mee-Maw",
+    "m3e_box": "Weird Science"
+  },
+  {
+    "model_name": "Sparks Le Blanc",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Metal Magpie",
+    "m3e_box": "Bayou Engineering"
+  },
+  {
+    "model_name": "Trixibelle",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Metal Magpie",
+    "m3e_box": "Mah Tucket Core"
+  },
+  {
+    "model_name": "Mah Tucket, Metal Magpie",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Metal Magpie",
+    "m3e_box": "Scrapyard"
+  },
+  {
+    "model_name": "Survivor",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Metal Magpie",
+    "m3e_box": "Bayou Engineering"
+  },
+  {
+    "model_name": "The Little Lass",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Metal Magpie",
+    "m3e_box": "Mah Tucket Core"
+  },
+  {
+    "model_name": "Mechanized Porkchop",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Tricksy",
+    "m4e_box": "Mah Tucket Metal Magpie",
+    "m3e_box": "Bayou Engineering"
+  },
+  {
+    "model_name": "Kirai Ankoku, Envoy of the Court",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Envoy of the Court",
+    "m3e_box": "ToS Starter Box"
+  },
+  {
+    "model_name": "Enslaved Spirit",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Envoy of the Court",
+    "m3e_box": "ToS Starter Box"
+  },
+  {
+    "model_name": "Gwisin",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Envoy of the Court",
+    "m3e_box": "ToS Starter Box"
+  },
+  {
+    "model_name": "Ikiryo, The Heart that Left",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Envoy of the Court",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Datsue Ba",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Lady of Vengeance",
+    "m3e_box": "Kirai Core"
+  },
+  {
+    "model_name": "Kuchisake-onna",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Lady of Vengeance",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Kirai Ankoku, Lady of Vengeance",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Lady of Vengeance",
+    "m3e_box": "Kirai Core"
+  },
+  {
+    "model_name": "Seishin",
+    "copies": 3,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Lady of Vengeance",
+    "m3e_box": "Vengeful Ghosts"
+  },
+  {
+    "model_name": "Ikiryo, Spirit of Vengeance",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Lady of Vengeance",
+    "m3e_box": "Kirai Core"
+  },
+  {
+    "model_name": "Lost Love",
+    "copies": 1,
+    "faction": "Resurrectionists",
+    "keyword": "Urami",
+    "m4e_box": "Kirai Lady of Vengeance",
+    "m3e_box": "Kirai Core"
+  },
+  {
+    "model_name": "Sidir Alchibal",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Relic Hunter",
+    "m3e_box": "Lucas Core"
+  },
+  {
+    "model_name": "Lucas McCabe, Relic Hunter",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Relic Hunter",
+    "m3e_box": "Lucas Core"
+  },
+  {
+    "model_name": "Lucas McCabe, Dismounted Hunter",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Relic Hunter",
+    "m3e_box": "Lucas Core"
+  },
+  {
+    "model_name": "Ruffian",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Relic Hunter",
+    "m3e_box": "Lucas Core"
+  },
+  {
+    "model_name": "Luna",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Relic Hunter",
+    "m3e_box": "Lucas Core"
+  },
+  {
+    "model_name": "Desper LaRaux",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Tomb Delver",
+    "m3e_box": "One Born Every Minute"
+  },
+  {
+    "model_name": "Lucas McCabe, Tomb Delver",
+    "copies": 1,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Tomb Delver",
+    "m3e_box": "Self Made"
+  },
+  {
+    "model_name": "Rough Rider",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Tomb Delver",
+    "m3e_box": "Fools Gold"
+  },
+  {
+    "model_name": "Huckster",
+    "copies": 3,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Tomb Delver",
+    "m3e_box": "One Born Every Minute"
+  },
+  {
+    "model_name": "Cryptologist",
+    "copies": 2,
+    "faction": "Explorer's Society",
+    "keyword": "Wastrel",
+    "m4e_box": "McCabe Tomb Delver",
+    "m3e_box": "Fools Gold"
+  },
+  {
+    "model_name": "Howard Langston",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Iron-Threaded",
+    "m3e_box": "Rift in the Union"
+  },
+  {
+    "model_name": "Kaeris, Iron-Threaded",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Iron-Threaded",
+    "m3e_box": "Kaeris Core"
+  },
+  {
+    "model_name": "Steam Arachnid",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Iron-Threaded",
+    "m3e_box": "Aracnophobia"
+  },
+  {
+    "model_name": "Eternal Flame",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Iron-Threaded",
+    "m3e_box": "Kaeris Core"
+  },
+  {
+    "model_name": "The Scorpius",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Iron-Threaded",
+    "m3e_box": "Altered Beasts"
+  },
+  {
+    "model_name": "The Firestarter",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Iron-Threaded",
+    "m3e_box": "Kaeris Core"
+  },
+  {
+    "model_name": "Deacon Hillcrest",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Reborn",
+    "m3e_box": "Embrace the Ember"
+  },
+  {
+    "model_name": "Kaeris, Reborn",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Reborn",
+    "m3e_box": "Embrace the Ember"
+  },
+  {
+    "model_name": "Firebranded",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Reborn",
+    "m3e_box": "Burning Bridges"
+  },
+  {
+    "model_name": "Herbie",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Reborn",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Elijah Borgmann",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Wildfire",
+    "m4e_box": "Karis Reborn",
+    "m3e_box": "Burning Bridges"
+  },
+  {
+    "model_name": "Samael Hopkins",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Criid Unrelenting",
+    "m3e_box": "Sonnia Core"
+  },
+  {
+    "model_name": "Sonnia Criid, Unrelenting",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Criid Unrelenting",
+    "m3e_box": "Sonnia Core"
+  },
+  {
+    "model_name": "Witchling Stalker",
+    "copies": 3,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Criid Unrelenting",
+    "m3e_box": "Sonnia Core"
+  },
+  {
+    "model_name": "Purifying Flame",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Criid Unrelenting",
+    "m3e_box": "Sonnia Core"
+  },
+  {
+    "model_name": "Sonnia Criid, Unmasked",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Unmasked",
+    "m3e_box": "ToS Starter"
+  },
+  {
+    "model_name": "Thalarian Queller",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Unmasked",
+    "m3e_box": "Chained Magic"
+  },
+  {
+    "model_name": "Witchling Handler",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Unmasked",
+    "m3e_box": "Witching Hour"
+  },
+  {
+    "model_name": "Witchling Thrall",
+    "copies": 2,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Unmasked",
+    "m3e_box": "Witching Hour"
+  },
+  {
+    "model_name": "Kazamir",
+    "copies": 1,
+    "faction": "Guild",
+    "keyword": "WitchHunter",
+    "m4e_box": "Sonnia Unmasked",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Bellaventine Thorpe",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Aspirant",
+    "m3e_box": "Ravencroft Core Box"
+  },
+  {
+    "model_name": "Damian Ravencroft, Aspirant",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Aspirant",
+    "m3e_box": "Ravencroft Core Box"
+  },
+  {
+    "model_name": "Dabbler",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Aspirant",
+    "m3e_box": "Ravencroft Core Box"
+  },
+  {
+    "model_name": "The Puzzle Box, Unsolved",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Aspirant",
+    "m3e_box": null
+  },
+  {
+    "model_name": "Lohith",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Unbound",
+    "m3e_box": "Living Soulstones"
+  },
+  {
+    "model_name": "Damian Ravencroft, Unbound",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Unbound",
+    "m3e_box": "Untold Tales"
+  },
+  {
+    "model_name": "Soulstone Gamin",
+    "copies": 3,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Unbound",
+    "m3e_box": "Living Soulstones"
+  },
+  {
+    "model_name": "The Puzzle Box, Solved",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Unbound",
+    "m3e_box": "Ravencroft Core Box"
+  },
+  {
+    "model_name": "Leger de Main",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Unbound",
+    "m3e_box": "Invisible Ink"
+  },
+  {
+    "model_name": "Marco Bonatti",
+    "copies": 1,
+    "faction": "Arcanists",
+    "keyword": "Witness",
+    "m4e_box": "Ravencroft Unbound",
+    "m3e_box": "Invisible Ink"
+  },
+  {
+    "model_name": "Wong, Enchanter",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong Enchanter",
+    "m3e_box": "Method to the Madness"
+  },
+  {
+    "model_name": "Gautraeux Bokor",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong Enchanter",
+    "m3e_box": "Gautraeux Bokor"
+  },
+  {
+    "model_name": "Swine-Cursed",
+    "copies": 2,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong Enchanter",
+    "m3e_box": "Swine Cursed"
+  },
+  {
+    "model_name": "Flying Piglet",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong Enchanter",
+    "m3e_box": "When Pigs Fly"
+  },
+  {
+    "model_name": "Wong, the Wonderful",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong The Wonder",
+    "m3e_box": "Wong Core"
+  },
+  {
+    "model_name": "Alphonse Le Blanc",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong The Wonder",
+    "m3e_box": "Wong Core"
+  },
+  {
+    "model_name": "Lightning Bug",
+    "copies": 3,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong The Wonder",
+    "m3e_box": "Wong Core"
+  },
+  {
+    "model_name": "Oliva Bernard",
+    "copies": 1,
+    "faction": "Bayou",
+    "keyword": "Wizz-Bang",
+    "m4e_box": "Wong The Wonder",
+    "m3e_box": "Wong Core"
+  },
+  {
+    "model_name": "Candy",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Despair's Desire",
+    "m3e_box": "Pandora Core"
+  },
+  {
+    "model_name": "Pandora, Despair's Desire",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Despair's Desire",
+    "m3e_box": "Pandora Core"
+  },
+  {
+    "model_name": "Sorrow",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Despair's Desire",
+    "m3e_box": "Pandora Core"
+  },
+  {
+    "model_name": "Poltergeist",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Despair's Desire",
+    "m3e_box": "Pandora Core"
+  },
+  {
+    "model_name": "Baby Kade",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Despair's Desire",
+    "m3e_box": "Pandora Core"
+  },
+  {
+    "model_name": "Pandora, Tyrant Torn",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Tyrant Torn",
+    "m3e_box": "All the Worlds a Stage"
+  },
+  {
+    "model_name": "Averison",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Tyrant Torn",
+    "m3e_box": "Juvenile Deliquents"
+  },
+  {
+    "model_name": "Lyssa",
+    "copies": 3,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Tyrant Torn",
+    "m3e_box": "Lyssa"
+  },
+  {
+    "model_name": "Iggy",
+    "copies": 1,
+    "faction": "Neverborn",
+    "keyword": "Woe",
+    "m4e_box": "Pandora Tyrant Torn",
+    "m3e_box": "Juvenile Deliquents"
+  }
+]

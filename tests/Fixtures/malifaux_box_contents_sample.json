@@ -46,5 +46,21 @@
         "keyword": "WitchHunter",
         "m4e_box": "Some Unreleased Box Nobody Has",
         "m3e_box": null
+    },
+    {
+        "model_name": "Pandora, Tyrant Torn",
+        "copies": 1,
+        "faction": "Neverborn",
+        "keyword": "Woe",
+        "m4e_box": "Pandora Tyrant Torn",
+        "m3e_box": "All the Worlds a Stage"
+    },
+    {
+        "model_name": "Bete Noire",
+        "copies": 1,
+        "faction": "Neverborn",
+        "keyword": "Woe",
+        "m4e_box": "Pandora Tyrant Torn",
+        "m3e_box": null
     }
 ]

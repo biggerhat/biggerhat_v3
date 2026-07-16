@@ -101,7 +101,7 @@ class PackageController extends Controller
     {
         $packages = Package::whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])
             ->whereHas('characters')
-            ->with('characters.standardMiniatures')
+            ->with('characters.standardMiniatures', 'characters.keywords')
             ->orderBy('name')
             ->get()
             ->map(fn (Package $package) => [
@@ -110,6 +110,7 @@ class PackageController extends Controller
                 'legacy_m3e_name' => $package->legacy_m3e_name,
                 'category' => $package->category?->value,
                 'category_label' => $package->category?->label(),
+                'msrp' => $package->msrp,
                 'characters' => $package->characters->map(fn (Character $c) => [
                     'display_name' => $c->display_name,
                     'slug' => $c->slug,
@@ -117,9 +118,14 @@ class PackageController extends Controller
                     'faction_label' => $c->faction->label(),
                     'faction_color' => $c->faction->color(),
                     'quantity' => $c->pivot->quantity ?? 1,
+                    'keywords' => $c->keywords->pluck('name'),
                     'standard_miniature' => $c->standardMiniatures->first() ? [
                         'id' => $c->standardMiniatures->first()->id,
                         'slug' => $c->standardMiniatures->first()->slug,
+                        'display_name' => $c->standardMiniatures->first()->display_name,
+                        'front_image' => $c->standardMiniatures->first()->front_image,
+                        'back_image' => $c->standardMiniatures->first()->back_image,
+                        'character_id' => $c->id,
                     ] : null,
                 ])->sortBy('display_name')->values(),
             ]);
@@ -127,6 +133,8 @@ class PackageController extends Controller
         return inertia('Packages/Contents', [
             'packages' => $packages,
             'factions' => fn () => FactionEnum::buildDetails(),
+            'categories' => fn () => PackageCategoryEnum::toSelectOptions(),
+            'keywords' => fn () => Keyword::toSelectOptions('name', 'name'),
         ]);
     }
 

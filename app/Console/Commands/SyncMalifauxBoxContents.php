@@ -8,6 +8,7 @@ use App\Models\Package;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class SyncMalifauxBoxContents extends Command
 {
@@ -116,7 +117,20 @@ class SyncMalifauxBoxContents extends Command
 
     private function normalize(string $s): string
     {
-        return strtolower(trim(preg_replace('/[^a-z0-9\s]/i', '', $s) ?? $s));
+        $ascii = strtolower(Str::ascii($s));
+
+        // Hyphens sit ambiguously between "one word" and "two words" across
+        // the reference PDF vs. the DB's official card-text spelling (e.g.
+        // "Tyrant Torn" vs. "Tyrant-Torn", "Thirty Three" vs. "Thirty-Three")
+        // — normalize to a space rather than deleting outright, so both
+        // sides tokenize the same way. Every other punctuation mark
+        // (apostrophes, commas) is simply deleted since both sides already
+        // agree on those. Str::ascii() above transliterates diacritics
+        // (e.g. "Bête Noire" -> "Bete Noire") before this ever runs.
+        $spaced = str_replace('-', ' ', $ascii);
+        $stripped = preg_replace('/[^a-z0-9\s]/', '', $spaced) ?? $spaced;
+
+        return trim(preg_replace('/\s+/', ' ', $stripped) ?? $stripped);
     }
 
     /**

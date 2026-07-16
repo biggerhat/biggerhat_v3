@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\FactionEnum;
+use App\Enums\PackageCategoryEnum;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -157,5 +158,25 @@ it('excludes TOS-only packages from box contents', function () {
         ->assertInertia(fn ($page) => $page
             ->component('Packages/Contents')
             ->has('packages', 0)
+        );
+});
+
+it('includes msrp, category, and character keywords in box contents', function () {
+    $package = Package::factory()->create(['name' => 'Priced Box', 'msrp' => 4500, 'category' => PackageCategoryEnum::CoreBox]);
+    $character = Character::factory()->create();
+    $keyword = Keyword::factory()->create(['name' => 'Academic']);
+    $keyword->characters()->attach($character);
+    $package->characters()->attach($character, ['quantity' => 1]);
+
+    $response = $this->get(route('packages.contents'));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Packages/Contents')
+            ->where('packages.0.msrp', 4500)
+            ->where('packages.0.category', 'core_box')
+            ->where('packages.0.characters.0.keywords.0', 'Academic')
+            ->has('categories')
+            ->has('keywords')
         );
 });

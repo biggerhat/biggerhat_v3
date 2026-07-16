@@ -101,6 +101,53 @@ it('stores a package with relationships', function () {
         ->and($package->keywords)->toHaveCount(1);
 });
 
+it('stores per-character quantities when attaching characters', function () {
+    $character = Character::factory()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.store'), [
+            'name' => 'Quantity Test Package',
+            'characters' => [$character->display_name],
+            'character_quantities' => [$character->display_name => 3],
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package = Package::where('name', 'Quantity Test Package')->first();
+
+    expect($package->characters()->first()->pivot->quantity)->toBe(3);
+});
+
+it('defaults a character quantity to 1 when none is provided', function () {
+    $character = Character::factory()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.store'), [
+            'name' => 'Default Quantity Package',
+            'characters' => [$character->display_name],
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package = Package::where('name', 'Default Quantity Package')->first();
+
+    expect($package->characters()->first()->pivot->quantity)->toBe(1);
+});
+
+it('preserves a previously-set character quantity across an update that resubmits it', function () {
+    $package = Package::factory()->create();
+    $character = Character::factory()->create();
+    $package->characters()->attach($character, ['quantity' => 3]);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.update', $package), [
+            'name' => $package->name,
+            'characters' => [$character->display_name],
+            'character_quantities' => [$character->display_name => 3],
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    expect($package->characters()->first()->pivot->quantity)->toBe(3);
+});
+
 it('validates name is required when storing', function () {
     $this->actingAs($this->admin)
         ->post(route('admin.packages.store'), [

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { CircleX } from 'lucide-vue-next';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     package: {
@@ -88,6 +88,7 @@ const formInfo = ref({
     back_image: null,
     combination_image: null,
     characters: [],
+    character_quantities: {} as Record<string, number>,
     miniatures: [],
     keywords: [],
     tos_units: [],
@@ -96,6 +97,26 @@ const formInfo = ref({
 const submit = () => {
     router.post(props.package ? route('admin.packages.update', props.package.slug) : route('admin.packages.store'), formInfo.value);
 };
+
+// Keep character_quantities in sync with the selected-characters list —
+// newly added names default to 1, removed names are pruned so stale
+// quantities don't linger in the submitted payload.
+watch(
+    () => formInfo.value.characters,
+    (names: string[]) => {
+        for (const name of names) {
+            if (!(name in formInfo.value.character_quantities)) {
+                formInfo.value.character_quantities[name] = 1;
+            }
+        }
+        for (const name of Object.keys(formInfo.value.character_quantities)) {
+            if (!names.includes(name)) {
+                delete formInfo.value.character_quantities[name];
+            }
+        }
+    },
+    { deep: true },
+);
 
 onMounted(() => {
     formInfo.value.name = props.package?.name ?? null;
@@ -112,6 +133,7 @@ onMounted(() => {
 
     props.package?.characters.forEach((character) => {
         formInfo.value.characters.push(character.display_name);
+        formInfo.value.character_quantities[character.display_name] = character.pivot?.quantity ?? 1;
     });
 
     props.package?.miniatures.forEach((miniature) => {
@@ -318,6 +340,26 @@ onMounted(() => {
                                             option-value="name"
                                         />
                                         <InputError :message="usePage().props.errors.characters" />
+                                        <!-- Per-character copy count in this box — e.g. 3x Gremlin Crier.
+                                             Lets an admin manually correct a box's contents (including
+                                             quantity) for anything the box-contents sync command couldn't
+                                             match automatically. -->
+                                        <div v-if="formInfo.characters.length" class="mt-2 space-y-1 rounded-md border p-2">
+                                            <div
+                                                v-for="name in formInfo.characters"
+                                                :key="name"
+                                                class="flex items-center justify-between gap-2 text-sm"
+                                            >
+                                                <span class="truncate">{{ name }}</span>
+                                                <Input
+                                                    v-model.number="formInfo.character_quantities[name]"
+                                                    type="number"
+                                                    min="1"
+                                                    class="h-7 w-16 text-xs"
+                                                />
+                                            </div>
+                                        </div>
+                                        <InputError :message="usePage().props.errors.character_quantities" />
                                     </div>
                                     <div class="flex flex-col space-y-1.5">
                                         <Label for="miniatures">Miniatures</Label>

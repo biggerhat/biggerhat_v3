@@ -98,10 +98,15 @@ class PackageAdminController extends Controller
             'back_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'characters' => ['nullable', 'array'],
+            'character_quantities' => ['nullable', 'array'],
+            'character_quantities.*' => ['nullable', 'integer', 'min:1'],
             'miniatures' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
             'tos_units' => ['nullable', 'array'],
         ]);
+
+        $characterQuantities = $validated['character_quantities'] ?? [];
+        unset($validated['character_quantities']);
 
         $validated['slug'] = Str::slug($validated['name']);
 
@@ -165,7 +170,11 @@ class PackageAdminController extends Controller
             $package->update($validated);
         }
 
-        $package->characters()->sync($characters->pluck('id'));
+        $characterSyncData = $characters->mapWithKeys(fn (Character $c) => [
+            $c->id => ['quantity' => $characterQuantities[$c->display_name] ?? 1],
+        ]);
+
+        $package->characters()->sync($characterSyncData);
         $package->miniatures()->sync($miniatures->pluck('id'));
         $package->keywords()->sync($keywords->pluck('id'));
         $package->tosUnits()->sync($tosUnits->pluck('id'));

@@ -6,11 +6,17 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import SearchableSelect from '@/components/SearchableSelect.vue';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Head, Link } from '@inertiajs/vue3';
-import { ChevronDown, Search, X } from 'lucide-vue-next';
-import { computed, reactive, ref } from 'vue';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import type { SharedData } from '@/types';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { BookMarked, Check, ChevronDown, Link2, Search, Sparkles, X } from 'lucide-vue-next';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 interface BoxCharacterMiniature {
     id: number;
@@ -34,13 +40,16 @@ interface BoxCharacter {
 }
 
 interface Box {
+    id: number;
     name: string;
     slug: string;
     legacy_m3e_name: string | null;
     category: string | null;
     category_label: string | null;
     msrp: number | null;
+    released_at: string | null;
     is_auto_generated: boolean;
+    is_standard_edition: boolean;
     characters: BoxCharacter[];
 }
 
@@ -51,14 +60,50 @@ const props = defineProps<{
     keywords: { name: string; value: string }[];
 }>();
 
+const page = usePage<SharedData>();
+const isLoggedIn = computed(() => !!page.props.auth?.user);
+const collectionPackageIds = computed(() => new Set(page.props.auth?.collection_package_ids ?? []));
+const isCollected = (pkgId: number) => collectionPackageIds.value.has(pkgId);
+
+// Collection membership for individual models is tracked by miniature id
+// (same source CharacterCardView.vue reads), not character id — a character
+// with no standard_miniature can never be "owned" since there's nothing to
+// check off, so it always counts as missing.
+const collectionMiniatureIds = computed(() => new Set(page.props.auth?.collection_miniature_ids ?? []));
+const isCharacterCollected = (character: BoxCharacter) =>
+    character.standard_miniature != null && collectionMiniatureIds.value.has(character.standard_miniature.id);
+
 const search = ref('');
-const activeFaction = ref<string | null>(null);
+// Multiple factions can be active at once (e.g. "Guild or Neverborn") — a
+// plain array rather than a Set so it serializes trivially to a comma-joined
+// URL param.
+const activeFactions = ref<string[]>([]);
 const activeCategory = ref<string | null>(null);
 const activeKeyword = ref<string | null>(null);
+const standardOnly = ref(false);
+const missingCharactersOnly = ref(false);
+// Values are 'owned' | 'missing' — only meaningful when logged in, since
+// collection state doesn't exist for guests. Kept as a plain string|null (not
+// a union) so it binds cleanly to ClearableSelect's string-typed v-model.
+const collectionFilter = ref<string | null>(null);
+const collectionFilterOptions = [
+    { name: 'In My Collection', value: 'owned' },
+    { name: 'Not in My Collection', value: 'missing' },
+];
+const sortBy = ref('name');
+const sortOptions = [
+    { name: 'Name (A–Z)', value: 'name' },
+    { name: 'MSRP: Low to High', value: 'msrp_asc' },
+    { name: 'MSRP: High to Low', value: 'msrp_desc' },
+    { name: 'Newest Release', value: 'released_desc' },
+    { name: 'Oldest Release', value: 'released_asc' },
+];
 const openBoxes = reactive<Set<string>>(new Set());
 
 const toggleFaction = (slug: string) => {
-    activeFaction.value = activeFaction.value === slug ? null : slug;
+    const i = activeFactions.value.indexOf(slug);
+    if (i >= 0) activeFactions.value.splice(i, 1);
+    else activeFactions.value.push(slug);
 };
 
 const matchesSearch = (box: Box, term: string) => {
@@ -71,13 +116,25 @@ const filteredBoxes = computed(() => {
     const term = search.value.trim().toLowerCase();
 
     return props.packages.filter((box) => {
-        if (activeFaction.value && !box.characters.some((c) => c.faction === activeFaction.value)) {
+        if (activeFactions.value.length && !box.characters.some((c) => activeFactions.value.includes(c.faction))) {
             return false;
         }
         if (activeCategory.value && box.category !== activeCategory.value) {
             return false;
         }
         if (activeKeyword.value && !box.characters.some((c) => c.keywords.includes(activeKeyword.value!))) {
+            return false;
+        }
+        if (standardOnly.value && !box.is_standard_edition) {
+            return false;
+        }
+        if (collectionFilter.value === 'owned' && !isCollected(box.id)) {
+            return false;
+        }
+        if (collectionFilter.value === 'missing' && isCollected(box.id)) {
+            return false;
+        }
+        if (missingCharactersOnly.value && !box.characters.some((c) => !isCharacterCollected(c))) {
             return false;
         }
         if (term && !matchesSearch(box, term)) {
@@ -87,14 +144,60 @@ const filteredBoxes = computed(() => {
     });
 });
 
+// Sorting is a separate pass over the already-filtered set — keeps the
+// filter predicate above focused purely on inclusion/exclusion. Boxes
+// missing the sorted-on field (no MSRP, no release date) sort to the end
+// regardless of direction, rather than clustering at whichever end `null`
+// happens to coerce to numerically.
+const sortedBoxes = computed(() => {
+    const boxes = [...filteredBoxes.value];
+
+    const byNullableNumber = (getter: (b: Box) => number | null, direction: 1 | -1) => (a: Box, b: Box) => {
+        const av = getter(a);
+        const bv = getter(b);
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        return (av - bv) * direction;
+    };
+
+    switch (sortBy.value) {
+        case 'msrp_asc':
+            return boxes.sort(byNullableNumber((b) => b.msrp, 1));
+        case 'msrp_desc':
+            return boxes.sort(byNullableNumber((b) => b.msrp, -1));
+        case 'released_asc':
+            return boxes.sort(byNullableNumber((b) => (b.released_at ? new Date(b.released_at).getTime() : null), 1));
+        case 'released_desc':
+            return boxes.sort(byNullableNumber((b) => (b.released_at ? new Date(b.released_at).getTime() : null), -1));
+        default:
+            return boxes.sort((a, b) => a.name.localeCompare(b.name));
+    }
+});
+
 const totalMsrpCents = computed(() => filteredBoxes.value.reduce((sum, box) => sum + (box.msrp ?? 0), 0));
 const formatMsrp = (cents: number | null | undefined) => (cents ? `$${(cents / 100).toFixed(2)}` : null);
+
+// Quick-facts computed against the current filtered view (not the full
+// catalog) so they double as live feedback on what a filter combination
+// actually turned up — mirrors the stat-chip treatment on Factions/View.vue
+// and Keywords/View.vue.
+const uniqueCharacterCount = computed(() => new Set(filteredBoxes.value.flatMap((b) => b.characters.map((c) => c.slug))).size);
+const uniqueKeywordCount = computed(() => new Set(filteredBoxes.value.flatMap((b) => b.characters.flatMap((c) => c.keywords))).size);
+const uniqueFactionCount = computed(() => new Set(filteredBoxes.value.flatMap((b) => b.characters.map((c) => c.faction))).size);
 
 // A live search/filter naturally wants its matches visible — auto-expand
 // every box while searching/filtering, but leave manual toggles alone when
 // idle so the page doesn't dump 100+ open sections on first load.
 const isFiltering = computed(
-    () => search.value.trim().length > 0 || activeFaction.value !== null || activeCategory.value !== null || activeKeyword.value !== null,
+    () =>
+        search.value.trim().length > 0 ||
+        activeFactions.value.length > 0 ||
+        activeCategory.value !== null ||
+        activeKeyword.value !== null ||
+        standardOnly.value ||
+        missingCharactersOnly.value ||
+        collectionFilter.value !== null,
 );
 const isOpen = (slug: string) => isFiltering.value || openBoxes.has(slug);
 const toggleBox = (slug: string) => {
@@ -111,12 +214,121 @@ const clearSearch = () => {
 
 const clearAllFilters = () => {
     search.value = '';
-    activeFaction.value = null;
+    activeFactions.value = [];
     activeCategory.value = null;
     activeKeyword.value = null;
+    standardOnly.value = false;
+    missingCharactersOnly.value = false;
+    collectionFilter.value = null;
+    sortBy.value = 'name';
 };
 
 const hasActiveFilters = computed(() => isFiltering.value);
+
+// Combine multiple filters into one click for common browsing intents.
+// Presets always start from a clean slate (clearAllFilters) so applying one
+// never mixes leftover state from whatever was set before.
+interface Preset {
+    label: string;
+    apply: () => void;
+}
+const presets = computed<Preset[]>(() => {
+    const list: Preset[] = [
+        { label: 'Core Boxes Only', apply: () => (activeCategory.value = 'core_box') },
+        { label: 'Standard Editions Only', apply: () => (standardOnly.value = true) },
+    ];
+    if (isLoggedIn.value) {
+        list.push(
+            { label: "Boxes I'm Missing", apply: () => (collectionFilter.value = 'missing') },
+            { label: "Contains Characters I Don't Own", apply: () => (missingCharactersOnly.value = true) },
+        );
+    }
+    return list;
+});
+const applyPreset = (preset: Preset) => {
+    clearAllFilters();
+    preset.apply();
+};
+
+// All filtering happens client-side against the already-loaded payload, so
+// there's no need for a full Inertia visit to make a filtered view
+// shareable — just keep the URL in sync via history.replaceState (mirrors
+// the pattern in Tools/SchemePath.vue) so the address bar always reflects
+// the current filters and can be copied/bookmarked directly.
+const syncUrl = () => {
+    const params = new URLSearchParams();
+    if (search.value.trim()) params.set('search', search.value.trim());
+    if (activeFactions.value.length) params.set('faction', activeFactions.value.join(','));
+    if (activeCategory.value) params.set('category', activeCategory.value);
+    if (activeKeyword.value) params.set('keyword', activeKeyword.value);
+    if (standardOnly.value) params.set('standard', '1');
+    if (missingCharactersOnly.value) params.set('missing_characters', '1');
+    if (collectionFilter.value) params.set('collection', collectionFilter.value);
+    if (sortBy.value !== 'name') params.set('sort', sortBy.value);
+    const query = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+};
+
+watch(
+    [search, activeFactions, activeCategory, activeKeyword, standardOnly, missingCharactersOnly, collectionFilter, sortBy],
+    syncUrl,
+    { deep: true },
+);
+
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const searchParam = params.get('search');
+    if (searchParam) search.value = searchParam;
+
+    // Validate against the actual option lists so a stale/malformed URL
+    // (old bookmark, hand-edited link) degrades to "no filter" instead of
+    // silently matching zero boxes.
+    const validFactionSlugs = new Set(Object.values(props.factions).map((f) => f.slug));
+    const factionParam = params.get('faction');
+    if (factionParam) {
+        activeFactions.value = factionParam.split(',').filter((slug) => validFactionSlugs.has(slug));
+    }
+
+    const categoryParam = params.get('category');
+    if (categoryParam && props.categories.some((c) => c.value === categoryParam)) {
+        activeCategory.value = categoryParam;
+    }
+
+    const keywordParam = params.get('keyword');
+    if (keywordParam && props.keywords.some((k) => k.value === keywordParam)) {
+        activeKeyword.value = keywordParam;
+    }
+
+    if (params.get('standard') === '1') {
+        standardOnly.value = true;
+    }
+
+    if (isLoggedIn.value && params.get('missing_characters') === '1') {
+        missingCharactersOnly.value = true;
+    }
+
+    const collectionParam = params.get('collection');
+    if (isLoggedIn.value && (collectionParam === 'owned' || collectionParam === 'missing')) {
+        collectionFilter.value = collectionParam;
+    }
+
+    const sortParam = params.get('sort');
+    if (sortParam && sortOptions.some((o) => o.value === sortParam)) {
+        sortBy.value = sortParam;
+    }
+});
+
+const linkCopied = ref(false);
+const copyLink = async () => {
+    try {
+        await navigator.clipboard.writeText(window.location.href);
+        linkCopied.value = true;
+        setTimeout(() => (linkCopied.value = false), 1500);
+    } catch {
+        // clipboard blocked — no-op
+    }
+};
 </script>
 
 <template>
@@ -124,9 +336,18 @@ const hasActiveFilters = computed(() => isFiltering.value);
     <div>
         <PageBanner title="Box Contents">
             <template #subtitle>
-                <div class="my-auto flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                <div class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     <span>{{ filteredBoxes.length }} of {{ props.packages.length }} boxes</span>
-                    <span v-if="totalMsrpCents > 0" class="font-medium">· {{ formatMsrp(totalMsrpCents) }} total MSRP</span>
+                    <template v-if="totalMsrpCents > 0">
+                        <span class="text-muted-foreground/50">&middot;</span>
+                        <span class="font-medium">{{ formatMsrp(totalMsrpCents) }} total MSRP</span>
+                    </template>
+                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span>{{ uniqueCharacterCount }} characters</span>
+                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span>{{ uniqueKeywordCount }} keywords</span>
+                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span>{{ uniqueFactionCount }} factions</span>
                 </div>
             </template>
         </PageBanner>
@@ -155,8 +376,57 @@ const hasActiveFilters = computed(() => isFiltering.value);
                     :options="props.keywords"
                     trigger-class="h-8 w-44 text-xs border-2 border-primary rounded"
                 />
+                <ClearableSelect
+                    v-if="isLoggedIn"
+                    v-model="collectionFilter"
+                    placeholder="Any Collection Status"
+                    :options="collectionFilterOptions"
+                    trigger-class="h-8 w-48 text-xs border-2 border-primary rounded"
+                />
+                <Select v-model="sortBy">
+                    <SelectTrigger class="h-8 w-44 border-2 border-primary text-xs">
+                        <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.name }}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <label class="flex h-8 cursor-pointer items-center gap-1.5 rounded border-2 border-primary px-2.5">
+                    <Switch id="standard-only-toggle" v-model="standardOnly" class="h-4 w-7" />
+                    <Label for="standard-only-toggle" class="cursor-pointer text-xs font-medium text-muted-foreground">
+                        Standard editions only
+                    </Label>
+                </label>
+                <label v-if="isLoggedIn" class="flex h-8 cursor-pointer items-center gap-1.5 rounded border-2 border-primary px-2.5">
+                    <Switch id="missing-characters-toggle" v-model="missingCharactersOnly" class="h-4 w-7" />
+                    <Label for="missing-characters-toggle" class="cursor-pointer text-xs font-medium text-muted-foreground">
+                        Contains models I don't own
+                    </Label>
+                </label>
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <Button variant="outline" size="sm" class="h-8 gap-1 text-xs">
+                            <Sparkles class="h-3.5 w-3.5" />
+                            <span class="hidden sm:inline">Presets</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                        <DropdownMenuItem v-for="preset in presets" :key="preset.label" @click="applyPreset(preset)">
+                            {{ preset.label }}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <button v-if="hasActiveFilters" class="text-xs text-muted-foreground underline hover:text-foreground" @click="clearAllFilters">
                     Clear filters
+                </button>
+                <button
+                    v-if="hasActiveFilters"
+                    class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    @click="copyLink"
+                >
+                    <Check v-if="linkCopied" class="h-3 w-3" />
+                    <Link2 v-else class="h-3 w-3" />
+                    {{ linkCopied ? 'Copied!' : 'Copy link to this view' }}
                 </button>
             </div>
         </div>
@@ -168,7 +438,8 @@ const hasActiveFilters = computed(() => isFiltering.value);
                     :key="key"
                     @click="toggleFaction(faction.slug)"
                     class="rounded-full p-1 transition-all"
-                    :class="activeFaction === faction.slug ? 'ring-2 ring-primary' : 'opacity-50 hover:opacity-100'"
+                    :class="activeFactions.includes(faction.slug) ? 'ring-2 ring-primary' : 'opacity-50 hover:opacity-100'"
+                    :title="faction.name"
                 >
                     <FactionLogo :faction="faction.slug" class-name="h-6 w-6" />
                 </button>
@@ -179,7 +450,7 @@ const hasActiveFilters = computed(() => isFiltering.value);
             <EmptyState v-if="!filteredBoxes.length" description="Try a different search term or clear the active filters." />
 
             <div v-else class="space-y-2">
-                <Collapsible v-for="box in filteredBoxes" :key="box.slug" :open="isOpen(box.slug)" @update:open="toggleBox(box.slug)">
+                <Collapsible v-for="box in sortedBoxes" :key="box.slug" :open="isOpen(box.slug)" @update:open="toggleBox(box.slug)">
                     <div class="rounded-lg border">
                         <CollapsibleTrigger class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/50">
                             <div class="flex min-w-0 items-center gap-2">
@@ -204,6 +475,15 @@ const hasActiveFilters = computed(() => isFiltering.value);
                                 </span>
                             </div>
                             <div class="flex shrink-0 items-center gap-2">
+                                <span
+                                    v-if="isCollected(box.id)"
+                                    class="flex items-center gap-1 text-[11px]"
+                                    style="color: #059669"
+                                    title="In Collection"
+                                >
+                                    <BookMarked class="size-3.5" />
+                                    <span class="hidden sm:inline">Collected</span>
+                                </span>
                                 <span v-if="formatMsrp(box.msrp)" class="text-xs font-medium text-muted-foreground">{{ formatMsrp(box.msrp) }}</span>
                                 <span class="text-xs text-muted-foreground">{{ box.characters.length }} models</span>
                                 <ChevronDown class="h-4 w-4 shrink-0 transition-transform" :class="{ 'rotate-180': isOpen(box.slug) }" />
@@ -211,7 +491,15 @@ const hasActiveFilters = computed(() => isFiltering.value);
                         </CollapsibleTrigger>
                         <CollapsibleContent class="border-t px-4 py-4">
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
-                                <div v-for="character in box.characters" :key="character.slug" class="relative">
+                                <div
+                                    v-for="character in box.characters"
+                                    :key="character.slug"
+                                    class="relative rounded-lg"
+                                    :class="{
+                                        'ring-2 ring-amber-500 ring-offset-2 ring-offset-background':
+                                            missingCharactersOnly && isLoggedIn && !isCharacterCollected(character),
+                                    }"
+                                >
                                     <Badge v-if="character.quantity > 1" class="absolute right-1 top-1 z-10 text-xs">
                                         ×{{ character.quantity }}
                                     </Badge>

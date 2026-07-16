@@ -2,6 +2,7 @@
 
 use App\Enums\FactionEnum;
 use App\Enums\PackageCategoryEnum;
+use App\Enums\SculptVersionEnum;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -194,5 +195,40 @@ it('marks a character as special_order when the pivot flag is set', function () 
         ->assertInertia(fn ($page) => $page
             ->component('Packages/Contents')
             ->where('packages.0.characters.0.special_order', true)
+        );
+});
+
+it('includes the package id and flags standard vs special-edition sculpt versions', function () {
+    $standard = Package::factory()->create(['name' => 'Zzz Standard Box', 'sculpt_version' => SculptVersionEnum::FourthEdition->value]);
+    $standard->characters()->attach(Character::factory()->create());
+
+    $special = Package::factory()->create(['name' => 'Zzz Nightmare Box', 'sculpt_version' => SculptVersionEnum::Nightmare->value]);
+    $special->characters()->attach(Character::factory()->create());
+
+    $response = $this->get(route('packages.contents'));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Packages/Contents')
+            ->where('packages', function ($packages) use ($standard, $special) {
+                $standardEntry = $packages->firstWhere('id', $standard->id);
+                $specialEntry = $packages->firstWhere('id', $special->id);
+
+                return $standardEntry['is_standard_edition'] === true
+                    && $specialEntry['is_standard_edition'] === false;
+            })
+        );
+});
+
+it('includes released_at in the box contents payload for sorting', function () {
+    $package = Package::factory()->create(['released_at' => '2023-05-01']);
+    $package->characters()->attach(Character::factory()->create());
+
+    $response = $this->get(route('packages.contents'));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Packages/Contents')
+            ->where('packages', fn ($packages) => str_starts_with($packages->first()['released_at'], '2023-05-01'))
         );
 });

@@ -52,6 +52,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { cleanObject } from '@/composables/CleanObject';
+import { CharacterStationEnum } from '@/types/generated/CharacterStationEnum';
 
 const booleanOptions = [
     { name: 'Yes', value: 'true' },
@@ -1425,8 +1426,8 @@ const selectNameSuggestion = (item: any) => {
 
 // --- Feature 8: Search presets ---
 const searchPresets = [
-    { label: 'All Masters', params: { station: 'master' } },
-    { label: 'Cheap Minions (Cost <= 5)', params: { station: 'minion', cost_max: '5' } },
+    { label: 'All Masters', params: { station: CharacterStationEnum.Master.value } },
+    { label: 'Cheap Minions (Cost <= 5)', params: { station: CharacterStationEnum.Minion.value, cost_max: '5' } },
     { label: 'Fast Models (Speed >= 6)', params: { speed_min: '6' } },
     { label: 'Tanky (Health >= 10)', params: { health_min: '10' } },
     { label: 'High Defense (Defense >= 6)', params: { defense_min: '6' } },
@@ -1702,6 +1703,16 @@ const displayResults = computed(() => (infiniteScroll.value ? accumulatedResults
 const hasMoreResults = computed(() => (props.results?.current_page ?? 1) < (props.results?.last_page ?? 1));
 
 // Any response with current_page 1 is a fresh search (filters/sort/toggle-on), not a "load more" — reset instead of appending.
+// loadingMore itself is cleared in loadMoreResults()'s own onFinish, not here —
+// that fires as part of Inertia's synchronous visit-completion sequence, the
+// same one that drives the global 'finish' listener below (isLoading = false).
+// Clearing it from this watcher instead raced against that global listener:
+// this callback (a separate Vue reactivity trigger) could fire before or after
+// 'finish' unpredictably, so isLoading could still read true for one render
+// after loadingMore had already flipped false — briefly satisfying the
+// `isLoading && !loadingMore` skeleton condition and tearing down + rebuilding
+// the entire results grid (every card, not just the newly-appended ones),
+// which is exactly the flash/lag reported when scrolling.
 watch(
     () => props.results,
     (newResults) => {
@@ -1711,7 +1722,6 @@ watch(
         } else {
             accumulatedResults.value = [...accumulatedResults.value, ...(newResults?.data ?? [])];
         }
-        loadingMore.value = false;
     },
 );
 

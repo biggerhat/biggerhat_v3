@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useFactionColor } from '@/composables/useFactionColor';
 import { Head, Link } from '@inertiajs/vue3';
 import { Copy, Loader2, Search, Swords, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -208,19 +209,6 @@ onMounted(() => {
     }
 });
 
-const factionColor = (faction: string) => {
-    const map: Record<string, string> = {
-        arcanists: 'arcanists',
-        bayou: 'bayou',
-        guild: 'guild',
-        explorers_society: 'explorerssociety',
-        neverborn: 'neverborn',
-        outcasts: 'outcasts',
-        resurrectionists: 'resurrectionists',
-        ten_thunders: 'tenthunders',
-    };
-    return map[faction] ?? faction;
-};
 </script>
 
 <template>
@@ -313,7 +301,7 @@ const factionColor = (faction: string) => {
                     <div v-for="char in characters" :key="char.slug" class="min-w-0">
                         <!-- Header: image + name -->
                         <Card class="mb-3 overflow-hidden">
-                            <div class="relative" :style="{ borderTop: `3px solid hsl(var(--${factionColor(char.faction)}))` }">
+                            <div class="relative" :style="{ borderTop: `3px solid hsl(var(--${useFactionColor(char.faction)}))` }">
                                 <button
                                     class="absolute right-1 top-1 z-10 rounded-full bg-black/40 p-1 text-white/70 hover:bg-red-500/80 hover:text-white"
                                     aria-label="Remove"

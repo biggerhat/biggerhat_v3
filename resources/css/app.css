@@ -22,6 +22,11 @@ body,
 html {
     --font-sans:
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    /* Chrome's edge-swipe back/forward navigation gesture lives on the same
+       left-edge zone as the sidebar's swipe-to-open gesture and wins over it
+       (JS touch handlers can't outrun a browser-level gesture). This is the
+       documented Chromium hook to suppress it at the document root. */
+    overscroll-behavior-x: none;
 }
 
 @layer base {

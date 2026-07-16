@@ -2054,9 +2054,11 @@ onUnmounted(() => {
                 <Badge v-if="activeFilterCount > 0" variant="secondary" class="text-xs">
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
                 </Badge>
-                <div class="hidden items-center gap-1.5 sm:flex">
+                <div class="flex items-center gap-1.5">
                     <Switch id="infinite-scroll-toggle" v-model="infiniteScroll" />
-                    <Label for="infinite-scroll-toggle" class="cursor-pointer text-xs font-medium text-muted-foreground">Infinite Scroll</Label>
+                    <Label for="infinite-scroll-toggle" class="hidden cursor-pointer text-xs font-medium text-muted-foreground sm:inline">
+                        Infinite Scroll
+                    </Label>
                 </div>
                 <!-- Mobile-only filter trigger -->
                 <div class="md:hidden">

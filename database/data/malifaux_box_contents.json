@@ -5,7 +5,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep Font of Magic",
-    "m3e_box": "Maintain the Balance"
+    "m3e_box": "Maintain the Balance",
+    "special_order": false
   },
   {
     "model_name": "Four Winds Golem",
@@ -13,7 +14,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep Font of Magic",
-    "m3e_box": "Maintain the Balance"
+    "m3e_box": "Maintain the Balance",
+    "special_order": false
   },
   {
     "model_name": "Kandara",
@@ -21,7 +23,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep Font of Magic",
-    "m3e_box": "Peer Review"
+    "m3e_box": "Peer Review",
+    "special_order": false
   },
   {
     "model_name": "Oxfordian Mage",
@@ -29,7 +32,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep Font of Magic",
-    "m3e_box": "Peer Review"
+    "m3e_box": "Peer Review",
+    "special_order": false
   },
   {
     "model_name": "Wind Gamin",
@@ -37,7 +41,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep Font of Magic",
-    "m3e_box": "Poisoned Storm"
+    "m3e_box": "Poisoned Storm",
+    "special_order": false
   },
   {
     "model_name": "Essence of Power",
@@ -45,7 +50,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep Font of Magic",
-    "m3e_box": "Peer Review"
+    "m3e_box": "Peer Review",
+    "special_order": false
   },
   {
     "model_name": "Sandeep Desai, The Quiet Flame",
@@ -53,7 +59,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep The Quite Flame",
-    "m3e_box": "Sandeep Core"
+    "m3e_box": "Sandeep Core",
+    "special_order": false
   },
   {
     "model_name": "Kudra",
@@ -61,7 +68,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep The Quite Flame",
-    "m3e_box": "Sandeep Core"
+    "m3e_box": "Sandeep Core",
+    "special_order": false
   },
   {
     "model_name": "Shastar Vidiya Guard",
@@ -69,7 +77,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep The Quite Flame",
-    "m3e_box": "Sandeep Core"
+    "m3e_box": "Sandeep Core",
+    "special_order": false
   },
   {
     "model_name": "Banasuva",
@@ -77,7 +86,8 @@
     "faction": "Arcanists",
     "keyword": "Academic",
     "m4e_box": "Sandeep The Quite Flame",
-    "m3e_box": "Sandeep Core"
+    "m3e_box": "Sandeep Core",
+    "special_order": false
   },
   {
     "model_name": "Rusty Alyce, Rider Remade",
@@ -85,7 +95,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Rider Remade",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Abomination",
@@ -93,7 +104,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Rider Remade",
-    "m3e_box": "Desolation"
+    "m3e_box": "Desolation",
+    "special_order": false
   },
   {
     "model_name": "Desolation Engine",
@@ -101,7 +113,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Rider Remade",
-    "m3e_box": "Desolation"
+    "m3e_box": "Desolation",
+    "special_order": false
   },
   {
     "model_name": "Soul Battery (Totem)",
@@ -109,7 +122,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Rider Remade",
-    "m3e_box": "Bargains Made"
+    "m3e_box": "Bargains Made",
+    "special_order": false
   },
   {
     "model_name": "Rusty Alyce, Trigger Happy",
@@ -117,7 +131,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Trigger Happy",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Marlena Webster",
@@ -125,7 +140,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Trigger Happy",
-    "m3e_box": "Marlena Webster"
+    "m3e_box": "Marlena Webster",
+    "special_order": false
   },
   {
     "model_name": "Scavenger",
@@ -133,7 +149,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Trigger Happy",
-    "m3e_box": "Levitcus Core"
+    "m3e_box": "Levitcus Core",
+    "special_order": false
   },
   {
     "model_name": "Hollow Waif",
@@ -141,7 +158,8 @@
     "faction": "Outcasts",
     "keyword": "Amalgam",
     "m4e_box": "Alyce Trigger Happy",
-    "m3e_box": "Levitcus Core"
+    "m3e_box": "Levitcus Core",
+    "special_order": false
   },
   {
     "model_name": "Self-Repair Bots",
@@ -149,7 +167,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Clockwork Queen the Paradox",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "The Kitchen Sink",
@@ -157,7 +176,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Clockwork Queen the Paradox",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Goop",
@@ -165,7 +185,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Clockwork Queen the Paradox",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Mr. Ambrose",
@@ -173,7 +194,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Clockwork Queen the Paradox",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Clockwork Queen, The Paradox",
@@ -181,7 +203,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Clockwork Queen the Paradox",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Mechanical Misfit",
@@ -189,7 +212,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Clockwork Queen, Matriarch of the Machine",
@@ -197,7 +221,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Bucket Bot",
@@ -205,7 +230,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "The Fortune Teller",
@@ -213,7 +239,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Steiner",
@@ -221,7 +248,8 @@
     "faction": "Outcasts",
     "keyword": "Ampersand",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Chiaki The Beacon",
@@ -229,7 +257,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo Pathseeker",
-    "m3e_box": "Desendants and Guardians"
+    "m3e_box": "Desendants and Guardians",
+    "special_order": false
   },
   {
     "model_name": "Izamu The Armor",
@@ -237,7 +266,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo Pathseeker",
-    "m3e_box": "Yan Lo Core"
+    "m3e_box": "Yan Lo Core",
+    "special_order": false
   },
   {
     "model_name": "Yan Lo, Pathseeker",
@@ -245,7 +275,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo Pathseeker",
-    "m3e_box": "Yan Lo Core"
+    "m3e_box": "Yan Lo Core",
+    "special_order": false
   },
   {
     "model_name": "Gokudo",
@@ -253,7 +284,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo Pathseeker",
-    "m3e_box": "Youko Core"
+    "m3e_box": "Youko Core",
+    "special_order": false
   },
   {
     "model_name": "Soul Porter",
@@ -261,7 +293,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo Pathseeker",
-    "m3e_box": "Yan Lo Core"
+    "m3e_box": "Yan Lo Core",
+    "special_order": false
   },
   {
     "model_name": "Yan Lo, The Spirit Walker",
@@ -269,7 +302,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo The Spirit Walker",
-    "m3e_box": "Seeking the Blade"
+    "m3e_box": "Seeking the Blade",
+    "special_order": false
   },
   {
     "model_name": "Ashigaru",
@@ -277,7 +311,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo The Spirit Walker",
-    "m3e_box": "Eternal Servitude"
+    "m3e_box": "Eternal Servitude",
+    "special_order": false
   },
   {
     "model_name": "Yin The Penangalan",
@@ -285,7 +320,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo The Spirit Walker",
-    "m3e_box": "Eternal Servitude"
+    "m3e_box": "Eternal Servitude",
+    "special_order": false
   },
   {
     "model_name": "Manos The Risen",
@@ -293,7 +329,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo The Spirit Walker",
-    "m3e_box": "Eternal Servitude"
+    "m3e_box": "Eternal Servitude",
+    "special_order": false
   },
   {
     "model_name": "Toshiro The Daimyo",
@@ -301,7 +338,8 @@
     "faction": "Resurrectionists",
     "keyword": "Ancestor",
     "m4e_box": "Yan Lo The Spirit Walker",
-    "m3e_box": "Eternal Servitude"
+    "m3e_box": "Eternal Servitude",
+    "special_order": false
   },
   {
     "model_name": "Uncle Bogg",
@@ -309,7 +347,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Bally-hoo Bucket",
-    "m3e_box": "In the Saddle"
+    "m3e_box": "In the Saddle",
+    "special_order": false
   },
   {
     "model_name": "The Clampetts, Bally-Hoo Bucket",
@@ -317,7 +356,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Bally-hoo Bucket",
-    "m3e_box": "Clampettes Core"
+    "m3e_box": "Clampettes Core",
+    "special_order": false
   },
   {
     "model_name": "Buckaroo",
@@ -325,7 +365,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Bally-hoo Bucket",
-    "m3e_box": "In the Saddle"
+    "m3e_box": "In the Saddle",
+    "special_order": false
   },
   {
     "model_name": "Judd and Honey",
@@ -333,7 +374,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Bally-hoo Bucket",
-    "m3e_box": "Unconventional Tactics"
+    "m3e_box": "Unconventional Tactics",
+    "special_order": false
   },
   {
     "model_name": "Aunty Mel",
@@ -341,7 +383,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Fisherfolk",
-    "m3e_box": "Clampettes Core"
+    "m3e_box": "Clampettes Core",
+    "special_order": false
   },
   {
     "model_name": "The Clampetts, Fisherfolk",
@@ -349,7 +392,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Fisherfolk",
-    "m3e_box": "Unconventional Tactics"
+    "m3e_box": "Unconventional Tactics",
+    "special_order": false
   },
   {
     "model_name": "Skulker Skin",
@@ -357,7 +401,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Fisherfolk",
-    "m3e_box": "Clampettes Core"
+    "m3e_box": "Clampettes Core",
+    "special_order": false
   },
   {
     "model_name": "Bruce",
@@ -365,7 +410,8 @@
     "faction": "Bayou",
     "keyword": "Angler",
     "m4e_box": "Clampets Fisherfolk",
-    "m3e_box": "Clampettes Core"
+    "m3e_box": "Clampettes Core",
+    "special_order": false
   },
   {
     "model_name": "Lord Cooper, Huntmaster",
@@ -373,7 +419,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Huntmaster",
-    "m3e_box": "Survival of the Fittest"
+    "m3e_box": "Survival of the Fittest",
+    "special_order": false
   },
   {
     "model_name": "Cypsis Corps",
@@ -381,7 +428,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Huntmaster",
-    "m3e_box": "On the Hunt"
+    "m3e_box": "On the Hunt",
+    "special_order": false
   },
   {
     "model_name": "Vatagi Huntsman",
@@ -389,7 +437,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Huntmaster",
-    "m3e_box": "On the Hunt"
+    "m3e_box": "On the Hunt",
+    "special_order": false
   },
   {
     "model_name": "Empyrean Eagle",
@@ -397,7 +446,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Huntmaster",
-    "m3e_box": "Survival of the Fittest"
+    "m3e_box": "Survival of the Fittest",
+    "special_order": false
   },
   {
     "model_name": "Model 9",
@@ -405,7 +455,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Manhunter",
-    "m3e_box": "Lord Cooper Core"
+    "m3e_box": "Lord Cooper Core",
+    "special_order": false
   },
   {
     "model_name": "Lord Cooper, Manhunter",
@@ -413,7 +464,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Manhunter",
-    "m3e_box": "Lord Cooper Core"
+    "m3e_box": "Lord Cooper Core",
+    "special_order": false
   },
   {
     "model_name": "Runaway",
@@ -421,7 +473,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Manhunter",
-    "m3e_box": "Lord Cooper Core"
+    "m3e_box": "Lord Cooper Core",
+    "special_order": false
   },
   {
     "model_name": "Artemis",
@@ -429,7 +482,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Manhunter",
-    "m3e_box": "Lord Cooper Core"
+    "m3e_box": "Lord Cooper Core",
+    "special_order": false
   },
   {
     "model_name": "Ullr",
@@ -437,7 +491,8 @@
     "faction": "Explorer's Society",
     "keyword": "Apex",
     "m4e_box": "Cooper Manhunter",
-    "m3e_box": "Lord Cooper Core"
+    "m3e_box": "Lord Cooper Core",
+    "special_order": false
   },
   {
     "model_name": "Charles Hoffman, Inventor",
@@ -445,7 +500,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Inventor",
-    "m3e_box": "Remade and Reforged"
+    "m3e_box": "Remade and Reforged",
+    "special_order": false
   },
   {
     "model_name": "Guardian",
@@ -453,7 +509,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Inventor",
-    "m3e_box": "Protect and Serve"
+    "m3e_box": "Protect and Serve",
+    "special_order": false
   },
   {
     "model_name": "Watcher",
@@ -461,7 +518,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Inventor",
-    "m3e_box": "Keeping the Peace"
+    "m3e_box": "Keeping the Peace",
+    "special_order": false
   },
   {
     "model_name": "Edie Clark (Old Metallurgist)",
@@ -469,7 +527,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Inventor",
-    "m3e_box": "Remade and Reforged"
+    "m3e_box": "Remade and Reforged",
+    "special_order": false
   },
   {
     "model_name": "Melissa K.O.R.E.",
@@ -477,7 +536,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Steel Sculptor",
-    "m3e_box": "Hoffman Core"
+    "m3e_box": "Hoffman Core",
+    "special_order": false
   },
   {
     "model_name": "Charles Hoffman, Steel Sculptor",
@@ -485,7 +545,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Steel Sculptor",
-    "m3e_box": "Hoffman Core"
+    "m3e_box": "Hoffman Core",
+    "special_order": false
   },
   {
     "model_name": "Hunter",
@@ -493,7 +554,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Steel Sculptor",
-    "m3e_box": "Hoffman Core"
+    "m3e_box": "Hoffman Core",
+    "special_order": false
   },
   {
     "model_name": "Mechanical Attendant",
@@ -501,7 +563,8 @@
     "faction": "Guild",
     "keyword": "Augmented",
     "m4e_box": "Hoffman Steel Sculptor",
-    "m3e_box": "Hoffman Core"
+    "m3e_box": "Hoffman Core",
+    "special_order": false
   },
   {
     "model_name": "Pearl Musgrove",
@@ -509,7 +572,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Dead Man Walking",
-    "m3e_box": "Showdown"
+    "m3e_box": "Showdown",
+    "special_order": false
   },
   {
     "model_name": "Parker Barrows, Dead Man Walking",
@@ -517,7 +581,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Dead Man Walking",
-    "m3e_box": "Parker Core"
+    "m3e_box": "Parker Core",
+    "special_order": false
   },
   {
     "model_name": "Convict Gunslinger",
@@ -525,7 +590,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Dead Man Walking",
-    "m3e_box": "Folsom Prison Blues"
+    "m3e_box": "Folsom Prison Blues",
+    "special_order": false
   },
   {
     "model_name": "Dead Outlaws",
@@ -533,7 +599,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Dead Man Walking",
-    "m3e_box": "Dead Outlaws"
+    "m3e_box": "Dead Outlaws",
+    "special_order": false
   },
   {
     "model_name": "Ashen Echo",
@@ -541,7 +608,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Dead Man Walking",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Sue",
@@ -549,7 +617,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Dead Man Walking",
-    "m3e_box": "Folsom Prison Blues"
+    "m3e_box": "Folsom Prison Blues",
+    "special_order": false
   },
   {
     "model_name": "Mad Dog Brackett",
@@ -557,7 +626,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Most Wanted",
-    "m3e_box": "Parker Core"
+    "m3e_box": "Parker Core",
+    "special_order": false
   },
   {
     "model_name": "Parker Barrows, Most Wanted",
@@ -565,7 +635,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Most Wanted",
-    "m3e_box": "Showdown"
+    "m3e_box": "Showdown",
+    "special_order": false
   },
   {
     "model_name": "Bandido",
@@ -573,7 +644,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Most Wanted",
-    "m3e_box": "Parker Core"
+    "m3e_box": "Parker Core",
+    "special_order": false
   },
   {
     "model_name": "Doc Mitchell",
@@ -581,7 +653,8 @@
     "faction": "Outcasts",
     "keyword": "Bandit",
     "m4e_box": "Parker Most Wanted",
-    "m3e_box": "Parker Core"
+    "m3e_box": "Parker Core",
+    "special_order": false
   },
   {
     "model_name": "Abyssal Anchor",
@@ -589,7 +662,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Silken King Colosus",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Silken King, Colossus",
@@ -597,7 +671,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Silken King Colosus",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Coronator of the Crown",
@@ -605,7 +680,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Silken King Colosus",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Dynast Bram",
@@ -613,7 +689,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Silken King Colosus",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "The Crowned",
@@ -621,7 +698,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Silken King Colosus",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Gift of Thorns",
@@ -629,7 +707,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Silken King Colosus",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Shorebound Sentinel",
@@ -637,7 +716,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Silken King, Long Live",
@@ -645,7 +725,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Urchin",
@@ -653,7 +734,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "The Colony",
@@ -661,7 +743,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "The Silent Siren",
@@ -669,7 +752,8 @@
     "faction": "Neverborn",
     "keyword": "Banished",
     "m4e_box": "Two Player Starter",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": false
   },
   {
     "model_name": "Som'er Teeth Jones, Bayou Boss",
@@ -677,7 +761,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Bayou Boss",
-    "m3e_box": "Somer Core"
+    "m3e_box": "Somer Core",
+    "special_order": false
   },
   {
     "model_name": "Good Ol Boy",
@@ -685,7 +770,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Bayou Boss",
-    "m3e_box": "Somer Core"
+    "m3e_box": "Somer Core",
+    "special_order": false
   },
   {
     "model_name": "Lenny Jones",
@@ -693,7 +779,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Bayou Boss",
-    "m3e_box": "Somer Core"
+    "m3e_box": "Somer Core",
+    "special_order": false
   },
   {
     "model_name": "Skeeter",
@@ -701,7 +788,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Bayou Boss",
-    "m3e_box": "Somer Core"
+    "m3e_box": "Somer Core",
+    "special_order": false
   },
   {
     "model_name": "Som'er Teeth Jones, Loot Monger",
@@ -709,7 +797,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Loot Monger",
-    "m3e_box": "Hats Off"
+    "m3e_box": "Hats Off",
+    "special_order": false
   },
   {
     "model_name": "Georgy And Olaf",
@@ -717,7 +806,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Loot Monger",
-    "m3e_box": "Hootenanny"
+    "m3e_box": "Hootenanny",
+    "special_order": false
   },
   {
     "model_name": "Gremlin Crier",
@@ -725,7 +815,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Loot Monger",
-    "m3e_box": "Listen Up!"
+    "m3e_box": "Listen Up!",
+    "special_order": false
   },
   {
     "model_name": "Spit Hog",
@@ -733,7 +824,8 @@
     "faction": "Bayou",
     "keyword": "BigHat",
     "m4e_box": "Som'er Loot Monger",
-    "m3e_box": "Deliverance"
+    "m3e_box": "Deliverance",
+    "special_order": false
   },
   {
     "model_name": "Nekima, Nephilim Queen",
@@ -741,7 +833,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Nephilim Queen",
-    "m3e_box": "Monstrous"
+    "m3e_box": "Monstrous",
+    "special_order": false
   },
   {
     "model_name": "Nekima, Broodmother",
@@ -749,7 +842,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Nephilim Queen",
-    "m3e_box": "Nekima Core"
+    "m3e_box": "Nekima Core",
+    "special_order": false
   },
   {
     "model_name": "Mature Nephilim",
@@ -757,7 +851,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Nephilim Queen",
-    "m3e_box": "Nekima Core"
+    "m3e_box": "Nekima Core",
+    "special_order": false
   },
   {
     "model_name": "Blood Hunter",
@@ -765,7 +860,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Nephilim Queen",
-    "m3e_box": "Nekima Core"
+    "m3e_box": "Nekima Core",
+    "special_order": false
   },
   {
     "model_name": "Young Nephilim",
@@ -773,7 +869,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Nephilim Queen",
-    "m3e_box": "Nekima Core/Blood Brood"
+    "m3e_box": "Nekima Core/Blood Brood",
+    "special_order": false
   },
   {
     "model_name": "Hayreddin",
@@ -781,7 +878,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Broodmother",
-    "m3e_box": "Blood Ritual"
+    "m3e_box": "Blood Ritual",
+    "special_order": false
   },
   {
     "model_name": "Black Blood Shaman",
@@ -789,7 +887,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Broodmother",
-    "m3e_box": "Blood Ritual"
+    "m3e_box": "Blood Ritual",
+    "special_order": false
   },
   {
     "model_name": "Terror Tot",
@@ -797,7 +896,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Broodmother",
-    "m3e_box": "Blood Brood"
+    "m3e_box": "Blood Brood",
+    "special_order": false
   },
   {
     "model_name": "Crumb",
@@ -805,7 +905,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Broodmother",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Young Nephilim",
@@ -813,7 +914,8 @@
     "faction": "Neverborn",
     "keyword": "Brood",
     "m4e_box": "Nekima Broodmother",
-    "m3e_box": "Nekima Core/Blood Brood"
+    "m3e_box": "Nekima Core/Blood Brood",
+    "special_order": false
   },
   {
     "model_name": "Tiri, The Architect",
@@ -821,7 +923,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Architect",
-    "m3e_box": "Ruins of a Lost Age"
+    "m3e_box": "Ruins of a Lost Age",
+    "special_order": false
   },
   {
     "model_name": "Ancient Construct",
@@ -829,7 +932,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Architect",
-    "m3e_box": "Forge a New Path"
+    "m3e_box": "Forge a New Path",
+    "special_order": false
   },
   {
     "model_name": "Oro Boro",
@@ -837,7 +941,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Architect",
-    "m3e_box": "Tiri Core"
+    "m3e_box": "Tiri Core",
+    "special_order": false
   },
   {
     "model_name": "The First Light",
@@ -845,7 +950,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Architect",
-    "m3e_box": "Forge a New Path"
+    "m3e_box": "Forge a New Path",
+    "special_order": false
   },
   {
     "model_name": "Kett",
@@ -853,7 +959,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Nomad",
-    "m3e_box": "Tiri Core"
+    "m3e_box": "Tiri Core",
+    "special_order": false
   },
   {
     "model_name": "Tiri, The Nomad",
@@ -861,7 +968,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Nomad",
-    "m3e_box": "Tiri Core"
+    "m3e_box": "Tiri Core",
+    "special_order": false
   },
   {
     "model_name": "Parson",
@@ -869,7 +977,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Nomad",
-    "m3e_box": "Tenacious Traditions"
+    "m3e_box": "Tenacious Traditions",
+    "special_order": false
   },
   {
     "model_name": "The Iron Matron",
@@ -877,7 +986,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Nomad",
-    "m3e_box": "Tenacious Traditions"
+    "m3e_box": "Tenacious Traditions",
+    "special_order": false
   },
   {
     "model_name": "Unseelie Engine",
@@ -885,7 +995,8 @@
     "faction": "Explorer's Society",
     "keyword": "Bygone",
     "m4e_box": "Tiri Nomad",
-    "m3e_box": "Ruins of a Lost Age"
+    "m3e_box": "Ruins of a Lost Age",
+    "special_order": false
   },
   {
     "model_name": "Nexus, Heart of the Hive",
@@ -893,7 +1004,8 @@
     "faction": "Explorer's Society",
     "keyword": "Cadmus",
     "m4e_box": "Nexus Heart of the Hive",
-    "m3e_box": "Nexus Core Box"
+    "m3e_box": "Nexus Core Box",
+    "special_order": false
   },
   {
     "model_name": "Eyes and Ears",
@@ -901,7 +1013,8 @@
     "faction": "Explorer's Society",
     "keyword": "Cadmus",
     "m4e_box": "Nexus Heart of the Hive",
-    "m3e_box": "Nexus Core Box"
+    "m3e_box": "Nexus Core Box",
+    "special_order": false
   },
   {
     "model_name": "Shambling Nest",
@@ -909,7 +1022,8 @@
     "faction": "Explorer's Society",
     "keyword": "Cadmus",
     "m4e_box": "Nexus Heart of the Hive",
-    "m3e_box": "Nexus Core Box"
+    "m3e_box": "Nexus Core Box",
+    "special_order": false
   },
   {
     "model_name": "Nexus, One of Many",
@@ -917,7 +1031,8 @@
     "faction": "Explorer's Society",
     "keyword": "Cadmus",
     "m4e_box": "Nexus One of Many",
-    "m3e_box": "Best Kept Secrets"
+    "m3e_box": "Best Kept Secrets",
+    "special_order": false
   },
   {
     "model_name": "Spelleater",
@@ -925,7 +1040,8 @@
     "faction": "Explorer's Society",
     "keyword": "Cadmus",
     "m4e_box": "Nexus One of Many",
-    "m3e_box": "Hush"
+    "m3e_box": "Hush",
+    "special_order": false
   },
   {
     "model_name": "Archivist",
@@ -933,7 +1049,8 @@
     "faction": "Explorer's Society",
     "keyword": "Cadmus",
     "m4e_box": "Nexus One of Many",
-    "m3e_box": "Hush"
+    "m3e_box": "Hush",
+    "special_order": false
   },
   {
     "model_name": "Cavatica",
@@ -941,7 +1058,8 @@
     "faction": "Explorer's Society",
     "keyword": "Cadmus",
     "m4e_box": "Nexus One of Many",
-    "m3e_box": "Best Kept Secrets"
+    "m3e_box": "Best Kept Secrets",
+    "special_order": false
   },
   {
     "model_name": "Kings Wall",
@@ -949,7 +1067,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Artillerist",
-    "m3e_box": "Tull Core"
+    "m3e_box": "Tull Core",
+    "special_order": false
   },
   {
     "model_name": "Harold Tull, Artillerist",
@@ -957,7 +1076,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Artillerist",
-    "m3e_box": "Tull Core"
+    "m3e_box": "Tull Core",
+    "special_order": false
   },
   {
     "model_name": "Sapper",
@@ -965,7 +1085,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Artillerist",
-    "m3e_box": "Tull Core"
+    "m3e_box": "Tull Core",
+    "special_order": false
   },
   {
     "model_name": "Walking Cannon",
@@ -973,7 +1094,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Artillerist",
-    "m3e_box": "Tull Core"
+    "m3e_box": "Tull Core",
+    "special_order": false
   },
   {
     "model_name": "Louisa Fusi",
@@ -981,7 +1103,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Dead Silent",
-    "m3e_box": "Into the Fray"
+    "m3e_box": "Into the Fray",
+    "special_order": false
   },
   {
     "model_name": "Harold Tull, Dead Silent",
@@ -989,7 +1112,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Dead Silent",
-    "m3e_box": "Unconventional Tactics"
+    "m3e_box": "Unconventional Tactics",
+    "special_order": false
   },
   {
     "model_name": "Rocketeer",
@@ -997,7 +1121,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Dead Silent",
-    "m3e_box": "Into the Fray"
+    "m3e_box": "Into the Fray",
+    "special_order": false
   },
   {
     "model_name": "Smokestack",
@@ -1005,7 +1130,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Dead Silent",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Rosie Hill",
@@ -1013,7 +1139,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Dead Silent",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Jasper Gray",
@@ -1021,7 +1148,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Dead Silent",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Mariya Dyatlov",
@@ -1029,7 +1157,8 @@
     "faction": "Guild",
     "keyword": "Cavalier",
     "m4e_box": "Tull Dead Silent",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Marcus, Alpha",
@@ -1037,7 +1166,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Alpha",
-    "m3e_box": "Survival of the Fittest"
+    "m3e_box": "Survival of the Fittest",
+    "special_order": false
   },
   {
     "model_name": "Sabertooth Cerberus",
@@ -1045,7 +1175,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Alpha",
-    "m3e_box": "Primal Fury"
+    "m3e_box": "Primal Fury",
+    "special_order": false
   },
   {
     "model_name": "Slate Ridge Mauler",
@@ -1053,7 +1184,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Alpha",
-    "m3e_box": "Slate Ridge"
+    "m3e_box": "Slate Ridge",
+    "special_order": false
   },
   {
     "model_name": "Razorspine Rattler",
@@ -1061,7 +1193,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Alpha",
-    "m3e_box": "Razorspine Rattlers"
+    "m3e_box": "Razorspine Rattlers",
+    "special_order": false
   },
   {
     "model_name": "Cojo",
@@ -1069,7 +1202,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Alpha",
-    "m3e_box": "Primal Fury"
+    "m3e_box": "Primal Fury",
+    "special_order": false
   },
   {
     "model_name": "Moleman",
@@ -1077,7 +1211,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Alpha",
-    "m3e_box": "Slate Ridge"
+    "m3e_box": "Slate Ridge",
+    "special_order": false
   },
   {
     "model_name": "Marcus, Monstermaker",
@@ -1085,7 +1220,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Monstermaker",
-    "m3e_box": "Marcus Core"
+    "m3e_box": "Marcus Core",
+    "special_order": false
   },
   {
     "model_name": "Order Initiate",
@@ -1093,7 +1229,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Monstermaker",
-    "m3e_box": "Marcus Core"
+    "m3e_box": "Marcus Core",
+    "special_order": false
   },
   {
     "model_name": "Myranda",
@@ -1101,7 +1238,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Monstermaker",
-    "m3e_box": "Marcus Core"
+    "m3e_box": "Marcus Core",
+    "special_order": false
   },
   {
     "model_name": "Jackalope",
@@ -1109,7 +1247,8 @@
     "faction": "Neverborn",
     "keyword": "Chimera",
     "m4e_box": "Marcus Monstermaker",
-    "m3e_box": "Marcus Core"
+    "m3e_box": "Marcus Core",
+    "special_order": false
   },
   {
     "model_name": "Rasputina, Abominable",
@@ -1117,7 +1256,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Abominable",
-    "m3e_box": "Coldsnap"
+    "m3e_box": "Coldsnap",
+    "special_order": false
   },
   {
     "model_name": "Blessed of December",
@@ -1125,7 +1265,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Abominable",
-    "m3e_box": "The Ten Peaks"
+    "m3e_box": "The Ten Peaks",
+    "special_order": false
   },
   {
     "model_name": "Kaltgeist",
@@ -1133,7 +1274,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Abominable",
-    "m3e_box": "Coldsnap"
+    "m3e_box": "Coldsnap",
+    "special_order": false
   },
   {
     "model_name": "Silent One",
@@ -1141,7 +1283,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Abominable",
-    "m3e_box": "The Ten Peaks"
+    "m3e_box": "The Ten Peaks",
+    "special_order": false
   },
   {
     "model_name": "Mara",
@@ -1149,7 +1292,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Abominable",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Snow Storm",
@@ -1157,7 +1301,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Winter's Teeth",
-    "m3e_box": "Rasputina Core"
+    "m3e_box": "Rasputina Core",
+    "special_order": false
   },
   {
     "model_name": "Rasputina, Winter's Teeth",
@@ -1165,7 +1310,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Winter's Teeth",
-    "m3e_box": "Rasputina Core"
+    "m3e_box": "Rasputina Core",
+    "special_order": false
   },
   {
     "model_name": "December Acolyte",
@@ -1173,7 +1319,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Winter's Teeth",
-    "m3e_box": "Rasputina Core"
+    "m3e_box": "Rasputina Core",
+    "special_order": false
   },
   {
     "model_name": "Wendigo",
@@ -1181,7 +1328,8 @@
     "faction": "Arcanists",
     "keyword": "December",
     "m4e_box": "Rasputina Winter's Teeth",
-    "m3e_box": "Rasputina Core"
+    "m3e_box": "Rasputina Core",
+    "special_order": false
   },
   {
     "model_name": "Jin Baccara",
@@ -1189,7 +1337,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Double Agent",
-    "m3e_box": "Hidden Allegiances"
+    "m3e_box": "Hidden Allegiances",
+    "special_order": false
   },
   {
     "model_name": "English Ivan, Double Agent",
@@ -1197,7 +1346,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Double Agent",
-    "m3e_box": "Hidden Allegiances"
+    "m3e_box": "Hidden Allegiances",
+    "special_order": false
   },
   {
     "model_name": "Brocken Spectre",
@@ -1205,7 +1355,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Double Agent",
-    "m3e_box": "English Ivan Core"
+    "m3e_box": "English Ivan Core",
+    "special_order": false
   },
   {
     "model_name": "Nocturne",
@@ -1213,7 +1364,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Double Agent",
-    "m3e_box": "Dark Reflections"
+    "m3e_box": "Dark Reflections",
+    "special_order": false
   },
   {
     "model_name": "Mr. Mordrake, Bump in the Night",
@@ -1221,7 +1373,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Double Agent",
-    "m3e_box": "English Ivan Core"
+    "m3e_box": "English Ivan Core",
+    "special_order": false
   },
   {
     "model_name": "Gibson De Walt",
@@ -1229,7 +1382,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Obscura",
-    "m3e_box": "English Ivan Core"
+    "m3e_box": "English Ivan Core",
+    "special_order": false
   },
   {
     "model_name": "English Ivan, Obscura",
@@ -1237,7 +1391,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Obscura",
-    "m3e_box": "Dark Reflections"
+    "m3e_box": "Dark Reflections",
+    "special_order": false
   },
   {
     "model_name": "Daeva",
@@ -1245,7 +1400,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Obscura",
-    "m3e_box": "English Ivan Core"
+    "m3e_box": "English Ivan Core",
+    "special_order": false
   },
   {
     "model_name": "Mr. Mordrake, Silent Witness",
@@ -1253,7 +1409,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Obscura",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Eva Havenhand",
@@ -1261,7 +1418,8 @@
     "faction": "Explorer's Society",
     "keyword": "DUA",
     "m4e_box": "English Ivan Obscura",
-    "m3e_box": "English Ivan Core"
+    "m3e_box": "English Ivan Core",
+    "special_order": false
   },
   {
     "model_name": "Lucius Mattheson, Dishonorable",
@@ -1269,7 +1427,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, Dishonorable",
-    "m3e_box": "Best Kept Secrets"
+    "m3e_box": "Best Kept Secrets",
+    "special_order": false
   },
   {
     "model_name": "False Witness",
@@ -1277,7 +1436,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, Dishonorable",
-    "m3e_box": "Internal Investigations"
+    "m3e_box": "Internal Investigations",
+    "special_order": false
   },
   {
     "model_name": "Investigator",
@@ -1285,7 +1445,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, Dishonorable",
-    "m3e_box": "Internal Investigations"
+    "m3e_box": "Internal Investigations",
+    "special_order": false
   },
   {
     "model_name": "Jane Doe",
@@ -1293,7 +1454,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, Dishonorable",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Alan Reid",
@@ -1301,7 +1463,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, Dishonorable",
-    "m3e_box": "Internal Investigations"
+    "m3e_box": "Internal Investigations",
+    "special_order": false
   },
   {
     "model_name": "Lucius Mattheson, In Plain Sight",
@@ -1309,7 +1472,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, In Plain Sight",
-    "m3e_box": "Lucius Core"
+    "m3e_box": "Lucius Core",
+    "special_order": false
   },
   {
     "model_name": "Guild Lawyer",
@@ -1317,7 +1481,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, In Plain Sight",
-    "m3e_box": "Lucius Core"
+    "m3e_box": "Lucius Core",
+    "special_order": false
   },
   {
     "model_name": "The Scribe",
@@ -1325,7 +1490,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, In Plain Sight",
-    "m3e_box": "Lucius Core"
+    "m3e_box": "Lucius Core",
+    "special_order": false
   },
   {
     "model_name": "Agent 46",
@@ -1333,7 +1499,8 @@
     "faction": "Guild",
     "keyword": "Elite",
     "m4e_box": "Lucius Mattheson, In Plain Sight",
-    "m3e_box": "Lucius Core"
+    "m3e_box": "Lucius Core",
+    "special_order": false
   },
   {
     "model_name": "Maxine Agassiz, Monomaniacle",
@@ -1341,7 +1508,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine Monomaniacal",
-    "m3e_box": "Navigating Chaos"
+    "m3e_box": "Navigating Chaos",
+    "special_order": false
   },
   {
     "model_name": "Harata Ngaatoro",
@@ -1349,7 +1517,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine Monomoniacal",
-    "m3e_box": "Turning Tides"
+    "m3e_box": "Turning Tides",
+    "special_order": false
   },
   {
     "model_name": "Harpooner",
@@ -1357,7 +1526,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine Monomoniacal",
-    "m3e_box": "Turning Tides"
+    "m3e_box": "Turning Tides",
+    "special_order": false
   },
   {
     "model_name": "Tidecaller",
@@ -1365,7 +1535,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine Monomoniacal",
-    "m3e_box": "Turning Tides"
+    "m3e_box": "Turning Tides",
+    "special_order": false
   },
   {
     "model_name": "Beau Fishbocker",
@@ -1373,7 +1544,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine Monomoniacal",
-    "m3e_box": "Navigating Chaos"
+    "m3e_box": "Navigating Chaos",
+    "special_order": false
   },
   {
     "model_name": "Maxine Agassiz The Renowned",
@@ -1381,7 +1553,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine The Renowned",
-    "m3e_box": "Maxine Core"
+    "m3e_box": "Maxine Core",
+    "special_order": false
   },
   {
     "model_name": "Kiya Manimi",
@@ -1389,7 +1562,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine The Renowned",
-    "m3e_box": "Turning Tides"
+    "m3e_box": "Turning Tides",
+    "special_order": false
   },
   {
     "model_name": "Machinist",
@@ -1397,7 +1571,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine The Renowned",
-    "m3e_box": "Maxine Core"
+    "m3e_box": "Maxine Core",
+    "special_order": false
   },
   {
     "model_name": "Orville Agassiz",
@@ -1405,7 +1580,8 @@
     "faction": "Explorer's Society",
     "keyword": "EVS",
     "m4e_box": "Maxine The Renowned",
-    "m3e_box": "Maxine Core"
+    "m3e_box": "Maxine Core",
+    "special_order": false
   },
   {
     "model_name": "Rafkin",
@@ -1413,7 +1589,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Insanitary",
-    "m3e_box": "Surgical Staff"
+    "m3e_box": "Surgical Staff",
+    "special_order": false
   },
   {
     "model_name": "Dr. McMourning, Malpractitioner",
@@ -1421,7 +1598,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Insanitary",
-    "m3e_box": "McMourning Core"
+    "m3e_box": "McMourning Core",
+    "special_order": false
   },
   {
     "model_name": "Kentauroi",
@@ -1429,7 +1607,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Insanitary",
-    "m3e_box": "Stitched and Sewn"
+    "m3e_box": "Stitched and Sewn",
+    "special_order": false
   },
   {
     "model_name": "Little Gasser",
@@ -1437,7 +1616,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Insanitary",
-    "m3e_box": "Stitched and Sewn"
+    "m3e_box": "Stitched and Sewn",
+    "special_order": false
   },
   {
     "model_name": "Corpse Curator",
@@ -1445,7 +1625,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Insanitary",
-    "m3e_box": "Self Made"
+    "m3e_box": "Self Made",
+    "special_order": false
   },
   {
     "model_name": "Sebastian",
@@ -1453,7 +1634,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Malpracticioner",
-    "m3e_box": "McMourning Core"
+    "m3e_box": "McMourning Core",
+    "special_order": false
   },
   {
     "model_name": "Dr. McMourning, Insanitary",
@@ -1461,7 +1643,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Malpracticioner",
-    "m3e_box": "Self Made"
+    "m3e_box": "Self Made",
+    "special_order": false
   },
   {
     "model_name": "Flesh Construct",
@@ -1469,7 +1652,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Malpracticioner",
-    "m3e_box": "McMourning Core"
+    "m3e_box": "McMourning Core",
+    "special_order": false
   },
   {
     "model_name": "Zombie Chihuahua",
@@ -1477,7 +1661,8 @@
     "faction": "Resurrectionists",
     "keyword": "Experimental",
     "m4e_box": "McMourning Malpracticioner",
-    "m3e_box": "McMourning Core"
+    "m3e_box": "McMourning Core",
+    "special_order": false
   },
   {
     "model_name": "Titania, Autumn Queen",
@@ -1485,7 +1670,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Autumn Queen",
-    "m3e_box": "Titania Core"
+    "m3e_box": "Titania Core",
+    "special_order": false
   },
   {
     "model_name": "Bultungin",
@@ -1493,7 +1679,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Autumn Queen",
-    "m3e_box": "The Howling"
+    "m3e_box": "The Howling",
+    "special_order": false
   },
   {
     "model_name": "Rougarou",
@@ -1501,7 +1688,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Autumn Queen",
-    "m3e_box": "The Howling"
+    "m3e_box": "The Howling",
+    "special_order": false
   },
   {
     "model_name": "Erymanthian Boar",
@@ -1509,7 +1697,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Autumn Queen",
-    "m3e_box": "Protected Domain"
+    "m3e_box": "Protected Domain",
+    "special_order": false
   },
   {
     "model_name": "Aeslin",
@@ -1517,7 +1706,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Withered Rose",
-    "m3e_box": "Titania Core"
+    "m3e_box": "Titania Core",
+    "special_order": false
   },
   {
     "model_name": "Titania, Withered Rose",
@@ -1525,7 +1715,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Withered Rose",
-    "m3e_box": "Protected Domain"
+    "m3e_box": "Protected Domain",
+    "special_order": false
   },
   {
     "model_name": "Autumn Knight",
@@ -1533,7 +1724,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Withered Rose",
-    "m3e_box": "Titania Core"
+    "m3e_box": "Titania Core",
+    "special_order": false
   },
   {
     "model_name": "Gorar",
@@ -1541,7 +1733,8 @@
     "faction": "Neverborn",
     "keyword": "Fae",
     "m4e_box": "Titania Withered Rose",
-    "m3e_box": "Titania Core"
+    "m3e_box": "Titania Core",
+    "special_order": false
   },
   {
     "model_name": "Francisco Ortega",
@@ -1549,7 +1742,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita La Diabla",
-    "m3e_box": "Perdita Core"
+    "m3e_box": "Perdita Core",
+    "special_order": false
   },
   {
     "model_name": "Perdita Ortega, La Diabla",
@@ -1557,7 +1751,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita La Diabla",
-    "m3e_box": "Perdita Core"
+    "m3e_box": "Perdita Core",
+    "special_order": false
   },
   {
     "model_name": "Papa Loco",
@@ -1565,7 +1760,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita La Diabla",
-    "m3e_box": "Perdita Core"
+    "m3e_box": "Perdita Core",
+    "special_order": false
   },
   {
     "model_name": "Abuela Ortega",
@@ -1573,7 +1769,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita La Diabla",
-    "m3e_box": "Perdita Core"
+    "m3e_box": "Perdita Core",
+    "special_order": false
   },
   {
     "model_name": "Nino Ortega",
@@ -1581,7 +1778,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita La Diabla",
-    "m3e_box": "Perdita Core"
+    "m3e_box": "Perdita Core",
+    "special_order": false
   },
   {
     "model_name": "Santiago Ortega",
@@ -1589,7 +1787,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita La Diabla",
-    "m3e_box": "Perdita Core"
+    "m3e_box": "Perdita Core",
+    "special_order": false
   },
   {
     "model_name": "Perdita Ortega, Neverborn Hunter",
@@ -1597,7 +1796,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita Neverborn Hunter",
-    "m3e_box": "Behind the Trigger"
+    "m3e_box": "Behind the Trigger",
+    "special_order": false
   },
   {
     "model_name": "Monster Hunter",
@@ -1605,7 +1805,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita Neverborn Hunter",
-    "m3e_box": "Latigo Reserves"
+    "m3e_box": "Latigo Reserves",
+    "special_order": false
   },
   {
     "model_name": "Pistolero De Latigo",
@@ -1613,7 +1814,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita Neverborn Hunter",
-    "m3e_box": "Latigo Reserves"
+    "m3e_box": "Latigo Reserves",
+    "special_order": false
   },
   {
     "model_name": "Sly \"Six-Shots\"",
@@ -1621,7 +1823,8 @@
     "faction": "Guild",
     "keyword": "Family",
     "m4e_box": "Perdita Neverborn Hunter",
-    "m3e_box": "Behind the Trigger"
+    "m3e_box": "Behind the Trigger",
+    "special_order": false
   },
   {
     "model_name": "Molly Squidpiddge, Chaotic Conductor",
@@ -1629,7 +1832,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Conductor of Chaos",
-    "m3e_box": "Monstrous"
+    "m3e_box": "Monstrous",
+    "special_order": false
   },
   {
     "model_name": "Archie",
@@ -1637,7 +1841,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Conductor of Chaos",
-    "m3e_box": "The Lost"
+    "m3e_box": "The Lost",
+    "special_order": false
   },
   {
     "model_name": "Crooligan",
@@ -1645,7 +1850,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Conductor of Chaos",
-    "m3e_box": "The Lost"
+    "m3e_box": "The Lost",
+    "special_order": false
   },
   {
     "model_name": "Night Terror",
@@ -1653,7 +1859,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Conductor of Chaos",
-    "m3e_box": "Call to Madness"
+    "m3e_box": "Call to Madness",
+    "special_order": false
   },
   {
     "model_name": "The Forgotten Marshal",
@@ -1661,7 +1868,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Conductor of Chaos",
-    "m3e_box": "Call to Madness"
+    "m3e_box": "Call to Madness",
+    "special_order": false
   },
   {
     "model_name": "Noxious Nephilim",
@@ -1669,7 +1877,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Conductor of Chaos",
-    "m3e_box": "Monstrous"
+    "m3e_box": "Monstrous",
+    "special_order": false
   },
   {
     "model_name": "Molly Squidpiddge, Harbinger of Havoc",
@@ -1677,7 +1886,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Harbinger of Havoc",
-    "m3e_box": "Molly Core"
+    "m3e_box": "Molly Core",
+    "special_order": false
   },
   {
     "model_name": "Philip and the Nanny",
@@ -1685,7 +1895,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Harbinger of Havoc",
-    "m3e_box": "Molly Core"
+    "m3e_box": "Molly Core",
+    "special_order": false
   },
   {
     "model_name": "Rabble Riser",
@@ -1693,7 +1904,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Harbinger of Havoc",
-    "m3e_box": "Molly Core"
+    "m3e_box": "Molly Core",
+    "special_order": false
   },
   {
     "model_name": "Necrotic Machine",
@@ -1701,7 +1913,8 @@
     "faction": "Resurrectionists",
     "keyword": "Forgotten",
     "m4e_box": "Molly Harbinger of Havoc",
-    "m3e_box": "Molly Core"
+    "m3e_box": "Molly Core",
+    "special_order": false
   },
   {
     "model_name": "Mei Feng, Foreman",
@@ -1709,7 +1922,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Foreman",
-    "m3e_box": "Scrapyard"
+    "m3e_box": "Scrapyard",
+    "special_order": false
   },
   {
     "model_name": "Neil Henry",
@@ -1717,7 +1931,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Foreman",
-    "m3e_box": "Explosive Material"
+    "m3e_box": "Explosive Material",
+    "special_order": false
   },
   {
     "model_name": "Willie",
@@ -1725,7 +1940,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Foreman",
-    "m3e_box": "Explosive Material"
+    "m3e_box": "Explosive Material",
+    "special_order": false
   },
   {
     "model_name": "Metal Gamin",
@@ -1733,7 +1949,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Foreman",
-    "m3e_box": "Heavy Metal"
+    "m3e_box": "Heavy Metal",
+    "special_order": false
   },
   {
     "model_name": "Rock Hopper",
@@ -1741,7 +1958,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Foreman",
-    "m3e_box": "Scrapyard"
+    "m3e_box": "Scrapyard",
+    "special_order": false
   },
   {
     "model_name": "Metal Golem",
@@ -1749,7 +1967,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Foreman",
-    "m3e_box": "Heavy Metal"
+    "m3e_box": "Heavy Metal",
+    "special_order": false
   },
   {
     "model_name": "Kang",
@@ -1757,7 +1976,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Sentinel of Steel",
-    "m3e_box": "Mei Feng Core"
+    "m3e_box": "Mei Feng Core",
+    "special_order": false
   },
   {
     "model_name": "Mei Feng, Sentinel of Steel",
@@ -1765,7 +1985,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Sentinel of Steel",
-    "m3e_box": "Mei Feng Core"
+    "m3e_box": "Mei Feng Core",
+    "special_order": false
   },
   {
     "model_name": "Steelworker (Old Rail Worker)",
@@ -1773,7 +1994,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Sentinel of Steel",
-    "m3e_box": "Mei Feng Core"
+    "m3e_box": "Mei Feng Core",
+    "special_order": false
   },
   {
     "model_name": "Forgeling",
@@ -1781,7 +2003,8 @@
     "faction": "Ten Thunders",
     "keyword": "Foundry",
     "m4e_box": "Mei Feng Sentinel of Steel",
-    "m3e_box": "Mei Feng Core"
+    "m3e_box": "Mei Feng Core",
+    "special_order": false
   },
   {
     "model_name": "Von Schill, Iron Heart",
@@ -1789,7 +2012,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill Iron Heart",
-    "m3e_box": "Remade and Reforged"
+    "m3e_box": "Remade and Reforged",
+    "special_order": false
   },
   {
     "model_name": "Freikorps Engineer",
@@ -1797,7 +2021,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill Iron Heart",
-    "m3e_box": "Cutting Edge Technology"
+    "m3e_box": "Cutting Edge Technology",
+    "special_order": false
   },
   {
     "model_name": "Hannah Lovelace",
@@ -1805,7 +2030,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill Iron Heart",
-    "m3e_box": "Between the Ley Lines"
+    "m3e_box": "Between the Ley Lines",
+    "special_order": false
   },
   {
     "model_name": "Lazarus",
@@ -1813,7 +2039,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill Iron Heart",
-    "m3e_box": "Cutting Edge Technology"
+    "m3e_box": "Cutting Edge Technology",
+    "special_order": false
   },
   {
     "model_name": "Ms. Weiss (Old Librarian)",
@@ -1821,7 +2048,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill Iron Heart",
-    "m3e_box": "Between the Ley Lines"
+    "m3e_box": "Between the Ley Lines",
+    "special_order": false
   },
   {
     "model_name": "Von Schill, The Veteran",
@@ -1829,7 +2057,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill The Veteran",
-    "m3e_box": "Von Schill Core"
+    "m3e_box": "Von Schill Core",
+    "special_order": false
   },
   {
     "model_name": "Arik Schottemer",
@@ -1837,7 +2066,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill The Veteran",
-    "m3e_box": "Von Schill Core"
+    "m3e_box": "Von Schill Core",
+    "special_order": false
   },
   {
     "model_name": "Freikorpsman",
@@ -1845,7 +2075,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill The Veteran",
-    "m3e_box": "Von Schill Core"
+    "m3e_box": "Von Schill Core",
+    "special_order": false
   },
   {
     "model_name": "Steam Trunk",
@@ -1853,7 +2084,8 @@
     "faction": "Outcasts",
     "keyword": "Freikorps",
     "m4e_box": "Von Schill The Veteran",
-    "m3e_box": "Von Schill Core"
+    "m3e_box": "Von Schill Core",
+    "special_order": false
   },
   {
     "model_name": "Paul Crockett",
@@ -1861,7 +2093,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Badlands Sherrif",
-    "m3e_box": "Primal Fury"
+    "m3e_box": "Primal Fury",
+    "special_order": false
   },
   {
     "model_name": "Cornelius Basse, Badlands Sheriff",
@@ -1869,7 +2102,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Badlands Sherrif",
-    "m3e_box": "Showdown"
+    "m3e_box": "Showdown",
+    "special_order": false
   },
   {
     "model_name": "Bernadette Basse, Bravo",
@@ -1877,7 +2111,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Badlands Sherrif",
-    "m3e_box": "Basse Core"
+    "m3e_box": "Basse Core",
+    "special_order": false
   },
   {
     "model_name": "Austringer",
@@ -1885,7 +2120,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Badlands Sherrif",
-    "m3e_box": "From Above"
+    "m3e_box": "From Above",
+    "special_order": false
   },
   {
     "model_name": "Clockwork Trap",
@@ -1893,7 +2129,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Badlands Sherrif",
-    "m3e_box": "Trappers"
+    "m3e_box": "Trappers",
+    "special_order": false
   },
   {
     "model_name": "Trained Raptor",
@@ -1901,7 +2138,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Badlands Sherrif",
-    "m3e_box": "From Above"
+    "m3e_box": "From Above",
+    "special_order": false
   },
   {
     "model_name": "Cornelius Basse, Lone Verdict",
@@ -1909,7 +2147,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Lone Verdict",
-    "m3e_box": "Basse Core"
+    "m3e_box": "Basse Core",
+    "special_order": false
   },
   {
     "model_name": "Bernadette Basse, Furtive",
@@ -1917,7 +2156,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Lone Verdict",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Jonathan Reichart",
@@ -1925,7 +2165,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Lone Verdict",
-    "m3e_box": "Basse Core"
+    "m3e_box": "Basse Core",
+    "special_order": false
   },
   {
     "model_name": "Frontiersman",
@@ -1933,7 +2174,8 @@
     "faction": "Arcanists",
     "keyword": "Frontier",
     "m4e_box": "Basse Lone Verdict",
-    "m3e_box": "Basse Core"
+    "m3e_box": "Basse Core",
+    "special_order": false
   },
   {
     "model_name": "Dashel Barker Butcher",
@@ -1941,7 +2183,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Butcher",
-    "m3e_box": "They All Fall Down"
+    "m3e_box": "They All Fall Down",
+    "special_order": false
   },
   {
     "model_name": "Sergeant",
@@ -1949,7 +2192,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Butcher",
-    "m3e_box": "Rank and File"
+    "m3e_box": "Rank and File",
+    "special_order": false
   },
   {
     "model_name": "Warden",
@@ -1957,7 +2201,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Butcher",
-    "m3e_box": "Crime and Punishment"
+    "m3e_box": "Crime and Punishment",
+    "special_order": false
   },
   {
     "model_name": "Disease Containment Unit",
@@ -1965,7 +2210,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Butcher",
-    "m3e_box": "They All Fall Down"
+    "m3e_box": "They All Fall Down",
+    "special_order": false
   },
   {
     "model_name": "Dashel Barker The Old Guard",
@@ -1973,7 +2219,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Old Guard",
-    "m3e_box": "Dashel Core"
+    "m3e_box": "Dashel Core",
+    "special_order": false
   },
   {
     "model_name": "Rifleman",
@@ -1981,7 +2228,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Old Guard",
-    "m3e_box": "Dashel Core"
+    "m3e_box": "Dashel Core",
+    "special_order": false
   },
   {
     "model_name": "Taggart Queeg",
@@ -1989,7 +2237,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Old Guard",
-    "m3e_box": "Dashel Core"
+    "m3e_box": "Dashel Core",
+    "special_order": false
   },
   {
     "model_name": "The Dispatcher",
@@ -1997,7 +2246,8 @@
     "faction": "Guild",
     "keyword": "Guard",
     "m4e_box": "Dashel The Old Guard",
-    "m3e_box": "Dashel Core"
+    "m3e_box": "Dashel Core",
+    "special_order": false
   },
   {
     "model_name": "Gwyneth Maddox",
@@ -2005,7 +2255,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Dark Bet",
-    "m3e_box": "Friendly Faces"
+    "m3e_box": "Friendly Faces",
+    "special_order": false
   },
   {
     "model_name": "Jakob Lynch, Dark Bet",
@@ -2013,7 +2264,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Dark Bet",
-    "m3e_box": "Lynch Core"
+    "m3e_box": "Lynch Core",
+    "special_order": false
   },
   {
     "model_name": "Beckoner",
@@ -2021,7 +2273,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Dark Bet",
-    "m3e_box": "Friendly Faces"
+    "m3e_box": "Friendly Faces",
+    "special_order": false
   },
   {
     "model_name": "Hungering Darkness, Eclipse",
@@ -2029,7 +2282,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Dark Bet",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Mr. Graves",
@@ -2037,7 +2291,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Dark Bet",
-    "m3e_box": "Dark Dealings"
+    "m3e_box": "Dark Dealings",
+    "special_order": false
   },
   {
     "model_name": "Mr. Tannen",
@@ -2045,7 +2300,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Dark Bet",
-    "m3e_box": "Dark Dealings"
+    "m3e_box": "Dark Dealings",
+    "special_order": false
   },
   {
     "model_name": "Jakob Lynch, Wildcard",
@@ -2053,7 +2309,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Wildcard",
-    "m3e_box": "Bargains Made"
+    "m3e_box": "Bargains Made",
+    "special_order": false
   },
   {
     "model_name": "Illuminated",
@@ -2061,7 +2318,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Wildcard",
-    "m3e_box": "Lynch Core"
+    "m3e_box": "Lynch Core",
+    "special_order": false
   },
   {
     "model_name": "Hungering Darkness, Beneath the Bets",
@@ -2069,7 +2327,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Wildcard",
-    "m3e_box": "Lynch Core"
+    "m3e_box": "Lynch Core",
+    "special_order": false
   },
   {
     "model_name": "Kitty Dumont",
@@ -2077,7 +2336,8 @@
     "faction": "Ten Thunders",
     "keyword": "Honeypot",
     "m4e_box": "Lynch Wildcard",
-    "m3e_box": "Lynch Core"
+    "m3e_box": "Lynch Core",
+    "special_order": false
   },
   {
     "model_name": "The First Mate",
@@ -2085,7 +2345,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Cloudchaser",
-    "m3e_box": "Zipp Core"
+    "m3e_box": "Zipp Core",
+    "special_order": false
   },
   {
     "model_name": "Captain Zipp, Cloudchaser",
@@ -2093,7 +2354,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Cloudchaser",
-    "m3e_box": "Navigating Chaos"
+    "m3e_box": "Navigating Chaos",
+    "special_order": false
   },
   {
     "model_name": "Iron Wing",
@@ -2101,7 +2363,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Cloudchaser",
-    "m3e_box": "Zipp Core"
+    "m3e_box": "Zipp Core",
+    "special_order": false
   },
   {
     "model_name": "Earl Burns",
@@ -2109,7 +2372,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Cloudchaser",
-    "m3e_box": "Zipp Core"
+    "m3e_box": "Zipp Core",
+    "special_order": false
   },
   {
     "model_name": "Captain Zipp, Dread Pirate",
@@ -2117,7 +2381,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Dread Pirate",
-    "m3e_box": "Zipp Core"
+    "m3e_box": "Zipp Core",
+    "special_order": false
   },
   {
     "model_name": "Wrastler",
@@ -2125,7 +2390,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Dread Pirate",
-    "m3e_box": "Off the Top Rope"
+    "m3e_box": "Off the Top Rope",
+    "special_order": false
   },
   {
     "model_name": "Mancha Roja",
@@ -2133,7 +2399,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Dread Pirate",
-    "m3e_box": "Off the Top Rope"
+    "m3e_box": "Off the Top Rope",
+    "special_order": false
   },
   {
     "model_name": "Burt Jebson",
@@ -2141,7 +2408,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Dread Pirate",
-    "m3e_box": "Pig Trouble"
+    "m3e_box": "Pig Trouble",
+    "special_order": false
   },
   {
     "model_name": "Gracie",
@@ -2149,7 +2417,8 @@
     "faction": "Outcasts",
     "keyword": "Infamous",
     "m4e_box": "Zipp Dread Pirate",
-    "m3e_box": "Pig Trouble"
+    "m3e_box": "Pig Trouble",
+    "special_order": false
   },
   {
     "model_name": "Phiona Gage",
@@ -2157,7 +2426,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie The Tattler",
-    "m3e_box": "Nellie Core"
+    "m3e_box": "Nellie Core",
+    "special_order": false
   },
   {
     "model_name": "Nellie Cochrane, The Tattler",
@@ -2165,7 +2435,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie The Tattler",
-    "m3e_box": "A Twisted Tale"
+    "m3e_box": "A Twisted Tale",
+    "special_order": false
   },
   {
     "model_name": "Field Reporter",
@@ -2173,7 +2444,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie The Tattler",
-    "m3e_box": "Nellie Core"
+    "m3e_box": "Nellie Core",
+    "special_order": false
   },
   {
     "model_name": "The Printing Press",
@@ -2181,7 +2453,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie The Tattler",
-    "m3e_box": "Nellie Core"
+    "m3e_box": "Nellie Core",
+    "special_order": false
   },
   {
     "model_name": "Allison Dade",
@@ -2189,7 +2462,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie Voice of Disorder",
-    "m3e_box": "Scooped"
+    "m3e_box": "Scooped",
+    "special_order": false
   },
   {
     "model_name": "Nellie Cochrane, Voice of Disorder",
@@ -2197,7 +2471,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie Voice of Disorder",
-    "m3e_box": "Nellie Core"
+    "m3e_box": "Nellie Core",
+    "special_order": false
   },
   {
     "model_name": "Newsie",
@@ -2205,7 +2480,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie Voice of Disorder",
-    "m3e_box": "Scooped"
+    "m3e_box": "Scooped",
+    "special_order": false
   },
   {
     "model_name": "Undercover Reporter",
@@ -2213,7 +2489,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie Voice of Disorder",
-    "m3e_box": "Scooped"
+    "m3e_box": "Scooped",
+    "special_order": false
   },
   {
     "model_name": "Auguste Hart",
@@ -2221,7 +2498,8 @@
     "faction": "Guild",
     "keyword": "Journalist",
     "m4e_box": "Nellie Voice of Disorder",
-    "m3e_box": "A Twisted Tale"
+    "m3e_box": "A Twisted Tale",
+    "special_order": false
   },
   {
     "model_name": "Ophelia LaCroix, Overloaded",
@@ -2229,7 +2507,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Overloaded",
-    "m3e_box": "Behind the Trigger"
+    "m3e_box": "Behind the Trigger",
+    "special_order": false
   },
   {
     "model_name": "Sammy LaCroix",
@@ -2237,7 +2516,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Overloaded",
-    "m3e_box": "Copycats"
+    "m3e_box": "Copycats",
+    "special_order": false
   },
   {
     "model_name": "Merris LaCroix",
@@ -2245,7 +2525,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Overloaded",
-    "m3e_box": "When Pigs Fly"
+    "m3e_box": "When Pigs Fly",
+    "special_order": false
   },
   {
     "model_name": "Old Cranky",
@@ -2253,7 +2534,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Overloaded",
-    "m3e_box": "Listen Up!"
+    "m3e_box": "Listen Up!",
+    "special_order": false
   },
   {
     "model_name": "Pere Ravage",
@@ -2261,7 +2543,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Overloaded",
-    "m3e_box": "Copycats"
+    "m3e_box": "Copycats",
+    "special_order": false
   },
   {
     "model_name": "Rami LaCroix",
@@ -2269,7 +2552,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Overloaded",
-    "m3e_box": "Copycats"
+    "m3e_box": "Copycats",
+    "special_order": false
   },
   {
     "model_name": "Raphael LaCroix",
@@ -2277,7 +2561,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Overloaded",
-    "m3e_box": "Copycats"
+    "m3e_box": "Copycats",
+    "special_order": false
   },
   {
     "model_name": "Francois LaCroix",
@@ -2285,7 +2570,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Red Cage Raider",
-    "m3e_box": "Ophelia Core"
+    "m3e_box": "Ophelia Core",
+    "special_order": false
   },
   {
     "model_name": "Ophelia LaCroix, Red Cage Raider",
@@ -2293,7 +2579,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Red Cage Raider",
-    "m3e_box": "Behind the Trigger"
+    "m3e_box": "Behind the Trigger",
+    "special_order": false
   },
   {
     "model_name": "LaCroix Raider",
@@ -2301,7 +2588,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Red Cage Raider",
-    "m3e_box": "Ophelia Core"
+    "m3e_box": "Ophelia Core",
+    "special_order": false
   },
   {
     "model_name": "Young LaCroix",
@@ -2309,7 +2597,8 @@
     "faction": "Bayou",
     "keyword": "Kin",
     "m4e_box": "Ophelia Red Cage Raider",
-    "m3e_box": "Ophelia Core"
+    "m3e_box": "Ophelia Core",
+    "special_order": false
   },
   {
     "model_name": "Yamaziko",
@@ -2317,7 +2606,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Fractured",
-    "m3e_box": "Crime Syndicate"
+    "m3e_box": "Crime Syndicate",
+    "special_order": false
   },
   {
     "model_name": "Misaki Katanaka, Fractured",
@@ -2325,7 +2615,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Fractured",
-    "m3e_box": "Misaki Core"
+    "m3e_box": "Misaki Core",
+    "special_order": false
   },
   {
     "model_name": "Katanaka Crime Boss",
@@ -2333,7 +2624,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Fractured",
-    "m3e_box": "Crime Syndicate"
+    "m3e_box": "Crime Syndicate",
+    "special_order": false
   },
   {
     "model_name": "Katanaka Sniper",
@@ -2341,7 +2633,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Fractured",
-    "m3e_box": "Crime Syndicate"
+    "m3e_box": "Crime Syndicate",
+    "special_order": false
   },
   {
     "model_name": "Wanyudo",
@@ -2349,7 +2642,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Fractured",
-    "m3e_box": "Kharmic Debt"
+    "m3e_box": "Kharmic Debt",
+    "special_order": false
   },
   {
     "model_name": "Ototo",
@@ -2357,7 +2651,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Oyabun",
-    "m3e_box": "Misaki Core"
+    "m3e_box": "Misaki Core",
+    "special_order": false
   },
   {
     "model_name": "Misaki Katanaka, Oyabun",
@@ -2365,7 +2660,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Oyabun",
-    "m3e_box": "Hidden Allegiances"
+    "m3e_box": "Hidden Allegiances",
+    "special_order": false
   },
   {
     "model_name": "Torakage",
@@ -2373,7 +2669,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Oyabun",
-    "m3e_box": "Misaki Core"
+    "m3e_box": "Misaki Core",
+    "special_order": false
   },
   {
     "model_name": "Shang",
@@ -2381,7 +2678,8 @@
     "faction": "Ten Thunders",
     "keyword": "LastBlossom",
     "m4e_box": "Misaki Oyabun",
-    "m3e_box": "Misaki Core"
+    "m3e_box": "Misaki Core",
+    "special_order": false
   },
   {
     "model_name": "Toni Ironsides, Troubleshooter",
@@ -2389,7 +2687,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Troubleshooter",
-    "m3e_box": "Ironsides Core"
+    "m3e_box": "Ironsides Core",
+    "special_order": false
   },
   {
     "model_name": "Union Journeymen (Old Union Miners)",
@@ -2397,7 +2696,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Troubleshooter",
-    "m3e_box": "Ironsides Core"
+    "m3e_box": "Ironsides Core",
+    "special_order": false
   },
   {
     "model_name": "Mouse",
@@ -2405,7 +2705,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Troubleshooter",
-    "m3e_box": "Ironsides Core"
+    "m3e_box": "Ironsides Core",
+    "special_order": false
   },
   {
     "model_name": "Amina Naidu",
@@ -2413,7 +2714,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Troubleshooter",
-    "m3e_box": "Ironsides Core"
+    "m3e_box": "Ironsides Core",
+    "special_order": false
   },
   {
     "model_name": "Joss",
@@ -2421,7 +2723,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Union President",
-    "m3e_box": "Support Staff"
+    "m3e_box": "Support Staff",
+    "special_order": false
   },
   {
     "model_name": "The Captain",
@@ -2429,7 +2732,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Union President",
-    "m3e_box": "Troubleshooters"
+    "m3e_box": "Troubleshooters",
+    "special_order": false
   },
   {
     "model_name": "Toni Ironsides, Union President",
@@ -2437,7 +2741,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Union President",
-    "m3e_box": "Down to Business"
+    "m3e_box": "Down to Business",
+    "special_order": false
   },
   {
     "model_name": "Gunsmith",
@@ -2445,7 +2750,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Union President",
-    "m3e_box": "Troubleshooters"
+    "m3e_box": "Troubleshooters",
+    "special_order": false
   },
   {
     "model_name": "Saboteur",
@@ -2453,7 +2759,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Union President",
-    "m3e_box": "Crack in the Foundation"
+    "m3e_box": "Crack in the Foundation",
+    "special_order": false
   },
   {
     "model_name": "Fitzsimmons",
@@ -2461,7 +2768,8 @@
     "faction": "Arcanists",
     "keyword": "M&SU",
     "m4e_box": "Toni Union President",
-    "m3e_box": "Troubleshooters"
+    "m3e_box": "Troubleshooters",
+    "special_order": false
   },
   {
     "model_name": "The Judge",
@@ -2469,7 +2777,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Arbiter of the Undead",
-    "m3e_box": "Lady J Core"
+    "m3e_box": "Lady J Core",
+    "special_order": false
   },
   {
     "model_name": "Lady Justice, Arbiter of the Undead",
@@ -2477,7 +2786,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Arbiter of the Undead",
-    "m3e_box": "Lady J Core"
+    "m3e_box": "Lady J Core",
+    "special_order": false
   },
   {
     "model_name": "Death Marshal",
@@ -2485,7 +2795,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Arbiter of the Undead",
-    "m3e_box": "Lady J Core"
+    "m3e_box": "Lady J Core",
+    "special_order": false
   },
   {
     "model_name": "Scales Of Justice",
@@ -2493,7 +2804,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Arbiter of the Undead",
-    "m3e_box": "Lady J Core"
+    "m3e_box": "Lady J Core",
+    "special_order": false
   },
   {
     "model_name": "Lady Justice, Death Touched",
@@ -2501,7 +2813,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Deathtouched",
-    "m3e_box": "Foward and Back"
+    "m3e_box": "Foward and Back",
+    "special_order": false
   },
   {
     "model_name": "Exorcist",
@@ -2509,7 +2822,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Deathtouched",
-    "m3e_box": "Six Feet Under"
+    "m3e_box": "Six Feet Under",
+    "special_order": false
   },
   {
     "model_name": "Domador De Cadaveres",
@@ -2517,7 +2831,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Deathtouched",
-    "m3e_box": "Wake the Dead"
+    "m3e_box": "Wake the Dead",
+    "special_order": false
   },
   {
     "model_name": "Asset 17",
@@ -2525,7 +2840,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Deathtouched",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "The Jury",
@@ -2533,7 +2849,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Deathtouched",
-    "m3e_box": "Wake the Dead"
+    "m3e_box": "Wake the Dead",
+    "special_order": false
   },
   {
     "model_name": "The Lone Marshal",
@@ -2541,7 +2858,8 @@
     "faction": "Guild",
     "keyword": "Marshal",
     "m4e_box": "Lady Justice Deathtouched",
-    "m3e_box": "Six Feet Under"
+    "m3e_box": "Six Feet Under",
+    "special_order": false
   },
   {
     "model_name": "Vanessa Chambers",
@@ -2549,7 +2867,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Ashes and Blood",
-    "m3e_box": "Viktorias Core"
+    "m3e_box": "Viktorias Core",
+    "special_order": false
   },
   {
     "model_name": "Viktoria Chambers, Ashes and Blood",
@@ -2557,7 +2876,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Ashes and Blood",
-    "m3e_box": "Viktorias Core"
+    "m3e_box": "Viktorias Core",
+    "special_order": false
   },
   {
     "model_name": "Ronin",
@@ -2565,7 +2885,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Ashes and Blood",
-    "m3e_box": "Viktorias Core"
+    "m3e_box": "Viktorias Core",
+    "special_order": false
   },
   {
     "model_name": "Taelor",
@@ -2573,7 +2894,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Twinblade",
-    "m3e_box": "Loyalty to the Coin"
+    "m3e_box": "Loyalty to the Coin",
+    "special_order": false
   },
   {
     "model_name": "Viktoria Chambers, Twin Blades",
@@ -2581,7 +2903,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Twinblade",
-    "m3e_box": "Seeking the Blade"
+    "m3e_box": "Seeking the Blade",
+    "special_order": false
   },
   {
     "model_name": "Desperate Mercenary",
@@ -2589,7 +2912,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Twinblade",
-    "m3e_box": "Hired Killers"
+    "m3e_box": "Hired Killers",
+    "special_order": false
   },
   {
     "model_name": "Big Jake",
@@ -2597,7 +2921,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Twinblade",
-    "m3e_box": "Loyalty to the Coin"
+    "m3e_box": "Loyalty to the Coin",
+    "special_order": false
   },
   {
     "model_name": "Bishop",
@@ -2605,7 +2930,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Twinblade",
-    "m3e_box": "Hired Killers"
+    "m3e_box": "Hired Killers",
+    "special_order": false
   },
   {
     "model_name": "Student of Conflict",
@@ -2613,7 +2939,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Twinblade",
-    "m3e_box": "Loyalty to the Coin"
+    "m3e_box": "Loyalty to the Coin",
+    "special_order": false
   },
   {
     "model_name": "Kenshiro The Tactician",
@@ -2621,7 +2948,8 @@
     "faction": "Outcasts",
     "keyword": "Mercenary",
     "m4e_box": "Viktoria Twinblade",
-    "m3e_box": "Seeking the Blade"
+    "m3e_box": "Seeking the Blade",
+    "special_order": false
   },
   {
     "model_name": "Shenlong, Dragon's Breath",
@@ -2629,7 +2957,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong Dragon's Breath",
-    "m3e_box": "Shenlong Core"
+    "m3e_box": "Shenlong Core",
+    "special_order": false
   },
   {
     "model_name": "River Monk (Old Various Monks)",
@@ -2637,7 +2966,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong Dragon's Breath",
-    "m3e_box": "Shenlong Core"
+    "m3e_box": "Shenlong Core",
+    "special_order": false
   },
   {
     "model_name": "Sensei Yu",
@@ -2645,7 +2975,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong Dragon's Breath",
-    "m3e_box": "Shenlong Core"
+    "m3e_box": "Shenlong Core",
+    "special_order": false
   },
   {
     "model_name": "Aspiring Student",
@@ -2653,7 +2984,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong Dragon's Breath",
-    "m3e_box": "Shenlong Core"
+    "m3e_box": "Shenlong Core",
+    "special_order": false
   },
   {
     "model_name": "Shenlong, Dragon's Breath",
@@ -2661,7 +2993,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong The Teacher",
-    "m3e_box": "Maintain the Balance"
+    "m3e_box": "Maintain the Balance",
+    "special_order": false
   },
   {
     "model_name": "Lotus Eater",
@@ -2669,7 +3002,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong The Teacher",
-    "m3e_box": "Lotus Eaters"
+    "m3e_box": "Lotus Eaters",
+    "special_order": false
   },
   {
     "model_name": "Thunder Archer",
@@ -2677,7 +3011,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong The Teacher",
-    "m3e_box": "Crime Syndicate"
+    "m3e_box": "Crime Syndicate",
+    "special_order": false
   },
   {
     "model_name": "Mu Long",
@@ -2685,7 +3020,8 @@
     "faction": "Ten Thunders",
     "keyword": "Monk",
     "m4e_box": "Shenlong The Teacher",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Coppelius",
@@ -2693,7 +3029,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Fast Asleep",
-    "m3e_box": "Dreamer Core"
+    "m3e_box": "Dreamer Core",
+    "special_order": false
   },
   {
     "model_name": "The Dreamer, Fast Asleep",
@@ -2701,7 +3038,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Fast Asleep",
-    "m3e_box": "Dreamer Core"
+    "m3e_box": "Dreamer Core",
+    "special_order": false
   },
   {
     "model_name": "Alp",
@@ -2709,7 +3047,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Fast Asleep",
-    "m3e_box": "Dreamer Core"
+    "m3e_box": "Dreamer Core",
+    "special_order": false
   },
   {
     "model_name": "Lord Chompy Bits, Dreamlord",
@@ -2717,7 +3056,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Fast Asleep",
-    "m3e_box": "Dreamer Core"
+    "m3e_box": "Dreamer Core",
+    "special_order": false
   },
   {
     "model_name": "The Dreamer, Insomniac",
@@ -2725,7 +3065,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Insomniac",
-    "m3e_box": "Realm Beyond"
+    "m3e_box": "Realm Beyond",
+    "special_order": false
   },
   {
     "model_name": "Lord Chompy Bits, Lurking Lullaby",
@@ -2733,7 +3074,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Insomniac",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Stitched Together",
@@ -2741,7 +3083,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Insomniac",
-    "m3e_box": "Deep Sleep"
+    "m3e_box": "Deep Sleep",
+    "special_order": false
   },
   {
     "model_name": "Daydream",
@@ -2749,7 +3092,8 @@
     "faction": "Neverborn",
     "keyword": "Nightmare",
     "m4e_box": "Dreamer Insomniac",
-    "m3e_box": "Deep Sleep"
+    "m3e_box": "Deep Sleep",
+    "special_order": false
   },
   {
     "model_name": "Tara, Timeless",
@@ -2757,7 +3101,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Timeless",
-    "m3e_box": "Forward and Back"
+    "m3e_box": "Forward and Back",
+    "special_order": false
   },
   {
     "model_name": "Void Hunter",
@@ -2765,7 +3110,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Timeless",
-    "m3e_box": "Servants of the Void"
+    "m3e_box": "Servants of the Void",
+    "special_order": false
   },
   {
     "model_name": "Scion Of The Void",
@@ -2773,7 +3119,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Timeless",
-    "m3e_box": "Servants of the Void"
+    "m3e_box": "Servants of the Void",
+    "special_order": false
   },
   {
     "model_name": "Thirty Three",
@@ -2781,7 +3128,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Timeless",
-    "m3e_box": "Foward and Back"
+    "m3e_box": "Foward and Back",
+    "special_order": false
   },
   {
     "model_name": "The Nothing Beast",
@@ -2789,7 +3137,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Voidcaller",
-    "m3e_box": "Tara Core"
+    "m3e_box": "Tara Core",
+    "special_order": false
   },
   {
     "model_name": "Tara, Voidcaller",
@@ -2797,7 +3146,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Voidcaller",
-    "m3e_box": "Tara Core"
+    "m3e_box": "Tara Core",
+    "special_order": false
   },
   {
     "model_name": "Void Wretch",
@@ -2805,7 +3155,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Voidcaller",
-    "m3e_box": "Tara Core"
+    "m3e_box": "Tara Core",
+    "special_order": false
   },
   {
     "model_name": "Karina",
@@ -2813,7 +3164,8 @@
     "faction": "Outcasts",
     "keyword": "Obliteration",
     "m4e_box": "Tara Voidcaller",
-    "m3e_box": "Tara Core"
+    "m3e_box": "Tara Core",
+    "special_order": false
   },
   {
     "model_name": "Ohaguro Bettari",
@@ -2821,7 +3173,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Oni Mother",
-    "m3e_box": "Asami Core"
+    "m3e_box": "Asami Core",
+    "special_order": false
   },
   {
     "model_name": "Asami Tanaka, Oni Mother",
@@ -2829,7 +3182,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Oni Mother",
-    "m3e_box": "Asami Core"
+    "m3e_box": "Asami Core",
+    "special_order": false
   },
   {
     "model_name": "Yokai",
@@ -2837,7 +3191,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Oni Mother",
-    "m3e_box": "Asami Core"
+    "m3e_box": "Asami Core",
+    "special_order": false
   },
   {
     "model_name": "Amanjaku",
@@ -2845,7 +3200,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Oni Mother",
-    "m3e_box": "Asami Core"
+    "m3e_box": "Asami Core",
+    "special_order": false
   },
   {
     "model_name": "Lady Yume",
@@ -2853,7 +3209,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Shintaku",
-    "m3e_box": "Realm Beyond"
+    "m3e_box": "Realm Beyond",
+    "special_order": false
   },
   {
     "model_name": "Asami Tanaka, Shintaku",
@@ -2861,7 +3218,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Shintaku",
-    "m3e_box": "Realm Beyod"
+    "m3e_box": "Realm Beyod",
+    "special_order": false
   },
   {
     "model_name": "Akaname",
@@ -2869,7 +3227,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Shintaku",
-    "m3e_box": "Akaname"
+    "m3e_box": "Akaname",
+    "special_order": false
   },
   {
     "model_name": "Obsidian Oni",
@@ -2877,7 +3236,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Shintaku",
-    "m3e_box": "Ancient Evil"
+    "m3e_box": "Ancient Evil",
+    "special_order": false
   },
   {
     "model_name": "Ama No Zako",
@@ -2885,7 +3245,8 @@
     "faction": "Ten Thunders",
     "keyword": "Oni",
     "m4e_box": "Asami Shintaku",
-    "m3e_box": "Ancient Evil"
+    "m3e_box": "Ancient Evil",
+    "special_order": false
   },
   {
     "model_name": "Cassandra Felton",
@@ -2893,7 +3254,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Star of the Show",
-    "m3e_box": "Colette Core"
+    "m3e_box": "Colette Core",
+    "special_order": false
   },
   {
     "model_name": "Colette Du Bois, Star of the Show",
@@ -2901,7 +3263,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Star of the Show",
-    "m3e_box": "Colette Core"
+    "m3e_box": "Colette Core",
+    "special_order": false
   },
   {
     "model_name": "Showgirl",
@@ -2909,7 +3272,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Star of the Show",
-    "m3e_box": "Colette Core"
+    "m3e_box": "Colette Core",
+    "special_order": false
   },
   {
     "model_name": "Mechanical Dove",
@@ -2917,7 +3281,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Star of the Show",
-    "m3e_box": "Colette Core"
+    "m3e_box": "Colette Core",
+    "special_order": false
   },
   {
     "model_name": "Shadowlark",
@@ -2925,7 +3290,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Smuggler",
-    "m3e_box": "Shadowlark"
+    "m3e_box": "Shadowlark",
+    "special_order": false
   },
   {
     "model_name": "Colette Du Bois, Smuggler",
@@ -2933,7 +3299,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Smuggler",
-    "m3e_box": "All the Worlds a Stage"
+    "m3e_box": "All the Worlds a Stage",
+    "special_order": false
   },
   {
     "model_name": "Blackbird",
@@ -2941,7 +3308,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Smuggler",
-    "m3e_box": "Blackbird"
+    "m3e_box": "Blackbird",
+    "special_order": false
   },
   {
     "model_name": "Angelica Durand",
@@ -2949,7 +3317,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Smuggler",
-    "m3e_box": "Center Stage"
+    "m3e_box": "Center Stage",
+    "special_order": false
   },
   {
     "model_name": "Carlos Vasquez",
@@ -2957,7 +3326,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Smuggler",
-    "m3e_box": "Center Stage"
+    "m3e_box": "Center Stage",
+    "special_order": false
   },
   {
     "model_name": "Dorian Crowe",
@@ -2965,7 +3335,8 @@
     "faction": "Arcanists",
     "keyword": "Performer",
     "m4e_box": "Colette Smuggler",
-    "m3e_box": "All the Worlds a Stage"
+    "m3e_box": "All the Worlds a Stage",
+    "special_order": false
   },
   {
     "model_name": "Hamelin, The Piper",
@@ -2973,7 +3344,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin the Piper",
-    "m3e_box": "They All Fall Down"
+    "m3e_box": "They All Fall Down",
+    "special_order": false
   },
   {
     "model_name": "Malifaux Rat",
@@ -2981,7 +3353,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin the Piper",
-    "m3e_box": "Hamelin Core/Brotherhood of the Rat"
+    "m3e_box": "Hamelin Core/Brotherhood of the Rat",
+    "special_order": false
   },
   {
     "model_name": "Rat Catcher",
@@ -2989,7 +3362,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin the Piper",
-    "m3e_box": "Brotherhood of the Rat"
+    "m3e_box": "Brotherhood of the Rat",
+    "special_order": false
   },
   {
     "model_name": "Rat King",
@@ -2997,7 +3371,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin the Piper",
-    "m3e_box": "Brotherhood of the Rat"
+    "m3e_box": "Brotherhood of the Rat",
+    "special_order": false
   },
   {
     "model_name": "Benny Wolcomb",
@@ -3005,7 +3380,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin the Piper",
-    "m3e_box": "Tainted Filth"
+    "m3e_box": "Tainted Filth",
+    "special_order": false
   },
   {
     "model_name": "Hamelin, Plaguebringer",
@@ -3013,7 +3389,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin Plaguebringer",
-    "m3e_box": "Hamelin Core"
+    "m3e_box": "Hamelin Core",
+    "special_order": false
   },
   {
     "model_name": "Nix",
@@ -3021,7 +3398,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin Plaguebringer",
-    "m3e_box": "Hamelin Core"
+    "m3e_box": "Hamelin Core",
+    "special_order": false
   },
   {
     "model_name": "Obedient Wretch",
@@ -3029,7 +3407,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin Plaguebringer",
-    "m3e_box": "Hamelin Core"
+    "m3e_box": "Hamelin Core",
+    "special_order": false
   },
   {
     "model_name": "Stolen",
@@ -3037,7 +3416,8 @@
     "faction": "Outcasts",
     "keyword": "Plague",
     "m4e_box": "Hamelin Plaguebringer",
-    "m3e_box": "Hamelin Core"
+    "m3e_box": "Hamelin Core",
+    "special_order": false
   },
   {
     "model_name": "Bill Algren",
@@ -3045,7 +3425,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Silk of the Lotus",
-    "m3e_box": "Youko Core"
+    "m3e_box": "Youko Core",
+    "special_order": false
   },
   {
     "model_name": "Youko Hamasaki, Silk of the Lotus",
@@ -3053,7 +3434,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Silk of the Lotus",
-    "m3e_box": "Youko Core"
+    "m3e_box": "Youko Core",
+    "special_order": false
   },
   {
     "model_name": "Courtisan (Old Geisha)",
@@ -3061,7 +3443,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Silk of the Lotus",
-    "m3e_box": "Youko Core"
+    "m3e_box": "Youko Core",
+    "special_order": false
   },
   {
     "model_name": "Chiyo Hamasaki",
@@ -3069,7 +3452,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Silk of the Lotus",
-    "m3e_box": "Youko Core"
+    "m3e_box": "Youko Core",
+    "special_order": false
   },
   {
     "model_name": "Hinamatsu",
@@ -3077,7 +3461,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Unseen",
-    "m3e_box": "Hinamatsu"
+    "m3e_box": "Hinamatsu",
+    "special_order": false
   },
   {
     "model_name": "Youko Hamasaki, Unseen",
@@ -3085,7 +3470,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Unseen",
-    "m3e_box": "Trade Secrets"
+    "m3e_box": "Trade Secrets",
+    "special_order": false
   },
   {
     "model_name": "Charm Warder",
@@ -3093,7 +3479,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Unseen",
-    "m3e_box": "Charm Warders"
+    "m3e_box": "Charm Warders",
+    "special_order": false
   },
   {
     "model_name": "Kunoichi",
@@ -3101,7 +3488,8 @@
     "faction": "Ten Thunders",
     "keyword": "Qi-and-Gong",
     "m4e_box": "Youko Unseen",
-    "m3e_box": "Kunoichi"
+    "m3e_box": "Kunoichi",
+    "special_order": false
   },
   {
     "model_name": "Seamus, aka Sebastian Baker",
@@ -3109,7 +3497,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus aka Sebastian Baker",
-    "m3e_box": "Seamus Core"
+    "m3e_box": "Seamus Core",
+    "special_order": false
   },
   {
     "model_name": "Dead Dandy",
@@ -3117,7 +3506,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus aka Sebastian Baker",
-    "m3e_box": "High Society"
+    "m3e_box": "High Society",
+    "special_order": false
   },
   {
     "model_name": "White Rabbit Co.",
@@ -3125,7 +3515,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus aka Sebastian Baker",
-    "m3e_box": "Hats Off"
+    "m3e_box": "Hats Off",
+    "special_order": false
   },
   {
     "model_name": "Bete Noire",
@@ -3133,7 +3524,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus aka Sebastian Baker",
-    "m3e_box": "High Society"
+    "m3e_box": "High Society",
+    "special_order": false
   },
   {
     "model_name": "Mourner",
@@ -3141,7 +3533,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus aka Sebastian Baker",
-    "m3e_box": "Mourners"
+    "m3e_box": "Mourners",
+    "special_order": false
   },
   {
     "model_name": "Madame Sybelle",
@@ -3149,7 +3542,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus The Last Whisper",
-    "m3e_box": "Seamus Core"
+    "m3e_box": "Seamus Core",
+    "special_order": false
   },
   {
     "model_name": "Seamus, the Last Breath",
@@ -3157,7 +3551,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus The Last Whisper",
-    "m3e_box": "Hats Off"
+    "m3e_box": "Hats Off",
+    "special_order": false
   },
   {
     "model_name": "Dead Doxy",
@@ -3165,7 +3560,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus The Last Whisper",
-    "m3e_box": "High Society"
+    "m3e_box": "High Society",
+    "special_order": false
   },
   {
     "model_name": "Copycat Killer",
@@ -3173,7 +3569,8 @@
     "faction": "Resurrectionists",
     "keyword": "Redchapel",
     "m4e_box": "Seamus The Last Whisper",
-    "m3e_box": "Seamus Core"
+    "m3e_box": "Seamus Core",
+    "special_order": false
   },
   {
     "model_name": "Linh Ly, Bibliothecary",
@@ -3181,7 +3578,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Bibliothecary",
-    "m3e_box": "Linh Ly Core"
+    "m3e_box": "Linh Ly Core",
+    "special_order": false
   },
   {
     "model_name": "Bookkeeper",
@@ -3189,7 +3587,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Bibliothecary",
-    "m3e_box": "Linh Ly Core"
+    "m3e_box": "Linh Ly Core",
+    "special_order": false
   },
   {
     "model_name": "Map Map",
@@ -3197,7 +3596,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Bibliothecary",
-    "m3e_box": "Linh Ly Core"
+    "m3e_box": "Linh Ly Core",
+    "special_order": false
   },
   {
     "model_name": "Jade Rabbit",
@@ -3205,7 +3605,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Bibliothecary",
-    "m3e_box": "Linh Ly Core"
+    "m3e_box": "Linh Ly Core",
+    "special_order": false
   },
   {
     "model_name": "Linh Ly, Storyteller",
@@ -3213,7 +3614,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Storyteller",
-    "m3e_box": "Untold Tales"
+    "m3e_box": "Untold Tales",
+    "special_order": false
   },
   {
     "model_name": "Calligrapher",
@@ -3221,7 +3623,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Storyteller",
-    "m3e_box": "Lifted from the Page"
+    "m3e_box": "Lifted from the Page",
+    "special_order": false
   },
   {
     "model_name": "Miya Murakami",
@@ -3229,7 +3632,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Storyteller",
-    "m3e_box": "Untold Tales"
+    "m3e_box": "Untold Tales",
+    "special_order": false
   },
   {
     "model_name": "Story of Raijin",
@@ -3237,7 +3641,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Storyteller",
-    "m3e_box": "Legendly Figures"
+    "m3e_box": "Legendly Figures",
+    "special_order": false
   },
   {
     "model_name": "Story of Sun Wukong",
@@ -3245,7 +3650,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Storyteller",
-    "m3e_box": "Legendly Figures"
+    "m3e_box": "Legendly Figures",
+    "special_order": false
   },
   {
     "model_name": "Story of Thanh Giong",
@@ -3253,7 +3659,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Storyteller",
-    "m3e_box": "Legendly Figures"
+    "m3e_box": "Legendly Figures",
+    "special_order": false
   },
   {
     "model_name": "Paper Tiger",
@@ -3261,7 +3668,8 @@
     "faction": "Ten Thunders",
     "keyword": "RedLibrary",
     "m4e_box": "Linh Ly Storyteller",
-    "m3e_box": "Lifted from the Page"
+    "m3e_box": "Lifted from the Page",
+    "special_order": false
   },
   {
     "model_name": "Kastore, Awakened",
@@ -3269,7 +3677,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Awakened",
-    "m3e_box": "Ruins of a Lost Age"
+    "m3e_box": "Ruins of a Lost Age",
+    "special_order": false
   },
   {
     "model_name": "Blood Vessel",
@@ -3277,7 +3686,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Awakened",
-    "m3e_box": "Kastore Core"
+    "m3e_box": "Kastore Core",
+    "special_order": false
   },
   {
     "model_name": "Gwyll",
@@ -3285,7 +3695,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Awakened",
-    "m3e_box": "Kastore Core"
+    "m3e_box": "Kastore Core",
+    "special_order": false
   },
   {
     "model_name": "Marathine",
@@ -3293,7 +3704,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Awakened",
-    "m3e_box": "Kastore Core"
+    "m3e_box": "Kastore Core",
+    "special_order": false
   },
   {
     "model_name": "Kastore, Fevrent",
@@ -3301,7 +3713,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Fevrent",
-    "m3e_box": "Ruins of a Lost Age"
+    "m3e_box": "Ruins of a Lost Age",
+    "special_order": false
   },
   {
     "model_name": "Athorak",
@@ -3309,7 +3722,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Fevrent",
-    "m3e_box": "Deep in the Dark"
+    "m3e_box": "Deep in the Dark",
+    "special_order": false
   },
   {
     "model_name": "Barbaros",
@@ -3317,7 +3731,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Fevrent",
-    "m3e_box": "Barbaros"
+    "m3e_box": "Barbaros",
+    "special_order": false
   },
   {
     "model_name": "Cavern Nephilim",
@@ -3325,7 +3740,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Fevrent",
-    "m3e_box": "Deep in the Dark"
+    "m3e_box": "Deep in the Dark",
+    "special_order": false
   },
   {
     "model_name": "White Eyes",
@@ -3333,7 +3749,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Fevrent",
-    "m3e_box": "The Hushed Corpse"
+    "m3e_box": "The Hushed Corpse",
+    "special_order": false
   },
   {
     "model_name": "Urnbearer",
@@ -3341,7 +3758,8 @@
     "faction": "Neverborn",
     "keyword": "Returned",
     "m4e_box": "Kastore Fevrent",
-    "m3e_box": "The Hushed Corpse"
+    "m3e_box": "The Hushed Corpse",
+    "special_order": false
   },
   {
     "model_name": "Reva Cortinas, Death Shepard",
@@ -3349,7 +3767,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Death Shepard",
-    "m3e_box": "Reva Core"
+    "m3e_box": "Reva Core",
+    "special_order": false
   },
   {
     "model_name": "Shield Bearer",
@@ -3357,7 +3776,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Death Shepard",
-    "m3e_box": "Reva Core"
+    "m3e_box": "Reva Core",
+    "special_order": false
   },
   {
     "model_name": "Vincent St Clair",
@@ -3365,7 +3785,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Death Shepard",
-    "m3e_box": "Reva Core"
+    "m3e_box": "Reva Core",
+    "special_order": false
   },
   {
     "model_name": "Corpse Candle",
@@ -3373,7 +3794,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Death Shepard",
-    "m3e_box": "Reva Core"
+    "m3e_box": "Reva Core",
+    "special_order": false
   },
   {
     "model_name": "Reva Cortinas, Luminary",
@@ -3381,7 +3803,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Luminary",
-    "m3e_box": "Embrace the Ember"
+    "m3e_box": "Embrace the Ember",
+    "special_order": false
   },
   {
     "model_name": "Draugr",
@@ -3389,7 +3812,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Luminary",
-    "m3e_box": "Draugr"
+    "m3e_box": "Draugr",
+    "special_order": false
   },
   {
     "model_name": "Lampad",
@@ -3397,7 +3821,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Luminary",
-    "m3e_box": "The Returned"
+    "m3e_box": "The Returned",
+    "special_order": false
   },
   {
     "model_name": "Restless Spirit",
@@ -3405,7 +3830,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Luminary",
-    "m3e_box": "The Returned"
+    "m3e_box": "The Returned",
+    "special_order": false
   },
   {
     "model_name": "Temperance",
@@ -3413,7 +3839,8 @@
     "faction": "Resurrectionists",
     "keyword": "Revenant",
     "m4e_box": "Reva Luminary",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Euripides",
@@ -3421,7 +3848,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Hierophant",
-    "m3e_box": "Euripides Core"
+    "m3e_box": "Euripides Core",
+    "special_order": false
   },
   {
     "model_name": "Gigant",
@@ -3429,7 +3857,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Hierophant",
-    "m3e_box": "Euripides Core"
+    "m3e_box": "Euripides Core",
+    "special_order": false
   },
   {
     "model_name": "Thoon",
@@ -3437,7 +3866,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Hierophant",
-    "m3e_box": "Euripides Core"
+    "m3e_box": "Euripides Core",
+    "special_order": false
   },
   {
     "model_name": "Primordial Magic",
@@ -3445,7 +3875,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Hierophant",
-    "m3e_box": "Euripides Core"
+    "m3e_box": "Euripides Core",
+    "special_order": false
   },
   {
     "model_name": "Euripides, Old One Eye",
@@ -3453,7 +3884,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Old One-Eye",
-    "m3e_box": "Coldsnap"
+    "m3e_box": "Coldsnap",
+    "special_order": false
   },
   {
     "model_name": "Cyclops",
@@ -3461,7 +3893,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Old One-Eye",
-    "m3e_box": "Cyclops"
+    "m3e_box": "Cyclops",
+    "special_order": false
   },
   {
     "model_name": "Geryon",
@@ -3469,7 +3902,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Old One-Eye",
-    "m3e_box": "Geryon"
+    "m3e_box": "Geryon",
+    "special_order": false
   },
   {
     "model_name": "Strix",
@@ -3477,7 +3911,8 @@
     "faction": "Neverborn",
     "keyword": "Savage",
     "m4e_box": "Euripides Old One-Eye",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Jedza, Everlasting",
@@ -3485,7 +3920,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Everlasting",
-    "m3e_box": "Fates Entwined"
+    "m3e_box": "Fates Entwined",
+    "special_order": false
   },
   {
     "model_name": "Austera and Twigge",
@@ -3493,7 +3929,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Everlasting",
-    "m3e_box": "Austera and Twigge"
+    "m3e_box": "Austera and Twigge",
+    "special_order": false
   },
   {
     "model_name": "Grave Goo",
@@ -3501,7 +3938,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Everlasting",
-    "m3e_box": "Here Lies"
+    "m3e_box": "Here Lies",
+    "special_order": false
   },
   {
     "model_name": "Moorwraith",
@@ -3509,7 +3947,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Everlasting",
-    "m3e_box": "Here Lies"
+    "m3e_box": "Here Lies",
+    "special_order": false
   },
   {
     "model_name": "The Damned",
@@ -3517,7 +3956,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Everlasting",
-    "m3e_box": "The Damned"
+    "m3e_box": "The Damned",
+    "special_order": false
   },
   {
     "model_name": "The Kurgan",
@@ -3525,7 +3965,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Everlasting",
-    "m3e_box": "Fates Entwined"
+    "m3e_box": "Fates Entwined",
+    "special_order": false
   },
   {
     "model_name": "Jedza, The Wanderer",
@@ -3533,7 +3974,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Wanderer",
-    "m3e_box": "Jedza Core"
+    "m3e_box": "Jedza Core",
+    "special_order": false
   },
   {
     "model_name": "Lamplighter",
@@ -3541,7 +3983,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Wanderer",
-    "m3e_box": "Jedza Core"
+    "m3e_box": "Jedza Core",
+    "special_order": false
   },
   {
     "model_name": "Mikhail XVI",
@@ -3549,7 +3992,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Wanderer",
-    "m3e_box": "Jedza Core"
+    "m3e_box": "Jedza Core",
+    "special_order": false
   },
   {
     "model_name": "Sophie",
@@ -3557,7 +4001,8 @@
     "faction": "Explorer's Society",
     "keyword": "Seeker",
     "m4e_box": "Jedza Wanderer",
-    "m3e_box": "Jedza Core"
+    "m3e_box": "Jedza Core",
+    "special_order": false
   },
   {
     "model_name": "Old Major",
@@ -3565,7 +4010,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Hogfather",
-    "m3e_box": "Ulix Core"
+    "m3e_box": "Ulix Core",
+    "special_order": false
   },
   {
     "model_name": "Ulix Turner, Hogfather",
@@ -3573,7 +4019,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Hogfather",
-    "m3e_box": "Ulix Core"
+    "m3e_box": "Ulix Core",
+    "special_order": false
   },
   {
     "model_name": "Wild Boars",
@@ -3581,7 +4028,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Hogfather",
-    "m3e_box": "Ulix Core"
+    "m3e_box": "Ulix Core",
+    "special_order": false
   },
   {
     "model_name": "Penelope",
@@ -3589,7 +4037,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Hogfather",
-    "m3e_box": "Ulix Core"
+    "m3e_box": "Ulix Core",
+    "special_order": false
   },
   {
     "model_name": "Ulix Turner, Porkbelly Protector",
@@ -3597,7 +4046,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Porkbelly Protector",
-    "m3e_box": "Protected Domain"
+    "m3e_box": "Protected Domain",
+    "special_order": false
   },
   {
     "model_name": "Piglet",
@@ -3605,7 +4055,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Porkbelly Protector",
-    "m3e_box": "Makin Bacon/Mudlight Whispers"
+    "m3e_box": "Makin Bacon/Mudlight Whispers",
+    "special_order": false
   },
   {
     "model_name": "War Pig",
@@ -3613,7 +4064,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Porkbelly Protector",
-    "m3e_box": "War Pigs"
+    "m3e_box": "War Pigs",
+    "special_order": false
   },
   {
     "model_name": "The Sow",
@@ -3621,7 +4073,8 @@
     "faction": "Bayou",
     "keyword": "Sooey",
     "m4e_box": "Ulix Porkbelly Protector",
-    "m3e_box": "Makin Bacon"
+    "m3e_box": "Makin Bacon",
+    "special_order": false
   },
   {
     "model_name": "Zoraida, Bog Witch",
@@ -3629,7 +4082,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Bog Witch",
-    "m3e_box": "Zoraida Core"
+    "m3e_box": "Zoraida Core",
+    "special_order": false
   },
   {
     "model_name": "Voodoo Doll",
@@ -3637,7 +4091,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Bog Witch",
-    "m3e_box": "Zoraida Core"
+    "m3e_box": "Zoraida Core",
+    "special_order": false
   },
   {
     "model_name": "Bad Juju",
@@ -3645,7 +4100,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Bog Witch",
-    "m3e_box": "Zoraida Core"
+    "m3e_box": "Zoraida Core",
+    "special_order": false
   },
   {
     "model_name": "Waldgeist",
@@ -3653,7 +4109,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Bog Witch",
-    "m3e_box": "Zoraida Core"
+    "m3e_box": "Zoraida Core",
+    "special_order": false
   },
   {
     "model_name": "Zoraida, Swamp Hag",
@@ -3661,7 +4118,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Swamp Hag",
-    "m3e_box": "Fates Entwined"
+    "m3e_box": "Fates Entwined",
+    "special_order": false
   },
   {
     "model_name": "Mirewing",
@@ -3669,7 +4127,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Swamp Hag",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Adze",
@@ -3677,7 +4136,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Swamp Hag",
-    "m3e_box": "A Light in the Dark"
+    "m3e_box": "A Light in the Dark",
+    "special_order": false
   },
   {
     "model_name": "Grootslang",
@@ -3685,7 +4145,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Swamp Hag",
-    "m3e_box": "Grootslang"
+    "m3e_box": "Grootslang",
+    "special_order": false
   },
   {
     "model_name": "Will o' the Wisp",
@@ -3693,7 +4154,8 @@
     "faction": "Bayou",
     "keyword": "Swampfiend",
     "m4e_box": "Zoraida Swamp Hag",
-    "m3e_box": "A Light in the Dark"
+    "m3e_box": "A Light in the Dark",
+    "special_order": false
   },
   {
     "model_name": "Corvis Rook",
@@ -3701,7 +4163,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen Rail Magnate",
-    "m3e_box": "Dirty Work"
+    "m3e_box": "Dirty Work",
+    "special_order": false
   },
   {
     "model_name": "Anya Lycarayen, Rail Magnate",
@@ -3709,7 +4172,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen Rail Magnate",
-    "m3e_box": "Anya Core"
+    "m3e_box": "Anya Core",
+    "special_order": false
   },
   {
     "model_name": "Drudge",
@@ -3717,7 +4181,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen Rail Magnate",
-    "m3e_box": "Down to Business"
+    "m3e_box": "Down to Business",
+    "special_order": false
   },
   {
     "model_name": "The Brass Bull",
@@ -3725,7 +4190,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen Rail Magnate",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Winston Finnigan",
@@ -3733,7 +4199,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen The Resolute",
-    "m3e_box": "Anya Core"
+    "m3e_box": "Anya Core",
+    "special_order": false
   },
   {
     "model_name": "Anya Lycarayen, The Resolute",
@@ -3741,7 +4208,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen The Resolute",
-    "m3e_box": "Down to Business"
+    "m3e_box": "Down to Business",
+    "special_order": false
   },
   {
     "model_name": "Operative",
@@ -3749,7 +4217,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen The Resolute",
-    "m3e_box": "Dirty Work"
+    "m3e_box": "Dirty Work",
+    "special_order": false
   },
   {
     "model_name": "Surveyor",
@@ -3757,7 +4226,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen The Resolute",
-    "m3e_box": "Anya Core"
+    "m3e_box": "Anya Core",
+    "special_order": false
   },
   {
     "model_name": "Sovereign",
@@ -3765,7 +4235,8 @@
     "faction": "Explorer's Society",
     "keyword": "Syndicate",
     "m4e_box": "Anya Lycarayen The Resolute",
-    "m3e_box": "Anya Core"
+    "m3e_box": "Anya Core",
+    "special_order": false
   },
   {
     "model_name": "Jack Daw, Ensouled",
@@ -3773,7 +4244,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Ensouled",
-    "m3e_box": "A Twisted Tale"
+    "m3e_box": "A Twisted Tale",
+    "special_order": false
   },
   {
     "model_name": "Drowned",
@@ -3781,7 +4253,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Ensouled",
-    "m3e_box": "Undertow"
+    "m3e_box": "Undertow",
+    "special_order": false
   },
   {
     "model_name": "Jaakuna Ubume",
@@ -3789,7 +4262,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Ensouled",
-    "m3e_box": "Undertow"
+    "m3e_box": "Undertow",
+    "special_order": false
   },
   {
     "model_name": "The Ferryman",
@@ -3797,7 +4271,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Ensouled",
-    "m3e_box": "The Ferryman"
+    "m3e_box": "The Ferryman",
+    "special_order": false
   },
   {
     "model_name": "Montressor",
@@ -3805,7 +4280,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Spirit of Betrayal",
-    "m3e_box": "Jack Daw Core"
+    "m3e_box": "Jack Daw Core",
+    "special_order": false
   },
   {
     "model_name": "Kari Zotiko",
@@ -3813,7 +4289,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Spirit of Betrayal",
-    "m3e_box": "Kari Zotiko"
+    "m3e_box": "Kari Zotiko",
+    "special_order": false
   },
   {
     "model_name": "Jack Daw, Spirit of Betrayal",
@@ -3821,7 +4298,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Spirit of Betrayal",
-    "m3e_box": "Jack Daw Core"
+    "m3e_box": "Jack Daw Core",
+    "special_order": false
   },
   {
     "model_name": "Guilty",
@@ -3829,7 +4307,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Spirit of Betrayal",
-    "m3e_box": "Jack Daw Core"
+    "m3e_box": "Jack Daw Core",
+    "special_order": false
   },
   {
     "model_name": "Lady Ligeia",
@@ -3837,7 +4316,8 @@
     "faction": "Resurrectionists",
     "keyword": "Tormented",
     "m4e_box": "Jack Daw Spirit of Betrayal",
-    "m3e_box": "Jack Daw Core"
+    "m3e_box": "Jack Daw Core",
+    "special_order": false
   },
   {
     "model_name": "Anna Lovelace",
@@ -3845,7 +4325,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Admissions Executive",
-    "m3e_box": "Von Schtook Core"
+    "m3e_box": "Von Schtook Core",
+    "special_order": false
   },
   {
     "model_name": "Prof. Von Schtook, Admissions Executive",
@@ -3853,7 +4334,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Admissions Executive",
-    "m3e_box": "Von Schtook Core"
+    "m3e_box": "Von Schtook Core",
+    "special_order": false
   },
   {
     "model_name": "Undergraduate",
@@ -3861,7 +4343,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Admissions Executive",
-    "m3e_box": "Von Schtook Core"
+    "m3e_box": "Von Schtook Core",
+    "special_order": false
   },
   {
     "model_name": "Research Assistant",
@@ -3869,7 +4352,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Admissions Executive",
-    "m3e_box": "Von Schtook Core"
+    "m3e_box": "Von Schtook Core",
+    "special_order": false
   },
   {
     "model_name": "The Valedictorian",
@@ -3877,7 +4361,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Stargazer",
-    "m3e_box": "Honor Roll"
+    "m3e_box": "Honor Roll",
+    "special_order": false
   },
   {
     "model_name": "Prof. Von Schtook, Stargazer",
@@ -3885,7 +4370,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Stargazer",
-    "m3e_box": "Method to the Madness"
+    "m3e_box": "Method to the Madness",
+    "special_order": false
   },
   {
     "model_name": "Student of Sinew",
@@ -3893,7 +4379,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Stargazer",
-    "m3e_box": "Study Group"
+    "m3e_box": "Study Group",
+    "special_order": false
   },
   {
     "model_name": "Student of Steel",
@@ -3901,7 +4388,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Stargazer",
-    "m3e_box": "Honor Roll"
+    "m3e_box": "Honor Roll",
+    "special_order": false
   },
   {
     "model_name": "Backup Assistant",
@@ -3909,7 +4397,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Stargazer",
-    "m3e_box": "Method to the Madness"
+    "m3e_box": "Method to the Madness",
+    "special_order": false
   },
   {
     "model_name": "Student of Viscera",
@@ -3917,7 +4406,8 @@
     "faction": "Resurrectionists",
     "keyword": "Transmortis",
     "m4e_box": "Von Schtook Stargazer",
-    "m3e_box": "Study Group"
+    "m3e_box": "Study Group",
+    "special_order": false
   },
   {
     "model_name": "The Brewmaster, Moonshiner",
@@ -3925,7 +4415,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Moonshiner",
-    "m3e_box": "Trade Secrets"
+    "m3e_box": "Trade Secrets",
+    "special_order": false
   },
   {
     "model_name": "Popcorn Turner",
@@ -3933,7 +4424,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Moonshiner",
-    "m3e_box": "Terror in a Barrel"
+    "m3e_box": "Terror in a Barrel",
+    "special_order": false
   },
   {
     "model_name": "Cooper Jones",
@@ -3941,7 +4433,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Moonshiner",
-    "m3e_box": "Terror in a Barrel"
+    "m3e_box": "Terror in a Barrel",
+    "special_order": false
   },
   {
     "model_name": "Shojo",
@@ -3949,7 +4442,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Moonshiner",
-    "m3e_box": "Trade Secrets"
+    "m3e_box": "Trade Secrets",
+    "special_order": false
   },
   {
     "model_name": "Tanuki",
@@ -3957,7 +4451,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Moonshiner",
-    "m3e_box": "Tanuki"
+    "m3e_box": "Tanuki",
+    "special_order": false
   },
   {
     "model_name": "The Brewmaster, Proof-Prophet",
@@ -3965,7 +4460,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Proof-Prophet",
-    "m3e_box": "Brewmaster Core"
+    "m3e_box": "Brewmaster Core",
+    "special_order": false
   },
   {
     "model_name": "Fingers Leong",
@@ -3973,7 +4469,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Proof-Prophet",
-    "m3e_box": "Brewmaster Core"
+    "m3e_box": "Brewmaster Core",
+    "special_order": false
   },
   {
     "model_name": "Moon Shinobi",
@@ -3981,7 +4478,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Proof-Prophet",
-    "m3e_box": "Brewmaster Core"
+    "m3e_box": "Brewmaster Core",
+    "special_order": false
   },
   {
     "model_name": "Apprentice Wesley",
@@ -3989,7 +4487,8 @@
     "faction": "Bayou",
     "keyword": "Tri-Chi",
     "m4e_box": "Brewmaster Proof-Prophet",
-    "m3e_box": "Brewmaster Core"
+    "m3e_box": "Brewmaster Core",
+    "special_order": false
   },
   {
     "model_name": "Mah Tucket, Mecha Mee-Maw",
@@ -3997,7 +4496,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Mecha Mee-Maw",
-    "m3e_box": "Mah Tucket Core"
+    "m3e_box": "Mah Tucket Core",
+    "special_order": false
   },
   {
     "model_name": "Rooster Rider",
@@ -4005,7 +4505,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Mecha Mee-Maw",
-    "m3e_box": "Rooster Riders"
+    "m3e_box": "Rooster Riders",
+    "special_order": false
   },
   {
     "model_name": "Test Subject",
@@ -4013,7 +4514,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Mecha Mee-Maw",
-    "m3e_box": "Weird Science"
+    "m3e_box": "Weird Science",
+    "special_order": false
   },
   {
     "model_name": "Big Brain Brin",
@@ -4021,7 +4523,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Mecha Mee-Maw",
-    "m3e_box": "Weird Science"
+    "m3e_box": "Weird Science",
+    "special_order": false
   },
   {
     "model_name": "Sparks Le Blanc",
@@ -4029,7 +4532,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Metal Magpie",
-    "m3e_box": "Bayou Engineering"
+    "m3e_box": "Bayou Engineering",
+    "special_order": false
   },
   {
     "model_name": "Trixibelle",
@@ -4037,7 +4541,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Metal Magpie",
-    "m3e_box": "Mah Tucket Core"
+    "m3e_box": "Mah Tucket Core",
+    "special_order": false
   },
   {
     "model_name": "Mah Tucket, Metal Magpie",
@@ -4045,7 +4550,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Metal Magpie",
-    "m3e_box": "Scrapyard"
+    "m3e_box": "Scrapyard",
+    "special_order": false
   },
   {
     "model_name": "Survivor",
@@ -4053,7 +4559,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Metal Magpie",
-    "m3e_box": "Bayou Engineering"
+    "m3e_box": "Bayou Engineering",
+    "special_order": false
   },
   {
     "model_name": "The Little Lass",
@@ -4061,7 +4568,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Metal Magpie",
-    "m3e_box": "Mah Tucket Core"
+    "m3e_box": "Mah Tucket Core",
+    "special_order": false
   },
   {
     "model_name": "Mechanized Porkchop",
@@ -4069,7 +4577,8 @@
     "faction": "Bayou",
     "keyword": "Tricksy",
     "m4e_box": "Mah Tucket Metal Magpie",
-    "m3e_box": "Bayou Engineering"
+    "m3e_box": "Bayou Engineering",
+    "special_order": false
   },
   {
     "model_name": "Kirai Ankoku, Envoy of the Court",
@@ -4077,7 +4586,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Envoy of the Court",
-    "m3e_box": "ToS Starter Box"
+    "m3e_box": "ToS Starter Box",
+    "special_order": false
   },
   {
     "model_name": "Enslaved Spirit",
@@ -4085,7 +4595,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Envoy of the Court",
-    "m3e_box": "ToS Starter Box"
+    "m3e_box": "ToS Starter Box",
+    "special_order": false
   },
   {
     "model_name": "Gwisin",
@@ -4093,7 +4604,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Envoy of the Court",
-    "m3e_box": "ToS Starter Box"
+    "m3e_box": "ToS Starter Box",
+    "special_order": false
   },
   {
     "model_name": "Ikiryo, The Heart that Left",
@@ -4101,7 +4613,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Envoy of the Court",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Datsue Ba",
@@ -4109,7 +4622,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Lady of Vengeance",
-    "m3e_box": "Kirai Core"
+    "m3e_box": "Kirai Core",
+    "special_order": false
   },
   {
     "model_name": "Kuchisake-onna",
@@ -4117,7 +4631,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Lady of Vengeance",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Kirai Ankoku, Lady of Vengeance",
@@ -4125,7 +4640,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Lady of Vengeance",
-    "m3e_box": "Kirai Core"
+    "m3e_box": "Kirai Core",
+    "special_order": false
   },
   {
     "model_name": "Seishin",
@@ -4133,7 +4649,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Lady of Vengeance",
-    "m3e_box": "Vengeful Ghosts"
+    "m3e_box": "Vengeful Ghosts",
+    "special_order": false
   },
   {
     "model_name": "Ikiryo, Spirit of Vengeance",
@@ -4141,7 +4658,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Lady of Vengeance",
-    "m3e_box": "Kirai Core"
+    "m3e_box": "Kirai Core",
+    "special_order": false
   },
   {
     "model_name": "Lost Love",
@@ -4149,7 +4667,8 @@
     "faction": "Resurrectionists",
     "keyword": "Urami",
     "m4e_box": "Kirai Lady of Vengeance",
-    "m3e_box": "Kirai Core"
+    "m3e_box": "Kirai Core",
+    "special_order": false
   },
   {
     "model_name": "Sidir Alchibal",
@@ -4157,7 +4676,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Relic Hunter",
-    "m3e_box": "Lucas Core"
+    "m3e_box": "Lucas Core",
+    "special_order": false
   },
   {
     "model_name": "Lucas McCabe, Relic Hunter",
@@ -4165,7 +4685,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Relic Hunter",
-    "m3e_box": "Lucas Core"
+    "m3e_box": "Lucas Core",
+    "special_order": false
   },
   {
     "model_name": "Lucas McCabe, Dismounted Hunter",
@@ -4173,7 +4694,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Relic Hunter",
-    "m3e_box": "Lucas Core"
+    "m3e_box": "Lucas Core",
+    "special_order": false
   },
   {
     "model_name": "Ruffian",
@@ -4181,7 +4703,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Relic Hunter",
-    "m3e_box": "Lucas Core"
+    "m3e_box": "Lucas Core",
+    "special_order": false
   },
   {
     "model_name": "Luna",
@@ -4189,7 +4712,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Relic Hunter",
-    "m3e_box": "Lucas Core"
+    "m3e_box": "Lucas Core",
+    "special_order": false
   },
   {
     "model_name": "Desper LaRaux",
@@ -4197,7 +4721,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Tomb Delver",
-    "m3e_box": "One Born Every Minute"
+    "m3e_box": "One Born Every Minute",
+    "special_order": false
   },
   {
     "model_name": "Lucas McCabe, Tomb Delver",
@@ -4205,7 +4730,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Tomb Delver",
-    "m3e_box": "Self Made"
+    "m3e_box": "Self Made",
+    "special_order": false
   },
   {
     "model_name": "Rough Rider",
@@ -4213,7 +4739,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Tomb Delver",
-    "m3e_box": "Fools Gold"
+    "m3e_box": "Fools Gold",
+    "special_order": false
   },
   {
     "model_name": "Huckster",
@@ -4221,7 +4748,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Tomb Delver",
-    "m3e_box": "One Born Every Minute"
+    "m3e_box": "One Born Every Minute",
+    "special_order": false
   },
   {
     "model_name": "Cryptologist",
@@ -4229,7 +4757,8 @@
     "faction": "Explorer's Society",
     "keyword": "Wastrel",
     "m4e_box": "McCabe Tomb Delver",
-    "m3e_box": "Fools Gold"
+    "m3e_box": "Fools Gold",
+    "special_order": false
   },
   {
     "model_name": "Howard Langston",
@@ -4237,7 +4766,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Iron-Threaded",
-    "m3e_box": "Rift in the Union"
+    "m3e_box": "Rift in the Union",
+    "special_order": false
   },
   {
     "model_name": "Kaeris, Iron-Threaded",
@@ -4245,7 +4775,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Iron-Threaded",
-    "m3e_box": "Kaeris Core"
+    "m3e_box": "Kaeris Core",
+    "special_order": false
   },
   {
     "model_name": "Steam Arachnid",
@@ -4253,7 +4784,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Iron-Threaded",
-    "m3e_box": "Aracnophobia"
+    "m3e_box": "Aracnophobia",
+    "special_order": false
   },
   {
     "model_name": "Eternal Flame",
@@ -4261,7 +4793,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Iron-Threaded",
-    "m3e_box": "Kaeris Core"
+    "m3e_box": "Kaeris Core",
+    "special_order": false
   },
   {
     "model_name": "The Scorpius",
@@ -4269,7 +4802,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Iron-Threaded",
-    "m3e_box": "Altered Beasts"
+    "m3e_box": "Altered Beasts",
+    "special_order": false
   },
   {
     "model_name": "The Firestarter",
@@ -4277,7 +4811,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Iron-Threaded",
-    "m3e_box": "Kaeris Core"
+    "m3e_box": "Kaeris Core",
+    "special_order": false
   },
   {
     "model_name": "Deacon Hillcrest",
@@ -4285,7 +4820,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Reborn",
-    "m3e_box": "Embrace the Ember"
+    "m3e_box": "Embrace the Ember",
+    "special_order": false
   },
   {
     "model_name": "Kaeris, Reborn",
@@ -4293,7 +4829,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Reborn",
-    "m3e_box": "Embrace the Ember"
+    "m3e_box": "Embrace the Ember",
+    "special_order": false
   },
   {
     "model_name": "Firebranded",
@@ -4301,7 +4838,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Reborn",
-    "m3e_box": "Burning Bridges"
+    "m3e_box": "Burning Bridges",
+    "special_order": false
   },
   {
     "model_name": "Herbie",
@@ -4309,7 +4847,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Reborn",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Elijah Borgmann",
@@ -4317,7 +4856,8 @@
     "faction": "Arcanists",
     "keyword": "Wildfire",
     "m4e_box": "Karis Reborn",
-    "m3e_box": "Burning Bridges"
+    "m3e_box": "Burning Bridges",
+    "special_order": false
   },
   {
     "model_name": "Samael Hopkins",
@@ -4325,7 +4865,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Criid Unrelenting",
-    "m3e_box": "Sonnia Core"
+    "m3e_box": "Sonnia Core",
+    "special_order": false
   },
   {
     "model_name": "Sonnia Criid, Unrelenting",
@@ -4333,7 +4874,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Criid Unrelenting",
-    "m3e_box": "Sonnia Core"
+    "m3e_box": "Sonnia Core",
+    "special_order": false
   },
   {
     "model_name": "Witchling Stalker",
@@ -4341,7 +4883,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Criid Unrelenting",
-    "m3e_box": "Sonnia Core"
+    "m3e_box": "Sonnia Core",
+    "special_order": false
   },
   {
     "model_name": "Purifying Flame",
@@ -4349,7 +4892,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Criid Unrelenting",
-    "m3e_box": "Sonnia Core"
+    "m3e_box": "Sonnia Core",
+    "special_order": false
   },
   {
     "model_name": "Sonnia Criid, Unmasked",
@@ -4357,7 +4901,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Unmasked",
-    "m3e_box": "ToS Starter"
+    "m3e_box": "ToS Starter",
+    "special_order": true
   },
   {
     "model_name": "Thalarian Queller",
@@ -4365,7 +4910,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Unmasked",
-    "m3e_box": "Chained Magic"
+    "m3e_box": "Chained Magic",
+    "special_order": false
   },
   {
     "model_name": "Witchling Handler",
@@ -4373,7 +4919,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Unmasked",
-    "m3e_box": "Witching Hour"
+    "m3e_box": "Witching Hour",
+    "special_order": false
   },
   {
     "model_name": "Witchling Thrall",
@@ -4381,7 +4928,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Unmasked",
-    "m3e_box": "Witching Hour"
+    "m3e_box": "Witching Hour",
+    "special_order": false
   },
   {
     "model_name": "Kazamir",
@@ -4389,7 +4937,8 @@
     "faction": "Guild",
     "keyword": "WitchHunter",
     "m4e_box": "Sonnia Unmasked",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Bellaventine Thorpe",
@@ -4397,7 +4946,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Aspirant",
-    "m3e_box": "Ravencroft Core Box"
+    "m3e_box": "Ravencroft Core Box",
+    "special_order": false
   },
   {
     "model_name": "Damian Ravencroft, Aspirant",
@@ -4405,7 +4955,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Aspirant",
-    "m3e_box": "Ravencroft Core Box"
+    "m3e_box": "Ravencroft Core Box",
+    "special_order": false
   },
   {
     "model_name": "Dabbler",
@@ -4413,7 +4964,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Aspirant",
-    "m3e_box": "Ravencroft Core Box"
+    "m3e_box": "Ravencroft Core Box",
+    "special_order": false
   },
   {
     "model_name": "The Puzzle Box, Unsolved",
@@ -4421,7 +4973,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Aspirant",
-    "m3e_box": null
+    "m3e_box": null,
+    "special_order": true
   },
   {
     "model_name": "Lohith",
@@ -4429,7 +4982,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Unbound",
-    "m3e_box": "Living Soulstones"
+    "m3e_box": "Living Soulstones",
+    "special_order": false
   },
   {
     "model_name": "Damian Ravencroft, Unbound",
@@ -4437,7 +4991,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Unbound",
-    "m3e_box": "Untold Tales"
+    "m3e_box": "Untold Tales",
+    "special_order": false
   },
   {
     "model_name": "Soulstone Gamin",
@@ -4445,7 +5000,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Unbound",
-    "m3e_box": "Living Soulstones"
+    "m3e_box": "Living Soulstones",
+    "special_order": false
   },
   {
     "model_name": "The Puzzle Box, Solved",
@@ -4453,7 +5009,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Unbound",
-    "m3e_box": "Ravencroft Core Box"
+    "m3e_box": "Ravencroft Core Box",
+    "special_order": false
   },
   {
     "model_name": "Leger de Main",
@@ -4461,7 +5018,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Unbound",
-    "m3e_box": "Invisible Ink"
+    "m3e_box": "Invisible Ink",
+    "special_order": false
   },
   {
     "model_name": "Marco Bonatti",
@@ -4469,7 +5027,8 @@
     "faction": "Arcanists",
     "keyword": "Witness",
     "m4e_box": "Ravencroft Unbound",
-    "m3e_box": "Invisible Ink"
+    "m3e_box": "Invisible Ink",
+    "special_order": false
   },
   {
     "model_name": "Wong, Enchanter",
@@ -4477,7 +5036,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong Enchanter",
-    "m3e_box": "Method to the Madness"
+    "m3e_box": "Method to the Madness",
+    "special_order": false
   },
   {
     "model_name": "Gautraeux Bokor",
@@ -4485,7 +5045,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong Enchanter",
-    "m3e_box": "Gautraeux Bokor"
+    "m3e_box": "Gautraeux Bokor",
+    "special_order": false
   },
   {
     "model_name": "Swine-Cursed",
@@ -4493,7 +5054,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong Enchanter",
-    "m3e_box": "Swine Cursed"
+    "m3e_box": "Swine Cursed",
+    "special_order": false
   },
   {
     "model_name": "Flying Piglet",
@@ -4501,7 +5063,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong Enchanter",
-    "m3e_box": "When Pigs Fly"
+    "m3e_box": "When Pigs Fly",
+    "special_order": false
   },
   {
     "model_name": "Wong, the Wonderful",
@@ -4509,7 +5072,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong The Wonder",
-    "m3e_box": "Wong Core"
+    "m3e_box": "Wong Core",
+    "special_order": false
   },
   {
     "model_name": "Alphonse Le Blanc",
@@ -4517,7 +5081,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong The Wonder",
-    "m3e_box": "Wong Core"
+    "m3e_box": "Wong Core",
+    "special_order": false
   },
   {
     "model_name": "Lightning Bug",
@@ -4525,7 +5090,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong The Wonder",
-    "m3e_box": "Wong Core"
+    "m3e_box": "Wong Core",
+    "special_order": false
   },
   {
     "model_name": "Oliva Bernard",
@@ -4533,7 +5099,8 @@
     "faction": "Bayou",
     "keyword": "Wizz-Bang",
     "m4e_box": "Wong The Wonder",
-    "m3e_box": "Wong Core"
+    "m3e_box": "Wong Core",
+    "special_order": false
   },
   {
     "model_name": "Candy",
@@ -4541,7 +5108,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Despair's Desire",
-    "m3e_box": "Pandora Core"
+    "m3e_box": "Pandora Core",
+    "special_order": false
   },
   {
     "model_name": "Pandora, Despair's Desire",
@@ -4549,7 +5117,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Despair's Desire",
-    "m3e_box": "Pandora Core"
+    "m3e_box": "Pandora Core",
+    "special_order": false
   },
   {
     "model_name": "Sorrow",
@@ -4557,7 +5126,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Despair's Desire",
-    "m3e_box": "Pandora Core"
+    "m3e_box": "Pandora Core",
+    "special_order": false
   },
   {
     "model_name": "Poltergeist",
@@ -4565,7 +5135,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Despair's Desire",
-    "m3e_box": "Pandora Core"
+    "m3e_box": "Pandora Core",
+    "special_order": false
   },
   {
     "model_name": "Baby Kade",
@@ -4573,7 +5144,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Despair's Desire",
-    "m3e_box": "Pandora Core"
+    "m3e_box": "Pandora Core",
+    "special_order": false
   },
   {
     "model_name": "Pandora, Tyrant Torn",
@@ -4581,7 +5153,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Tyrant Torn",
-    "m3e_box": "All the Worlds a Stage"
+    "m3e_box": "All the Worlds a Stage",
+    "special_order": false
   },
   {
     "model_name": "Averison",
@@ -4589,7 +5162,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Tyrant Torn",
-    "m3e_box": "Juvenile Deliquents"
+    "m3e_box": "Juvenile Deliquents",
+    "special_order": false
   },
   {
     "model_name": "Lyssa",
@@ -4597,7 +5171,8 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Tyrant Torn",
-    "m3e_box": "Lyssa"
+    "m3e_box": "Lyssa",
+    "special_order": false
   },
   {
     "model_name": "Iggy",
@@ -4605,6 +5180,7 @@
     "faction": "Neverborn",
     "keyword": "Woe",
     "m4e_box": "Pandora Tyrant Torn",
-    "m3e_box": "Juvenile Deliquents"
+    "m3e_box": "Juvenile Deliquents",
+    "special_order": false
   }
 ]

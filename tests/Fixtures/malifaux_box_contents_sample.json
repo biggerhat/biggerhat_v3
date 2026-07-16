@@ -21,7 +21,8 @@
         "faction": "Arcanists",
         "keyword": "Academic",
         "m4e_box": "Sandeep Font of Magic",
-        "m3e_box": "Peer Review"
+        "m3e_box": "Peer Review",
+        "special_order": true
     },
     {
         "model_name": "Sandeep Desai, The Quiet Flame",

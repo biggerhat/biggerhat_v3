@@ -28,6 +28,7 @@ interface BoxCharacter {
     faction_label: string;
     faction_color: string;
     quantity: number;
+    special_order: boolean;
     keywords: string[];
     standard_miniature: BoxCharacterMiniature | null;
 }
@@ -213,6 +214,14 @@ const hasActiveFilters = computed(() => isFiltering.value);
                                 <div v-for="character in box.characters" :key="character.slug" class="relative">
                                     <Badge v-if="character.quantity > 1" class="absolute right-1 top-1 z-10 text-xs">
                                         ×{{ character.quantity }}
+                                    </Badge>
+                                    <Badge
+                                        v-if="character.special_order"
+                                        variant="outline"
+                                        class="absolute left-1 top-1 z-10 border-amber-500/50 bg-background text-[10px] text-amber-600 dark:text-amber-400"
+                                        title="Available for special order"
+                                    >
+                                        Special Order
                                     </Badge>
                                     <CharacterCardView
                                         v-if="character.standard_miniature"

@@ -41,7 +41,7 @@ class Package extends Model
     /** @return MorphToMany<Character, $this> */
     public function characters(): MorphToMany
     {
-        return $this->morphedByMany(Character::class, 'packageable')->withPivot('quantity');
+        return $this->morphedByMany(Character::class, 'packageable')->withPivot('quantity', 'special_order');
     }
 
     /** @return MorphToMany<Keyword, $this> */

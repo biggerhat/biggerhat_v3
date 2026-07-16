@@ -51,11 +51,15 @@ class SyncMalifauxBoxContents extends Command
         $charactersUnmatched = [];
 
         foreach ($grouped as $boxName => $items) {
-            // Match characters first — a box with no Package match still
-            // needs its matched characters to derive factions/keywords for
-            // the auto-created Package below.
+            // Match characters first (silently) — a box with no Package
+            // match still needs its matched characters to derive
+            // factions/keywords for the auto-created Package below. Printed
+            // after the box header below, not here, so each box's report
+            // reads top-down (box name, then its models) instead of running
+            // into the next box's models with no visual boundary.
             $syncData = [];
             $matchedCharacters = collect();
+            $characterLines = [];
             foreach ($items as $item) {
                 $character = $this->allCharacters->first(
                     fn (Character $c) => $this->namesMatch($c->display_name, $item['model_name'])
@@ -64,11 +68,12 @@ class SyncMalifauxBoxContents extends Command
                 if ($character) {
                     $charactersMatched++;
                     $matchedCharacters->push($character);
-                    $syncData[$character->id] = ['quantity' => $item['copies']];
-                    $this->line("    <info>✓</info> {$item['model_name']} (x{$item['copies']}) → {$character->display_name}");
+                    $syncData[$character->id] = ['quantity' => $item['copies'], 'special_order' => (bool) ($item['special_order'] ?? false)];
+                    $specialOrderNote = ($item['special_order'] ?? false) ? ' <comment>[special order]</comment>' : '';
+                    $characterLines[] = "    <info>✓</info> {$item['model_name']} (x{$item['copies']}) → {$character->display_name}{$specialOrderNote}";
                 } else {
                     $charactersUnmatched[] = $item['model_name'];
-                    $this->line("    <comment>?</comment> {$item['model_name']} — no matching Character");
+                    $characterLines[] = "    <comment>?</comment> {$item['model_name']} — no matching Character";
                 }
             }
 
@@ -95,6 +100,10 @@ class SyncMalifauxBoxContents extends Command
                 } else {
                     $this->line("<comment>?</comment> {$boxName} — no matching Package (would create one; factions: ".(implode(', ', $factions) ?: 'none').', keywords: '.($keywordNames->implode(', ') ?: 'none').')');
                 }
+            }
+
+            foreach ($characterLines as $line) {
+                $this->line($line);
             }
 
             if ($commit && $package) {

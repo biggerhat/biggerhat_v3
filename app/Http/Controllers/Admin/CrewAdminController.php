@@ -137,7 +137,7 @@ class CrewAdminController extends Controller
             'markers' => fn () => Marker::all(),
             'actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'internal_notes'])->map(fn (Action $a) => [
                 'id' => $a->id,
-                'name' => trim("{$a->id} {$a->name}".($a->internal_notes ? " - {$a->internal_notes}" : '')),
+                'name' => "{$a->name} (#{$a->id})".($a->internal_notes ? " - {$a->internal_notes}" : ''),
             ]),
             'abilities' => fn () => Ability::orderBy('name')->get(['id', 'name'])->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
             'triggers' => fn () => Trigger::orderBy('name')->get(['id', 'name'])->map(fn (Trigger $t) => ['id' => $t->id, 'name' => $t->name]),

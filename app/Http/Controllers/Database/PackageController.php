@@ -119,6 +119,7 @@ class PackageController extends Controller
                     'faction_label' => $c->faction->label(),
                     'faction_color' => $c->faction->color(),
                     'quantity' => $c->pivot->quantity ?? 1,
+                    'special_order' => (bool) ($c->pivot->special_order ?? false),
                     'keywords' => $c->keywords->pluck('name'),
                     'standard_miniature' => $c->standardMiniatures->first() ? [
                         'id' => $c->standardMiniatures->first()->id,
@@ -175,6 +176,7 @@ class PackageController extends Controller
                     'faction' => $c->faction->value,
                     'faction_color' => $c->faction->color(),
                     'quantity' => $c->pivot->quantity ?? 1,
+                    'special_order' => (bool) ($c->pivot->special_order ?? false),
                     'standard_miniature' => $c->standardMiniatures->first() ? [
                         'id' => $c->standardMiniatures->first()->id,
                         'slug' => $c->standardMiniatures->first()->slug,

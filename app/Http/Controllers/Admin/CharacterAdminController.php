@@ -75,12 +75,10 @@ class CharacterAdminController extends Controller
             'keywords' => fn () => Keyword::toSelectOptions('name', 'slug'),
             'characteristics' => fn () => Characteristic::toSelectOptions('name', 'slug'),
             'miniatures' => fn () => Miniature::toSelectOptions('name', 'slug'),
-            'actions' => fn () => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
+            'actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'internal_notes'])->map(fn (Action $action) => [
+                'id' => $action->id,
+                'name' => $action->name.' (#'.$action->id.')'.($action->internal_notes ? ' - '.$action->internal_notes : ''),
+            ]),
             'abilities' => fn () => Ability::toSelectOptions('name', 'slug'),
             'markers' => fn () => Marker::toSelectOptions('name', 'slug'),
             'tokens' => fn () => Token::toSelectOptions('name', 'slug'),
@@ -162,20 +160,10 @@ class CharacterAdminController extends Controller
         $characteristics = Characteristic::whereIn('name', $validated['characteristics'])->get();
         unset($validated['characteristics']);
 
-        $actionIds = [];
-        foreach ($validated['actions'] as $action) {
-            $arrayed = explode(' ', $action);
-            $actionIds[] = $arrayed[0];
-        }
-        $actions = Action::whereIn('id', $actionIds)->get();
+        $actions = Action::whereIn('id', $validated['actions'])->get();
         unset($validated['actions']);
 
-        $signatureActionIds = [];
-        foreach ($validated['signature_actions'] as $action) {
-            $arrayed = explode(' ', $action);
-            $signatureActionIds[] = $arrayed[0];
-        }
-        $signatureActions = Action::whereIn('id', $signatureActionIds)->get();
+        $signatureActions = Action::whereIn('id', $validated['signature_actions'])->get();
         unset($validated['signature_actions']);
 
         $abilities = Ability::whereIn('name', $validated['abilities'])->get();
@@ -202,10 +190,18 @@ class CharacterAdminController extends Controller
             $character->update($validated);
         }
 
-        // Detach all Current Actions Then Attach All News Ones, including Signature
-        $character->actions()->sync([]);
-        $character->actions()->attach($actions);
-        $character->actions()->attach($signatureActions, ['is_signature_action' => true]);
+        // Signature actions and main actions come from two independent
+        // multiselects, so the same action id can appear in both — attaching
+        // both collections separately would insert a duplicate pivot row for
+        // it (no unique constraint catches this). Merge into a single sync
+        // map keyed by action id instead, unioning both sets so an action
+        // marked signature-only (not also picked in the main list) still
+        // gets attached, matching the previous two-attach behavior.
+        $signatureActionIds = $signatureActions->pluck('id')->all();
+        $actionSync = $actions->concat($signatureActions)->unique('id')->mapWithKeys(fn (Action $action) => [
+            $action->id => ['is_signature_action' => in_array($action->id, $signatureActionIds, true)],
+        ]);
+        $character->actions()->sync($actionSync);
 
         $character->keywords()->sync($keywords->pluck('id'));
         $character->characteristics()->sync($characteristics->pluck('id'));

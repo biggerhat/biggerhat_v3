@@ -39,7 +39,9 @@ interface TotemTemplateRow {
     willpower_suit: string | null;
     speed: number;
     size: number | null;
-    base: string | null;
+    // BaseSizeEnum is int-backed (30/40/50) — Inertia serializes the cast
+    // enum as that raw number, not a string.
+    base: number | null;
     campaign_totem_flip_value: number | null;
     campaign_is_black_joker_totem: boolean;
     campaign_is_red_joker_totem: boolean;
@@ -125,7 +127,11 @@ onMounted(() => {
         willpower_suit: props.item.willpower_suit,
         speed: props.item.speed,
         size: props.item.size,
-        base: props.item.base ?? '',
+        // Coerce to string regardless of whether it arrives as the raw
+        // BaseSizeEnum-backed number (30/40/50) or already a string — the
+        // form field itself is a free-text input, and `base.trim()` on
+        // submit requires a string.
+        base: props.item.base != null ? String(props.item.base) : '',
         campaign_totem_flip_value: props.item.campaign_totem_flip_value,
         campaign_is_black_joker_totem: props.item.campaign_is_black_joker_totem,
         campaign_is_red_joker_totem: props.item.campaign_is_red_joker_totem,

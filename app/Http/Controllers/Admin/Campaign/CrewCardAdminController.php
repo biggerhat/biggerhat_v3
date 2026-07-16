@@ -31,7 +31,11 @@ class CrewCardAdminController extends Controller
     private function formProps(): array
     {
         return [
-            'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'type']),
+            'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'type'])->map(fn (Action $a) => [
+                'id' => $a->id,
+                'name' => "{$a->name} (#{$a->id})",
+                'type' => $a->type,
+            ]),
             'all_abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
         ];
     }
@@ -47,7 +51,7 @@ class CrewCardAdminController extends Controller
         // Map actions to include pivot data so the form can pre-populate signature flags.
         $crewCard->setRelation('actions', $crewCard->actions->map(fn ($a) => [
             'id' => $a->id,
-            'name' => $a->name,
+            'name' => "{$a->name} (#{$a->id})",
             'is_signature' => (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
         ])->values());
 

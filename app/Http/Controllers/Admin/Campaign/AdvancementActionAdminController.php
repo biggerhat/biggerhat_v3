@@ -60,7 +60,10 @@ class AdvancementActionAdminController extends Controller
     private function formData(): array
     {
         return [
-            'actions' => fn () => Action::toSelectOptions('name'),
+            'actions' => fn () => Action::orderBy('name')->get(['id', 'name'])->map(fn (Action $a) => [
+                'value' => $a->id,
+                'name' => "{$a->name} (#{$a->id})",
+            ]),
         ];
     }
 }

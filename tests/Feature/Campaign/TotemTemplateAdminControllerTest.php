@@ -124,6 +124,23 @@ it('update re-syncs linked actions and abilities', function () {
     expect($totem->fresh()->campaignTotemActions()->wherePivot('is_signature_action', true)->count())->toBe(0);
 });
 
+it('edit exposes base as the BaseSizeEnum-backed integer, not a string', function () {
+    // Regression guard for a frontend bug: base is cast to BaseSizeEnum
+    // (int-backed 30/40/50), so Inertia serializes it as a raw number. The
+    // admin form must treat `item.base` as a number, not assume a string
+    // (it previously called `.trim()` on it directly, which threw on any
+    // edit of an existing template).
+    $totem = makeTotemTemplate($this->admin, ['name' => 'Base Type Check', 'base' => '40']);
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.campaign.totem-templates.edit', $totem->id))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Admin/Campaign/TotemTemplate/Form')
+            ->where('item.base', 40)
+        );
+});
+
 it('delete removes the totem template', function () {
     $totem = makeTotemTemplate($this->admin);
 

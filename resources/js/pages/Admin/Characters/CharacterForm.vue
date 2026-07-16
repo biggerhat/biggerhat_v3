@@ -240,9 +240,9 @@ onMounted(() => {
 
     props.character?.actions.forEach((action) => {
         if (action.pivot.is_signature_action) {
-            formInfo.value.signature_actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
+            formInfo.value.signature_actions.push(String(action.id));
         } else {
-            formInfo.value.actions.push(action.id + ' ' + action.name + ' ' + action.internal_notes);
+            formInfo.value.actions.push(String(action.id));
         }
     });
 
@@ -539,7 +539,7 @@ onMounted(() => {
                                         v-model="formInfo.actions"
                                         placeholder="Select Actions"
                                         :options="props.actions"
-                                        option-value="name"
+                                        option-value="id"
                                     />
                                     <InputError :message="usePage().props.errors.actions" />
                                 </div>
@@ -548,7 +548,7 @@ onMounted(() => {
                                         v-model="formInfo.signature_actions"
                                         placeholder="Select Signature Actions"
                                         :options="props.actions"
-                                        option-value="name"
+                                        option-value="id"
                                     />
                                     <InputError :message="usePage().props.errors.signature_actions" />
                                 </div>

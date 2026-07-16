@@ -29,7 +29,10 @@ class TotemTemplateAdminController extends Controller
     {
         return [
             'factions' => FactionEnum::toSelectOptions(),
-            'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name']),
+            'all_actions' => fn () => Action::orderBy('name')->get(['id', 'name'])->map(fn (Action $a) => [
+                'id' => $a->id,
+                'name' => "{$a->name} (#{$a->id})",
+            ]),
             'all_abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
         ];
     }

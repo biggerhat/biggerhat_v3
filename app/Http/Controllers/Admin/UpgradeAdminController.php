@@ -75,12 +75,10 @@ class UpgradeAdminController extends Controller
             'limitations' => fn () => UpgradeLimitationEnum::toSelectOptions(),
             'tokens' => fn () => Token::all(),
             'markers' => fn () => Marker::all(),
-            'actions' => fn () => Action::all()->map(function (Action $action) {
-                return [
-                    'slug' => $action->slug,
-                    'name' => sprintf('%s %s %s', $action->id, $action->name, $action->internal_notes),
-                ];
-            }),
+            'actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'internal_notes'])->map(fn (Action $action) => [
+                'id' => $action->id,
+                'name' => $action->name.' (#'.$action->id.')'.($action->internal_notes ? ' - '.$action->internal_notes : ''),
+            ]),
             'abilities' => fn () => Ability::all(),
             'triggers' => fn () => Trigger::all(),
             'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
@@ -188,22 +186,12 @@ class UpgradeAdminController extends Controller
         }
 
         if (isset($validated['actions'])) {
-            $actionIds = [];
-            foreach ($validated['actions'] as $action) {
-                $arrayed = explode(' ', $action);
-                $actionIds[] = $arrayed[0];
-            }
-            $actions = Action::whereIn('id', $actionIds)->get();
+            $actions = Action::whereIn('id', $validated['actions'])->get();
             unset($validated['actions']);
         }
 
         if (isset($validated['signature_actions'])) {
-            $signatureActionIds = [];
-            foreach ($validated['signature_actions'] as $action) {
-                $arrayed = explode(' ', $action);
-                $signatureActionIds[] = $arrayed[0];
-            }
-            $signatureActions = Action::whereIn('id', $signatureActionIds)->get();
+            $signatureActions = Action::whereIn('id', $validated['signature_actions'])->get();
             unset($validated['signature_actions']);
         }
 
@@ -243,9 +231,18 @@ class UpgradeAdminController extends Controller
             $upgrade->update($validated);
         }
 
-        $upgrade->actions()->sync([]);
-        $upgrade->actions()->attach($actions);
-        $upgrade->actions()->attach($signatureActions, ['is_signature_action' => true]);
+        // Signature actions and main actions come from two independent
+        // multiselects, so the same action id can appear in both — attaching
+        // both collections separately would insert a duplicate pivot row for
+        // it (no unique constraint catches this). Merge into a single sync
+        // map keyed by action id instead, unioning both sets so an action
+        // marked signature-only (not also picked in the main list) still
+        // gets attached, matching the previous two-attach behavior.
+        $signatureActionIds = $signatureActions->pluck('id')->all();
+        $actionSync = $actions->concat($signatureActions)->unique('id')->mapWithKeys(fn (Action $action) => [
+            $action->id => ['is_signature_action' => in_array($action->id, $signatureActionIds, true)],
+        ]);
+        $upgrade->actions()->sync($actionSync);
 
         $upgrade->triggers()->sync($triggers->pluck('id'));
         $upgrade->abilities()->sync($abilities->pluck('id'));

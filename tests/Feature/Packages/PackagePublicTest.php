@@ -177,7 +177,22 @@ it('includes msrp, category, and character keywords in box contents', function (
             ->where('packages.0.category', 'core_box')
             ->where('packages.0.is_auto_generated', false)
             ->where('packages.0.characters.0.keywords.0', 'Academic')
+            ->where('packages.0.characters.0.special_order', false)
             ->has('categories')
             ->has('keywords')
+        );
+});
+
+it('marks a character as special_order when the pivot flag is set', function () {
+    $package = Package::factory()->create();
+    $character = Character::factory()->create();
+    $package->characters()->attach($character, ['quantity' => 1, 'special_order' => true]);
+
+    $response = $this->get(route('packages.contents'));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Packages/Contents')
+            ->where('packages.0.characters.0.special_order', true)
         );
 });

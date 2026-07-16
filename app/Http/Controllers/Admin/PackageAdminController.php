@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\FactionEnum;
 use App\Enums\GameSystemEnum;
+use App\Enums\PackageCategoryEnum;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Character;
@@ -67,6 +68,7 @@ class PackageAdminController extends Controller
             'factions' => fn () => FactionEnum::toSelectOptions(),
             'game_systems' => fn () => GameSystemEnum::toSelectOptions(),
             'sculpt_versions' => fn () => SculptVersionEnum::toSelectOptions(),
+            'categories' => fn () => PackageCategoryEnum::toSelectOptions(),
             'characters' => fn () => Character::toSelectOptions('display_name', 'id'),
             'miniatures' => fn () => Miniature::toSelectOptions('display_name', 'id'),
             'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
@@ -85,6 +87,8 @@ class PackageAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'game_system' => ['nullable', 'string', 'in:'.implode(',', array_column(GameSystemEnum::toSelectOptions(), 'value'))],
+            'category' => ['nullable', 'string', 'in:'.implode(',', array_column(PackageCategoryEnum::toSelectOptions(), 'value'))],
+            'legacy_m3e_name' => ['nullable', 'string', 'max:255'],
             'factions' => ['nullable', 'array'],
             'factions.*' => ['string'],
             'sku' => ['nullable', 'string', 'max:255'],
@@ -100,6 +104,8 @@ class PackageAdminController extends Controller
             'characters' => ['nullable', 'array'],
             'character_quantities' => ['nullable', 'array'],
             'character_quantities.*' => ['nullable', 'integer', 'min:1'],
+            'character_special_orders' => ['nullable', 'array'],
+            'character_special_orders.*' => ['nullable', 'boolean'],
             'miniatures' => ['nullable', 'array'],
             'keywords' => ['nullable', 'array'],
             'tos_units' => ['nullable', 'array'],
@@ -107,6 +113,9 @@ class PackageAdminController extends Controller
 
         $characterQuantities = $validated['character_quantities'] ?? [];
         unset($validated['character_quantities']);
+
+        $characterSpecialOrders = $validated['character_special_orders'] ?? [];
+        unset($validated['character_special_orders']);
 
         $validated['slug'] = Str::slug($validated['name']);
 
@@ -171,7 +180,10 @@ class PackageAdminController extends Controller
         }
 
         $characterSyncData = $characters->mapWithKeys(fn (Character $c) => [
-            $c->id => ['quantity' => $characterQuantities[$c->display_name] ?? 1],
+            $c->id => [
+                'quantity' => $characterQuantities[$c->display_name] ?? 1,
+                'special_order' => (bool) ($characterSpecialOrders[$c->display_name] ?? false),
+            ],
         ]);
 
         $package->characters()->sync($characterSyncData);

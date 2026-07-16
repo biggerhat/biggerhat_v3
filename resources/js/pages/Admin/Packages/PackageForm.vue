@@ -35,6 +35,13 @@ const props = defineProps({
             return [];
         },
     },
+    categories: {
+        type: [Object, Array],
+        required: false,
+        default() {
+            return [];
+        },
+    },
     characters: {
         type: [Object, Array],
         required: false,
@@ -82,6 +89,8 @@ const formInfo = ref({
     msrp: null,
     distributor_description: null,
     sculpt_version: null,
+    category: null,
+    legacy_m3e_name: null,
     is_preassembled: false,
     released_at: null,
     front_image: null,
@@ -89,6 +98,7 @@ const formInfo = ref({
     combination_image: null,
     characters: [],
     character_quantities: {} as Record<string, number>,
+    character_special_orders: {} as Record<string, boolean>,
     miniatures: [],
     keywords: [],
     tos_units: [],
@@ -98,9 +108,9 @@ const submit = () => {
     router.post(props.package ? route('admin.packages.update', props.package.slug) : route('admin.packages.store'), formInfo.value);
 };
 
-// Keep character_quantities in sync with the selected-characters list —
-// newly added names default to 1, removed names are pruned so stale
-// quantities don't linger in the submitted payload.
+// Keep character_quantities/character_special_orders in sync with the
+// selected-characters list — newly added names default to 1/false, removed
+// names are pruned so stale values don't linger in the submitted payload.
 watch(
     () => formInfo.value.characters,
     (names: string[]) => {
@@ -108,10 +118,14 @@ watch(
             if (!(name in formInfo.value.character_quantities)) {
                 formInfo.value.character_quantities[name] = 1;
             }
+            if (!(name in formInfo.value.character_special_orders)) {
+                formInfo.value.character_special_orders[name] = false;
+            }
         }
         for (const name of Object.keys(formInfo.value.character_quantities)) {
             if (!names.includes(name)) {
                 delete formInfo.value.character_quantities[name];
+                delete formInfo.value.character_special_orders[name];
             }
         }
     },
@@ -128,12 +142,15 @@ onMounted(() => {
     formInfo.value.msrp = props.package?.msrp ?? null;
     formInfo.value.distributor_description = props.package?.distributor_description ?? null;
     formInfo.value.sculpt_version = props.package?.sculpt_version ?? null;
+    formInfo.value.category = props.package?.category ?? null;
+    formInfo.value.legacy_m3e_name = props.package?.legacy_m3e_name ?? null;
     formInfo.value.is_preassembled = props.package?.is_preassembled ?? false;
     formInfo.value.released_at = props.package?.released_at?.split('T')[0] ?? null;
 
     props.package?.characters.forEach((character) => {
         formInfo.value.characters.push(character.display_name);
         formInfo.value.character_quantities[character.display_name] = character.pivot?.quantity ?? 1;
+        formInfo.value.character_special_orders[character.display_name] = character.pivot?.special_order ?? false;
     });
 
     props.package?.miniatures.forEach((miniature) => {
@@ -165,6 +182,11 @@ onMounted(() => {
                             <Label for="name">Name</Label>
                             <Input id="name" v-model="formInfo.name" autofocus placeholder="Package Name" />
                             <InputError :message="usePage().props.errors.name" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <Label for="legacy_m3e_name">Legacy M3E Box Name</Label>
+                            <Input id="legacy_m3e_name" v-model="formInfo.legacy_m3e_name" placeholder="e.g. Sonnia Core" />
+                            <InputError :message="usePage().props.errors.legacy_m3e_name" />
                         </div>
 
                         <div class="grid auto-rows-min gap-4 md:grid-cols-2">
@@ -217,6 +239,23 @@ onMounted(() => {
                                     />
                                 </div>
                                 <InputError :message="usePage().props.errors.sculpt_version" />
+                            </div>
+                            <div class="my-auto flex w-full flex-col space-y-1.5">
+                                <Label for="category">Category</Label>
+                                <div class="my-auto flex w-full">
+                                    <Select id="category" v-model="formInfo.category" class="inline">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="cat in props.categories" :value="cat.value" :key="cat.value">
+                                                {{ cat.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <CircleX class="my-auto ml-2 text-destructive" v-if="formInfo.category" @click="formInfo.category = null" />
+                                </div>
+                                <InputError :message="usePage().props.errors.category" />
                             </div>
                             <div class="flex flex-col space-y-1.5">
                                 <Label for="released_at">Release Date</Label>
@@ -351,12 +390,21 @@ onMounted(() => {
                                                 class="flex items-center justify-between gap-2 text-sm"
                                             >
                                                 <span class="truncate">{{ name }}</span>
-                                                <Input
-                                                    v-model.number="formInfo.character_quantities[name]"
-                                                    type="number"
-                                                    min="1"
-                                                    class="h-7 w-16 text-xs"
-                                                />
+                                                <div class="flex shrink-0 items-center gap-3">
+                                                    <label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                                        <Checkbox
+                                                            :checked="formInfo.character_special_orders[name]"
+                                                            @update:checked="(val: boolean) => (formInfo.character_special_orders[name] = val)"
+                                                        />
+                                                        Special order
+                                                    </label>
+                                                    <Input
+                                                        v-model.number="formInfo.character_quantities[name]"
+                                                        type="number"
+                                                        min="1"
+                                                        class="h-7 w-16 text-xs"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                         <InputError :message="usePage().props.errors.character_quantities" />

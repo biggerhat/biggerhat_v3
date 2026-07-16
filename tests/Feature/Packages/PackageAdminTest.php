@@ -2,6 +2,7 @@
 
 use App\Enums\FactionEnum;
 use App\Enums\GameSystemEnum;
+use App\Enums\PackageCategoryEnum;
 use App\Enums\SculptVersionEnum;
 use App\Models\Character;
 use App\Models\Keyword;
@@ -58,6 +59,7 @@ it('displays create package form for admin', function () {
             ->component('Admin/Packages/PackageForm')
             ->has('factions')
             ->has('sculpt_versions')
+            ->has('categories')
             ->has('characters')
             ->has('miniatures')
             ->has('keywords')
@@ -83,6 +85,51 @@ it('stores a new package', function () {
         ->and($package->factions)->toBe([FactionEnum::Guild->value]);
 });
 
+it('stores category and legacy_m3e_name', function () {
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.store'), [
+            'name' => 'Sonnia Criid Unrelenting',
+            'category' => PackageCategoryEnum::CoreBox->value,
+            'legacy_m3e_name' => 'Sonnia Core',
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package = Package::where('name', 'Sonnia Criid Unrelenting')->first();
+
+    expect($package->category)->toBe(PackageCategoryEnum::CoreBox)
+        ->and($package->legacy_m3e_name)->toBe('Sonnia Core');
+});
+
+it('updates category and legacy_m3e_name', function () {
+    $package = Package::factory()->create(['category' => PackageCategoryEnum::Expansion, 'legacy_m3e_name' => null]);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.update', $package), [
+            'name' => $package->name,
+            'category' => PackageCategoryEnum::CoreBox->value,
+            'legacy_m3e_name' => 'Updated Legacy Name',
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package->refresh();
+
+    expect($package->category)->toBe(PackageCategoryEnum::CoreBox)
+        ->and($package->legacy_m3e_name)->toBe('Updated Legacy Name');
+});
+
+it('displays category and legacy_m3e_name on the edit form', function () {
+    $package = Package::factory()->create(['category' => PackageCategoryEnum::Iconic, 'legacy_m3e_name' => 'Some Legacy Box']);
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.packages.edit', $package))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Admin/Packages/PackageForm')
+            ->where('package.category', 'iconic')
+            ->where('package.legacy_m3e_name', 'Some Legacy Box')
+        );
+});
+
 it('stores a package with relationships', function () {
     $character = Character::factory()->create();
     $keyword = Keyword::factory()->create();
@@ -99,6 +146,37 @@ it('stores a package with relationships', function () {
 
     expect($package->characters)->toHaveCount(1)
         ->and($package->keywords)->toHaveCount(1);
+});
+
+it('stores special_order per character', function () {
+    $character = Character::factory()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.store'), [
+            'name' => 'Special Order Test Package',
+            'characters' => [$character->display_name],
+            'character_special_orders' => [$character->display_name => true],
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package = Package::where('name', 'Special Order Test Package')->first();
+
+    expect((bool) $package->characters()->first()->pivot->special_order)->toBeTrue();
+});
+
+it('defaults special_order to false when not provided', function () {
+    $character = Character::factory()->create();
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.packages.store'), [
+            'name' => 'Default Special Order Package',
+            'characters' => [$character->display_name],
+        ])
+        ->assertRedirect(route('admin.packages.index'));
+
+    $package = Package::where('name', 'Default Special Order Package')->first();
+
+    expect((bool) $package->characters()->first()->pivot->special_order)->toBeFalse();
 });
 
 it('stores per-character quantities when attaching characters', function () {

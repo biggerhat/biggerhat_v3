@@ -47,6 +47,8 @@ it('matches a box name shorthand to its real Package name and syncs quantities',
 
     expect($characters)->toHaveCount(3);
     expect($characters->firstWhere('display_name', 'Kandara')->pivot->quantity)->toBe(3);
+    expect((bool) $characters->firstWhere('display_name', 'Kandara')->pivot->special_order)->toBeTrue();
+    expect((bool) $characters->firstWhere('display_name', 'Four Winds Golem')->pivot->special_order)->toBeFalse();
     expect($package->fresh()->legacy_m3e_name)->toBe('Maintain the Balance');
 });
 

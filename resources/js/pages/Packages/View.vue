@@ -39,6 +39,7 @@ interface PackageData {
         faction: string;
         faction_color: string;
         quantity: number;
+        special_order: boolean;
         standard_miniature: { id: number; slug: string } | null;
     }>;
     miniatures: Array<{ display_name: string; slug: string }>;
@@ -373,7 +374,15 @@ const togglePackageCollection = () => {
                                 <CardContent class="flex items-center gap-2 p-3">
                                     <FactionLogo :faction="character.faction" class-name="h-5 w-5 shrink-0" />
                                     <span class="text-sm font-medium group-hover:text-primary">{{ character.display_name }}</span>
-                                    <Badge v-if="character.quantity > 1" variant="secondary" class="ml-auto text-xs">
+                                    <Badge
+                                        v-if="character.special_order"
+                                        variant="outline"
+                                        class="ml-auto shrink-0 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
+                                        title="Available for special order"
+                                    >
+                                        Special Order
+                                    </Badge>
+                                    <Badge v-if="character.quantity > 1" variant="secondary" :class="[character.special_order ? '' : 'ml-auto', 'text-xs']">
                                         x{{ character.quantity }}
                                     </Badge>
                                 </CardContent>

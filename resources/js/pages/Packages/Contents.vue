@@ -3,6 +3,7 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
+import FilterPanel from '@/components/FilterPanel.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import SearchableSelect from '@/components/SearchableSelect.vue';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import type { SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { BookMarked, Check, ChevronDown, Link2, Search, Sparkles, X } from 'lucide-vue-next';
+import { refDebounced } from '@vueuse/core';
+import { BookMarked, Check, ChevronDown, Link2, Loader2, Search, Sparkles, X } from 'lucide-vue-next';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 interface BoxCharacterMiniature {
@@ -74,6 +76,14 @@ const isCharacterCollected = (character: BoxCharacter) =>
     character.standard_miniature != null && collectionMiniatureIds.value.has(character.standard_miniature.id);
 
 const search = ref('');
+// The input itself stays instant (bound directly to `search`); the actual
+// (re)filtering of 400+ boxes reads from this debounced copy instead, same
+// pattern as CrewBuilder/Index.vue and PDF/Index.vue for large client-side
+// lists. `isPending` (below) exposes the in-flight window so there's a
+// visible cue instead of the UI just going quiet for 200ms.
+const debouncedSearch = refDebounced(search, 200);
+const isPending = computed(() => search.value.trim() !== debouncedSearch.value.trim());
+
 // Multiple factions can be active at once (e.g. "Guild or Neverborn") — a
 // plain array rather than a Set so it serializes trivially to a comma-joined
 // URL param.
@@ -113,7 +123,7 @@ const matchesSearch = (box: Box, term: string) => {
 };
 
 const filteredBoxes = computed(() => {
-    const term = search.value.trim().toLowerCase();
+    const term = debouncedSearch.value.trim().toLowerCase();
 
     return props.packages.filter((box) => {
         if (activeFactions.value.length && !box.characters.some((c) => activeFactions.value.includes(c.faction))) {
@@ -186,9 +196,6 @@ const uniqueCharacterCount = computed(() => new Set(filteredBoxes.value.flatMap(
 const uniqueKeywordCount = computed(() => new Set(filteredBoxes.value.flatMap((b) => b.characters.flatMap((c) => c.keywords))).size);
 const uniqueFactionCount = computed(() => new Set(filteredBoxes.value.flatMap((b) => b.characters.map((c) => c.faction))).size);
 
-// A live search/filter naturally wants its matches visible — auto-expand
-// every box while searching/filtering, but leave manual toggles alone when
-// idle so the page doesn't dump 100+ open sections on first load.
 const isFiltering = computed(
     () =>
         search.value.trim().length > 0 ||
@@ -199,7 +206,18 @@ const isFiltering = computed(
         missingCharactersOnly.value ||
         collectionFilter.value !== null,
 );
-const isOpen = (slug: string) => isFiltering.value || openBoxes.has(slug);
+
+// A free-text search naturally wants its matches visible — auto-expand so
+// the matched model is right there instead of an extra click. Deliberately
+// NOT extended to the other filters (category/keyword/faction/collection
+// toggles etc.): with 400+ boxes in the catalog, any of those can still
+// leave hundreds matching, and force-expanding all of them at once means
+// mounting hundreds of CharacterCardView grids simultaneously — that mass
+// mount, not the (cheap) array filter itself, was the actual source of the
+// multi-second freeze on toggle. Capped to a small result count so a broad
+// search term doesn't reintroduce the same problem.
+const autoExpandSearchMatches = computed(() => debouncedSearch.value.trim().length > 0 && filteredBoxes.value.length <= 30);
+const isOpen = (slug: string) => autoExpandSearchMatches.value || openBoxes.has(slug);
 const toggleBox = (slug: string) => {
     if (openBoxes.has(slug)) {
         openBoxes.delete(slug);
@@ -224,6 +242,21 @@ const clearAllFilters = () => {
 };
 
 const hasActiveFilters = computed(() => isFiltering.value);
+
+// Drives the FilterPanel trigger's badge — counts filter *dimensions* set
+// (not matched results), and deliberately excludes free-text search (that
+// input stays visible outside the panel on every breakpoint) and sort
+// (it reorders rather than narrows, so it doesn't read as a "filter").
+const activeFilterCount = computed(() => {
+    let count = 0;
+    if (activeFactions.value.length) count++;
+    if (activeCategory.value) count++;
+    if (activeKeyword.value) count++;
+    if (standardOnly.value) count++;
+    if (missingCharactersOnly.value) count++;
+    if (collectionFilter.value) count++;
+    return count;
+});
 
 // Combine multiple filters into one click for common browsing intents.
 // Presets always start from a clean slate (clearAllFilters) so applying one
@@ -257,7 +290,7 @@ const applyPreset = (preset: Preset) => {
 // the current filters and can be copied/bookmarked directly.
 const syncUrl = () => {
     const params = new URLSearchParams();
-    if (search.value.trim()) params.set('search', search.value.trim());
+    if (debouncedSearch.value.trim()) params.set('search', debouncedSearch.value.trim());
     if (activeFactions.value.length) params.set('faction', activeFactions.value.join(','));
     if (activeCategory.value) params.set('category', activeCategory.value);
     if (activeKeyword.value) params.set('keyword', activeKeyword.value);
@@ -270,7 +303,7 @@ const syncUrl = () => {
 };
 
 watch(
-    [search, activeFactions, activeCategory, activeKeyword, standardOnly, missingCharactersOnly, collectionFilter, sortBy],
+    [debouncedSearch, activeFactions, activeCategory, activeKeyword, standardOnly, missingCharactersOnly, collectionFilter, sortBy],
     syncUrl,
     { deep: true },
 );
@@ -356,13 +389,15 @@ const copyLink = async () => {
             <div class="relative">
                 <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input v-model="search" type="text" placeholder="Search box or model name..." class="border-2 border-primary pl-10 pr-10" />
+                <Loader2 v-if="isPending" class="absolute right-9 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
                 <button v-if="search" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" @click="clearSearch">
                     <X class="h-4 w-4" />
                 </button>
             </div>
         </div>
 
-        <div class="container mx-auto mb-3 sm:px-4">
+        <!-- Desktop: every filter control visible inline, no extra clicks. -->
+        <div class="container mx-auto mb-3 hidden sm:px-4 md:block">
             <div class="flex flex-wrap items-center gap-2">
                 <ClearableSelect
                     v-model="activeCategory"
@@ -427,6 +462,73 @@ const copyLink = async () => {
                     <Check v-if="linkCopied" class="h-3 w-3" />
                     <Link2 v-else class="h-3 w-3" />
                     {{ linkCopied ? 'Copied!' : 'Copy link to this view' }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile: same filters, condensed behind a single Filters trigger
+             (FilterPanel — a Sheet on tablet-width, a bottom Drawer on phone;
+             see ListSearchBar.vue for the same pattern on other browse pages)
+             instead of ~7 controls wrapping across several lines. -->
+        <div class="container mx-auto mb-3 px-4 md:hidden">
+            <div class="flex flex-wrap items-center gap-2">
+                <FilterPanel :filter-count="activeFilterCount" @clear="clearAllFilters">
+                    <div class="grid gap-4">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">Category</label>
+                            <ClearableSelect v-model="activeCategory" placeholder="Any Category" :options="props.categories" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">Keyword</label>
+                            <SearchableSelect v-model="activeKeyword" placeholder="Any Keyword" :options="props.keywords" />
+                        </div>
+                        <div v-if="isLoggedIn" class="space-y-2">
+                            <label class="text-sm font-medium">Collection Status</label>
+                            <ClearableSelect v-model="collectionFilter" placeholder="Any Collection Status" :options="collectionFilterOptions" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium">Sort By</label>
+                            <Select v-model="sortBy">
+                                <SelectTrigger><SelectValue placeholder="Sort by" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.name }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <label class="flex cursor-pointer items-center gap-2 text-sm">
+                            <Switch id="standard-only-toggle-mobile" v-model="standardOnly" />
+                            Standard editions only
+                        </label>
+                        <label v-if="isLoggedIn" class="flex cursor-pointer items-center gap-2 text-sm">
+                            <Switch id="missing-characters-toggle-mobile" v-model="missingCharactersOnly" />
+                            Contains models I don't own
+                        </label>
+                    </div>
+                </FilterPanel>
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <Button variant="outline" size="sm" class="h-8 gap-1 text-xs">
+                            <Sparkles class="h-3.5 w-3.5" />
+                            Presets
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                        <DropdownMenuItem v-for="preset in presets" :key="preset.label" @click="applyPreset(preset)">
+                            {{ preset.label }}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <button v-if="hasActiveFilters" class="text-xs text-muted-foreground underline hover:text-foreground" @click="clearAllFilters">
+                    Clear filters
+                </button>
+                <button
+                    v-if="hasActiveFilters"
+                    class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    @click="copyLink"
+                >
+                    <Check v-if="linkCopied" class="h-3 w-3" />
+                    <Link2 v-else class="h-3 w-3" />
+                    {{ linkCopied ? 'Copied!' : 'Copy' }}
                 </button>
             </div>
         </div>

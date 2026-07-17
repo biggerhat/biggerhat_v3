@@ -76,6 +76,37 @@ const wishlistPackageIds = computed(() => {
 });
 const isWishlisted = (pkgId: number) => wishlistPackageIds.value.has(pkgId);
 
+const wishlists = computed(() => page.props.auth?.wishlists ?? []);
+const isOnWishlist = (wishlistId: number, packageId: number) =>
+    (page.props.auth?.wishlist_items?.[wishlistId]?.packages ?? []).includes(packageId);
+
+// Mirrors AddToWishlist.vue's addToWishlist — optimistic update against the
+// same shared `wishlist_items` bucket shape, via router.post rather than raw
+// fetch to match the rest of this page's Inertia-only mutation style.
+const addPackageToWishlist = (wishlistId: number, packageId: number) => {
+    const items = page.props.auth.wishlist_items;
+    if (!items[wishlistId]) {
+        items[wishlistId] = { characters: [], miniatures: [], packages: [], units: [], unit_sculpts: [] };
+    }
+    if (items[wishlistId].packages.includes(packageId)) return;
+
+    items[wishlistId].packages.push(packageId);
+
+    router.post(
+        route('wishlists.items.add', wishlistId),
+        { type: 'package', id: packageId },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['auth'],
+            onError: () => {
+                const idx = items[wishlistId].packages.indexOf(packageId);
+                if (idx !== -1) items[wishlistId].packages.splice(idx, 1);
+            },
+        },
+    );
+};
+
 // Track per-package in-flight state so we can disable that row's Add button
 // while the request is pending — prevents double-clicks creating dupes.
 // Mirrors Packages/Index.vue's addPackageToCollection.
@@ -593,57 +624,99 @@ const copyLink = async () => {
             <div v-else class="space-y-2">
                 <Collapsible v-for="box in sortedBoxes" :key="box.slug" :open="isOpen(box.slug)" @update:open="toggleBox(box.slug)">
                     <div class="rounded-lg border">
-                        <!-- Name is a plain link, not part of the toggle button
-                             below it — clicking it navigates to the package
-                             page and nothing else. It still gets its own
-                             full-width line so a long name never gets
-                             squeezed by badges/MSRP/model count, which flow
-                             into a second, wrapping line instead of competing
-                             for the same row. Only that second line (and its
-                             chevron) toggles the collapsible; clicking
-                             anywhere on the name never does. -->
+                        <!-- Name is a plain link, sized to its own text (not
+                             flex-1) so its clickable area never extends past
+                             the visible words — clicking it navigates to the
+                             package page and nothing else. `justify-between`
+                             on its row pins the mobile chevron to the far
+                             edge without stretching the link itself. It still
+                             gets its own full-width line so a long name never
+                             gets squeezed by badges/MSRP/model count, which
+                             flow into a second, wrapping line instead of
+                             competing for the same row.
+
+                             The Add to Collection / Add to Wishlist buttons
+                             are real buttons and must not nest inside another
+                             button, so the toggle area uses two independent
+                             CollapsibleTrigger instances (both bound to the
+                             same Collapsible) bracketing the action buttons
+                             rather than one trigger wrapping everything —
+                             clicking a badge, the price, model count, or
+                             chevron toggles the row; clicking an action
+                             button only does its own thing. -->
                         <div class="flex w-full flex-col gap-1.5 px-4 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
-                            <div class="flex min-w-0 items-center gap-2">
+                            <div class="flex min-w-0 items-center justify-between gap-2">
                                 <Link
                                     :href="route('packages.view', { package: box.slug })"
-                                    class="min-w-0 flex-1 truncate font-semibold text-primary hover:underline sm:flex-initial"
+                                    class="min-w-0 truncate font-semibold text-primary hover:underline"
                                 >
                                     {{ box.name }}
                                 </Link>
                                 <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:hidden" :class="{ 'rotate-180': isOpen(box.slug) }" />
                             </div>
-                            <CollapsibleTrigger
-                                class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-2 text-left text-xs text-muted-foreground hover:bg-muted/50 sm:py-1"
-                            >
-                                <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
-                                <span v-if="box.legacy_m3e_name" class="hidden shrink-0 sm:inline">(M3E: {{ box.legacy_m3e_name }})</span>
-                                <span
-                                    v-if="isCollected(box.id)"
-                                    class="flex shrink-0 items-center gap-1"
-                                    style="color: #059669"
-                                    title="In Collection"
-                                >
-                                    <BookMarked class="size-3.5" />
-                                    <span class="hidden sm:inline">Collected</span>
-                                </span>
-                                <button
-                                    v-else-if="isLoggedIn"
-                                    class="flex shrink-0 items-center gap-1 rounded text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
-                                    title="Add to Collection"
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                <CollapsibleTrigger class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-1 hover:bg-muted/50">
+                                    <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
+                                    <span v-if="box.legacy_m3e_name" class="hidden shrink-0 sm:inline">(M3E: {{ box.legacy_m3e_name }})</span>
+                                    <span
+                                        v-if="isCollected(box.id)"
+                                        class="flex shrink-0 items-center gap-1"
+                                        style="color: #059669"
+                                        title="In Collection"
+                                    >
+                                        <BookMarked class="size-3.5" />
+                                        <span class="hidden sm:inline">Collected</span>
+                                    </span>
+                                </CollapsibleTrigger>
+                                <Button
+                                    v-if="isLoggedIn && !isCollected(box.id)"
+                                    variant="outline"
+                                    size="sm"
+                                    class="h-6 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                                     :disabled="addingPackageIds.has(box.id)"
-                                    @click.stop="addPackageToCollection(box.id)"
+                                    @click="addPackageToCollection(box.id)"
                                 >
-                                    <Plus class="size-3.5" />
+                                    <Plus class="size-3" />
                                     <span class="hidden sm:inline">Add to Collection</span>
-                                </button>
-                                <span v-if="isWishlisted(box.id)" class="flex shrink-0 items-center gap-1" style="color: #f43f5e" title="On Wishlist">
-                                    <Heart class="size-3.5 fill-current" />
-                                    <span class="hidden sm:inline">Wishlisted</span>
-                                </span>
-                                <span v-if="formatMsrp(box.msrp)" class="shrink-0 font-medium">{{ formatMsrp(box.msrp) }}</span>
-                                <span class="shrink-0">{{ box.characters.length }} {{ box.characters.length === 1 ? 'model' : 'models' }}</span>
-                                <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:ml-1" :class="{ 'rotate-180': isOpen(box.slug) }" />
-                            </CollapsibleTrigger>
+                                </Button>
+                                <DropdownMenu v-if="isLoggedIn">
+                                    <DropdownMenuTrigger as-child>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            class="h-6 shrink-0 gap-1 px-2 text-[11px]"
+                                            :class="
+                                                isWishlisted(box.id)
+                                                    ? 'border-rose-500/40 text-rose-600 dark:text-rose-400'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            "
+                                        >
+                                            <Heart class="size-3" :class="{ 'fill-current': isWishlisted(box.id) }" />
+                                            <span class="hidden sm:inline">{{ isWishlisted(box.id) ? 'Wishlisted' : 'Add to Wishlist' }}</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start">
+                                        <template v-if="wishlists.length">
+                                            <DropdownMenuItem
+                                                v-for="wl in wishlists"
+                                                :key="wl.id"
+                                                @click="addPackageToWishlist(wl.id, box.id)"
+                                            >
+                                                <Check v-if="isOnWishlist(wl.id, box.id)" class="mr-2 size-3.5" />
+                                                {{ wl.name }}
+                                            </DropdownMenuItem>
+                                        </template>
+                                        <DropdownMenuItem v-else as-child>
+                                            <Link :href="route('wishlists.index')">Create a wishlist</Link>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <CollapsibleTrigger class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-1 hover:bg-muted/50">
+                                    <span v-if="formatMsrp(box.msrp)" class="shrink-0 font-medium">{{ formatMsrp(box.msrp) }}</span>
+                                    <span class="shrink-0">{{ box.characters.length }} {{ box.characters.length === 1 ? 'model' : 'models' }}</span>
+                                    <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:ml-1" :class="{ 'rotate-180': isOpen(box.slug) }" />
+                                </CollapsibleTrigger>
+                            </div>
                         </div>
                         <CollapsibleContent class="border-t px-4 py-4">
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">

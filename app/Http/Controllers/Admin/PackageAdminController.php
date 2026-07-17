@@ -21,9 +21,26 @@ class PackageAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Packages/Index', [
-            'packages' => Package::withCount(['characters', 'miniatures', 'tosUnits'])
+            'packages' => Package::withCount(['characters', 'miniatures', 'tosUnits', 'keywords'])
+                ->with('keywords:id,name')
                 ->orderBy('name', 'ASC')
-                ->get(),
+                ->get()
+                ->map(fn (Package $package) => [
+                    'id' => $package->id,
+                    'slug' => $package->slug,
+                    'name' => $package->name,
+                    'game_system' => $package->game_system,
+                    'category' => $package->category?->value,
+                    'category_label' => $package->category?->label(),
+                    'is_auto_generated' => $package->is_auto_generated,
+                    'factions' => $package->factions,
+                    'characters_count' => $package->characters_count,
+                    'miniatures_count' => $package->miniatures_count,
+                    'tos_units_count' => $package->tos_units_count,
+                    'keywords_count' => $package->keywords_count,
+                    'keywords' => $package->keywords->pluck('name'),
+                ]),
+            'categories' => fn () => PackageCategoryEnum::toSelectOptions(),
         ]);
     }
 

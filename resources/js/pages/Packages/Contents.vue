@@ -624,47 +624,48 @@ const copyLink = async () => {
             <div v-else class="space-y-2">
                 <Collapsible v-for="box in sortedBoxes" :key="box.slug" :open="isOpen(box.slug)" @update:open="toggleBox(box.slug)">
                     <div class="rounded-lg border">
-                        <!-- Name is a plain link, sized to its own text (not
-                             flex-1) so its clickable area never extends past
-                             the visible words — clicking it navigates to the
-                             package page and nothing else. `justify-between`
-                             on its row pins the mobile chevron to the far
-                             edge without stretching the link itself. It still
-                             gets its own full-width line so a long name never
-                             gets squeezed by badges/MSRP/model count, which
-                             flow into a second, wrapping line instead of
-                             competing for the same row.
+                        <!-- The whole header (name line + metadata line) is one
+                             toggle target, so clicking anywhere on either row
+                             expands/collapses — except the name link itself
+                             (stops propagation so it only navigates) and the
+                             Add to Collection / Add to Wishlist buttons
+                             (also stop propagation so pressing them doesn't
+                             also toggle the row).
 
-                             The Add to Collection / Add to Wishlist controls
-                             are real buttons, so the toggle can't itself be a
-                             native `<button>` (nesting a button inside a
-                             button is invalid HTML and — as found the hard
-                             way — using two separate CollapsibleTrigger
-                             instances against one Collapsible to dodge that
-                             breaks its internal reactivity instead). Instead
-                             CollapsibleTrigger renders `as="div"` with
-                             role="button" + manual keydown handling, so real
-                             buttons can nest inside it validly; each of those
-                             buttons stops click propagation so pressing them
-                             doesn't also toggle the row. -->
-                        <div class="flex w-full flex-col gap-1.5 px-4 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+                             Those buttons are real buttons, so the toggle
+                             can't itself be a native `<button>` (nesting a
+                             button inside a button is invalid HTML and — as
+                             found the hard way — using two separate
+                             CollapsibleTrigger instances against one
+                             Collapsible to dodge that breaks its internal
+                             reactivity instead). Instead CollapsibleTrigger
+                             renders `as="div"` with role="button" + manual
+                             keydown handling, so both the link and the real
+                             buttons can nest inside it validly.
+
+                             The name still gets its own full-width line so a
+                             long name never gets squeezed by badges/MSRP/
+                             model count, which flow into a second, wrapping
+                             line instead of competing for the same row. -->
+                        <CollapsibleTrigger
+                            as="div"
+                            role="button"
+                            tabindex="0"
+                            class="flex w-full flex-col gap-1.5 px-4 py-3 text-left hover:bg-muted/50 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3"
+                            @keydown.enter="toggleBox(box.slug)"
+                            @keydown.space.prevent="toggleBox(box.slug)"
+                        >
                             <div class="flex min-w-0 items-center justify-between gap-2">
                                 <Link
                                     :href="route('packages.view', { package: box.slug })"
                                     class="min-w-0 truncate font-semibold text-primary hover:underline"
+                                    @click.stop
                                 >
                                     {{ box.name }}
                                 </Link>
                                 <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:hidden" :class="{ 'rotate-180': isOpen(box.slug) }" />
                             </div>
-                            <CollapsibleTrigger
-                                as="div"
-                                role="button"
-                                tabindex="0"
-                                class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50"
-                                @keydown.enter="toggleBox(box.slug)"
-                                @keydown.space.prevent="toggleBox(box.slug)"
-                            >
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                                 <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
                                 <span v-if="box.legacy_m3e_name" class="hidden shrink-0 sm:inline">(M3E: {{ box.legacy_m3e_name }})</span>
                                 <span
@@ -722,9 +723,12 @@ const copyLink = async () => {
                                 </DropdownMenu>
                                 <span v-if="formatMsrp(box.msrp)" class="shrink-0 font-medium">{{ formatMsrp(box.msrp) }}</span>
                                 <span class="shrink-0">{{ box.characters.length }} {{ box.characters.length === 1 ? 'model' : 'models' }}</span>
-                                <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:ml-1" :class="{ 'rotate-180': isOpen(box.slug) }" />
-                            </CollapsibleTrigger>
-                        </div>
+                                <ChevronDown
+                                    class="hidden h-4 w-4 shrink-0 transition-transform sm:ml-1 sm:block"
+                                    :class="{ 'rotate-180': isOpen(box.slug) }"
+                                />
+                            </div>
+                        </CollapsibleTrigger>
                         <CollapsibleContent class="border-t px-4 py-4">
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
                                 <div

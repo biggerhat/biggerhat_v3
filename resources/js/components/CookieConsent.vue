@@ -16,7 +16,9 @@ const { hasDecided, acceptConsent, declineConsent } = useCookieConsent();
         leave-from-class="translate-y-0 opacity-100"
         leave-to-class="translate-y-full opacity-0"
     >
-        <!-- Only renders client-side (hasDecided is null on SSR → v-if false). -->
+        <!-- consent is seeded from the cookie_consent Inertia prop (same value
+             on SSR and hydration), so this correctly stays hidden for
+             returning visitors from the very first paint. -->
         <div
             v-if="hasDecided === false"
             role="dialog"

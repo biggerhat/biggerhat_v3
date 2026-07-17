@@ -1,5 +1,7 @@
 import { clearCookie, setCookie } from '@/lib/utils';
-import { computed, onMounted, ref } from 'vue';
+import type { SharedData } from '@/types';
+import { usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 
 export type ConsentChoice = 'accepted' | 'declined';
 
@@ -20,16 +22,20 @@ const getStoredConsent = (): ConsentChoice | null => {
  * `useAppearance` so the SSR-rendered Blade template can seed the correct
  * Google Analytics Consent Mode default on first byte.
  *
+ * The initial value is seeded synchronously from the `cookie_consent`
+ * Inertia shared prop (the server already knows the choice from the HTTP
+ * cookie — see HandleInertiaRequests) rather than only from onMounted() +
+ * localStorage. That prop is identical during SSR and client hydration, so
+ * a returning visitor's already-made choice renders correctly on the very
+ * first paint instead of showing the banner for one tick and then hiding it.
+ *
  * gtag is always loaded (Consent Mode v2, analytics_storage denied by
  * default); accepting/declining flips analytics_storage via
  * gtag('consent','update') in-session — no page reload required.
  */
 export function useCookieConsent() {
-    const consent = ref<ConsentChoice | null>(null);
-
-    onMounted(() => {
-        consent.value = getStoredConsent();
-    });
+    const page = usePage<SharedData>();
+    const consent = ref<ConsentChoice | null>(page.props.cookie_consent ?? getStoredConsent());
 
     const hasDecided = computed(() => consent.value !== null);
 

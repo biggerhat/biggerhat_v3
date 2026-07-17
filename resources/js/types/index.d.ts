@@ -87,6 +87,7 @@ export interface SharedData extends PageProps {
     name: string;
     quote: { message: string; author: string };
     auth: Auth;
+    cookie_consent: 'accepted' | 'declined' | null;
     faction_info: Record<string, FactionInfo>;
     tos_allegiance_info: Record<string, AllegianceInfo>;
     currentGameSystem: CurrentGameSystem;

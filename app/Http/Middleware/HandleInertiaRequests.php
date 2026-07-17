@@ -56,6 +56,13 @@ class HandleInertiaRequests extends Middleware
                 'messageType' => fn () => $request->session()->get('messageType'),
                 'reset_link' => fn () => $request->session()->get('reset_link'),
             ],
+            // Server already knows the choice from the cookie (same one
+            // HandleAppearance/app.blade.php reads for the GA consent-mode
+            // default) — sharing it as an Inertia prop lets the client seed
+            // its initial state from this instead of only from onMounted()
+            // + localStorage, so returning visitors don't see the cookie
+            // banner flash on-then-off on every full page load/refresh.
+            'cookie_consent' => $request->cookie('cookie_consent'),
             'faction_info' => FactionEnum::buildDetails(),
             'tos_allegiance_info' => AllegianceEnum::buildDetails(),
             'currentGameSystem' => $this->resolveGameSystem($request),

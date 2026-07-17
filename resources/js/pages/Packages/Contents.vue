@@ -635,15 +635,18 @@ const copyLink = async () => {
                              flow into a second, wrapping line instead of
                              competing for the same row.
 
-                             The Add to Collection / Add to Wishlist buttons
-                             are real buttons and must not nest inside another
-                             button, so the toggle area uses two independent
-                             CollapsibleTrigger instances (both bound to the
-                             same Collapsible) bracketing the action buttons
-                             rather than one trigger wrapping everything —
-                             clicking a badge, the price, model count, or
-                             chevron toggles the row; clicking an action
-                             button only does its own thing. -->
+                             The Add to Collection / Add to Wishlist controls
+                             are real buttons, so the toggle can't itself be a
+                             native `<button>` (nesting a button inside a
+                             button is invalid HTML and — as found the hard
+                             way — using two separate CollapsibleTrigger
+                             instances against one Collapsible to dodge that
+                             breaks its internal reactivity instead). Instead
+                             CollapsibleTrigger renders `as="div"` with
+                             role="button" + manual keydown handling, so real
+                             buttons can nest inside it validly; each of those
+                             buttons stops click propagation so pressing them
+                             doesn't also toggle the row. -->
                         <div class="flex w-full flex-col gap-1.5 px-4 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
                             <div class="flex min-w-0 items-center justify-between gap-2">
                                 <Link
@@ -654,27 +657,32 @@ const copyLink = async () => {
                                 </Link>
                                 <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:hidden" :class="{ 'rotate-180': isOpen(box.slug) }" />
                             </div>
-                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                                <CollapsibleTrigger class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-1 hover:bg-muted/50">
-                                    <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
-                                    <span v-if="box.legacy_m3e_name" class="hidden shrink-0 sm:inline">(M3E: {{ box.legacy_m3e_name }})</span>
-                                    <span
-                                        v-if="isCollected(box.id)"
-                                        class="flex shrink-0 items-center gap-1"
-                                        style="color: #059669"
-                                        title="In Collection"
-                                    >
-                                        <BookMarked class="size-3.5" />
-                                        <span class="hidden sm:inline">Collected</span>
-                                    </span>
-                                </CollapsibleTrigger>
+                            <CollapsibleTrigger
+                                as="div"
+                                role="button"
+                                tabindex="0"
+                                class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50"
+                                @keydown.enter="toggleBox(box.slug)"
+                                @keydown.space.prevent="toggleBox(box.slug)"
+                            >
+                                <Badge v-if="box.category_label" variant="outline" class="shrink-0 text-xs">{{ box.category_label }}</Badge>
+                                <span v-if="box.legacy_m3e_name" class="hidden shrink-0 sm:inline">(M3E: {{ box.legacy_m3e_name }})</span>
+                                <span
+                                    v-if="isCollected(box.id)"
+                                    class="flex shrink-0 items-center gap-1"
+                                    style="color: #059669"
+                                    title="In Collection"
+                                >
+                                    <BookMarked class="size-3.5" />
+                                    <span class="hidden sm:inline">Collected</span>
+                                </span>
                                 <Button
                                     v-if="isLoggedIn && !isCollected(box.id)"
                                     variant="outline"
                                     size="sm"
                                     class="h-6 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                                     :disabled="addingPackageIds.has(box.id)"
-                                    @click="addPackageToCollection(box.id)"
+                                    @click.stop="addPackageToCollection(box.id)"
                                 >
                                     <Plus class="size-3" />
                                     <span class="hidden sm:inline">Add to Collection</span>
@@ -690,12 +698,13 @@ const copyLink = async () => {
                                                     ? 'border-rose-500/40 text-rose-600 dark:text-rose-400'
                                                     : 'text-muted-foreground hover:text-foreground'
                                             "
+                                            @click.stop
                                         >
                                             <Heart class="size-3" :class="{ 'fill-current': isWishlisted(box.id) }" />
                                             <span class="hidden sm:inline">{{ isWishlisted(box.id) ? 'Wishlisted' : 'Add to Wishlist' }}</span>
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start">
+                                    <DropdownMenuContent align="start" @click.stop>
                                         <template v-if="wishlists.length">
                                             <DropdownMenuItem
                                                 v-for="wl in wishlists"
@@ -707,16 +716,14 @@ const copyLink = async () => {
                                             </DropdownMenuItem>
                                         </template>
                                         <DropdownMenuItem v-else as-child>
-                                            <Link :href="route('wishlists.index')">Create a wishlist</Link>
+                                            <Link :href="route('wishlists.index')" @click.stop>Create a wishlist</Link>
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
-                                <CollapsibleTrigger class="-mx-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-2 py-1 hover:bg-muted/50">
-                                    <span v-if="formatMsrp(box.msrp)" class="shrink-0 font-medium">{{ formatMsrp(box.msrp) }}</span>
-                                    <span class="shrink-0">{{ box.characters.length }} {{ box.characters.length === 1 ? 'model' : 'models' }}</span>
-                                    <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:ml-1" :class="{ 'rotate-180': isOpen(box.slug) }" />
-                                </CollapsibleTrigger>
-                            </div>
+                                <span v-if="formatMsrp(box.msrp)" class="shrink-0 font-medium">{{ formatMsrp(box.msrp) }}</span>
+                                <span class="shrink-0">{{ box.characters.length }} {{ box.characters.length === 1 ? 'model' : 'models' }}</span>
+                                <ChevronDown class="h-4 w-4 shrink-0 transition-transform sm:ml-1" :class="{ 'rotate-180': isOpen(box.slug) }" />
+                            </CollapsibleTrigger>
                         </div>
                         <CollapsibleContent class="border-t px-4 py-4">
                             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, FilterFn, SortingState } from '@tanstack/vue-table';
@@ -16,10 +17,20 @@ import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel
 
 const showUnattachedOnly = ref(false);
 const showNeedsReviewOnly = ref(false);
+const showNoMiniaturesOnly = ref(false);
+const showNoKeywordsOnly = ref(false);
+const categoryFilter = ref<string>('all');
 const searchText = ref('');
 
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
-    const { search, unattachedOnly, needsReviewOnly } = filterValue as { search: string; unattachedOnly: boolean; needsReviewOnly: boolean };
+    const { search, unattachedOnly, needsReviewOnly, noMiniaturesOnly, noKeywordsOnly, category } = filterValue as {
+        search: string;
+        unattachedOnly: boolean;
+        needsReviewOnly: boolean;
+        noMiniaturesOnly: boolean;
+        noKeywordsOnly: boolean;
+        category: string;
+    };
     const term = search.toLowerCase();
     const name = (row.getValue('name') as string)?.toLowerCase() ?? '';
 
@@ -31,6 +42,18 @@ const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
 
     if (needsReviewOnly) {
         matches = matches && !!row.original.is_auto_generated;
+    }
+
+    if (noMiniaturesOnly) {
+        matches = matches && row.original.miniatures_count === 0;
+    }
+
+    if (noKeywordsOnly) {
+        matches = matches && row.original.keywords_count === 0;
+    }
+
+    if (category !== 'all') {
+        matches = matches && row.original.category === category;
     }
 
     return matches;
@@ -68,10 +91,11 @@ const columns: ColumnDef<any>[] = [
         },
     },
     {
-        accessorKey: 'sku',
-        header: () => h('div', {}, 'SKU'),
+        accessorKey: 'category_label',
+        header: () => h('div', {}, 'Category'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('sku') ?? '-');
+            const label = row.getValue('category_label') as string | null;
+            return label ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => label) : h('div', { class: 'text-muted-foreground' }, '-');
         },
     },
     {
@@ -107,10 +131,18 @@ const columns: ColumnDef<any>[] = [
         },
     },
     {
-        accessorKey: 'released_at',
-        header: () => h('div', {}, 'Released'),
+        accessorKey: 'keywords',
+        header: () => h('div', {}, 'Keywords'),
         cell: ({ row }) => {
-            return h('div', {}, row.getValue('released_at') ?? '-');
+            const keywords = row.getValue('keywords') as string[];
+            if (!keywords?.length) {
+                return h('div', { class: 'text-muted-foreground' }, '-');
+            }
+            return h(
+                'div',
+                { class: 'flex flex-wrap gap-1' },
+                keywords.map((k) => h(Badge, { key: k, variant: 'secondary', class: 'text-[10px]' }, () => k)),
+            );
         },
     },
     {
@@ -136,6 +168,7 @@ const columns: ColumnDef<any>[] = [
 
 const props = defineProps<{
     packages: any[];
+    categories: { name: string; value: string }[];
 }>();
 
 const sorting = ref<SortingState>([]);
@@ -144,6 +177,9 @@ const globalFilterValue = computed(() => ({
     search: searchText.value,
     unattachedOnly: showUnattachedOnly.value,
     needsReviewOnly: showNeedsReviewOnly.value,
+    noMiniaturesOnly: showNoMiniaturesOnly.value,
+    noKeywordsOnly: showNoKeywordsOnly.value,
+    category: categoryFilter.value,
 }));
 
 const table = useVueTable({
@@ -180,9 +216,16 @@ const table = useVueTable({
     </PageBanner>
 
     <div class="container mx-auto mt-6 h-full px-2">
-        <div class="flex items-center justify-between py-4">
-            <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center justify-between gap-y-2 py-4">
+            <div class="flex flex-wrap items-center gap-4">
                 <Input class="max-w-sm" placeholder="Filter Packages" :model-value="searchText" @update:model-value="searchText = $event" />
+                <Select :model-value="categoryFilter" @update:model-value="(v) => (categoryFilter = v as string)">
+                    <SelectTrigger class="h-9 w-44 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All categories</SelectItem>
+                        <SelectItem v-for="c in categories" :key="c.value" :value="c.value">{{ c.name }}</SelectItem>
+                    </SelectContent>
+                </Select>
                 <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
                     <Checkbox :checked="showUnattachedOnly" @update:checked="(val: boolean) => (showUnattachedOnly = val)" />
                     Unattached only
@@ -190,6 +233,14 @@ const table = useVueTable({
                 <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
                     <Checkbox :checked="showNeedsReviewOnly" @update:checked="(val: boolean) => (showNeedsReviewOnly = val)" />
                     Needs review only
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
+                    <Checkbox :checked="showNoMiniaturesOnly" @update:checked="(val: boolean) => (showNoMiniaturesOnly = val)" />
+                    No miniatures
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
+                    <Checkbox :checked="showNoKeywordsOnly" @update:checked="(val: boolean) => (showNoKeywordsOnly = val)" />
+                    No keywords
                 </label>
             </div>
             <div>Total {{ table.getFilteredRowModel().rows.length }}</div>

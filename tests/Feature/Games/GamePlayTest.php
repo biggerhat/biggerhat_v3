@@ -243,6 +243,42 @@ it('toggles crew member activation', function () {
     expect($member->is_activated)->toBeTrue();
 });
 
+it('rejects attaching an Equipment upgrade with no explicit plentiful value to a second crew member', function () {
+    $memberA = GameCrewMember::factory()->create(['game_id' => $this->game->id, 'game_player_id' => $this->player1->id]);
+    $memberB = GameCrewMember::factory()->create(['game_id' => $this->game->id, 'game_player_id' => $this->player1->id]);
+    $equipment = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Test Trinket']);
+    $payload = ['attached_upgrades' => [['id' => $equipment->id, 'name' => $equipment->name]]];
+
+    $this->actingAs($this->user1)
+        ->patchJson(route('games.play.crew.update', ['game' => $this->game->uuid, 'gameCrewMember' => $memberA->id]), $payload)
+        ->assertOk();
+
+    // Same behavior as before this fix — Equipment's "no plentiful set" default
+    // of 1 copy across the crew is correct (a real rulebook mechanic), unlike
+    // Injuries below.
+    $this->actingAs($this->user1)
+        ->patchJson(route('games.play.crew.update', ['game' => $this->game->uuid, 'gameCrewMember' => $memberB->id]), $payload)
+        ->assertStatus(422);
+});
+
+it('allows attaching the same generic Injury to more than one crew member', function () {
+    $memberA = GameCrewMember::factory()->create(['game_id' => $this->game->id, 'game_player_id' => $this->player1->id]);
+    $memberB = GameCrewMember::factory()->create(['game_id' => $this->game->id, 'game_player_id' => $this->player1->id]);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Lingering Wound 1']);
+    $payload = ['attached_upgrades' => [['id' => $injury->id, 'name' => $injury->name]]];
+
+    $this->actingAs($this->user1)
+        ->patchJson(route('games.play.crew.update', ['game' => $this->game->uuid, 'gameCrewMember' => $memberA->id]), $payload)
+        ->assertOk();
+
+    // Injuries have no "plentiful" limit — this must NOT 422, unlike Equipment
+    // above. Prior to this fix, the shared "no plentiful set → 1" default was
+    // wrongly applied to Injuries too, blocking a second attach.
+    $this->actingAs($this->user1)
+        ->patchJson(route('games.play.crew.update', ['game' => $this->game->uuid, 'gameCrewMember' => $memberB->id]), $payload)
+        ->assertOk();
+});
+
 // ─── Game Completion ───
 
 it('completes a game when both players agree', function () {

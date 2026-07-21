@@ -38,7 +38,12 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
                 if (status === 'faction_select' || status === 'master_select') {
                     reload([...base, 'masters', 'my_crews']);
                 } else if (status === 'crew_select') {
-                    reload([...base, 'masters', 'my_crews']);
+                    // Campaign-format games need these too, or the other player's
+                    // tab flips `game.status` but GameCrewSelectPanel has nothing
+                    // to populate the hireable-models picker with — it looks
+                    // blank/broken until a manual refresh. Mirrors the sender's
+                    // own post-action reload list in Show.vue's postSetup().
+                    reload([...base, 'masters', 'my_crews', 'campaign_arsenal', 'campaign_owned_equipment', 'campaign_totem', 'campaign_leader_option', 'campaign_context']);
                 } else if (status === 'scheme_select') {
                     // all_markers is empty during crew_select (server only emits it
                     // for scheme_select + in_progress). The receiving-side player

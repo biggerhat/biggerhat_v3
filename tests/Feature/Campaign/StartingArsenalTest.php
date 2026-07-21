@@ -176,6 +176,34 @@ it('saves the crew card to the Card Creator when named, and updates on re-save',
     expect(\App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->count())->toBe(1);
 });
 
+it('updates the same Card Creator card by crew rather than duplicating it when the crew card name changes between saves', function () {
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'Original Name',
+        ])
+        ->assertRedirect();
+
+    $original = \App\Models\CustomUpgrade::where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->firstOrFail();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'Renamed',
+        ])
+        ->assertRedirect();
+
+    expect(\App\Models\CustomUpgrade::where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->count())->toBe(1);
+    expect($original->fresh()->name)->toBe('Renamed');
+});
+
 it('blocks deleting the saved crew card from the generic Card Creator editor', function () {
     $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
     $user = arsenalUser();

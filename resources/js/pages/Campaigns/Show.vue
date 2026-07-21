@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
+import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
-import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -68,6 +68,14 @@ interface ActiveSoloGame {
     started_at: string | null;
 }
 
+interface ActiveMultiplayerGame {
+    game_uuid: string;
+    status: string;
+    week_number: number;
+    crew_a_name: string;
+    crew_b_name: string | null;
+}
+
 const props = defineProps<{
     campaign: CampaignData;
     is_organizer: boolean;
@@ -76,6 +84,10 @@ const props = defineProps<{
      *  one exists — lets the hub offer "Resume" instead of Play Live silently
      *  orphaning it by minting a brand new game every click. */
     active_solo_game: ActiveSoloGame | null;
+    /** Every not-yet-finished live game in this multiplayer campaign,
+     *  regardless of which two players are in it — otherwise there was no
+     *  way to discover an in-progress game from the hub at all. */
+    active_multiplayer_games: ActiveMultiplayerGame[];
 }>();
 
 // A multiplayer campaign only auto-stubs a crew for solo campaigns — an
@@ -86,14 +98,14 @@ const myCrew = computed(() => props.campaign.crews.find((c) => c.user?.id === au
 const isMember = computed(() => props.campaign.players.some((p) => p.user_id === authUserId.value));
 const joinAsPlayer = (campaignId: number) => router.post(route('campaigns.join-as-player', campaignId));
 
-const activeSoloGameStatusLabel = (status: string): string =>
+const gameStatusLabel = (status: string): string =>
     (
-        {
+        ({
             master_select: 'Selecting Master',
             crew_select: 'Selecting Crew',
             scheme_select: 'Selecting Schemes',
             in_progress: 'In Progress',
-        } as Record<string, string>
+        }) as Record<string, string>
     )[status] ?? status;
 
 const statusVariant = computed((): 'default' | 'outline' | 'destructive' | 'secondary' => {
@@ -109,8 +121,11 @@ const statusVariant = computed((): 'default' | 'outline' | 'destructive' | 'seco
     }
 });
 
-const inviteForm = ref({ email: '', user_id: null as number | null, expires_in_days: 14 });
-const invitePickedUser = ref<{ id: number; name: string } | null>(null);
+const inviteForm = ref({ email: '', expires_in_days: 14 });
+// Bulk-select — an organizer can queue up any number of existing users
+// (from friends and/or search) before hitting Send, plus optionally one
+// email address in the same submit.
+const invitePickedUsers = ref<{ id: number; name: string }[]>([]);
 // The Send button previously had no in-flight/error state at all — a
 // validation failure (e.g. a stale search-picked user, or the strict
 // email:rfc rule rejecting an unusual-but-valid address) produced zero
@@ -122,15 +137,14 @@ const sendInvite = (campaignId: number) => {
     router.post(
         route('campaigns.invitations.store', campaignId),
         {
-            user_id: inviteForm.value.user_id || null,
+            user_ids: invitePickedUsers.value.map((u) => u.id),
             email: inviteForm.value.email || null,
             expires_in_days: inviteForm.value.expires_in_days,
         },
         {
             onSuccess: () => {
                 inviteForm.value.email = '';
-                inviteForm.value.user_id = null;
-                invitePickedUser.value = null;
+                invitePickedUsers.value = [];
                 inviteSearch.value = '';
                 toast.success('Invitation sent.');
             },
@@ -145,8 +159,8 @@ const sendInvite = (campaignId: number) => {
 };
 
 // Existing-user search — an alternative to typing a raw email blind.
-// Picking a result sets user_id and clears the email field (mutually
-// exclusive per StoreInvitationRequest's required_without rules).
+// Picking a result adds them to the selected list (not mutually exclusive
+// with other picks — multiple users can be queued in one submit).
 const inviteSearch = ref('');
 const inviteSearchResults = ref<{ id: number; name: string }[]>([]);
 let inviteSearchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -158,10 +172,9 @@ watch(inviteSearch, (q) => {
         return;
     }
     inviteSearchTimer = setTimeout(async () => {
-        const res = await fetch(
-            route('users.search') + '?q=' + encodeURIComponent(q.trim()) + '&exclude_campaign_id=' + props.campaign.id,
-            { headers: { Accept: 'application/json' } },
-        );
+        const res = await fetch(route('users.search') + '?q=' + encodeURIComponent(q.trim()) + '&exclude_campaign_id=' + props.campaign.id, {
+            headers: { Accept: 'application/json' },
+        });
         if (res.ok) {
             const data = await res.json();
             inviteSearchResults.value = data.users ?? [];
@@ -169,17 +182,20 @@ watch(inviteSearch, (q) => {
     }, 250);
 });
 
-const pickInviteUser = (user: { id: number; name: string }) => {
-    invitePickedUser.value = user;
-    inviteForm.value.user_id = user.id;
-    inviteForm.value.email = '';
+const isInvitePicked = (userId: number) => invitePickedUsers.value.some((u) => u.id === userId);
+
+const toggleInviteUser = (user: { id: number; name: string }) => {
+    if (isInvitePicked(user.id)) {
+        invitePickedUsers.value = invitePickedUsers.value.filter((u) => u.id !== user.id);
+        return;
+    }
+    invitePickedUsers.value.push(user);
     inviteSearch.value = '';
     inviteSearchResults.value = [];
 };
 
-const clearInvitePickedUser = () => {
-    invitePickedUser.value = null;
-    inviteForm.value.user_id = null;
+const removeInvitePickedUser = (userId: number) => {
+    invitePickedUsers.value = invitePickedUsers.value.filter((u) => u.id !== userId);
 };
 
 // Friends-only quick-invite — skips typing into search for someone already
@@ -290,7 +306,10 @@ const deleteCampaign = async (id: number) => {
             <template v-if="campaign.status === 'active' && campaign.is_solo">
                 <template v-if="active_solo_game">
                     <Link :href="route('games.show', active_solo_game.uuid)">
-                        <Button>Resume Game <Badge variant="secondary" class="ml-1.5 text-[10px]">{{ activeSoloGameStatusLabel(active_solo_game.status) }}</Badge></Button>
+                        <Button
+                            >Resume Game
+                            <Badge variant="secondary" class="ml-1.5 text-[10px]">{{ gameStatusLabel(active_solo_game.status) }}</Badge></Button
+                        >
                     </Link>
                     <Button variant="outline" @click="playLive(campaign.id)">New Game</Button>
                 </template>
@@ -302,11 +321,7 @@ const deleteCampaign = async (id: number) => {
             <Link v-else-if="campaign.status === 'active'" :href="route('campaigns.games.create', campaign.id)">
                 <Button>New Game</Button>
             </Link>
-            <Button
-                v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'"
-                variant="outline"
-                @click="qrDialogOpen = true"
-            >
+            <Button v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'" variant="outline" @click="qrDialogOpen = true">
                 Invite Link
             </Button>
             <Button
@@ -329,8 +344,11 @@ const deleteCampaign = async (id: number) => {
         </div>
 
         <!-- Solo skips the Players panel and spans Crew full-width since the
-             user is the only player. Multiplayer keeps the side-by-side layout. -->
-        <div :class="campaign.is_solo ? '' : 'grid gap-4 md:grid-cols-2'">
+             user is the only player. Multiplayer keeps the 3-up layout —
+             Players | Setup Arsenal Sheet (my own crew's setup progress,
+             front and center since it's the thing a freshly-joined player
+             needs next) | Crews (everyone's, for opponent visibility). -->
+        <div :class="campaign.is_solo ? '' : 'grid gap-4 md:grid-cols-3'">
             <Card v-if="!campaign.is_solo">
                 <CardHeader
                     ><CardTitle>Players ({{ campaign.players.length }})</CardTitle></CardHeader
@@ -342,6 +360,57 @@ const deleteCampaign = async (id: number) => {
                             <Badge variant="outline" class="text-[10px] uppercase">{{ p.role }}</Badge>
                         </li>
                     </ul>
+                </CardContent>
+            </Card>
+
+            <Card v-if="!campaign.is_solo">
+                <CardHeader><CardTitle>Setup Arsenal Sheet</CardTitle></CardHeader>
+                <CardContent>
+                    <template v-if="myCrew">
+                        <p class="mb-3 text-sm font-medium">{{ myCrew.name }}</p>
+                        <div class="flex flex-col gap-2">
+                            <Link
+                                v-if="campaign.status === 'planning'"
+                                :href="route('campaigns.crews.leader.edit', [campaign.id, myCrew.share_code])"
+                            >
+                                <Button size="sm" variant="outline" class="w-full">Build Leader</Button>
+                            </Link>
+                            <template v-if="campaign.status === 'planning'">
+                                <Link
+                                    v-if="myCrew.faction && myCrew.keyword_1_id && myCrew.keyword_2_id"
+                                    :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, myCrew.share_code])"
+                                >
+                                    <Button size="sm" variant="outline" class="w-full">Starting Arsenal</Button>
+                                </Link>
+                                <Button
+                                    v-else
+                                    size="sm"
+                                    variant="outline"
+                                    class="w-full"
+                                    disabled
+                                    title="Set faction and both keywords in Build Leader first"
+                                >
+                                    Starting Arsenal
+                                </Button>
+                            </template>
+                            <Link
+                                v-if="campaign.status === 'active'"
+                                :href="route('campaigns.crews.weekly-hire.edit', [campaign.id, myCrew.share_code])"
+                            >
+                                <Button size="sm" variant="outline" class="w-full">Weekly Hire</Button>
+                            </Link>
+                            <Link :href="route('campaigns.crews.arsenal.show', [campaign.id, myCrew.share_code])">
+                                <Button size="sm" class="w-full">Arsenal Sheet</Button>
+                            </Link>
+                        </div>
+                    </template>
+                    <EmptyState
+                        v-else-if="isMember"
+                        compact
+                        title="No crew yet"
+                        description="Click &ldquo;Join as a Player&rdquo; above to get one."
+                    />
+                    <EmptyState v-else compact title="Not a player yet" description="Accept an invitation to get your own crew." />
                 </CardContent>
             </Card>
 
@@ -409,51 +478,84 @@ const deleteCampaign = async (id: number) => {
             </Card>
         </div>
 
+        <Card v-if="!campaign.is_solo && active_multiplayer_games.length" class="mt-6">
+            <CardHeader
+                ><CardTitle>Active Games ({{ active_multiplayer_games.length }})</CardTitle></CardHeader
+            >
+            <CardContent>
+                <ul class="space-y-2">
+                    <li
+                        v-for="g in active_multiplayer_games"
+                        :key="g.game_uuid"
+                        class="flex items-center justify-between gap-2 rounded-md border p-2 text-sm"
+                    >
+                        <div>
+                            <p class="font-medium">{{ g.crew_a_name }} vs {{ g.crew_b_name ?? 'TBD' }}</p>
+                            <p class="text-xs text-muted-foreground">Week {{ g.week_number }} • {{ gameStatusLabel(g.status) }}</p>
+                        </div>
+                        <Link :href="route('games.show', g.game_uuid)">
+                            <Button size="sm" variant="outline">Watch / Resume</Button>
+                        </Link>
+                    </li>
+                </ul>
+            </CardContent>
+        </Card>
+
         <Card v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'" class="mt-6">
             <CardHeader><CardTitle>Invite a Player</CardTitle></CardHeader>
             <CardContent>
-                <div v-if="invitePickedUser" class="flex items-center gap-2 rounded-md border p-2 text-sm">
-                    <span class="flex-1">Inviting <span class="font-medium">{{ invitePickedUser.name }}</span></span>
-                    <Button variant="ghost" size="sm" @click="clearInvitePickedUser">Change</Button>
-                </div>
-                <template v-else>
-                    <div v-if="invitableFriends.length" class="mb-3">
-                        <Label>Invite a friend</Label>
-                        <div class="mt-1 flex flex-wrap gap-2">
-                            <button
-                                v-for="f in invitableFriends"
-                                :key="f.id"
-                                type="button"
-                                class="rounded-full border px-3 py-1 text-xs hover:bg-accent"
-                                @click="pickInviteUser(f)"
-                            >
-                                {{ f.name }}
-                            </button>
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <Label>Search existing players</Label>
-                        <Input v-model="inviteSearch" placeholder="Search by name…" />
-                        <ul
-                            v-if="inviteSearchResults.length"
-                            class="absolute z-10 mt-1 w-full space-y-1 rounded-md border bg-popover p-1 shadow-md"
+                <div v-if="invitePickedUsers.length" class="mb-3 flex flex-wrap gap-2">
+                    <span
+                        v-for="u in invitePickedUsers"
+                        :key="u.id"
+                        class="flex items-center gap-1.5 rounded-full border bg-accent py-1 pl-3 pr-1.5 text-xs"
+                    >
+                        {{ u.name }}
+                        <button
+                            type="button"
+                            class="rounded-full px-1 text-muted-foreground hover:text-foreground"
+                            @click="removeInvitePickedUser(u.id)"
                         >
-                            <li
-                                v-for="u in inviteSearchResults"
-                                :key="u.id"
-                                class="cursor-pointer rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                @click="pickInviteUser(u)"
-                            >
-                                {{ u.name }}
-                            </li>
-                        </ul>
+                            &times;
+                        </button>
+                    </span>
+                </div>
+
+                <div v-if="invitableFriends.length" class="mb-3">
+                    <Label>Invite a friend</Label>
+                    <div class="mt-1 flex flex-wrap gap-2">
+                        <button
+                            v-for="f in invitableFriends"
+                            :key="f.id"
+                            type="button"
+                            class="rounded-full border px-3 py-1 text-xs hover:bg-accent"
+                            :class="{ 'border-primary bg-primary/10': isInvitePicked(f.id) }"
+                            @click="toggleInviteUser(f)"
+                        >
+                            {{ f.name }}
+                        </button>
                     </div>
-                </template>
+                </div>
+                <div class="relative">
+                    <Label>Search existing players</Label>
+                    <Input v-model="inviteSearch" placeholder="Search by name…" />
+                    <ul v-if="inviteSearchResults.length" class="absolute z-10 mt-1 w-full space-y-1 rounded-md border bg-popover p-1 shadow-md">
+                        <li
+                            v-for="u in inviteSearchResults"
+                            :key="u.id"
+                            class="cursor-pointer rounded px-2 py-1.5 text-sm hover:bg-accent"
+                            @click="toggleInviteUser(u)"
+                        >
+                            {{ u.name }}
+                        </li>
+                    </ul>
+                </div>
+                <p class="mt-1 text-xs text-muted-foreground">Select as many players as you like — they'll all be invited at once.</p>
 
                 <div class="mt-3 grid gap-3 md:grid-cols-3">
                     <div>
                         <Label>Or invite by email</Label>
-                        <Input v-model="inviteForm.email" placeholder="player@example.com" :disabled="!!invitePickedUser" />
+                        <Input v-model="inviteForm.email" placeholder="player@example.com" />
                     </div>
                     <div>
                         <Label>Expires in (days)</Label>
@@ -463,9 +565,9 @@ const deleteCampaign = async (id: number) => {
                         <Button
                             class="w-full"
                             @click="sendInvite(campaign.id)"
-                            :disabled="(!inviteForm.email && !invitePickedUser) || invitePending"
+                            :disabled="(!inviteForm.email && !invitePickedUsers.length) || invitePending"
                         >
-                            {{ invitePending ? 'Sending…' : 'Send Invitation' }}
+                            {{ invitePending ? 'Sending…' : `Send Invitation${invitePickedUsers.length > 1 ? 's' : ''}` }}
                         </Button>
                     </div>
                 </div>
@@ -493,19 +595,18 @@ const deleteCampaign = async (id: number) => {
             </CardContent>
         </Card>
 
-        <QRCodeDialog
-            v-if="qrDialogOpen"
-            v-model:open="qrDialogOpen"
-            :url="route('campaigns.join', campaign.uuid)"
-            title="Campaign Invite Link"
-        />
+        <QRCodeDialog v-if="qrDialogOpen" v-model:open="qrDialogOpen" :url="route('campaigns.join', campaign.uuid)" title="Campaign Invite Link" />
 
         <!-- Per-invitation share link — since email-only invitees currently
              have no other way to discover a pending invitation. -->
         <QRCodeDialog
             v-if="inviteQrTarget"
             :open="inviteQrTarget !== null"
-            @update:open="(v: boolean) => { if (!v) inviteQrTarget = null; }"
+            @update:open="
+                (v: boolean) => {
+                    if (!v) inviteQrTarget = null;
+                }
+            "
             :url="inviteQrUrl"
             title="Invitation Link"
         />

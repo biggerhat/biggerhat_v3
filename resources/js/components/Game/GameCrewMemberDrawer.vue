@@ -11,10 +11,40 @@ import { Textarea } from '@/components/ui/textarea';
 import { Images, Maximize2, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
+interface AttachedUpgradeAction {
+    name: string;
+    type?: string;
+    is_signature?: boolean;
+    stone_cost?: number;
+    range?: number | string | null;
+    range_type?: string | null;
+    stat?: number | string | null;
+    stat_suits?: string | null;
+    stat_modifier?: string | null;
+    resisted_by?: string | null;
+    target_number?: number | string | null;
+    target_suits?: string | null;
+    damage?: string | null;
+    description?: string | null;
+    triggers?: Array<{ name: string; suits?: string | null; stone_cost?: number; description?: string | null }>;
+}
+interface AttachedUpgradeAbility {
+    name: string;
+    suits?: string | null;
+    defensive_ability_type?: string | null;
+    costs_stone?: boolean;
+    description?: string | null;
+}
 interface AttachedUpgrade {
     id: number;
     name: string;
     notes?: string | null;
+    // Real rules text (Campaign equipment/injuries, pg 19/34) — same shape
+    // GameAttachedUpgradeDrawer.vue already renders elsewhere; this drawer
+    // previously only showed the freeform notes box, never the actual effect.
+    description?: string | null;
+    actions?: AttachedUpgradeAction[];
+    abilities?: AttachedUpgradeAbility[];
 }
 
 // Campaign Leader/Totem card data (pg 31, 52) — these have no card art, so
@@ -271,17 +301,33 @@ const handleVisualPick = (miniatureId: number) => {
                     </div>
 
                     <div v-if="(member.attached_upgrades ?? []).length" class="space-y-2">
-                        <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Upgrade notes</div>
+                        <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attached Upgrades</div>
                         <div class="space-y-1.5">
                             <div v-for="upgrade in member.attached_upgrades ?? []" :key="upgrade.id" class="rounded-md border p-2">
                                 <div class="text-xs font-medium">{{ upgrade.name }}</div>
+                                <!-- Real rules text — an Injury's effect or an Equipment's granted
+                                     action/ability, not just the flavor description. Same shape
+                                     GameAttachedUpgradeDrawer.vue already renders elsewhere; this
+                                     drawer previously only ever showed the freeform notes box below. -->
+                                <p v-if="upgrade.description" class="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                    {{ upgrade.description }}
+                                </p>
+                                <div v-if="upgrade.actions?.length || upgrade.abilities?.length" class="mt-1.5 space-y-1.5">
+                                    <ActionCard v-for="(a, i) in upgrade.actions ?? []" :key="`au-action-${upgrade.id}-${i}`" :action="a" :hide-footer="true" />
+                                    <AbilityCard
+                                        v-for="(ab, i) in upgrade.abilities ?? []"
+                                        :key="`au-ability-${upgrade.id}-${i}`"
+                                        :ability="ab"
+                                        :hide-footer="true"
+                                    />
+                                </div>
                                 <Textarea
                                     v-model="upgradeNotes[upgrade.id]"
                                     :placeholder="canEditNotes ? 'Notes for this upgrade…' : 'No notes'"
                                     :readonly="!canEditNotes"
                                     :disabled="!canEditNotes && !upgradeNotes[upgrade.id]"
                                     rows="1"
-                                    class="mt-1 text-xs"
+                                    class="mt-1.5 text-xs"
                                     @input="queueSave"
                                 />
                             </div>

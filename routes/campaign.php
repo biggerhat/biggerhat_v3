@@ -110,6 +110,9 @@ Route::middleware(['campaign.access'])->group(function () {
         // Ad-hoc unit/equipment adds — mid-game events outside Starting Arsenal/Weekly Hire/Aftermath.
         Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/models', [ArsenalSheetController::class, 'addManualArsenalModel'])
             ->name('campaigns.crews.arsenal.models.store');
+        // Rename (nickname) an already-hired Arsenal Model.
+        Route::put('/campaigns/{campaign}/crews/{crew}/arsenal/models/{model}', [ArsenalSheetController::class, 'updateArsenalModel'])
+            ->name('campaigns.crews.arsenal.models.update');
         Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/equipment', [ArsenalSheetController::class, 'addManualEquipment'])
             ->name('campaigns.crews.arsenal.equipment.store');
 

@@ -7,6 +7,7 @@ use App\Enums\CharacterStationEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
+use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
 use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignAftermath;
@@ -18,6 +19,7 @@ use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Character;
 use App\Models\CustomCharacter;
+use App\Models\CustomUpgrade;
 use App\Services\CampaignRules;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Campaign\CombinedCrewCardEffects;
@@ -76,6 +78,18 @@ class ArsenalSheetController extends Controller
         ]);
 
         return redirect()->back()->withMessage("{$character->display_name} added to the arsenal.");
+    }
+
+    /**
+     * Rename an already-hired Arsenal Model — sets/clears its `label`
+     * nickname. Owner-only (see UpdateArsenalModelRequest).
+     */
+    public function updateArsenalModel(UpdateArsenalModelRequest $request, Campaign $campaign, CampaignCrew $crew, CampaignArsenalModel $model)
+    {
+        $validated = $request->validated();
+        $model->update(['label' => $validated['label'] ?? null]);
+
+        return redirect()->back()->withMessage('Nickname updated.');
     }
 
     /**
@@ -180,6 +194,15 @@ class ArsenalSheetController extends Controller
         $injuryCount = $crew->activeInjuryCount();
         $cr = CampaignRules::campaignRating($equipmentCount, $advancementCount, $injuryCount);
 
+        // "Edit Crew Card" (owner-only) opens the same Card Creator record
+        // StartingArsenalController::saveCrewCardToCardCreator() saves the
+        // starter effect into — not the shared CampaignCrewCard catalog row,
+        // which is admin-only content. Only exists once the player has named
+        // (and thus saved) their crew card at least once.
+        $crewCardCustomUpgradeId = $isOwner
+            ? CustomUpgrade::query()->where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->value('id')
+            : null;
+
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             'crew' => array_merge(
@@ -195,6 +218,7 @@ class ArsenalSheetController extends Controller
                     'crew_card_effect' => $crew->crewCardEffect
                         ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description, 'triggers' => []])
                         : null,
+                    'crew_card_custom_upgrade_id' => $crewCardCustomUpgradeId,
                     // Tier-4 borrowed effects (pg 32, 54) — stack alongside the
                     // starter. Resolves to the single picked item (pg 32) for a
                     // new-style crew_upgrade pick, or the whole card otherwise —
@@ -336,7 +360,10 @@ class ArsenalSheetController extends Controller
     {
         $aftermaths = CampaignAftermath::query()
             ->where('campaign_crew_id', $crew->id)
-            ->with('campaignGame:id,week_number,crew_a_id,crew_b_id')
+            ->with([
+                'campaignGame:id,week_number,crew_a_id,crew_b_id,base_game_id',
+                'campaignGame.baseGame:id,uuid,status',
+            ])
             ->orderBy('created_at')
             ->get();
 
@@ -361,17 +388,27 @@ class ArsenalSheetController extends Controller
             ->groupBy('acquired_aftermath_id')
             ->pluck('total', 'acquired_aftermath_id');
 
-        return $aftermaths->map(fn (CampaignAftermath $a) => [
-            'id' => $a->id,
-            'week_number' => $a->campaignGame->week_number,
-            'story_entry' => $a->story_entry,
-            'created_at' => $a->created_at,
-            'tally' => [
-                'injuries' => (int) ($injuryCounts[$a->id] ?? 0),
-                'doctor_attempts' => (int) ($doctorCounts[$a->id] ?? 0),
-                'lucky_misses' => (int) ($luckyMissCounts[$a->id] ?? 0),
-                'ttw_pickups' => (int) ($ttwCounts[$a->id] ?? 0),
-            ],
-        ])->all();
+        return $aftermaths->map(function (CampaignAftermath $a) use ($injuryCounts, $doctorCounts, $luckyMissCounts, $ttwCounts) {
+            $baseGame = $a->campaignGame->baseGame;
+
+            return [
+                'id' => $a->id,
+                'week_number' => $a->campaignGame->week_number,
+                'story_entry' => $a->story_entry,
+                'created_at' => $a->created_at,
+                // "View Game Log" links straight to the actual completed game's
+                // results (games.summary) when one exists, instead of the
+                // Aftermath wizard — which shows nothing but a one-line
+                // "Aftermath Complete" banner once locked (no story, kills, or
+                // advancements).
+                'game_uuid' => $baseGame && in_array($baseGame->status->value, ['completed', 'abandoned'], true) ? $baseGame->uuid : null,
+                'tally' => [
+                    'injuries' => (int) ($injuryCounts[$a->id] ?? 0),
+                    'doctor_attempts' => (int) ($doctorCounts[$a->id] ?? 0),
+                    'lucky_misses' => (int) ($luckyMissCounts[$a->id] ?? 0),
+                    'ttw_pickups' => (int) ($ttwCounts[$a->id] ?? 0),
+                ],
+            ];
+        })->all();
     }
 }

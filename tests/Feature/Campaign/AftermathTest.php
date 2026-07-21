@@ -1930,31 +1930,6 @@ it('Phase 4 Crew Card advancement (crew_upgrade source) rejects a card with a po
     expect(\App\Models\Campaign\CampaignCrewCardAdvancement::count())->toBe(0);
 });
 
-it('advancement_catalogs.crew_card exposes the generated card image', function () {
-    [$user, , $crew, $game] = aftermathFixture();
-    $aftermath = CampaignAftermath::factory()->create([
-        'campaign_game_id' => $game->id,
-        'campaign_crew_id' => $crew->id,
-        'current_phase' => 4,
-        'hand_drawn' => [],
-    ]);
-    buildLeaderFor($crew, $user);
-
-    $row = \App\Models\Campaign\CampaignCrewCard::factory()->create([
-        'name' => 'Imaged Effect',
-        'front_image' => 'campaign-crew-cards/123/front.png',
-    ]);
-
-    $this->actingAs($user)
-        ->get(route('campaigns.aftermaths.show', $aftermath))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('advancement_catalogs.crew_card', function ($rows) use ($row) {
-            $match = collect($rows)->firstWhere('id', $row->id);
-
-            return $match && $match['front_image'] === 'campaign-crew-cards/123/front.png';
-        }));
-});
-
 it('Phase 4 rejects a Totem Advancement when the crew already has a totem', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

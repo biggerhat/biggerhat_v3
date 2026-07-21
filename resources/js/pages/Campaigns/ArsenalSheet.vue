@@ -22,7 +22,7 @@ import { useToast } from '@/composables/useToast';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowRight, Calendar, Copy, Download, Loader2, Plus, Swords, Tag } from 'lucide-vue-next';
+import { Calendar, Copy, Download, Loader2, Pencil, Plus, Swords, Tag } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface KeywordRow {
@@ -64,8 +64,9 @@ interface CrewCardEffectRow {
     id: number;
     name: string;
     body: string;
-    // Server-generated card image (App\Services\Campaign\CrewCardImageGenerator).
-    // Null until the first render lands — falls back to the text rendering below.
+    // Real per-card art, only ever populated for an Upgrade-sourced Tier-4
+    // borrow (the shared CampaignCrewCard catalog has no card art of its
+    // own) — not currently rendered here, which stays text-only regardless.
     front_image: string | null;
     actions: CrewCardLinkedAction[];
     abilities: CrewCardLinkedAbility[];
@@ -201,6 +202,10 @@ interface CrewData {
     // restriction qualifier text) — regenerated whenever the held effect set
     // changes. Null until the first render lands.
     crew_card_front_image: string | null;
+    // Owner-only; the Card Creator CustomUpgrade the starter effect was saved
+    // into (see StartingArsenalController::saveCrewCardToCardCreator). Null
+    // for non-owners and for owners who haven't named/saved a crew card yet.
+    crew_card_custom_upgrade_id: number | null;
     arsenal_models: ArsenalRow[];
 }
 
@@ -345,6 +350,10 @@ const props = defineProps<{
         week_number: number | null;
         story_entry: string | null;
         created_at: string;
+        // The linked completed/abandoned Game's uuid, when one exists —
+        // "View Game Log" routes here (games.summary) instead of the
+        // Aftermath wizard, which shows nothing once locked.
+        game_uuid: string | null;
         // Auto-computed tally of what changed that week (pg 34-35 injuries,
         // Back-Alley Doctor, Lucky Miss, Those Who Thirst) — same week the
         // freeform entry was written for.
@@ -817,6 +826,39 @@ const submitAddUnit = () => {
     );
 };
 
+// ───────── Rename an Arsenal Model (nickname) ─────────
+const renamingModelId = ref<number | null>(null);
+const renameLabelDraft = ref('');
+
+const startRename = (model: ArsenalRow) => {
+    renamingModelId.value = model.id;
+    renameLabelDraft.value = model.label ?? '';
+};
+
+const cancelRename = () => {
+    renamingModelId.value = null;
+};
+
+const submitRename = (model: ArsenalRow) => {
+    const newLabel = renameLabelDraft.value.trim() || null;
+    router.put(
+        route('campaigns.crews.arsenal.models.update', [props.campaign.id, props.crew.share_code, model.id]),
+        { label: newLabel },
+        {
+            onSuccess: () => {
+                renamingModelId.value = null;
+                // The full page visit refreshes crew.arsenal_models (the grid
+                // re-renders correctly from that), but unitPreviewRow is a
+                // point-in-time snapshot taken when the drawer opened — it
+                // won't pick up the new label on its own, so patch it directly.
+                if (unitPreviewRow.value?.id === model.id) {
+                    unitPreviewRow.value = { ...unitPreviewRow.value, label: newLabel };
+                }
+            },
+        },
+    );
+};
+
 // ───────── Ad-hoc Add Equipment (mid-game events outside Barter/Aftermath) ─────────
 const addEquipmentDialogOpen = ref(false);
 const addEquipmentSearch = ref('');
@@ -1098,6 +1140,13 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 >
                     <Button size="sm">Edit Leader</Button>
                 </Link>
+                <!-- Totem only ever exists once the campaign has left planning (it's
+                     granted by a Tier-3 Totem Advancement during Aftermath, never
+                     built up front like the Leader) — so unlike Edit Leader, there's
+                     no pre-campaign builder branch to route to here. -->
+                <Link v-if="view_mode.is_owner && totem" :href="route('tools.card_creator.edit', totem.id)">
+                    <Button size="sm" variant="outline">Edit Totem</Button>
+                </Link>
                 <Button v-if="view_mode.is_owner && leader" size="sm" variant="destructive" @click="annihilateLeader"> Annihilate </Button>
                 <Button v-if="view_mode.is_owner && !leader" size="sm" @click="startingAnew"> Starting Anew </Button>
             </div>
@@ -1272,7 +1321,16 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     <CardHeader>
                         <div class="flex items-center justify-between gap-2">
                             <CardTitle>Crew Card</CardTitle>
-                            <Button v-if="crew.crew_card_effect" size="sm" variant="outline" @click="viewCrewCard">View card</Button>
+                            <div class="flex items-center gap-2">
+                                <!-- Opens the Card Creator copy StartingArsenalController saves the
+                                     starter effect into — not the shared CampaignCrewCard catalog
+                                     row, which is admin-only content. Only exists once the owner has
+                                     named (and thus saved) a crew card at least once. -->
+                                <Link v-if="view_mode.is_owner && crew.crew_card_custom_upgrade_id" :href="route('tools.card_creator.upgrades.edit', crew.crew_card_custom_upgrade_id)">
+                                    <Button size="sm" variant="outline">Edit Crew Card</Button>
+                                </Link>
+                                <Button v-if="crew.crew_card_effect" size="sm" variant="outline" @click="viewCrewCard">View card</Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -1725,8 +1783,11 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     >
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0 flex-1">
-                                <p class="truncate font-medium">{{ model.character?.display_name ?? '—' }}</p>
-                                <p v-if="model.label" class="text-[10px] text-muted-foreground">{{ model.label }}</p>
+                                <!-- A nickname is the model's identity at the table — show it as
+                                     the primary line, with the actual unit name demoted to a
+                                     small line underneath (reversed from before). -->
+                                <p class="truncate font-medium">{{ model.label || model.character?.display_name || '—' }}</p>
+                                <p v-if="model.label" class="truncate text-[10px] text-muted-foreground">{{ model.character?.display_name }}</p>
                                 <p class="text-[10px] text-muted-foreground">{{ model.character?.station }}</p>
                             </div>
                             <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ model.character?.cost ?? 0 }} ss</Badge>
@@ -1757,22 +1818,21 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 {{ inj.name }}
                             </Badge>
                             <Badge v-for="ch in model.gained_characteristics" :key="`c-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
-                            <!-- Grouped together (pg 36): a Lucky Miss result's own
-                                 flavor name, connected to the real Ability it grants
-                                 (when it grants one), so the two read as cause and
-                                 effect rather than two unrelated tags. -->
-                            <Badge
-                                v-for="lm in model.lucky_miss"
-                                :key="`l-${lm}`"
-                                class="bg-green-600 text-[10px] text-white hover:bg-green-600"
-                                title="Lucky Miss result"
-                            >
-                                {{ lm }}
-                            </Badge>
-                            <ArrowRight
-                                v-if="model.lucky_miss.length && model.gained_abilities.length"
-                                class="size-3 self-center text-muted-foreground"
-                            />
+                            <!-- pg 36: only show the ability a Lucky Miss result grants, not
+                                 also its own flavor name — the ability badge already implies
+                                 the Lucky Miss happened. Fall back to the raw name only for a
+                                 flavor-only Lucky Miss result that grants no ability at all,
+                                 so that doesn't go silently unrecorded. -->
+                            <template v-if="!model.gained_abilities.length">
+                                <Badge
+                                    v-for="lm in model.lucky_miss"
+                                    :key="`l-${lm}`"
+                                    class="bg-green-600 text-[10px] text-white hover:bg-green-600"
+                                    title="Lucky Miss result"
+                                >
+                                    {{ lm }}
+                                </Badge>
+                            </template>
                             <Badge
                                 v-for="ab in model.gained_abilities"
                                 :key="`a-${ab.id}`"
@@ -1879,13 +1939,17 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <div class="mb-1 flex items-center gap-2 text-[10px] text-muted-foreground">
                             <Badge v-if="entry.week_number != null" variant="outline" class="text-[10px]">Week {{ entry.week_number }}</Badge>
                             <span>{{ new Date(entry.created_at).toLocaleDateString() }}</span>
-                            <!-- entry.id is the aftermath's own id — the Aftermath
-                                 wizard's Phase 6 review, never deleted (only locked).
-                                 Owner-only: CampaignAftermathController::show() gates
-                                 on crew ownership, same condition as view_mode.is_owner. -->
+                            <!-- Prefer the actual completed game's results (games.summary)
+                                 over the Aftermath wizard — once locked, Aftermath shows
+                                 nothing but a one-line "Aftermath Complete" banner, not the
+                                 story/kills/advancements QA expected here. Falls back to the
+                                 Aftermath view (entry.id is its own id, never deleted, only
+                                 locked) if no linked completed game exists.
+                                 Owner-only: CampaignAftermathController::show() gates on
+                                 crew ownership, same condition as view_mode.is_owner. -->
                             <Link
                                 v-if="view_mode.is_owner"
-                                :href="route('campaigns.aftermaths.show', entry.id)"
+                                :href="entry.game_uuid ? route('games.summary', entry.game_uuid) : route('campaigns.aftermaths.show', entry.id)"
                                 class="text-primary underline"
                             >
                                 View Game Log
@@ -1961,14 +2025,18 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </div>
 
                     <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text).
-                         No max-height here — a fixed px cap was the actual cause of the embedded text
-                         rendering tiny for a tall/dense combined card. Scale to the dialog's own width
-                         instead and let its max-h-[85vh]+overflow-y-auto handle scrolling if it's tall. -->
+                         A fixed px height cap previously made embedded text render tiny on a
+                         tall/dense combined card — but scaling to the dialog's full width alone
+                         let the image (up to 1150x1986 at the top content tier) render taller
+                         than the viewport, which is what QA saw as "too big for the screen".
+                         A *viewport-relative* max-height fixes both: it scales down proportionally
+                         with real screen size (no more tiny text) while still fitting on-screen
+                         without scrolling in the common case. -->
                     <img
                         v-if="crew.crew_card_front_image"
                         :src="'/storage/' + crew.crew_card_front_image"
                         :alt="viewCard.title"
-                        class="w-full rounded-md border-2"
+                        class="mx-auto max-h-[70vh] max-w-full rounded-md border-2"
                         :style="leader ? { borderColor: `hsl(var(${crewCardFactionVar}))` } : {}"
                     />
                     <!-- Fallback text rendering while the combined image hasn't generated yet -->
@@ -2087,14 +2155,47 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         :open="unitPreviewRow !== null"
         @update:open="
             (v) => {
-                if (!v) unitPreviewRow = null;
+                if (!v) {
+                    unitPreviewRow = null;
+                    renamingModelId = null;
+                }
             }
         "
     >
         <DrawerContent>
             <div v-if="unitPreviewRow" class="mx-auto w-full max-w-sm">
                 <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ unitPreviewRow.character?.display_name ?? unitPreviewRow.label ?? 'Model' }}</DrawerTitle>
+                    <!-- Nickname is the model's identity at the table, so it's the
+                         primary title with the actual unit name demoted underneath
+                         (mirrors the grid card's display swap). Owner can rename
+                         inline here. -->
+                    <div v-if="renamingModelId === unitPreviewRow.id" class="flex items-center justify-center gap-1.5">
+                        <Input
+                            v-model="renameLabelDraft"
+                            placeholder="Nickname"
+                            class="h-8 max-w-[200px] text-center"
+                            @keydown.enter="submitRename(unitPreviewRow)"
+                        />
+                        <Button size="sm" @click="submitRename(unitPreviewRow)">Save</Button>
+                        <Button size="sm" variant="outline" @click="cancelRename">Cancel</Button>
+                    </div>
+                    <div v-else class="flex items-center justify-center gap-1.5">
+                        <DrawerTitle class="text-center">{{
+                            unitPreviewRow.label || unitPreviewRow.character?.display_name || 'Model'
+                        }}</DrawerTitle>
+                        <button
+                            v-if="view_mode.is_owner"
+                            type="button"
+                            class="text-muted-foreground hover:text-foreground"
+                            title="Rename"
+                            @click="startRename(unitPreviewRow)"
+                        >
+                            <Pencil class="size-3.5" />
+                        </button>
+                    </div>
+                    <p v-if="unitPreviewRow.label" class="text-center text-xs text-muted-foreground">
+                        {{ unitPreviewRow.character?.display_name }}
+                    </p>
                     <div
                         v-if="unitPreviewRow.injuries.length || unitPreviewRow.gained_characteristics.length"
                         class="mt-1.5 flex flex-wrap justify-center gap-1"

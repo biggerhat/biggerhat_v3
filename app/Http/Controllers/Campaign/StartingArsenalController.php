@@ -211,7 +211,7 @@ class StartingArsenalController extends Controller
             // master card already lives there as a CustomCharacter). Only when
             // the player named it on save.
             if ($crewCardName !== '') {
-                $this->saveCrewCardToCardCreator($userId, (int) $data['crew_card_effect_id'], $crewCardName, $crew->faction?->value);
+                $this->saveCrewCardToCardCreator($userId, $crew->id, (int) $data['crew_card_effect_id'], $crewCardName, $crew->faction?->value);
             }
         });
 
@@ -224,9 +224,11 @@ class StartingArsenalController extends Controller
     /**
      * Save the selected crew card to the owner's Card Creator as a crew-domain
      * CustomUpgrade (the master card already lives there as a CustomCharacter).
-     * Re-saving with the same name updates the card instead of duplicating it.
+     * Matched — and re-saved in place — by campaign_crew_id rather than name,
+     * so renaming the crew card on a later re-save updates the same row
+     * instead of orphaning it and creating a duplicate.
      */
-    private function saveCrewCardToCardCreator(int $userId, int $crewCardId, string $name, ?string $faction): void
+    private function saveCrewCardToCardCreator(int $userId, int $crewId, int $crewCardId, string $name, ?string $faction): void
     {
         $crewCard = CampaignCrewCard::query()
             ->with([
@@ -264,19 +266,19 @@ class StartingArsenalController extends Controller
         }
 
         $existing = CustomUpgrade::query()
-            ->where('user_id', $userId)
-            ->where('name', $name)
-            ->where('domain', UpgradeDomainTypeEnum::Crew->value)
+            ->where('campaign_crew_id', $crewId)
+            ->where('is_campaign_crew_card', true)
             ->first();
 
         if ($existing) {
-            $existing->update(['display_name' => $name, 'faction' => $faction, 'content_blocks' => $blocks, 'is_campaign_crew_card' => true]);
+            $existing->update(['name' => $name, 'display_name' => $name, 'faction' => $faction, 'content_blocks' => $blocks]);
 
             return;
         }
 
         CustomUpgrade::create([
             'user_id' => $userId,
+            'campaign_crew_id' => $crewId,
             'name' => $name,
             'display_name' => $name,
             'slug' => $this->uniqueUpgradeSlug($userId, $name),

@@ -136,6 +136,42 @@ it('exposes arsenal models + crew card effect in the payload', function () {
         );
 });
 
+it('exposes crew_card_custom_upgrade_id for the owner once a crew card has been named/saved, and null otherwise', function () {
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash']);
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    CampaignPlayer::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $other->id]);
+    $crew->update(['crew_card_effect_id' => $effect->id]);
+
+    // No name ever given — no Card Creator copy exists yet.
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('crew.crew_card_custom_upgrade_id', null));
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$campaign, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'My Crew Card',
+        ])
+        ->assertRedirect();
+
+    $upgrade = \App\Models\CustomUpgrade::where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->firstOrFail();
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('crew.crew_card_custom_upgrade_id', $upgrade->id));
+
+    // A non-owner member sees the crew card but never this owner-only edit link.
+    $this->actingAs($other)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('crew.crew_card_custom_upgrade_id', null));
+});
+
 it('exposes story_log entries in chronological order, including games with no story written', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -551,6 +587,42 @@ it('crew_card_advancements exposes only the single picked item for a new-style c
         );
 });
 
+it('CombinedCrewCardEffects::build includes every whole-card borrow\'s own description, not just the starter\'s', function () {
+    $owner = sheetUser();
+    [, $crew] = crewFor2($owner);
+
+    $starter = CampaignCrewCard::factory()->create(['description' => 'Starter default text.']);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    // Two separate whole-card (campaign_crew_card source) Tier-4 borrows —
+    // each one's own "Default Text" description should show up, not just
+    // the first/starter's.
+    $firstBorrow = CampaignCrewCard::factory()->create(['description' => 'First borrowed default text.']);
+    $secondBorrow = CampaignCrewCard::factory()->create(['description' => 'Second borrowed default text.']);
+
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $firstBorrow->id,
+        'crew_card_effect_type' => CampaignCrewCard::class,
+    ]);
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $secondBorrow->id,
+        'crew_card_effect_type' => CampaignCrewCard::class,
+    ]);
+
+    $crew = \App\Support\Campaign\CombinedCrewCardEffects::eagerLoad($crew->fresh());
+    $items = \App\Support\Campaign\CombinedCrewCardEffects::build($crew);
+
+    $textBodies = collect($items)->where('type', 'text')->pluck('data.body')->all();
+
+    expect($textBodies)->toBe([
+        'Starter default text.',
+        'First borrowed default text.',
+        'Second borrowed default text.',
+    ]);
+});
+
 it('leader_advancements context_chain shows Mod > Action > Unit for an Attack Mod applied to a Totem action', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -658,7 +730,12 @@ it('leader_advancements resolves the ally an Any-Joker action/ability was freely
         'base' => 30,
     ]);
 
-    $ally = Character::factory()->create(['name' => 'Rusty Alyce']);
+    // free_choice_source_name reads display_name, but CharacterObserver::
+    // creating() unconditionally derives display_name from `name` (+ title)
+    // on every create — a display_name override is silently discarded. `name`
+    // is the field that actually matters, and `title` must be pinned to null
+    // since the factory otherwise has a random 5% chance of appending one.
+    $ally = Character::factory()->create(['name' => 'Rusty Alyce', 'title' => null]);
     $ability = \App\Models\Ability::factory()->create();
     \App\Models\Campaign\CampaignLeaderAdvancement::create([
         'custom_character_id' => $leader->id,
@@ -741,6 +818,65 @@ it('story_log entries carry an auto-computed tally of injuries/doctor/lucky-miss
         );
 });
 
+it('story_log exposes the linked completed game\'s uuid so View Game Log can route to games.summary', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $completedBaseGame = \App\Models\Game::factory()->create(['status' => \App\Enums\GameStatusEnum::Completed->value]);
+    $completedCampaignGame = \App\Models\Campaign\CampaignGame::factory()->create([
+        'campaign_id' => $campaign->id,
+        'crew_a_id' => $crew->id,
+        'base_game_id' => $completedBaseGame->id,
+        'week_number' => 1,
+    ]);
+    \App\Models\Campaign\CampaignAftermath::factory()->create([
+        'campaign_game_id' => $completedCampaignGame->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+    ]);
+
+    // No linked base game at all — game_uuid must be null, not crash.
+    $noGameCampaignGame = \App\Models\Campaign\CampaignGame::factory()->create([
+        'campaign_id' => $campaign->id,
+        'crew_a_id' => $crew->id,
+        'base_game_id' => null,
+        'week_number' => 2,
+    ]);
+    \App\Models\Campaign\CampaignAftermath::factory()->create([
+        'campaign_game_id' => $noGameCampaignGame->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+    ]);
+
+    // Linked game exists but isn't finished yet — must not link to a
+    // not-yet-viewable summary page.
+    $inProgressBaseGame = \App\Models\Game::factory()->create(['status' => \App\Enums\GameStatusEnum::InProgress->value]);
+    $inProgressCampaignGame = \App\Models\Campaign\CampaignGame::factory()->create([
+        'campaign_id' => $campaign->id,
+        'crew_a_id' => $crew->id,
+        'base_game_id' => $inProgressBaseGame->id,
+        'week_number' => 3,
+    ]);
+    \App\Models\Campaign\CampaignAftermath::factory()->create([
+        'campaign_game_id' => $inProgressCampaignGame->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('story_log', function ($log) use ($completedBaseGame) {
+                $byWeek = collect($log)->keyBy(fn ($e) => $e['week_number']);
+
+                return $byWeek[1]['game_uuid'] === $completedBaseGame->uuid
+                    && $byWeek[2]['game_uuid'] === null
+                    && $byWeek[3]['game_uuid'] === null;
+            })
+        );
+});
+
 it('exposes an arsenal model\'s permanently gained Abilities from a Lucky Miss result', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -798,6 +934,78 @@ it('addManualArsenalModel rejects an unknown character_id', function () {
     $this->actingAs($owner)
         ->post(route('campaigns.crews.arsenal.models.store', [$campaign, $crew->share_code]), ['character_id' => 999999])
         ->assertSessionHasErrors('character_id');
+});
+
+it('updateArsenalModel lets the crew owner rename an already-hired model', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $character = Character::factory()->create();
+    $model = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $character->id,
+        'label' => 'Old Nickname',
+    ]);
+
+    $this->actingAs($owner)
+        ->put(route('campaigns.crews.arsenal.models.update', [$campaign, $crew->share_code, $model]), [
+            'label' => 'New Nickname',
+        ])
+        ->assertRedirect();
+
+    expect($model->fresh()->label)->toBe('New Nickname');
+});
+
+it('updateArsenalModel can clear a model\'s nickname', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $character = Character::factory()->create();
+    $model = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $character->id,
+        'label' => 'Old Nickname',
+    ]);
+
+    $this->actingAs($owner)
+        ->put(route('campaigns.crews.arsenal.models.update', [$campaign, $crew->share_code, $model]), ['label' => null])
+        ->assertRedirect();
+
+    expect($model->fresh()->label)->toBeNull();
+});
+
+it('updateArsenalModel rejects a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $character = Character::factory()->create();
+    $model = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $character->id,
+        'label' => 'Old Nickname',
+    ]);
+
+    $this->actingAs($other)
+        ->put(route('campaigns.crews.arsenal.models.update', [$campaign, $crew->share_code, $model]), ['label' => 'Hijacked'])
+        ->assertForbidden();
+
+    expect($model->fresh()->label)->toBe('Old Nickname');
+});
+
+it('updateArsenalModel rejects a model belonging to a different crew', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    [, $otherCrew] = crewFor2($owner);
+    $character = Character::factory()->create();
+    $model = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $otherCrew->id,
+        'character_id' => $character->id,
+        'label' => 'Old Nickname',
+    ]);
+
+    $this->actingAs($owner)
+        ->put(route('campaigns.crews.arsenal.models.update', [$campaign, $crew->share_code, $model]), ['label' => 'Hijacked'])
+        ->assertForbidden();
+
+    expect($model->fresh()->label)->toBe('Old Nickname');
 });
 
 it('addManualEquipment lets the crew owner add equipment outside the normal Barter/Aftermath flow', function () {

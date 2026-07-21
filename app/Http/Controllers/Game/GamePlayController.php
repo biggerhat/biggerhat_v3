@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Game;
 
+use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\TokenRemovalTimingEnum;
 use App\Enums\TournamentGameResultEnum;
@@ -19,6 +20,7 @@ use App\Http\Requests\Games\UpdateCrewMemberRequest;
 use App\Http\Requests\Games\UpdateCrewUpgradePowerBarRequest;
 use App\Http\Requests\Games\UpdateSchemeNotesRequest;
 use App\Http\Requests\Games\UpdateSoulstonePoolRequest;
+use App\Models\Campaign\CampaignGame;
 use App\Models\Character;
 use App\Models\Game;
 use App\Models\GameCrewMember;
@@ -87,6 +89,14 @@ class GamePlayController extends Controller
                 foreach ($newUpgradeIds as $upgradeId) {
                     $upgrade = $upgrades->get($upgradeId);
                     if (! $upgrade) {
+                        continue;
+                    }
+                    // "Plentiful" is an Equipment-card mechanic — a generic Injury
+                    // (e.g. "Lingering Wound") has no such limit and can legitimately
+                    // apply to any number of different models across a crew, so it
+                    // must never be capped by the same "no plentiful set → 1" default
+                    // that's correct for Equipment.
+                    if ($upgrade->campaign_upgrade_kind === 'injury') {
                         continue;
                     }
                     $plentiful = $upgrade->plentiful ?? 1;
@@ -1146,9 +1156,52 @@ class GamePlayController extends Controller
             ]);
         }
 
+        if ($game->format === GameFormatEnum::Campaign) {
+            $this->syncCampaignGameResult($game, $p1, $p2);
+        }
+
         if (! $game->is_solo || $game->is_observable) {
             broadcast(new GameStatusChanged($game));
         }
+    }
+
+    /**
+     * Live-tracked Campaign games (solo or multiplayer, both created via
+     * CampaignGameController's playLive()/store()) never write their final
+     * VP/winner back onto the linked CampaignGame row — unlike the
+     * manually-logged solo path (storeSolo()), which fills these in at log
+     * time. Without this, the campaign never learns the game finished, so
+     * there was no Aftermath prefill to build from and no way to reach the
+     * Aftermath wizard at all afterward.
+     *
+     * schemes_completed_a/b deliberately stay untouched — the live tracker
+     * only totals points, it doesn't itemize "schemes completed" the way the
+     * manual solo log form asks for directly, and Aftermath's own Phase 1
+     * (drawHand()) takes that count as a fresh required input regardless, so
+     * this is a pure prefill gap, not a functional one.
+     */
+    private function syncCampaignGameResult(Game $game, GamePlayer $p1, GamePlayer $p2): void
+    {
+        $campaignGame = CampaignGame::where('base_game_id', $game->id)->first();
+        if (! $campaignGame) {
+            return;
+        }
+
+        $campaignGame->loadMissing('crewA:id,user_id');
+        $aIsP1 = $campaignGame->crewA->user_id === $p1->user_id;
+        $pA = $aIsP1 ? $p1 : $p2;
+        $pB = $aIsP1 ? $p2 : $p1;
+
+        $campaignGame->update([
+            'vp_a' => $pA->total_points,
+            'vp_b' => $pB->total_points,
+            'winner_crew_id' => match (true) {
+                $pA->total_points > $pB->total_points => $campaignGame->crew_a_id,
+                $pB->total_points > $pA->total_points => $campaignGame->crew_b_id,
+                default => null,
+            },
+            'status' => 'aftermath',
+        ]);
     }
 
     /**

@@ -25,10 +25,24 @@ class StoreInvitationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Either an existing user (id) or an email address.
-            'user_id' => ['nullable', 'integer', 'exists:users,id', 'required_without:email'],
-            'email' => ['nullable', 'email:rfc', 'required_without:user_id'],
+            // One or more existing users (bulk-select), a single legacy
+            // user_id, and/or a single email address — at least one of the
+            // three must be present, enforced in withValidator() since no
+            // single required_without covers a three-way either/or.
+            'user_ids' => ['nullable', 'array'],
+            'user_ids.*' => ['integer', 'distinct', 'exists:users,id'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'email' => ['nullable', 'email:rfc'],
             'expires_in_days' => ['nullable', 'integer', 'min:1', 'max:60'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            if (empty($this->input('user_ids')) && empty($this->input('user_id')) && empty($this->input('email'))) {
+                $validator->errors()->add('user_ids', 'Select at least one player or enter an email.');
+            }
+        });
     }
 }

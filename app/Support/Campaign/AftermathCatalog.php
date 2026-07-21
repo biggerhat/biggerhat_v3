@@ -443,7 +443,6 @@ class AftermathCatalog
                         'source' => 'campaign_crew_card',
                         'name' => $c->name,
                         'body' => $c->description,
-                        'front_image' => $c->front_image,
                         'actions' => $c->actions->map(fn (Action $a) => ['id' => $a->id, 'name' => $a->name]),
                         'abilities' => $c->abilities->map(fn (Ability $a) => ['id' => $a->id, 'name' => $a->name]),
                         // Whether taking this borrowed effect also requires picking

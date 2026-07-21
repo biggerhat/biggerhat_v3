@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin\Campaign;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Campaign\StoreCrewCardRequest;
 use App\Http\Requests\Admin\Campaign\UpdateCrewCardRequest;
-use App\Jobs\Campaign\GenerateCrewCardImage;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Campaign\CampaignCrewCard;
@@ -71,7 +70,6 @@ class CrewCardAdminController extends Controller
         $row = CampaignCrewCard::create($validated);
         $row->actions()->sync($this->actionSyncMap($actionsInput));
         $row->abilities()->sync($this->abilitySyncMap($abilitiesInput));
-        GenerateCrewCardImage::dispatch($row->id)->afterCommit();
 
         return redirect()->route('admin.campaign.crew-cards.index')->withMessage("{$row->name} created.");
     }
@@ -86,7 +84,6 @@ class CrewCardAdminController extends Controller
         $crewCard->update($validated);
         $crewCard->actions()->sync($this->actionSyncMap($actionsInput));
         $crewCard->abilities()->sync($this->abilitySyncMap($abilitiesInput));
-        GenerateCrewCardImage::dispatch($crewCard->id)->afterCommit();
 
         return redirect()->route('admin.campaign.crew-cards.index')->withMessage("{$crewCard->name} updated.");
     }

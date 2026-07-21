@@ -23,39 +23,74 @@ class CampaignInvitationController extends Controller
         $data = $request->validated();
         $expiresIn = (int) ($data['expires_in_days'] ?? 14);
 
-        // Block duplicates: if a pending invitation already exists for the
-        // same user/email, return that one instead of stacking rows.
-        $existing = CampaignInvitation::query()
-            ->where('campaign_id', $campaign->id)
-            ->when($data['user_id'] ?? null, fn ($q, $uid) => $q->where('user_id', $uid))
-            ->when($data['email'] ?? null, fn ($q, $email) => $q->where('email', $email))
-            ->pending()
-            ->first();
+        // Merge the bulk-select array with the legacy singular user_id, then
+        // append the (still singular) email target — each becomes its own
+        // invitation, so one submit can invite an arbitrary number of users
+        // at once instead of only ever one.
+        $userIds = collect($data['user_ids'] ?? [])
+            ->push($data['user_id'] ?? null)
+            ->filter()
+            ->unique()
+            ->values();
 
-        if ($existing) {
-            return redirect()->route('campaigns.show', $campaign)
-                ->withMessage('Invitation already pending.');
+        /** @var \Illuminate\Support\Collection<int, array{user_id: int|null, email: string|null}> $targets */
+        $targets = $userIds->map(fn (int $userId): array => ['user_id' => $userId, 'email' => null]);
+        if (! empty($data['email'])) {
+            $targets->push(['user_id' => null, 'email' => $data['email']]);
         }
 
-        // Reject if user is already a player.
-        if (! empty($data['user_id']) && $campaign->players()->where('user_id', $data['user_id'])->exists()) {
-            return redirect()->back()->withMessage('That user is already in this campaign.', null, MessageTypeEnum::error);
+        $sent = 0;
+        $skipped = 0;
+
+        foreach ($targets as $target) {
+            // Block duplicates: if a pending invitation already exists for
+            // the same user/email, skip it instead of stacking rows.
+            $existing = CampaignInvitation::query()
+                ->where('campaign_id', $campaign->id)
+                ->when($target['user_id'], fn ($q, $uid) => $q->where('user_id', $uid))
+                ->when($target['email'], fn ($q, $email) => $q->where('email', $email))
+                ->pending()
+                ->first();
+
+            if ($existing) {
+                $skipped++;
+
+                continue;
+            }
+
+            // Skip if user is already a player.
+            if ($target['user_id'] && $campaign->players()->where('user_id', $target['user_id'])->exists()) {
+                $skipped++;
+
+                continue;
+            }
+
+            $invitation = CampaignInvitation::create([
+                'campaign_id' => $campaign->id,
+                'user_id' => $target['user_id'],
+                'email' => $target['email'],
+                'expires_at' => now()->addDays($expiresIn),
+            ]);
+
+            // Only an existing-user invite has someone to notify — an
+            // email-only invite has no User row yet.
+            if ($invitation->user_id) {
+                User::find($invitation->user_id)?->notify(new CampaignInvitationReceived($invitation));
+            }
+
+            $sent++;
         }
 
-        $invitation = CampaignInvitation::create([
-            'campaign_id' => $campaign->id,
-            'user_id' => $data['user_id'] ?? null,
-            'email' => $data['email'] ?? null,
-            'expires_at' => now()->addDays($expiresIn),
-        ]);
-
-        // Only an existing-user invite has someone to notify — an
-        // email-only invite has no User row yet.
-        if ($invitation->user_id) {
-            User::find($invitation->user_id)?->notify(new CampaignInvitationReceived($invitation));
+        if ($sent === 0) {
+            return redirect()->back()->withMessage('Everyone selected already has a pending invitation or is already in this campaign.', null, MessageTypeEnum::error);
         }
 
-        return redirect()->route('campaigns.show', $campaign)->withMessage('Invitation sent.');
+        $message = $sent === 1 ? 'Invitation sent.' : "{$sent} invitations sent.";
+        if ($skipped > 0) {
+            $message .= " ({$skipped} skipped — already invited or already a player.)";
+        }
+
+        return redirect()->route('campaigns.show', $campaign)->withMessage($message);
     }
 
     /**

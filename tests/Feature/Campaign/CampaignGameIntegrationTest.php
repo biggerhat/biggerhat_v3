@@ -5,6 +5,7 @@ use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PermissionEnum;
 use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignGame;
@@ -93,7 +94,6 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
     $starter = \App\Models\Campaign\CampaignCrewCard::factory()->create([
         'name' => 'Fire in the Hole',
         'description' => 'Starter body text.',
-        'front_image' => 'campaign-crew-cards/1/front.png',
     ]);
     $crewA->update(['crew_card_effect_id' => $starter->id]);
 
@@ -110,7 +110,9 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
         ->assertInertia(fn ($page) => $page
             ->where('campaign_context.crew_a_card.effect.name', 'Fire in the Hole')
             ->where('campaign_context.crew_a_card.effect.body', 'Starter body text.')
-            ->where('campaign_context.crew_a_card.effect.front_image', 'campaign-crew-cards/1/front.png')
+            // No card art column exists on the shared CampaignCrewCard catalog —
+            // front_image is only ever populated for an Upgrade-sourced effect.
+            ->where('campaign_context.crew_a_card.effect.front_image', null)
             ->where('campaign_context.crew_a_card.borrowed.0.effect.name', 'Borrowed Boon')
             ->where('campaign_context.crew_b_card.effect', null)
         );
@@ -359,6 +361,60 @@ it('Master Select for a campaign game offers the player campaign leader', functi
         ->assertInertia(fn ($page) => $page
             ->where('masters', [])
             ->where('campaign_leader_option.name', 'Mortimer Vance')
+        );
+});
+
+it('campaign_arsenal exposes each model\'s nickname, injuries, and Lucky-Miss-granted abilities for the crew-select picker', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-arsenal-001',
+        'name' => 'Mortimer Vance',
+        'display_name' => 'Mortimer Vance',
+        'slug' => 'mortimer-vance-arsenal',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    // CharacterObserver::creating() derives display_name from `name` (+ title)
+    // unconditionally on every create, ignoring any explicit display_name
+    // override — so `name` (not display_name) is what must be set here, and
+    // `title` must be pinned to null since the factory otherwise gives it a
+    // random 5% chance of appending a title and breaking this assertion.
+    $character = \App\Models\Character::factory()->create(['name' => 'Rusty Alyce', 'title' => null, 'faction' => FactionEnum::Arcanists->value]);
+    $model = \App\Models\Campaign\CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crewA->id,
+        'character_id' => $character->id,
+        'label' => 'Old Bessie',
+    ]);
+
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Lingering Wound 1']);
+    $model->attachInjury($injury);
+
+    $ability = \App\Models\Ability::factory()->create(['name' => 'Undying']);
+    $luckyMiss = \App\Models\Campaign\LuckyMiss::factory()->create(['name' => 'Lucky Miss 8', 'ability_id' => $ability->id]);
+    $model->applyLuckyMiss($luckyMiss->id);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_arsenal', function ($arsenal) {
+                $row = collect($arsenal)->firstWhere('label', 'Old Bessie');
+
+                return $row
+                    && $row['name'] === 'Rusty Alyce'
+                    && $row['injuries'][0]['name'] === 'Lingering Wound 1'
+                    && $row['gained_abilities'][0]['name'] === 'Undying'
+                    // Raw name is still in the payload (dedup against
+                    // gained_abilities happens client-side, same as the
+                    // Arsenal Sheet).
+                    && $row['lucky_miss'] === ['Lucky Miss 8'];
+            })
         );
 });
 
@@ -1007,4 +1063,114 @@ it('character_upgrades at InProgress carries the equipment\'s granted actions/ab
             ->where('character_upgrades.0.actions.0.is_signature', true)
             ->where('character_upgrades.0.abilities.0.name', 'Granted Ward')
         );
+});
+
+it('Campaigns/Show exposes active_multiplayer_games for an in-progress game, campaign-wide (not just to its own two players)', function () {
+    [$userA, $userB, $campaign, , , $game] = campaignGameSetup();
+    $bystander = cintUser();
+    CampaignPlayer::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $bystander->id]);
+
+    $this->actingAs($bystander)
+        ->get(route('campaigns.show', $campaign))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('active_multiplayer_games.0.game_uuid', $game->uuid)
+            ->where('active_multiplayer_games.0.status', 'crew_select')
+            ->where('active_multiplayer_games.0.week_number', 2)
+            ->where('active_multiplayer_games.0.crew_a_name', $userA->name)
+            ->where('active_multiplayer_games.0.crew_b_name', $userB->name)
+        );
+
+    // Once the game is completed, it drops off the active list.
+    $game->update(['status' => GameStatusEnum::Completed->value]);
+
+    $this->actingAs($userA)
+        ->get(route('campaigns.show', $campaign))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('active_multiplayer_games', []));
+});
+
+it('Campaigns/Show never exposes active_multiplayer_games for a solo campaign', function () {
+    $user = cintUser();
+    $campaign = Campaign::factory()->create(['organizer_user_id' => $user->id, 'is_solo' => true, 'status' => \App\Enums\Campaign\CampaignStatusEnum::Active]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.show', $campaign))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('active_multiplayer_games', []));
+});
+
+// ───── Finishing a live multiplayer game reaches Aftermath ─────
+// Previously nothing synced a finished tracked game's score back onto its
+// CampaignGame row, and nothing in the tracker linked to
+// campaigns.aftermaths.start at all — a finished multiplayer Campaign game
+// was a dead end with no way to reach Aftermath.
+
+it('finalizing a multiplayer Campaign game syncs VP + winner onto the linked CampaignGame row', function () {
+    [$userA, $userB, , $crewA, , $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+    GamePlayer::where('game_id', $game->id)->where('user_id', $userA->id)->update(['total_points' => 8]);
+    GamePlayer::where('game_id', $game->id)->where('user_id', $userB->id)->update(['total_points' => 5]);
+
+    $this->actingAs($userA)->postJson(route('games.play.complete', $game->uuid))->assertOk();
+    $this->actingAs($userB)->postJson(route('games.play.complete', $game->uuid))->assertOk();
+
+    $campaignGame = CampaignGame::where('base_game_id', $game->id)->firstOrFail();
+    expect($campaignGame->vp_a)->toBe(8)
+        ->and($campaignGame->vp_b)->toBe(5)
+        ->and($campaignGame->winner_crew_id)->toBe($crewA->id)
+        ->and($campaignGame->status)->toBe('aftermath');
+});
+
+it('records a tie (no winner_crew_id) when both players finish with equal VP', function () {
+    [$userA, $userB, , , , $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+    GamePlayer::where('game_id', $game->id)->where('user_id', $userA->id)->update(['total_points' => 6]);
+    GamePlayer::where('game_id', $game->id)->where('user_id', $userB->id)->update(['total_points' => 6]);
+
+    $this->actingAs($userA)->postJson(route('games.play.complete', $game->uuid))->assertOk();
+    $this->actingAs($userB)->postJson(route('games.play.complete', $game->uuid))->assertOk();
+
+    $campaignGame = CampaignGame::where('base_game_id', $game->id)->firstOrFail();
+    expect($campaignGame->winner_crew_id)->toBeNull();
+});
+
+it('lets each player reach their own Aftermath from a finished multiplayer Campaign game, prefilled from the synced score', function () {
+    [$userA, $userB, , $crewA, $crewB, $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+    GamePlayer::where('game_id', $game->id)->where('user_id', $userA->id)->update(['total_points' => 8]);
+    GamePlayer::where('game_id', $game->id)->where('user_id', $userB->id)->update(['total_points' => 5]);
+    $this->actingAs($userA)->postJson(route('games.play.complete', $game->uuid))->assertOk();
+    $this->actingAs($userB)->postJson(route('games.play.complete', $game->uuid))->assertOk();
+
+    $campaignGame = CampaignGame::where('base_game_id', $game->id)->firstOrFail();
+
+    $this->actingAs($userA)->post(route('campaigns.aftermaths.start', $campaignGame))->assertRedirect();
+    $aftermathA = CampaignAftermath::where('campaign_game_id', $campaignGame->id)->where('campaign_crew_id', $crewA->id)->firstOrFail();
+    expect($aftermathA->status)->toBe('open');
+
+    $this->actingAs($userB)->post(route('campaigns.aftermaths.start', $campaignGame))->assertRedirect();
+    $aftermathB = CampaignAftermath::where('campaign_game_id', $campaignGame->id)->where('campaign_crew_id', $crewB->id)->firstOrFail();
+    expect($aftermathB->status)->toBe('open');
+
+    $this->actingAs($userA)
+        ->get(route('campaigns.aftermaths.show', $aftermathA))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('prefill.vp_self', 8)
+            ->where('prefill.vp_opponent', 5)
+            ->where('prefill.won', true)
+        );
+});
+
+it('exposes campaign_context.id on the tracker so the client can reach campaigns.aftermaths.start', function () {
+    [$userA, , , , , $game] = campaignGameSetup();
+
+    $campaignGame = CampaignGame::where('base_game_id', $game->id)->firstOrFail();
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('campaign_context.id', $campaignGame->id));
 });

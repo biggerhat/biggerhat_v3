@@ -722,8 +722,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelected" />
                                 </label>
                                 <p class="mt-1 text-[10px] text-muted-foreground/60">
-                                    Preview only — this image isn't saved with the card, so it won't be here after a
-                                    refresh or on the public share link. Re-upload it each time you edit.
+                                    Preview only — this image isn't saved with the card, so it won't be here after a refresh or on the public share
+                                    link. Re-upload it each time you edit.
                                 </p>
                             </div>
                         </CardContent>
@@ -981,7 +981,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             >
                                         </div>
 
-                                        <div v-for="(ability, aIdx) in abilities" :key="'ability-' + aIdx" class="space-y-2 rounded-lg border p-3">
+                                        <!-- Same per-type tint as the Custom Upgrade editor's Card Content
+                                             blocks (blockTypeColor in UpgradeEditor.vue) — breaks up the
+                                             Abilities/Actions/Triggers sections visually instead of every
+                                             block looking identical. -->
+                                        <div
+                                            v-for="(ability, aIdx) in abilities"
+                                            :key="'ability-' + aIdx"
+                                            class="space-y-2 rounded-lg border border-blue-500/20 bg-blue-500/10 p-3"
+                                        >
                                             <template v-if="ability.source_id">
                                                 <div class="flex items-center justify-between">
                                                     <div class="flex items-center gap-2">
@@ -1079,7 +1087,11 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             >
                                         </div>
 
-                                        <div v-for="(action, idx) in actions" :key="'action-' + idx" class="space-y-3 rounded-lg border p-3">
+                                        <div
+                                            v-for="(action, idx) in actions"
+                                            :key="'action-' + idx"
+                                            class="space-y-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3"
+                                        >
                                             <div class="flex items-center justify-between">
                                                 <div class="flex flex-1 items-center gap-2">
                                                     <Input v-model="action.name" placeholder="Action name" class="h-7 text-sm font-medium" />
@@ -1191,7 +1203,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                 <div
                                                     v-for="(trigger, tIdx) in action.triggers"
                                                     :key="'trigger-' + tIdx"
-                                                    class="flex items-start gap-2 rounded border bg-muted/30 p-2"
+                                                    class="flex items-start gap-2 rounded border border-purple-500/20 bg-purple-500/10 p-2"
                                                 >
                                                     <template v-if="trigger.source_id">
                                                         <div class="flex-1 text-xs">

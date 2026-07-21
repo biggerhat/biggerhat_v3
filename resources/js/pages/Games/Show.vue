@@ -2,6 +2,7 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import LootEffectText from '@/components/Bonanza/LootEffectText.vue';
+import { getFactionVar } from '@/components/CardCreator/utils';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -29,7 +30,6 @@ import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
 import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
 import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
-import { getFactionVar } from '@/components/CardCreator/utils';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
@@ -183,8 +183,9 @@ interface CrewCardEffect {
     id: number;
     name: string;
     body: string | null;
-    // Server-generated card image (App\Services\Campaign\CrewCardImageGenerator).
-    // Null until the first render lands — falls back to the text rendering below.
+    // Real per-card art, only ever populated for an Upgrade-sourced Tier-4
+    // borrow (the shared CampaignCrewCard catalog has no card art of its
+    // own) — not currently rendered here, which stays text-only regardless.
     front_image: string | null;
     actions: CrewCardActionData[];
     abilities: CrewCardAbilityData[];
@@ -263,6 +264,10 @@ const props = defineProps<{
     }[];
     is_observer: boolean;
     campaign_context: {
+        /** The CampaignGame row's own id — null when no CampaignGame link
+         *  exists for this game (see buildCampaignContextForSoloFallback).
+         *  Needed to POST campaigns.aftermaths.start once the game finishes. */
+        id: number | null;
         campaign: { id: number; name: string; current_week: number; length_weeks: number } | null;
         crew_a: { id: number; share_code: string; name: string; user_id: number } | null;
         crew_b: { id: number; share_code: string; name: string; user_id: number } | null;
@@ -689,7 +694,12 @@ const myStepDone = (step: string) => {
         case 'master':
             return !!myPlayer.value.master_name;
         case 'crew':
-            return !!myPlayer.value.crew_build_id;
+            // Campaign-mode crews go through submitCampaignCrew, which sets
+            // crew_skipped (never crew_build_id) — without this, a Campaign
+            // player's own "waiting for opponent" banner never appears after
+            // they confirm, making Confirm Crew look stuck. Matches
+            // opponentStepDone's identical check just above.
+            return !!myPlayer.value.crew_build_id || !!myPlayer.value.crew_skipped;
         case 'scheme':
             return !!myPlayer.value.current_scheme_id;
         default:
@@ -1127,6 +1137,25 @@ const previewMember = ref<any>(null);
 const expandedCrewCard = ref<'a' | 'b' | null>(null);
 const toggleCrewCard = (side: 'a' | 'b') => {
     expandedCrewCard.value = expandedCrewCard.value === side ? null : side;
+};
+
+// Once a Campaign game finishes, each player runs their OWN Aftermath (the
+// server resolves which crew from the requesting user, see
+// CampaignAftermathController::crewFor()) — this was previously
+// undiscoverable: nothing anywhere linked from a finished game to it.
+// Hidden for a spectator (no crew in this game) and for the legacy
+// no-CampaignGame-row fallback (id null — see buildCampaignContextForSoloFallback).
+const canStartAftermath = computed(
+    () =>
+        !!props.campaign_context?.id &&
+        (props.game.status === GameStatus.Completed || props.game.status === GameStatus.Abandoned) &&
+        (props.campaign_context.crew_a?.user_id === currentUserId.value || props.campaign_context.crew_b?.user_id === currentUserId.value),
+);
+const startingAftermath = ref(false);
+const startAftermath = () => {
+    if (!props.campaign_context?.id) return;
+    startingAftermath.value = true;
+    router.post(route('campaigns.aftermaths.start', props.campaign_context.id), {}, { onFinish: () => (startingAftermath.value = false) });
 };
 const cardFullscreenOpen = ref(false);
 const cardFullscreenSrc = ref<string | null>(null);
@@ -2677,6 +2706,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <span v-if="campaign_context.ss_bonus_to_lower > 0" class="ml-auto rounded bg-primary/15 px-2 py-0.5 text-primary">
                         +{{ campaign_context.ss_bonus_to_lower }} ss to lower-rated crew
                     </span>
+                    <Button v-if="canStartAftermath" size="sm" class="ml-auto" :disabled="startingAftermath" @click="startAftermath">
+                        {{ startingAftermath ? 'Starting…' : 'Continue to Aftermath' }}
+                    </Button>
                 </div>
                 <div
                     v-for="side in ['a', 'b'] as const"
@@ -2700,9 +2732,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 v-if="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.body"
                                 class="text-xs leading-relaxed text-muted-foreground"
                             >
-                                <GameText
-                                    :text="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)!.body!"
-                                />
+                                <GameText :text="(side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)!.body!" />
                             </p>
                             <ActionCard
                                 v-for="(a, i) in (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)
@@ -4711,62 +4741,69 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         />
                                     </div>
                                 </Transition>
-                                <!-- Attached upgrades -->
-                                <div v-if="member.attached_upgrades?.length" class="mt-1 space-y-0.5 pl-3">
-                                    <div
-                                        v-for="upgrade in member.attached_upgrades"
-                                        :key="'au-' + upgrade.id"
-                                        class="rounded bg-black/20 px-2 py-1 text-sm"
-                                        :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
-                                    >
+                                <!-- Attached upgrades — collapsible so a unit with several
+                                     Equipment/Injury attachments doesn't grow the column
+                                     unboundedly (mirrors the References <details> pattern below). -->
+                                <details v-if="member.attached_upgrades?.length" open class="mt-1 rounded-lg border border-white/10">
+                                    <summary class="cursor-pointer px-2 py-1 text-[11px] font-medium text-white/70 hover:text-white">
+                                        Attached Upgrades ({{ member.attached_upgrades.length }})
+                                    </summary>
+                                    <div class="space-y-0.5 p-1.5 pt-0.5">
                                         <div
-                                            class="flex items-center gap-1.5"
-                                            :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
-                                            :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
-                                            @click="openAttachedUpgradePreview(upgrade)"
-                                            @keydown.enter="openAttachedUpgradePreview(upgrade)"
+                                            v-for="upgrade in member.attached_upgrades"
+                                            :key="'au-' + upgrade.id"
+                                            class="rounded bg-black/20 px-2 py-1 text-sm"
+                                            :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
                                         >
-                                            <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                            <template v-if="(upgrade as any).loot_side">
-                                                <span
-                                                    class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
-                                                    :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
-                                                >
-                                                    {{ (upgrade as any).loot_side.toUpperCase() }}
-                                                </span>
-                                                <span
-                                                    v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                    class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
-                                                >
-                                                    {{ lootCardById((upgrade as any).loot_card_id)?.value_label
-                                                    }}<GameIcon
-                                                        v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
-                                                        :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
-                                                        class-name="h-2.5 inline-block"
-                                                    />
-                                                </span>
-                                            </template>
-                                            <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                            <button
-                                                v-if="!isObserver"
-                                                class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                                aria-label="Remove upgrade"
-                                                @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                            <div
+                                                class="flex items-center gap-1.5"
+                                                :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
+                                                :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
+                                                @click="openAttachedUpgradePreview(upgrade)"
+                                                @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                             >
-                                                <X class="size-3" />
-                                            </button>
+                                                <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
+                                                <template v-if="(upgrade as any).loot_side">
+                                                    <span
+                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                        :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
+                                                    >
+                                                        {{ (upgrade as any).loot_side.toUpperCase() }}
+                                                    </span>
+                                                    <span
+                                                        v-if="lootCardById((upgrade as any).loot_card_id)"
+                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
+                                                    >
+                                                        {{ lootCardById((upgrade as any).loot_card_id)?.value_label
+                                                        }}<GameIcon
+                                                            v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
+                                                            :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
+                                                            class-name="h-2.5 inline-block"
+                                                        />
+                                                    </span>
+                                                </template>
+                                                <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
+                                                <button
+                                                    v-if="!isObserver"
+                                                    class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
+                                                    aria-label="Remove upgrade"
+                                                    @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                                >
+                                                    <X class="size-3" />
+                                                </button>
+                                            </div>
+                                            <PowerBarBubbles
+                                                v-if="upgradePowerMax(upgrade.id) > 0"
+                                                class="mt-1 pl-5"
+                                                :max="upgradePowerMax(upgrade.id)"
+                                                :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
+                                                :readonly="isObserver"
+                                                compact
+                                                @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
+                                            />
                                         </div>
-                                        <PowerBarBubbles
-                                            v-if="upgradePowerMax(upgrade.id) > 0"
-                                            class="mt-1 pl-5"
-                                            :max="upgradePowerMax(upgrade.id)"
-                                            :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
-                                            :readonly="isObserver"
-                                            compact
-                                            @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
-                                        />
                                     </div>
-                                </div>
+                                </details>
                             </div>
                             <div
                                 v-for="member in myKilledMembers"
@@ -5207,62 +5244,67 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         />
                                     </div>
                                 </Transition>
-                                <!-- Attached upgrades -->
-                                <div v-if="member.attached_upgrades?.length" class="mt-1 space-y-0.5 pl-3">
-                                    <div
-                                        v-for="upgrade in member.attached_upgrades"
-                                        :key="'oau-' + upgrade.id"
-                                        class="rounded bg-black/20 px-2 py-1 text-sm"
-                                        :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
-                                    >
+                                <!-- Attached upgrades — collapsible, see the matching player-side block above. -->
+                                <details v-if="member.attached_upgrades?.length" open class="mt-1 rounded-lg border border-white/10">
+                                    <summary class="cursor-pointer px-2 py-1 text-[11px] font-medium text-white/70 hover:text-white">
+                                        Attached Upgrades ({{ member.attached_upgrades.length }})
+                                    </summary>
+                                    <div class="space-y-0.5 p-1.5 pt-0.5">
                                         <div
-                                            class="flex items-center gap-1.5"
-                                            :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
-                                            :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
-                                            @click="openAttachedUpgradePreview(upgrade)"
-                                            @keydown.enter="openAttachedUpgradePreview(upgrade)"
+                                            v-for="upgrade in member.attached_upgrades"
+                                            :key="'oau-' + upgrade.id"
+                                            class="rounded bg-black/20 px-2 py-1 text-sm"
+                                            :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
                                         >
-                                            <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                            <template v-if="(upgrade as any).loot_side">
-                                                <span
-                                                    class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
-                                                    :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
-                                                >
-                                                    {{ (upgrade as any).loot_side.toUpperCase() }}
-                                                </span>
-                                                <span
-                                                    v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                    class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
-                                                >
-                                                    {{ lootCardById((upgrade as any).loot_card_id)?.value_label
-                                                    }}<GameIcon
-                                                        v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
-                                                        :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
-                                                        class-name="h-2.5 inline-block"
-                                                    />
-                                                </span>
-                                            </template>
-                                            <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                            <button
-                                                v-if="isSolo && !isObserver"
-                                                class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                                aria-label="Remove upgrade"
-                                                @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                            <div
+                                                class="flex items-center gap-1.5"
+                                                :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
+                                                :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
+                                                @click="openAttachedUpgradePreview(upgrade)"
+                                                @keydown.enter="openAttachedUpgradePreview(upgrade)"
                                             >
-                                                <X class="size-3" />
-                                            </button>
+                                                <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
+                                                <template v-if="(upgrade as any).loot_side">
+                                                    <span
+                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                        :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
+                                                    >
+                                                        {{ (upgrade as any).loot_side.toUpperCase() }}
+                                                    </span>
+                                                    <span
+                                                        v-if="lootCardById((upgrade as any).loot_card_id)"
+                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
+                                                    >
+                                                        {{ lootCardById((upgrade as any).loot_card_id)?.value_label
+                                                        }}<GameIcon
+                                                            v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
+                                                            :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
+                                                            class-name="h-2.5 inline-block"
+                                                        />
+                                                    </span>
+                                                </template>
+                                                <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
+                                                <button
+                                                    v-if="isSolo && !isObserver"
+                                                    class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
+                                                    aria-label="Remove upgrade"
+                                                    @click.stop="quickRemoveUpgrade(member, upgrade.id)"
+                                                >
+                                                    <X class="size-3" />
+                                                </button>
+                                            </div>
+                                            <PowerBarBubbles
+                                                v-if="upgradePowerMax(upgrade.id) > 0"
+                                                class="mt-1 pl-5"
+                                                :max="upgradePowerMax(upgrade.id)"
+                                                :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
+                                                :readonly="!isSolo || isObserver"
+                                                compact
+                                                @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
+                                            />
                                         </div>
-                                        <PowerBarBubbles
-                                            v-if="upgradePowerMax(upgrade.id) > 0"
-                                            class="mt-1 pl-5"
-                                            :max="upgradePowerMax(upgrade.id)"
-                                            :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
-                                            :readonly="!isSolo || isObserver"
-                                            compact
-                                            @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
-                                        />
                                     </div>
-                                </div>
+                                </details>
                             </div>
                             <div
                                 v-for="member in opponentKilledMembers"

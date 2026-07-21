@@ -63,6 +63,54 @@ it('notifies an existing user invited by user_id', function () {
     \Illuminate\Support\Facades\Notification::assertSentTo($invitee, \App\Notifications\Campaign\CampaignInvitationReceived::class);
 });
 
+it('invites multiple users at once via user_ids, notifying each', function () {
+    \Illuminate\Support\Facades\Notification::fake();
+    $organizer = invUser();
+    $a = invUser();
+    $b = invUser();
+    $c = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.invitations.store', $campaign), ['user_ids' => [$a->id, $b->id, $c->id]])
+        ->assertRedirect();
+
+    expect($campaign->invitations()->count())->toBe(3);
+    \Illuminate\Support\Facades\Notification::assertSentTo($a, \App\Notifications\Campaign\CampaignInvitationReceived::class);
+    \Illuminate\Support\Facades\Notification::assertSentTo($b, \App\Notifications\Campaign\CampaignInvitationReceived::class);
+    \Illuminate\Support\Facades\Notification::assertSentTo($c, \App\Notifications\Campaign\CampaignInvitationReceived::class);
+});
+
+it('bulk invite skips users who already have a pending invite or are already a player, and still sends the rest', function () {
+    $organizer = invUser();
+    $alreadyPlayer = invUser();
+    $alreadyInvited = invUser();
+    $fresh = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+    CampaignPlayer::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $alreadyPlayer->id]);
+    CampaignInvitation::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $alreadyInvited->id]);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.invitations.store', $campaign), [
+            'user_ids' => [$alreadyPlayer->id, $alreadyInvited->id, $fresh->id],
+        ])
+        ->assertRedirect();
+
+    expect(CampaignInvitation::where('campaign_id', $campaign->id)->where('user_id', $fresh->id)->exists())->toBeTrue();
+    expect(CampaignInvitation::where('campaign_id', $campaign->id)->where('user_id', $alreadyPlayer->id)->exists())->toBeFalse();
+    // The pre-existing invitation for $alreadyInvited wasn't duplicated.
+    expect(CampaignInvitation::where('campaign_id', $campaign->id)->where('user_id', $alreadyInvited->id)->count())->toBe(1);
+});
+
+it('rejects an invite submission with no user_ids, user_id, or email', function () {
+    $organizer = invUser();
+    $campaign = campaignWithOrganizer($organizer);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.invitations.store', $campaign), [])
+        ->assertSessionHasErrors('user_ids');
+});
+
 it('does not notify anyone for an email-only invite (no User row to notify)', function () {
     \Illuminate\Support\Facades\Notification::fake();
     $organizer = invUser();

@@ -52,12 +52,20 @@ interface CampaignArsenalModel {
     id: number;
     character_id: number;
     name: string;
+    // Nickname (pg 15's "user-friendly disambig") — same field the Arsenal
+    // Sheet shows as the primary line with the actual unit `name` demoted;
+    // this picker instead shows it inline as "Nickname (Unit Name)" since
+    // rows here are single-line, not card-sized.
+    label: string | null;
     faction: string;
     station: string;
     cost: number;
     effective_cost: number;
     is_ook: boolean;
     is_peon: boolean;
+    injuries: Array<{ id: number; name: string }>;
+    lucky_miss: string[];
+    gained_abilities: Array<{ id: number; name: string }>;
 }
 
 interface CampaignOwnedEquipment {
@@ -350,12 +358,16 @@ const confirmCampaignCrew = () => {
                         :class="selectedArsenalIds.includes(m.id) ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'"
                         @click="toggleArsenalModel(m.id)"
                     >
-                        <div class="flex min-w-0 items-center gap-2">
+                        <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                             <div
                                 class="size-4 shrink-0 rounded border-2 transition-colors"
                                 :class="selectedArsenalIds.includes(m.id) ? 'border-primary bg-primary' : 'border-muted-foreground'"
                             />
-                            <span class="truncate font-medium">{{ m.name }}</span>
+                            <!-- Nickname is the model's identity at the table (pg 15) — shown as
+                                 the primary label with the actual unit name in parens, same
+                                 convention as the Arsenal Sheet's stacked nickname/name display. -->
+                            <span class="truncate font-medium">{{ m.label || m.name }}</span>
+                            <span v-if="m.label" class="shrink-0 text-[10px] text-muted-foreground">({{ m.name }})</span>
                             <span v-if="campaignArsenalCopyLabel[m.id]" class="shrink-0 text-[10px] text-muted-foreground"
                                 >({{ campaignArsenalCopyLabel[m.id] }})</span
                             >
@@ -366,6 +378,24 @@ const confirmCampaignCrew = () => {
                                 >OOK</Badge
                             >
                             <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Peon</Badge>
+                            <Badge v-for="inj in m.injuries" :key="`inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">
+                                {{ inj.name }}
+                            </Badge>
+                            <!-- Only the ability a Lucky Miss result granted, not also its own
+                                 flavor name (matches the Arsenal Sheet's dedup fix) — fall back
+                                 to the raw name for a flavor-only result that grants no ability. -->
+                            <template v-if="!m.gained_abilities.length">
+                                <Badge v-for="lm in m.lucky_miss" :key="`lm-${lm}`" class="shrink-0 bg-green-600 px-1 py-0 text-[9px] text-white hover:bg-green-600">
+                                    {{ lm }}
+                                </Badge>
+                            </template>
+                            <Badge
+                                v-for="ab in m.gained_abilities"
+                                :key="`ab-${ab.id}`"
+                                class="shrink-0 bg-blue-600 px-1 py-0 text-[9px] text-white hover:bg-blue-600"
+                            >
+                                {{ ab.name }}
+                            </Badge>
                         </div>
                         <div class="ml-2 shrink-0 font-bold">
                             {{ m.effective_cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />

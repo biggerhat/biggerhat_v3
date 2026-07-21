@@ -74,6 +74,17 @@ class CombinedCrewCardEffects
                 continue;
             }
 
+            // Whole-card borrow (campaign_crew_card source, or a legacy
+            // pre-granularity crew_upgrade row) — mirrors the starter block
+            // above: its own default/description text is a distinct printed
+            // line on the card, not just a container for its actions/
+            // abilities, so it needs the same 'text' item pushed here or a
+            // second (or later) borrowed effect's description silently never
+            // makes it onto the combined card image.
+            if ($effect->description) {
+                $items[] = ['type' => 'text', 'qualifier' => null, 'data' => ['body' => $effect->description]];
+            }
+
             foreach ($effect->actions as $action) {
                 $restriction = $isCrewUpgrade ? $action->pivot->restriction : null; // @phpstan-ignore property.notFound (pivot from MorphToMany/BelongsToMany)
                 $items[] = [

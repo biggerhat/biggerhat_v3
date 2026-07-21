@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Enums\Campaign\CampaignStatusEnum;
+use App\Enums\GameStatusEnum;
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreCampaignRequest;
 use App\Http\Requests\Campaign\UpdateCampaignRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Game;
 use App\Traits\Campaign\AddsCampaignMember;
@@ -118,6 +120,7 @@ class CampaignController extends Controller
             'is_organizer' => $request->user()->can('update', $campaign),
             'all_arsenals_complete' => ! $incompleteCrew,
             'active_solo_game' => $campaign->is_solo ? $this->activeSoloGame($campaign, $request->user()->id) : null,
+            'active_multiplayer_games' => $campaign->is_solo ? [] : $this->activeMultiplayerGames($campaign),
         ]);
     }
 
@@ -144,6 +147,40 @@ class CampaignController extends Controller
             'status' => $game->status->value,
             'started_at' => $game->started_at?->toIso8601String(),
         ] : null;
+    }
+
+    /**
+     * Every not-yet-finished live game tied to this multiplayer campaign,
+     * regardless of which two players are in it — the campaign hub had no
+     * way at all to discover an in-progress game unless you happened to
+     * still have its tab open, so this is campaign-wide visibility, not
+     * scoped to "my" games like activeSoloGame() is.
+     *
+     * @return list<array{game_uuid: string, status: string, week_number: int, crew_a_name: string, crew_b_name: string|null}>
+     */
+    private function activeMultiplayerGames(Campaign $campaign): array
+    {
+        return CampaignGame::query()
+            ->where('campaign_id', $campaign->id)
+            ->whereNotNull('base_game_id')
+            ->whereHas('baseGame', fn ($q) => $q->whereNotIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value]))
+            ->with([
+                'baseGame:id,uuid,status',
+                'crewA:id,name,user_id',
+                'crewA.user:id,name',
+                'crewB:id,name,user_id',
+                'crewB.user:id,name',
+            ])
+            ->orderBy('week_number')
+            ->get()
+            ->map(fn (CampaignGame $cg) => [
+                'game_uuid' => $cg->baseGame->uuid,
+                'status' => $cg->baseGame->status->value,
+                'week_number' => $cg->week_number,
+                'crew_a_name' => $cg->crewA->user->name ?? $cg->crewA->name,
+                'crew_b_name' => $cg->crewB?->user->name ?? $cg->crewB?->name,
+            ])
+            ->all();
     }
 
     public function settings(Request $request, Campaign $campaign)

@@ -554,6 +554,11 @@ class GameController extends Controller
         }
 
         return [
+            // The CampaignGame row's own id — lets the tracker POST
+            // campaigns.aftermaths.start once the game finishes, without
+            // which there was no way to reach the Aftermath wizard from a
+            // finished Campaign game at all.
+            'id' => $wrap->id,
             'campaign' => $wrap->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
             'crew_a' => $wrap->crewA->only(['id', 'share_code', 'name', 'user_id']),
             'crew_b' => $wrap->crewB?->only(['id', 'share_code', 'name', 'user_id']),
@@ -593,6 +598,10 @@ class GameController extends Controller
         $this->applyCrewCardSignatureFlags($campaignCrew);
 
         return [
+            // No CampaignGame row exists for this fallback path (see the
+            // doc comment above), so there's nothing to start an Aftermath
+            // against — the Game Tracker's CTA stays hidden for null id.
+            'id' => null,
             'campaign' => $campaignCrew->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
             'crew_a' => $campaignCrew->only(['id', 'share_code', 'name', 'user_id']),
             // No CampaignGame link means no tracked opponent/CR/encounter
@@ -655,7 +664,9 @@ class GameController extends Controller
             'id' => $effect->id,
             'name' => $effect->name,
             'body' => $effect->description,
-            'front_image' => $effect->front_image,
+            // Real per-card art only ever exists on an Upgrade-sourced effect —
+            // the shared CampaignCrewCard catalog has no card art column.
+            'front_image' => $effect instanceof \App\Models\Upgrade ? $effect->front_image : null,
             'actions' => $effect->actions,
             'abilities' => $effect->abilities,
         ];
@@ -686,12 +697,17 @@ class GameController extends Controller
             ->map(fn ($n) => \Illuminate\Support\Str::slug($n))
             ->toArray();
 
+        // Resolves gained_lucky_miss_ids to names for display — mirrors
+        // ArsenalSheetController, which surfaces the same label/injuries/
+        // lucky_miss/gained_abilities fields for this identical model.
+        $luckyMissNames = \App\Models\Campaign\LuckyMiss::query()->pluck('name', 'id');
+
         return \App\Models\Campaign\CampaignArsenalModel::query()
             ->where('campaign_crew_id', $campaignCrew->id)
             ->active()
-            ->with(['character.keywords', 'character.characteristics'])
+            ->with(['character.keywords', 'character.characteristics', 'injuries.injury:id,name,description', 'gainedAbilities:id,name,description'])
             ->get()
-            ->map(function (\App\Models\Campaign\CampaignArsenalModel $m) use ($leaderKeywordSlugs) {
+            ->map(function (\App\Models\Campaign\CampaignArsenalModel $m) use ($leaderKeywordSlugs, $luckyMissNames) {
                 $char = $m->character;
                 $sharesKeyword = $char->keywords->pluck('slug')->intersect($leaderKeywordSlugs)->isNotEmpty();
                 $isVersatile = $char->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
@@ -706,12 +722,24 @@ class GameController extends Controller
                     'id' => $m->id,
                     'character_id' => $m->character_id,
                     'name' => $char->display_name ?? $char->name,
+                    'label' => $m->label,
                     'faction' => $char->getRawOriginal('faction'),
                     'station' => $char->getRawOriginal('station'),
                     'cost' => $char->cost ?? 0,
                     'effective_cost' => $isOok ? (($char->cost ?? 0) + 1) : ($char->cost ?? 0),
                     'is_ook' => $isOok,
                     'is_peon' => $m->is_peon,
+                    'injuries' => $m->injuries
+                        ->map(fn ($pivot) => $pivot->injury ? ['id' => $pivot->injury->id, 'name' => $pivot->injury->name] : null)
+                        ->filter()
+                        ->values()
+                        ->all(),
+                    'lucky_miss' => collect($m->gained_lucky_miss_ids ?? [])
+                        ->map(fn ($id) => $luckyMissNames[$id] ?? null)
+                        ->filter()
+                        ->values()
+                        ->all(),
+                    'gained_abilities' => $m->gainedAbilities->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->all(),
                 ];
             })
             ->values()
@@ -775,14 +803,16 @@ class GameController extends Controller
     }
 
     /**
-     * The current user's CampaignCrew for a Campaign-format game — resolved
-     * via the CampaignGame link (crewA/crewB by user_id), or by matching
-     * faction for a solo game created outside the campaign hub (no
-     * CampaignGame link exists in that case).
+     * A user's CampaignCrew for a Campaign-format game — resolved via the
+     * CampaignGame link (crewA/crewB by user_id), or by matching faction for
+     * a solo game created outside the campaign hub (no CampaignGame link
+     * exists in that case). Defaults to the current user; callers building
+     * data for BOTH players in a game (e.g. references) pass the other
+     * player's user_id explicitly.
      */
-    private function resolveCampaignCrewForUser(Game $game): ?\App\Models\Campaign\CampaignCrew
+    private function resolveCampaignCrewForUser(Game $game, ?int $userId = null): ?\App\Models\Campaign\CampaignCrew
     {
-        $userId = Auth::id();
+        $userId ??= Auth::id();
         if (! $userId) {
             return null;
         }
@@ -1148,7 +1178,7 @@ class GameController extends Controller
         foreach ($game->players as $player) {
             /** @var GamePlayer $player */
             $player->crewBuild?->ensureReferences();
-            $player->setAttribute('references', $this->buildPlayerReferences($player, $extraTokens));
+            $player->setAttribute('references', $this->buildPlayerReferences($game, $player, $extraTokens));
         }
     }
 
@@ -1156,7 +1186,7 @@ class GameController extends Controller
      * @param  array<int, array<string, mixed>>  $extraTokens
      * @return array<string, mixed>
      */
-    private function buildPlayerReferences(GamePlayer $player, array $extraTokens): array
+    private function buildPlayerReferences(Game $game, GamePlayer $player, array $extraTokens): array
     {
         $base = is_array($player->crewBuild?->references)
             ? $player->crewBuild->references
@@ -1167,9 +1197,60 @@ class GameController extends Controller
         $live = empty($characterIds) ? [] : CrewBuild::computeReferences($characterIds);
 
         $merged = $this->mergeReferences($base, $live);
+
+        // Campaign games have no CrewBuild at all (crew comes from the Leader
+        // Builder + Starting Arsenal instead), so the crew's Crew Card
+        // Tier-4 borrows — real, keyword-matched Upgrade cards a Crew Card
+        // Advancement grants the whole crew — never appeared here despite
+        // being exactly the kind of thing a player looks up mid-game.
+        // Only Upgrade-sourced borrows fit this tab's card-image shape; the
+        // generic pg 15-16 CampaignCrewCard catalog has no card art and is
+        // already visible via the Arsenal Sheet instead.
+        $merged['upgrades'] = collect($merged['upgrades'])
+            ->merge($this->campaignCrewCardReferenceUpgrades($game, $player))
+            ->unique('id')->values()->all();
+
         $merged['tokens'] = collect($merged['tokens'])->merge($extraTokens)->unique('id')->sortBy('name')->values()->all();
 
         return $merged;
+    }
+
+    /**
+     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: string|null}>
+     */
+    private function campaignCrewCardReferenceUpgrades(Game $game, GamePlayer $player): array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign || ! $player->user_id) {
+            return [];
+        }
+
+        $crew = $this->resolveCampaignCrewForUser($game, $player->user_id);
+        if (! $crew) {
+            return [];
+        }
+
+        $crew->loadMissing(['crewCardEffect', 'crewCardAdvancements.crewCardEffect']);
+
+        $upgrades = collect();
+        if ($crew->crewCardEffect instanceof \App\Models\Upgrade) {
+            $upgrades->push($crew->crewCardEffect);
+        }
+        foreach ($crew->crewCardAdvancements as $advancement) {
+            if ($advancement->crewCardEffect instanceof \App\Models\Upgrade) {
+                $upgrades->push($advancement->crewCardEffect);
+            }
+        }
+
+        return $upgrades->unique('id')
+            ->map(fn (\App\Models\Upgrade $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'slug' => $u->slug,
+                'front_image' => $u->front_image,
+                'back_image' => $u->back_image,
+                'type' => $u->type?->label(),
+            ])
+            ->values()->all();
     }
 
     /**

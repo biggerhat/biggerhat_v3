@@ -119,6 +119,36 @@ it('CampaignCrewUpdated is dispatched on Starting Arsenal save', function () {
     Event::assertDispatched(CampaignCrewUpdated::class, fn ($e) => $e->crew->id === $crew->id);
 });
 
+it('CampaignCrewUpdated is dispatched on a Weekly Hire', function () {
+    Event::fake([CampaignCrewUpdated::class]);
+
+    $user = cbeUser();
+    $campaign = Campaign::factory()->active()->create(['organizer_user_id' => $user->id, 'current_week' => 2]);
+    CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $kw = \App\Models\Keyword::factory()->create();
+    $crew = CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id,
+        'user_id' => $user->id,
+        'faction' => FactionEnum::Arcanists->value,
+        'keyword_1_id' => $kw->id,
+        'scrip' => 20,
+    ]);
+    $hire = \App\Models\Character::factory()->create([
+        'cost' => 8,
+        'station' => \App\Enums\CharacterStationEnum::Minion,
+        'faction' => FactionEnum::Arcanists,
+    ]);
+    $hire->keywords()->attach($kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.weekly-hire.update', [$campaign, $crew->share_code]), [
+            'hires' => [['character_id' => $hire->id]],
+        ])
+        ->assertRedirect();
+
+    Event::assertDispatched(CampaignCrewUpdated::class, fn ($e) => $e->crew->id === $crew->id);
+});
+
 it('CampaignCrewUpdated is dispatched when an advancement is logged and when it\'s removed', function () {
     Event::fake([CampaignCrewUpdated::class]);
 

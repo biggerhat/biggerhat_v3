@@ -145,21 +145,34 @@ it('logs a solo game and spawns an Aftermath', function () {
         ->and($aftermath->status)->toBe('open');
 });
 
-it('rejects the solo log endpoint on non-solo campaigns', function () {
+it('allows the manual log endpoint on multiplayer campaigns too — one-sided, no opponent crew touched', function () {
     $user = soloUser();
+    $opponentUser = soloUser();
     $campaign = Campaign::factory()->create([
         'organizer_user_id' => $user->id,
         'status' => CampaignStatusEnum::Active,
         'is_solo' => false,
+        'current_week' => 3,
     ]);
     CampaignPlayer::factory()->organizer()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
-    CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    CampaignPlayer::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $opponentUser->id]);
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $opponentCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $opponentUser->id, 'scrip' => 10]);
 
     $this->actingAs($user)
         ->post(route('campaigns.games.log.store', $campaign), [
-            'vp_self' => 1, 'schemes_completed' => 0, 'won' => false,
+            'vp_self' => 8, 'vp_opponent' => 3, 'schemes_completed' => 2, 'won' => true,
         ])
-        ->assertNotFound();
+        ->assertRedirect();
+
+    $game = CampaignGame::query()->where('campaign_id', $campaign->id)->firstOrFail();
+    expect($game->crew_a_id)->toBe($crew->id)
+        ->and($game->crew_b_id)->toBeNull()
+        ->and($game->base_game_id)->toBeNull()
+        ->and($game->winner_crew_id)->toBe($crew->id);
+
+    // One-sided: the opponent's crew is untouched by this manual log.
+    expect($opponentCrew->fresh()->scrip)->toBe(10);
 });
 
 it('validates solo game log input', function () {

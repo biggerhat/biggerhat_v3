@@ -41,20 +41,38 @@ interface TextData {
     body: string;
 }
 
+interface ChoiceData {
+    type: string;
+    id: number | string;
+    name: string;
+}
+
 interface CombinedItem {
-    type: 'action' | 'ability' | 'trigger' | 'text';
+    type: 'action' | 'ability' | 'trigger' | 'text' | 'choice';
     // Restriction qualifying text (pg 32, 54) — printed above the effect it
     // gates, e.g. "Friendly Ten Thunders models gain the following action:".
     // Null for the starter effect and any generic-catalog Tier-4 borrow,
     // since only a real Crew Card Upgrade's restriction pivot can produce one.
     qualifier: string | null;
-    data: ActionData | AbilityData | TriggerData | TextData;
+    // Which physical face this item belongs on (T2-22) — starter effect on
+    // the front, every held Tier-4 borrow on the back.
+    source: 'starter' | 'borrowed';
+    data: ActionData | AbilityData | TriggerData | TextData | ChoiceData;
 }
 
-const props = defineProps<{
-    crewName: string;
-    items: CombinedItem[];
-}>();
+const props = withDefaults(
+    defineProps<{
+        crewName: string;
+        items: CombinedItem[];
+        // 'front' shows only the starter effect; 'back' shows only borrowed
+        // Tier-4 effects. Defaults to 'front' for any caller not yet passing
+        // it (there shouldn't be any left, but keeps this additive).
+        side?: 'front' | 'back';
+    }>(),
+    { side: 'front' },
+);
+
+const visibleItems = computed(() => props.items.filter((item) => (props.side === 'front' ? item.source === 'starter' : item.source === 'borrowed')));
 
 // Tarot proportions (matches Leader/Totem/single-catalog-row cards): 550x950.
 // A combined card holds the starter effect plus every Tier-4 borrow, so its
@@ -66,9 +84,13 @@ const TAROT_RATIO = 950 / 550;
 const WIDTH_TIERS = [550, 650, 750, 850, 950, 1050, 1150];
 
 const totalContentChars = computed(() => {
-    return props.items.reduce((sum, item) => {
+    return visibleItems.value.reduce((sum, item) => {
         if (item.type === 'text') {
             return sum + (item.data as TextData).body.length;
+        }
+        if (item.type === 'choice') {
+            const c = item.data as ChoiceData;
+            return sum + c.type.length + c.name.length;
         }
         const d = item.data as ActionData & AbilityData;
         const qualifierChars = item.qualifier?.length ?? 0;
@@ -86,6 +108,7 @@ const cardHeight = computed(() => Math.round(cardWidth.value * TAROT_RATIO));
 const isAction = (item: CombinedItem): item is CombinedItem & { data: ActionData } => item.type === 'action';
 const isAbility = (item: CombinedItem): item is CombinedItem & { data: AbilityData } => item.type === 'ability';
 const isTrigger = (item: CombinedItem): item is CombinedItem & { data: TriggerData } => item.type === 'trigger';
+const isChoice = (item: CombinedItem): item is CombinedItem & { data: ChoiceData } => item.type === 'choice';
 const isText = (item: CombinedItem): item is CombinedItem & { data: TextData } => item.type === 'text';
 </script>
 
@@ -105,13 +128,24 @@ const isText = (item: CombinedItem): item is CombinedItem & { data: TextData } =
         <div class="flex items-center gap-2 px-3 py-3" style="background: rgba(255, 255, 255, 0.06)">
             <div class="min-w-0 flex-1">
                 <div class="text-2xl font-bold leading-snug">{{ crewName }}</div>
-                <div class="mt-0.5 text-xs uppercase tracking-wider text-white/60">Crew Card</div>
+                <div class="mt-0.5 text-xs uppercase tracking-wider text-white/60">
+                    Crew Card — {{ side === 'front' ? 'Starter Effect' : 'Borrowed Effects' }}
+                </div>
             </div>
         </div>
 
         <!-- Effects -->
         <div class="flex-1 px-3 py-2.5 text-sm leading-6">
-            <div v-for="(item, idx) in items" :key="idx" class="mb-2 rounded" style="background: rgba(255, 255, 255, 0.04)">
+            <!-- Tier-4 Crew Card Advancement upgrades a generic borrow's
+                 restriction to both of the crew's keywords instead of just one
+                 (pg 31-32) — the starter effect (front) stays "either". -->
+            <p v-if="side === 'back' && visibleItems.length" class="mb-2 text-xs italic text-white/50">
+                Borrowed effects apply to non-peon models with BOTH of this crew's keywords, unless otherwise noted above.
+            </p>
+            <p v-if="!visibleItems.length" class="italic text-white/50">
+                {{ side === 'back' ? 'No borrowed effects held yet.' : 'No starter effect.' }}
+            </p>
+            <div v-for="(item, idx) in visibleItems" :key="idx" class="mb-2 rounded" style="background: rgba(255, 255, 255, 0.04)">
                 <p v-if="item.qualifier" class="px-2 pt-1.5 text-xs font-semibold uppercase italic tracking-wide text-white/60">
                     {{ item.qualifier }}
                 </p>
@@ -119,6 +153,11 @@ const isText = (item: CombinedItem): item is CombinedItem & { data: TextData } =
                 <!-- Starter effect's own flavor/rule text -->
                 <div v-if="isText(item)" class="px-2 py-1.5 text-white/80">
                     <GameText :text="item.data.body" icon-class="h-3.5 inline-block align-text-bottom" />
+                </div>
+
+                <!-- Token/marker/upgrade-type pick (pg 17-18, T3-33) -->
+                <div v-else-if="isChoice(item)" class="px-2 py-1.5 text-white/80">
+                    <span class="font-bold capitalize">{{ item.data.type }}:</span> {{ item.data.name }}
                 </div>
 
                 <!-- Ability -->

@@ -4,7 +4,9 @@ namespace App\Http\Requests\Campaign;
 
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\CustomCharacter;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 /**
  * Ad-hoc arsenal model add — for a mid-game event (no specific rulebook
@@ -29,8 +31,30 @@ class AddManualArsenalModelRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'character_id' => ['required', 'integer', 'exists:characters,id'],
+            // Exactly one of character_id (official catalog) / custom_character_id
+            // (the owner's own Card Creator homebrew) is required.
+            'character_id' => ['required_without:custom_character_id', 'prohibits:custom_character_id', 'nullable', 'integer', 'exists:characters,id'],
+            'custom_character_id' => ['required_without:character_id', 'nullable', 'integer', 'exists:custom_characters,id'],
             'label' => ['nullable', 'string', 'max:64'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            // A homebrew card hired into a crew must belong to the crew's own
+            // owner — otherwise any user could hire someone else's private card.
+            $customCharacterId = $this->input('custom_character_id');
+            if ($customCharacterId === null) {
+                return;
+            }
+            $owned = CustomCharacter::query()
+                ->whereKey($customCharacterId)
+                ->where('user_id', $this->user()->id)
+                ->exists();
+            if (! $owned) {
+                $validator->errors()->add('custom_character_id', 'That custom character does not belong to you.');
+            }
+        });
     }
 }

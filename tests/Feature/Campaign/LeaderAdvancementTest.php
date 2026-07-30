@@ -427,6 +427,71 @@ it('rejects an Ability Advancement targeting a Totem that does not belong to thi
     expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
 });
 
+it('applies an Action advancement to the crew\'s Totem instead of the Leader', function () {
+    // Regression: create() previously hardcoded $leader for Action
+    // advancements even when applied_to_custom_character_id targeted the
+    // Totem — "give the advancement to your totem instead" (pg 31) applies
+    // to every advancement type, Action included.
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true; // box index 2 is tier 2 in the canonical track
+    $leader->update(['xp_track' => $track]);
+    $totem = totemForCrew($crew, $user);
+
+    $bespoke = \App\Models\Campaign\AdvancementAction::factory()->create(['talent_name' => 'Totem Talent']);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'action',
+            'catalog_id' => $bespoke->id,
+            'applied_to_custom_character_id' => $totem->id,
+        ])
+        ->assertRedirect();
+
+    $leader->refresh();
+    $totem->refresh();
+    expect(collect($totem->actions)->pluck('name'))->toContain('Totem Talent');
+    expect($leader->actions ?? [])->toBeEmpty();
+
+    $advancement = CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
+    expect($advancement->applied_to_custom_character_id)->toBe($totem->id);
+
+    $this->actingAs($user)
+        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->assertRedirect();
+
+    $totem->refresh();
+    expect(collect($totem->actions)->pluck('name'))->not->toContain('Totem Talent');
+});
+
+it('rejects an Action Advancement targeting a Totem that does not belong to this crew', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true;
+    $leader->update(['xp_track' => $track]);
+
+    $otherUser = advUser();
+    $otherCampaign = Campaign::factory()->create(['organizer_user_id' => $otherUser->id]);
+    $otherCrew = CampaignCrew::factory()->create(['campaign_id' => $otherCampaign->id, 'user_id' => $otherUser->id]);
+    $otherTotem = totemForCrew($otherCrew, $otherUser);
+
+    $bespoke = \App\Models\Campaign\AdvancementAction::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'action',
+            'catalog_id' => $bespoke->id,
+            'applied_to_custom_character_id' => $otherTotem->id,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
+});
+
 it('rejects an Attack Mod Any Joker row without declaring which Joker was flipped', function () {
     $user = advUser();
     [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);

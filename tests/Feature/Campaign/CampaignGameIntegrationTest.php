@@ -95,7 +95,11 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
         'name' => 'Fire in the Hole',
         'description' => 'Starter body text.',
     ]);
-    $crewA->update(['crew_card_effect_id' => $starter->id]);
+    $crewA->update([
+        'crew_card_effect_id' => $starter->id,
+        'crew_card_front_image' => 'campaign-crews/1/crew-card.png',
+        'crew_card_back_image' => 'campaign-crews/1/crew-card-back.png',
+    ]);
 
     $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Borrowed Boon']);
     \App\Models\Campaign\CampaignCrewCardAdvancement::create([
@@ -114,7 +118,10 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
             // front_image is only ever populated for an Upgrade-sourced effect.
             ->where('campaign_context.crew_a_card.effect.front_image', null)
             ->where('campaign_context.crew_a_card.borrowed.0.effect.name', 'Borrowed Boon')
+            ->where('campaign_context.crew_a_card.front_image', 'campaign-crews/1/crew-card.png')
+            ->where('campaign_context.crew_a_card.back_image', 'campaign-crews/1/crew-card-back.png')
             ->where('campaign_context.crew_b_card.effect', null)
+            ->where('campaign_context.crew_b_card.back_image', null)
         );
 });
 
@@ -418,6 +425,115 @@ it('campaign_arsenal exposes each model\'s nickname, injuries, and Lucky-Miss-gr
         );
 });
 
+it('campaign_arsenal includes card images and doesn\'t crash for a custom-character-hired unit', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $custom = \App\Models\CustomCharacter::create([
+        'user_id' => $userA->id,
+        'name' => 'Homebrew Ally',
+        'display_name' => 'Homebrew Ally',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30, 'cost' => 6,
+        'front_image' => 'custom/front.png',
+        'back_image' => 'custom/back.png',
+    ]);
+    \App\Models\Campaign\CampaignArsenalModel::create([
+        'campaign_crew_id' => $crewA->id,
+        'custom_character_id' => $custom->id,
+        'label' => 'Homebrew Hire',
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_arsenal', function ($arsenal) {
+                $row = collect($arsenal)->firstWhere('label', 'Homebrew Hire');
+
+                return $row
+                    && $row['name'] === 'Homebrew Ally'
+                    && $row['front_image'] === 'custom/front.png'
+                    && $row['back_image'] === 'custom/back.png';
+            })
+        );
+});
+
+it('campaign_arsenal includes card images for an official-catalog-hired unit', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $character = \App\Models\Character::factory()->create(['name' => 'Rusty Alyce', 'title' => null, 'faction' => FactionEnum::Arcanists->value]);
+    \App\Models\Miniature::factory()->create([
+        'character_id' => $character->id,
+        'version' => \App\Enums\SculptVersionEnum::FirstEdition->value,
+        'front_image' => 'char/front.png',
+        'back_image' => 'char/back.png',
+    ]);
+    \App\Models\Campaign\CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crewA->id,
+        'character_id' => $character->id,
+        'label' => 'Old Bessie',
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_arsenal', function ($arsenal) {
+                $row = collect($arsenal)->firstWhere('label', 'Old Bessie');
+
+                return $row && $row['front_image'] === 'char/front.png' && $row['back_image'] === 'char/back.png';
+            })
+        );
+});
+
+it('exposes Leader/Totem injuries in the crew-select payload, not just hired models', function () {
+    // Regression: buildCampaignArsenalProp only ever covered hired
+    // CampaignArsenalModel rows — the Leader/Totem are CustomCharacter rows
+    // and were structurally excluded, so their injuries never rendered as
+    // badges during crew select despite them playing every game.
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $leader = CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-injuries-001',
+        'name' => 'Injured Leader',
+        'display_name' => 'Injured Leader',
+        'slug' => 'injured-leader-arsenal',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+    $totem = CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'share_code' => 'ttm-test-injuries-001',
+        'name' => 'Injured Totem',
+        'display_name' => 'Injured Totem',
+        'slug' => 'injured-totem-arsenal',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5,
+    ]);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed']);
+    \Illuminate\Support\Facades\DB::table('campaign_arsenal_model_injuries')->insert([
+        ['custom_character_id' => $leader->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now()],
+        ['custom_character_id' => $totem->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('campaign_leader.name', 'Injured Leader')
+            ->where('campaign_leader.injuries.0.name', 'Concussed')
+            ->where('campaign_totem.name', 'Injured Totem')
+            ->where('campaign_totem.injuries.0.name', 'Concussed')
+        );
+});
+
 it('submitCampaignCrew copies the selected arsenal models into game_crew_members, not just leader/totem', function () {
     [$userA, , , $crewA, , $game] = campaignGameSetup();
 
@@ -449,6 +565,85 @@ it('submitCampaignCrew copies the selected arsenal models into game_crew_members
         ->toContain($hired->display_name)
         ->and(\App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->where('hiring_category', 'leader')->exists())
         ->toBeTrue();
+});
+
+it('submitCampaignCrew copies a Card Creator homebrew-sourced arsenal row into game_crew_members', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-custom-hire-001',
+        'name' => 'Mortimer Vance',
+        'display_name' => 'Mortimer Vance',
+        'slug' => 'mortimer-vance-custom-hire',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+    $homebrew = CustomCharacter::create([
+        'user_id' => $userA->id,
+        'name' => 'Homebrew Ally', 'display_name' => 'Homebrew Ally',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30, 'cost' => 6,
+    ]);
+    $arsenalModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => null, 'custom_character_id' => $homebrew->id]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => [$arsenalModel->id],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $member = \App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)
+        ->where('custom_character_id', $homebrew->id)->first();
+
+    expect($member)->not->toBeNull()
+        ->and($member->display_name)->toBe('Homebrew Ally')
+        ->and($member->character_id)->toBeNull()
+        ->and($member->cost)->toBe(6)
+        ->and((bool) $member->is_custom)->toBeTrue();
+});
+
+it('submitCampaignCrew uses the arsenal row\'s campaign nickname as the tracked crew member\'s display name', function () {
+    // Regression: createCrewMember() previously always fell back to the
+    // miniature/catalog display name, ignoring the label the player gave
+    // this specific hire at Starting Arsenal / Weekly Hire time.
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-003',
+        'name' => 'Mortimer Vance',
+        'display_name' => 'Mortimer Vance',
+        'slug' => 'mortimer-vance-3',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value, 'display_name' => 'Zombie']);
+    $arsenalModel = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crewA->id,
+        'character_id' => $hired->id,
+        'label' => 'Zombie A',
+    ]);
+
+    $this->actingAs($userA)
+        ->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => [$arsenalModel->id],
+        ])
+        ->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+
+    expect(\App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->pluck('display_name')->all())
+        ->toContain('Zombie A')
+        ->not->toContain('Zombie');
 });
 
 it('submitCampaignCrew hires exactly the selected arsenal row when the crew owns several copies of the same model', function () {
@@ -1063,6 +1258,47 @@ it('character_upgrades at InProgress carries the equipment\'s granted actions/ab
             ->where('character_upgrades.0.actions.0.is_signature', true)
             ->where('character_upgrades.0.abilities.0.name', 'Granted Ward')
         );
+});
+
+it('character_injuries at InProgress offers the full Injury catalog (pg 34-36), unlike equipment it\'s not scoped to owned copies', function () {
+    [$userA, , , , , $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Lingering Wound 1']);
+    // A generic Equipment upgrade must not leak into the injury picker.
+    \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Not An Injury']);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('character_injuries', [[
+                'id' => $injury->id,
+                'name' => 'Lingering Wound 1',
+                'front_image' => $injury->front_image,
+                'back_image' => $injury->back_image,
+                'plentiful' => null,
+                'description' => $injury->description,
+                'actions' => [],
+                'abilities' => [],
+            ]])
+        );
+});
+
+it('character_injuries is empty for a non-Campaign game', function () {
+    $userA = cintUser();
+    $game = Game::factory()->create([
+        'format' => GameFormatEnum::Standard,
+        'status' => GameStatusEnum::InProgress,
+        'creator_id' => $userA->id,
+    ]);
+    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $userA->id, 'slot' => 1]);
+    \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Lingering Wound 1']);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('character_injuries', []));
 });
 
 it('Campaigns/Show exposes active_multiplayer_games for an in-progress game, campaign-wide (not just to its own two players)', function () {

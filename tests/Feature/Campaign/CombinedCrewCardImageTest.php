@@ -105,6 +105,85 @@ it('capture page includes a standalone trigger from a keyword-matched Crew Card 
         }));
 });
 
+it('tags each item with its source (starter vs borrowed) so the front/back faces can split on it', function () {
+    [, $crew] = combinedCardFixture();
+
+    $starterAction = Action::factory()->create(['name' => 'Starter Swing']);
+    $starter = CampaignCrewCard::factory()->create();
+    $starter->actions()->attach($starterAction->id, ['is_signature_action' => false]);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    $borrowedAbility = Ability::factory()->create(['name' => 'Borrowed Boon']);
+    $borrow = CampaignCrewCard::factory()->create();
+    $borrow->abilities()->attach($borrowedAbility->id);
+    CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $borrow->id,
+        'crew_card_effect_type' => CampaignCrewCard::class,
+    ]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('items', function ($items) {
+                $items = collect($items);
+                $starterItem = $items->firstWhere('data.name', 'Starter Swing');
+                $borrowedItem = $items->firstWhere('data.name', 'Borrowed Boon');
+
+                return $starterItem && $starterItem['source'] === 'starter'
+                    && $borrowedItem && $borrowedItem['source'] === 'borrowed';
+            })
+        );
+});
+
+it('capture page surfaces the starter\'s own token/marker/upgrade-type pick as a choice item on the front (T3-33)', function () {
+    [, $crew] = combinedCardFixture();
+
+    $starter = CampaignCrewCard::factory()->create();
+    $crew->update([
+        'crew_card_effect_id' => $starter->id,
+        'crew_card_choice' => ['type' => 'token', 'id' => 5, 'name' => 'Corpse Counter'],
+    ]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('items', function ($items) {
+                $choice = collect($items)->firstWhere('type', 'choice');
+
+                return $choice
+                    && $choice['source'] === 'starter'
+                    && $choice['data']['type'] === 'token'
+                    && $choice['data']['name'] === 'Corpse Counter';
+            })
+        );
+});
+
+it('capture page surfaces a borrowed effect\'s own choice pick as a choice item on the back (T3-33)', function () {
+    [, $crew] = combinedCardFixture();
+
+    $borrow = CampaignCrewCard::factory()->create();
+    CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $borrow->id,
+        'crew_card_effect_type' => CampaignCrewCard::class,
+        'crew_card_choice' => ['type' => 'marker', 'id' => 9, 'name' => 'Scheme Marker'],
+    ]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('items', function ($items) {
+                $choice = collect($items)->firstWhere('type', 'choice');
+
+                return $choice
+                    && $choice['source'] === 'borrowed'
+                    && $choice['data']['type'] === 'marker'
+                    && $choice['data']['name'] === 'Scheme Marker';
+            })
+        );
+});
+
 it('capture page includes the starter effect\'s own description as a text item', function () {
     [, $crew] = combinedCardFixture();
 

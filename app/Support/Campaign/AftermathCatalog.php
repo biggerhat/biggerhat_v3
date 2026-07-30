@@ -89,7 +89,7 @@ class AftermathCatalog
             ->where('campaign_crew_id', $crew->id)
             ->active()
             ->with([
-                'catalog:id,name,campaign_cc,campaign_br,description',
+                'catalog:id,name,slug,front_image,back_image,campaign_cc,campaign_br,description',
                 'catalog.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'catalog.abilities',
             ])
@@ -106,6 +106,8 @@ class AftermathCatalog
                     'cc' => $e->catalog->campaign_cc,
                     'br' => $e->catalog->campaign_br,
                     'description' => $e->catalog->description,
+                    'front_image' => $e->catalog->front_image,
+                    'back_image' => $e->catalog->back_image,
                     'actions' => $e->catalog->actions->map(fn (Action $a) => [
                         'id' => $a->id,
                         'name' => $a->name,
@@ -729,6 +731,69 @@ class AftermathCatalog
                 ];
             })
             ->sortBy('name')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The full Injury catalog (pg 34-36), shaped identically to
+     * ownedEquipmentForAttachment() so it can drop straight into the same
+     * in-play "attach upgrade" picker (GameUpgradeDialog.vue) — unlike
+     * equipment, injuries aren't "owned" ahead of time; any catalog entry is
+     * selectable. `plentiful` is left null since injuries have no such limit
+     * (GamePlayController::updateCrewMember() already skips the plentiful
+     * check entirely for `campaign_upgrade_kind === 'injury'`).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function injuryCatalogForAttachment(): array
+    {
+        return Upgrade::query()
+            ->where('campaign_upgrade_kind', 'injury')
+            ->with([
+                'actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'abilities',
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(function (Upgrade $u) {
+                $u->actions->each(
+                    fn (Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                );
+
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'front_image' => $u->front_image,
+                    'back_image' => $u->back_image,
+                    'plentiful' => null,
+                    'description' => $u->description,
+                    'actions' => $u->actions->map(fn (Action $a) => [
+                        'name' => $a->name,
+                        'type' => $a->type,
+                        'is_signature' => $a->is_signature,
+                        'stone_cost' => $a->stone_cost,
+                        'range' => $a->range,
+                        'range_type' => $a->range_type,
+                        'stat' => $a->stat,
+                        'stat_suits' => $a->stat_suits,
+                        'stat_modifier' => $a->stat_modifier,
+                        'resisted_by' => $a->resisted_by,
+                        'target_number' => $a->target_number,
+                        'target_suits' => $a->target_suits,
+                        'damage' => $a->damage,
+                        'description' => $a->description,
+                        'triggers' => self::triggerSummaries($a->triggers),
+                    ])->all(),
+                    'abilities' => $u->abilities->map(fn (Ability $ab) => [
+                        'name' => $ab->name,
+                        'suits' => $ab->suits,
+                        'defensive_ability_type' => $ab->defensive_ability_type,
+                        'costs_stone' => $ab->costs_stone,
+                        'description' => $ab->description,
+                    ])->all(),
+                ];
+            })
             ->values()
             ->all();
     }

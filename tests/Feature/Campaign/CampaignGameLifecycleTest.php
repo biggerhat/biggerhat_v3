@@ -151,7 +151,7 @@ it('skips total_wins on status changes that are not Completed', function () {
 
 // ───── Auto-detect killed models ─────
 
-it('Aftermath show payload pulls killed models from GameCrewMember.is_killed', function () {
+it('Aftermath show payload flags tracker-detected kills but still lists the full roster for retagging', function () {
     [$userA, , , $crewA, , $game] = campaignGameWithBase();
     $cg = CampaignGame::where('base_game_id', $game->id)->first();
 
@@ -163,7 +163,7 @@ it('Aftermath show payload pulls killed models from GameCrewMember.is_killed', f
         'character_id' => $deadChar->id,
         'is_peon' => false,
     ]);
-    CampaignArsenalModel::factory()->create([
+    $aliveArsenal = CampaignArsenalModel::factory()->create([
         'campaign_crew_id' => $crewA->id,
         'character_id' => $aliveChar->id,
         'is_peon' => false,
@@ -185,12 +185,19 @@ it('Aftermath show payload pulls killed models from GameCrewMember.is_killed', f
         ->get(route('campaigns.aftermaths.show', $aftermath))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('killed_models', 1)
-            ->where('killed_models.0.id', $deadArsenal->id)
+            ->where('kills_are_authoritative', true)
+            ->where('killed_models', function ($models) use ($deadArsenal, $aliveArsenal) {
+                $dead = collect($models)->firstWhere('id', $deadArsenal->id);
+                $alive = collect($models)->firstWhere('id', $aliveArsenal->id);
+
+                return count($models) === 2
+                    && $dead && $dead['tracker_killed'] === true
+                    && $alive && $alive['tracker_killed'] === false;
+            })
         );
 });
 
-it('Aftermath show returns empty killed_models when no GameCrewMember deaths recorded', function () {
+it('Aftermath show still lists the full roster (untagged) when no GameCrewMember deaths recorded', function () {
     [$userA, , , $crewA, , $game] = campaignGameWithBase();
     $cg = CampaignGame::where('base_game_id', $game->id)->first();
 
@@ -207,7 +214,10 @@ it('Aftermath show returns empty killed_models when no GameCrewMember deaths rec
     $this->actingAs($userA)
         ->get(route('campaigns.aftermaths.show', $aftermath))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('killed_models', 0));
+        ->assertInertia(fn ($page) => $page
+            ->has('killed_models', 1)
+            ->where('killed_models.0.tracker_killed', false)
+        );
 });
 
 it('Aftermath show falls back to all active arsenal models when no base game is linked', function () {

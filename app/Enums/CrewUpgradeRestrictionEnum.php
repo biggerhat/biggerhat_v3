@@ -27,6 +27,11 @@ enum CrewUpgradeRestrictionEnum: string implements HasDefaultEnumMethods
     case FriendlyNonGaminKeyword = 'friendly_non_gamin_keyword';
     // No keyword qualifier — some crew cards just say "Friendly models gain...".
     case Friendly = 'friendly';
+    // Tier-4 Crew Card Advancement upgrades a borrowed generic (pg 15-16
+    // catalog) effect's restriction from "either" to "both" of the crew's
+    // chosen keywords (pg 31-32: "it will affect both of the crew's keywords
+    // instead of just one") — see CombinedCrewCardEffects::BORROWED_RESTRICTION.
+    case FriendlyNonPeonBothKeywords = 'friendly_non_peon_both_keywords';
 
     public function descriptor(CrewUpgradeRestrictionDescriptorTypeEnum $descriptorType): string
     {

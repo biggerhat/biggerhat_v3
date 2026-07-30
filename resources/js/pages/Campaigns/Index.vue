@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CARD_HOVER, CARD_HOVER_QUIET } from '@/lib/cardHover';
-import { Head, Link } from '@inertiajs/vue3';
-import { Calendar, Plus, Scroll, Sparkles, Trophy, Users } from 'lucide-vue-next';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { Calendar, Mail, Plus, Scroll, Sparkles, Trophy, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface Organizer {
@@ -26,7 +26,16 @@ interface CampaignRow {
     organizer: Organizer | null;
 }
 
-const props = defineProps<{ campaigns: CampaignRow[] }>();
+interface PendingInvitationRow {
+    token: string;
+    campaign_name: string;
+    organizer_name: string | null;
+    expires_at: string | null;
+}
+
+const props = defineProps<{ campaigns: CampaignRow[]; pending_invitations: PendingInvitationRow[] }>();
+
+const acceptInvitation = (token: string) => router.post(route('campaigns.invitations.accept', token));
 
 const statusVariant = (s: string): 'default' | 'outline' | 'destructive' | 'secondary' => {
     switch (s) {
@@ -83,6 +92,26 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
                 <Button class="mt-6" size="lg"><Plus class="mr-1 h-4 w-4" /> Start your first campaign</Button>
             </Link>
         </div>
+
+        <!-- Pending invitations — previously only reachable via the notification bell. -->
+        <section v-if="pending_invitations.length" class="mt-6">
+            <div class="mb-3 flex items-center gap-2">
+                <Mail class="h-5 w-5 text-primary" />
+                <HeadingEyebrow as="h2" class="text-lg text-foreground">Invitations</HeadingEyebrow>
+                <Badge variant="outline" class="text-[10px]">{{ pending_invitations.length }}</Badge>
+            </div>
+            <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <Card v-for="inv in pending_invitations" :key="inv.token" class="border-primary/40">
+                    <CardContent class="flex items-center justify-between gap-3 p-4">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-semibold">{{ inv.campaign_name }}</p>
+                            <p class="truncate text-xs text-muted-foreground">Invited by {{ inv.organizer_name ?? '—' }}</p>
+                        </div>
+                        <Button size="sm" @click="acceptInvitation(inv.token)">Accept</Button>
+                    </CardContent>
+                </Card>
+            </div>
+        </section>
 
         <!-- Active campaigns get pride of place -->
         <section v-if="activeCampaigns.length" class="mt-6">

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useCampaignChannel } from '@/composables/useCampaignChannel';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -96,6 +97,9 @@ const props = defineProps<{
 // flow) has no crew of their own to actually play with otherwise.
 const myCrew = computed(() => props.campaign.crews.find((c) => c.user?.id === authUserId.value) ?? null);
 const isMember = computed(() => props.campaign.players.some((p) => p.user_id === authUserId.value));
+
+// Real-time updates (T3-34) — crew changes, campaign start, week advances.
+useCampaignChannel(props.campaign.id, ['campaign', 'is_organizer', 'all_arsenals_complete', 'active_solo_game', 'active_multiplayer_games']);
 const joinAsPlayer = (campaignId: number) => router.post(route('campaigns.join-as-player', campaignId));
 
 const gameStatusLabel = (status: string): string =>
@@ -318,9 +322,14 @@ const deleteCampaign = async (id: number) => {
                     <Button variant="outline">Log Game</Button>
                 </Link>
             </template>
-            <Link v-else-if="campaign.status === 'active'" :href="route('campaigns.games.create', campaign.id)">
-                <Button>New Game</Button>
-            </Link>
+            <template v-else-if="campaign.status === 'active'">
+                <Link :href="route('campaigns.games.create', campaign.id)">
+                    <Button>New Game</Button>
+                </Link>
+                <Link v-if="myCrew" :href="route('campaigns.games.log', campaign.id)">
+                    <Button variant="outline">Log Game</Button>
+                </Link>
+            </template>
             <Button v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'" variant="outline" @click="qrDialogOpen = true">
                 Invite Link
             </Button>
@@ -422,8 +431,8 @@ const deleteCampaign = async (id: number) => {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <ul v-if="campaign.crews.length" class="space-y-2">
-                        <li v-for="c in campaign.crews" :key="c.id" class="flex items-center justify-between gap-2 text-sm">
+                    <ul v-if="campaign.crews.length" class="divide-y">
+                        <li v-for="c in campaign.crews" :key="c.id" class="flex items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
                             <div>
                                 <p class="font-medium">{{ c.name }}</p>
                                 <p class="text-xs text-muted-foreground">

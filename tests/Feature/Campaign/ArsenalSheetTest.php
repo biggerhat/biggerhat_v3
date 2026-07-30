@@ -60,6 +60,23 @@ it('renders the arsenal sheet for the crew owner', function () {
         );
 });
 
+it('exposes both the front and back generated crew card images', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $crew->update([
+        'crew_card_front_image' => 'campaign-crews/1/crew-card.png',
+        'crew_card_back_image' => 'campaign-crews/1/crew-card-back.png',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.crew_card_front_image', 'campaign-crews/1/crew-card.png')
+            ->where('crew.crew_card_back_image', 'campaign-crews/1/crew-card-back.png')
+        );
+});
+
 it('renders the arsenal sheet for non-owner campaign members', function () {
     $owner = sheetUser();
     $teammate = sheetUser();
@@ -170,6 +187,144 @@ it('exposes crew_card_custom_upgrade_id for the owner once a crew card has been 
         ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('crew.crew_card_custom_upgrade_id', null));
+});
+
+it('crew_card_display_name falls back to the catalog name until the owner names their crew card, then prefers it', function () {
+    // Regression: the Arsenal Sheet header and the "Edit Crew Card" view read
+    // two different name sources (crew.crew_card_effect.name vs. the separate
+    // CustomUpgrade saved by naming the card) and could show two different
+    // names for the same crew card.
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash']);
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $crew->update(['crew_card_effect_id' => $effect->id]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('crew.crew_card_display_name', 'Loot Their Stash'));
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$campaign, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'The Bone Pile',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('crew.crew_card_display_name', 'The Bone Pile'));
+});
+
+it('arsenal_models.upgrades exposes the starter Crew Card action to a non-Peon keyword-matching Unit, but not a Peon or an out-of-keyword Unit', function () {
+    // Regression coverage for the "populate Upgrades from Actions/Abilities/
+    // Crew Card under Units" feature — the generic starter Crew Card catalog
+    // (pg 15-16) always carries the FriendlyNonPeonKeyword restriction, even
+    // though it's never stored as data on that catalog row.
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $keyword = \App\Models\Keyword::find($crew->keyword_1_id);
+
+    $starterAction = \App\Models\Action::factory()->create(['name' => 'Starter Swing']);
+    $starter = CampaignCrewCard::factory()->create();
+    $starter->actions()->attach($starterAction->id, ['is_signature_action' => false]);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    $minion = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $minion->keywords()->attach($keyword);
+    $minionModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $minion->id]);
+
+    $peon = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Peon]);
+    $peon->keywords()->attach($keyword);
+    $peonModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $peon->id]);
+
+    $outOfKeyword = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $outOfKeywordModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $outOfKeyword->id]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.arsenal_models', function ($models) use ($minionModel, $peonModel, $outOfKeywordModel) {
+                $byId = collect($models)->keyBy('id');
+                $minionUpgrades = collect($byId[$minionModel->id]['upgrades'])->pluck('name');
+                $peonUpgrades = collect($byId[$peonModel->id]['upgrades'])->pluck('name');
+                $outOfKeywordUpgrades = collect($byId[$outOfKeywordModel->id]['upgrades'])->pluck('name');
+
+                return $minionUpgrades->contains('Starter Swing')
+                    && ! $peonUpgrades->contains('Starter Swing')
+                    && ! $outOfKeywordUpgrades->contains('Starter Swing');
+            })
+        );
+});
+
+it('arsenal_models.upgrades exposes a keyword-restricted Tier-4 borrow to a matching Unit regardless of Peon status', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $keyword = \App\Models\Keyword::find($crew->keyword_1_id);
+
+    $restrictedAbility = \App\Models\Ability::factory()->create(['name' => 'Keyword Gift']);
+    $upgrade = \App\Models\Upgrade::factory()->create(['domain' => \App\Enums\UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->abilities()->attach($restrictedAbility->id, ['restriction' => \App\Enums\CrewUpgradeRestrictionEnum::FriendlyKeyword->value]);
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $upgrade->id,
+        'crew_card_effect_type' => \App\Models\Upgrade::class,
+    ]);
+
+    $peon = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Peon]);
+    $peon->keywords()->attach($keyword);
+    $peonModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $peon->id]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.arsenal_models', function ($models) use ($peonModel) {
+                $row = collect($models)->firstWhere('id', $peonModel->id);
+
+                return collect($row['upgrades'])->pluck('name')->contains('Keyword Gift');
+            })
+        );
+});
+
+it('arsenal_models.upgrades requires BOTH crew keywords for a borrowed generic Tier-4 effect, not just one (T3-33, pg 31-32)', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $kw1 = \App\Models\Keyword::find($crew->keyword_1_id);
+    $kw2 = \App\Models\Keyword::find($crew->keyword_2_id);
+
+    $borrowedAction = \App\Models\Action::factory()->create(['name' => 'Borrowed Swing']);
+    $borrow = CampaignCrewCard::factory()->create();
+    $borrow->actions()->attach($borrowedAction->id, ['is_signature_action' => false]);
+    \App\Models\Campaign\CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $borrow->id,
+        'crew_card_effect_type' => CampaignCrewCard::class,
+    ]);
+
+    $bothKeywords = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $bothKeywords->keywords()->attach([$kw1->id, $kw2->id]);
+    $bothModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $bothKeywords->id]);
+
+    $oneKeywordOnly = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $oneKeywordOnly->keywords()->attach($kw1->id);
+    $oneModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $oneKeywordOnly->id]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.arsenal_models', function ($models) use ($bothModel, $oneModel) {
+                $byId = collect($models)->keyBy('id');
+                $bothUpgrades = collect($byId[$bothModel->id]['upgrades'])->pluck('name');
+                $oneUpgrades = collect($byId[$oneModel->id]['upgrades'])->pluck('name');
+
+                return $bothUpgrades->contains('Borrowed Swing') && ! $oneUpgrades->contains('Borrowed Swing');
+            })
+        );
 });
 
 it('exposes story_log entries in chronological order, including games with no story written', function () {
@@ -872,7 +1027,11 @@ it('story_log exposes the linked completed game\'s uuid so View Game Log can rou
 
                 return $byWeek[1]['game_uuid'] === $completedBaseGame->uuid
                     && $byWeek[2]['game_uuid'] === null
-                    && $byWeek[3]['game_uuid'] === null;
+                    && $byWeek[3]['game_uuid'] === null
+                    // Week 2's manually-logged entry is locked with no
+                    // game_uuid — the frontend routes this one to the
+                    // lightweight recap instead of the Aftermath wizard.
+                    && $byWeek[2]['locked'] === true;
             })
         );
 });
@@ -912,6 +1071,75 @@ it('addManualArsenalModel lets the crew owner add a unit outside the normal hire
         ->and($model->label)->toBe('Summoned mid-game')
         ->and($model->acquired_via)->toBe('manual')
         ->and($model->acquired_week)->toBe($campaign->current_week);
+});
+
+it('addManualArsenalModel lets the crew owner hire their own Card Creator homebrew character', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $custom = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'name' => 'Homebrew Ally', 'display_name' => 'Homebrew Ally',
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30, 'cost' => 6,
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.models.store', [$campaign, $crew->share_code]), [
+            'custom_character_id' => $custom->id,
+            'label' => 'Summoned mid-game',
+        ])
+        ->assertRedirect();
+
+    $model = CampaignArsenalModel::where('campaign_crew_id', $crew->id)->where('custom_character_id', $custom->id)->first();
+    expect($model)->not->toBeNull()
+        ->and($model->character_id)->toBeNull()
+        ->and($model->label)->toBe('Summoned mid-game')
+        ->and($model->acquired_via)->toBe('manual');
+});
+
+it('addManualArsenalModel rejects hiring a custom character that belongs to someone else', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $custom = \App\Models\CustomCharacter::create([
+        'user_id' => $other->id,
+        'name' => 'Not Yours', 'display_name' => 'Not Yours',
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.models.store', [$campaign, $crew->share_code]), [
+            'custom_character_id' => $custom->id,
+        ])
+        ->assertSessionHasErrors('custom_character_id');
+
+    expect(CampaignArsenalModel::where('custom_character_id', $custom->id)->exists())->toBeFalse();
+});
+
+it('addManualArsenalModel exposes custom_character in the payload alongside official-character units', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $custom = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'name' => 'Homebrew Ally', 'display_name' => 'Homebrew Ally',
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30, 'cost' => 6,
+    ]);
+    CampaignArsenalModel::create([
+        'campaign_crew_id' => $crew->id,
+        'custom_character_id' => $custom->id,
+        'label' => 'Homebrew Hire',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('crew.arsenal_models', function ($models) {
+            $row = collect($models)->firstWhere('label', 'Homebrew Hire');
+
+            return $row && $row['character'] === null && $row['custom_character']['display_name'] === 'Homebrew Ally' && $row['custom_character']['cost'] === 6;
+        }));
 });
 
 it('addManualArsenalModel rejects a non-owner', function () {
@@ -1046,4 +1274,98 @@ it('addManualEquipment rejects an upgrade that is not a campaign equipment catal
             'equipment_upgrade_id' => $notEquipment->id,
         ])
         ->assertSessionHasErrors('equipment_upgrade_id');
+});
+
+it('removeEquipment lets the crew owner soft-remove an owned equipment instance', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Found Trinket']);
+    $equipment = \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.equipment.destroy', [$campaign, $crew->share_code, $equipment->id]))
+        ->assertRedirect();
+
+    expect($equipment->fresh()->annihilated_at)->not->toBeNull();
+    expect(\App\Models\Campaign\CampaignEquipment::active()->whereKey($equipment->id)->exists())->toBeFalse();
+});
+
+it('removeEquipment refuses when an advancement is attached to this equipment instance', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Locked Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 12, 'defense' => 5, 'willpower' => 5, 'speed' => 5, 'base' => 30,
+    ]);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Advanced Trinket']);
+    $equipment = \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'manual',
+    ]);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => \App\Enums\Campaign\AdvancementTableEnum::AttackMod->value,
+        'from_equipment_id' => $equipment->id,
+        'applied_to_action_index' => -1,
+        'position_in_xp_track' => 0,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.equipment.destroy', [$campaign, $crew->share_code, $equipment->id]))
+        ->assertRedirect();
+
+    expect($equipment->fresh()->annihilated_at)->toBeNull();
+});
+
+it('removeEquipment rejects a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create();
+    $equipment = \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($other)
+        ->delete(route('campaigns.crews.arsenal.equipment.destroy', [$campaign, $crew->share_code, $equipment->id]))
+        ->assertForbidden();
+
+    expect($equipment->fresh()->annihilated_at)->toBeNull();
+});
+
+it('exposes front_image/back_image on owned equipment in the Arsenal Sheet payload', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create([
+        'name' => 'Illustrated Trinket',
+        'front_image' => 'seed/card-front.png',
+        'back_image' => 'seed/card-back.png',
+    ]);
+    \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('equipment', function ($equipment) {
+            $row = collect($equipment)->firstWhere('name', 'Illustrated Trinket');
+
+            return $row && $row['front_image'] === 'seed/card-front.png' && $row['back_image'] === 'seed/card-back.png';
+        }));
 });

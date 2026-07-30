@@ -110,6 +110,47 @@ it('lists only campaigns the user is a member of', function () {
         );
 });
 
+it('exposes the user\'s pending invitations on the Campaigns index, and excludes accepted/expired ones', function () {
+    // Regression: a pending invite was previously only ever surfaced via the
+    // CampaignInvitationReceived notification — dismissing or missing it left
+    // no other way back to the invite.
+    $user = campaignUser();
+    $organizer = campaignUser();
+
+    $pendingCampaign = Campaign::factory()->create(['organizer_user_id' => $organizer->id, 'name' => 'The Pending Saga']);
+    $pending = \App\Models\Campaign\CampaignInvitation::factory()->create([
+        'campaign_id' => $pendingCampaign->id,
+        'user_id' => $user->id,
+        'expires_at' => now()->addDays(14),
+    ]);
+
+    // Already accepted — must not show up as pending.
+    $acceptedCampaign = Campaign::factory()->create(['organizer_user_id' => $organizer->id]);
+    \App\Models\Campaign\CampaignInvitation::factory()->create([
+        'campaign_id' => $acceptedCampaign->id,
+        'user_id' => $user->id,
+        'accepted_at' => now(),
+    ]);
+
+    // Expired — must not show up as pending either.
+    $expiredCampaign = Campaign::factory()->create(['organizer_user_id' => $organizer->id]);
+    \App\Models\Campaign\CampaignInvitation::factory()->create([
+        'campaign_id' => $expiredCampaign->id,
+        'user_id' => $user->id,
+        'expires_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('pending_invitations', 1)
+            ->where('pending_invitations.0.token', $pending->token)
+            ->where('pending_invitations.0.campaign_name', 'The Pending Saga')
+            ->where('pending_invitations.0.organizer_name', $organizer->name)
+        );
+});
+
 it('blocks non-member from viewing a campaign', function () {
     $user = campaignUser();
     $organizer = campaignUser();

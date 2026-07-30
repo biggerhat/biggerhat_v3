@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface UserMini {
     id: number;
@@ -22,6 +22,7 @@ interface CrewRow {
     name: string;
     faction: string | null;
     scrip: number;
+    arsenal_ss: number;
     user: UserMini | null;
 }
 interface CampaignData {
@@ -40,19 +41,40 @@ const props = defineProps<{
     my_cr: number;
 }>();
 
+const MIN_ENCOUNTER_SIZE = 10;
+
 const selectedOpponent = ref<CrewRow | null>(null);
 const name = ref('');
+const encounterSize = ref<number | null>(null);
 
-// Encounter size is computed authoritatively on the server at submit time
-// (min(myArsenal, opponentArsenal) + 6 — opponent arsenal ss isn't in the
-// initial payload because it can mutate between page-load and submit).
-// Future iteration can fetch opponent's current arsenal ss via an XHR.
+// Max encounter size (pg 19): smaller arsenal total + 6. The server re-derives
+// this authoritatively at submit time from current arsenal contents (it can
+// mutate between page-load and submit), so this is a preview only — the
+// server clamps down to it regardless of what's submitted here.
+const maxEncounterSize = computed(() => {
+    if (!selectedOpponent.value) return null;
+    return Math.min(props.my_arsenal_ss, selectedOpponent.value.arsenal_ss) + 6;
+});
+
+watch(maxEncounterSize, (max) => {
+    if (max !== null) encounterSize.value = max;
+});
+
+const clampEncounterSize = () => {
+    if (encounterSize.value === null || maxEncounterSize.value === null) return;
+    encounterSize.value = Math.min(Math.max(encounterSize.value, MIN_ENCOUNTER_SIZE), maxEncounterSize.value);
+};
+
+const encounterSizeValid = computed(
+    () => encounterSize.value !== null && encounterSize.value >= MIN_ENCOUNTER_SIZE && encounterSize.value <= (maxEncounterSize.value ?? Infinity),
+);
 
 const submit = () => {
     if (!selectedOpponent.value) return;
     router.post(route('campaigns.games.store', props.campaign.id), {
         opponent_crew_id: selectedOpponent.value.id,
         name: name.value || null,
+        encounter_size: encounterSize.value,
     });
 };
 </script>
@@ -120,16 +142,27 @@ const submit = () => {
                     <Label for="name">Game Name (optional)</Label>
                     <Input id="name" v-model="name" placeholder="Saturday night brawl" />
                 </div>
-                <p class="text-xs text-muted-foreground">
-                    Encounter size, strategy, and scheme pool are generated on submit. CR + ss-pool bonus will surface on the in-game tracker once
-                    Aftermath data is live (Phase 9).
-                </p>
+                <div v-if="selectedOpponent">
+                    <Label for="encounter-size">Encounter Size</Label>
+                    <Input
+                        id="encounter-size"
+                        v-model.number="encounterSize"
+                        type="number"
+                        :min="MIN_ENCOUNTER_SIZE"
+                        :max="maxEncounterSize ?? undefined"
+                        @blur="clampEncounterSize"
+                    />
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        Max {{ maxEncounterSize }}ss (smaller arsenal + 6). Players may agree to play smaller.
+                    </p>
+                </div>
+                <p class="text-xs text-muted-foreground">Strategy and scheme pool are generated on submit.</p>
             </CardContent>
             <CardFooter class="justify-end gap-2">
                 <Link :href="route('campaigns.show', campaign.id)">
                     <Button variant="outline">Cancel</Button>
                 </Link>
-                <Button :disabled="!selectedOpponent" @click="submit">Start Game</Button>
+                <Button :disabled="!selectedOpponent || !encounterSizeValid" @click="submit">Start Game</Button>
             </CardFooter>
         </Card>
     </div>

@@ -74,6 +74,11 @@ interface CustomCharacterAbility {
     description?: string | null;
 }
 
+interface AttachedToken {
+    id: number;
+    name: string;
+}
+
 interface PreviewMember {
     id: number;
     display_name: string;
@@ -81,6 +86,7 @@ interface PreviewMember {
     back_image: string | null;
     notes?: string | null;
     attached_upgrades?: AttachedUpgrade[];
+    attached_tokens?: AttachedToken[];
     custom_character?: {
         actions: CustomCharacterAction[];
         abilities: CustomCharacterAbility[];
@@ -300,9 +306,25 @@ const handleVisualPick = (miniatureId: number) => {
                         />
                     </div>
 
+                    <!-- Token badges -->
+                    <div v-if="(member.attached_tokens ?? []).length" class="flex flex-wrap gap-1">
+                        <span
+                            v-for="token in member.attached_tokens"
+                            :key="token.id"
+                            class="rounded border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-xs font-medium text-cyan-200"
+                        >
+                            {{ token.name }}
+                        </span>
+                    </div>
+
                     <div v-if="(member.attached_upgrades ?? []).length" class="space-y-2">
                         <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attached Upgrades</div>
-                        <div class="space-y-1.5">
+                        <!-- Bounded + scrollable so several attached upgrades (each with a
+                             description, actions/abilities, and its own notes box) can't
+                             grow the drawer past the viewport and push the header/card
+                             image out of view — same convention GameAttachedUpgradeDrawer
+                             already uses for its own actions/abilities list. -->
+                        <div class="max-h-[40dvh] space-y-1.5 overflow-y-auto pr-1">
                             <div v-for="upgrade in member.attached_upgrades ?? []" :key="upgrade.id" class="rounded-md border p-2">
                                 <div class="text-xs font-medium">{{ upgrade.name }}</div>
                                 <!-- Real rules text — an Injury's effect or an Equipment's granted

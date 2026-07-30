@@ -60,6 +60,7 @@ class CustomCharacter extends Model
             'current' => 'boolean',
             'annihilated_at' => 'datetime',
             'replaced_at' => 'datetime',
+            'card_image_generated_at' => 'datetime',
             'xp_track' => 'array',
             // Integer casts on campaign-mode stat columns. SQLite returns
             // strings for numeric columns by default, which trips comparison

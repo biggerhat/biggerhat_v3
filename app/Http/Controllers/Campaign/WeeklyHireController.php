@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Campaign;
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
+use App\Events\CampaignCrewUpdated;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreWeeklyHireRequest;
 use App\Models\Campaign\Campaign;
@@ -30,6 +32,7 @@ use Illuminate\Support\Facades\DB;
 class WeeklyHireController extends Controller
 {
     use AuthorizesCampaignAccess;
+    use BroadcastsCampaignEvents;
     use HiresTitledModelGroup;
 
     public function edit(Request $request, Campaign $campaign, CampaignCrew $crew)
@@ -183,6 +186,8 @@ class WeeklyHireController extends Controller
                 MessageTypeEnum::error,
             );
         }
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew->fresh()));
 
         return redirect()->route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code])
             ->withMessage('Hired '.count($hires)." model(s) for {$finalCost} scrip.");

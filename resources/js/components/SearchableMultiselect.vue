@@ -125,8 +125,8 @@ const onBlur = (e: FocusEvent) => {
         </div>
 
         <!-- Search input with dropdown -->
-        <div class="relative flex items-center gap-1">
-            <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1">
+            <div class="relative min-w-0 flex-1">
                 <input
                     ref="inputRef"
                     v-model="searchTerm"

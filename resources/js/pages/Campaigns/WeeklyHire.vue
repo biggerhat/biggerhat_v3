@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useCampaignChannel } from '@/composables/useCampaignChannel';
 import { factionBackground } from '@/composables/useFactionColor';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { UserPlus } from 'lucide-vue-next';
@@ -60,10 +61,9 @@ interface HireRow {
 const hires = ref<HireRow[]>([]);
 const filter = ref('');
 
-const filteredHireable = computed(() => {
-    const f = filter.value.toLowerCase().trim();
-    return props.hireable.filter((c) => !f || c.display_name.toLowerCase().includes(f));
-});
+// Real-time updates (T3-34) — another crew's changes don't affect this page,
+// but a week advance (which gates `locked`/`already_hired_this_week`) does.
+useCampaignChannel(props.campaign.id, ['campaign', 'crew', 'hireable', 'already_hired_this_week', 'locked']);
 
 const isVersatile = (c: CharRow): boolean => c.characteristics?.some((ch) => ch.name.toLowerCase() === 'versatile') ?? false;
 
@@ -73,6 +73,32 @@ const isOutOfKeyword = (c: CharRow): boolean => {
     if (keywordIds.length === 0) return false;
     return !c.keywords?.some((k) => keywordIds.includes(k.id));
 };
+
+const getCategory = (c: CharRow): 'keyword' | 'versatile' | 'ook' => {
+    const kwIds = [props.crew.keyword_1_id, props.crew.keyword_2_id].filter((id): id is number => id !== null);
+    if (kwIds.length > 0 && c.keywords?.some((k) => kwIds.includes(k.id))) return 'keyword';
+    if (isVersatile(c)) return 'versatile';
+    return 'ook';
+};
+
+type PoolFilter = 'keyword' | 'versatile' | 'ook' | 'all';
+const poolFilter = ref<PoolFilter>('all');
+
+const filteredHireable = computed(() => {
+    const f = filter.value.toLowerCase().trim();
+    return props.hireable.filter((c) => {
+        if (poolFilter.value !== 'all' && getCategory(c) !== poolFilter.value) return false;
+        if (f && !c.display_name.toLowerCase().includes(f) && !c.keywords?.some((k) => k.name.toLowerCase().includes(f))) return false;
+        return true;
+    });
+});
+
+const poolFilterCounts = computed(() => ({
+    keyword: props.hireable.filter((c) => getCategory(c) === 'keyword').length,
+    versatile: props.hireable.filter((c) => getCategory(c) === 'versatile').length,
+    ook: props.hireable.filter((c) => getCategory(c) === 'ook').length,
+    all: props.hireable.length,
+}));
 
 // Compute the scrip cost of an individual hire given the running first-hire flag.
 const scripCostFor = (h: HireRow, indexInHires: number): number => {
@@ -86,8 +112,15 @@ const scripCostFor = (h: HireRow, indexInHires: number): number => {
 const totalScripCost = computed(() => hires.value.reduce((sum, h, i) => sum + scripCostFor(h, i), 0));
 const remaining = computed(() => props.crew.scrip - totalScripCost.value);
 
+// What it would cost to hire this model next, given the current running hires
+// list — mirrors StartingArsenal's per-row "Over budget" affordability check.
+const costIfAddedNow = (c: CharRow): number =>
+    scripCostFor({ character_id: c.id, label: null, display_name: c.display_name, base_cost: c.cost ?? 0, out_of_keyword: isOutOfKeyword(c) }, hires.value.length);
+
+const canAfford = (c: CharRow): boolean => costIfAddedNow(c) <= remaining.value;
+
 const addHire = (c: CharRow) => {
-    if (props.locked) return;
+    if (props.locked || !canAfford(c)) return;
     hires.value.push({
         character_id: c.id,
         label: null,
@@ -150,16 +183,29 @@ const submit = () => {
 
         <div class="grid gap-6 lg:grid-cols-2">
             <Card>
-                <CardHeader>
+                <CardHeader class="pb-2">
                     <CardTitle>Hireable Models ({{ filteredHireable.length }})</CardTitle>
-                    <Input v-model="filter" placeholder="Filter by name" class="mt-2" />
+                    <Input v-model="filter" placeholder="Search by name or keyword…" class="mt-2" />
+                    <div class="mt-1.5 flex flex-wrap items-center gap-1">
+                        <Button
+                            v-for="f in ['keyword', 'versatile', 'ook', 'all'] as const"
+                            :key="f"
+                            :variant="poolFilter === f ? 'default' : 'outline'"
+                            size="sm"
+                            class="h-6 gap-1 px-2 text-[11px]"
+                            @click="poolFilter = f"
+                        >
+                            {{ { keyword: 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
+                            <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <ul class="max-h-[60vh] space-y-0.5 overflow-y-auto pr-1">
                         <li
                             v-for="c in filteredHireable"
                             :key="c.id"
-                            :class="[factionBackground(c.faction), locked ? 'opacity-40' : '']"
+                            :class="[factionBackground(c.faction), locked || !canAfford(c) ? 'opacity-40' : '']"
                             class="rounded-md border border-white/20 text-white transition-colors hover:brightness-110"
                         >
                             <div class="flex items-center justify-between px-2 py-1.5">
@@ -180,11 +226,12 @@ const submit = () => {
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
+                                    <span v-if="!locked && !canAfford(c)" class="text-[10px] text-white/50">Over budget</span>
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         class="size-7 text-white hover:bg-white/10 hover:text-white"
-                                        :disabled="locked"
+                                        :disabled="locked || !canAfford(c)"
                                         @click="addHire(c)"
                                     >
                                         <UserPlus class="size-4" />

@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Enums\ActionRangeTypeEnum;
 use App\Enums\ActionTypeEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
 use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Http\Requests\CustomUpgradeRequest;
+use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +30,7 @@ class CustomUpgradeController extends Controller
             'upgrade' => null,
             'domain' => $domain,
             'enums' => $this->enumOptions(),
+            'campaign_back_url' => null,
         ]);
     }
 
@@ -48,10 +51,19 @@ class CustomUpgradeController extends Controller
     {
         $this->authorize('update', $customUpgrade);
 
+        $campaignBackUrl = null;
+        if ($customUpgrade->is_campaign_crew_card && $customUpgrade->campaign_crew_id) {
+            $crew = CampaignCrew::find($customUpgrade->campaign_crew_id);
+            if ($crew) {
+                $campaignBackUrl = route('campaigns.crews.arsenal.show', [$crew->campaign_id, $crew->share_code]);
+            }
+        }
+
         return inertia('Tools/CardCreator/UpgradeEditor', [
             'upgrade' => $customUpgrade,
             'domain' => $customUpgrade->domain instanceof \App\Enums\UpgradeDomainTypeEnum ? $customUpgrade->domain->value : $customUpgrade->domain,
             'enums' => $this->enumOptions(),
+            'campaign_back_url' => $campaignBackUrl,
         ]);
     }
 
@@ -72,12 +84,21 @@ class CustomUpgradeController extends Controller
 
         // Mirrors the Campaign Leader/Totem guard on CustomCharacterController —
         // this row is the snapshot StartingArsenalController saves into the
-        // owner's Card Creator library when they name their crew card.
+        // owner's Card Creator library when they name their crew card. Once
+        // the owning campaign has ended (or been deleted — the FK cascade
+        // nulls campaign_crew_id but never this flag), deletion is allowed again.
         if ($customUpgrade->is_campaign_crew_card) {
-            return response()->json([
-                'success' => false,
-                'message' => "{$customUpgrade->display_name} is tied to a Campaign crew and can't be deleted here.",
-            ], 422);
+            $stillLive = $customUpgrade->campaign_crew_id !== null
+                && CampaignCrew::whereKey($customUpgrade->campaign_crew_id)
+                    ->whereHas('campaign', fn ($q) => $q->where('status', '!=', CampaignStatusEnum::Ended->value))
+                    ->exists();
+
+            if ($stillLive) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "{$customUpgrade->display_name} is tied to a Campaign crew and can't be deleted here.",
+                ], 422);
+            }
         }
 
         $customUpgrade->delete();

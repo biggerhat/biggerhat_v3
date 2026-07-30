@@ -45,6 +45,7 @@ interface ActionData {
     damage: string | null;
     description: string | null;
     source_id: number | null;
+    source_character_id?: number | null;
     triggers: TriggerData[];
 }
 
@@ -55,6 +56,7 @@ interface AbilityData {
     costs_stone: boolean;
     description: string | null;
     source_id: number | null;
+    source_character_id?: number | null;
 }
 
 interface KeywordData {
@@ -91,6 +93,7 @@ const props = defineProps<{
         generates_stone: boolean;
         is_unhirable: boolean;
         is_campaign_leader: boolean;
+        is_campaign_totem: boolean;
         archetype: string | null;
         tag: string | null;
         actions: ActionData[] | null;
@@ -116,6 +119,8 @@ const props = defineProps<{
 
 const isEdit = computed(() => !!props.character);
 const isCampaignLeader = computed(() => props.character?.is_campaign_leader ?? false);
+const isCampaignTotem = computed(() => props.character?.is_campaign_totem ?? false);
+const isCampaignManaged = computed(() => isCampaignLeader.value || isCampaignTotem.value);
 const formatSlug = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const displayNameLength = computed(() => {
@@ -635,7 +640,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <span>{{ displayNameLength }}/{{ NAME_LIMIT }} characters</span>
                                 <span v-if="displayNameLength > NAME_LIMIT">— name may not fit on card</span>
                             </div>
-                            <!-- Campaign leader locked-field notice -->
+                            <!-- Campaign leader/totem locked-field notice -->
                             <div
                                 v-if="isCampaignLeader"
                                 class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
@@ -647,11 +652,18 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <span v-if="character?.tag"><strong>Tag:</strong> {{ formatSlug(character.tag) }}</span>
                                 </div>
                             </div>
+                            <div
+                                v-else-if="isCampaignTotem"
+                                class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
+                            >
+                                <strong>Campaign Totem</strong> — faction and keywords are locked to match your Leader. Edit name, actions, and
+                                abilities freely.
+                            </div>
 
                             <div class="grid gap-3 sm:grid-cols-3">
                                 <div>
                                     <label class="mb-1 block text-xs text-muted-foreground">Faction *</label>
-                                    <Select v-model="form.faction" :disabled="isCampaignLeader">
+                                    <Select v-model="form.faction" :disabled="isCampaignManaged">
                                         <SelectTrigger><SelectValue placeholder="Select faction" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem v-for="f in enums.factions" :key="f.value" :value="f.value">
@@ -806,12 +818,12 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <Badge v-for="(kw, i) in keywords" :key="'kw-' + i" variant="secondary" class="gap-1">
                                         {{ kw.name }}
                                         <Badge v-if="kw.id" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]">Official</Badge>
-                                        <button v-if="!isCampaignLeader" class="ml-0.5 hover:text-destructive" @click="removeKeyword(i)">
+                                        <button v-if="!isCampaignManaged" class="ml-0.5 hover:text-destructive" @click="removeKeyword(i)">
                                             <X class="size-3" />
                                         </button>
                                     </Badge>
                                 </div>
-                                <div v-if="!isCampaignLeader" class="relative">
+                                <div v-if="!isCampaignManaged" class="relative">
                                     <Input
                                         v-model="newKeyword"
                                         placeholder="Search or type a keyword..."

@@ -83,6 +83,7 @@ import {
     EyeOff,
     Footprints,
     Heart,
+    HeartCrack,
     Layers,
     LayoutGrid,
     Loader2,
@@ -193,10 +194,11 @@ interface CrewCardEffect {
 interface CampaignCrewCardPayload {
     effect: CrewCardEffect | null;
     borrowed: Array<{ id: number; effect: CrewCardEffect | null }>;
-    // Combined generated card (starter + every held Tier-4 borrow, including
-    // restriction qualifier text) — regenerated whenever the held effect set
-    // changes. Null until the first render lands.
+    // Combined generated card — starter effect on the front, every held
+    // Tier-4 borrow on the back (T2-22). Regenerated whenever the held
+    // effect set changes. Null until the first render lands.
     front_image: string | null;
+    back_image: string | null;
 }
 
 const props = defineProps<{
@@ -229,6 +231,21 @@ const props = defineProps<{
         description?: string | null;
         // Campaign equipment only (pg 19) — full granted actions/abilities so
         // the attach-upgrade drawer can render real rules text.
+        actions?: Array<Record<string, unknown>>;
+        abilities?: Array<Record<string, unknown>>;
+    }[];
+    // Campaign games only (pg 34-36) — the full Injury catalog, offered as a
+    // mid-game attach option via the same attached_upgrades mechanism as
+    // equipment (see GamePlayController::updateCrewMember(), which already
+    // special-cases campaign_upgrade_kind === 'injury' to skip the plentiful
+    // cap since injuries aren't limited-copy items).
+    character_injuries: {
+        id: number;
+        name: string;
+        front_image: string | null;
+        back_image: string | null;
+        plentiful: number | null;
+        description?: string | null;
         actions?: Array<Record<string, unknown>>;
         abilities?: Array<Record<string, unknown>>;
     }[];
@@ -308,9 +325,12 @@ const props = defineProps<{
     }[];
     /** Campaign games only: the current user's built leader for their own master pick. */
     campaign_leader_option?: MasterOption | null;
+    /** Campaign games only: the crew's Leader name + injuries, shown in the
+     *  crew-select panel (separate from campaign_leader_option's full master-card shape). */
+    campaign_leader?: { id: number; name: string; injuries: Array<{ id: number; name: string }> } | null;
     /** Campaign games only: the crew's current Totem (Tier-3+ unlock), offered
      *  as an equipment-assignment target during crew select. Null if not yet unlocked. */
-    campaign_totem?: { id: number; name: string } | null;
+    campaign_totem?: { id: number; name: string; injuries: Array<{ id: number; name: string }> } | null;
 }>();
 
 const page = usePage<SharedData>();
@@ -467,6 +487,7 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 // only set once submitFaction completes — must reload here or the
                 // leader stays blank at Master Select until a manual refresh.
                 'campaign_leader_option',
+                'campaign_leader',
                 // campaign_context carries crew_a_card/crew_b_card (starter +
                 // borrowed Crew Card effects) — must reload here too, or the
                 // in-game "[crew card]" toggle stays stale/empty until a manual
@@ -1137,6 +1158,17 @@ const previewMember = ref<any>(null);
 const expandedCrewCard = ref<'a' | 'b' | null>(null);
 const toggleCrewCard = (side: 'a' | 'b') => {
     expandedCrewCard.value = expandedCrewCard.value === side ? null : side;
+};
+
+// Flip state for the combined card image (T2-22: starter front, borrowed
+// back) — independent per side, resets closed each time a side re-expands.
+const flippedCrewCard = ref<{ a: boolean; b: boolean }>({ a: false, b: false });
+const crewCardPayload = (side: 'a' | 'b') => props.campaign_context?.[side === 'a' ? 'crew_a_card' : 'crew_b_card'];
+const crewCardImageSrc = (side: 'a' | 'b'): string | null => {
+    const card = crewCardPayload(side);
+    if (!card) return null;
+    const showBack = flippedCrewCard.value[side] && card.back_image;
+    return showBack ? card.back_image : card.front_image;
 };
 
 // Once a Campaign game finishes, each player runs their OWN Aftermath (the
@@ -2505,6 +2537,53 @@ const filteredUpgrades = computed(() => {
     });
 });
 
+// Mid-game injury attach — same dialog component and same attached_upgrades
+// mechanism as equipment (see toggleUpgrade below), just sourced from the
+// Injury catalog instead. No "Reference Upgrades" shortcut list for injuries.
+const injuryDialogOpen = ref(false);
+const injuryMember = ref<any>(null);
+const injurySearch = ref('');
+const emptyInjuryReferenceIds = new Set<number>();
+
+const openInjuryDialog = (member: any) => {
+    injuryMember.value = member;
+    injuryDialogOpen.value = true;
+    injurySearch.value = '';
+};
+
+const injuryUsageCount = () => 0; // No plentiful cap on injuries (pg 34) — never at limit.
+
+const filteredInjuries = computed(() => {
+    const q = injurySearch.value.toLowerCase();
+    let list = props.character_injuries;
+    if (q) {
+        list = list.filter((u) => u.name.toLowerCase().includes(q));
+    }
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const toggleInjury = async (injury: { id: number; name: string; front_image: string | null; back_image: string | null }) => {
+    if (!injuryMember.value) return;
+    const current = injuryMember.value.attached_upgrades ?? [];
+    const has = current.some((u: any) => u.id === injury.id);
+    const catalog = props.character_injuries.find((u) => u.id === injury.id);
+    const newRow = {
+        id: injury.id,
+        name: injury.name,
+        front_image: injury.front_image,
+        back_image: injury.back_image,
+        description: catalog?.description ?? null,
+        actions: catalog?.actions ?? [],
+        abilities: catalog?.abilities ?? [],
+    };
+    const updated = has ? current.filter((u: any) => u.id !== injury.id) : [...current, newRow];
+    injuryMember.value = { ...injuryMember.value, attached_upgrades: updated };
+    await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: injuryMember.value.id }), {
+        attached_upgrades: updated,
+    });
+    router.reload({ only: ['game'], preserveScroll: true });
+};
+
 const toggleUpgrade = async (upgrade: {
     id: number;
     name: string;
@@ -2717,13 +2796,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     class="mt-2 space-y-2 rounded-md border bg-background p-2 text-foreground"
                 >
                     <template v-if="side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect">
-                        <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text) -->
-                        <img
-                            v-if="(side === 'a' ? campaign_context.crew_a_card : campaign_context.crew_b_card).front_image"
-                            :src="'/storage/' + (side === 'a' ? campaign_context.crew_a_card : campaign_context.crew_b_card).front_image"
-                            class="max-h-96 rounded-md border"
-                            :alt="`${side === 'a' ? 'Crew A' : 'Crew B'} Crew Card`"
-                        />
+                        <!-- Combined card — starter effect front, borrowed Tier-4 effects back (T2-22) -->
+                        <div v-if="crewCardImageSrc(side)" class="relative w-fit">
+                            <img
+                                :src="'/storage/' + crewCardImageSrc(side)"
+                                class="max-h-96 rounded-md border"
+                                :alt="`${side === 'a' ? 'Crew A' : 'Crew B'} Crew Card`"
+                            />
+                            <button
+                                v-if="crewCardPayload(side)?.back_image"
+                                type="button"
+                                class="absolute bottom-1 right-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white/80 hover:bg-black/70"
+                                @click="flippedCrewCard[side] = !flippedCrewCard[side]"
+                            >
+                                {{ flippedCrewCard[side] ? 'Show Front' : 'Show Back' }}
+                            </button>
+                        </div>
                         <template v-else>
                             <p class="text-sm font-medium">
                                 {{ (side === 'a' ? campaign_context.crew_a_card.effect : campaign_context.crew_b_card.effect)?.name }}
@@ -3412,6 +3500,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :campaign-arsenal="campaign_arsenal ?? []"
                 :campaign-owned-equipment="campaign_owned_equipment ?? []"
                 :campaign-totem="campaign_totem ?? null"
+                :campaign-leader="campaign_leader ?? null"
                 :submitting="submitting"
                 :my-slot="mySlot"
                 :opponent-slot="opponentSlot"
@@ -4503,6 +4592,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <ArrowUpCircle class="size-3.5" />
                                             </button>
                                             <button
+                                                v-if="game.format === GameFormat.Campaign"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-rose-200 hover:bg-black/50 sm:inline-flex"
+                                                aria-label="Attach Injury"
+                                                title="Attach Injury"
+                                                @click.stop="openInjuryDialog(member)"
+                                            >
+                                                <HeartCrack class="size-3.5" />
+                                            </button>
+                                            <button
                                                 class="hidden shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Tokens"
                                                 title="Tokens"
@@ -4644,6 +4742,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             @click.stop="openUpgradeDialog(member)"
                                         >
                                             <ArrowUpCircle class="size-3.5" /><span class="text-[10px] font-medium">Upgrades</span>
+                                        </button>
+                                        <button
+                                            v-if="game.format === GameFormat.Campaign"
+                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-rose-200 active:bg-black/50"
+                                            @click.stop="openInjuryDialog(member)"
+                                        >
+                                            <HeartCrack class="size-3.5" /><span class="text-[10px] font-medium">Injury</span>
                                         </button>
                                         <button
                                             class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50"
@@ -5006,6 +5111,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <ArrowUpCircle class="size-3.5" />
                                             </button>
                                             <button
+                                                v-if="game.format === GameFormat.Campaign"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-rose-200 hover:bg-black/50 sm:inline-flex"
+                                                aria-label="Attach Injury"
+                                                title="Attach Injury"
+                                                @click.stop="openInjuryDialog(member)"
+                                            >
+                                                <HeartCrack class="size-3.5" />
+                                            </button>
+                                            <button
                                                 class="hidden shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Tokens"
                                                 title="Tokens"
@@ -5147,6 +5261,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             @click.stop="openUpgradeDialog(member)"
                                         >
                                             <ArrowUpCircle class="size-3.5" /><span class="text-[10px] font-medium">Upgrades</span>
+                                        </button>
+                                        <button
+                                            v-if="game.format === GameFormat.Campaign"
+                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-rose-200 active:bg-black/50"
+                                            @click.stop="openInjuryDialog(member)"
+                                        >
+                                            <HeartCrack class="size-3.5" /><span class="text-[10px] font-medium">Injury</span>
                                         </button>
                                         <button
                                             class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50"
@@ -5593,6 +5714,21 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         @update:open="upgradeDialogOpen = $event"
         @update:search="upgradeSearch = $event"
         @toggle="toggleUpgrade"
+    />
+
+    <!-- Injury Dialog (Campaign mode only, pg 34-36) -->
+    <GameUpgradeDialog
+        v-if="game.format === GameFormat.Campaign"
+        :open="injuryDialogOpen"
+        :member="injuryMember"
+        :options="filteredInjuries"
+        :reference-ids="emptyInjuryReferenceIds"
+        :search="injurySearch"
+        :usage-count="injuryUsageCount"
+        title="Attach Injury"
+        @update:open="injuryDialogOpen = $event"
+        @update:search="injurySearch = $event"
+        @toggle="toggleInjury"
     />
 
     <!-- Attached Upgrade Preview Drawer -->

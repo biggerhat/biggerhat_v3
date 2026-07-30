@@ -25,18 +25,23 @@ interface Member {
     attached_upgrades: AttachedUpgrade[];
 }
 
-const props = defineProps<{
-    open: boolean;
-    member: Member | null;
-    /** Already-filtered upgrade options (parent scopes to the member's keyword / allowed list). */
-    options: UpgradeOption[];
-    /** Subset of option IDs surfaced in the "Reference Upgrades" shortcut list. */
-    referenceIds: Set<number>;
-    /** Two-way search string for the "All Upgrades" section. */
-    search: string;
-    /** Count of how many times the upgrade id is currently in use across the crew — drives `plentiful` caps. */
-    usageCount: (upgradeId: number) => number;
-}>();
+const props = withDefaults(
+    defineProps<{
+        open: boolean;
+        member: Member | null;
+        /** Already-filtered upgrade options (parent scopes to the member's keyword / allowed list). */
+        options: UpgradeOption[];
+        /** Subset of option IDs surfaced in the "Reference Upgrades" shortcut list. */
+        referenceIds: Set<number>;
+        /** Two-way search string for the "All Upgrades" section. */
+        search: string;
+        /** Count of how many times the upgrade id is currently in use across the crew — drives `plentiful` caps. */
+        usageCount: (upgradeId: number) => number;
+        /** Dialog title — defaults to the equipment-management wording; the mid-game injury picker (pg 34) reuses this same component with its own title. */
+        title?: string;
+    }>(),
+    { title: 'Manage Upgrades' },
+);
 
 const emit = defineEmits<{
     (e: 'update:open', value: boolean): void;
@@ -58,7 +63,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
     <Dialog :open="open" @update:open="emit('update:open', $event)">
         <DialogContent class="max-w-sm">
             <DialogHeader>
-                <DialogTitle>Manage Upgrades</DialogTitle>
+                <DialogTitle>{{ title }}</DialogTitle>
                 <DialogDescription v-if="member">{{ member.display_name }}</DialogDescription>
             </DialogHeader>
 

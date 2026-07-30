@@ -56,6 +56,10 @@ interface KilledModelRow {
     label: string | null;
     display_name: string;
     character: { id: number; display_name: string; station: string } | null;
+    // True when the linked tracker run detected this model as killed (see
+    // `kills_are_authoritative`) — a starting-point highlight, not a filter;
+    // every row here can still get an injury flip regardless of this flag.
+    tracker_killed: boolean;
 }
 
 interface EquipmentRow {
@@ -744,6 +748,11 @@ const doctorAttemptLabel = (pivotId: number): string => {
 
 const removeDoctorAttempt = (idx: number) => doctorAttempts.value.splice(idx, 1);
 
+// Doppelganger doesn't apply to a one-of-a-kind Leader/Totem (pg 33) — a
+// Lucky Miss reflip on one of their injuries is a plain reprieve.
+const isCustomCharDoctorAttempt = (att: DoctorAttempt): boolean =>
+    (crew_injuries.value.find((i) => i.pivot_id === att.injury_pivot_id)?.custom_character_id ?? null) !== null;
+
 const submitDoctor = () => {
     router.post(route('campaigns.aftermaths.doctor', props.aftermath.id), {
         attempts: doctorAttempts.value,
@@ -789,9 +798,11 @@ const addInjuryFlip = (m: KilledModelRow) => {
         is_black_joker: false,
         lucky_miss_flip_value: 1,
         lucky_miss_is_joker: false,
-        // Default to the campaign's first other crew so a defection always has
-        // a destination; the player can change it.
-        traitor_target_crew_id: traitorTargetCrews.value[0]?.id ?? null,
+        // Left unset until the Black Joker (Traitor) checkbox is actually
+        // checked — pre-filling it here made the destination picker read as a
+        // static label instead of a real choice, especially with only one
+        // other crew in the campaign (see the Black Joker checkbox handler).
+        traitor_target_crew_id: null,
     });
 };
 const removeInjuryFlip = (idx: number) => injuryFlips.value.splice(idx, 1);
@@ -1531,7 +1542,7 @@ const submitInjuries = () => {
                                 </SelectContent>
                             </Select>
                             <!-- Red Joker → Lucky Miss table (or Doppelganger). -->
-                            <template v-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'">
+                            <template v-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip' && !isCustomCharDoctorAttempt(att)">
                                 <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                     <Checkbox :checked="att.lucky_miss_is_joker" @update:checked="(v: boolean) => (att.lucky_miss_is_joker = v)" />
                                     Joker (Doppelganger)
@@ -1541,6 +1552,12 @@ const submitInjuries = () => {
                                     <Input type="number" min="1" max="13" v-model.number="att.lucky_miss_flip_value" class="h-8 w-16" />
                                 </template>
                             </template>
+                            <span
+                                v-else-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'"
+                                class="text-[11px] text-muted-foreground"
+                            >
+                                Close Call — survives with no injury.
+                            </span>
                             <Button variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
                         </li>
                     </ul>
@@ -1567,7 +1584,9 @@ const submitInjuries = () => {
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
-                <p v-if="kills_are_authoritative" class="text-xs uppercase text-muted-foreground">Models killed this game (from the tracker)</p>
+                <p v-if="kills_are_authoritative" class="text-xs uppercase text-muted-foreground">
+                    Models highlighted below were auto-detected as killed this game — add or remove flips as needed.
+                </p>
                 <p v-else class="rounded-md border border-dashed bg-muted/20 p-2 text-xs text-muted-foreground">
                     No tracker data for this game — the full roster is shown below. Flip <strong>only</strong> for the non-peon models that were
                     actually killed this game (pg 34).
@@ -1577,10 +1596,12 @@ const submitInjuries = () => {
                         v-for="m in killed_models"
                         :key="`${m.custom_character_id ?? 'a'}-${m.id}`"
                         class="flex items-center justify-between rounded-md border p-2 text-sm"
+                        :class="m.tracker_killed ? 'border-red-500/40 bg-red-500/5' : ''"
                     >
                         <span>
                             {{ m.display_name || m.character?.display_name || '—' }}
                             <span v-if="m.label" class="ml-1 text-[10px] text-muted-foreground">({{ m.label }})</span>
+                            <Badge v-if="m.tracker_killed" variant="destructive" class="ml-1.5 text-[9px]">Killed</Badge>
                         </span>
                         <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m)">Add injury</Button>
                     </li>
@@ -1609,7 +1630,13 @@ const submitInjuries = () => {
                                     @update:checked="
                                         (v: boolean) => {
                                             f.is_black_joker = v;
-                                            if (v) f.is_red_joker = false;
+                                            if (v) {
+                                                f.is_red_joker = false;
+                                                // Default to the campaign's first other crew the
+                                                // moment Traitor is actually checked, not before —
+                                                // the player can still change it.
+                                                f.traitor_target_crew_id ??= traitorTargetCrews.value[0]?.id ?? null;
+                                            }
                                         }
                                     "
                                 />
@@ -1631,7 +1658,7 @@ const submitInjuries = () => {
                                 </Select>
                                 <span v-else class="text-[11px] text-amber-600">no other crew in this campaign — the model is just removed</span>
                             </template>
-                            <template v-else-if="f.is_red_joker">
+                            <template v-else-if="f.is_red_joker && f.custom_character_id === null">
                                 <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
                                     <Checkbox :checked="f.lucky_miss_is_joker" @update:checked="(v: boolean) => (f.lucky_miss_is_joker = v)" />
                                     Joker (Doppelganger)
@@ -1640,6 +1667,11 @@ const submitInjuries = () => {
                                     <span class="text-[11px] text-muted-foreground">Lucky Miss flip</span>
                                     <Input type="number" min="1" max="13" v-model.number="f.lucky_miss_flip_value" class="h-8 w-16" />
                                 </template>
+                            </template>
+                            <template v-else-if="f.is_red_joker">
+                                <!-- Doppelganger doesn't apply to a one-of-a-kind Leader/Totem — a
+                                     red joker here is a plain reprieve, not a Lucky Miss table flip. -->
+                                <span class="text-[11px] text-muted-foreground">Close Call — survives with no injury.</span>
                             </template>
                             <template v-else>
                                 <Select

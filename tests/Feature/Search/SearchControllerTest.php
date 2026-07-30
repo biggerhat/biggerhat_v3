@@ -176,3 +176,73 @@ it('skips the upgrade query entirely when only faction is provided (existing beh
         ->where('result_breakdown.upgrades', 0)
     );
 });
+
+// ───── Cross-field OR groups (T2-23) ─────
+
+it('cross-field or_group matches a character satisfying EITHER simple field, not just the first', function () {
+    $ortega = Keyword::factory()->create(['name' => 'ortega']);
+
+    $guildOnly = ($this->makeCharacter)(['name' => 'Guild Only', 'faction' => FactionEnum::Guild]);
+
+    $ortegaOnly = ($this->makeCharacter)(['name' => 'Ortega Only', 'faction' => FactionEnum::Outcasts]);
+    $ortegaOnly->keywords()->attach($ortega->id);
+
+    ($this->makeCharacter)(['name' => 'Neither', 'faction' => FactionEnum::Arcanists]);
+
+    $response = $this->get(route('search.view', [
+        'or_group' => 'faction:'.FactionEnum::Guild->value.',keyword:ortega',
+    ]));
+
+    $response->assertOk();
+    $names = collect($response->viewData('page')['props']['results']['data'])
+        ->where('result_type', 'character')
+        ->pluck('name')
+        ->all();
+
+    expect($names)->toContain('Guild Only')
+        ->and($names)->toContain('Ortega Only')
+        ->and($names)->not->toContain('Neither');
+});
+
+it('or_group with fewer than 2 usable conditions is a no-op rather than narrowing results (unsupported field dropped)', function () {
+    // "action" isn't in the simple-field allowlist, so it's dropped from the
+    // group server-side, leaving only one condition — applying that alone
+    // unconditionally would silently narrow an otherwise-unfiltered search.
+    ($this->makeCharacter)(['name' => 'Untouched', 'faction' => FactionEnum::Bayou]);
+
+    $response = $this->get(route('search.view', [
+        'name' => 'Untouched',
+        'or_group' => 'action:foo,faction:'.FactionEnum::Guild->value,
+    ]));
+
+    $response->assertOk();
+    $names = collect($response->viewData('page')['props']['results']['data'])
+        ->where('result_type', 'character')
+        ->pluck('name')
+        ->all();
+
+    expect($names)->toBe(['Untouched']);
+});
+
+it('applies multiple semicolon-separated or_groups, each ANDed together', function () {
+    $ortega = Keyword::factory()->create(['name' => 'ortega']);
+    $performer = Keyword::factory()->create(['name' => 'performer']);
+
+    $matchesBoth = ($this->makeCharacter)(['name' => 'Matches Both', 'faction' => FactionEnum::Guild, 'station' => 'master']);
+    $matchesBoth->keywords()->attach([$ortega->id, $performer->id]);
+
+    // Satisfies the first group (faction) but not the second (neither keyword).
+    ($this->makeCharacter)(['name' => 'Only First Group', 'faction' => FactionEnum::Guild]);
+
+    $response = $this->get(route('search.view', [
+        'or_group' => 'faction:'.FactionEnum::Guild->value.',station:master;keyword:ortega,keyword:performer',
+    ]));
+
+    $response->assertOk();
+    $names = collect($response->viewData('page')['props']['results']['data'])
+        ->where('result_type', 'character')
+        ->pluck('name')
+        ->all();
+
+    expect($names)->toBe(['Matches Both']);
+});

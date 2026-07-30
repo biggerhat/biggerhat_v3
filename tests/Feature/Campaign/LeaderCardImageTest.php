@@ -185,6 +185,21 @@ it('does not queue a card regeneration for an unrelated field change', function 
     Bus::assertNotDispatched(GenerateLeaderCardImage::class);
 });
 
+it('uses WithoutOverlapping (release, not drop) so a redo-during-undo render is never silently lost', function () {
+    // Regression: ShouldBeUnique silently dropped a dispatch that arrived
+    // while a render for the same character was already in flight — a quick
+    // undo-then-redo could leave the on-disk image reflecting the undone
+    // state forever. WithoutOverlapping releases the overlapping dispatch
+    // back onto the queue instead, so the latest state always eventually renders.
+    $job = new GenerateLeaderCardImage(42);
+
+    expect($job)->not->toBeInstanceOf(\Illuminate\Contracts\Queue\ShouldBeUnique::class);
+
+    $middleware = $job->middleware();
+    expect($middleware)->toHaveCount(1);
+    expect($middleware[0])->toBeInstanceOf(\Illuminate\Queue\Middleware\WithoutOverlapping::class);
+});
+
 it('does not queue a card regeneration for a non-Campaign homebrew character', function () {
     $user = lciUser();
 

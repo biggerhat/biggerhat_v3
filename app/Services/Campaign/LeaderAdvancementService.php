@@ -53,10 +53,15 @@ class LeaderAdvancementService
             $boxTierByIndex[$box['index']] = $box['tier'] ?? null;
         }
 
+        // An annihilated totem is gone from the arsenal (pg 32: "you may only
+        // select an advancement from this sheet if there is not a totem in your
+        // arsenal") — whereNull('annihilated_at') re-opens the Totem Advancement
+        // slot once the prior totem has been destroyed.
         $crewHasTotem = CustomCharacter::query()
             ->where('campaign_crew_id', $leader->campaign_crew_id)
             ->where('is_campaign_totem', true)
             ->where('current', true)
+            ->whereNull('annihilated_at')
             ->exists();
 
         $sawSummoning = false;
@@ -166,12 +171,14 @@ class LeaderAdvancementService
                 }
             }
 
-            // Ability/Summoning target resolution (pg 44-51): applies to the
-            // Leader (default) or the crew's current Totem — same routing as
-            // Attack/Tactical Mod, minus the per-action Skl range check (an
-            // Ability/Summoning action isn't attached to a specific existing
-            // action).
-            if ($table === AdvancementTableEnum::Ability || $table === AdvancementTableEnum::Summoning) {
+            // Action/Ability/Summoning target resolution (pg 31, 44-51): applies
+            // to the Leader (default) or the crew's current Totem — "any time
+            // your leader would advance, you may choose to give the advancement
+            // to your totem instead" (pg 31) applies to every advancement type,
+            // Action included — same routing as Attack/Tactical Mod, minus the
+            // per-action Skl range check (a new action/ability isn't attached to
+            // an existing action).
+            if ($table === AdvancementTableEnum::Action || $table === AdvancementTableEnum::Ability || $table === AdvancementTableEnum::Summoning) {
                 $appliedToCustomCharacterId = $a['applied_to_custom_character_id'] ?? null;
                 if ($appliedToCustomCharacterId !== null) {
                     $totemExists = CustomCharacter::query()
@@ -179,6 +186,7 @@ class LeaderAdvancementService
                         ->where('campaign_crew_id', $leader->campaign_crew_id)
                         ->where('is_campaign_totem', true)
                         ->where('current', true)
+                        ->whereNull('annihilated_at')
                         ->exists();
                     if (! $totemExists) {
                         return "Selected Totem doesn't belong to this crew.";
@@ -357,6 +365,7 @@ class LeaderAdvancementService
                 ->where('campaign_crew_id', $leader->campaign_crew_id)
                 ->where('is_campaign_totem', true)
                 ->where('current', true)
+                ->whereNull('annihilated_at')
                 ->first();
             if (! $totem) {
                 return "Selected Totem doesn't belong to this crew.";
@@ -467,8 +476,8 @@ class LeaderAdvancementService
                 AdvancementTableEnum::Summoning => ($targetCharacter && $coreCatalogId)
                     ? $this->applyActionToLeader($targetCharacter, $coreCatalogId)
                     : null,
-                AdvancementTableEnum::Action => $advancementRow instanceof AdvancementAction
-                    ? $this->applyAdvancementAction($leader, $advancementRow, $freeChoice)
+                AdvancementTableEnum::Action => ($targetCharacter && $advancementRow instanceof AdvancementAction)
+                    ? $this->applyAdvancementAction($targetCharacter, $advancementRow, $freeChoice)
                     : null,
                 AdvancementTableEnum::Ability => ($targetCharacter && $advancementRow instanceof AdvancementAbility)
                     ? $this->applyAdvancementAbility($targetCharacter, $advancementRow, $freeChoice)
@@ -1095,9 +1104,15 @@ class LeaderAdvancementService
             if ($catalogId === null) {
                 return;
             }
+            $target = $advancement->applied_to_custom_character_id !== null
+                ? CustomCharacter::find($advancement->applied_to_custom_character_id)
+                : $leader;
+            if (! $target) {
+                return;
+            }
             $removed = false;
-            $leader->actions = array_values(array_filter(
-                $leader->actions ?? [],
+            $target->actions = array_values(array_filter(
+                $target->actions ?? [],
                 function (array $a) use ($catalogId, &$removed): bool {
                     if (! $removed && ($a['source_id'] ?? null) === $catalogId) {
                         $removed = true;
@@ -1108,7 +1123,7 @@ class LeaderAdvancementService
                     return true;
                 }
             ));
-            $leader->save();
+            $target->save();
 
             return;
         }

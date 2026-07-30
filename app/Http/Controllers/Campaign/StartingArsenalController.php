@@ -6,6 +6,8 @@ use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
+use App\Events\CampaignCrewUpdated;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
 use App\Jobs\Campaign\GenerateCombinedCrewCardImage;
@@ -31,6 +33,7 @@ use Illuminate\Support\Str;
 class StartingArsenalController extends Controller
 {
     use AuthorizesCampaignAccess;
+    use BroadcastsCampaignEvents;
     use HiresTitledModelGroup;
 
     private const STARTING_BUDGET_SS = 25;
@@ -217,6 +220,8 @@ class StartingArsenalController extends Controller
 
         GenerateCombinedCrewCardImage::dispatch($crew->id)->afterCommit();
 
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
         return redirect()->route('campaigns.crews.starting-arsenal.edit', [$campaign, $crew])
             ->withMessage("Starting arsenal saved ({$totalCost} ss spent, {$leftoverScrip} scrip leftover).");
     }
@@ -339,7 +344,7 @@ class StartingArsenalController extends Controller
             ->with([
                 'keywords:id,name',
                 'characteristics:id,name',
-                'miniatures' => fn ($q) => $q->select(['id', 'character_id', 'display_name', 'front_image']),
+                'miniatures' => fn ($q) => $q->select(['id', 'character_id', 'display_name', 'front_image', 'back_image']),
             ])
             ->orderBy('display_name')
             ->get(['id', 'display_name', 'slug', 'cost', 'faction', 'station']);

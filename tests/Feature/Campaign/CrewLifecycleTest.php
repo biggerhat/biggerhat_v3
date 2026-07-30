@@ -127,6 +127,24 @@ it('starting-anew wipes arsenal + leader and adds 5 scrip per week elapsed', fun
     expect($remaining)->toBe(0);
 });
 
+it('starting-anew clears the stale combined crew card images along with the starter effect', function () {
+    [$user, $campaign, $crew] = crewWithLeader();
+    $crew->update([
+        'crew_card_effect_id' => \App\Models\Campaign\CampaignCrewCard::factory()->create()->id,
+        'crew_card_front_image' => 'campaign-crews/1/crew-card.png',
+        'crew_card_back_image' => 'campaign-crews/1/crew-card-back.png',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-anew', [$campaign, $crew->share_code]))
+        ->assertRedirect();
+
+    $crew->refresh();
+    expect($crew->crew_card_effect_id)->toBeNull()
+        ->and($crew->crew_card_front_image)->toBeNull()
+        ->and($crew->crew_card_back_image)->toBeNull();
+});
+
 it('starting-anew on week 1 grants 0 bonus scrip', function () {
     [$user, $campaign, $crew] = crewWithLeader();
     $campaign->update(['current_week' => 1]);

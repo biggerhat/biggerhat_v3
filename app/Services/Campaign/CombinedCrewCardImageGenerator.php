@@ -23,10 +23,19 @@ class CombinedCrewCardImageGenerator
         // CustomCharacterController::capture's own share_code-based route).
         $url = route('tools.card_creator.capture_crew_card_combined', $crew->share_code);
 
-        $front = $this->capture($url, '#card-crew');
+        // Two element screenshots off one page load (same pattern as
+        // LeaderCardImageGenerator's front/back capture) — front is the
+        // starter effect, back is every currently-held Tier-4 borrow (T2-22).
+        $front = $this->capture($url, '#card-crew-front');
         Storage::disk('public')->put("{$dir}/crew-card.png", $front);
 
-        $crew->update(['crew_card_front_image' => "{$dir}/crew-card.png"]);
+        $back = $this->capture($url, '#card-crew-back');
+        Storage::disk('public')->put("{$dir}/crew-card-back.png", $back);
+
+        $crew->update([
+            'crew_card_front_image' => "{$dir}/crew-card.png",
+            'crew_card_back_image' => "{$dir}/crew-card-back.png",
+        ]);
     }
 
     private function capture(string $url, string $selector): string

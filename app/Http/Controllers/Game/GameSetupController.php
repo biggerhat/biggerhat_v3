@@ -786,6 +786,49 @@ class GameSetupController extends Controller
                 if (! $arsenalModel) {
                     continue;
                 }
+
+                $injuryUpgrades = $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id);
+                $attachedUpgrades = array_merge($injuryUpgrades, $equipmentByTarget[$arsenalModel->id] ?? []);
+
+                // Hired from the owner's own Card Creator homebrew instead of the
+                // official catalog — no keywords/characteristics relations to check
+                // against (it was added via the unrestricted "Add Unit" flow, so
+                // there's no cost cap/OOK surcharge to enforce here either).
+                if ($arsenalModel->custom_character_id) {
+                    $customCharacter = \App\Models\CustomCharacter::find($arsenalModel->custom_character_id);
+                    if (! $customCharacter) {
+                        continue;
+                    }
+
+                    GameCrewMember::create([
+                        'game_id' => $game->id,
+                        'game_player_id' => $player->id,
+                        'character_id' => null,
+                        'custom_character_id' => $customCharacter->id,
+                        'display_name' => $arsenalModel->label ?: $customCharacter->display_name,
+                        'faction' => $customCharacter->getRawOriginal('faction'),
+                        'current_health' => $customCharacter->health,
+                        'max_health' => $customCharacter->health,
+                        'defense' => $customCharacter->defense,
+                        'willpower' => $customCharacter->willpower,
+                        'speed' => $customCharacter->speed,
+                        'size' => $customCharacter->size,
+                        'characteristics' => array_merge($customCharacter->characteristics ?? [], $arsenalModel->gained_characteristics ?? []),
+                        'cost' => $customCharacter->cost ?? 0,
+                        'station' => $customCharacter->getRawOriginal('station'),
+                        'hiring_category' => 'in-keyword',
+                        'front_image' => null,
+                        'back_image' => null,
+                        'is_custom' => true,
+                        'attached_upgrades' => $attachedUpgrades,
+                        'attached_tokens' => [],
+                        'attached_markers' => [],
+                        'sort_order' => $sortOrder++,
+                    ]);
+
+                    continue;
+                }
+
                 $character = $crewCharacters->get($arsenalModel->character_id);
                 if (! $character) {
                     continue;
@@ -795,9 +838,6 @@ class GameSetupController extends Controller
                 $isVersatile = $character->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
                 $category = $sharesKeyword ? 'in-keyword' : ($isVersatile ? 'versatile' : 'ook');
                 $effectiveCost = $category === 'ook' ? ($character->cost + 1) : $character->cost;
-
-                $injuryUpgrades = $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id);
-                $attachedUpgrades = array_merge($injuryUpgrades, $equipmentByTarget[$arsenalModel->id] ?? []);
 
                 $this->createCrewMember(
                     $game,
@@ -810,6 +850,7 @@ class GameSetupController extends Controller
                     $miniatureIndexes,
                     $attachedUpgrades,
                     $arsenalModel->gained_characteristics ?? [],
+                    $arsenalModel->label,
                 );
             }
 
@@ -1080,7 +1121,7 @@ class GameSetupController extends Controller
     /**
      * @param  array<int, string>  $extraCharacteristics  Campaign-gained characteristics (pg 34) to merge with the character's base ones — e.g. CampaignArsenalModel::gained_characteristics.
      */
-    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = [], array $attachedUpgrades = [], array $extraCharacteristics = []): void
+    private function createCrewMember(Game $game, GamePlayer $player, Character $character, string $category, int $cost, int $sortOrder, array $miniatureSelections = [], array &$miniatureIndexes = [], array $attachedUpgrades = [], array $extraCharacteristics = [], ?string $displayNameOverride = null): void
     {
         // Use the miniature selected in the Crew Builder, or fall back to first.
         // miniature_selections can be { "charId": miniatureId } (single) or { "charId": [id1, id2, ...] } (multi).
@@ -1105,7 +1146,9 @@ class GameSetupController extends Controller
             'game_id' => $game->id,
             'game_player_id' => $player->id,
             'character_id' => $character->id,
-            'display_name' => $miniature ? $miniature->display_name : $character->display_name,
+            // Campaign hires use the label the player gave this specific model at
+            // hire time (e.g. "Zombie A") over the generic miniature/catalog name.
+            'display_name' => $displayNameOverride ?: ($miniature ? $miniature->display_name : $character->display_name),
             'faction' => $character->getRawOriginal('faction'),
             'current_health' => $character->health,
             'max_health' => $character->health,

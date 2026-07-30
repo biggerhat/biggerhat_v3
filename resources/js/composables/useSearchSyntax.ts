@@ -1,6 +1,22 @@
 export interface ParsedFilters {
     params: Record<string, string>;
+    // User-facing messages for OR-groups that couldn't be applied (see the
+    // cross-field OR-group handling below) — surfaced as a toast by the
+    // caller rather than silently dropping the group's second field.
+    errors: string[];
 }
+
+// Cross-field OR groups (T2-23), e.g. `(f:guild OR kw:ortega)`, are only
+// supported for these "simple" fields — each resolves to one straightforward
+// where/whereHas condition server-side (SearchController::applyOrGroups()).
+// action/ability/trigger/token/marker each have their own multi-column
+// sub-filter DSL that doesn't reduce to a single comparable condition, so a
+// group mixing one of those in isn't built — see the mixed-group check below.
+const OR_GROUP_SIMPLE_FIELDS = new Set(['faction', 'keyword', 'characteristic', 'station', 'base']);
+// Canonical field name -> preferred short prefix, for re-serializing an
+// or_group param back into syntax-bar text (toSyntax below). Deliberately not
+// derived from fieldMap, which maps several prefixes to the same field.
+const orGroupFieldPrefix: Record<string, string> = { faction: 'f', keyword: 'kw', characteristic: 'char', station: 'st', base: 'base' };
 
 export const fieldMap: Record<string, string> = {
     f: 'faction',
@@ -71,19 +87,21 @@ function appendValue(map: Record<string, string[]>, key: string, value: string):
 
 export function parseSyntax(input: string): ParsedFilters {
     const params: Record<string, string> = {};
+    const errors: string[] = [];
 
     if (!input || !input.trim()) {
-        return { params };
+        return { params, errors };
     }
 
     const tokens = input.match(tokenizeRegex);
     if (!tokens) {
-        return { params };
+        return { params, errors };
     }
 
     const fieldValues: Record<string, string[]> = {};
     const fieldExcludes: Record<string, string[]> = {};
     const fieldLogic: Record<string, string> = {};
+    const orGroups: string[] = [];
     const nameWords: string[] = [];
 
     let i = 0;
@@ -121,11 +139,11 @@ export function parseSyntax(input: string): ParsedFilters {
                 }
             }
 
-            // Parse group tokens to find field and values
-            let groupField: string | null = null;
-            const groupValues: string[] = [];
-            let groupNegated = false;
-
+            // Parse every field:value pair in the group first — same-field
+            // groups (the common case) keep the original collapsing
+            // behavior; a group spanning more than one field is a
+            // cross-field OR (T2-23), handled separately below.
+            const parsedPairs: Array<{ field: string; value: string; negated: boolean }> = [];
             for (const gt of groupTokens) {
                 const fieldMatch = gt.match(fieldValueRegex);
                 if (fieldMatch) {
@@ -133,30 +151,45 @@ export function parseSyntax(input: string): ParsedFilters {
                     const prefix = fieldMatch[2].toLowerCase();
                     const value = stripQuotes(fieldMatch[3]);
                     const resolved = fieldMap[prefix];
-
-                    if (resolved && multiValueFields.has(resolved)) {
-                        if (!groupField) {
-                            groupField = resolved;
-                            groupNegated = negated;
-                        }
-                        if (resolved === groupField) {
-                            groupValues.push(value);
-                        }
+                    if (resolved) {
+                        parsedPairs.push({ field: resolved, value, negated });
                     }
                 }
             }
 
-            if (groupField && groupValues.length > 0) {
-                if (groupNegated && excludableFields.has(groupField)) {
-                    for (const v of groupValues) {
-                        appendValue(fieldExcludes, groupField, v);
-                    }
+            const distinctFields = new Set(parsedPairs.map((p) => p.field));
+
+            if (distinctFields.size > 1) {
+                // Cross-field OR group.
+                if (parsedPairs.some((p) => p.negated)) {
+                    errors.push(`OR-group "${groupTokens.join(' OR ')}" can't mix negation (-field:value) with a cross-field OR — group dropped.`);
+                } else if ([...distinctFields].every((f) => OR_GROUP_SIMPLE_FIELDS.has(f))) {
+                    orGroups.push(parsedPairs.map((p) => `${p.field}:${p.value}`).join(','));
                 } else {
-                    for (const v of groupValues) {
-                        appendValue(fieldValues, groupField, v);
-                    }
-                    if (groupValues.length > 1) {
-                        fieldLogic[groupField] = 'or';
+                    const unsupported = [...distinctFields].filter((f) => !OR_GROUP_SIMPLE_FIELDS.has(f));
+                    errors.push(
+                        `OR-group "${groupTokens.join(' OR ')}" mixes ${unsupported.join(', ')} with another field — that combination isn't supported yet, so this group was dropped.`,
+                    );
+                }
+            } else if (distinctFields.size === 1) {
+                // Same-field OR — unchanged from before.
+                const [groupField] = distinctFields;
+                if (!multiValueFields.has(groupField)) {
+                    errors.push(`"${groupField}:" doesn't support OR-grouping — group dropped.`);
+                } else {
+                    const groupValues = parsedPairs.map((p) => p.value);
+                    const groupNegated = parsedPairs[0].negated;
+                    if (groupNegated && excludableFields.has(groupField)) {
+                        for (const v of groupValues) {
+                            appendValue(fieldExcludes, groupField, v);
+                        }
+                    } else {
+                        for (const v of groupValues) {
+                            appendValue(fieldValues, groupField, v);
+                        }
+                        if (groupValues.length > 1) {
+                            fieldLogic[groupField] = 'or';
+                        }
                     }
                 }
             }
@@ -285,7 +318,11 @@ export function parseSyntax(input: string): ParsedFilters {
         }
     }
 
-    return { params };
+    if (orGroups.length > 0) {
+        params.or_group = orGroups.join(';');
+    }
+
+    return { params, errors };
 }
 
 const numericFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count'];
@@ -457,6 +494,24 @@ export function toSyntax(params: Record<string, string | null | undefined>): str
     const statCompare = get('stat_compare');
     if (statCompare) {
         parts.push(statCompare.split(',').join(' '));
+    }
+
+    // Cross-field OR groups (T2-23) — e.g. "faction:guild,keyword:ortega" -> "(f:guild OR kw:ortega)"
+    const orGroup = get('or_group');
+    if (orGroup) {
+        for (const group of orGroup.split(';').filter(Boolean)) {
+            const inner = group
+                .split(',')
+                .filter(Boolean)
+                .map((pair) => {
+                    const [field, ...rest] = pair.split(':');
+                    const value = rest.join(':');
+                    const prefix = orGroupFieldPrefix[field] ?? field;
+                    return `${prefix}:${quoteIfNeeded(value)}`;
+                })
+                .join(' OR ');
+            if (inner) parts.push(`(${inner})`);
+        }
     }
 
     // 17. Sort

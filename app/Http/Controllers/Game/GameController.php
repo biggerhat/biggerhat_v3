@@ -432,6 +432,9 @@ class GameController extends Controller
             'character_upgrades' => fn () => $isSelf && $game->status === GameStatusEnum::InProgress
                 ? $this->buildCharacterUpgradesProp($game)
                 : [],
+            'character_injuries' => fn () => $isSelf && $game->status === GameStatusEnum::InProgress
+                ? $this->buildCharacterInjuriesProp($game)
+                : [],
             'current_schemes' => match ($context) {
                 GameShowContext::SelfView => fn () => $this->buildCurrentSchemesProp($game),
                 GameShowContext::Observer => fn () => $this->buildObserverCurrentSchemes($game),
@@ -501,6 +504,7 @@ class GameController extends Controller
                 ? $this->campaignLeaderMasterOption($game)
                 : null;
             $props['campaign_totem'] = fn () => $this->buildCampaignTotemProp($game);
+            $props['campaign_leader'] = fn () => $this->buildCampaignLeaderProp($game);
         }
 
         return $props;
@@ -521,8 +525,8 @@ class GameController extends Controller
             ->where('base_game_id', $game->id)
             ->with([
                 'campaign:id,name,current_week,length_weeks',
-                'crewA:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image',
-                'crewB:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image',
+                'crewA:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image,crew_card_back_image',
+                'crewB:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image,crew_card_back_image',
                 'crewA.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'crewA.crewCardEffect.abilities',
                 'crewA.crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
@@ -570,7 +574,7 @@ class GameController extends Controller
             // Crew Card effect (pg 17, 32, 54) — starter + any Tier-4 borrowed
             // effects. Not surfaced anywhere else in Game Tracker.
             'crew_a_card' => $this->campaignCrewCardPayload($wrap->crewA),
-            'crew_b_card' => $wrap->crewB ? $this->campaignCrewCardPayload($wrap->crewB) : ['effect' => null, 'borrowed' => [], 'front_image' => null],
+            'crew_b_card' => $wrap->crewB ? $this->campaignCrewCardPayload($wrap->crewB) : ['effect' => null, 'borrowed' => [], 'front_image' => null, 'back_image' => null],
         ];
     }
 
@@ -614,7 +618,7 @@ class GameController extends Controller
             'encounter_size' => 0,
             'week_number' => $campaignCrew->campaign->current_week,
             'crew_a_card' => $this->campaignCrewCardPayload($campaignCrew),
-            'crew_b_card' => ['effect' => null, 'borrowed' => [], 'front_image' => null],
+            'crew_b_card' => ['effect' => null, 'borrowed' => [], 'front_image' => null, 'back_image' => null],
         ];
     }
 
@@ -631,7 +635,7 @@ class GameController extends Controller
     }
 
     /**
-     * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>, front_image: string|null}
+     * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>, front_image: string|null, back_image: string|null}
      */
     private function campaignCrewCardPayload(\App\Models\Campaign\CampaignCrew $crew): array
     {
@@ -641,9 +645,10 @@ class GameController extends Controller
                 'id' => $adv->id,
                 'effect' => $this->crewCardEffectPayload($adv->crewCardEffect),
             ])->all(),
-            // Combined generated card (starter + every held Tier-4 borrow,
-            // including restriction qualifier text) — see CombinedCrewCardEffects.
+            // Combined generated card (starter effect on the front, every held
+            // Tier-4 borrow on the back, T2-22) — see CombinedCrewCardEffects.
             'front_image' => $crew->crew_card_front_image,
+            'back_image' => $crew->crew_card_back_image,
         ];
     }
 
@@ -705,12 +710,44 @@ class GameController extends Controller
         return \App\Models\Campaign\CampaignArsenalModel::query()
             ->where('campaign_crew_id', $campaignCrew->id)
             ->active()
-            ->with(['character.keywords', 'character.characteristics', 'injuries.injury:id,name,description', 'gainedAbilities:id,name,description'])
+            ->with([
+                'character.keywords',
+                'character.characteristics',
+                'character.standardMiniatures:id,display_name,front_image,back_image,character_id,slug',
+                // A hired unit sourced from the owner's own Card Creator homebrew
+                // instead of the official catalog — exactly one of character/
+                // customCharacter is set per row (see CampaignArsenalModel).
+                'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,keywords,characteristics',
+                'injuries.injury:id,name,description',
+                'gainedAbilities:id,name,description',
+            ])
             ->get()
             ->map(function (\App\Models\Campaign\CampaignArsenalModel $m) use ($leaderKeywordSlugs, $luckyMissNames) {
-                $char = $m->character;
-                $sharesKeyword = $char->keywords->pluck('slug')->intersect($leaderKeywordSlugs)->isNotEmpty();
-                $isVersatile = $char->characteristics->pluck('name')->map(fn ($n) => strtolower($n))->contains('versatile');
+                if ($m->customCharacter) {
+                    $custom = $m->customCharacter;
+                    $keywordNames = collect($custom->keywords ?? [])->pluck('name');
+                    $characteristicNames = collect($custom->characteristics ?? [])->pluck('name');
+                    $name = $custom->display_name;
+                    $faction = $custom->getRawOriginal('faction');
+                    $station = $custom->getRawOriginal('station');
+                    $cost = $custom->cost ?? 0;
+                    $frontImage = $custom->front_image;
+                    $backImage = $custom->back_image;
+                } else {
+                    $char = $m->character;
+                    $keywordNames = $char->keywords->pluck('slug');
+                    $characteristicNames = $char->characteristics->pluck('name');
+                    $name = $char->display_name ?? $char->name;
+                    $faction = $char->getRawOriginal('faction');
+                    $station = $char->getRawOriginal('station');
+                    $cost = $char->cost ?? 0;
+                    $miniature = $char->standardMiniatures->first();
+                    $frontImage = $miniature?->front_image;
+                    $backImage = $miniature?->back_image;
+                }
+
+                $sharesKeyword = $keywordNames->map(fn ($n) => \Illuminate\Support\Str::slug($n))->intersect($leaderKeywordSlugs)->isNotEmpty();
+                $isVersatile = $characteristicNames->map(fn ($n) => strtolower($n))->contains('versatile');
                 $isOok = ! $sharesKeyword && ! $isVersatile;
 
                 return [
@@ -721,14 +758,16 @@ class GameController extends Controller
                     // shared toggle. See GameCrewSelectPanel.vue.
                     'id' => $m->id,
                     'character_id' => $m->character_id,
-                    'name' => $char->display_name ?? $char->name,
+                    'name' => $name,
                     'label' => $m->label,
-                    'faction' => $char->getRawOriginal('faction'),
-                    'station' => $char->getRawOriginal('station'),
-                    'cost' => $char->cost ?? 0,
-                    'effective_cost' => $isOok ? (($char->cost ?? 0) + 1) : ($char->cost ?? 0),
+                    'faction' => $faction,
+                    'station' => $station,
+                    'cost' => $cost,
+                    'effective_cost' => $isOok ? ($cost + 1) : $cost,
                     'is_ook' => $isOok,
                     'is_peon' => $m->is_peon,
+                    'front_image' => $frontImage,
+                    'back_image' => $backImage,
                     'injuries' => $m->injuries
                         ->map(fn ($pivot) => $pivot->injury ? ['id' => $pivot->injury->id, 'name' => $pivot->injury->name] : null)
                         ->filter()
@@ -765,7 +804,47 @@ class GameController extends Controller
         $campaignCrew = $this->resolveCampaignCrewForUser($game);
         $totem = $campaignCrew?->totem;
 
-        return $totem ? ['id' => $totem->id, 'name' => $totem->name] : null;
+        return $totem ? ['id' => $totem->id, 'name' => $totem->name, 'injuries' => $this->customCharacterInjuries($totem->id)] : null;
+    }
+
+    /**
+     * Leader name + injuries for the crew-select panel — mirrors
+     * buildCampaignTotemProp above, kept separate from campaign_leader_option
+     * (MasterSelect's full master-card presentation) since the two components
+     * consuming these need different shapes.
+     */
+    private function buildCampaignLeaderProp(Game $game): ?array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
+            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+            || ! Auth::check()) {
+            return null;
+        }
+
+        $campaignCrew = $this->resolveCampaignCrewForUser($game);
+        $leader = $campaignCrew?->leader;
+
+        return $leader ? ['id' => $leader->id, 'name' => $leader->name, 'injuries' => $this->customCharacterInjuries($leader->id)] : null;
+    }
+
+    /**
+     * Leader/Totem injuries (pg 33-34) — same table as arsenal model injuries
+     * (App\Models\Campaign\CampaignArsenalModelInjury), keyed by
+     * custom_character_id instead. Mirrors ArsenalSheetController's identical
+     * lookup for the Arsenal Sheet's own Leader/Totem injury display.
+     *
+     * @return array<int, array{id: int, name: string}>
+     */
+    private function customCharacterInjuries(int $customCharacterId): array
+    {
+        return \App\Models\Campaign\CampaignArsenalModelInjury::query()
+            ->where('custom_character_id', $customCharacterId)
+            ->with('injury:id,name')
+            ->get()
+            ->map(fn ($pivot) => $pivot->injury ? ['id' => $pivot->injury->id, 'name' => $pivot->injury->name] : null)
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**
@@ -800,6 +879,22 @@ class GameController extends Controller
         }
 
         return collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew, $campaignCrew->leader));
+    }
+
+    /**
+     * The full Injury catalog (pg 34-36), offered as a mid-game attach option
+     * alongside equipment — some in-play effects (e.g. a resisted damage flip
+     * or a spell that inflicts a lasting wound) call for recording an injury
+     * on a model immediately rather than waiting for Aftermath. Campaign
+     * games only; empty otherwise.
+     */
+    private function buildCharacterInjuriesProp(Game $game): \Illuminate\Support\Collection
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
+            return collect();
+        }
+
+        return collect(\App\Support\Campaign\AftermathCatalog::injuryCatalogForAttachment());
     }
 
     /**

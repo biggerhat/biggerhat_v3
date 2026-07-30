@@ -195,6 +195,8 @@ class CardCreatorSearchController extends Controller
                     'source_type' => 'custom',
                     'id' => $c->id,
                     'name' => $c->display_name,
+                    'station' => $c->getRawOriginal('station'),
+                    'front_image' => $c->front_image,
                 ]);
             }
         }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { factionGradient, formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
+import { alternatingBoxBg, factionGradient, formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
@@ -112,7 +112,12 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                     <span class="w-9 text-center">Dmg</span>
                 </div>
 
-                <div v-for="action in attackActions" :key="'atk-' + action.name" class="mb-2 rounded" :style="{ background: `hsl(var(${factionVar}) / 0.08)` }">
+                <div
+                    v-for="(action, idx) in attackActions"
+                    :key="'atk-' + action.name"
+                    class="mb-2 rounded"
+                    :style="{ background: alternatingBoxBg(factionVar, idx) }"
+                >
                     <!-- Stat row -->
                     <div class="flex items-center px-2 py-1.5">
                         <div class="flex min-w-0 flex-1 items-center gap-1 font-bold">
@@ -180,7 +185,12 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                     <span class="w-9 text-center">Dmg</span>
                 </div>
 
-                <div v-for="action in tacticalActions" :key="'tac-' + action.name" class="mb-2 rounded" :style="{ background: `hsl(var(${factionVar}) / 0.08)` }">
+                <div
+                    v-for="(action, idx) in tacticalActions"
+                    :key="'tac-' + action.name"
+                    class="mb-2 rounded"
+                    :style="{ background: alternatingBoxBg(factionVar, idx) }"
+                >
                     <!-- Stat row -->
                     <div class="flex items-center px-2 py-1.5">
                         <div class="flex min-w-0 flex-1 items-center gap-1 font-bold">

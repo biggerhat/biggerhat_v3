@@ -46,6 +46,9 @@ class LeaderCardImageGenerator
             'front_image' => "{$dir}/front.png",
             'back_image' => "{$dir}/back.png",
             'combination_image' => "{$dir}/combination.png",
+            // The one reliable "render actually finished" signal for the
+            // Arsenal Sheet's regeneration poll — see the column's migration.
+            'card_image_generated_at' => now(),
         ]);
     }
 

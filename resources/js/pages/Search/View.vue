@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { fieldMap, parseSyntax, toSyntax } from '@/composables/useSearchSyntax';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
+import { useToast } from '@/composables/useToast';
 import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import {
@@ -319,6 +320,9 @@ const filterParams = ref({
     is: null as string | null,
     has: null as string | null,
     stat_compare: null as string | null,
+    // Cross-field OR groups (T2-23), e.g. "(f:guild OR kw:ortega)" — syntax-bar
+    // only, no dedicated visual filter widget. See useSearchSyntax.ts.
+    or_group: null as string | null,
     page_view: null as string | null,
     sort: null as string | null,
     sort_type: null as string | null,
@@ -372,6 +376,7 @@ const filterKeys = [
     'is',
     'has',
     'stat_compare',
+    'or_group',
 ] as const;
 
 const statFields = ['cost', 'health', 'speed', 'defense', 'willpower', 'size', 'count', 'summon_target_number'] as const;
@@ -613,6 +618,8 @@ const restoreFromURL = (urlParams?: URLSearchParams) => {
     // Is/Has filters
     filterParams.value.is = urlParams.get('is');
     filterParams.value.has = urlParams.get('has');
+    // Cross-field OR groups (T2-23) — syntax-bar only, no dedicated widget.
+    filterParams.value.or_group = urlParams.get('or_group');
     // Result-type filter — accept any truthy URL value (1, true, on)
     excludeUpgrades.value = ['1', 'true', 'on'].includes((urlParams.get('exclude_upgrades') ?? '').toLowerCase());
     // Stat comparison
@@ -831,10 +838,12 @@ const buildCurrentParams = (): Record<string, string> => {
     return cleaned;
 };
 
+const toast = useToast();
+
 const applySyntax = () => {
     isSyncing.value = true;
     showSyntaxSuggestions.value = false;
-    const { params } = parseSyntax(syntaxInput.value);
+    const { params, errors } = parseSyntax(syntaxInput.value);
     resetFilters();
     const urlParams = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) {
@@ -844,6 +853,11 @@ const applySyntax = () => {
     if (syntaxInput.value.trim()) saveToHistory(syntaxInput.value.trim());
     filter();
     isSyncing.value = false;
+    // Surface OR-groups that couldn't be applied (T2-23) instead of silently
+    // dropping part of the search — the rest of the search still runs.
+    for (const message of errors) {
+        toast.warning(message);
+    }
 };
 
 // Watch all filter-related refs to update syntax bar

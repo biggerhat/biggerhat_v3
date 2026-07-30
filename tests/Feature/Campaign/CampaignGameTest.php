@@ -123,6 +123,74 @@ it('creates a Game with format=Campaign + a wrapping campaign_games row', functi
     expect($game->encounter_size)->toBe(34);
 });
 
+it('lets players agree to a smaller encounter size than the computed max', function () {
+    [$campaign, $crewA, $crewB, $organizer] = twoCrewCampaign();
+
+    $charA = Character::factory()->create(['cost' => 10]);
+    $charB = Character::factory()->create(['cost' => 14]);
+    CampaignArsenalModel::factory()->count(3)->create(['campaign_crew_id' => $crewA->id, 'character_id' => $charA->id]);
+    CampaignArsenalModel::factory()->count(2)->create(['campaign_crew_id' => $crewB->id, 'character_id' => $charB->id]);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.games.store', $campaign), [
+            'opponent_crew_id' => $crewB->id,
+            'encounter_size' => 20,
+        ])
+        ->assertRedirect();
+
+    $game = Game::first();
+    // Max would be 34 (min(30, 28) + 6); the requested 20 is smaller and honored.
+    expect($game->encounter_size)->toBe(20);
+});
+
+it('clamps a client-supplied encounter size down to the computed max, never up', function () {
+    [$campaign, $crewA, $crewB, $organizer] = twoCrewCampaign();
+
+    $charA = Character::factory()->create(['cost' => 10]);
+    $charB = Character::factory()->create(['cost' => 14]);
+    CampaignArsenalModel::factory()->count(3)->create(['campaign_crew_id' => $crewA->id, 'character_id' => $charA->id]);
+    CampaignArsenalModel::factory()->count(2)->create(['campaign_crew_id' => $crewB->id, 'character_id' => $charB->id]);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.games.store', $campaign), [
+            'opponent_crew_id' => $crewB->id,
+            'encounter_size' => 999,
+        ])
+        ->assertRedirect();
+
+    $game = Game::first();
+    expect($game->encounter_size)->toBe(34);
+});
+
+it('includes custom-character arsenal models in the encounter-size arsenal total', function () {
+    [$campaign, $crewA, $crewB, $organizer] = twoCrewCampaign();
+
+    $charB = Character::factory()->create(['cost' => 14]);
+    CampaignArsenalModel::factory()->count(2)->create(['campaign_crew_id' => $crewB->id, 'character_id' => $charB->id]);
+
+    $customCharacter = \App\Models\CustomCharacter::create([
+        'user_id' => $organizer->id,
+        'name' => 'Homebrew Ally', 'display_name' => 'Homebrew Ally',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30, 'cost' => 10,
+    ]);
+    CampaignArsenalModel::create([
+        'campaign_crew_id' => $crewA->id,
+        'custom_character_id' => $customCharacter->id,
+        'label' => 'Homebrew Hire',
+    ]);
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.games.store', $campaign), [
+            'opponent_crew_id' => $crewB->id,
+        ])
+        ->assertRedirect();
+
+    // arsenal A = 10 (custom), B = 2 * 14 = 28; min + 6 = 16.
+    $game = Game::first();
+    expect($game->encounter_size)->toBe(16);
+});
+
 it('refuses to start a game against an opponent in a different campaign', function () {
     [$campaignA, , , $organizer] = twoCrewCampaign();
     [, , $crewBOther] = twoCrewCampaign(); // different campaign

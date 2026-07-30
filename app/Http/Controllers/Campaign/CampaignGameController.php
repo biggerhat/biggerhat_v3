@@ -55,13 +55,16 @@ class CampaignGameController extends Controller
             ->where('campaign_id', $campaign->id)
             ->where('user_id', '!=', $request->user()->id)
             ->with('user:id,name')
-            ->get(['id', 'campaign_id', 'user_id', 'share_code', 'name', 'faction', 'scrip']);
+            ->get(['id', 'campaign_id', 'user_id', 'share_code', 'name', 'faction', 'scrip'])
+            ->map(fn (CampaignCrew $c) => [...$c->toArray(), 'arsenal_ss' => $this->arsenalSs($c)]);
+
+        $myArsenalSs = $myCrew ? $this->arsenalSs($myCrew) : 0;
 
         return inertia('Campaigns/NewGame', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'current_week', 'length_weeks']),
             'my_crew' => $myCrew,
             'opponents' => $opponents,
-            'my_arsenal_ss' => $myCrew ? $this->arsenalSs($myCrew) : 0,
+            'my_arsenal_ss' => $myArsenalSs,
             'my_cr' => $myCrew?->campaignRating() ?? 0,
         ]);
     }
@@ -87,6 +90,10 @@ class CampaignGameController extends Controller
         $data = $request->validate([
             'opponent_crew_id' => ['required', 'integer', Rule::exists('campaign_crews', 'id')->where('campaign_id', $campaign->id)],
             'name' => ['nullable', 'string', 'max:255'],
+            // Players may agree to play smaller than the max (pg 19); never
+            // larger — the max itself is re-derived server-side from current
+            // arsenal contents, ignoring any client-supplied ceiling.
+            'encounter_size' => ['nullable', 'integer', 'min:10'],
         ]);
 
         $myCrew = CampaignCrew::query()
@@ -101,7 +108,8 @@ class CampaignGameController extends Controller
 
         $arsenalA = $this->arsenalSs($myCrew);
         $arsenalB = $this->arsenalSs($opponentCrew);
-        $encounterSize = CampaignRules::maxEncounterSize($arsenalA, $arsenalB);
+        $maxEncounterSize = CampaignRules::maxEncounterSize($arsenalA, $arsenalB);
+        $encounterSize = isset($data['encounter_size']) ? min($data['encounter_size'], $maxEncounterSize) : $maxEncounterSize;
 
         $crA = $myCrew->campaignRating();
         $crB = $opponentCrew->campaignRating();
@@ -270,14 +278,16 @@ class CampaignGameController extends Controller
     }
 
     /**
-     * Solo-mode game log form. The user plays a game offline (or on a vTT)
-     * and comes back here to record the result so the Aftermath wizard can
-     * mutate their arsenal. No live tracker, no opponent crew.
+     * Manual game log form. The user plays a game offline (or on a vTT) and
+     * comes back here to record the result so the Aftermath wizard can mutate
+     * their arsenal. No live tracker, no opponent crew — one-sided by design
+     * even in a multiplayer campaign: this only ever affects the logging
+     * player's own crew/CR/scrip, never an opponent's, since there's no
+     * paired live session to also update the other side.
      */
     public function createSolo(Request $request, Campaign $campaign)
     {
         $this->ensureCampaignMember($request, $campaign);
-        abort_unless($campaign->is_solo, 404);
 
         if ($campaign->status !== CampaignStatusEnum::Active) {
             return redirect()->route('campaigns.show', $campaign)->withMessage(
@@ -306,7 +316,6 @@ class CampaignGameController extends Controller
     public function storeSolo(Request $request, Campaign $campaign)
     {
         $this->ensureCampaignMember($request, $campaign);
-        abort_unless($campaign->is_solo, 404);
 
         if ($campaign->status !== CampaignStatusEnum::Active) {
             return redirect()->back()->withMessage(
@@ -387,11 +396,23 @@ class CampaignGameController extends Controller
 
     private function arsenalSs(CampaignCrew $crew): int
     {
-        return (int) CampaignArsenalModel::query()
-            ->where('campaign_crew_id', $crew->id)
-            ->active()
+        $officialCost = (int) CampaignArsenalModel::query()
+            ->where('campaign_arsenal_models.campaign_crew_id', $crew->id)
+            ->whereNull('campaign_arsenal_models.annihilated_at')
+            ->whereNull('campaign_arsenal_models.removed_at')
+            ->whereNotNull('character_id')
             ->join('characters', 'characters.id', '=', 'campaign_arsenal_models.character_id')
             ->sum('characters.cost');
+
+        $customCost = (int) CampaignArsenalModel::query()
+            ->where('campaign_arsenal_models.campaign_crew_id', $crew->id)
+            ->whereNull('campaign_arsenal_models.annihilated_at')
+            ->whereNull('campaign_arsenal_models.removed_at')
+            ->whereNotNull('custom_character_id')
+            ->join('custom_characters', 'custom_characters.id', '=', 'campaign_arsenal_models.custom_character_id')
+            ->sum('custom_characters.cost');
+
+        return $officialCost + $customCost;
     }
 
     /**

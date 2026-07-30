@@ -4,6 +4,7 @@ namespace App\Models\Campaign;
 
 use App\Models\Ability;
 use App\Models\Character;
+use App\Models\CustomCharacter;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\Upgrade;
@@ -22,7 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property int $campaign_crew_id
- * @property int $character_id
+ * @property int|null $character_id
+ * @property int|null $custom_character_id
  * @property int|null $miniature_id
  * @property string|null $label
  * @property bool $is_peon
@@ -32,6 +34,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $granted_keyword_id
  * @property \Carbon\CarbonImmutable|null $annihilated_at
  * @property \Carbon\CarbonImmutable|null $removed_at
+ * @property-read Character|null $character
+ * @property-read CustomCharacter|null $customCharacter
  *
  * @mixin IdeHelperCampaignArsenalModel
  */
@@ -67,6 +71,22 @@ class CampaignArsenalModel extends Model
     public function character(): BelongsTo
     {
         return $this->belongsTo(Character::class);
+    }
+
+    /**
+     * A hired unit sourced from the owner's own Card Creator homebrew instead
+     * of the official Character catalog. Exactly one of character/
+     * customCharacter is set per row.
+     */
+    public function customCharacter(): BelongsTo
+    {
+        return $this->belongsTo(CustomCharacter::class);
+    }
+
+    /** Display name regardless of which catalog this row was hired from. */
+    public function displayName(): string
+    {
+        return $this->character?->display_name ?? $this->customCharacter?->display_name ?? $this->label ?? 'Unknown'; // @phpstan-ignore nullsafe.neverNull,nullsafe.neverNull (character/customCharacter are genuinely nullable BelongsTo relations)
     }
 
     public function miniature(): BelongsTo
@@ -224,6 +244,7 @@ class CampaignArsenalModel extends Model
         $copy = self::create([
             'campaign_crew_id' => $targetCrewId,
             'character_id' => $this->character_id,
+            'custom_character_id' => $this->custom_character_id,
             'miniature_id' => $this->miniature_id,
             'label' => $this->label,
             'is_peon' => $this->is_peon,

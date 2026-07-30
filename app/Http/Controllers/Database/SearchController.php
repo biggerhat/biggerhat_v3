@@ -155,6 +155,8 @@ class SearchController extends Controller
             $query->whereNotIn('faction', $excluded);
         }
 
+        $this->applyOrGroups($query, $request, ['faction', 'keyword', 'characteristic', 'station', 'base']);
+
         // Boolean "is:" filters
         if ($request->filled('is')) {
             foreach (array_filter(explode(',', $request->get('is'))) as $isFilter) {
@@ -348,6 +350,8 @@ class SearchController extends Controller
             if ($markerEntries) {
                 $this->applyMarkerFilterGroup($upgradeQuery, $markerEntries, $request->get('marker_logic', 'or'));
             }
+
+            $this->applyOrGroups($upgradeQuery, $request, ['faction', 'keyword']);
 
             $upgradeResults = $upgradeQuery->get();
         }
@@ -738,6 +742,61 @@ class SearchController extends Controller
                     $q->{$method}(function ($sq) use ($entry) {
                         $this->applySingleMarkerFilter($sq, $entry['slug'], $entry['name']);
                     });
+                }
+            });
+        }
+    }
+
+    /**
+     * Cross-field OR groups (T2-23) — the syntax bar's `(f:guild OR kw:ortega)`
+     * parses (useSearchSyntax.ts::parseSyntax) into
+     * `or_group=faction:guild,keyword:ortega` (semicolon-separated for
+     * multiple groups). Restricted to fields with one straightforward
+     * comparable condition each — action/ability/trigger/token/marker each
+     * have their own multi-column sub-filter DSL that doesn't reduce to a
+     * single condition, so the frontend refuses to build a group mixing
+     * those in rather than risk silently misrepresenting the search.
+     *
+     * @param  string[]  $supportedFields  Which simple fields this model actually has — Upgrade has no station/base columns and no characteristic filter wired here, so passing only ['faction', 'keyword'] for it means those pairs are dropped from the group rather than erroring (equivalent to an always-false condition for a field the model doesn't have).
+     */
+    private function applyOrGroups($query, Request $request, array $supportedFields): void
+    {
+        if (! $request->filled('or_group')) {
+            return;
+        }
+
+        foreach (explode(';', $request->get('or_group')) as $group) {
+            $conditions = [];
+            foreach (explode(',', $group) as $pair) {
+                [$field, $value] = array_pad(explode(':', $pair, 2), 2, null);
+                if ($field && $value !== null && $value !== '' && in_array($field, $supportedFields, true)) {
+                    $conditions[] = [$field, $value];
+                }
+            }
+
+            // Fewer than 2 usable conditions means there's nothing left to
+            // OR (e.g. every pair but one belonged to a field this model
+            // doesn't have) — applying a single where() unconditionally
+            // would narrow results instead of leaving them unaffected.
+            if (count($conditions) < 2) {
+                continue;
+            }
+
+            $query->where(function ($q) use ($conditions) {
+                foreach ($conditions as $i => [$field, $value]) {
+                    $isFirst = $i === 0;
+                    match ($field) {
+                        'faction' => $isFirst ? $q->where('faction', $value) : $q->orWhere('faction', $value),
+                        'station' => $isFirst ? $q->where('station', $value) : $q->orWhere('station', $value),
+                        'base' => $isFirst ? $q->where('base', $value) : $q->orWhere('base', $value),
+                        'keyword' => $isFirst
+                            ? $q->whereHas('keywords', fn ($kq) => $kq->where('slug', $value))
+                            : $q->orWhereHas('keywords', fn ($kq) => $kq->where('slug', $value)),
+                        'characteristic' => $isFirst
+                            ? $q->whereHas('characteristics', fn ($cq) => $cq->where('slug', $value))
+                            : $q->orWhereHas('characteristics', fn ($cq) => $cq->where('slug', $value)),
+                        default => null,
+                    };
                 }
             });
         }

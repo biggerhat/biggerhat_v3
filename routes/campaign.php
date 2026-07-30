@@ -115,6 +115,8 @@ Route::middleware(['campaign.access'])->group(function () {
             ->name('campaigns.crews.arsenal.models.update');
         Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/equipment', [ArsenalSheetController::class, 'addManualEquipment'])
             ->name('campaigns.crews.arsenal.equipment.store');
+        Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/equipment/{equipment}', [ArsenalSheetController::class, 'removeEquipment'])
+            ->name('campaigns.crews.arsenal.equipment.destroy');
 
         // Weekly cycle. Organizer advances the week (+ rolls Weekly Event if enabled).
         Route::post('/campaigns/{campaign}/weeks/advance', [WeeklyCycleController::class, 'advance'])
@@ -164,6 +166,8 @@ Route::middleware(['campaign.access'])->group(function () {
             ->name('campaigns.aftermaths.start');
         Route::get('/campaigns/aftermaths/{aftermath}', [CampaignAftermathController::class, 'show'])
             ->name('campaigns.aftermaths.show');
+        Route::get('/campaigns/aftermaths/{aftermath}/recap', [CampaignAftermathController::class, 'recap'])
+            ->name('campaigns.aftermaths.recap');
         Route::post('/campaigns/aftermaths/{aftermath}/draw-hand', [CampaignAftermathController::class, 'drawHand'])
             ->name('campaigns.aftermaths.draw-hand');
         Route::post('/campaigns/aftermaths/{aftermath}/payday', [CampaignAftermathController::class, 'payday'])

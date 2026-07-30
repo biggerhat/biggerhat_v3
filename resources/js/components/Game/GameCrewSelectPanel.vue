@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import CharacterCardView from '@/components/CharacterCardView.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { factionBackground } from '@/composables/useFactionColor';
 import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
@@ -63,6 +65,8 @@ interface CampaignArsenalModel {
     effective_cost: number;
     is_ook: boolean;
     is_peon: boolean;
+    front_image: string | null;
+    back_image: string | null;
     injuries: Array<{ id: number; name: string }>;
     lucky_miss: string[];
     gained_abilities: Array<{ id: number; name: string }>;
@@ -94,7 +98,8 @@ const props = defineProps<{
     isCampaign: boolean;
     campaignArsenal: CampaignArsenalModel[];
     campaignOwnedEquipment: CampaignOwnedEquipment[];
-    campaignTotem: { id: number; name: string } | null;
+    campaignTotem: { id: number; name: string; injuries: Array<{ id: number; name: string }> } | null;
+    campaignLeader: { id: number; name: string; injuries: Array<{ id: number; name: string }> } | null;
     submitting: boolean;
     mySlot: number;
     opponentSlot: number;
@@ -202,6 +207,14 @@ const campaignTotalCost = computed(() =>
     }, 0),
 );
 const campaignOverBudget = computed(() => campaignTotalCost.value > props.game.encounter_size);
+
+// Card-image preview before the game starts (pg 19 — players should be able
+// to see what they're hiring while picking their crew, not just the name).
+const previewArsenalModel = ref<CampaignArsenalModel | null>(null);
+const openArsenalPreview = (m: CampaignArsenalModel, event: Event) => {
+    event.stopPropagation();
+    previewArsenalModel.value = m;
+};
 
 // "(2/3)" copy-index suffix when the arsenal owns more than one of the same
 // catalog model — otherwise two identical-looking "Guild Guard" rows would
@@ -350,6 +363,23 @@ const confirmCampaignCrew = () => {
                         Confirm Crew
                     </Button>
                 </div>
+                <!-- Leader/Totem are automatic (free) members of the crew, not
+                     something hired here — but their injuries are still worth
+                     surfacing at select time, same as any hired model's. -->
+                <div v-if="(campaignLeader?.injuries.length || campaignTotem?.injuries.length)" class="mb-2 space-y-1">
+                    <div v-if="campaignLeader" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                        <span class="truncate font-medium">{{ campaignLeader.name }}</span>
+                        <Badge v-for="inj in campaignLeader.injuries" :key="`ldr-inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">
+                            {{ inj.name }}
+                        </Badge>
+                    </div>
+                    <div v-if="campaignTotem" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                        <span class="truncate font-medium">{{ campaignTotem.name }}</span>
+                        <Badge v-for="inj in campaignTotem.injuries" :key="`ttm-inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">
+                            {{ inj.name }}
+                        </Badge>
+                    </div>
+                </div>
                 <div v-if="campaignArsenal.length" class="space-y-1">
                     <div
                         v-for="m in campaignArsenal"
@@ -363,6 +393,15 @@ const confirmCampaignCrew = () => {
                                 class="size-4 shrink-0 rounded border-2 transition-colors"
                                 :class="selectedArsenalIds.includes(m.id) ? 'border-primary bg-primary' : 'border-muted-foreground'"
                             />
+                            <button
+                                v-if="m.front_image"
+                                type="button"
+                                class="shrink-0 rounded"
+                                title="Preview card"
+                                @click="(e) => openArsenalPreview(m, e)"
+                            >
+                                <img :src="'/storage/' + m.front_image" :alt="m.name" class="size-8 rounded object-cover" />
+                            </button>
                             <!-- Nickname is the model's identity at the table (pg 15) — shown as
                                  the primary label with the actual unit name in parens, same
                                  convention as the Arsenal Sheet's stacked nickname/name display. -->
@@ -711,4 +750,25 @@ const confirmCampaignCrew = () => {
             </template>
         </CardContent>
     </Card>
+
+    <Dialog :open="previewArsenalModel !== null" @update:open="(open) => !open && (previewArsenalModel = null)">
+        <DialogContent class="max-w-sm">
+            <DialogHeader>
+                <DialogTitle>{{ previewArsenalModel?.label || previewArsenalModel?.name }}</DialogTitle>
+            </DialogHeader>
+            <div v-if="previewArsenalModel" class="mx-auto w-full max-w-[280px] [&_img]:max-h-[60dvh] [&_img]:w-auto [&_img]:object-contain">
+                <CharacterCardView
+                    :miniature="{
+                        id: previewArsenalModel.id,
+                        display_name: previewArsenalModel.name,
+                        slug: '',
+                        front_image: previewArsenalModel.front_image,
+                        back_image: previewArsenalModel.back_image,
+                    }"
+                    :show-link="false"
+                    :show-collection="false"
+                />
+            </div>
+        </DialogContent>
+    </Dialog>
 </template>

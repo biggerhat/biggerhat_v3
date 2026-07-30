@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
+import { alternatingBoxBg, formatRange, getFactionVar, splitSuits } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
@@ -101,7 +101,12 @@ const headerTextSize = computed(() => {
                 </div>
 
                 <!-- Ability -->
-                <div v-else-if="block.type === 'ability' && block.data" class="mb-1.5" :class="textSize">
+                <div
+                    v-else-if="block.type === 'ability' && block.data"
+                    class="mb-1.5 rounded px-1.5 py-1"
+                    :class="textSize"
+                    :style="{ background: alternatingBoxBg(factionVar, idx) }"
+                >
                     <span class="font-bold">
                         <GameIcon v-if="block.data.costs_stone" type="soulstone" class-name="text-sm" />
                         <GameIcon
@@ -118,11 +123,7 @@ const headerTextSize = computed(() => {
                 </div>
 
                 <!-- Action -->
-                <div
-                    v-else-if="block.type === 'action' && block.data"
-                    class="mb-1.5 rounded"
-                    :style="{ background: `hsl(var(${factionVar}) / 0.08)` }"
-                >
+                <div v-else-if="block.type === 'action' && block.data" class="mb-1.5 rounded" :style="{ background: alternatingBoxBg(factionVar, idx) }">
                     <!-- Header row -->
                     <div class="mb-0.5 flex items-center px-1.5 text-white/40" :class="headerTextSize">
                         <span class="flex-1 font-semibold uppercase tracking-wider">{{
@@ -182,7 +183,12 @@ const headerTextSize = computed(() => {
                 </div>
 
                 <!-- Standalone trigger -->
-                <div v-else-if="block.type === 'trigger' && block.data" class="mb-1.5" :class="textSize">
+                <div
+                    v-else-if="block.type === 'trigger' && block.data"
+                    class="mb-1.5 rounded px-1.5 py-1"
+                    :class="textSize"
+                    :style="{ background: alternatingBoxBg(factionVar, idx) }"
+                >
                     <span class="font-bold">
                         <GameIcon v-for="s in splitSuits(block.data.suits)" :key="s" :type="s" class-name="text-xs" />
                         <template v-for="n in block.data.stone_cost" :key="'tsc-' + n"><GameIcon type="soulstone" class-name="text-xs" /></template>

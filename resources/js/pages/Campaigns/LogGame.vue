@@ -69,7 +69,7 @@ const submit = () => {
 <template>
     <Head :title="`Log Game — ${campaign.name}`" />
 
-    <PageBanner title="Log Solo Game">
+    <PageBanner :title="campaign.is_solo ? 'Log Solo Game' : 'Log Game'">
         <template #subtitle>
             <div class="px-2">
                 <span class="text-sm text-muted-foreground">
@@ -92,8 +92,12 @@ const submit = () => {
             <CardHeader>
                 <CardTitle>Game Result</CardTitle>
                 <p class="text-xs text-muted-foreground">
-                    Solo mode: enter the result of a game you played offline. The Aftermath wizard will start as soon as you save — Payday and
+                    Enter the result of a game you played offline (or on a vTT). The Aftermath wizard will start as soon as you save — Payday and
                     downstream phases use these numbers.
+                    <template v-if="!campaign.is_solo">
+                        This only affects <strong>your own</strong> crew/CR/scrip — there's no live-linked opponent, so nothing is recorded against
+                        theirs.
+                    </template>
                 </p>
             </CardHeader>
             <CardContent class="space-y-4">

@@ -11,6 +11,7 @@ use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Upgrade;
 use App\Models\User;
+use Illuminate\Support\Facades\Bus;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -95,6 +96,57 @@ it('blocks non-owners from viewing the wizard', function () {
 
     $this->actingAs($other)
         ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertForbidden();
+});
+
+it('renders the lightweight recap for a locked manually-logged aftermath, sourced from the CampaignGame\'s own result fields', function () {
+    [$user, $campaign, $crew] = aftermathFixture();
+    // Manually-logged game: no base_game_id, no opponent crew (solo-shaped,
+    // but the same shape a multiplayer manual log now produces too).
+    $game = CampaignGame::factory()->create([
+        'campaign_id' => $campaign->id,
+        'crew_a_id' => $crew->id,
+        'crew_b_id' => null,
+        'base_game_id' => null,
+        'week_number' => 3,
+        'vp_a' => 8,
+        'vp_b' => 5,
+        'schemes_completed_a' => 2,
+        'winner_crew_id' => $crew->id,
+    ]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+        'story_entry' => 'A hard-fought win.',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.recap', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Campaigns/GameRecap')
+            ->where('week_number', 3)
+            ->where('story_entry', 'A hard-fought win.')
+            ->where('locked', true)
+            ->where('result.vp_self', 8)
+            ->where('result.vp_opponent', 5)
+            ->where('result.schemes_completed', 2)
+            ->where('result.won', true)
+        );
+});
+
+it('blocks non-owners from viewing the recap', function () {
+    [, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+    ]);
+    $other = amUser();
+
+    $this->actingAs($other)
+        ->get(route('campaigns.aftermaths.recap', $aftermath))
         ->assertForbidden();
 });
 
@@ -1202,6 +1254,52 @@ it('Phase 4 Summoning Advancement can be routed to the Totem instead of the Lead
     expect(collect($leader->fresh()->actions)->pluck('name'))->not->toContain('Test Summoning');
 });
 
+it('Phase 4 rejects routing an advancement to an annihilated Totem', function () {
+    // Regression: an annihilated totem is gone from the arsenal — it must not
+    // be a valid target for a subsequent Ability/Summoning advancement either.
+    Bus::fake(); // annihilated-totem fixture would otherwise dispatch a real card-image render
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    $totem = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'annihilated_at' => now(),
+        'name' => 'Gone Totem', 'display_name' => 'Gone Totem',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 6, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $summoning = \App\Models\Action::factory()->create([
+        'name' => 'Test Summoning',
+        'game_mode_type' => \App\Enums\GameModeTypeEnum::Campaign->value,
+        'campaign_advancement_kind' => 'summoning',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'summoning',
+                'catalog_id' => $summoning->id,
+                'applied_to_custom_character_id' => $totem->id,
+                'position_in_xp_track' => 4,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect($aftermath->fresh()->current_phase)->toBe(4);
+    expect(\App\Models\Campaign\CampaignLeaderAdvancement::count())->toBe(0);
+});
+
 it('Phase 4 Totem Advancement no longer requires a flip value (flip-gating removed for now)', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([
@@ -1285,6 +1383,52 @@ it('Phase 4 Totem Advancement carries the template ability body under the descri
     expect($totem->abilities[0]['name'])->toBe('Test Totem Ability');
     expect($totem->abilities[0]['description'])->toBe('Does a totem thing.');
     expect($totem->abilities[0])->not->toHaveKey('body');
+});
+
+it('Phase 4 Totem Advancement is allowed again once the prior totem has been annihilated', function () {
+    // Regression: an annihilated totem is gone from the arsenal (pg 32) — the
+    // existence check previously only looked at `current`, which annihilation
+    // never flips, permanently locking out the Totem Advancement slot.
+    Bus::fake(); // pre-existing (annihilated) totem fixture would otherwise dispatch a real card-image render
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    buildLeaderFor($crew, $user);
+    \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'annihilated_at' => now(),
+        'name' => 'Annihilated Totem', 'display_name' => 'Annihilated Totem', 'slug' => 'annihilated-totem-'.$crew->id,
+        'faction' => 'arcanists', 'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+    ]);
+    $totemTemplate = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'is_campaign_totem_template' => true,
+        'name' => 'Wisp', 'display_name' => 'Wisp',
+        'faction' => \App\Enums\FactionEnum::Arcanists->value,
+        'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.advance-leader', $aftermath), [
+            'bruiser_killed_non_peon' => false,
+            'strategist_interacted' => false,
+            'lost' => false,
+            'advancements' => [[
+                'source_table' => 'totem',
+                'catalog_id' => $totemTemplate->id,
+                'position_in_xp_track' => 4,
+            ]],
+        ])
+        ->assertRedirect();
+
+    expect(\App\Models\CustomCharacter::where('is_campaign_totem', true)->where('campaign_crew_id', $crew->id)->whereNull('annihilated_at')->count())->toBe(1);
 });
 
 it('Phase 4 Totem Advancement inherits the leader\'s keywords', function () {

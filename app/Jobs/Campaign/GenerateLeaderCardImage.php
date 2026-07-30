@@ -5,18 +5,25 @@ namespace App\Jobs\Campaign;
 use App\Models\CustomCharacter;
 use App\Services\Campaign\LeaderCardImageGenerator;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 
 /**
  * Regenerates a Campaign Leader/Totem's card images in the background.
- * ShouldBeUnique collapses a burst of saves (e.g. picking several Tier-4
- * advancements in one Aftermath submit) into a single render.
+ *
+ * Uses WithoutOverlapping (keyed per character) rather than ShouldBeUnique:
+ * ShouldBeUnique collapses a burst of saves into one render, but silently
+ * *drops* any dispatch that arrives while a render is already in flight —
+ * a quick undo-then-redo of an advancement could leave the on-disk image
+ * reflecting the undone state forever, since the redo's render never ran.
+ * WithoutOverlapping instead releases an overlapping dispatch back onto the
+ * queue to retry shortly after, so the latest character state always
+ * eventually gets rendered.
  */
-class GenerateLeaderCardImage implements ShouldBeUnique, ShouldQueue
+class GenerateLeaderCardImage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -24,9 +31,12 @@ class GenerateLeaderCardImage implements ShouldBeUnique, ShouldQueue
 
     public function __construct(public int $customCharacterId) {}
 
-    public function uniqueId(): string
+    /**
+     * @return array<int, object>
+     */
+    public function middleware(): array
     {
-        return "leader-card-{$this->customCharacterId}";
+        return [(new WithoutOverlapping("leader-card-{$this->customCharacterId}"))->releaseAfter(2)->expireAfter(150)];
     }
 
     public function handle(LeaderCardImageGenerator $generator): void

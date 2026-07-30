@@ -20,6 +20,12 @@ export function factionGradient(factionVar: string, secondFactionVar: string | n
     return `hsl(var(${factionVar}))`;
 }
 
+// Alternating lighter/darker box background for a list of Action/Ability/
+// Trigger boxes on the same faction tint — same color, two opacity steps.
+export function alternatingBoxBg(factionVar: string, index: number): string {
+    return `hsl(var(${factionVar}) / ${index % 2 === 0 ? 0.08 : 0.04})`;
+}
+
 export function splitSuits(suits: string | null): string[] {
     return suits ? suits.split(/\s+/).filter(Boolean) : [];
 }

@@ -31,22 +31,55 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class CombinedCrewCardEffects
 {
     /**
-     * @return array<int, array{type: 'action'|'ability'|'trigger'|'text', qualifier: string|null, data: array<string, mixed>}>
+     * Every generic pg 15-16 Crew Card option (the starter, and any
+     * 'campaign_crew_card'-sourced Tier-4 borrow) carries this same baseline
+     * restriction in the rulebook's own text ("Non-peon models in this crew
+     * with either of your chosen keywords gain the following...") — it's
+     * never stored as data on that catalog (unlike a real Upgrade's per-item
+     * `restriction` pivot), so callers needing the actual qualifying rule
+     * (not just its printed text) must default to it explicitly.
+     */
+    public const DEFAULT_RESTRICTION = CrewUpgradeRestrictionEnum::FriendlyNonPeonKeyword;
+
+    /**
+     * Tier-4 Crew Card Advancement upgrades a borrowed generic
+     * ('campaign_crew_card'-sourced) effect's restriction (pg 31-32): "The
+     * effect comes with any limitations it had on the original crew card,
+     * except that it will affect both of the crew's keywords instead of just
+     * one" — the non-peon restriction carries over unchanged (confirmed by
+     * the rulebook's own worked examples), only "either" keyword becomes
+     * "both". Never applied to a real Upgrade-sourced ('crew_upgrade') borrow,
+     * whose restriction is the specific pivot value stored on that card.
+     */
+    public const BORROWED_RESTRICTION = CrewUpgradeRestrictionEnum::FriendlyNonPeonBothKeywords;
+
+    /**
+     * @return array<int, array{type: 'action'|'ability'|'trigger'|'text'|'choice', qualifier: string|null, restriction: string|null, source: 'starter'|'borrowed', data: array<string, mixed>}>
      */
     public static function build(CampaignCrew $crew): array
     {
         $items = [];
 
+        // `source` splits the combined card into two physical faces (T2-22):
+        // starter effect on the front (CombinedCrewCardImageGenerator's
+        // crew_card_front_image), every held Tier-4 borrow on the back
+        // (crew_card_back_image) — see CombinedCrewCardFace's `side` prop.
         $starter = $crew->crewCardEffect;
         if ($starter) {
             if ($starter->description) {
-                $items[] = ['type' => 'text', 'qualifier' => null, 'data' => ['body' => $starter->description]];
+                $items[] = ['type' => 'text', 'qualifier' => null, 'restriction' => null, 'source' => 'starter', 'data' => ['body' => $starter->description]];
+            }
+            // The starter's own token/marker/upgrade-type pick (pg 17-18) —
+            // previously only shown as page text next to the generated image,
+            // never printed on the image itself (T3-33).
+            if ($crew->crew_card_choice) {
+                $items[] = ['type' => 'choice', 'qualifier' => null, 'restriction' => null, 'source' => 'starter', 'data' => $crew->crew_card_choice];
             }
             foreach ($starter->actions as $action) {
-                $items[] = ['type' => 'action', 'qualifier' => null, 'data' => self::shapeAction($action)];
+                $items[] = ['type' => 'action', 'qualifier' => null, 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeAction($action)];
             }
             foreach ($starter->abilities as $ability) {
-                $items[] = ['type' => 'ability', 'qualifier' => null, 'data' => self::shapeAbility($ability)];
+                $items[] = ['type' => 'ability', 'qualifier' => null, 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeAbility($ability)];
             }
         }
 
@@ -68,7 +101,7 @@ class CombinedCrewCardEffects
             if ($isCrewUpgrade && $advancement->crew_card_item_type && $advancement->crew_card_item_id) {
                 $picked = self::pickedItem($effect, $advancement->crew_card_item_type, $advancement->crew_card_item_id);
                 if ($picked) {
-                    $items[] = $picked;
+                    $items[] = [...$picked, 'source' => 'borrowed'];
                 }
 
                 continue;
@@ -82,22 +115,43 @@ class CombinedCrewCardEffects
             // second (or later) borrowed effect's description silently never
             // makes it onto the combined card image.
             if ($effect->description) {
-                $items[] = ['type' => 'text', 'qualifier' => null, 'data' => ['body' => $effect->description]];
+                $items[] = ['type' => 'text', 'qualifier' => null, 'restriction' => null, 'source' => 'borrowed', 'data' => ['body' => $effect->description]];
+            }
+
+            // This specific borrow's own token/marker/upgrade-type pick, when
+            // its generic catalog source (CampaignCrewCard) required one —
+            // never set on an Upgrade-sourced borrow (T3-33).
+            if ($advancement->crew_card_choice) {
+                $items[] = ['type' => 'choice', 'qualifier' => null, 'restriction' => null, 'source' => 'borrowed', 'data' => $advancement->crew_card_choice];
             }
 
             foreach ($effect->actions as $action) {
-                $restriction = $isCrewUpgrade ? $action->pivot->restriction : null; // @phpstan-ignore property.notFound (pivot from MorphToMany/BelongsToMany)
+                // @phpstan-ignore property.notFound (pivot from MorphToMany/BelongsToMany)
+                $pivotRestriction = $isCrewUpgrade ? $action->pivot->restriction : null;
                 $items[] = [
                     'type' => 'action',
-                    'qualifier' => self::descriptorFor($restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Action),
+                    // Printed qualifier text stays scoped to a real Upgrade's own
+                    // stored restriction, unchanged from before — the generic
+                    // catalog's implicit default (used for the restriction field
+                    // below) is a fallback for matching purposes only, not
+                    // something to newly print on the card image itself (that's
+                    // a separate redesign).
+                    'qualifier' => self::descriptorFor($pivotRestriction, CrewUpgradeRestrictionDescriptorTypeEnum::Action),
+                    // A generic-catalog borrow upgrades to "both keywords" here
+                    // (pg 31-32) — see BORROWED_RESTRICTION.
+                    'restriction' => $isCrewUpgrade ? $pivotRestriction : self::BORROWED_RESTRICTION->value,
+                    'source' => 'borrowed',
                     'data' => self::shapeAction($action),
                 ];
             }
             foreach ($effect->abilities as $ability) {
-                $restriction = $isCrewUpgrade ? $ability->pivot->restriction : null; // @phpstan-ignore property.notFound (pivot from MorphToMany/BelongsToMany)
+                // @phpstan-ignore property.notFound (pivot from MorphToMany/BelongsToMany)
+                $pivotRestriction = $isCrewUpgrade ? $ability->pivot->restriction : null;
                 $items[] = [
                     'type' => 'ability',
-                    'qualifier' => self::descriptorFor($restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Ability),
+                    'qualifier' => self::descriptorFor($pivotRestriction, CrewUpgradeRestrictionDescriptorTypeEnum::Ability),
+                    'restriction' => $isCrewUpgrade ? $pivotRestriction : self::BORROWED_RESTRICTION->value,
+                    'source' => 'borrowed',
                     'data' => self::shapeAbility($ability),
                 ];
             }
@@ -110,6 +164,8 @@ class CombinedCrewCardEffects
                     $items[] = [
                         'type' => 'trigger',
                         'qualifier' => self::descriptorFor($restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Trigger),
+                        'restriction' => $restriction,
+                        'source' => 'borrowed',
                         'data' => self::shapeTrigger($trigger),
                     ];
                 }
@@ -126,7 +182,7 @@ class CombinedCrewCardEffects
      * automatically come with any associated triggers"), matching
      * shapeAction()'s own 'triggers' field.
      *
-     * @return array{type: 'action'|'ability'|'trigger', qualifier: string|null, data: array<string, mixed>}|null
+     * @return array{type: 'action'|'ability'|'trigger', qualifier: string|null, restriction: string|null, data: array<string, mixed>}|null
      */
     private static function pickedItem(Upgrade $effect, string $itemType, int $itemId): ?array
     {
@@ -134,16 +190,19 @@ class CombinedCrewCardEffects
             'action' => ($action = $effect->actions->firstWhere('id', $itemId)) ? [
                 'type' => 'action',
                 'qualifier' => self::descriptorFor($action->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Action), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'restriction' => $action->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'data' => self::shapeAction($action),
             ] : null,
             'ability' => ($ability = $effect->abilities->firstWhere('id', $itemId)) ? [
                 'type' => 'ability',
                 'qualifier' => self::descriptorFor($ability->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Ability), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'restriction' => $ability->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'data' => self::shapeAbility($ability),
             ] : null,
             'trigger' => ($trigger = $effect->triggers->firstWhere('id', $itemId)) ? [
                 'type' => 'trigger',
                 'qualifier' => self::descriptorFor($trigger->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Trigger), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'restriction' => $trigger->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'data' => self::shapeTrigger($trigger),
             ] : null,
             default => null,

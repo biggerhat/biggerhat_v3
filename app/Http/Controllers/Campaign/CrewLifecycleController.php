@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Campaign;
 
 use App\Enums\MessageTypeEnum;
+use App\Events\CampaignCrewUpdated;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
@@ -25,6 +27,8 @@ use Illuminate\Support\Facades\DB;
  */
 class CrewLifecycleController extends Controller
 {
+    use BroadcastsCampaignEvents;
+
     /**
      * Mark the current Leader as annihilated this aftermath. Behavior:
      *   - If this is the first annihilation in the campaign (miraculous
@@ -117,8 +121,15 @@ class CrewLifecycleController extends Controller
                 'keyword_2_id' => null,
                 'crew_card_effect_id' => null,
                 'faction' => null,
+                // Clear the stale combined card images too — they still show
+                // the old starter effect until Starting Arsenal is redone and
+                // regenerates them (StartingArsenalController::store()).
+                'crew_card_front_image' => null,
+                'crew_card_back_image' => null,
             ]);
         });
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
 
         return redirect()->route('campaigns.crews.leader.edit', [$campaign, $crew->share_code])
             ->withMessage("Starting Anew — {$bonusScrip} bonus scrip granted. Build your new Leader.");

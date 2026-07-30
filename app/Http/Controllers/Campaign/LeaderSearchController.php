@@ -74,9 +74,6 @@ class LeaderSearchController extends Controller
 
         $q = (string) $request->get('q', '');
         $maxCost = $request->integer('max_cost');
-        if (strlen($q) < 2) {
-            return response()->json([]);
-        }
 
         $keywordIds = $this->resolveKeywordIds($request, $crew);
         if (empty($keywordIds)) {
@@ -93,13 +90,16 @@ class LeaderSearchController extends Controller
         $typeFilter = in_array($type, [ActionTypeEnum::Attack->value, ActionTypeEnum::Tactical->value], true) ? $type : null;
 
         $actions = Action::query()
-            ->where('name', 'LIKE', "%{$q}%")
+            // Empty q browses the full (already keyword/cost/station-constrained)
+            // pool — the Action Lookup Modal (T3-32) lets a player browse, not
+            // just text-search.
+            ->when($q !== '', fn ($qq) => $qq->where('name', 'LIKE', "%{$q}%"))
             ->when($typeFilter !== null, fn ($qq) => $qq->where('type', $typeFilter))
             ->whereHas('characters', $sourceFilter)
             // Eager-load one valid source character so the picker can submit it;
             // the save-time validator re-verifies it (pg 17).
             ->with(['triggers', 'characters' => $sourceFilter])
-            ->limit(25)
+            ->limit(60)
             ->orderBy('name')
             ->get();
 
@@ -107,7 +107,7 @@ class LeaderSearchController extends Controller
             'id' => $a->id,
             'name' => $a->name,
             'type' => $a->type,
-            'is_signature' => (bool) $a->is_signature,
+            'is_signature' => (bool) ($a->characters->first()?->pivot->is_signature_action ?? false),
             'stone_cost' => $a->stone_cost ?? 0,
             'range' => $a->range,
             'range_type' => $a->range_type,
@@ -121,6 +121,7 @@ class LeaderSearchController extends Controller
             'description' => $a->description,
             'source_id' => $a->id,
             'source_character_id' => $a->characters->first()?->id,
+            'source_character_name' => $a->characters->first()?->display_name,
             'triggers' => $a->triggers->map(fn (Trigger $t) => [
                 'name' => $t->name,
                 'suits' => $t->suits,
@@ -137,9 +138,6 @@ class LeaderSearchController extends Controller
 
         $q = (string) $request->get('q', '');
         $maxCost = $request->integer('max_cost');
-        if (strlen($q) < 2) {
-            return response()->json([]);
-        }
 
         $keywordIds = $this->resolveKeywordIds($request, $crew);
         if (empty($keywordIds)) {
@@ -150,10 +148,11 @@ class LeaderSearchController extends Controller
         $sourceFilter = $this->validSourceCharacterFilter($keywordIds, $maxCost ?: null);
 
         $abilities = Ability::query()
-            ->where('name', 'LIKE', "%{$q}%")
+            // Empty q browses the full constrained pool (Ability Lookup Modal, T3-32).
+            ->when($q !== '', fn ($qq) => $qq->where('name', 'LIKE', "%{$q}%"))
             ->whereHas('characters', $sourceFilter)
             ->with(['characters' => $sourceFilter])
-            ->limit(25)
+            ->limit(60)
             ->orderBy('name')
             ->get();
 
@@ -166,6 +165,7 @@ class LeaderSearchController extends Controller
             'description' => $a->description,
             'source_id' => $a->id,
             'source_character_id' => $a->characters->first()?->id,
+            'source_character_name' => $a->characters->first()?->display_name,
         ])->values());
     }
 }

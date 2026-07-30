@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Campaign;
 
 use App\Enums\MessageTypeEnum;
+use App\Events\CampaignCrewUpdated;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreLeaderAdvancementRequest;
 use App\Models\Campaign\Campaign;
@@ -22,6 +24,7 @@ use Illuminate\Http\Request;
 class LeaderAdvancementController extends Controller
 {
     use AuthorizesCampaignAccess;
+    use BroadcastsCampaignEvents;
 
     public function store(StoreLeaderAdvancementRequest $request, Campaign $campaign, CampaignCrew $crew, LeaderAdvancementService $service)
     {
@@ -57,6 +60,8 @@ class LeaderAdvancementController extends Controller
         // source_aftermath_id is null — this was logged directly, not via an aftermath.
         $service->create($leader, [$data], null);
 
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
         return redirect()->back()->withMessage('Advancement logged.');
     }
 
@@ -71,6 +76,8 @@ class LeaderAdvancementController extends Controller
 
         $service->revertAdvancement($leader, $advancement, $crew);
         $advancement->delete();
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
 
         return redirect()->back()->withMessage('Advancement removed.');
     }

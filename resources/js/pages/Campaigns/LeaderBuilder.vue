@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AbilityLookupModal from '@/components/Campaign/AbilityLookupModal.vue';
+import ActionLookupModal from '@/components/Campaign/ActionLookupModal.vue';
 import InputError from '@/components/InputError.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -7,11 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/composables/useToast';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
-
-const toast = useToast();
 
 interface SelectOpt {
     name: string;
@@ -69,6 +68,8 @@ interface ActionData {
     // The model this action was picked from — sent so the server can verify it's
     // a valid (non-master/non-totem, cost-bearing, in-keyword) source (pg 17).
     source_character_id: number | null;
+    // Display-only, stripped before submit — shown in the lookup modal (T3-32).
+    source_character_name?: string | null;
     triggers: TriggerData[];
     // Heavy Hitter keeps ONE trigger on its starting attack — the full set the
     // player chooses from is held here client-side (stripped before submit).
@@ -83,6 +84,8 @@ interface AbilityData {
     description: string | null;
     source_id: number | null;
     source_character_id: number | null;
+    // Display-only, stripped before submit — shown in the lookup modal (T3-32).
+    source_character_name?: string | null;
 }
 
 interface CrewData {
@@ -201,58 +204,18 @@ watch(
     },
 );
 
-// ───────── Action picker ─────────
-const actionSearch = ref('');
-const actionResults = ref<ActionData[]>([]);
-const actionPickerCategory = ref<'attack' | 'tactical'>('attack');
+// ───────── Action picker (Action Lookup Modal, T3-32) ─────────
+const actionModalOpen = ref(false);
 
-const actionCap = computed(() =>
-    actionPickerCategory.value === 'attack' ? (archetype.value?.attack_action_cost_cap ?? 99) : (archetype.value?.tactical_action_cost_cap ?? 99),
-);
+const currentCategoryCount = (category: 'attack' | 'tactical') => (category === 'attack' ? attackActions.value.length : tacticalActions.value.length);
+const currentCategoryLimit = (category: 'attack' | 'tactical') =>
+    category === 'attack' ? (archetype.value?.attack_actions_count ?? 0) : (archetype.value?.tactical_actions_count ?? 0);
 
-const searchActions = async () => {
-    if (actionSearch.value.length < 2) {
-        actionResults.value = [];
-        return;
-    }
-    const url = new URL(route('campaigns.crews.leader.search.actions', [props.campaign.id, props.crew.share_code]), window.location.origin);
-    url.searchParams.set('q', actionSearch.value);
-    url.searchParams.set('max_cost', String(actionCap.value));
-    // Only show actions of the category being picked (no Tacticals under Attack).
-    url.searchParams.set('type', actionPickerCategory.value);
-    // Use the keywords currently selected in the form so the picker works before
-    // the leader/crew is saved (the server falls back to the crew's saved ones).
-    if (form.value.keyword_1_id) url.searchParams.set('keyword_1_id', String(form.value.keyword_1_id));
-    if (form.value.keyword_2_id) url.searchParams.set('keyword_2_id', String(form.value.keyword_2_id));
-    const res = await fetch(url.toString());
-    if (!res.ok) return;
-    actionResults.value = await res.json();
-};
-
-watch(actionSearch, (v) => {
-    if (v.length < 2) actionResults.value = [];
-    else searchActions();
-});
-
-// Re-run the search when toggling Attack/Tactical so the type filter applies.
-watch(actionPickerCategory, () => {
-    if (actionSearch.value.length >= 2) searchActions();
-});
-
-const addAction = (a: ActionData) => {
-    const limit =
-        actionPickerCategory.value === 'attack' ? (archetype.value?.attack_actions_count ?? 0) : (archetype.value?.tactical_actions_count ?? 0);
-    const current = actionPickerCategory.value === 'attack' ? attackActions.value.length : tacticalActions.value.length;
-    if (current >= limit) {
-        toast.warning('Action limit reached', {
-            description: `${archetype.value?.name ?? 'Archetype'} allows at most ${limit} ${actionPickerCategory.value} action(s).`,
-        });
-        return;
-    }
-
+// Shared by the modal's bulk commit and (formerly) single-add path — strips
+// triggers unless Heavy Hitter on an attack action (pg 17).
+const prepareActionForForm = (a: ActionData & { category: 'attack' | 'tactical' }): ActionData => {
     const cloned: ActionData = JSON.parse(JSON.stringify(a));
-    cloned.category = actionPickerCategory.value;
-    // Strip triggers unless Heavy Hitter on an attack action — per pg 17.
+    delete cloned.source_character_name;
     if (!(archetype.value?.attack_gets_trigger && cloned.category === 'attack')) {
         cloned.triggers = [];
     } else {
@@ -261,9 +224,13 @@ const addAction = (a: ActionData) => {
         cloned.available_triggers = [...cloned.triggers];
         cloned.triggers = cloned.triggers.slice(0, 1);
     }
-    form.value.actions.push(cloned);
-    actionSearch.value = '';
-    actionResults.value = [];
+    return cloned;
+};
+
+const commitActions = (picked: Array<ActionData & { category: 'attack' | 'tactical' }>) => {
+    for (const a of picked) {
+        form.value.actions.push(prepareActionForForm(a));
+    }
 };
 
 // Heavy Hitter: choose which of the source attack's triggers to keep.
@@ -277,42 +244,15 @@ const removeAction = (idx: number) => {
     form.value.actions.splice(idx, 1);
 };
 
-// ───────── Ability picker ─────────
-const abilitySearch = ref('');
-const abilityResults = ref<AbilityData[]>([]);
+// ───────── Ability picker (Ability Lookup Modal, T3-32) ─────────
+const abilityModalOpen = ref(false);
 
-const searchAbilities = async () => {
-    if (abilitySearch.value.length < 2) {
-        abilityResults.value = [];
-        return;
+const commitAbilities = (picked: AbilityData[]) => {
+    for (const a of picked) {
+        const cloned: AbilityData = JSON.parse(JSON.stringify(a));
+        delete cloned.source_character_name;
+        form.value.abilities.push(cloned);
     }
-    const url = new URL(route('campaigns.crews.leader.search.abilities', [props.campaign.id, props.crew.share_code]), window.location.origin);
-    url.searchParams.set('q', abilitySearch.value);
-    // Cap on the source ally's cost (rulebook pg 17).
-    url.searchParams.set('max_cost', String(archetype.value?.ability_cost_cap ?? 99));
-    // In-form keywords so the picker works before the leader/crew is saved.
-    if (form.value.keyword_1_id) url.searchParams.set('keyword_1_id', String(form.value.keyword_1_id));
-    if (form.value.keyword_2_id) url.searchParams.set('keyword_2_id', String(form.value.keyword_2_id));
-    const res = await fetch(url.toString());
-    if (!res.ok) return;
-    abilityResults.value = await res.json();
-};
-
-watch(abilitySearch, (v) => {
-    if (v.length < 2) abilityResults.value = [];
-    else searchAbilities();
-});
-
-const addAbility = (a: AbilityData) => {
-    if (form.value.abilities.length >= (archetype.value?.abilities_count ?? 0)) {
-        toast.warning('Ability limit reached', {
-            description: `${archetype.value?.name ?? 'Archetype'} allows at most ${archetype.value?.abilities_count ?? 0} ability/ies.`,
-        });
-        return;
-    }
-    form.value.abilities.push(JSON.parse(JSON.stringify(a)));
-    abilitySearch.value = '';
-    abilityResults.value = [];
 };
 
 const removeAbility = (idx: number) => {
@@ -367,6 +307,7 @@ const submit = async () => {
                 <Link :href="route('campaigns.show', campaign.id)">
                     <Button variant="ghost">Campaign</Button>
                 </Link>
+                <Button @click="submit" :disabled="submitting">{{ leader ? 'Update Leader' : 'Save Leader' }}</Button>
             </div>
         </template>
     </PageBanner>
@@ -508,27 +449,14 @@ const submit = async () => {
                 </p>
             </CardHeader>
             <CardContent class="space-y-4">
-                <div class="flex items-center gap-2">
-                    <Label>Pick for:</Label>
-                    <Select v-model="actionPickerCategory">
-                        <SelectTrigger class="w-40"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="attack">Attack</SelectItem>
-                            <SelectItem value="tactical">Tactical</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Input v-model="actionSearch" placeholder="Search by name…" class="flex-1" />
-                </div>
-                <div v-if="actionResults.length" class="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
-                    <button
-                        v-for="a in actionResults"
-                        :key="a.source_id ?? a.name"
-                        @click="addAction(a)"
-                        class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
-                    >
-                        <span class="font-medium">{{ a.name }}</span>
-                        <span class="ml-2 text-[10px] text-muted-foreground">cost {{ a.stone_cost ?? 0 }} • {{ a.type }}</span>
-                    </button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" :disabled="!form.keyword_1_id" @click="actionModalOpen = true">Browse Actions</Button>
+                    <Badge variant="outline" class="shrink-0 text-[10px]">
+                        Attack {{ currentCategoryCount('attack') }} / {{ currentCategoryLimit('attack') }}
+                    </Badge>
+                    <Badge variant="outline" class="shrink-0 text-[10px]">
+                        Tactical {{ currentCategoryCount('tactical') }} / {{ currentCategoryLimit('tactical') }}
+                    </Badge>
                 </div>
 
                 <div v-if="attackActions.length" class="space-y-1">
@@ -588,20 +516,13 @@ const submit = async () => {
 
         <Card class="mb-6">
             <CardHeader>
-                <CardTitle>3. Abilities</CardTitle>
+                <CardTitle class="flex items-center gap-1.5">
+                    3. Abilities
+                    <Badge variant="outline" class="text-[10px]">{{ form.abilities.length }} / {{ archetype?.abilities_count ?? 0 }}</Badge>
+                </CardTitle>
             </CardHeader>
             <CardContent class="space-y-4">
-                <Input v-model="abilitySearch" placeholder="Search by name…" />
-                <div v-if="abilityResults.length" class="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
-                    <button
-                        v-for="a in abilityResults"
-                        :key="a.source_id ?? a.name"
-                        @click="addAbility(a)"
-                        class="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted"
-                    >
-                        <span class="font-medium">{{ a.name }}</span>
-                    </button>
-                </div>
+                <Button variant="outline" :disabled="!form.keyword_1_id" @click="abilityModalOpen = true">Browse Abilities</Button>
                 <div v-for="(ab, idx) in form.abilities" :key="`abi-${idx}`" class="space-y-1 rounded-md border p-2 text-sm">
                     <div class="flex items-center justify-between">
                         <span class="font-medium">{{ ab.name }}</span>
@@ -643,4 +564,33 @@ const submit = async () => {
             <Button @click="submit" :disabled="submitting">{{ leader ? 'Update Leader' : 'Save Leader' }}</Button>
         </div>
     </div>
+
+    <ActionLookupModal
+        v-model:open="actionModalOpen"
+        :campaign-id="campaign.id"
+        :crew-share-code="crew.share_code"
+        :keyword1-id="form.keyword_1_id"
+        :keyword2-id="form.keyword_2_id"
+        :archetype-name="archetype?.name ?? 'Archetype'"
+        :attack-cap="archetype?.attack_action_cost_cap ?? 99"
+        :tactical-cap="archetype?.tactical_action_cost_cap ?? 99"
+        :attack-limit="archetype?.attack_actions_count ?? 0"
+        :tactical-limit="archetype?.tactical_actions_count ?? 0"
+        :attack-current-count="attackActions.length"
+        :tactical-current-count="tacticalActions.length"
+        :attack-gets-trigger="archetype?.attack_gets_trigger ?? false"
+        @commit="commitActions"
+    />
+
+    <AbilityLookupModal
+        v-model:open="abilityModalOpen"
+        :campaign-id="campaign.id"
+        :crew-share-code="crew.share_code"
+        :keyword1-id="form.keyword_1_id"
+        :keyword2-id="form.keyword_2_id"
+        :ability-cap="archetype?.ability_cost_cap ?? 99"
+        :ability-limit="archetype?.abilities_count ?? 0"
+        :ability-current-count="form.abilities.length"
+        @commit="commitAbilities"
+    />
 </template>

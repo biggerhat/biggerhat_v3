@@ -6,12 +6,15 @@ use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\MessageTypeEnum;
+use App\Events\CampaignStarted;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\StoreCampaignRequest;
 use App\Http\Requests\Campaign\UpdateCampaignRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignGame;
+use App\Models\Campaign\CampaignInvitation;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Game;
 use App\Traits\Campaign\AddsCampaignMember;
@@ -22,6 +25,7 @@ use Illuminate\Support\Str;
 class CampaignController extends Controller
 {
     use AddsCampaignMember;
+    use BroadcastsCampaignEvents;
 
     public function index(Request $request)
     {
@@ -33,8 +37,24 @@ class CampaignController extends Controller
             ->orderByDesc('updated_at')
             ->get(['id', 'name', 'length_weeks', 'current_week', 'organizer_user_id', 'status', 'is_solo', 'started_at', 'ended_at']);
 
+        // Previously surfaced only via the CampaignInvitationReceived
+        // notification — an invitee who dismissed or missed that notification
+        // had no other way to find their way back to a pending invite.
+        $pendingInvitations = CampaignInvitation::query()
+            ->where('user_id', $user->id)
+            ->pending()
+            ->with(['campaign' => fn ($q) => $q->select(['id', 'name', 'organizer_user_id']), 'campaign.organizer:id,name'])
+            ->orderByDesc('created_at')
+            ->get(['id', 'token', 'campaign_id', 'expires_at']);
+
         return inertia('Campaigns/Index', [
             'campaigns' => $campaigns,
+            'pending_invitations' => $pendingInvitations->map(fn (CampaignInvitation $inv) => [
+                'token' => $inv->token,
+                'campaign_name' => $inv->campaign->name,
+                'organizer_name' => $inv->campaign->organizer?->name,
+                'expires_at' => $inv->expires_at,
+            ])->values(),
         ]);
     }
 
@@ -241,6 +261,8 @@ class CampaignController extends Controller
             'status' => CampaignStatusEnum::Active,
             'started_at' => now(),
         ]);
+
+        $this->broadcastToCampaign($campaign, new CampaignStarted($campaign));
 
         return redirect()->route('campaigns.show', $campaign)
             ->withMessage("{$campaign->name} is now active.");

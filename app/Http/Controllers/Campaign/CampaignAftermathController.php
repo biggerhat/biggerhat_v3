@@ -7,12 +7,15 @@ use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\MessageTypeEnum;
+use App\Events\CampaignCrewUpdated;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
+use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
@@ -45,6 +48,7 @@ use Illuminate\Validation\Rule;
 class CampaignAftermathController extends Controller
 {
     use AuthorizesCampaignAccess;
+    use BroadcastsCampaignEvents;
 
     public function start(Request $request, CampaignGame $campaignGame)
     {
@@ -82,11 +86,15 @@ class CampaignAftermathController extends Controller
         return inertia('Campaigns/Aftermath', [
             'aftermath' => $aftermath,
             'is_owner' => $request->user()->id === $aftermath->crew->user_id,
+            // Always the crew's full active non-peon roster (pg 34) — even
+            // when a tracker run detected deaths, the player can still flip
+            // for a model the tracker missed or retag one it got wrong. Each
+            // row's `tracker_killed` flags the auto-detected ones so the UI
+            // can highlight them as a starting point, not a locked-in list.
             'killed_models' => $this->killedNonPeonModelsForCrew($aftermath),
-            // True only when the kill list comes from a linked tracker run, so
-            // the UI can present it as authoritative. Solo / manually-logged
-            // games have no base game — the list is then the full roster and
-            // the player must pick who actually died (pg 34).
+            // True only when the list's `tracker_killed` flags come from a
+            // real linked tracker run — lets the UI say "these were
+            // auto-detected" vs "no tracker data, pick who died yourself."
             'kills_are_authoritative' => $aftermath->campaignGame->base_game_id !== null,
             // Phase-gated lazy props. Inertia evaluates closures on full visits,
             // so gating on `current_phase` keeps each phase's catalog query off
@@ -116,6 +124,46 @@ class CampaignAftermathController extends Controller
             // Pre-fill the draw-hand (schemes / withdrawal) and payday (VP / win /
             // CR) forms from the logged game so the player confirms, not re-enters.
             'prefill' => $this->aftermathPrefill($aftermath),
+        ]);
+    }
+
+    /**
+     * Lightweight read-only recap for a manually-logged game (solo, or —
+     * since manual logging opened up to multiplayer campaigns too —
+     * duel campaigns with no live-tracked session). These never get a
+     * `base_game_id` (there's no Game Tracker row to link), so "View Game
+     * Log" can't route to `games.summary` like it does for a real tracked
+     * game; it lands here instead. Sourced directly from the CampaignGame's
+     * own stored VP/schemes/win/withdraw fields and the Aftermath's story
+     * entry + tallies — no attempt to force this into the tracker's summary
+     * view, which expects data (crew members, turn log) that simply doesn't
+     * exist for a game that was never tracked live.
+     */
+    public function recap(Request $request, CampaignAftermath $aftermath)
+    {
+        $this->ensureAftermathOwner($request, $aftermath);
+
+        $aftermath->load([
+            'campaignGame.campaign:id,name,current_week,length_weeks',
+            'crew:id,share_code,name,faction',
+        ]);
+
+        return inertia('Campaigns/GameRecap', [
+            'campaign' => $aftermath->campaignGame->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
+            'crew' => $aftermath->crew->only(['id', 'share_code', 'name', 'faction']),
+            'week_number' => $aftermath->campaignGame->week_number,
+            'story_entry' => $aftermath->story_entry,
+            'locked' => $aftermath->status === 'locked',
+            'result' => $this->aftermathPrefill($aftermath),
+            'tally' => [
+                'injuries' => CampaignArsenalModelInjury::where('acquired_aftermath_id', $aftermath->id)->count(),
+                'doctor_attempts' => DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->count(),
+                'lucky_misses' => DB::table('campaign_aftermath_doctor')
+                    ->where('campaign_aftermath_id', $aftermath->id)
+                    ->where('outcome', 'lucky_miss_reflip')
+                    ->count(),
+                'ttw_pickups' => CampaignEquipment::where('acquired_aftermath_id', $aftermath->id)->where('source', 'joker')->count(),
+            ],
         ]);
     }
 
@@ -1237,61 +1285,55 @@ class CampaignAftermathController extends Controller
             'story_entry' => $data['story_entry'] ?? null,
         ]);
 
+        $this->broadcastToCampaign($aftermath->campaignGame->campaign, new CampaignCrewUpdated($aftermath->crew));
+
         return redirect()->route('campaigns.crews.arsenal.show', [
             $aftermath->campaignGame->campaign_id, $aftermath->crew->share_code,
         ])->withMessage('Aftermath closed.');
     }
 
+    /**
+     * Always the crew's full active non-peon roster (arsenal + leader/totem)
+     * — a model isn't excluded just because the tracker didn't flag it dead.
+     * When a base game is linked, each row also carries `tracker_killed` so
+     * the UI can highlight the auto-detected kills as a starting point, but
+     * the player can still add an injury flip for any other model the
+     * tracker missed or got wrong (see `kills_are_authoritative` on the
+     * Aftermath show payload — it now only means "we have a tracker signal
+     * to highlight," not "this list is pre-filtered").
+     */
     private function killedNonPeonModelsForCrew(CampaignAftermath $aftermath): \Illuminate\Support\Collection
     {
-        // Auto-detect via GameCrewMember death events from the wrapping game.
-        // Falls back to "all active non-peon arsenal models + current leader/totem"
-        // when there's no linked base game — useful for testing in isolation.
         $baseGameId = $aftermath->campaignGame->base_game_id ?? null;
 
-        if (! $baseGameId) {
-            $arsenalRows = CampaignArsenalModel::query()
-                ->where('campaign_crew_id', $aftermath->campaign_crew_id)
-                ->active()
-                ->where('is_peon', false)
-                ->with('character:id,display_name,station,faction')
-                ->get(['id', 'campaign_crew_id', 'character_id', 'label'])
-                ->map(fn ($m) => $this->arsenalModelRow($m))
-                ->toBase();
+        $trackerKilledCharacterIds = [];
+        $trackerKilledCustomCharIds = [];
+        if ($baseGameId) {
+            $trackerKilledCharacterIds = DB::table('game_crew_members')
+                ->where('game_id', $baseGameId)
+                ->where('is_killed', true)
+                ->whereNotNull('character_id')
+                ->pluck('character_id')
+                ->all();
 
-            return $arsenalRows->merge($this->customCharacterKillRows($aftermath->campaign_crew_id, null))->values();
+            $trackerKilledCustomCharIds = DB::table('game_crew_members')
+                ->where('game_id', $baseGameId)
+                ->where('is_killed', true)
+                ->whereNotNull('custom_character_id')
+                ->pluck('custom_character_id')
+                ->all();
         }
 
-        $killedCharacterIds = DB::table('game_crew_members')
-            ->where('game_id', $baseGameId)
-            ->where('is_killed', true)
-            ->whereNotNull('character_id')
-            ->pluck('character_id')
-            ->all();
+        $arsenalRows = CampaignArsenalModel::query()
+            ->where('campaign_crew_id', $aftermath->campaign_crew_id)
+            ->active()
+            ->where('is_peon', false)
+            ->with('character:id,display_name,station,faction')
+            ->get(['id', 'campaign_crew_id', 'character_id', 'label'])
+            ->map(fn ($m) => $this->arsenalModelRow($m, in_array($m->character_id, $trackerKilledCharacterIds, true)))
+            ->toBase();
 
-        $killedCustomCharIds = DB::table('game_crew_members')
-            ->where('game_id', $baseGameId)
-            ->where('is_killed', true)
-            ->whereNotNull('custom_character_id')
-            ->pluck('custom_character_id')
-            ->all();
-
-        $arsenalRows = collect();
-        if (! empty($killedCharacterIds)) {
-            $arsenalRows = CampaignArsenalModel::query()
-                ->where('campaign_crew_id', $aftermath->campaign_crew_id)
-                ->active()
-                ->where('is_peon', false)
-                ->whereIn('character_id', $killedCharacterIds)
-                ->with('character:id,display_name,station,faction')
-                ->get(['id', 'campaign_crew_id', 'character_id', 'label'])
-                ->map(fn ($m) => $this->arsenalModelRow($m))
-                ->toBase();
-        }
-
-        $customCharRows = ! empty($killedCustomCharIds)
-            ? $this->customCharacterKillRows($aftermath->campaign_crew_id, $killedCustomCharIds)
-            : collect();
+        $customCharRows = $this->customCharacterKillRows($aftermath->campaign_crew_id, $trackerKilledCustomCharIds);
 
         return $arsenalRows->merge($customCharRows)->values();
     }
@@ -1419,7 +1461,7 @@ class CampaignAftermathController extends Controller
     }
 
     /** Shape a CampaignArsenalModel as the unified killed-model payload. */
-    private function arsenalModelRow(CampaignArsenalModel $m): array
+    private function arsenalModelRow(CampaignArsenalModel $m, bool $trackerKilled = false): array
     {
         return [
             'id' => $m->id,
@@ -1433,28 +1475,25 @@ class CampaignAftermathController extends Controller
                 'display_name' => $m->character->display_name,
                 'station' => $m->character->getRawOriginal('station') ?? '',
             ] : null,
+            'tracker_killed' => $trackerKilled,
         ];
     }
 
     /**
-     * Fetch current leader/totem custom characters for this crew that appear in
-     * the killed list. When $killedIds is null, return all (fallback with no game).
+     * Current leader/totem custom characters for this crew — always the full
+     * set (regardless of tracker data), each flagged with whether the tracker
+     * detected it as killed this game.
      *
-     * @param  int[]|null  $killedIds
+     * @param  int[]  $trackerKilledIds
      */
-    private function customCharacterKillRows(int $crewId, ?array $killedIds): \Illuminate\Support\Collection
+    private function customCharacterKillRows(int $crewId, array $trackerKilledIds = []): \Illuminate\Support\Collection
     {
-        $query = CustomCharacter::query()
+        return CustomCharacter::query()
             ->where('campaign_crew_id', $crewId)
             ->where('current', true)
             ->whereNull('annihilated_at')
-            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true));
-
-        if ($killedIds !== null) {
-            $query->whereIn('id', $killedIds);
-        }
-
-        return $query->get(['id', 'name', 'station', 'is_campaign_leader', 'is_campaign_totem'])
+            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true))
+            ->get(['id', 'name', 'station', 'is_campaign_leader', 'is_campaign_totem'])
             ->map(fn ($c) => [
                 'id' => $c->id,
                 'campaign_crew_id' => $crewId,
@@ -1463,6 +1502,7 @@ class CampaignAftermathController extends Controller
                 'label' => null,
                 'display_name' => $c->name.($c->is_campaign_leader ? ' (Leader)' : ' (Totem)'),
                 'character' => null,
+                'tracker_killed' => in_array($c->id, $trackerKilledIds, true),
             ]);
     }
 

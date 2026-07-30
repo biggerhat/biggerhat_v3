@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\MessageTypeEnum;
+use App\Events\CampaignWeekAdvanced;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignWeek;
@@ -25,6 +27,8 @@ use Illuminate\Support\Facades\DB;
  */
 class WeeklyCycleController extends Controller
 {
+    use BroadcastsCampaignEvents;
+
     public function advance(Request $request, Campaign $campaign)
     {
         $this->authorize('update', $campaign);
@@ -79,6 +83,8 @@ class WeeklyCycleController extends Controller
                 MessageTypeEnum::error,
             );
         }
+
+        $this->broadcastToCampaign($campaign, new CampaignWeekAdvanced($campaign->fresh()));
 
         $msg = "Advanced to week {$newWeek}.";
         if ($event) {

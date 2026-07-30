@@ -39,9 +39,24 @@ interface AbilityData {
     description: string | null;
 }
 
+interface TextData {
+    body: string;
+}
+
+interface ChoiceData {
+    type: string;
+    id: number | string;
+    name: string;
+}
+
 defineProps<{
     crewName: string;
-    items: Array<{ type: 'action' | 'ability' | 'trigger'; qualifier: string | null; data: ActionData | AbilityData | TriggerData }>;
+    items: Array<{
+        type: 'action' | 'ability' | 'trigger' | 'text' | 'choice';
+        qualifier: string | null;
+        source: 'starter' | 'borrowed';
+        data: ActionData | AbilityData | TriggerData | TextData | ChoiceData;
+    }>;
 }>();
 </script>
 
@@ -50,12 +65,17 @@ defineProps<{
 
     <!-- No sizing here — CombinedCrewCardFace picks its own width/height
          (tarot-proportioned, tiered up as content grows) since it's the one
-         that knows the content volume. display: inline-block makes this
-         wrapper hug that exact box so Browsershot's #card-crew element
-         screenshot captures precisely the card, not a full-width wrapper. -->
-    <div class="bg-transparent p-8">
-        <div id="card-crew" style="display: inline-block">
-            <CombinedCrewCardFace :crew-name="crewName" :items="items" />
+         that knows the content volume. display: inline-block makes each
+         wrapper hug its own exact box so Browsershot's element screenshot
+         captures precisely one card face at a time, not a full-width
+         wrapper — CombinedCrewCardImageGenerator selects #card-crew-front
+         and #card-crew-back as two separate screenshots off this one page. -->
+    <div class="flex flex-col gap-8 bg-transparent p-8">
+        <div id="card-crew-front" style="display: inline-block">
+            <CombinedCrewCardFace :crew-name="crewName" :items="items" side="front" />
+        </div>
+        <div id="card-crew-back" style="display: inline-block">
+            <CombinedCrewCardFace :crew-name="crewName" :items="items" side="back" />
         </div>
     </div>
 </template>

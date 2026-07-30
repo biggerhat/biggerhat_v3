@@ -5,6 +5,7 @@ use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
+use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
@@ -310,6 +311,79 @@ it('search/actions returns matches filtered by crew keyword and source-ally cost
         ->assertOk()
         ->assertJsonCount(1)
         ->assertJsonPath('0.name', 'Family Slap');
+});
+
+it('search/actions reflects the per-model signature pivot, not the action\'s own global flag', function () {
+    // Regression: the endpoint previously returned Action::is_signature (a
+    // global column) instead of the characterables pivot's is_signature_action,
+    // which is what actually varies per source character (pg 17).
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $keyword = Keyword::factory()->create();
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    // Pivot says signature, global column says not — response must follow the pivot.
+    $signatureAction = Action::factory()->create(['name' => 'Signature Slash', 'is_signature' => false]);
+    $signatureSource = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 3]);
+    $signatureSource->keywords()->attach($keyword);
+    $signatureAction->characters()->attach($signatureSource->id, ['is_signature_action' => true]);
+
+    // Pivot says not signature, global column says signature — response must still follow the pivot.
+    $plainAction = Action::factory()->create(['name' => 'Signature Jab', 'is_signature' => true]);
+    $plainSource = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 3]);
+    $plainSource->keywords()->attach($keyword);
+    $plainAction->characters()->attach($plainSource->id, ['is_signature_action' => false]);
+
+    $res = $this->actingAs($user)
+        ->getJson(route('campaigns.crews.leader.search.actions', [$crew->campaign_id, $crew->share_code]).'?q=Signature&max_cost=10')
+        ->assertOk();
+
+    $byName = collect($res->json())->keyBy('name');
+    expect($byName['Signature Slash']['is_signature'])->toBeTrue();
+    expect($byName['Signature Jab']['is_signature'])->toBeFalse();
+});
+
+it('search/actions browses the full constrained pool with no q (Action Lookup Modal, T3-32)', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $keyword = Keyword::factory()->create(['name' => 'Family']);
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    // CharacterObserver::creating() derives display_name from `name` (+ title)
+    // unconditionally, ignoring any explicit display_name override — so `name`
+    // (with title pinned null) is what must be set here to control it.
+    $char = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 3, 'name' => 'Ortega Blackmail', 'title' => null]);
+    $char->keywords()->attach($keyword);
+    $action = Action::factory()->create(['name' => 'Family Slap']);
+    $action->characters()->attach($char);
+
+    $res = $this->actingAs($user)
+        ->getJson(route('campaigns.crews.leader.search.actions', [$crew->campaign_id, $crew->share_code]).'?max_cost=5')
+        ->assertOk()
+        ->assertJsonCount(1);
+
+    expect($res->json('0.name'))->toBe('Family Slap')
+        ->and($res->json('0.source_character_name'))->toBe('Ortega Blackmail');
+});
+
+it('search/abilities browses the full constrained pool with no q and includes source_character_name', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $keyword = Keyword::factory()->create(['name' => 'Family']);
+    $crew->update(['keyword_1_id' => $keyword->id]);
+
+    $char = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 3, 'name' => 'Ortega Blackmail', 'title' => null]);
+    $char->keywords()->attach($keyword);
+    $ability = Ability::factory()->create(['name' => 'Family Grit']);
+    $ability->characters()->attach($char);
+
+    $res = $this->actingAs($user)
+        ->getJson(route('campaigns.crews.leader.search.abilities', [$crew->campaign_id, $crew->share_code]).'?max_cost=5')
+        ->assertOk()
+        ->assertJsonCount(1);
+
+    expect($res->json('0.name'))->toBe('Family Grit')
+        ->and($res->json('0.source_character_name'))->toBe('Ortega Blackmail');
 });
 
 it('search/actions excludes masters', function () {

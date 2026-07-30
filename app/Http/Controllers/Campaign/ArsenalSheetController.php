@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\CharacterStationEnum;
+use App\Enums\MessageTypeEnum;
+use App\Events\CampaignCrewUpdated;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
+use App\Http\Requests\Campaign\RemoveEquipmentRequest;
 use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
 use App\Models\Ability;
 use App\Models\Campaign\Campaign;
@@ -23,7 +27,9 @@ use App\Models\CustomUpgrade;
 use App\Services\CampaignRules;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Campaign\CombinedCrewCardEffects;
+use App\Support\Campaign\CrewCardUpgradeMatcher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,6 +44,8 @@ use Illuminate\Support\Facades\DB;
  */
 class ArsenalSheetController extends Controller
 {
+    use BroadcastsCampaignEvents;
+
     public function show(Request $request, Campaign $campaign, CampaignCrew $crew)
     {
         if ($crew->campaign_id !== $campaign->id) {
@@ -66,6 +74,24 @@ class ArsenalSheetController extends Controller
     public function addManualArsenalModel(AddManualArsenalModelRequest $request, Campaign $campaign, CampaignCrew $crew)
     {
         $validated = $request->validated();
+
+        if (! empty($validated['custom_character_id'])) {
+            $customCharacter = CustomCharacter::select('id', 'display_name', 'station')->findOrFail($validated['custom_character_id']);
+
+            CampaignArsenalModel::create([
+                'campaign_crew_id' => $crew->id,
+                'custom_character_id' => $customCharacter->id,
+                'label' => $validated['label'] ?? null,
+                'is_peon' => $customCharacter->station === CharacterStationEnum::Peon,
+                'acquired_week' => $campaign->current_week,
+                'acquired_via' => 'manual',
+            ]);
+
+            $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+            return redirect()->back()->withMessage("{$customCharacter->display_name} added to the arsenal.");
+        }
+
         $character = Character::select('id', 'display_name', 'station')->findOrFail($validated['character_id']);
 
         CampaignArsenalModel::create([
@@ -76,6 +102,8 @@ class ArsenalSheetController extends Controller
             'acquired_week' => $campaign->current_week,
             'acquired_via' => 'manual',
         ]);
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
 
         return redirect()->back()->withMessage("{$character->display_name} added to the arsenal.");
     }
@@ -105,7 +133,38 @@ class ArsenalSheetController extends Controller
             'source' => 'manual',
         ]);
 
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
         return redirect()->back()->withMessage("{$equipment->catalog?->name} added to the equipment locker.");
+    }
+
+    /**
+     * Remove an owned equipment instance — owner-only, ad-hoc (mid-game loss,
+     * a wrongly-logged Barter pick, etc.). Soft-removed via annihilated_at,
+     * same as an arsenal model, so it's excluded from active()/CR going
+     * forward but the row survives for history. Refused while an Attack/
+     * Tactical Mod advancement is tied to this specific instance (pg 31) —
+     * the same "🔒 Locked" condition the Arsenal Sheet already displays.
+     */
+    public function removeEquipment(RemoveEquipmentRequest $request, Campaign $campaign, CampaignCrew $crew, CampaignEquipment $equipment)
+    {
+        $isLocked = CampaignLeaderAdvancement::query()
+            ->where('from_equipment_id', $equipment->id)
+            ->exists();
+
+        if ($isLocked) {
+            return redirect()->back()->withMessage(
+                'This equipment has an advancement attached and can\'t be removed here.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
+        $equipment->update(['annihilated_at' => now()]);
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage("{$equipment->catalog?->name} removed from the equipment locker.");
     }
 
     /**
@@ -132,9 +191,18 @@ class ArsenalSheetController extends Controller
             'keywordOne:id,name',
             'keywordTwo:id,name',
             'arsenalModels' => fn ($q) => $q->active()->with([
-                'character:id,slug,display_name,cost,faction,station',
+                'character:id,slug,display_name,cost,faction,station,size',
                 // First standard miniature provides the card image for CharacterCardView.
                 'character.standardMiniatures:id,display_name,front_image,back_image,character_id,slug',
+                // Needed to resolve which currently-held Crew Card actions/
+                // abilities this specific model qualifies for (see
+                // CrewCardUpgradeMatcher) — not otherwise displayed directly.
+                'character.keywords:id,name',
+                'character.characteristics:id,name',
+                // A hired unit sourced from the owner's own Card Creator homebrew
+                // instead of the official catalog — exactly one of character/
+                // customCharacter is set per row.
+                'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,size,keywords,characteristics',
                 'injuries.injury:id,name,description',
                 // Real Abilities gained permanently outside the base
                 // Character catalog row (currently only via Lucky Miss, pg 36).
@@ -160,6 +228,15 @@ class ArsenalSheetController extends Controller
 
         // Resolve gained Lucky Miss ids to names for display.
         $luckyMissNames = LuckyMiss::query()->pluck('name', 'id');
+
+        // Which currently-held Crew Card actions/abilities each hired Unit
+        // qualifies for (pg 15-16) — computed per model, not stored. Only
+        // action/ability items apply here; standalone triggers and flavor
+        // text aren't "upgrades" granted to a model card.
+        $crewKeywordNames = array_values(array_filter([$crew->keywordOne?->name, $crew->keywordTwo?->name]));
+        $crewCardActionAbilityItems = collect(CombinedCrewCardEffects::build($crew))
+            ->filter(fn (array $item) => in_array($item['type'], ['action', 'ability'], true))
+            ->values();
 
         $leader = $crew->leader;
         $totem = $crew->totem;
@@ -199,14 +276,21 @@ class ArsenalSheetController extends Controller
         // starter effect into — not the shared CampaignCrewCard catalog row,
         // which is admin-only content. Only exists once the player has named
         // (and thus saved) their crew card at least once.
-        $crewCardCustomUpgradeId = $isOwner
-            ? CustomUpgrade::query()->where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->value('id')
+        $crewCardCustomUpgrade = $isOwner
+            ? CustomUpgrade::query()->where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->first(['id', 'display_name'])
             : null;
+        $crewCardCustomUpgradeId = $crewCardCustomUpgrade?->id;
+        // Canonical crew card display name: the player's own name if they've
+        // saved one, falling back to the shared catalog row's name — the
+        // Arsenal Sheet header and the "Edit Crew Card" view previously read
+        // two different records here and could legitimately show two
+        // different names for the same crew card.
+        $crewCardDisplayName = $crewCardCustomUpgrade?->display_name ?? $crew->crewCardEffect?->name; // @phpstan-ignore nullsafe.neverNull ($crewCardCustomUpgrade is genuinely nullable — see its ternary above)
 
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             'crew' => array_merge(
-                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image']),
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image', 'crew_card_back_image']),
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
@@ -219,6 +303,7 @@ class ArsenalSheetController extends Controller
                         ? array_merge($crew->crewCardEffect->toArray(), ['body' => $crew->crewCardEffect->description, 'triggers' => []])
                         : null,
                     'crew_card_custom_upgrade_id' => $crewCardCustomUpgradeId,
+                    'crew_card_display_name' => $crewCardDisplayName,
                     // Tier-4 borrowed effects (pg 32, 54) — stack alongside the
                     // starter. Resolves to the single picked item (pg 32) for a
                     // new-style crew_upgrade pick, or the whole card otherwise —
@@ -238,6 +323,16 @@ class ArsenalSheetController extends Controller
                             ...$m->character->only(['id', 'slug', 'display_name', 'cost', 'faction', 'station']),
                             'standard_miniature' => $m->character->standardMiniatures->first()?->only(['id', 'display_name', 'front_image', 'back_image', 'character_id', 'slug']),
                         ] : null,
+                        'custom_character' => $m->customCharacter ? [
+                            'id' => $m->customCharacter->id,
+                            'slug' => $m->customCharacter->slug,
+                            'display_name' => $m->customCharacter->display_name,
+                            'cost' => $m->customCharacter->cost,
+                            'faction' => $m->customCharacter->getRawOriginal('faction'),
+                            'station' => $m->customCharacter->getRawOriginal('station'),
+                            'front_image' => $m->customCharacter->front_image,
+                            'back_image' => $m->customCharacter->back_image,
+                        ] : null,
                         'injuries' => $m->injuries->map(fn ($i) => $this->shapeInjury($i))->filter()->values()->all(),
                         'gained_characteristics' => $m->gained_characteristics ?? [],
                         'lucky_miss' => collect($m->gained_lucky_miss_ids ?? [])
@@ -247,6 +342,10 @@ class ArsenalSheetController extends Controller
                         // Real Abilities gained permanently from a Lucky Miss
                         // result (pg 36) — additive to the model's base Character abilities.
                         'gained_abilities' => $m->gainedAbilities->map(fn (Ability $a) => $this->shapeGainedAbility($a))->values()->all(),
+                        // Currently-held Crew Card actions/abilities this specific
+                        // model qualifies for (pg 15-16) — see CrewCardUpgradeMatcher.
+                        // @phpstan-ignore argument.type (Collection<TValue> is invariant in Larastan; the filtered shape here is correct at runtime)
+                        'upgrades' => $this->resolveCrewCardUpgradesFor($m, $crewKeywordNames, $crewCardActionAbilityItems),
                     ]),
                 ],
             ),
@@ -346,6 +445,45 @@ class ArsenalSheetController extends Controller
     }
 
     /**
+     * Filters the crew's currently-held Crew Card actions/abilities down to
+     * the ones this specific model qualifies for, per CrewCardUpgradeMatcher.
+     *
+     * @param  array<int, string>  $crewKeywordNames
+     * @param  Collection<int, array{type: 'action'|'ability', qualifier: string|null, restriction: string|null, data: array<string, mixed>}>  $items  Pre-filtered by the caller to 'action'/'ability' only.
+     * @return array<int, array{id: int, type: string, name: string}>
+     */
+    private function resolveCrewCardUpgradesFor(CampaignArsenalModel $m, array $crewKeywordNames, Collection $items): array
+    {
+        if ($m->customCharacter) {
+            $modelKeywordNames = collect($m->customCharacter->keywords ?? [])->pluck('name')->all();
+            $modelCharacteristics = $m->customCharacter->characteristics ?? [];
+            $station = $m->customCharacter->getRawOriginal('station');
+            $size = $m->customCharacter->size;
+        } elseif ($m->character) {
+            $modelKeywordNames = $m->character->keywords->pluck('name')->all();
+            $modelCharacteristics = $m->character->characteristics->pluck('name')->all();
+            $station = $m->character->getRawOriginal('station');
+            $size = $m->character->size;
+        } else {
+            return [];
+        }
+
+        return $items
+            ->filter(fn (array $item) => CrewCardUpgradeMatcher::matches(
+                $item['restriction'],
+                $crewKeywordNames,
+                $modelKeywordNames,
+                $modelCharacteristics,
+                $station,
+                $size,
+                $m->acquired_via,
+            ))
+            ->map(fn (array $item) => ['id' => $item['data']['id'], 'type' => $item['type'], 'name' => $item['data']['name']])
+            ->values()
+            ->all();
+    }
+
+    /**
      * Optional per-game journal (not a rules mechanic) — written at the end
      * of the Aftermath's Log Game flow, shown chronologically. Each entry
      * gets an auto-computed tally of what changed that week — injuries,
@@ -402,6 +540,12 @@ class ArsenalSheetController extends Controller
                 // "Aftermath Complete" banner once locked (no story, kills, or
                 // advancements).
                 'game_uuid' => $baseGame && in_array($baseGame->status->value, ['completed', 'abandoned'], true) ? $baseGame->uuid : null,
+                // Manually-logged games (solo, or a duel campaign game logged
+                // without a live tracker session) never get a base_game_id, so
+                // "View Game Log" can't route to games.summary — once locked,
+                // it routes to the lightweight recap instead (the Aftermath
+                // wizard itself shows nothing useful once locked).
+                'locked' => $a->status === 'locked',
                 'tally' => [
                     'injuries' => (int) ($injuryCounts[$a->id] ?? 0),
                     'doctor_attempts' => (int) ($doctorCounts[$a->id] ?? 0),

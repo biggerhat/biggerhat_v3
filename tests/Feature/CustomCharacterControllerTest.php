@@ -1,7 +1,11 @@
 <?php
 
+use App\Enums\Campaign\CampaignStatusEnum;
+use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomCharacter;
 use App\Models\User;
+use Illuminate\Support\Facades\Bus;
 
 function ccValidPayload(array $overrides = []): array
 {
@@ -16,6 +20,13 @@ function ccValidPayload(array $overrides = []): array
         'actions' => [],
         'abilities' => [],
     ], $overrides);
+}
+
+function ccCrewWithStatus(User $user, CampaignStatusEnum $status): CampaignCrew
+{
+    $campaign = Campaign::factory()->create(['organizer_user_id' => $user->id, 'status' => $status->value]);
+
+    return CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
 }
 
 it('requires auth for the index', function () {
@@ -139,6 +150,30 @@ it('lets the owner update their character', function () {
     expect($character->fresh()->name)->toBe('Renamed');
 });
 
+it('preserves an action\'s source_character_id through a save in the generic editor', function () {
+    // Regression: the generic editor previously had no validation rule for
+    // actions.*.source_character_id, so validated() silently stripped it on
+    // every save — which then made the Leader Builder's cost-cap re-validation
+    // treat the action as a freeform/no-source entry on its next save.
+    $user = User::factory()->create();
+    $ally = \App\Models\Character::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload([
+        'actions' => [[
+            'name' => 'Borrowed Slash', 'type' => 'attack', 'source_id' => 1, 'source_character_id' => $ally->id,
+        ]],
+    ]), ['user_id' => $user->id]));
+
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.update', $character->id), ccValidPayload([
+            'actions' => [[
+                'name' => 'Borrowed Slash', 'type' => 'attack', 'source_id' => 1, 'source_character_id' => $ally->id,
+            ]],
+        ]))
+        ->assertOk();
+
+    expect($character->fresh()->actions[0]['source_character_id'])->toBe($ally->id);
+});
+
 it('blocks a non-owner from updating a character', function () {
     $owner = User::factory()->create();
     $other = User::factory()->create();
@@ -212,8 +247,10 @@ it('blocks a non-owner from deleting a character', function () {
 
 it('blocks deleting a Campaign Leader — it\'s still referenced by the crew\'s advancement log and game history', function () {
     $user = User::factory()->create();
+    $crew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
     $leader = CustomCharacter::create(array_merge(ccValidPayload(), [
         'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
         'is_campaign_leader' => true,
     ]));
 
@@ -227,8 +264,10 @@ it('blocks deleting a Campaign Leader — it\'s still referenced by the crew\'s 
 
 it('blocks deleting a Campaign Totem for the same reason', function () {
     $user = User::factory()->create();
+    $crew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
     $totem = CustomCharacter::create(array_merge(ccValidPayload(), [
         'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
         'is_campaign_totem' => true,
     ]));
 
@@ -241,8 +280,10 @@ it('blocks deleting a Campaign Totem for the same reason', function () {
 
 it('blocks deleting a superseded (non-current) Campaign Leader row too — it\'s still historical game data', function () {
     $user = User::factory()->create();
+    $crew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
     $oldLeader = CustomCharacter::create(array_merge(ccValidPayload(), [
         'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
         'is_campaign_leader' => true,
         'current' => false,
         'replaced_at' => now(),
@@ -253,6 +294,48 @@ it('blocks deleting a superseded (non-current) Campaign Leader row too — it\'s
         ->assertStatus(422);
 
     expect(CustomCharacter::find($oldLeader->id))->not->toBeNull();
+});
+
+it('allows deleting a Campaign Leader once the owning campaign has ended', function () {
+    Bus::fake();
+    $user = User::factory()->create();
+    $crew = ccCrewWithStatus($user, CampaignStatusEnum::Ended);
+    $leader = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+    ]));
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.destroy', $leader->id))
+        ->assertOk()
+        ->assertJson(['success' => true]);
+
+    expect(CustomCharacter::find($leader->id))->toBeNull();
+});
+
+it('allows deleting a Campaign Totem once the owning campaign has been deleted', function () {
+    // Regression: is_campaign_totem never gets cleared when the owning
+    // Campaign is deleted — the deletion guard must treat "no matching live
+    // Campaign for this crew" as "no longer live" rather than blocking forever
+    // purely because the flag is still set.
+    Bus::fake();
+    $user = User::factory()->create();
+    $crew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
+    $totem = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+    ]));
+
+    $crew->campaign->delete();
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.destroy', $totem->id))
+        ->assertOk()
+        ->assertJson(['success' => true]);
+
+    expect(CustomCharacter::find($totem->id))->toBeNull();
 });
 
 it('serves the public share page without auth, regardless of is_public', function () {

@@ -65,6 +65,7 @@ const props = defineProps<{
         action_types: EnumOption[];
         range_types: EnumOption[];
     };
+    campaign_back_url: string | null;
 }>();
 
 const isEdit = computed(() => !!props.upgrade);
@@ -376,7 +377,10 @@ const blockTypeColor = (type: string) => {
         </PageBanner>
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
-            <div class="mb-4">
+            <div class="mb-4 flex gap-2">
+                <Link v-if="props.campaign_back_url" :href="props.campaign_back_url">
+                    <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to Arsenal Sheet</Button>
+                </Link>
                 <Link :href="route('tools.card_creator.index')">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to List</Button>
                 </Link>

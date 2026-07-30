@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\ActionRangeTypeEnum;
 use App\Enums\ActionTypeEnum;
 use App\Enums\BaseSizeEnum;
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
@@ -61,7 +62,7 @@ class CustomCharacterController extends Controller
         $this->authorize('update', $customCharacter);
 
         $campaignBackUrl = null;
-        if ($customCharacter->is_campaign_leader && $customCharacter->campaign_crew_id) {
+        if (($customCharacter->is_campaign_leader || $customCharacter->is_campaign_totem) && $customCharacter->campaign_crew_id) {
             $crew = CampaignCrew::find($customCharacter->campaign_crew_id);
             if ($crew) {
                 $campaignBackUrl = route('campaigns.crews.arsenal.show', [$crew->campaign_id, $crew->share_code]);
@@ -91,6 +92,15 @@ class CustomCharacterController extends Controller
             $validated['cost'] = null;
         }
 
+        // A campaign Totem has the same "don't let the generic editor break its
+        // campaign invariants" problem as the Leader above — it must stay a
+        // cost-0, hireable-for-free, station-less model (pg 32).
+        if ($customCharacter->is_campaign_totem) {
+            $validated['station'] = null;
+            $validated['is_unhirable'] = true;
+            $validated['cost'] = null;
+        }
+
         $customCharacter->update($validated);
 
         return response()->json([
@@ -109,11 +119,21 @@ class CustomCharacterController extends Controller
         // affordance in this generic editor to reassign a replacement.
         // Checked regardless of `current`: a superseded (replaced) Leader
         // row is still the historical record for past logged games.
+        // Once the owning campaign has ended (or been deleted — the FK cascade
+        // nulls campaign_crew_id but never these flags), there's no longer a
+        // live crew for it to break, so deletion is allowed again.
         if ($customCharacter->is_campaign_leader || $customCharacter->is_campaign_totem) {
-            return response()->json([
-                'success' => false,
-                'message' => "{$customCharacter->display_name} is tied to a Campaign crew and can't be deleted here — it's still referenced by that crew's advancement log and game history.",
-            ], 422);
+            $stillLive = $customCharacter->campaign_crew_id !== null
+                && CampaignCrew::whereKey($customCharacter->campaign_crew_id)
+                    ->whereHas('campaign', fn ($q) => $q->where('status', '!=', CampaignStatusEnum::Ended->value))
+                    ->exists();
+
+            if ($stillLive) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "{$customCharacter->display_name} is tied to a Campaign crew and can't be deleted here — it's still referenced by that crew's advancement log and game history.",
+                ], 422);
+            }
         }
 
         $customCharacter->delete();

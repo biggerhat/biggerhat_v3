@@ -72,6 +72,12 @@ class CustomCharacterRequest extends FormRequest
             'actions.*.damage' => ['nullable', 'string', 'max:50'],
             'actions.*.description' => ['nullable', 'string', 'max:2000'],
             'actions.*.source_id' => ['nullable', 'integer'],
+            // Preserves the Leader Builder's "which ally this action was borrowed
+            // from" link (pg 17) through a save made in this generic editor —
+            // without a rule here, validated() silently strips it, which then
+            // makes StoreLeaderRequest::verifySource() treat the action as a
+            // freeform/no-source entry on the next Leader Builder save.
+            'actions.*.source_character_id' => ['nullable', 'integer'],
             'actions.*.triggers' => ['nullable', 'array', 'max:10'],
             'actions.*.triggers.*.name' => ['required', 'string', 'max:255'],
             'actions.*.triggers.*.suits' => ['nullable', 'string', 'max:20'],
@@ -85,6 +91,7 @@ class CustomCharacterRequest extends FormRequest
             'abilities.*.costs_stone' => ['boolean'],
             'abilities.*.description' => ['nullable', 'string', 'max:2000'],
             'abilities.*.source_id' => ['nullable', 'integer'],
+            'abilities.*.source_character_id' => ['nullable', 'integer'],
             'keywords' => ['nullable', 'array', 'max:10'],
             'keywords.*.id' => ['nullable', 'integer'],
             'keywords.*.name' => ['required', 'string', 'max:255'],

@@ -31,6 +31,7 @@ interface MiniatureRow {
     character_id: number;
     display_name: string;
     front_image: string | null;
+    back_image: string | null;
 }
 interface CharRow {
     id: number;
@@ -300,10 +301,11 @@ const submit = () => {
             </div>
         </template>
         <template #actions>
-            <div class="flex items-center px-2 py-2 md:py-4">
+            <div class="flex items-center gap-2 px-2 py-2 md:py-4">
                 <Link :href="route('campaigns.show', campaign.id)">
                     <Button variant="outline">← Back to Campaign</Button>
                 </Link>
+                <Button :disabled="locked || overBudget" @click="submit">Save Starting Arsenal</Button>
             </div>
         </template>
     </PageBanner>

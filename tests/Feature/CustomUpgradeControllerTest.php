@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\Campaign\CampaignStatusEnum;
+use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use App\Models\User;
@@ -12,6 +15,13 @@ function cuValidPayload(array $overrides = []): array
         'faction' => 'guild',
         'content_blocks' => [],
     ], $overrides);
+}
+
+function cuCrewWithStatus(User $user, CampaignStatusEnum $status): CampaignCrew
+{
+    $campaign = Campaign::factory()->create(['organizer_user_id' => $user->id, 'status' => $status->value]);
+
+    return CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
 }
 
 it('index only lists the current user\'s own upgrades', function () {
@@ -175,10 +185,38 @@ it('blocks a non-owner from deleting an upgrade', function () {
     expect(CustomUpgrade::find($upgrade->id))->not->toBeNull();
 });
 
-it('blocks deleting a Campaign crew card — it\'s the snapshot saved from Starting Arsenal', function () {
+it('gives a Campaign crew card a back link to the Arsenal Sheet', function () {
     $user = User::factory()->create();
+    $campaign = Campaign::factory()->create(['organizer_user_id' => $user->id]);
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
     $crewCard = CustomUpgrade::create(array_merge(cuValidPayload(['domain' => 'crew']), [
         'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_crew_card' => true,
+    ]));
+
+    $this->actingAs($user)
+        ->get(route('tools.card_creator.upgrades.edit', $crewCard->id))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('campaign_back_url', route('campaigns.crews.arsenal.show', [$crew->campaign_id, $crew->share_code])));
+});
+
+it('gives a non-campaign upgrade no back link', function () {
+    $user = User::factory()->create();
+    $upgrade = CustomUpgrade::create(array_merge(cuValidPayload(), ['user_id' => $user->id]));
+
+    $this->actingAs($user)
+        ->get(route('tools.card_creator.upgrades.edit', $upgrade->id))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('campaign_back_url', null));
+});
+
+it('blocks deleting a Campaign crew card — it\'s the snapshot saved from Starting Arsenal', function () {
+    $user = User::factory()->create();
+    $crew = cuCrewWithStatus($user, CampaignStatusEnum::Active);
+    $crewCard = CustomUpgrade::create(array_merge(cuValidPayload(['domain' => 'crew']), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
         'is_campaign_crew_card' => true,
     ]));
 
@@ -188,6 +226,42 @@ it('blocks deleting a Campaign crew card — it\'s the snapshot saved from Start
         ->assertJson(['success' => false]);
 
     expect(CustomUpgrade::find($crewCard->id))->not->toBeNull();
+});
+
+it('allows deleting a Campaign crew card once the owning campaign has ended', function () {
+    $user = User::factory()->create();
+    $crew = cuCrewWithStatus($user, CampaignStatusEnum::Ended);
+    $crewCard = CustomUpgrade::create(array_merge(cuValidPayload(['domain' => 'crew']), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_crew_card' => true,
+    ]));
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.upgrades.destroy', $crewCard->id))
+        ->assertOk()
+        ->assertJson(['success' => true]);
+
+    expect(CustomUpgrade::find($crewCard->id))->toBeNull();
+});
+
+it('allows deleting a Campaign crew card once the owning campaign has been deleted', function () {
+    $user = User::factory()->create();
+    $crew = cuCrewWithStatus($user, CampaignStatusEnum::Active);
+    $crewCard = CustomUpgrade::create(array_merge(cuValidPayload(['domain' => 'crew']), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_crew_card' => true,
+    ]));
+
+    $crew->campaign->delete();
+
+    $this->actingAs($user)
+        ->deleteJson(route('tools.card_creator.upgrades.destroy', $crewCard->id))
+        ->assertOk()
+        ->assertJson(['success' => true]);
+
+    expect(CustomUpgrade::find($crewCard->id))->toBeNull();
 });
 
 it('serves the public share page without auth, regardless of is_public', function () {

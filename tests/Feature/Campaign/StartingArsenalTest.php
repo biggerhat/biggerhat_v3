@@ -384,6 +384,27 @@ it('includes NULL-station (Henchman/Enforcer/Unique) models in the hireable pool
         ->assertInertia(fn ($page) => $page->where('hireable', fn ($models) => collect($models)->contains('id', $unique->id)));
 });
 
+it('includes back_image on hireable miniatures so the card can flip', function () {
+    // Regression: the miniatures eager-load select previously omitted back_image
+    // entirely, so CharacterCardView's flip rendering had nothing to show.
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $char = Character::factory()->create(['cost' => 5, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $char->keywords()->attach($kw);
+    \App\Models\Miniature::factory()->create(['character_id' => $char->id]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.crews.starting-arsenal.edit', [$crew->campaign_id, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('hireable', function ($models) use ($char) {
+            $match = collect($models)->firstWhere('id', $char->id);
+
+            return $match && ($match['miniatures'][0]['back_image'] ?? null) === 'seed/card-back.png';
+        }));
+});
+
 it('stores a constrained crew-card token choice and rejects one outside the keyword pool', function () {
     $user = arsenalUser();
     $kw = Keyword::factory()->create();

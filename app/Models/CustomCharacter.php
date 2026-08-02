@@ -18,6 +18,10 @@ use Illuminate\Support\Str;
 
 /**
  * @mixin IdeHelperCustomCharacter
+ *
+ * @property bool|null $campaign_still_live Virtual attribute, not a DB column — set by
+ *                                          CustomCharacterController::index() only, batched per-request against the
+ *                                          linked CampaignCrew's campaign status. Absent (null) anywhere else.
  */
 #[ObservedBy(CustomCharacterObserver::class)]
 class CustomCharacter extends Model

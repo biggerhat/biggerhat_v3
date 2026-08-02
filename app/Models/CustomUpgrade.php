@@ -13,6 +13,9 @@ use Illuminate\Support\Str;
 
 /**
  * @property FactionEnum|null $faction
+ * @property bool|null $campaign_still_live Virtual attribute, not a DB column — set by
+ *                                          CustomCharacterController::index() only, batched per-request against the
+ *                                          linked CampaignCrew's campaign status. Absent (null) anywhere else.
  *
  * @mixin IdeHelperCustomUpgrade
  */

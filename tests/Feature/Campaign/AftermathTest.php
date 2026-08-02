@@ -86,6 +86,34 @@ it('renders the aftermath wizard for the crew owner', function () {
         );
 });
 
+it('killed_models shows the display name for a hired homebrew Custom Character, not a blank/dash', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+    ]);
+    $customCharacter = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'name' => 'Homebrew Henchman',
+        'display_name' => 'Homebrew Henchman',
+        'faction' => 'guild',
+        'health' => 8, 'defense' => 5, 'willpower' => 5, 'speed' => 5, 'base' => 30,
+        'station' => 'minion',
+    ]);
+    CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => null,
+        'custom_character_id' => $customCharacter->id,
+        'is_peon' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.show', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('killed_models.0.display_name', 'Homebrew Henchman')
+            ->where('killed_models.0.custom_character_id', null));
+});
+
 it('blocks non-owners from viewing the wizard', function () {
     [, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

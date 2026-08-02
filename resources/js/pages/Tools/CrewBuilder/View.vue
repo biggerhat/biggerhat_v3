@@ -295,17 +295,44 @@ const printCrewPDF = () => {
     if (crew.value.length === 0) return;
 
     const cards: Array<{ card_type: string; id: number }> = [];
+    const addedMiniIds = new Set<number>();
+    const addedUpgradeIds = new Set<number>();
 
     for (const member of crew.value) {
         const mini = member.miniature ?? member.character.miniatures?.[0];
-        if (mini) {
+        if (mini && !addedMiniIds.has(mini.id)) {
             cards.push({ card_type: 'miniature', id: mini.id });
+            addedMiniIds.add(mini.id);
         }
 
         // Insert crew upgrades right after the master
         if (member.hiringCategory === 'leader') {
             for (const upgrade of member.character.crew_upgrades ?? []) {
+                if (!addedUpgradeIds.has(upgrade.id)) {
+                    cards.push({ card_type: 'upgrade', id: upgrade.id });
+                    addedUpgradeIds.add(upgrade.id);
+                }
+            }
+        }
+    }
+
+    // Reference character cards (summons, replaces into, etc.)
+    if (references.value?.characters?.length) {
+        for (const char of references.value.characters) {
+            const refMini = char.miniatures?.[0];
+            if (refMini && !addedMiniIds.has(refMini.id)) {
+                cards.push({ card_type: 'miniature', id: refMini.id });
+                addedMiniIds.add(refMini.id);
+            }
+        }
+    }
+
+    // Reference upgrade cards (character upgrades from references)
+    if (references.value?.upgrades?.length) {
+        for (const upgrade of references.value.upgrades) {
+            if (!addedUpgradeIds.has(upgrade.id)) {
                 cards.push({ card_type: 'upgrade', id: upgrade.id });
+                addedUpgradeIds.add(upgrade.id);
             }
         }
     }

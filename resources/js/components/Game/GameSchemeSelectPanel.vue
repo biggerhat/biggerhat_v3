@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import AbilityCard from '@/components/AbilityCard.vue';
+import ActionCard from '@/components/ActionCard.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
+import GameText from '@/components/GameText.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +18,20 @@ import type { CrewMember, GameData, GamePlayer, SchemeData } from '@/types/game'
 import { Check, Loader2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
+interface CrewCardEffect {
+    name: string;
+    body: string | null;
+    actions: Record<string, unknown>[];
+    abilities: Record<string, unknown>[];
+}
+
+interface CampaignCrewCardPayload {
+    effect: CrewCardEffect | null;
+    borrowed: Array<{ id: number; effect: CrewCardEffect | null }>;
+    front_image: string | null;
+    back_image: string | null;
+}
+
 const props = defineProps<{
     game: GameData;
     schemes: SchemeData[];
@@ -26,7 +43,21 @@ const props = defineProps<{
     submitting: boolean;
     myPlayer?: GamePlayer;
     opponentPlayer?: GamePlayer;
+    /** Campaign Crew Card for whichever crew belongs to game slot 1 (see
+     *  GameController::buildCampaignContext — crew_a always maps to slot 1).
+     *  Null on non-Campaign games. */
+    slot1CampaignCard?: CampaignCrewCardPayload | null;
+    /** Same, for slot 2 (crew_b). */
+    slot2CampaignCard?: CampaignCrewCardPayload | null;
 }>();
+
+// T2-28: the Campaign Crew Card (pg 17, 32, 54) wasn't surfaced anywhere in
+// this crew-select-panel listing — only a standard, non-Campaign master
+// "crew upgrade" card was rendered below, which Campaign crews never
+// populate. Both sides' actual crew card need to be checkable here since
+// several schemes reference crew-card-granted tokens/markers.
+const campaignCardForPlayer = (player: GamePlayer): CampaignCrewCardPayload | null =>
+    (player.slot === 1 ? props.slot1CampaignCard : props.slot2CampaignCard) ?? null;
 
 const emit = defineEmits<{
     'open-scheme': [scheme: SchemeData];
@@ -272,6 +303,46 @@ const confirmPendingScheme = () => {
                         :show-link="false"
                     />
                 </div>
+            </div>
+
+            <!-- Campaign Crew Card (pg 17, 32, 54) — starter + any Tier-4 borrowed
+                 effects, shown for both sides before turn 1 (T2-28). -->
+            <div v-if="campaignCardForPlayer(player)?.effect" class="mt-2">
+                <HeadingEyebrow class="mb-1">Crew Card — {{ campaignCardForPlayer(player)!.effect!.name }}</HeadingEyebrow>
+                <div v-if="campaignCardForPlayer(player)!.front_image" class="max-w-[260px] [&_img]:w-full">
+                    <UpgradeFlipCard
+                        :front-image="campaignCardForPlayer(player)!.front_image"
+                        :back-image="campaignCardForPlayer(player)!.back_image"
+                        :alt-text="campaignCardForPlayer(player)!.effect!.name"
+                        :show-link="false"
+                    />
+                </div>
+                <!-- Fallback text rendering while the combined image hasn't generated yet -->
+                <template v-else>
+                    <p v-if="campaignCardForPlayer(player)!.effect!.body" class="text-xs leading-relaxed text-muted-foreground">
+                        <GameText :text="campaignCardForPlayer(player)!.effect!.body!" />
+                    </p>
+                    <ActionCard
+                        v-for="(a, i) in campaignCardForPlayer(player)!.effect!.actions"
+                        :key="`scheme-cc-action-${player.id}-${i}`"
+                        :action="a as any"
+                        :hide-footer="true"
+                    />
+                    <AbilityCard
+                        v-for="(ab, i) in campaignCardForPlayer(player)!.effect!.abilities"
+                        :key="`scheme-cc-ability-${player.id}-${i}`"
+                        :ability="ab as any"
+                        :hide-footer="true"
+                    />
+                    <template v-for="adv in campaignCardForPlayer(player)!.borrowed" :key="`scheme-cc-borrowed-${adv.id}`">
+                        <div v-if="adv.effect" class="mt-1 border-t pt-1">
+                            <p class="text-xs font-medium">{{ adv.effect.name }}</p>
+                            <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                <GameText :text="adv.effect.body" />
+                            </p>
+                        </div>
+                    </template>
+                </template>
             </div>
         </div>
     </div>

@@ -26,9 +26,14 @@ interface CustomCharacter {
     health: number;
     share_code: string;
     updated_at: string;
-    // Campaign Leader/Totem instances can't be deleted here — see performDelete().
+    // A Leader/Totem tied to a STILL-ACTIVE Campaign crew can't be deleted
+    // here — see performDelete(). is_campaign_leader/is_campaign_totem stay
+    // true forever (only cleared if a replacement Leader supersedes this
+    // row), so campaign_still_live is what actually gates the delete button;
+    // once the campaign ends or is deleted, deletion is allowed again.
     is_campaign_leader: boolean;
     is_campaign_totem: boolean;
+    campaign_still_live: boolean;
 }
 
 interface CustomUpgrade {
@@ -42,8 +47,12 @@ interface CustomUpgrade {
     master_name: string | null;
     share_code: string;
     updated_at: string;
-    // A crew card saved from Starting Arsenal can't be deleted here — see performDelete().
+    // A crew card saved from Starting Arsenal, while its Campaign crew is
+    // still active, can't be deleted here — see performDelete(). Once that
+    // campaign ends or is deleted, campaign_still_live flips false and
+    // deletion is allowed again (is_campaign_crew_card itself never clears).
     is_campaign_crew_card: boolean;
+    campaign_still_live: boolean;
 }
 
 const props = defineProps<{
@@ -58,12 +67,16 @@ const activeTab = ref<'characters' | 'crew_cards' | 'upgrades'>('characters');
 const crewCards = computed(() => props.upgrades.filter((u) => u.domain === 'crew'));
 const characterUpgrades = computed(() => props.upgrades.filter((u) => u.domain === 'character'));
 
-// A Leader/Totem tied to a Campaign crew can't be deleted here — it's still
-// referenced by that crew's advancement log and every game it's been hired
-// into. Server-enforced (see CustomCharacterController::destroy()); this
-// just keeps the user from hitting the error in the first place.
-const isCampaignLinked = (character: CustomCharacter) => character.is_campaign_leader || character.is_campaign_totem;
-const isCampaignLinkedCrewCard = (upgrade: CustomUpgrade) => upgrade.is_campaign_crew_card;
+// A Leader/Totem tied to a STILL-ACTIVE Campaign crew can't be deleted here —
+// it's still referenced by that crew's advancement log and every game it's
+// been hired into. Once the campaign ends or is deleted there's no live crew
+// left to break, so deletion is allowed again — server-enforced (see
+// CustomCharacterController::destroy()); this just keeps the user from
+// hitting the error in the first place, without also blocking the cases the
+// backend actually allows.
+const isCampaignLinked = (character: CustomCharacter) =>
+    (character.is_campaign_leader || character.is_campaign_totem) && character.campaign_still_live;
+const isCampaignLinkedCrewCard = (upgrade: CustomUpgrade) => upgrade.is_campaign_crew_card && upgrade.campaign_still_live;
 
 const deleteDialogOpen = ref(false);
 const deleteTarget = ref<{ id: number; display_name: string; type: 'character' | 'upgrade' } | null>(null);

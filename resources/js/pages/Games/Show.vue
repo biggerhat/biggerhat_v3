@@ -1449,6 +1449,19 @@ const myCrewCardBorderStyle = computed(() => {
     return faction ? { borderColor: `hsl(var(${getFactionVar(faction)}))` } : {};
 });
 
+// T2-28: the opponent's own Crew Card was never surfaced in the "opponent"
+// column during play — only their standard (non-Campaign) crew upgrade was,
+// which Campaign crews don't use. Same flipped-slot lookup as myCrewCard.
+const opponentCrewCard = computed<CampaignCrewCardPayload | null>(() => {
+    if (!isCampaign.value || !props.campaign_context) return null;
+    return mySlot.value === 1 ? props.campaign_context.crew_b_card : props.campaign_context.crew_a_card;
+});
+const expandedOpponentCrewCardEffect = ref(false);
+const opponentCrewCardBorderStyle = computed(() => {
+    const faction = opponent.value?.faction;
+    return faction ? { borderColor: `hsl(var(${getFactionVar(faction)}))` } : {};
+});
+
 const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
     const payload: Record<string, any> = { active_crew_upgrade_id: upgradeId };
     if (slot) payload.slot = slot;
@@ -3530,6 +3543,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 :submitting="submitting"
                 :my-player="myPlayer"
                 :opponent-player="opponent"
+                :slot1-campaign-card="isCampaign ? (campaign_context?.crew_a_card ?? null) : null"
+                :slot2-campaign-card="isCampaign ? (campaign_context?.crew_b_card ?? null) : null"
                 @open-scheme="openSchemeDrawer"
                 @open-member-preview="openMemberPreview"
                 @confirm="(payload) => postSetup(route('games.setup.scheme', game.uuid), payload)"
@@ -5084,6 +5099,87 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     compact
                                     @update="(v) => setCrewUpgradePowerBar(opponent, upgrade.id, v, 2)"
                                 />
+                            </div>
+                        </div>
+                        <!-- Opponent's Campaign Crew Card (pg 17, 32, 54) — starter + any
+                             Tier-4 borrowed effects. Mirrors the "myCrewCard" block above,
+                             flipped to the opponent's slot (T2-28). -->
+                        <div v-if="isCampaign && opponentCrewCard?.effect" class="mb-2 space-y-1">
+                            <div class="rounded-md border border-border/50 bg-accent/30 px-2 py-1.5 text-sm">
+                                <div class="flex items-center gap-1.5">
+                                    <Star class="size-3.5 shrink-0 text-muted-foreground" />
+                                    <span class="flex-1 font-semibold">{{ opponentCrewCard.effect.name }}</span>
+                                    <Badge variant="outline" class="px-1.5 py-0 text-[9px]">Crew Card</Badge>
+                                    <button
+                                        type="button"
+                                        class="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                                        :title="expandedOpponentCrewCardEffect ? 'Collapse card' : 'Expand card'"
+                                        @click="expandedOpponentCrewCardEffect = !expandedOpponentCrewCardEffect"
+                                    >
+                                        <ChevronDown
+                                            class="size-3.5 transition-transform"
+                                            :class="expandedOpponentCrewCardEffect ? 'rotate-180' : ''"
+                                        />
+                                    </button>
+                                </div>
+                                <Transition
+                                    enter-active-class="transition-all duration-300 ease-out"
+                                    leave-active-class="transition-all duration-200 ease-in"
+                                    enter-from-class="max-h-0 opacity-0"
+                                    enter-to-class="max-h-[600px] opacity-100"
+                                    leave-from-class="max-h-[600px] opacity-100"
+                                    leave-to-class="max-h-0 opacity-0"
+                                >
+                                    <div v-if="expandedOpponentCrewCardEffect" class="mt-2 space-y-2 overflow-hidden">
+                                        <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text) -->
+                                        <img
+                                            v-if="opponentCrewCard.front_image"
+                                            :src="'/storage/' + opponentCrewCard.front_image"
+                                            :alt="`${opponent?.master_name ?? 'Opponent'} Crew Card`"
+                                            class="max-h-96 cursor-pointer rounded-md border-2"
+                                            :style="opponentCrewCardBorderStyle"
+                                            @click="openCardFullscreen({ src: '/storage/' + opponentCrewCard!.front_image!, title: 'Crew Card' })"
+                                        />
+                                        <!-- Fallback text rendering while the combined image hasn't generated yet -->
+                                        <template v-else>
+                                            <p v-if="opponentCrewCard.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                                <GameText :text="opponentCrewCard.effect.body" />
+                                            </p>
+                                            <ActionCard
+                                                v-for="(a, i) in opponentCrewCard.effect.actions"
+                                                :key="`oppcc-action-${i}`"
+                                                :action="a"
+                                                :hide-footer="true"
+                                            />
+                                            <AbilityCard
+                                                v-for="(ab, i) in opponentCrewCard.effect.abilities"
+                                                :key="`oppcc-ability-${i}`"
+                                                :ability="ab"
+                                                :hide-footer="true"
+                                            />
+                                            <template v-for="adv in opponentCrewCard.borrowed" :key="`oppcc-borrowed-${adv.id}`">
+                                                <div v-if="adv.effect" class="border-t pt-2">
+                                                    <p class="text-xs font-medium">{{ adv.effect.name }}</p>
+                                                    <p v-if="adv.effect.body" class="text-xs leading-relaxed text-muted-foreground">
+                                                        <GameText :text="adv.effect.body" />
+                                                    </p>
+                                                    <ActionCard
+                                                        v-for="(a, i) in adv.effect.actions"
+                                                        :key="`oppcc-badv-action-${adv.id}-${i}`"
+                                                        :action="a"
+                                                        :hide-footer="true"
+                                                    />
+                                                    <AbilityCard
+                                                        v-for="(ab, i) in adv.effect.abilities"
+                                                        :key="`oppcc-badv-ability-${adv.id}-${i}`"
+                                                        :ability="ab"
+                                                        :hide-footer="true"
+                                                    />
+                                                </div>
+                                            </template>
+                                        </template>
+                                    </div>
+                                </Transition>
                             </div>
                         </div>
                         <div class="space-y-1">

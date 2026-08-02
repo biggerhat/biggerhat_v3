@@ -253,6 +253,7 @@ interface CampaignRating {
 interface ViewMode {
     is_member: boolean;
     is_owner: boolean;
+    is_organizer: boolean;
     share_url: string;
 }
 
@@ -499,7 +500,7 @@ const advancementName = (a: AdvancementTaken): string =>
 // Full context chain for the Advancement Log (pg 31/38-43/49/51/32/54) —
 // server-resolved per source_table, see AftermathCatalog::advancementContextChain().
 const advancementChainLabel = (a: AdvancementTaken): string =>
-    a.context_chain.length ? a.context_chain.join(' > ') : SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ');
+    a.context_chain.length ? a.context_chain.join(' > ') : (SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' '));
 
 // Extra attribution context beyond the name/target — who a free-picked
 // action/ability came from. Returns null when there's nothing more to say.
@@ -687,10 +688,14 @@ const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: s
 };
 
 const leaderFrontImageSrc = computed(() =>
-    props.leader?.front_image && cardCacheBust.value.leader ? `${props.leader.front_image}?v=${cardCacheBust.value.leader}` : (props.leader?.front_image ?? null),
+    props.leader?.front_image && cardCacheBust.value.leader
+        ? `${props.leader.front_image}?v=${cardCacheBust.value.leader}`
+        : (props.leader?.front_image ?? null),
 );
 const totemFrontImageSrc = computed(() =>
-    props.totem?.front_image && cardCacheBust.value.totem ? `${props.totem.front_image}?v=${cardCacheBust.value.totem}` : (props.totem?.front_image ?? null),
+    props.totem?.front_image && cardCacheBust.value.totem
+        ? `${props.totem.front_image}?v=${cardCacheBust.value.totem}`
+        : (props.totem?.front_image ?? null),
 );
 
 const logAdvancement = (position: number) => {
@@ -797,7 +802,7 @@ const viewCrewCard = () => {
         .map((a) => ({ title: a.effect.name, effect: a.effect }));
     viewCard.value = {
         kind: 'crew',
-        title: starter.name,
+        title: props.crew.crew_card_display_name ?? starter.name,
         cards: [{ title: starter.name, effect: starter }, ...borrowed],
     };
 };
@@ -942,6 +947,32 @@ const submitAddEquipment = (equipmentId: number) => {
         route('campaigns.crews.arsenal.equipment.store', [props.campaign.id, props.crew.share_code]),
         { equipment_upgrade_id: equipmentId },
         { onSuccess: () => resetAddEquipmentDialog(false) },
+    );
+};
+
+// ───────── Freeform scrip adjustment (organizer-only manual correction) ─────────
+const adjustScripDialogOpen = ref(false);
+const adjustScripAmount = ref('');
+const adjustScripReason = ref('');
+
+const resetAdjustScripDialog = (open: boolean) => {
+    adjustScripDialogOpen.value = open;
+    if (!open) {
+        adjustScripAmount.value = '';
+        adjustScripReason.value = '';
+    }
+};
+
+const submitAdjustScrip = () => {
+    const amount = parseInt(adjustScripAmount.value, 10);
+    if (!Number.isFinite(amount) || amount === 0) {
+        toast.warning('Enter a non-zero amount.');
+        return;
+    }
+    router.post(
+        route('campaigns.crews.arsenal.scrip.update', [props.campaign.id, props.crew.share_code]),
+        { amount, reason: adjustScripReason.value || null },
+        { onSuccess: () => resetAdjustScripDialog(false) },
     );
 };
 
@@ -1179,9 +1210,14 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         <!-- Stat tiles + action buttons -->
         <div class="mt-4 flex flex-wrap items-stretch justify-between gap-3">
             <div class="flex flex-wrap gap-2">
-                <div class="rounded-md border bg-card px-4 py-2 shadow-sm">
-                    <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Scrip</p>
-                    <p class="text-2xl font-bold tabular-nums">{{ crew.scrip }}</p>
+                <div class="flex items-center gap-2 rounded-md border bg-card px-4 py-2 shadow-sm">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Scrip</p>
+                        <p class="text-2xl font-bold tabular-nums">{{ crew.scrip }}</p>
+                    </div>
+                    <Button v-if="view_mode.is_organizer" size="icon" variant="ghost" class="h-6 w-6" @click="adjustScripDialogOpen = true">
+                        <Pencil class="h-3 w-3" />
+                    </Button>
                 </div>
                 <div class="rounded-md border bg-card px-4 py-2 shadow-sm">
                     <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Campaign Rating</p>
@@ -1404,7 +1440,10 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                      starter effect into — not the shared CampaignCrewCard catalog
                                      row, which is admin-only content. Only exists once the owner has
                                      named (and thus saved) a crew card at least once. -->
-                                <Link v-if="view_mode.is_owner && crew.crew_card_custom_upgrade_id" :href="route('tools.card_creator.upgrades.edit', crew.crew_card_custom_upgrade_id)">
+                                <Link
+                                    v-if="view_mode.is_owner && crew.crew_card_custom_upgrade_id"
+                                    :href="route('tools.card_creator.upgrades.edit', crew.crew_card_custom_upgrade_id)"
+                                >
                                     <Button size="sm" variant="outline">Edit Crew Card</Button>
                                 </Link>
                                 <Button v-if="crew.crew_card_effect" size="sm" variant="outline" @click="viewCrewCard">View card</Button>
@@ -1572,8 +1611,12 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                         class="text-[11px] text-muted-foreground"
                                     >
                                         Also grants:
-                                        <template v-for="t in selectedDraftRow(slot.position)?.tokens ?? []" :key="'t' + t.id">{{ t.name }} token </template>
-                                        <template v-for="m in selectedDraftRow(slot.position)?.markers ?? []" :key="'m' + m.id">{{ m.name }} marker </template>
+                                        <template v-for="t in selectedDraftRow(slot.position)?.tokens ?? []" :key="'t' + t.id"
+                                            >{{ t.name }} token
+                                        </template>
+                                        <template v-for="m in selectedDraftRow(slot.position)?.markers ?? []" :key="'m' + m.id"
+                                            >{{ m.name }} marker
+                                        </template>
                                     </p>
                                     <!-- Any Joker: search for the free action/ability pick (non-master/totem ally, cost <= 10, pg 49/51) -->
                                     <div v-if="isSelectedRowJoker(slot.position)" class="space-y-1 rounded border p-2">
@@ -1983,12 +2026,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         @click="viewEquipment(eq)"
                         @keydown.enter="viewEquipment(eq)"
                     >
-                        <img
-                            v-if="eq.front_image"
-                            :src="'/storage/' + eq.front_image"
-                            :alt="eq.name"
-                            class="size-10 shrink-0 rounded object-cover"
-                        />
+                        <img v-if="eq.front_image" :src="'/storage/' + eq.front_image" :alt="eq.name" class="size-10 shrink-0 rounded object-cover" />
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-medium">{{ eq.name }}</p>
                             <p class="text-[10px] capitalize text-muted-foreground">{{ eq.source }}</p>
@@ -2085,10 +2123,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
              other kinds forces it to scale down hard, shrinking its embedded
              text along with it. Give the crew-card kind a much wider dialog. -->
         <Dialog :open="viewCard !== null" @update:open="closeViewCard">
-            <DialogContent
-                class="max-h-[85vh] overflow-y-auto"
-                :class="viewCard?.kind === 'crew' ? 'sm:max-w-3xl' : 'sm:max-w-lg'"
-            >
+            <DialogContent class="max-h-[85vh] overflow-y-auto" :class="viewCard?.kind === 'crew' ? 'sm:max-w-3xl' : 'sm:max-w-lg'">
                 <DialogHeader>
                     <DialogTitle>{{ viewCard?.title }}</DialogTitle>
                 </DialogHeader>
@@ -2151,7 +2186,10 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     <!-- Leader/faction context is this crew's own, live — not baked into the shared card art. -->
                     <div v-if="leader" class="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <FactionLogo :faction="leader.faction" class-name="size-4 shrink-0" />
-                        <span>Held by <span class="font-medium text-foreground">{{ leader.display_name }}</span>'s crew</span>
+                        <span
+                            >Held by <span class="font-medium text-foreground">{{ leader.display_name }}</span
+                            >'s crew</span
+                        >
                     </div>
 
                     <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text).
@@ -2164,7 +2202,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                          without scrolling in the common case. -->
                     <div v-if="crew.crew_card_front_image" class="relative mx-auto w-fit">
                         <img
-                            :src="'/storage/' + (crewCardFlipped && crew.crew_card_back_image ? crew.crew_card_back_image : crew.crew_card_front_image)"
+                            :src="
+                                '/storage/' + (crewCardFlipped && crew.crew_card_back_image ? crew.crew_card_back_image : crew.crew_card_front_image)
+                            "
                             :alt="viewCard.title"
                             class="mx-auto max-h-[70vh] max-w-full rounded-md border-2"
                             :style="leader ? { borderColor: `hsl(var(${crewCardFactionVar}))` } : {}"
@@ -2194,7 +2234,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             </div>
                             <div v-if="c.effect.triggers.length" class="mt-2 space-y-2">
                                 <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Triggers</p>
-                                <TriggerCard v-for="tg in c.effect.triggers" :key="`catg-${tg.id}`" :trigger="tg"><template #footer></template></TriggerCard>
+                                <TriggerCard v-for="tg in c.effect.triggers" :key="`catg-${tg.id}`" :trigger="tg"
+                                    ><template #footer></template
+                                ></TriggerCard>
                             </div>
                         </div>
                     </template>
@@ -2255,7 +2297,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 {{ addUnitSelected.display_name }}
                                 <Badge v-if="addUnitSelected.source_type === 'custom'" variant="outline" class="text-[9px]">Custom</Badge>
                             </div>
-                            <div v-if="addUnitSelected.station" class="text-[10px] capitalize text-muted-foreground">{{ addUnitSelected.station }}</div>
+                            <div v-if="addUnitSelected.station" class="text-[10px] capitalize text-muted-foreground">
+                                {{ addUnitSelected.station }}
+                            </div>
                         </div>
                         <Button variant="ghost" size="sm" @click="addUnitSelected = null">Change</Button>
                     </div>
@@ -2292,6 +2336,35 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </template>
                     <div v-else class="py-3 text-center text-xs text-muted-foreground">No equipment found</div>
                 </div>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Freeform scrip adjustment (organizer-only) -->
+        <Dialog :open="adjustScripDialogOpen" @update:open="resetAdjustScripDialog">
+            <DialogContent class="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Adjust Scrip</DialogTitle>
+                </DialogHeader>
+                <div class="space-y-3">
+                    <div class="space-y-1">
+                        <Label for="scrip-amount">Amount</Label>
+                        <Input
+                            id="scrip-amount"
+                            v-model="adjustScripAmount"
+                            type="number"
+                            placeholder="e.g. 5 or -5"
+                            @keydown.enter="submitAdjustScrip"
+                        />
+                        <p class="text-xs text-muted-foreground">Current: {{ crew.scrip }}. Enter a positive amount to award, negative to deduct.</p>
+                    </div>
+                    <div class="space-y-1">
+                        <Label for="scrip-reason">Reason (optional)</Label>
+                        <Input id="scrip-reason" v-model="adjustScripReason" placeholder="e.g. Table ruling" @keydown.enter="submitAdjustScrip" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button @click="submitAdjustScrip">Apply</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     </div>

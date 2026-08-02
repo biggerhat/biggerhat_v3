@@ -192,172 +192,190 @@ const handleVisualPick = (miniatureId: number) => {
             >
                 <X class="size-4" />
             </button>
-            <div v-if="member" class="mx-auto w-full max-w-md sm:max-w-3xl">
-                <DrawerHeader class="pb-2">
-                    <DrawerTitle class="text-center">{{ member.display_name }}</DrawerTitle>
-                    <div v-if="canChangeSculpt && miniatures.length > 1" class="mt-2 flex items-center justify-center gap-1.5">
-                        <Select :model-value="currentSculptId" @update:model-value="(v) => emit('sculpt-change', v as string)">
-                            <SelectTrigger class="w-auto gap-2 text-xs">
-                                <SelectValue placeholder="Select sculpt" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="mini in miniatures" :key="mini.id" :value="String(mini.id)">
-                                    {{ mini.display_name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            class="size-9 shrink-0"
-                            title="Browse sculpts with card art"
-                            aria-label="Browse sculpts with card art"
-                            @click="visualPickerOpen = true"
-                        >
-                            <Images class="size-4" />
-                        </Button>
-                    </div>
-                </DrawerHeader>
-                <div v-if="effectiveFrontImage" class="px-4 pb-2">
-                    <!-- Desktop: side-by-side combo view -->
-                    <div class="hidden items-start justify-center gap-2 sm:flex">
-                        <div class="relative">
-                            <img
-                                :src="'/storage/' + effectiveFrontImage"
-                                :alt="member.display_name + ' front'"
-                                class="max-h-[65dvh] w-auto rounded-lg object-contain"
-                            />
-                            <button
-                                class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
-                                title="View fullscreen"
-                                aria-label="View fullscreen"
-                                @click="
-                                    emit('open-fullscreen', {
-                                        src: '/storage/' + effectiveFrontImage,
-                                        backSrc: effectiveBackImage ? '/storage/' + effectiveBackImage : null,
-                                        title: member.display_name,
-                                    })
-                                "
+            <div v-if="member" class="mx-auto flex max-h-[calc(100dvh-7rem)] w-full max-w-md flex-col sm:max-w-3xl">
+                <!-- Header + card are sticky at the top of the scroll region below —
+                     multiple attached upgrades can make the notes/tokens/upgrades
+                     section taller than the viewport, and without this the whole
+                     sheet just grows past the screen with no way to scroll back up
+                     to see the card again. Everything scrolls together as one
+                     region (no nested scrollbox) so sticky positioning works. -->
+                <div class="shrink-0 bg-background">
+                    <DrawerHeader class="pb-2">
+                        <DrawerTitle class="text-center">{{ member.display_name }}</DrawerTitle>
+                        <div v-if="canChangeSculpt && miniatures.length > 1" class="mt-2 flex items-center justify-center gap-1.5">
+                            <Select :model-value="currentSculptId" @update:model-value="(v) => emit('sculpt-change', v as string)">
+                                <SelectTrigger class="w-auto gap-2 text-xs">
+                                    <SelectValue placeholder="Select sculpt" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="mini in miniatures" :key="mini.id" :value="String(mini.id)">
+                                        {{ mini.display_name }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                class="size-9 shrink-0"
+                                title="Browse sculpts with card art"
+                                aria-label="Browse sculpts with card art"
+                                @click="visualPickerOpen = true"
                             >
-                                <Maximize2 class="size-3.5" />
-                            </button>
+                                <Images class="size-4" />
+                            </Button>
                         </div>
-                        <div v-if="effectiveBackImage" class="relative">
-                            <img
-                                :src="'/storage/' + effectiveBackImage"
-                                :alt="member.display_name + ' back'"
-                                class="max-h-[65dvh] w-auto rounded-lg object-contain"
-                            />
-                            <button
-                                class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
-                                title="View fullscreen"
-                                aria-label="View fullscreen"
-                                @click="
-                                    emit('open-fullscreen', {
-                                        src: '/storage/' + effectiveBackImage,
-                                        backSrc: '/storage/' + effectiveFrontImage,
-                                        title: member.display_name,
-                                    })
-                                "
-                            >
-                                <Maximize2 class="size-3.5" />
-                            </button>
+                    </DrawerHeader>
+                </div>
+                <div class="flex-1 overflow-y-auto">
+                    <div v-if="effectiveFrontImage" class="sticky top-0 z-10 bg-background px-4 pb-2">
+                        <!-- Desktop: side-by-side combo view -->
+                        <div class="hidden items-start justify-center gap-2 sm:flex">
+                            <div class="relative">
+                                <img
+                                    :src="'/storage/' + effectiveFrontImage"
+                                    :alt="member.display_name + ' front'"
+                                    class="max-h-[65dvh] w-auto rounded-lg object-contain"
+                                />
+                                <button
+                                    class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                                    title="View fullscreen"
+                                    aria-label="View fullscreen"
+                                    @click="
+                                        emit('open-fullscreen', {
+                                            src: '/storage/' + effectiveFrontImage,
+                                            backSrc: effectiveBackImage ? '/storage/' + effectiveBackImage : null,
+                                            title: member.display_name,
+                                        })
+                                    "
+                                >
+                                    <Maximize2 class="size-3.5" />
+                                </button>
+                            </div>
+                            <div v-if="effectiveBackImage" class="relative">
+                                <img
+                                    :src="'/storage/' + effectiveBackImage"
+                                    :alt="member.display_name + ' back'"
+                                    class="max-h-[65dvh] w-auto rounded-lg object-contain"
+                                />
+                                <button
+                                    class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                                    title="View fullscreen"
+                                    aria-label="View fullscreen"
+                                    @click="
+                                        emit('open-fullscreen', {
+                                            src: '/storage/' + effectiveBackImage,
+                                            backSrc: '/storage/' + effectiveFrontImage,
+                                            title: member.display_name,
+                                        })
+                                    "
+                                >
+                                    <Maximize2 class="size-3.5" />
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Mobile: flip card -->
-                    <div class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain">
-                        <CharacterCardView
-                            :key="effectiveFrontImage"
-                            :miniature="{
-                                id: member.id,
-                                display_name: member.display_name,
-                                slug: '',
-                                front_image: effectiveFrontImage,
-                                back_image: effectiveBackImage,
-                            }"
-                            :show-link="false"
-                            :show-collection="false"
-                        />
-                    </div>
-                </div>
-                <!-- No card art (Campaign Leader/Totem, before an image is generated) — render the JSON stat block instead (pg 31, 52). -->
-                <div
-                    v-else-if="member.custom_character && (member.custom_character.actions.length || member.custom_character.abilities.length)"
-                    class="space-y-2 px-4 pb-2"
-                >
-                    <ActionCard v-for="(a, i) in member.custom_character.actions" :key="`action-${i}`" :action="a" :hide-footer="true" />
-                    <AbilityCard v-for="(ab, i) in member.custom_character.abilities" :key="`ability-${i}`" :ability="ab" :hide-footer="true" />
-                </div>
-                <div v-else class="px-4 py-8 pb-2 text-center text-sm text-muted-foreground">No card image available</div>
-
-                <!-- Misc notes — visible to both players, editable by the owner. -->
-                <div class="space-y-3 px-4 pt-2">
-                    <div class="space-y-1">
-                        <Label class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</Label>
-                        <Textarea
-                            v-model="memberNotes"
-                            :placeholder="canEditNotes ? 'Anything to remember about this model…' : 'No notes'"
-                            :readonly="!canEditNotes"
-                            :disabled="!canEditNotes && !memberNotes"
-                            rows="2"
-                            class="text-sm"
-                            @input="queueSave"
-                        />
-                    </div>
-
-                    <!-- Token badges -->
-                    <div v-if="(member.attached_tokens ?? []).length" class="flex flex-wrap gap-1">
-                        <span
-                            v-for="token in member.attached_tokens"
-                            :key="token.id"
-                            class="rounded border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-xs font-medium text-cyan-200"
+                        <!-- Mobile: flip card -->
+                        <div
+                            class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain"
                         >
-                            {{ token.name }}
-                        </span>
+                            <CharacterCardView
+                                :key="effectiveFrontImage"
+                                :miniature="{
+                                    id: member.id,
+                                    display_name: member.display_name,
+                                    slug: '',
+                                    front_image: effectiveFrontImage,
+                                    back_image: effectiveBackImage,
+                                }"
+                                :show-link="false"
+                                :show-collection="false"
+                            />
+                        </div>
                     </div>
+                    <!-- No card art (Campaign Leader/Totem, before an image is generated) — render the JSON stat block instead (pg 31, 52). -->
+                    <div
+                        v-else-if="member.custom_character && (member.custom_character.actions.length || member.custom_character.abilities.length)"
+                        class="space-y-2 px-4 pb-2"
+                    >
+                        <ActionCard v-for="(a, i) in member.custom_character.actions" :key="`action-${i}`" :action="a" :hide-footer="true" />
+                        <AbilityCard v-for="(ab, i) in member.custom_character.abilities" :key="`ability-${i}`" :ability="ab" :hide-footer="true" />
+                    </div>
+                    <div v-else class="px-4 py-8 pb-2 text-center text-sm text-muted-foreground">No card image available</div>
 
-                    <div v-if="(member.attached_upgrades ?? []).length" class="space-y-2">
-                        <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attached Upgrades</div>
-                        <!-- Bounded + scrollable so several attached upgrades (each with a
-                             description, actions/abilities, and its own notes box) can't
-                             grow the drawer past the viewport and push the header/card
-                             image out of view — same convention GameAttachedUpgradeDrawer
-                             already uses for its own actions/abilities list. -->
-                        <div class="max-h-[40dvh] space-y-1.5 overflow-y-auto pr-1">
-                            <div v-for="upgrade in member.attached_upgrades ?? []" :key="upgrade.id" class="rounded-md border p-2">
-                                <div class="text-xs font-medium">{{ upgrade.name }}</div>
-                                <!-- Real rules text — an Injury's effect or an Equipment's granted
+                    <!-- Misc notes — visible to both players, editable by the owner. -->
+                    <div class="space-y-3 px-4 pt-2">
+                        <div class="space-y-1">
+                            <Label class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</Label>
+                            <Textarea
+                                v-model="memberNotes"
+                                :placeholder="canEditNotes ? 'Anything to remember about this model…' : 'No notes'"
+                                :readonly="!canEditNotes"
+                                :disabled="!canEditNotes && !memberNotes"
+                                rows="2"
+                                class="text-sm"
+                                @input="queueSave"
+                            />
+                        </div>
+
+                        <!-- Token badges -->
+                        <div v-if="(member.attached_tokens ?? []).length" class="flex flex-wrap gap-1">
+                            <span
+                                v-for="token in member.attached_tokens"
+                                :key="token.id"
+                                class="rounded border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-xs font-medium text-cyan-200"
+                            >
+                                {{ token.name }}
+                            </span>
+                        </div>
+
+                        <div v-if="(member.attached_upgrades ?? []).length" class="space-y-2">
+                            <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attached Upgrades</div>
+                            <!-- No separate scrollbox here — this flows within the single
+                             scroll region above (see the sticky-card comment near the
+                             top). A nested scrollbox would create a confusing
+                             double-scrollbar and wouldn't stop the card from being
+                             pushed out of view, since it doesn't affect the outer
+                             container's height. -->
+                            <div class="space-y-1.5">
+                                <div v-for="upgrade in member.attached_upgrades ?? []" :key="upgrade.id" class="rounded-md border p-2">
+                                    <div class="text-xs font-medium">{{ upgrade.name }}</div>
+                                    <!-- Real rules text — an Injury's effect or an Equipment's granted
                                      action/ability, not just the flavor description. Same shape
                                      GameAttachedUpgradeDrawer.vue already renders elsewhere; this
                                      drawer previously only ever showed the freeform notes box below. -->
-                                <p v-if="upgrade.description" class="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                    {{ upgrade.description }}
-                                </p>
-                                <div v-if="upgrade.actions?.length || upgrade.abilities?.length" class="mt-1.5 space-y-1.5">
-                                    <ActionCard v-for="(a, i) in upgrade.actions ?? []" :key="`au-action-${upgrade.id}-${i}`" :action="a" :hide-footer="true" />
-                                    <AbilityCard
-                                        v-for="(ab, i) in upgrade.abilities ?? []"
-                                        :key="`au-ability-${upgrade.id}-${i}`"
-                                        :ability="ab"
-                                        :hide-footer="true"
+                                    <p v-if="upgrade.description" class="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                        {{ upgrade.description }}
+                                    </p>
+                                    <div v-if="upgrade.actions?.length || upgrade.abilities?.length" class="mt-1.5 space-y-1.5">
+                                        <ActionCard
+                                            v-for="(a, i) in upgrade.actions ?? []"
+                                            :key="`au-action-${upgrade.id}-${i}`"
+                                            :action="a"
+                                            :hide-footer="true"
+                                        />
+                                        <AbilityCard
+                                            v-for="(ab, i) in upgrade.abilities ?? []"
+                                            :key="`au-ability-${upgrade.id}-${i}`"
+                                            :ability="ab"
+                                            :hide-footer="true"
+                                        />
+                                    </div>
+                                    <Textarea
+                                        v-model="upgradeNotes[upgrade.id]"
+                                        :placeholder="canEditNotes ? 'Notes for this upgrade…' : 'No notes'"
+                                        :readonly="!canEditNotes"
+                                        :disabled="!canEditNotes && !upgradeNotes[upgrade.id]"
+                                        rows="1"
+                                        class="mt-1.5 text-xs"
+                                        @input="queueSave"
                                     />
                                 </div>
-                                <Textarea
-                                    v-model="upgradeNotes[upgrade.id]"
-                                    :placeholder="canEditNotes ? 'Notes for this upgrade…' : 'No notes'"
-                                    :readonly="!canEditNotes"
-                                    :disabled="!canEditNotes && !upgradeNotes[upgrade.id]"
-                                    rows="1"
-                                    class="mt-1.5 text-xs"
-                                    @input="queueSave"
-                                />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <DrawerFooter class="shrink-0 pt-2">
+                <DrawerFooter class="shrink-0 border-t pt-2">
                     <DrawerClose as-child>
                         <Button variant="outline">Close</Button>
                     </DrawerClose>

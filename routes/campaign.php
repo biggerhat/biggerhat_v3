@@ -117,6 +117,10 @@ Route::middleware(['campaign.access'])->group(function () {
             ->name('campaigns.crews.arsenal.equipment.store');
         Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/equipment/{equipment}', [ArsenalSheetController::class, 'removeEquipment'])
             ->name('campaigns.crews.arsenal.equipment.destroy');
+        // Freeform scrip adjustment — organizer-only manual correction (e.g. a
+        // table ruling or a missed award), not a player-initiated spend.
+        Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/scrip', [ArsenalSheetController::class, 'adjustScrip'])
+            ->name('campaigns.crews.arsenal.scrip.update');
 
         // Weekly cycle. Organizer advances the week (+ rolls Weekly Event if enabled).
         Route::post('/campaigns/{campaign}/weeks/advance', [WeeklyCycleController::class, 'advance'])

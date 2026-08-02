@@ -1328,8 +1328,8 @@ class CampaignAftermathController extends Controller
             ->where('campaign_crew_id', $aftermath->campaign_crew_id)
             ->active()
             ->where('is_peon', false)
-            ->with('character:id,display_name,station,faction')
-            ->get(['id', 'campaign_crew_id', 'character_id', 'label'])
+            ->with(['character:id,display_name,station,faction', 'customCharacter:id,display_name,station'])
+            ->get(['id', 'campaign_crew_id', 'character_id', 'custom_character_id', 'label'])
             ->map(fn ($m) => $this->arsenalModelRow($m, in_array($m->character_id, $trackerKilledCharacterIds, true)))
             ->toBase();
 
@@ -1460,7 +1460,18 @@ class CampaignAftermathController extends Controller
         return $pivotId;
     }
 
-    /** Shape a CampaignArsenalModel as the unified killed-model payload. */
+    /**
+     * Shape a CampaignArsenalModel as the unified killed-model payload.
+     * `custom_character_id` here always stays null — that field means
+     * "injuries route via the Leader/Totem custom_character_id column"
+     * (see the flips validation docblock below), which never applies to a
+     * hired arsenal model regardless of whether it was hired from the
+     * official Character catalog or the owner's own CustomCharacter
+     * homebrew; both route via `arsenal_model_id` (this row's own `id`).
+     * `displayName()` is what resolves the name for either source (plus a
+     * label fallback) — using `$m->character?->display_name` directly here
+     * left every hired homebrew model showing blank/'—'.
+     */
     private function arsenalModelRow(CampaignArsenalModel $m, bool $trackerKilled = false): array
     {
         return [
@@ -1469,7 +1480,7 @@ class CampaignAftermathController extends Controller
             'character_id' => $m->character_id,
             'custom_character_id' => null,
             'label' => $m->label,
-            'display_name' => $m->character ? $m->character->display_name : '',
+            'display_name' => $m->displayName(),
             'character' => $m->character ? [
                 'id' => $m->character->id,
                 'display_name' => $m->character->display_name,

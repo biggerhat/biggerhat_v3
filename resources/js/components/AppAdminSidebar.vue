@@ -221,6 +221,7 @@ const adminGroups: AdminNavGroup[] = [
         title: 'Diagnostics',
         items: [
             { title: 'Activity Log', href: route('admin.activity.index'), icon: Activity, permission: 'super_admin' },
+            { title: 'Games', href: route('admin.games.index'), icon: Swords, permission: 'super_admin' },
             { title: 'Failed Jobs', href: route('admin.failed_jobs.index'), icon: AlertTriangle, permission: 'super_admin' },
             { title: 'Image Health', href: route('admin.image_health.index'), icon: ImageOff, permission: 'super_admin' },
             // Log Viewer + Telescope are separate Blade-rendered apps. external=true

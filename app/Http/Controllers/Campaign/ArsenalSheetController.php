@@ -10,6 +10,7 @@ use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
+use App\Http\Requests\Campaign\AdjustScripRequest;
 use App\Http\Requests\Campaign\RemoveEquipmentRequest;
 use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
 use App\Models\Ability;
@@ -62,7 +63,13 @@ class ArsenalSheetController extends Controller
             abort(403);
         }
 
-        return $this->render($campaign, $crew, isMember: true, isOwner: $user && $user->id === $crew->user_id);
+        return $this->render(
+            $campaign,
+            $crew,
+            isMember: true,
+            isOwner: $user && $user->id === $crew->user_id,
+            isOrganizer: $user !== null && $user->can('update', $campaign),
+        );
     }
 
     /**
@@ -168,6 +175,32 @@ class ArsenalSheetController extends Controller
     }
 
     /**
+     * Freeform scrip adjustment — organizer-only manual correction (a table
+     * ruling, a missed award, etc.) that every other scrip-mutating path
+     * (Weekly Hire, Starting Arsenal, Aftermath) has no room for. `amount`
+     * is a signed delta, not an absolute value, to avoid clobbering a
+     * concurrent scrip change made by one of those other paths.
+     */
+    public function adjustScrip(AdjustScripRequest $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        $validated = $request->validated();
+
+        DB::transaction(function () use ($crew, $validated) {
+            $locked = CampaignCrew::lockForUpdate()->find($crew->id);
+            $locked->update(['scrip' => max(0, $locked->scrip + $validated['amount'])]);
+        });
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        $sign = $validated['amount'] > 0 ? '+' : '';
+        // No dedicated audit trail for this — the reason (if given) only
+        // surfaces in this one-time flash message, not persisted anywhere.
+        $reasonSuffix = ! empty($validated['reason']) ? " ({$validated['reason']})" : '';
+
+        return redirect()->back()->withMessage("Scrip adjusted by {$sign}{$validated['amount']}{$reasonSuffix}.");
+    }
+
+    /**
      * Public share — anyone with the share_code can view. Still gated by
      * `campaign.access` upstream so the page stays hidden while pre-release.
      */
@@ -176,10 +209,10 @@ class ArsenalSheetController extends Controller
         $crew = CampaignCrew::query()->where('share_code', $shareCode)->firstOrFail();
         $campaign = $crew->campaign;
 
-        return $this->render($campaign, $crew, isMember: false, isOwner: false);
+        return $this->render($campaign, $crew, isMember: false, isOwner: false, isOrganizer: false);
     }
 
-    private function render(Campaign $campaign, CampaignCrew $crew, bool $isMember, bool $isOwner)
+    private function render(Campaign $campaign, CampaignCrew $crew, bool $isMember, bool $isOwner, bool $isOrganizer)
     {
         // Single load picks up leader + totem via the dedicated relations on
         // CampaignCrew; both hit the composite (campaign_crew_id, flag, current)
@@ -414,6 +447,7 @@ class ArsenalSheetController extends Controller
             'view_mode' => [
                 'is_member' => $isMember,
                 'is_owner' => $isOwner,
+                'is_organizer' => $isOrganizer,
                 'share_url' => route('campaigns.crews.arsenal.share', $crew->share_code),
             ],
         ]);

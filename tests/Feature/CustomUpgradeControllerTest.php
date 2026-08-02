@@ -150,6 +150,75 @@ it('lets the owner update their upgrade', function () {
     expect($upgrade->fresh()->name)->toBe('Renamed');
 });
 
+it('preserves action/ability/trigger content-block fields across two saves — regression for the blanked-actions bug', function () {
+    $user = User::factory()->create();
+    $upgrade = CustomUpgrade::create(array_merge(cuValidPayload(), ['user_id' => $user->id]));
+
+    $contentBlocks = [
+        [
+            'type' => 'action',
+            'data' => [
+                'name' => 'Sweeping Strike',
+                'type' => 'tactical',
+                'is_signature' => true,
+                'stone_cost' => 2,
+                'range' => '2',
+                'range_type' => 'melee',
+                'stat' => 'Sz',
+                'stat_suits' => 'Rams',
+                'stat_modifier' => '+1',
+                'resisted_by' => 'Df',
+                'target_number' => '5',
+                'target_suits' => 'Crows',
+                'damage' => '2/3/4',
+                'description' => 'A sweeping strike.',
+                'source_id' => 42,
+                'triggers' => [
+                    [
+                        'name' => 'Critical Strike',
+                        'suits' => 'Rams',
+                        'stone_cost' => 1,
+                        'description' => 'Deal +2 damage.',
+                        'source_id' => 7,
+                    ],
+                ],
+            ],
+        ],
+        [
+            'type' => 'ability',
+            'data' => [
+                'name' => 'Hard to Kill',
+                'suits' => null,
+                'defensive_ability_type' => 'physical_defense',
+                'costs_stone' => false,
+                'description' => 'Reduce damage.',
+                'source_id' => 99,
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.upgrades.update', $upgrade->id), cuValidPayload(['content_blocks' => $contentBlocks]))
+        ->assertOk()->assertJson(['success' => true]);
+
+    // Second save — round-trips the exact payload the editor would resend
+    // after loading the first save back in (the bug only reproduced once
+    // the fields had already survived one save/load cycle).
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.upgrades.update', $upgrade->id), cuValidPayload(['content_blocks' => $upgrade->fresh()->content_blocks]))
+        ->assertOk()->assertJson(['success' => true]);
+
+    $blocks = $upgrade->fresh()->content_blocks;
+    expect($blocks[0]['data']['name'])->toBe('Sweeping Strike');
+    expect($blocks[0]['data']['type'])->toBe('tactical');
+    expect($blocks[0]['data']['source_id'])->toBe(42);
+    expect($blocks[0]['data']['triggers'][0]['name'])->toBe('Critical Strike');
+    expect($blocks[0]['data']['triggers'][0]['source_id'])->toBe(7);
+    expect($blocks[1]['data']['name'])->toBe('Hard to Kill');
+    expect($blocks[1]['data']['defensive_ability_type'])->toBe('physical_defense');
+    expect($blocks[1]['data']['source_id'])->toBe(99);
+});
+
 it('blocks a non-owner from updating an upgrade', function () {
     $owner = User::factory()->create();
     $other = User::factory()->create();

@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
+use App\Events\CampaignCrewUpdated;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
@@ -9,6 +11,7 @@ use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Character;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
 use Laravel\Pennant\Feature;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -1344,6 +1347,56 @@ it('removeEquipment rejects a non-owner', function () {
         ->assertForbidden();
 
     expect($equipment->fresh()->annihilated_at)->toBeNull();
+});
+
+it('adjustScrip lets the organizer award scrip', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $crew->update(['scrip' => 10]);
+
+    Event::fake([CampaignCrewUpdated::class]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.scrip.update', [$campaign, $crew->share_code]), ['amount' => 5])
+        ->assertRedirect();
+
+    expect($crew->fresh()->scrip)->toBe(15);
+    Event::assertDispatched(CampaignCrewUpdated::class, fn ($e) => $e->crew->id === $crew->id);
+});
+
+it('adjustScrip lets the organizer deduct scrip, floored at zero', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $crew->update(['scrip' => 3]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.scrip.update', [$campaign, $crew->share_code]), ['amount' => -10])
+        ->assertRedirect();
+
+    expect($crew->fresh()->scrip)->toBe(0);
+});
+
+it('adjustScrip rejects a campaign member who is not the organizer', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    CampaignPlayer::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $other->id, 'role' => CampaignPlayerRoleEnum::Player]);
+    $crew->update(['scrip' => 10]);
+
+    $this->actingAs($other)
+        ->post(route('campaigns.crews.arsenal.scrip.update', [$campaign, $crew->share_code]), ['amount' => 5])
+        ->assertForbidden();
+
+    expect($crew->fresh()->scrip)->toBe(10);
+});
+
+it('adjustScrip rejects a zero amount', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.scrip.update', [$campaign, $crew->share_code]), ['amount' => 0])
+        ->assertSessionHasErrors('amount');
 });
 
 it('exposes front_image/back_image on owned equipment in the Arsenal Sheet payload', function () {

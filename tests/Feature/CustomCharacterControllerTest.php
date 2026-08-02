@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\Campaign\CampaignStatusEnum;
+use App\Events\CampaignCrewUpdated;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomCharacter;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Event;
 
 function ccValidPayload(array $overrides = []): array
 {
@@ -222,6 +224,62 @@ it('update preserves campaign-leader invariants regardless of submitted values',
     expect($leader->cost)->toBeNull();
 });
 
+it('update broadcasts CampaignCrewUpdated when a campaign leader is edited', function () {
+    Event::fake([CampaignCrewUpdated::class]);
+
+    $user = User::factory()->create();
+    $crew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
+    $leader = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id,
+        'is_campaign_leader' => true,
+        'campaign_crew_id' => $crew->id,
+        'station' => 'master',
+        'generates_stone' => true,
+        'is_unhirable' => false,
+        'cost' => null,
+    ]));
+
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.update', $leader->id), ccValidPayload(['name' => 'Renamed Leader']))
+        ->assertOk();
+
+    Event::assertDispatched(CampaignCrewUpdated::class, fn ($e) => $e->crew->id === $crew->id);
+});
+
+it('update broadcasts CampaignCrewUpdated when a campaign totem is edited', function () {
+    Event::fake([CampaignCrewUpdated::class]);
+
+    $user = User::factory()->create();
+    $crew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
+    $totem = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id,
+        'is_campaign_totem' => true,
+        'campaign_crew_id' => $crew->id,
+        'station' => null,
+        'is_unhirable' => true,
+        'cost' => null,
+    ]));
+
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.update', $totem->id), ccValidPayload(['name' => 'Renamed Totem']))
+        ->assertOk();
+
+    Event::assertDispatched(CampaignCrewUpdated::class, fn ($e) => $e->crew->id === $crew->id);
+});
+
+it('update does not broadcast for a non-campaign character', function () {
+    Event::fake([CampaignCrewUpdated::class]);
+
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['name' => 'Renamed']))
+        ->assertOk();
+
+    Event::assertNotDispatched(CampaignCrewUpdated::class);
+});
+
 it('lets the owner delete their character', function () {
     $user = User::factory()->create();
     $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
@@ -336,6 +394,46 @@ it('allows deleting a Campaign Totem once the owning campaign has been deleted',
         ->assertJson(['success' => true]);
 
     expect(CustomCharacter::find($totem->id))->toBeNull();
+});
+
+it('index flags campaign_still_live=true only while the linked campaign is genuinely active', function () {
+    // Regression: the frontend's delete button used to disable purely on
+    // is_campaign_leader/is_campaign_totem, which never clear on their own —
+    // so a Leader from an ended (or deleted) campaign could never be deleted
+    // from this list even though destroy() itself already allowed it.
+    $user = User::factory()->create();
+
+    $activeCrew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
+    $liveLeader = CustomCharacter::create(array_merge(ccValidPayload(['name' => 'Live Leader']), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $activeCrew->id,
+        'is_campaign_leader' => true,
+    ]));
+
+    $endedCrew = ccCrewWithStatus($user, CampaignStatusEnum::Ended);
+    $endedLeader = CustomCharacter::create(array_merge(ccValidPayload(['name' => 'Ended Leader']), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $endedCrew->id,
+        'is_campaign_leader' => true,
+    ]));
+
+    $deletedCrew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
+    $deletedCrew->campaign->delete();
+    $deletedCampaignTotem = CustomCharacter::create(array_merge(ccValidPayload(['name' => 'Deleted Campaign Totem']), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $deletedCrew->id,
+        'is_campaign_totem' => true,
+    ]));
+
+    $unlinked = CustomCharacter::create(array_merge(ccValidPayload(['name' => 'Never Linked']), ['user_id' => $user->id]));
+
+    $response = $this->actingAs($user)->get(route('tools.card_creator.index'))->assertOk();
+
+    $byName = collect($response->viewData('page')['props']['characters'])->keyBy('name');
+    expect($byName['Live Leader']['campaign_still_live'])->toBeTrue();
+    expect($byName['Ended Leader']['campaign_still_live'])->toBeFalse();
+    expect($byName['Deleted Campaign Totem']['campaign_still_live'])->toBeFalse();
+    expect($byName['Never Linked']['campaign_still_live'])->toBeFalse();
 });
 
 it('serves the public share page without auth, regardless of is_public', function () {

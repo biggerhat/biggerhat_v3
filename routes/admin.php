@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\DashboardAdminController;
 use App\Http\Controllers\Admin\FailedJobsAdminController;
 use App\Http\Controllers\Admin\FeatureFlagsAdminController;
 use App\Http\Controllers\Admin\FeedbackAdminController;
+use App\Http\Controllers\Admin\GameAdminController;
 use App\Http\Controllers\Admin\ImageHealthAdminController;
 use App\Http\Controllers\Admin\KeywordAdminController;
 use App\Http\Controllers\Admin\LoreAdminController;
@@ -69,6 +70,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
     // Super-admin-only diagnostics + tooling.
     Route::middleware('role:super_admin')->group(function () {
         Route::get('/activity', [ActivityAdminController::class, 'index'])->name('activity.index');
+        Route::get('/games', [GameAdminController::class, 'index'])->name('games.index');
 
         Route::controller(\App\Http\Controllers\Admin\LootCardAdminController::class)->prefix('loot-cards')->name('loot_cards.')->group(function () {
             Route::get('/', 'index')->name('index');

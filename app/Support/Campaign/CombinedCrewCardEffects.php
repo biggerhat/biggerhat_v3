@@ -6,9 +6,12 @@ use App\Enums\CrewUpgradeRestrictionDescriptorTypeEnum;
 use App\Enums\CrewUpgradeRestrictionEnum;
 use App\Models\Ability;
 use App\Models\Action;
+use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignCrewCardAdvancement;
+use App\Models\Marker;
+use App\Models\Token;
 use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -274,10 +277,89 @@ class CombinedCrewCardEffects
                         'actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                         'abilities',
                         'triggers',
+                        'tokens:id,name,description',
+                        'markers:id,name,description,base',
                     ],
                 ]);
             },
         ]);
+    }
+
+    /**
+     * Tokens/Markers relevant to the crew's back face (pg ...): a
+     * quick-reference gathered from everything currently "in play" for this
+     * crew, deduped by id across both sources:
+     *
+     *   - Every currently-active arsenal model's official Character: reads
+     *     `Character::tokens()`/`markers()` (existing, admin-curated —
+     *     populated by `php artisan app:link-tokens-and-markers`, which
+     *     already scans this Character's actions/abilities/triggers'
+     *     description text for token/marker references). Homebrew
+     *     CustomCharacter hires contribute nothing — no such relation exists
+     *     for them.
+     *   - The crew's held Crew Card effects (starter + every Tier-4 borrow):
+     *     only Upgrade-sourced effects carry tokens()/markers() (the same
+     *     relation `app:link-tokens-and-markers` populates) — the generic
+     *     pg 15-16 CampaignCrewCard catalog has no such link yet.
+     *
+     * Arsenal models are queried fresh rather than read off
+     * `$crew->arsenalModels`: that relation is separately eager-loaded
+     * elsewhere (ArsenalSheetController::render(), with a much richer
+     * column/relation set for the rest of the Arsenal Sheet payload) before
+     * this runs, and re-`load()`ing it here with a narrower column
+     * selection would silently clobber that earlier load instead of adding
+     * to it.
+     *
+     * @return array<int, array{type: 'token'|'marker', id: int, name: string, description: string|null, base: string|null}>
+     */
+    public static function arsenalTokensAndMarkers(CampaignCrew $crew): array
+    {
+        $tokens = collect();
+        $markers = collect();
+
+        $activeModels = CampaignArsenalModel::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->active()
+            ->whereNotNull('character_id')
+            ->with([
+                'character:id',
+                'character.tokens:id,name,description',
+                'character.markers:id,name,description,base',
+            ])
+            ->get();
+
+        foreach ($activeModels as $model) {
+            if (! $model->character) {
+                continue;
+            }
+            $tokens = $tokens->concat($model->character->tokens);
+            $markers = $markers->concat($model->character->markers);
+        }
+
+        // Crew Card effects: starter + every held Tier-4 borrow. Reads the
+        // same crewCardEffect/crewCardAdvancements relations build() uses
+        // (see eagerLoad() above, which includes tokens()/markers() on the
+        // Upgrade branch).
+        $effects = collect([$crew->crewCardEffect])
+            ->merge($crew->crewCardAdvancements->map(fn ($adv) => $adv->crewCardEffect))
+            ->filter();
+
+        foreach ($effects as $effect) {
+            if ($effect instanceof Upgrade) {
+                $tokens = $tokens->concat($effect->tokens);
+                $markers = $markers->concat($effect->markers);
+            }
+        }
+
+        $tokenItems = $tokens->unique('id')->sortBy('name')->values()->map(fn (Token $t) => [
+            'type' => 'token', 'id' => $t->id, 'name' => $t->name, 'description' => $t->description, 'base' => null,
+        ]);
+
+        $markerItems = $markers->unique('id')->sortBy('name')->values()->map(fn (Marker $m) => [
+            'type' => 'marker', 'id' => $m->id, 'name' => $m->name, 'description' => $m->description, 'base' => (string) $m->base,
+        ]);
+
+        return $tokenItems->concat($markerItems)->all();
     }
 
     private static function descriptorFor(?string $restriction, CrewUpgradeRestrictionDescriptorTypeEnum $type): ?string

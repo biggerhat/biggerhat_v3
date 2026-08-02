@@ -37,6 +37,7 @@ import {
     CircleX,
     Copy,
     Download,
+    ExternalLink,
     FileText,
     Globe,
     Loader2,
@@ -345,6 +346,66 @@ const characterById = computed(() => {
 // ─── Builds list helpers ───
 const activeBuilds = computed(() => savedBuilds.value.filter((b) => !b.is_archived));
 const archivedBuilds = computed(() => savedBuilds.value.filter((b) => b.is_archived));
+
+// ─── Builds list: expand-to-preview (stats + member list) ───
+interface CrewMemberDetail {
+    display_name: string;
+    cost: number;
+    effective_cost: number;
+    category: string;
+    faction: string;
+}
+interface CrewDetails {
+    members: CrewMemberDetail[];
+    total_spent: number;
+    soulstone_pool: number;
+    ook_count: number;
+}
+const expandedBuildId = ref<number | null>(null);
+const buildDetailsCache = ref<Record<number, CrewDetails>>({});
+const loadingBuildId = ref<number | null>(null);
+
+const toggleBuildExpand = async (build: SavedBuild) => {
+    if (expandedBuildId.value === build.id) {
+        expandedBuildId.value = null;
+        return;
+    }
+    expandedBuildId.value = build.id;
+
+    if (buildDetailsCache.value[build.id]) return;
+
+    loadingBuildId.value = build.id;
+    try {
+        const response = await fetch(route('tools.crew_builder.details', build.id), { headers: { Accept: 'application/json' } });
+        if (response.ok) {
+            buildDetailsCache.value[build.id] = await response.json();
+        }
+    } finally {
+        loadingBuildId.value = null;
+    }
+};
+
+const buildCategoryLabel = (cat: string): string =>
+    ({
+        leader: 'Leader',
+        totem: 'Totem',
+        'in-keyword': 'In Keyword',
+        versatile: 'Versatile',
+        ook: 'Out of Keyword',
+        'fixed-crew': 'Preset',
+        required: 'Required',
+    })[cat] ?? cat;
+
+const buildCategoryColor = (cat: string): string =>
+    ({
+        leader: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+        totem: 'bg-purple-500/10 text-purple-700 dark:text-purple-400',
+        'in-keyword': 'bg-green-500/10 text-green-700 dark:text-green-400',
+        versatile: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+        ook: 'bg-red-500/10 text-red-700 dark:text-red-400',
+        'fixed-crew': 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400',
+        required: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
+    })[cat] ?? '';
 
 // ─── Faction selection ───
 const selectFaction = (factionSlug: string) => {
@@ -1095,6 +1156,12 @@ const addCustomReference = (type: 'characters' | 'upgrades' | 'markers' | 'token
             type: 'Custom',
             front_image: firstMini?.front_image ?? null,
             back_image: firstMini?.back_image ?? null,
+            // printCrewPDF() resolves the printable card via miniatures[0].id
+            // (a Character has no card image of its own) — without this array,
+            // a manually-added character reference had a `front_image` to show
+            // on-screen but no id for the PDF export to find, so it silently
+            // never made it onto the printed sheet.
+            miniatures: item.miniatures ?? [],
         };
     } else if (type === 'upgrades') {
         formatted = {
@@ -2079,9 +2146,14 @@ onUnmounted(() => {
                             No active crews yet. Create your first one!
                         </div>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                            <Card v-for="build in activeBuilds" :key="build.id" class="group transition-colors hover:bg-accent/30">
+                            <Card
+                                v-for="build in activeBuilds"
+                                :key="build.id"
+                                class="transition-colors"
+                                :class="expandedBuildId === build.id ? 'shadow-md ring-1 ring-primary/50' : 'hover:bg-accent/30'"
+                            >
                                 <CardContent class="p-4">
-                                    <div class="flex items-start gap-3">
+                                    <div class="flex cursor-pointer items-start gap-3" @click="toggleBuildExpand(build)">
                                         <img
                                             v-if="factions[build.faction]"
                                             :src="factions[build.faction].logo"
@@ -2106,17 +2178,91 @@ onUnmounted(() => {
                                                     v-if="build.copied_from.is_public"
                                                     :href="route('tools.crew_builder.share', build.copied_from.share_code)"
                                                     class="font-medium text-primary hover:underline"
+                                                    @click.stop
                                                     >{{ build.copied_from.name }}</a
                                                 >
                                                 <span v-else class="font-medium">{{ build.copied_from.name }}</span>
                                             </div>
                                         </div>
+                                        <ChevronDown
+                                            class="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200"
+                                            :class="expandedBuildId === build.id ? 'rotate-180' : ''"
+                                        />
                                     </div>
+
+                                    <!-- Expanded details -->
+                                    <div v-if="expandedBuildId === build.id" class="mt-2 border-t pt-2">
+                                        <div v-if="loadingBuildId === build.id" class="flex items-center justify-center py-4">
+                                            <Loader2 class="size-5 animate-spin text-muted-foreground" />
+                                        </div>
+                                        <template v-else-if="buildDetailsCache[build.id]">
+                                            <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                <span>
+                                                    Spent:
+                                                    <span
+                                                        class="font-medium text-foreground"
+                                                        :class="
+                                                            buildDetailsCache[build.id].total_spent > build.encounter_size ? 'text-destructive' : ''
+                                                        "
+                                                    >
+                                                        {{ buildDetailsCache[build.id].total_spent }}/{{ build.encounter_size }}
+                                                    </span>
+                                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                </span>
+                                                <span>
+                                                    Pool:
+                                                    <span class="font-medium text-foreground">{{ buildDetailsCache[build.id].soulstone_pool }}</span>
+                                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                </span>
+                                                <span>
+                                                    OOK:
+                                                    <span
+                                                        class="font-medium text-foreground"
+                                                        :class="
+                                                            buildDetailsCache[build.id].ook_count >= 2 ? 'text-amber-600 dark:text-amber-400' : ''
+                                                        "
+                                                    >
+                                                        {{ buildDetailsCache[build.id].ook_count }}/2
+                                                    </span>
+                                                </span>
+                                            </div>
+                                            <div class="space-y-0.5">
+                                                <div
+                                                    v-for="(member, mIdx) in buildDetailsCache[build.id].members"
+                                                    :key="mIdx"
+                                                    :class="factionBackground(member.faction)"
+                                                    class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
+                                                >
+                                                    <div class="flex min-w-0 items-center gap-1.5">
+                                                        <span class="truncate font-medium">{{ member.display_name }}</span>
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                                            {{ buildCategoryLabel(member.category) }}
+                                                        </Badge>
+                                                    </div>
+                                                    <div v-if="member.effective_cost > 0" class="flex shrink-0 items-center font-bold">
+                                                        {{ member.effective_cost }}
+                                                        <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
                                     <Separator class="my-3" />
-                                    <div class="flex items-center gap-1">
+                                    <div class="flex flex-wrap items-center gap-1">
                                         <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="loadBuild(build)">
                                             <Pencil class="size-3" />
                                             Edit
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            class="h-7 gap-1 text-xs"
+                                            as="a"
+                                            :href="route('tools.crew_builder.share', build.share_code)"
+                                        >
+                                            <ExternalLink class="size-3" />
+                                            View
                                         </Button>
                                         <Button
                                             variant="ghost"
@@ -2164,10 +2310,11 @@ onUnmounted(() => {
                             <Card
                                 v-for="build in archivedBuilds"
                                 :key="build.id"
-                                class="opacity-75 transition-colors hover:bg-accent/30 hover:opacity-100"
+                                class="opacity-75 transition-colors hover:opacity-100"
+                                :class="expandedBuildId === build.id ? 'opacity-100 shadow-md ring-1 ring-primary/50' : 'hover:bg-accent/30'"
                             >
                                 <CardContent class="p-4">
-                                    <div class="flex items-start gap-3">
+                                    <div class="flex cursor-pointer items-start gap-3" @click="toggleBuildExpand(build)">
                                         <img
                                             v-if="factions[build.faction]"
                                             :src="factions[build.faction].logo"
@@ -2191,17 +2338,91 @@ onUnmounted(() => {
                                                     v-if="build.copied_from.is_public"
                                                     :href="route('tools.crew_builder.share', build.copied_from.share_code)"
                                                     class="font-medium text-primary hover:underline"
+                                                    @click.stop
                                                     >{{ build.copied_from.name }}</a
                                                 >
                                                 <span v-else class="font-medium">{{ build.copied_from.name }}</span>
                                             </div>
                                         </div>
+                                        <ChevronDown
+                                            class="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200"
+                                            :class="expandedBuildId === build.id ? 'rotate-180' : ''"
+                                        />
                                     </div>
+
+                                    <!-- Expanded details -->
+                                    <div v-if="expandedBuildId === build.id" class="mt-2 border-t pt-2">
+                                        <div v-if="loadingBuildId === build.id" class="flex items-center justify-center py-4">
+                                            <Loader2 class="size-5 animate-spin text-muted-foreground" />
+                                        </div>
+                                        <template v-else-if="buildDetailsCache[build.id]">
+                                            <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                <span>
+                                                    Spent:
+                                                    <span
+                                                        class="font-medium text-foreground"
+                                                        :class="
+                                                            buildDetailsCache[build.id].total_spent > build.encounter_size ? 'text-destructive' : ''
+                                                        "
+                                                    >
+                                                        {{ buildDetailsCache[build.id].total_spent }}/{{ build.encounter_size }}
+                                                    </span>
+                                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                </span>
+                                                <span>
+                                                    Pool:
+                                                    <span class="font-medium text-foreground">{{ buildDetailsCache[build.id].soulstone_pool }}</span>
+                                                    <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                </span>
+                                                <span>
+                                                    OOK:
+                                                    <span
+                                                        class="font-medium text-foreground"
+                                                        :class="
+                                                            buildDetailsCache[build.id].ook_count >= 2 ? 'text-amber-600 dark:text-amber-400' : ''
+                                                        "
+                                                    >
+                                                        {{ buildDetailsCache[build.id].ook_count }}/2
+                                                    </span>
+                                                </span>
+                                            </div>
+                                            <div class="space-y-0.5">
+                                                <div
+                                                    v-for="(member, mIdx) in buildDetailsCache[build.id].members"
+                                                    :key="mIdx"
+                                                    :class="factionBackground(member.faction)"
+                                                    class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
+                                                >
+                                                    <div class="flex min-w-0 items-center gap-1.5">
+                                                        <span class="truncate font-medium">{{ member.display_name }}</span>
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                                            {{ buildCategoryLabel(member.category) }}
+                                                        </Badge>
+                                                    </div>
+                                                    <div v-if="member.effective_cost > 0" class="flex shrink-0 items-center font-bold">
+                                                        {{ member.effective_cost }}
+                                                        <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
                                     <Separator class="my-3" />
-                                    <div class="flex items-center gap-1">
+                                    <div class="flex flex-wrap items-center gap-1">
                                         <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="loadBuild(build)">
                                             <Pencil class="size-3" />
                                             Edit
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            class="h-7 gap-1 text-xs"
+                                            as="a"
+                                            :href="route('tools.crew_builder.share', build.share_code)"
+                                        >
+                                            <ExternalLink class="size-3" />
+                                            View
                                         </Button>
                                         <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="toggleArchive(build)">
                                             <ArchiveRestore class="size-3" />
@@ -2541,7 +2762,12 @@ onUnmounted(() => {
                         </div>
 
                         <!-- Stats bar -->
-                        <CrewStatsBar :total-spent="totalSpent" :encounter-size="encounterSize" :soulstone-pool="soulstonePool" :ook-count="ookCount" />
+                        <CrewStatsBar
+                            :total-spent="totalSpent"
+                            :encounter-size="encounterSize"
+                            :soulstone-pool="soulstonePool"
+                            :ook-count="ookCount"
+                        />
 
                         <!-- Crew Stats Panel -->
                         <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">

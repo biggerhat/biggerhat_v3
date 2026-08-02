@@ -49,6 +49,14 @@ interface ChoiceData {
     name: string;
 }
 
+interface TokenMarkerItem {
+    type: 'token' | 'marker';
+    id: number;
+    name: string;
+    description: string | null;
+    base: string | null;
+}
+
 defineProps<{
     crewName: string;
     items: Array<{
@@ -57,6 +65,7 @@ defineProps<{
         source: 'starter' | 'borrowed';
         data: ActionData | AbilityData | TriggerData | TextData | ChoiceData;
     }>;
+    tokensMarkers: TokenMarkerItem[];
 }>();
 </script>
 
@@ -72,10 +81,10 @@ defineProps<{
          and #card-crew-back as two separate screenshots off this one page. -->
     <div class="flex flex-col gap-8 bg-transparent p-8">
         <div id="card-crew-front" style="display: inline-block">
-            <CombinedCrewCardFace :crew-name="crewName" :items="items" side="front" />
+            <CombinedCrewCardFace :crew-name="crewName" :items="items" :tokens-markers="tokensMarkers" side="front" />
         </div>
         <div id="card-crew-back" style="display: inline-block">
-            <CombinedCrewCardFace :crew-name="crewName" :items="items" side="back" />
+            <CombinedCrewCardFace :crew-name="crewName" :items="items" :tokens-markers="tokensMarkers" side="back" />
         </div>
     </div>
 </template>

@@ -47,6 +47,14 @@ interface ChoiceData {
     name: string;
 }
 
+interface TokenMarkerItem {
+    type: 'token' | 'marker';
+    id: number;
+    name: string;
+    description: string | null;
+    base: string | null;
+}
+
 interface CombinedItem {
     type: 'action' | 'ability' | 'trigger' | 'text' | 'choice';
     // Restriction qualifying text (pg 32, 54) — printed above the effect it
@@ -54,8 +62,10 @@ interface CombinedItem {
     // Null for the starter effect and any generic-catalog Tier-4 borrow,
     // since only a real Crew Card Upgrade's restriction pivot can produce one.
     qualifier: string | null;
-    // Which physical face this item belongs on (T2-22) — starter effect on
-    // the front, every held Tier-4 borrow on the back.
+    // Kept for the restriction-qualifier logic above — no longer used to
+    // split faces (per-user decision: both the starter effect and every
+    // held Tier-4 borrow print on the front, like a normal single-sided
+    // crew card; the back is a Tokens/Markers quick-reference instead).
     source: 'starter' | 'borrowed';
     data: ActionData | AbilityData | TriggerData | TextData | ChoiceData;
 }
@@ -64,15 +74,17 @@ const props = withDefaults(
     defineProps<{
         crewName: string;
         items: CombinedItem[];
-        // 'front' shows only the starter effect; 'back' shows only borrowed
-        // Tier-4 effects. Defaults to 'front' for any caller not yet passing
-        // it (there shouldn't be any left, but keeps this additive).
+        tokensMarkers?: TokenMarkerItem[];
+        // 'front' shows the crew's full held effect set (starter + every
+        // Tier-4 borrow); 'back' shows the Tokens/Markers quick-reference
+        // gathered from the crew's active arsenal.
         side?: 'front' | 'back';
     }>(),
-    { side: 'front' },
+    { side: 'front', tokensMarkers: () => [] },
 );
 
-const visibleItems = computed(() => props.items.filter((item) => (props.side === 'front' ? item.source === 'starter' : item.source === 'borrowed')));
+const visibleItems = computed(() => (props.side === 'front' ? props.items : []));
+const hasBorrowedItems = computed(() => props.items.some((item) => item.source === 'borrowed'));
 
 // Tarot proportions (matches Leader/Totem/single-catalog-row cards): 550x950.
 // A combined card holds the starter effect plus every Tier-4 borrow, so its
@@ -84,6 +96,10 @@ const TAROT_RATIO = 950 / 550;
 const WIDTH_TIERS = [550, 650, 750, 850, 950, 1050, 1150];
 
 const totalContentChars = computed(() => {
+    if (props.side === 'back') {
+        return props.tokensMarkers.reduce((sum, tm) => sum + tm.name.length + (tm.description?.length ?? 0), 0);
+    }
+
     return visibleItems.value.reduce((sum, item) => {
         if (item.type === 'text') {
             return sum + (item.data as TextData).body.length;
@@ -129,22 +145,42 @@ const isText = (item: CombinedItem): item is CombinedItem & { data: TextData } =
             <div class="min-w-0 flex-1">
                 <div class="text-2xl font-bold leading-snug">{{ crewName }}</div>
                 <div class="mt-0.5 text-xs uppercase tracking-wider text-white/60">
-                    Crew Card — {{ side === 'front' ? 'Starter Effect' : 'Borrowed Effects' }}
+                    Crew Card — {{ side === 'front' ? 'Effects' : 'Tokens & Markers' }}
                 </div>
             </div>
         </div>
 
-        <!-- Effects -->
-        <div class="flex-1 px-3 py-2.5 text-sm leading-6">
+        <!-- Back face: Tokens/Markers quick-reference gathered from the
+             crew's currently-active arsenal (per-user decision — replaces
+             the old "borrowed effects" back face; those now print on the
+             front alongside the starter effect, like a normal crew card). -->
+        <div v-if="side === 'back'" class="flex-1 px-3 py-2.5 text-sm leading-6">
+            <p v-if="!tokensMarkers.length" class="italic text-white/50">No tokens or markers in this crew's arsenal.</p>
+            <div
+                v-for="tm in tokensMarkers"
+                :key="`${tm.type}-${tm.id}`"
+                class="mb-2 rounded px-2 py-1.5"
+                style="background: rgba(255, 255, 255, 0.04)"
+            >
+                <span class="font-bold capitalize">{{ tm.name }}</span>
+                <span class="ml-1 text-[10px] uppercase tracking-wide text-white/50">{{ tm.type }}</span>
+                <span v-if="tm.base" class="ml-1 text-[10px] uppercase tracking-wide text-white/50">— {{ tm.base }}</span>
+                <div v-if="tm.description" class="text-white/80">
+                    <GameText :text="tm.description" icon-class="h-3.5 inline-block align-text-bottom" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Front face: the crew's full held effect set (starter + every
+             Tier-4 borrow, in acquisition order). -->
+        <div v-else class="flex-1 px-3 py-2.5 text-sm leading-6">
             <!-- Tier-4 Crew Card Advancement upgrades a generic borrow's
                  restriction to both of the crew's keywords instead of just one
-                 (pg 31-32) — the starter effect (front) stays "either". -->
-            <p v-if="side === 'back' && visibleItems.length" class="mb-2 text-xs italic text-white/50">
+                 (pg 31-32) — the starter effect stays "either". -->
+            <p v-if="hasBorrowedItems" class="mb-2 text-xs italic text-white/50">
                 Borrowed effects apply to non-peon models with BOTH of this crew's keywords, unless otherwise noted above.
             </p>
-            <p v-if="!visibleItems.length" class="italic text-white/50">
-                {{ side === 'back' ? 'No borrowed effects held yet.' : 'No starter effect.' }}
-            </p>
+            <p v-if="!visibleItems.length" class="italic text-white/50">No effects held yet.</p>
             <div v-for="(item, idx) in visibleItems" :key="idx" class="mb-2 rounded" style="background: rgba(255, 255, 255, 0.04)">
                 <p v-if="item.qualifier" class="px-2 pt-1.5 text-xs font-semibold uppercase italic tracking-wide text-white/60">
                     {{ item.qualifier }}

@@ -10,6 +10,8 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Events\CampaignCrewUpdated;
+use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Requests\CustomCharacterRequest;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomCharacter;
@@ -20,6 +22,8 @@ use Inertia\Response;
 
 class CustomCharacterController extends Controller
 {
+    use BroadcastsCampaignEvents;
+
     public function index(): Response
     {
         $characters = CustomCharacter::where('user_id', Auth::id())
@@ -29,6 +33,34 @@ class CustomCharacterController extends Controller
         $upgrades = CustomUpgrade::where('user_id', Auth::id())
             ->orderBy('updated_at', 'desc')
             ->get();
+
+        // Same "still live" definition destroy() enforces server-side — computed
+        // here in one batched query (not per-row) so the frontend can disable
+        // the delete button only when a campaign is genuinely still active,
+        // rather than unconditionally for any campaign-linked record. Without
+        // this the delete button stayed disabled forever even after destroy()
+        // itself was fixed to allow deletion once a campaign ends/is deleted —
+        // the UI never let anyone reach that backend logic.
+        $crewIds = $characters->pluck('campaign_crew_id')
+            ->merge($upgrades->pluck('campaign_crew_id'))
+            ->filter()
+            ->unique();
+
+        $liveCrewIds = CampaignCrew::whereIn('id', $crewIds)
+            ->whereHas('campaign', fn ($q) => $q->where('status', '!=', CampaignStatusEnum::Ended->value))
+            ->pluck('id');
+
+        // Plain foreach, not ->each() — Collection::each() treats a callback
+        // returning false as "stop iterating", and an arrow function whose
+        // body is an assignment implicitly returns the assigned value. Any
+        // character/upgrade whose campaign isn't live assigns `false` here,
+        // silently truncating the loop for every item after it.
+        foreach ($characters as $c) {
+            $c->campaign_still_live = $c->campaign_crew_id !== null && $liveCrewIds->contains($c->campaign_crew_id);
+        }
+        foreach ($upgrades as $u) {
+            $u->campaign_still_live = $u->campaign_crew_id !== null && $liveCrewIds->contains($u->campaign_crew_id);
+        }
 
         return inertia('Tools/CardCreator/Index', [
             'characters' => $characters,
@@ -102,6 +134,18 @@ class CustomCharacterController extends Controller
         }
 
         $customCharacter->update($validated);
+
+        // Leader/Totem saves through this generic editor never broadcast to the
+        // campaign (unlike every other Leader/Totem-mutating path — Starting
+        // Arsenal, Advancement, Crew Lifecycle, etc.), so other viewers of the
+        // Arsenal Sheet — and the editor's own return trip back to it — saw
+        // stale data until a manual reload.
+        if (($customCharacter->is_campaign_leader || $customCharacter->is_campaign_totem) && $customCharacter->campaign_crew_id) {
+            $crew = CampaignCrew::find($customCharacter->campaign_crew_id);
+            if ($crew) {
+                $this->broadcastToCampaign($crew->campaign, new CampaignCrewUpdated($crew));
+            }
+        }
 
         return response()->json([
             'success' => true,

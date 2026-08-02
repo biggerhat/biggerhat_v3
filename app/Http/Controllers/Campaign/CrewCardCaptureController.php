@@ -27,6 +27,11 @@ class CrewCardCaptureController extends Controller
         return inertia('CardCreator/CaptureCombinedCrewCard', [
             'crewName' => $crew->name,
             'items' => CombinedCrewCardEffects::build($crew),
+            // Back face: tokens/markers gathered from the crew's currently
+            // active arsenal (per-user decision — the borrowed Tier-4 effects
+            // above moved to the front alongside the starter effect, like a
+            // normal single-sided crew card).
+            'tokensMarkers' => CombinedCrewCardEffects::arsenalTokensAndMarkers($crew),
         ]);
     }
 }

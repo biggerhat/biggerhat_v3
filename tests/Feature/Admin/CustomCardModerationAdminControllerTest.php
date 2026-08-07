@@ -44,15 +44,14 @@ it('lists public characters and upgrades by default', function () {
         ->assertInertia(fn ($p) => $p->has('cards', 1)->where('cards.0.name', 'Public Char'));
 });
 
-it('does not crash when a null-faction row (e.g. a Totem template) is in the result set — regression', function () {
+it('does not crash when a null-faction row is in the result set — regression', function () {
     $admin = ccmSuperAdmin();
     $owner = User::factory()->create();
-    // Totem templates legitimately have no faction — it's inherited from the
-    // leader once attached to a crew. Confirms the moderation listing survives
-    // browsing "all"/"private" visibility with one of these in scope.
+    // faction is nullable on custom_characters (see 2026_06_17_160100).
+    // Confirms the moderation listing survives browsing "all"/"private"
+    // visibility with one of these in scope.
     CustomCharacter::create([
-        'user_id' => $owner->id, 'name' => 'Totem Template', 'faction' => null,
-        'is_campaign_totem_template' => true,
+        'user_id' => $owner->id, 'name' => 'No Faction Card', 'faction' => null,
         'health' => 3, 'base' => 30, 'defense' => 4, 'willpower' => 4, 'speed' => 5,
         'is_public' => false,
     ]);

@@ -22,6 +22,7 @@ use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
@@ -141,6 +142,7 @@ class AftermathCatalog
                     ])->all(),
                     'locked' => $info !== null,
                     'applied_effects' => $info['applied_effects'] ?? [],
+                    'excludes_from_cr' => (bool) $e->excludes_from_cr,
                 ];
             })
             ->all();
@@ -383,12 +385,11 @@ class AftermathCatalog
                     ];
                 })
                 ->all(),
-            'totem' => CustomCharacter::query()
-                ->where('is_campaign_totem_template', true)
+            'totem' => CampaignTotemTemplate::query()
                 ->orderBy('campaign_totem_flip_value')
                 ->orderBy('name')
                 ->get()
-                ->map(fn (CustomCharacter $c) => [
+                ->map(fn (CampaignTotemTemplate $c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'flip_value' => $c->campaign_totem_flip_value,
@@ -931,7 +932,7 @@ class AftermathCatalog
             AdvancementTableEnum::TacticalMod => AdvancementTacticalMod::find($row->advancement_catalog_id)?->name,
             AdvancementTableEnum::Action => self::advancementActionName($row->advancement_catalog_id),
             AdvancementTableEnum::Ability => self::advancementAbilityName($row->advancement_catalog_id),
-            AdvancementTableEnum::Totem => CustomCharacter::find($row->advancement_catalog_id)?->name,
+            AdvancementTableEnum::Totem => CampaignTotemTemplate::find($row->advancement_catalog_id)?->name,
             AdvancementTableEnum::Summoning => Action::find($row->catalog_core_id)?->name,
             // crew_upgrade source (pg 32, single-item picks): advancement_catalog_id
             // is the picked item's own id — resolve via whichever table

@@ -11,17 +11,16 @@ use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /**
- * @mixin IdeHelperCustomCharacter
- *
  * @property bool|null $campaign_still_live Virtual attribute, not a DB column — set by
  *                                          CustomCharacterController::index() only, batched per-request against the
  *                                          linked CampaignCrew's campaign status. Absent (null) anywhere else.
+ *
+ * @mixin IdeHelperCustomCharacter
  */
 #[ObservedBy(CustomCharacterObserver::class)]
 class CustomCharacter extends Model
@@ -53,13 +52,8 @@ class CustomCharacter extends Model
             // ints and trips equality comparisons.
             'is_campaign_leader' => 'boolean',
             'is_campaign_totem' => 'boolean',
-            'is_campaign_totem_template' => 'boolean',
             'is_campaign_black_joker_totem' => 'boolean',
             'is_campaign_red_joker_totem' => 'boolean',
-            'campaign_is_black_joker_totem' => 'boolean',
-            'campaign_is_red_joker_totem' => 'boolean',
-            'campaign_totem_special_replace' => 'boolean',
-            'campaign_is_mini_master' => 'boolean',
             'miraculous_recovery_used' => 'boolean',
             'current' => 'boolean',
             'annihilated_at' => 'datetime',
@@ -76,7 +70,6 @@ class CustomCharacter extends Model
             'campaign_sp' => 'integer',
             'campaign_size' => 'integer',
             'campaign_br' => 'integer',
-            'campaign_totem_flip_value' => 'integer',
         ];
     }
 
@@ -119,37 +112,14 @@ class CustomCharacter extends Model
 
     public function getFactionColorAttribute(): string
     {
-        // Totem templates may have no faction (it's inherited from the leader
-        // when the totem is added to a crew, pg 52).
+        // faction is nullable (see 2026_06_17_160100) — falls back to neutral
+        // rather than erroring for any row saved without one.
         return $this->faction?->color() ?? 'neutral';
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Actions linked to a totem template (pg 52). Only rows flagged
-     * is_campaign_totem_template populate this; the `is_signature_action` pivot
-     * marks signature (f) actions.
-     *
-     * @return BelongsToMany<Action, $this>
-     */
-    public function campaignTotemActions(): BelongsToMany
-    {
-        return $this->belongsToMany(Action::class, 'campaign_totem_template_actions')
-            ->withPivot('is_signature_action');
-    }
-
-    /**
-     * Abilities linked to a totem template (pg 52).
-     *
-     * @return BelongsToMany<Ability, $this>
-     */
-    public function campaignTotemAbilities(): BelongsToMany
-    {
-        return $this->belongsToMany(Ability::class, 'campaign_totem_template_abilities');
     }
 
     /**

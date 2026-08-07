@@ -35,6 +35,7 @@ class CombinedCrewCardImageGenerator
         $crew->update([
             'crew_card_front_image' => "{$dir}/crew-card.png",
             'crew_card_back_image' => "{$dir}/crew-card-back.png",
+            'crew_card_generated_at' => now(),
         ]);
     }
 

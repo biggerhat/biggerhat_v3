@@ -56,6 +56,17 @@ class CampaignAftermathController extends Controller
 
         $crew = $this->crewFor($request, $campaignGame);
 
+        // Lucky Upstart's free starter equipment is never permanently lost
+        // (pg 17): "If this equipment is annihilated, add it back to your
+        // arsenal after the game." Restore it here, at the start of
+        // Aftermath (i.e. right after the game ends), regardless of how it
+        // was removed (e.g. the owner's manual "Remove Equipment" action).
+        CampaignEquipment::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->where('source', 'starting_lucky_upstart')
+            ->whereNotNull('annihilated_at')
+            ->update(['annihilated_at' => null]);
+
         // Strategic Withdrawal on turn ≤ 2 (pg 20): crew gets no VP, no
         // barter, no hand, no payday — they skip the entire aftermath EXCEPT
         // the injury flip. Jump them straight to Phase 6.

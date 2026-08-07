@@ -9,6 +9,7 @@ use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignPlayer;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Character;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
@@ -77,6 +78,23 @@ it('exposes both the front and back generated crew card images', function () {
         ->assertInertia(fn ($page) => $page
             ->where('crew.crew_card_front_image', 'campaign-crews/1/crew-card.png')
             ->where('crew.crew_card_back_image', 'campaign-crews/1/crew-card-back.png')
+        );
+});
+
+it('exposes crew_card_generated_at, the cache-bust signal for the images above', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $crew->update([
+        'crew_card_front_image' => 'campaign-crews/1/crew-card.png',
+        'crew_card_generated_at' => now()->subMinute(),
+    ]);
+    $generatedAt = $crew->fresh()->crew_card_generated_at;
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.crew_card_generated_at', $generatedAt->toJSON())
         );
 });
 
@@ -839,9 +857,7 @@ it('leader_advancements context_chain resolves the Totem advancement to its own 
         'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
         'base' => 30,
     ]);
-    $template = \App\Models\CustomCharacter::create([
-        'user_id' => $owner->id,
-        'is_campaign_totem_template' => true,
+    $template = CampaignTotemTemplate::factory()->create([
         'name' => 'Stock Totem Template',
         'faction' => FactionEnum::Resurrectionists->value,
         'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
@@ -1123,12 +1139,16 @@ it('addManualArsenalModel rejects hiring a custom character that belongs to some
 it('addManualArsenalModel exposes custom_character in the payload alongside official-character units', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
+    $generatedAt = now()->subMinute();
     $custom = \App\Models\CustomCharacter::create([
         'user_id' => $owner->id,
         'name' => 'Homebrew Ally', 'display_name' => 'Homebrew Ally',
         'faction' => \App\Enums\FactionEnum::Arcanists->value,
         'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30, 'cost' => 6,
+        'front_image' => 'custom-characters/1/front.png',
+        'card_image_generated_at' => $generatedAt,
     ]);
+    $generatedAt = $custom->fresh()->card_image_generated_at;
     CampaignArsenalModel::create([
         'campaign_crew_id' => $crew->id,
         'custom_character_id' => $custom->id,
@@ -1138,10 +1158,17 @@ it('addManualArsenalModel exposes custom_character in the payload alongside offi
     $this->actingAs($owner)
         ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('crew.arsenal_models', function ($models) {
+        ->assertInertia(fn ($page) => $page->where('crew.arsenal_models', function ($models) use ($generatedAt) {
             $row = collect($models)->firstWhere('label', 'Homebrew Hire');
 
-            return $row && $row['character'] === null && $row['custom_character']['display_name'] === 'Homebrew Ally' && $row['custom_character']['cost'] === 6;
+            return $row
+                && $row['character'] === null
+                && $row['custom_character']['display_name'] === 'Homebrew Ally'
+                && $row['custom_character']['cost'] === 6
+                // Cache-bust signal for custom_character.front_image/back_image —
+                // without it, a regenerated card image (fixed filename) would keep
+                // showing the browser-cached stale render.
+                && $row['custom_character']['card_image_generated_at'] === $generatedAt->toJSON();
         }));
 });
 
@@ -1420,5 +1447,26 @@ it('exposes front_image/back_image on owned equipment in the Arsenal Sheet paylo
             $row = collect($equipment)->firstWhere('name', 'Illustrated Trinket');
 
             return $row && $row['front_image'] === 'seed/card-front.png' && $row['back_image'] === 'seed/card-back.png';
+        }));
+});
+
+it('exposes excludes_from_cr on owned equipment in the Arsenal Sheet payload', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Free Starter Trinket']);
+    \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'starting_lucky_upstart',
+        'excludes_from_cr' => true,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('equipment', function ($equipment) {
+            $row = collect($equipment)->firstWhere('name', 'Free Starter Trinket');
+
+            return $row && $row['excludes_from_cr'] === true;
         }));
 });

@@ -635,7 +635,8 @@ namespace App\Models\Campaign{
  *
  * @property int $id
  * @property int $campaign_crew_id
- * @property int $character_id
+ * @property int|null $character_id
+ * @property int|null $custom_character_id
  * @property int|null $miniature_id
  * @property string|null $label
  * @property bool $is_peon
@@ -645,12 +646,13 @@ namespace App\Models\Campaign{
  * @property int|null $granted_keyword_id
  * @property \Carbon\CarbonImmutable|null $annihilated_at
  * @property \Carbon\CarbonImmutable|null $removed_at
+ * @property-read Character|null $character
+ * @property-read CustomCharacter|null $customCharacter
  * @property bool $ignored_for_limits
  * @property array<array-key, mixed>|null $gained_characteristics
  * @property array<array-key, mixed>|null $gained_lucky_miss_ids
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \App\Models\Character $character
  * @property-read \App\Models\Campaign\CampaignCrew $crew
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $gainedAbilities
  * @property-read int|null $gained_abilities_count
@@ -669,6 +671,7 @@ namespace App\Models\Campaign{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCampaignCrewId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCharacterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereCustomCharacterId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGainedCharacteristics($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGainedLuckyMissIds($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignArsenalModel whereGrantedKeywordId($value)
@@ -738,7 +741,8 @@ namespace App\Models\Campaign{
  * @property int|null $keyword_2_id
  * @property int|null $crew_card_effect_id
  * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
- * @property string|null $crew_card_front_image generated image combining the starter effect + every held Tier-4 borrow — see CombinedCrewCardEffects
+ * @property string|null $crew_card_front_image generated image of the crew's starter effect (T2-22) — see CombinedCrewCardEffects
+ * @property string|null $crew_card_back_image generated image of every currently-held Tier-4 borrowed effect (T2-22) — see CombinedCrewCardEffects
  * @property int $scrip
  * @property int $total_wins
  * @property \Carbon\CarbonImmutable|null $retired_at
@@ -762,6 +766,7 @@ namespace App\Models\Campaign{
  * @property-read int|null $crew_card_advancements_count
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCampaignId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardBackImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardChoice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardEffectId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignCrew whereCrewCardFrontImage($value)
@@ -1134,6 +1139,78 @@ namespace App\Models\Campaign{
 
 namespace App\Models\Campaign{
 /**
+ * A reusable Totem Template (pg 52) — Spirit Familiar / Sniveling Coward /
+ * Mini Master, any Leader's generic pick via the Totem Advancement table.
+ * 
+ * Deliberately ownerless — no `user_id` — unlike the `custom_characters`
+ * rows these used to be. It's a shared admin-managed catalog any crew can
+ * draw from, same shape as `CampaignCrewCard`. When a crew actually picks
+ * one, LeaderAdvancementService::createTotemFromTemplate() clones the
+ * relevant fields *by value* into a brand-new `CustomCharacter` row (the
+ * crew's real, stateful Totem instance) — this row is never referenced
+ * directly by a hired totem afterward, so editing or deleting a template
+ * here can never affect an already-hired totem.
+ *
+ * @property int $id
+ * @property string $name
+ * @property string|null $title
+ * @property FactionEnum|null $faction
+ * @property string|null $station
+ * @property int|null $cost
+ * @property int $health
+ * @property int $defense
+ * @property SuitEnum|null $defense_suit
+ * @property int $willpower
+ * @property SuitEnum|null $willpower_suit
+ * @property int $speed
+ * @property int|null $size
+ * @property string $base
+ * @property string|null $notes
+ * @property int|null $campaign_totem_flip_value
+ * @property bool $campaign_is_black_joker_totem
+ * @property bool $campaign_is_red_joker_totem
+ * @property bool $campaign_totem_special_replace
+ * @property bool $campaign_is_mini_master
+ * @property \Carbon\CarbonImmutable $created_at
+ * @property \Carbon\CarbonImmutable $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Action> $campaignTotemActions
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Ability> $campaignTotemAbilities
+ * @property-read int|null $campaign_totem_abilities_count
+ * @property-read int|null $campaign_totem_actions_count
+ * @method static \Database\Factories\Campaign\CampaignTotemTemplateFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereBase($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereCampaignIsBlackJokerTotem($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereCampaignIsMiniMaster($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereCampaignIsRedJokerTotem($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereCampaignTotemFlipValue($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereCampaignTotemSpecialReplace($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereCost($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereDefense($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereDefenseSuit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereHealth($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereNotes($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereSize($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereSpeed($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereStation($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereTitle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereWillpower($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CampaignTotemTemplate whereWillpowerSuit($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCampaignTotemTemplate {}
+}
+
+namespace App\Models\Campaign{
+/**
  * One row per calendar week of a campaign. Stores the rolled Weekly Event
  * (if optional rule enabled) and per-week organizer notes.
  *
@@ -1494,17 +1571,14 @@ namespace App\Models{
 /**
  * 
  *
+ * @property bool|null $campaign_still_live Virtual attribute, not a DB column — set by
+ *                                          CustomCharacterController::index() only, batched per-request against the
+ *                                          linked CampaignCrew's campaign status. Absent (null) anywhere else.
  * @property int $id
  * @property int $user_id
  * @property int|null $campaign_crew_id
  * @property bool $is_campaign_leader
  * @property bool $is_campaign_totem
- * @property bool $is_campaign_totem_template
- * @property int|null $campaign_totem_flip_value
- * @property bool $campaign_is_black_joker_totem
- * @property bool $campaign_is_red_joker_totem
- * @property bool $campaign_totem_special_replace
- * @property bool $campaign_is_mini_master
  * @property string|null $archetype
  * @property string|null $tag
  * @property int|null $campaign_size
@@ -1548,14 +1622,11 @@ namespace App\Models{
  * @property string|null $front_image
  * @property string|null $back_image
  * @property string|null $combination_image
+ * @property \Illuminate\Support\Carbon|null $card_image_generated_at
  * @property string|null $notes
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Ability> $campaignTotemAbilities
- * @property-read int|null $campaign_totem_abilities_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Action> $campaignTotemActions
- * @property-read int|null $campaign_totem_actions_count
  * @property-read string $faction_color
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Campaign\CampaignArsenalModelInjury> $injuries
  * @property-read int|null $injuries_count
@@ -1573,14 +1644,10 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignCrewId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignDf($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignHealth($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignIsBlackJokerTotem($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignIsMiniMaster($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignIsRedJokerTotem($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignSp($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignTotemFlipValue($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignTotemSpecialReplace($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCampaignWp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCardImageGeneratedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCharacteristics($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCombinationImage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereCost($value)
@@ -1598,7 +1665,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsCampaignLeader($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsCampaignTotem($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsCampaignTotemTemplate($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsPublic($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereIsUnhirable($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CustomCharacter whereKeywords($value)
@@ -1635,6 +1701,9 @@ namespace App\Models{
  * 
  *
  * @property FactionEnum|null $faction
+ * @property bool|null $campaign_still_live Virtual attribute, not a DB column — set by
+ *                                          CustomCharacterController::index() only, batched per-request against the
+ *                                          linked CampaignCrew's campaign status. Absent (null) anywhere else.
  * @property int $id
  * @property int $user_id
  * @property int|null $campaign_crew_id

@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { factionBackground } from '@/composables/useFactionColor';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
 import type { GameData, GamePlayer } from '@/types/game';
@@ -67,6 +68,9 @@ interface CampaignArsenalModel {
     is_peon: boolean;
     front_image: string | null;
     back_image: string | null;
+    // Cache-bust signal for the two fields above — only ever set for a Custom
+    // Character-backed row (see CustomCharacter.card_image_generated_at).
+    card_image_generated_at: string | null;
     injuries: Array<{ id: number; name: string }>;
     lucky_miss: string[];
     gained_abilities: Array<{ id: number; name: string }>;
@@ -366,16 +370,26 @@ const confirmCampaignCrew = () => {
                 <!-- Leader/Totem are automatic (free) members of the crew, not
                      something hired here — but their injuries are still worth
                      surfacing at select time, same as any hired model's. -->
-                <div v-if="(campaignLeader?.injuries.length || campaignTotem?.injuries.length)" class="mb-2 space-y-1">
+                <div v-if="campaignLeader?.injuries.length || campaignTotem?.injuries.length" class="mb-2 space-y-1">
                     <div v-if="campaignLeader" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                         <span class="truncate font-medium">{{ campaignLeader.name }}</span>
-                        <Badge v-for="inj in campaignLeader.injuries" :key="`ldr-inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">
+                        <Badge
+                            v-for="inj in campaignLeader.injuries"
+                            :key="`ldr-inj-${inj.id}`"
+                            variant="destructive"
+                            class="shrink-0 px-1 py-0 text-[9px]"
+                        >
                             {{ inj.name }}
                         </Badge>
                     </div>
                     <div v-if="campaignTotem" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                         <span class="truncate font-medium">{{ campaignTotem.name }}</span>
-                        <Badge v-for="inj in campaignTotem.injuries" :key="`ttm-inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">
+                        <Badge
+                            v-for="inj in campaignTotem.injuries"
+                            :key="`ttm-inj-${inj.id}`"
+                            variant="destructive"
+                            class="shrink-0 px-1 py-0 text-[9px]"
+                        >
                             {{ inj.name }}
                         </Badge>
                     </div>
@@ -400,7 +414,11 @@ const confirmCampaignCrew = () => {
                                 title="Preview card"
                                 @click="(e) => openArsenalPreview(m, e)"
                             >
-                                <img :src="'/storage/' + m.front_image" :alt="m.name" class="size-8 rounded object-cover" />
+                                <img
+                                    :src="'/storage/' + cacheBustedImagePath(m.front_image, m.card_image_generated_at)"
+                                    :alt="m.name"
+                                    class="size-8 rounded object-cover"
+                                />
                             </button>
                             <!-- Nickname is the model's identity at the table (pg 15) — shown as
                                  the primary label with the actual unit name in parens, same
@@ -424,7 +442,11 @@ const confirmCampaignCrew = () => {
                                  flavor name (matches the Arsenal Sheet's dedup fix) — fall back
                                  to the raw name for a flavor-only result that grants no ability. -->
                             <template v-if="!m.gained_abilities.length">
-                                <Badge v-for="lm in m.lucky_miss" :key="`lm-${lm}`" class="shrink-0 bg-green-600 px-1 py-0 text-[9px] text-white hover:bg-green-600">
+                                <Badge
+                                    v-for="lm in m.lucky_miss"
+                                    :key="`lm-${lm}`"
+                                    class="shrink-0 bg-green-600 px-1 py-0 text-[9px] text-white hover:bg-green-600"
+                                >
                                     {{ lm }}
                                 </Badge>
                             </template>
@@ -764,6 +786,7 @@ const confirmCampaignCrew = () => {
                         slug: '',
                         front_image: previewArsenalModel.front_image,
                         back_image: previewArsenalModel.back_image,
+                        card_image_generated_at: previewArsenalModel.card_image_generated_at,
                     }"
                     :show-link="false"
                     :show-collection="false"

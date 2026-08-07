@@ -3,7 +3,7 @@
 use App\Enums\PermissionEnum;
 use App\Models\Ability;
 use App\Models\Action;
-use App\Models\CustomCharacter;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -19,18 +19,6 @@ beforeEach(function () {
 
     $this->stranger = User::factory()->create();
 });
-
-function makeTotemTemplate(User $user, array $overrides = []): CustomCharacter
-{
-    return CustomCharacter::create(array_merge([
-        'user_id' => $user->id,
-        'name' => 'Totem',
-        'display_name' => 'Totem',
-        'is_campaign_totem_template' => true,
-        'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5,
-        'base' => '30',
-    ], $overrides));
-}
 
 it('index denies users without view_campaign_catalog', function () {
     // Can reach campaign mode (passes the campaign.access 404 gate) but lacks
@@ -62,7 +50,7 @@ it('store creates a totem template with linked actions, signatures, and abilitie
         ])
         ->assertRedirect(route('admin.campaign.totem-templates.index'));
 
-    $totem = CustomCharacter::where('is_campaign_totem_template', true)->firstWhere('name', 'Wicked Doll');
+    $totem = CampaignTotemTemplate::firstWhere('name', 'Wicked Doll');
     expect($totem)->not->toBeNull();
     // Faction stays null; base defaults to 30mm when left blank.
     expect($totem->faction)->toBeNull();
@@ -104,7 +92,7 @@ it('store rejects a non-existent linked action', function () {
 });
 
 it('update re-syncs linked actions and abilities', function () {
-    $totem = makeTotemTemplate($this->admin, ['name' => 'Old']);
+    $totem = CampaignTotemTemplate::factory()->create(['name' => 'Old']);
     $a1 = Action::factory()->create();
     $a2 = Action::factory()->create();
     $totem->campaignTotemActions()->sync([$a1->id => ['is_signature_action' => true]]);
@@ -130,7 +118,7 @@ it('edit exposes base as the BaseSizeEnum-backed integer, not a string', functio
     // admin form must treat `item.base` as a number, not assume a string
     // (it previously called `.trim()` on it directly, which threw on any
     // edit of an existing template).
-    $totem = makeTotemTemplate($this->admin, ['name' => 'Base Type Check', 'base' => '40']);
+    $totem = CampaignTotemTemplate::factory()->create(['name' => 'Base Type Check', 'base' => '40']);
 
     $this->actingAs($this->admin)
         ->get(route('admin.campaign.totem-templates.edit', $totem->id))
@@ -142,11 +130,11 @@ it('edit exposes base as the BaseSizeEnum-backed integer, not a string', functio
 });
 
 it('delete removes the totem template', function () {
-    $totem = makeTotemTemplate($this->admin);
+    $totem = CampaignTotemTemplate::factory()->create();
 
     $this->actingAs($this->admin)
         ->post(route('admin.campaign.totem-templates.delete', $totem->id))
         ->assertRedirect();
 
-    expect(CustomCharacter::find($totem->id))->toBeNull();
+    expect(CampaignTotemTemplate::find($totem->id))->toBeNull();
 });

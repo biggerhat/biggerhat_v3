@@ -85,11 +85,17 @@ const props = defineProps<{
 }>();
 
 // CardFrontFace/CardBackFace are also embedded in CardRenderer.vue's
-// responsive, fixed-aspect-ratio live flip-preview elsewhere, so they stay
-// flexible (h-full/w-full) rather than picking their own pixel size — the
-// tarot-tiered sizing has to live here instead, in the one place that's
-// capture-only. Front and back size independently since their content
-// (abilities vs. actions/triggers) is unrelated.
+// responsive, fixed-aspect-ratio live flip-preview elsewhere, so they only
+// pick their own pixel size (cardWidth/cardMinHeight props) when explicitly
+// given one — computed here, in the one place that's capture-only. Front and
+// back size independently since their content (abilities vs. actions/
+// triggers) is unrelated. min-height (not height) on the face's own root,
+// same as CombinedCrewCardFace, means content past even the top tier grows
+// the card further instead of clipping — Puppeteer's element screenshot
+// captures the element's actual laid-out box, not a fixed crop, so this
+// works as long as nothing between here and the face's root has its own
+// competing fixed size (see the wrapper divs' `display: inline-block` below,
+// matching CaptureCombinedCrewCard.vue's identical pattern).
 const frontSize = computed(() => tarotCardSize(props.card.abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0)));
 const backSize = computed(() =>
     tarotCardSize(
@@ -106,11 +112,13 @@ const backSize = computed(() =>
 
     <!-- Headless-Chrome capture target only — App\Services\Campaign\LeaderCardImageGenerator
          screenshots #card-front and #card-back individually via Browsershot's ->select().
-         Sized here (not by the face components — see frontSize/backSize above)
-         so the card grows to fit content instead of the face shrinking its own
-         text into a fixed box. -->
+         No sizing on these wrapper divs (display: inline-block just makes each
+         hug its own content exactly, same as CaptureCombinedCrewCard.vue) —
+         CardFrontFace/CardBackFace pick their own width/min-height directly
+         (cardWidth/cardMinHeight below) so the card grows to fit content
+         instead of the face shrinking its own text into a fixed box. -->
     <div class="flex items-start gap-8 bg-transparent p-8">
-        <div id="card-front" :style="{ width: frontSize.width + 'px', height: frontSize.height + 'px' }">
+        <div id="card-front" style="display: inline-block">
             <CardFrontFace
                 :name="card.name"
                 :title="card.title"
@@ -132,9 +140,11 @@ const backSize = computed(() =>
                 :abilities="card.abilities"
                 :linked-crew-upgrades="card.linkedCrewUpgrades"
                 :linked-totems="card.linkedTotems"
+                :card-width="frontSize.width"
+                :card-min-height="frontSize.height"
             />
         </div>
-        <div id="card-back" :style="{ width: backSize.width + 'px', height: backSize.height + 'px' }">
+        <div id="card-back" style="display: inline-block">
             <CardBackFace
                 :name="card.name"
                 :title="card.title"
@@ -142,6 +152,8 @@ const backSize = computed(() =>
                 :second-faction="card.secondFaction"
                 :actions="card.actions"
                 :abilities="card.abilities"
+                :card-width="backSize.width"
+                :card-min-height="backSize.height"
             />
         </div>
     </div>

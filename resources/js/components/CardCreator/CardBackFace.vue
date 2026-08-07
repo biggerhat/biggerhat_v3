@@ -3,7 +3,8 @@ import { alternatingBoxBg, factionGradient, formatRange, getFactionVar, splitSui
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
-import { computed } from 'vue';
+import { useShrinkToFit } from '@/composables/useShrinkToFit';
+import { computed, ref } from 'vue';
 
 interface TriggerData {
     name: string;
@@ -48,6 +49,16 @@ const props = defineProps<{
     secondFaction: string | null;
     actions: ActionData[];
     abilities: AbilityData[];
+    /** Opt-in: only the live flip-preview (CardRenderer.vue) enables this —
+     *  see the matching prop doc on CardFrontFace.vue. */
+    shrinkToFit?: boolean;
+    /** Capture.vue-only self-sizing — see the matching prop doc on
+     *  CardFrontFace.vue. */
+    cardWidth?: number;
+    cardMinHeight?: number;
+    /** Print-only light theme (saves ink) — see the matching prop doc on
+     *  CardFrontFace.vue. */
+    printMode?: boolean;
 }>();
 
 const factionVar = computed(() => getFactionVar(props.faction));
@@ -73,12 +84,27 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
 // tarotCardSize() in utils.ts) and CardRenderer.vue's responsive, fixed-
 // aspect-ratio live flip-preview (used across the Card Creator tools and the
 // Arsenal Sheet) — so this component itself stays a flexible h-full/w-full
-// box rather than picking its own pixel size, and uses one comfortably
-// large text size rather than the old aggregate-char-count shrink.
+// box rather than picking its own pixel size. Only the live-preview path
+// opts into shrinkToFit; Capture.vue leaves it off and keeps growing its
+// own wrapper to fit content instead.
+const contentRef = ref<HTMLElement | null>(null);
+const shrinkTarget = computed(() => (props.shrinkToFit ? contentRef.value : null));
+useShrinkToFit(shrinkTarget, () => [props.actions, props.name, props.title], { maxFontSize: 14, minFontSize: 8 });
+
+// Exposes the root element for callers that need to capture this face
+// directly (Editor.vue's hidden print instance) rather than through
+// CardRenderer.vue's own frontRef/backRef.
+const rootRef = ref<HTMLElement | null>(null);
+defineExpose({ rootRef });
 </script>
 
 <template>
-    <div class="card-face card-back relative flex h-full w-full flex-col overflow-hidden rounded-lg bg-neutral-900 text-white">
+    <div
+        ref="rootRef"
+        class="card-face card-back relative flex w-full flex-col rounded-lg"
+        :class="[printMode ? 'bg-white text-neutral-900' : 'bg-neutral-900 text-white', shrinkToFit ? 'h-full overflow-hidden' : '']"
+        :style="[cardWidth ? { width: cardWidth + 'px' } : {}, cardMinHeight ? { minHeight: cardMinHeight + 'px' } : {}]"
+    >
         <!-- Faction border top -->
         <div class="h-1.5 w-full" :style="{ background: borderGradient }" />
 
@@ -98,12 +124,18 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
             <div class="truncate font-bold" :class="nameFontSize">{{ displayName }}</div>
         </div>
 
-        <!-- Content area -->
-        <div class="flex-1 px-2.5 py-2 text-sm leading-6">
+        <!-- Content area — flex-1 already gives this a measurable height
+             budget. overflow-hidden is scoped to shrinkToFit=true (the live
+             preview, which measures against it to decide how far to shrink
+             text) — the capture path (shrinkToFit=false, useShrinkToFit a
+             no-op) leaves it off so pathologically long content grows past
+             CardRenderer.vue/Capture.vue's own tarotCardSize() tier instead
+             of silently clipping. -->
+        <div ref="contentRef" class="flex-1 px-2.5 py-2 text-sm leading-6" :class="{ 'overflow-hidden': shrinkToFit }">
             <!-- Attack Actions -->
             <template v-if="attackActions.length">
                 <!-- Section header row -->
-                <div class="mb-1 flex items-center px-1.5 text-[11px] text-white/40">
+                <div class="mb-1 flex items-center px-1.5 text-[11px]" :class="printMode ? 'text-neutral-400' : 'text-white/40'">
                     <span class="flex-1 font-semibold uppercase tracking-wider">Attack Actions</span>
                     <span class="w-9 text-center">Rg</span>
                     <span class="w-9 text-center">Stat</span>
@@ -129,21 +161,22 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                         </div>
                         <span class="w-9 text-center">
                             <span class="inline-flex items-center justify-center gap-0.5">
-                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="text-xs" />
+                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="text-xs" :size-em="1.0" />
                                 {{ formatRange(action.range) }}
                             </span>
                         </span>
                         <span class="w-9 text-center">
                             <span v-if="action.stat != null" class="inline-flex items-center justify-center gap-0.5">
-                                {{ action.stat }}<GameIcon v-for="s in splitSuits(action.stat_suits)" :key="s" :type="s" class-name="text-xs" />
+                                {{ action.stat
+                                }}<GameIcon v-for="s in splitSuits(action.stat_suits)" :key="s" :type="s" class-name="text-xs" :size-em="1.0" />
                             </span>
                             <span v-else>-</span>
                         </span>
-                        <span class="w-8 text-center text-white/60">{{ action.resisted_by ?? '-' }}</span>
+                        <span class="w-8 text-center" :class="printMode ? 'text-neutral-500' : 'text-white/60'">{{ action.resisted_by ?? '-' }}</span>
                         <span class="w-9 text-center">
                             <span v-if="action.target_number != null" class="inline-flex items-center justify-center gap-0.5">
                                 {{ action.target_number
-                                }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-xs" />
+                                }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-xs" :size-em="1.0" />
                             </span>
                             <span v-else>-</span>
                         </span>
@@ -151,12 +184,16 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                     </div>
 
                     <!-- Description -->
-                    <div v-if="action.description" class="px-2 pb-1.5 text-white/80">
-                        <GameText :text="action.description" icon-class="h-3.5 inline-block align-text-bottom" />
+                    <div v-if="action.description" class="px-2 pb-1.5" :class="printMode ? 'text-neutral-700' : 'text-white/80'">
+                        <GameText :text="action.description" icon-class="inline-block align-text-bottom" />
                     </div>
 
                     <!-- Triggers -->
-                    <div v-if="action.triggers.length" class="space-y-1 border-t border-white/10 px-2 py-1.5">
+                    <div
+                        v-if="action.triggers.length"
+                        class="space-y-1 border-t px-2 py-1.5"
+                        :class="printMode ? 'border-neutral-200' : 'border-white/10'"
+                    >
                         <div v-for="trigger in action.triggers" :key="trigger.name">
                             <span class="font-bold">
                                 <GameIcon v-for="s in splitSuits(trigger.suits)" :key="s" :type="s" class-name="text-sm" />
@@ -165,8 +202,8 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                                 </template>
                                 {{ trigger.name }}:
                             </span>
-                            <span class="text-white/80">
-                                <GameText v-if="trigger.description" :text="trigger.description" icon-class="h-3.5 inline-block align-text-bottom" />
+                            <span :class="printMode ? 'text-neutral-700' : 'text-white/80'">
+                                <GameText v-if="trigger.description" :text="trigger.description" icon-class="inline-block align-text-bottom" />
                             </span>
                         </div>
                     </div>
@@ -176,7 +213,13 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
             <!-- Tactical Actions -->
             <template v-if="tacticalActions.length">
                 <!-- Section header row -->
-                <div class="mb-1 flex items-center px-1.5 text-[11px] text-white/40" :class="attackActions.length ? 'mt-5 border-t border-white/15 pt-3' : ''">
+                <div
+                    class="mb-1 flex items-center px-1.5 text-[11px]"
+                    :class="[
+                        printMode ? 'text-neutral-400' : 'text-white/40',
+                        attackActions.length ? ['mt-5 border-t pt-3', printMode ? 'border-neutral-200' : 'border-white/15'] : '',
+                    ]"
+                >
                     <span class="flex-1 font-semibold uppercase tracking-wider">Tactical Actions</span>
                     <span class="w-9 text-center">Rg</span>
                     <span class="w-9 text-center">Stat</span>
@@ -202,21 +245,22 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                         </div>
                         <span class="w-9 text-center">
                             <span class="inline-flex items-center justify-center gap-0.5">
-                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="text-xs" />
+                                <GameIcon v-if="action.range_type" :type="action.range_type" class-name="text-xs" :size-em="1.0" />
                                 {{ formatRange(action.range) }}
                             </span>
                         </span>
                         <span class="w-9 text-center">
                             <span v-if="action.stat != null" class="inline-flex items-center justify-center gap-0.5">
-                                {{ action.stat }}<GameIcon v-for="s in splitSuits(action.stat_suits)" :key="s" :type="s" class-name="text-xs" />
+                                {{ action.stat
+                                }}<GameIcon v-for="s in splitSuits(action.stat_suits)" :key="s" :type="s" class-name="text-xs" :size-em="1.0" />
                             </span>
                             <span v-else>-</span>
                         </span>
-                        <span class="w-8 text-center text-white/60">{{ action.resisted_by ?? '-' }}</span>
+                        <span class="w-8 text-center" :class="printMode ? 'text-neutral-500' : 'text-white/60'">{{ action.resisted_by ?? '-' }}</span>
                         <span class="w-9 text-center">
                             <span v-if="action.target_number != null" class="inline-flex items-center justify-center gap-0.5">
                                 {{ action.target_number
-                                }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-xs" />
+                                }}<GameIcon v-for="s in splitSuits(action.target_suits)" :key="s" :type="s" class-name="text-xs" :size-em="1.0" />
                             </span>
                             <span v-else>-</span>
                         </span>
@@ -224,12 +268,16 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                     </div>
 
                     <!-- Description -->
-                    <div v-if="action.description" class="px-2 pb-1.5 text-white/80">
-                        <GameText :text="action.description" icon-class="h-3.5 inline-block align-text-bottom" />
+                    <div v-if="action.description" class="px-2 pb-1.5" :class="printMode ? 'text-neutral-700' : 'text-white/80'">
+                        <GameText :text="action.description" icon-class="inline-block align-text-bottom" />
                     </div>
 
                     <!-- Triggers -->
-                    <div v-if="action.triggers.length" class="space-y-1 border-t border-white/10 px-2 py-1.5">
+                    <div
+                        v-if="action.triggers.length"
+                        class="space-y-1 border-t px-2 py-1.5"
+                        :class="printMode ? 'border-neutral-200' : 'border-white/10'"
+                    >
                         <div v-for="trigger in action.triggers" :key="trigger.name">
                             <span class="font-bold">
                                 <GameIcon v-for="s in splitSuits(trigger.suits)" :key="s" :type="s" class-name="text-sm" />
@@ -238,8 +286,8 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
                                 </template>
                                 {{ trigger.name }}:
                             </span>
-                            <span class="text-white/80">
-                                <GameText v-if="trigger.description" :text="trigger.description" icon-class="h-3.5 inline-block align-text-bottom" />
+                            <span :class="printMode ? 'text-neutral-700' : 'text-white/80'">
+                                <GameText v-if="trigger.description" :text="trigger.description" icon-class="inline-block align-text-bottom" />
                             </span>
                         </div>
                     </div>
@@ -248,7 +296,9 @@ const tacticalActions = computed(() => props.actions.filter((a) => a.type === 't
         </div>
 
         <!-- Footer watermark -->
-        <div class="px-3 py-1 text-center text-[9px] uppercase tracking-widest text-white/20">Fan-Made Custom Card</div>
+        <div class="px-3 py-1 text-center text-[9px] uppercase tracking-widest" :class="printMode ? 'text-neutral-300' : 'text-white/20'">
+            Fan-Made Custom Card
+        </div>
 
         <!-- Faction border bottom -->
         <div class="h-1 w-full" :style="{ background: borderGradient }" />

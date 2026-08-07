@@ -9,6 +9,7 @@ use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignPlayer;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
@@ -67,6 +68,32 @@ it('start is idempotent — second call returns the same aftermath', function ()
     $this->actingAs($user)->post(route('campaigns.aftermaths.start', $game));
 
     expect(CampaignAftermath::count())->toBe(1);
+});
+
+it('start restores an annihilated Lucky Upstart starter equipment — it never counts towards CR and is never permanently lost (pg 17)', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+
+    $equipment = CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'source' => 'starting_lucky_upstart',
+        'excludes_from_cr' => true,
+        'annihilated_at' => now(),
+    ]);
+
+    // A normal (Barter) equipment row should NOT be resurrected — only the
+    // Lucky Upstart starter is "never permanently lost".
+    $normalEquipment = CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'source' => 'barter',
+        'annihilated_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.aftermaths.start', $game))
+        ->assertRedirect();
+
+    expect($equipment->fresh()->annihilated_at)->toBeNull();
+    expect($normalEquipment->fresh()->annihilated_at)->not->toBeNull();
 });
 
 it('renders the aftermath wizard for the crew owner', function () {
@@ -1337,12 +1364,9 @@ it('Phase 4 Totem Advancement no longer requires a flip value (flip-gating remov
         'hand_drawn' => [],
     ]);
     buildLeaderFor($crew, $user);
-    $totemTemplate = \App\Models\CustomCharacter::create([
-        'user_id' => $user->id,
-        'is_campaign_totem_template' => true,
+    $totemTemplate = CampaignTotemTemplate::factory()->create([
         'campaign_totem_flip_value' => 7,
         'name' => 'Wisp',
-        'display_name' => 'Wisp',
         'faction' => \App\Enums\FactionEnum::Arcanists->value,
         'health' => 4,
         'defense' => 4,
@@ -1379,11 +1403,8 @@ it('Phase 4 Totem Advancement carries the template ability body under the descri
         'hand_drawn' => [],
     ]);
     buildLeaderFor($crew, $user);
-    $totemTemplate = \App\Models\CustomCharacter::create([
-        'user_id' => $user->id,
-        'is_campaign_totem_template' => true,
+    $totemTemplate = CampaignTotemTemplate::factory()->create([
         'name' => 'Wisp',
-        'display_name' => 'Wisp',
         'faction' => \App\Enums\FactionEnum::Arcanists->value,
         'health' => 4,
         'defense' => 4,
@@ -1435,10 +1456,8 @@ it('Phase 4 Totem Advancement is allowed again once the prior totem has been ann
         'name' => 'Annihilated Totem', 'display_name' => 'Annihilated Totem', 'slug' => 'annihilated-totem-'.$crew->id,
         'faction' => 'arcanists', 'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
     ]);
-    $totemTemplate = \App\Models\CustomCharacter::create([
-        'user_id' => $user->id,
-        'is_campaign_totem_template' => true,
-        'name' => 'Wisp', 'display_name' => 'Wisp',
+    $totemTemplate = CampaignTotemTemplate::factory()->create([
+        'name' => 'Wisp',
         'faction' => \App\Enums\FactionEnum::Arcanists->value,
         'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
     ]);
@@ -1471,12 +1490,9 @@ it('Phase 4 Totem Advancement inherits the leader\'s keywords', function () {
     $leader = buildLeaderFor($crew, $user);
     $leader->update(['keywords' => $leaderKeywords]);
 
-    $totemTemplate = \App\Models\CustomCharacter::create([
-        'user_id' => $user->id,
-        'is_campaign_totem_template' => true,
+    $totemTemplate = CampaignTotemTemplate::factory()->create([
         'campaign_totem_flip_value' => 7,
         'name' => 'Wisp',
-        'display_name' => 'Wisp',
         'faction' => \App\Enums\FactionEnum::Arcanists->value,
         'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
     ]);
@@ -2121,12 +2137,9 @@ it('Phase 4 rejects a Totem Advancement when the crew already has a totem', func
         'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
         'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
     ]);
-    $template = \App\Models\CustomCharacter::create([
-        'user_id' => $user->id,
-        'is_campaign_totem_template' => true,
+    $template = CampaignTotemTemplate::factory()->create([
         'campaign_totem_flip_value' => 7,
         'name' => 'Wisp',
-        'display_name' => 'Wisp',
         'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
     ]);
 

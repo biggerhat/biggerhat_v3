@@ -22,14 +22,17 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * starter effect's own actions/abilities, followed by every currently-held
  * Tier-4 borrow's actions/abilities/triggers, in acquisition order.
  *
- * A Tier-4 effect borrowed from a real Crew Card Upgrade (source
- * 'crew_upgrade') carries the same `restriction` a standard, non-Campaign
- * Crew Upgrade already enforces — surfaced here as the qualifying text a
- * real crew card prints above a restricted effect (e.g. "Friendly Ten
- * Thunders models gain the following action:"), via
- * CrewUpgradeRestrictionEnum::descriptor(). The generic pg 15-16 catalog
- * (CampaignCrewCard) has no such field, so its effects — the starter and any
- * 'campaign_crew_card'-sourced Tier-4 borrow — never carry a qualifier.
+ * Every action/ability/trigger item carries a `restriction` and a printed
+ * `qualifier` (the qualifying text a real crew card prints above a
+ * restricted effect, e.g. "Friendly Ten Thunders models gain the following
+ * action:") via CrewUpgradeRestrictionEnum::descriptor() — a real Crew Card
+ * Upgrade borrow (source 'crew_upgrade') uses its own stored pivot
+ * restriction; the starter and any generic ('campaign_crew_card'-sourced)
+ * borrow fall back to DEFAULT_RESTRICTION/BORROWED_RESTRICTION below, since
+ * that catalog has no restriction field of its own. `qualifier_generic` is
+ * the same text without naming a specific type, for when the face component
+ * groups several same-restriction items under one shared header instead of
+ * repeating the line per item.
  */
 class CombinedCrewCardEffects
 {
@@ -57,7 +60,7 @@ class CombinedCrewCardEffects
     public const BORROWED_RESTRICTION = CrewUpgradeRestrictionEnum::FriendlyNonPeonBothKeywords;
 
     /**
-     * @return array<int, array{type: 'action'|'ability'|'trigger'|'text'|'choice', qualifier: string|null, restriction: string|null, source: 'starter'|'borrowed', data: array<string, mixed>}>
+     * @return array<int, array{type: 'action'|'ability'|'trigger'|'text'|'choice', qualifier: string|null, qualifier_generic: string|null, restriction: string|null, source: 'starter'|'borrowed', data: array<string, mixed>}>
      */
     public static function build(CampaignCrew $crew): array
     {
@@ -70,19 +73,21 @@ class CombinedCrewCardEffects
         $starter = $crew->crewCardEffect;
         if ($starter) {
             if ($starter->description) {
-                $items[] = ['type' => 'text', 'qualifier' => null, 'restriction' => null, 'source' => 'starter', 'data' => ['body' => $starter->description]];
+                $items[] = ['type' => 'text', 'qualifier' => null, 'qualifier_generic' => null, 'restriction' => null, 'source' => 'starter', 'data' => ['body' => $starter->description]];
             }
             // The starter's own token/marker/upgrade-type pick (pg 17-18) —
             // previously only shown as page text next to the generated image,
-            // never printed on the image itself (T3-33).
+            // never printed on the image itself (T3-33). effect_name lets the
+            // face component print a top-of-card "Chosen for X:" note instead
+            // of inlining the pick amongst the effect list.
             if ($crew->crew_card_choice) {
-                $items[] = ['type' => 'choice', 'qualifier' => null, 'restriction' => null, 'source' => 'starter', 'data' => $crew->crew_card_choice];
+                $items[] = ['type' => 'choice', 'qualifier' => null, 'qualifier_generic' => null, 'restriction' => null, 'source' => 'starter', 'data' => [...$crew->crew_card_choice, 'effect_name' => $starter->name]];
             }
             foreach ($starter->actions as $action) {
-                $items[] = ['type' => 'action', 'qualifier' => null, 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeAction($action)];
+                $items[] = ['type' => 'action', 'qualifier' => self::DEFAULT_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Action), 'qualifier_generic' => self::DEFAULT_RESTRICTION->descriptorGeneric(), 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeAction($action)];
             }
             foreach ($starter->abilities as $ability) {
-                $items[] = ['type' => 'ability', 'qualifier' => null, 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeAbility($ability)];
+                $items[] = ['type' => 'ability', 'qualifier' => self::DEFAULT_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Ability), 'qualifier_generic' => self::DEFAULT_RESTRICTION->descriptorGeneric(), 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeAbility($ability)];
             }
         }
 
@@ -118,14 +123,14 @@ class CombinedCrewCardEffects
             // second (or later) borrowed effect's description silently never
             // makes it onto the combined card image.
             if ($effect->description) {
-                $items[] = ['type' => 'text', 'qualifier' => null, 'restriction' => null, 'source' => 'borrowed', 'data' => ['body' => $effect->description]];
+                $items[] = ['type' => 'text', 'qualifier' => null, 'qualifier_generic' => null, 'restriction' => null, 'source' => 'borrowed', 'data' => ['body' => $effect->description]];
             }
 
             // This specific borrow's own token/marker/upgrade-type pick, when
             // its generic catalog source (CampaignCrewCard) required one —
             // never set on an Upgrade-sourced borrow (T3-33).
             if ($advancement->crew_card_choice) {
-                $items[] = ['type' => 'choice', 'qualifier' => null, 'restriction' => null, 'source' => 'borrowed', 'data' => $advancement->crew_card_choice];
+                $items[] = ['type' => 'choice', 'qualifier' => null, 'qualifier_generic' => null, 'restriction' => null, 'source' => 'borrowed', 'data' => [...$advancement->crew_card_choice, 'effect_name' => $effect->name]];
             }
 
             foreach ($effect->actions as $action) {
@@ -133,15 +138,15 @@ class CombinedCrewCardEffects
                 $pivotRestriction = $isCrewUpgrade ? $action->pivot->restriction : null;
                 $items[] = [
                     'type' => 'action',
-                    // Printed qualifier text stays scoped to a real Upgrade's own
-                    // stored restriction, unchanged from before — the generic
-                    // catalog's implicit default (used for the restriction field
-                    // below) is a fallback for matching purposes only, not
-                    // something to newly print on the card image itself (that's
-                    // a separate redesign).
-                    'qualifier' => self::descriptorFor($pivotRestriction, CrewUpgradeRestrictionDescriptorTypeEnum::Action),
-                    // A generic-catalog borrow upgrades to "both keywords" here
-                    // (pg 31-32) — see BORROWED_RESTRICTION.
+                    // A real Upgrade borrow prints its own stored restriction;
+                    // a generic-catalog borrow falls back to BORROWED_RESTRICTION
+                    // (pg 31-32: upgrades to "both keywords" once borrowed).
+                    'qualifier' => $isCrewUpgrade
+                        ? self::descriptorFor($pivotRestriction, CrewUpgradeRestrictionDescriptorTypeEnum::Action)
+                        : self::BORROWED_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Action),
+                    'qualifier_generic' => $isCrewUpgrade
+                        ? self::descriptorForGeneric($pivotRestriction)
+                        : self::BORROWED_RESTRICTION->descriptorGeneric(),
                     'restriction' => $isCrewUpgrade ? $pivotRestriction : self::BORROWED_RESTRICTION->value,
                     'source' => 'borrowed',
                     'data' => self::shapeAction($action),
@@ -152,7 +157,12 @@ class CombinedCrewCardEffects
                 $pivotRestriction = $isCrewUpgrade ? $ability->pivot->restriction : null;
                 $items[] = [
                     'type' => 'ability',
-                    'qualifier' => self::descriptorFor($pivotRestriction, CrewUpgradeRestrictionDescriptorTypeEnum::Ability),
+                    'qualifier' => $isCrewUpgrade
+                        ? self::descriptorFor($pivotRestriction, CrewUpgradeRestrictionDescriptorTypeEnum::Ability)
+                        : self::BORROWED_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Ability),
+                    'qualifier_generic' => $isCrewUpgrade
+                        ? self::descriptorForGeneric($pivotRestriction)
+                        : self::BORROWED_RESTRICTION->descriptorGeneric(),
                     'restriction' => $isCrewUpgrade ? $pivotRestriction : self::BORROWED_RESTRICTION->value,
                     'source' => 'borrowed',
                     'data' => self::shapeAbility($ability),
@@ -167,6 +177,7 @@ class CombinedCrewCardEffects
                     $items[] = [
                         'type' => 'trigger',
                         'qualifier' => self::descriptorFor($restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Trigger),
+                        'qualifier_generic' => self::descriptorForGeneric($restriction),
                         'restriction' => $restriction,
                         'source' => 'borrowed',
                         'data' => self::shapeTrigger($trigger),
@@ -185,7 +196,7 @@ class CombinedCrewCardEffects
      * automatically come with any associated triggers"), matching
      * shapeAction()'s own 'triggers' field.
      *
-     * @return array{type: 'action'|'ability'|'trigger', qualifier: string|null, restriction: string|null, data: array<string, mixed>}|null
+     * @return array{type: 'action'|'ability'|'trigger', qualifier: string|null, qualifier_generic: string|null, restriction: string|null, data: array<string, mixed>}|null
      */
     private static function pickedItem(Upgrade $effect, string $itemType, int $itemId): ?array
     {
@@ -193,18 +204,21 @@ class CombinedCrewCardEffects
             'action' => ($action = $effect->actions->firstWhere('id', $itemId)) ? [
                 'type' => 'action',
                 'qualifier' => self::descriptorFor($action->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Action), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'qualifier_generic' => self::descriptorForGeneric($action->pivot->restriction), // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'restriction' => $action->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'data' => self::shapeAction($action),
             ] : null,
             'ability' => ($ability = $effect->abilities->firstWhere('id', $itemId)) ? [
                 'type' => 'ability',
                 'qualifier' => self::descriptorFor($ability->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Ability), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'qualifier_generic' => self::descriptorForGeneric($ability->pivot->restriction), // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'restriction' => $ability->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'data' => self::shapeAbility($ability),
             ] : null,
             'trigger' => ($trigger = $effect->triggers->firstWhere('id', $itemId)) ? [
                 'type' => 'trigger',
                 'qualifier' => self::descriptorFor($trigger->pivot->restriction, CrewUpgradeRestrictionDescriptorTypeEnum::Trigger), // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                'qualifier_generic' => self::descriptorForGeneric($trigger->pivot->restriction), // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'restriction' => $trigger->pivot->restriction, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 'data' => self::shapeTrigger($trigger),
             ] : null,
@@ -371,6 +385,17 @@ class CombinedCrewCardEffects
         $enum = CrewUpgradeRestrictionEnum::tryFrom($restriction);
 
         return $enum?->descriptor($type);
+    }
+
+    private static function descriptorForGeneric(?string $restriction): ?string
+    {
+        if ($restriction === null) {
+            return null;
+        }
+
+        $enum = CrewUpgradeRestrictionEnum::tryFrom($restriction);
+
+        return $enum?->descriptorGeneric();
     }
 
     /** @return array<string, mixed> */

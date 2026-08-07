@@ -209,7 +209,7 @@ class GameController extends Controller
         // crew + turn snapshots.
         if ($context === GameShowContext::Summary) {
             return array_merge($loads, [
-                'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image',
+                'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at',
                 'players.crewBuild',
                 'players.master.crewUpgrades',
                 'players.turns',
@@ -220,7 +220,7 @@ class GameController extends Controller
         if ($context === GameShowContext::SelfView) {
             // Participants also need crews during Scheme Select.
             if (in_array($game->status, [GameStatusEnum::SchemeSelect, ...$postSetup])) {
-                $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image';
+                $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at';
                 $loads[] = 'players.crewBuild';
                 $loads[] = 'players.master.crewUpgrades';
             }
@@ -231,7 +231,7 @@ class GameController extends Controller
             }
         } elseif (in_array($game->status, $postSetup)) {
             // Observer: crews + full turns once gameplay has started.
-            $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image';
+            $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at';
             $loads[] = 'players.crewBuild';
             $loads[] = 'players.master.crewUpgrades';
             $loads[] = 'players.turns';
@@ -525,8 +525,8 @@ class GameController extends Controller
             ->where('base_game_id', $game->id)
             ->with([
                 'campaign:id,name,current_week,length_weeks',
-                'crewA:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image,crew_card_back_image',
-                'crewB:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image,crew_card_back_image',
+                'crewA:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image,crew_card_back_image,crew_card_generated_at',
+                'crewB:id,share_code,name,user_id,crew_card_effect_id,crew_card_front_image,crew_card_back_image,crew_card_generated_at',
                 'crewA.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'crewA.crewCardEffect.abilities',
                 'crewA.crewCardAdvancements.crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
@@ -574,7 +574,7 @@ class GameController extends Controller
             // Crew Card effect (pg 17, 32, 54) — starter + any Tier-4 borrowed
             // effects. Not surfaced anywhere else in Game Tracker.
             'crew_a_card' => $this->campaignCrewCardPayload($wrap->crewA),
-            'crew_b_card' => $wrap->crewB ? $this->campaignCrewCardPayload($wrap->crewB) : ['effect' => null, 'borrowed' => [], 'front_image' => null, 'back_image' => null],
+            'crew_b_card' => $wrap->crewB ? $this->campaignCrewCardPayload($wrap->crewB) : ['effect' => null, 'borrowed' => [], 'front_image' => null, 'back_image' => null, 'card_generated_at' => null],
         ];
     }
 
@@ -618,7 +618,7 @@ class GameController extends Controller
             'encounter_size' => 0,
             'week_number' => $campaignCrew->campaign->current_week,
             'crew_a_card' => $this->campaignCrewCardPayload($campaignCrew),
-            'crew_b_card' => ['effect' => null, 'borrowed' => [], 'front_image' => null, 'back_image' => null],
+            'crew_b_card' => ['effect' => null, 'borrowed' => [], 'front_image' => null, 'back_image' => null, 'card_generated_at' => null],
         ];
     }
 
@@ -635,7 +635,7 @@ class GameController extends Controller
     }
 
     /**
-     * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>, front_image: string|null, back_image: string|null}
+     * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>, front_image: string|null, back_image: string|null, card_generated_at: string|null}
      */
     private function campaignCrewCardPayload(\App\Models\Campaign\CampaignCrew $crew): array
     {
@@ -649,6 +649,9 @@ class GameController extends Controller
             // Tier-4 borrow on the back, T2-22) — see CombinedCrewCardEffects.
             'front_image' => $crew->crew_card_front_image,
             'back_image' => $crew->crew_card_back_image,
+            // Cache-bust signal for the two image fields above — set only
+            // when CombinedCrewCardImageGenerator::generate() finishes.
+            'card_generated_at' => $crew->crew_card_generated_at,
         ];
     }
 
@@ -717,12 +720,13 @@ class GameController extends Controller
                 // A hired unit sourced from the owner's own Card Creator homebrew
                 // instead of the official catalog — exactly one of character/
                 // customCharacter is set per row (see CampaignArsenalModel).
-                'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,keywords,characteristics',
+                'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,keywords,characteristics,card_image_generated_at',
                 'injuries.injury:id,name,description',
                 'gainedAbilities:id,name,description',
             ])
             ->get()
             ->map(function (\App\Models\Campaign\CampaignArsenalModel $m) use ($leaderKeywordSlugs, $luckyMissNames) {
+                $generatedAt = null;
                 if ($m->customCharacter) {
                     $custom = $m->customCharacter;
                     $keywordNames = collect($custom->keywords ?? [])->pluck('name');
@@ -733,6 +737,7 @@ class GameController extends Controller
                     $cost = $custom->cost ?? 0;
                     $frontImage = $custom->front_image;
                     $backImage = $custom->back_image;
+                    $generatedAt = $custom->card_image_generated_at;
                 } else {
                     $char = $m->character;
                     $keywordNames = $char->keywords->pluck('slug');
@@ -768,6 +773,10 @@ class GameController extends Controller
                     'is_peon' => $m->is_peon,
                     'front_image' => $frontImage,
                     'back_image' => $backImage,
+                    // Cache-bust signal for the two fields above — only ever
+                    // set for a Custom Character-backed row (a real catalog
+                    // miniature's art is static and never needs busting).
+                    'card_image_generated_at' => $generatedAt,
                     'injuries' => $m->injuries
                         ->map(fn ($pivot) => $pivot->injury ? ['id' => $pivot->injury->id, 'name' => $pivot->injury->name] : null)
                         ->filter()

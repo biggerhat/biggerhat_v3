@@ -9,6 +9,7 @@ use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\CampaignPlayer;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
@@ -150,9 +151,7 @@ it('queues a card regeneration for a Totem created via an Advance Leader advance
         'current_phase' => 4,
         'hand_drawn' => [],
     ]);
-    $totemTemplate = CustomCharacter::create([
-        'user_id' => $user->id,
-        'is_campaign_totem_template' => true,
+    $totemTemplate = CampaignTotemTemplate::factory()->create([
         'name' => 'Wisp',
         'faction' => FactionEnum::Resurrectionists->value,
         'health' => 3, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,

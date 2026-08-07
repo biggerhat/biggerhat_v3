@@ -235,7 +235,7 @@ class ArsenalSheetController extends Controller
                 // A hired unit sourced from the owner's own Card Creator homebrew
                 // instead of the official catalog — exactly one of character/
                 // customCharacter is set per row.
-                'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,size,keywords,characteristics',
+                'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,size,keywords,characteristics,card_image_generated_at',
                 'injuries.injury:id,name,description',
                 // Real Abilities gained permanently outside the base
                 // Character catalog row (currently only via Lucky Miss, pg 36).
@@ -323,7 +323,7 @@ class ArsenalSheetController extends Controller
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             'crew' => array_merge(
-                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image', 'crew_card_back_image']),
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image', 'crew_card_back_image', 'crew_card_generated_at']),
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
@@ -365,6 +365,9 @@ class ArsenalSheetController extends Controller
                             'station' => $m->customCharacter->getRawOriginal('station'),
                             'front_image' => $m->customCharacter->front_image,
                             'back_image' => $m->customCharacter->back_image,
+                            // Cache-bust signal for the two fields above — set only
+                            // when LeaderCardImageGenerator::generate() finishes.
+                            'card_image_generated_at' => $m->customCharacter->card_image_generated_at,
                         ] : null,
                         'injuries' => $m->injuries->map(fn ($i) => $this->shapeInjury($i))->filter()->values()->all(),
                         'gained_characteristics' => $m->gained_characteristics ?? [],

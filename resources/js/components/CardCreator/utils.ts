@@ -38,13 +38,6 @@ export function formatRange(range: number | string | null | undefined): string {
     return /^-?\d+(\.\d+)?$/.test(str) ? `${str}"` : str;
 }
 
-export function contentScaleClass(charCount: number): 'scale-sm' | 'scale-md' | 'scale-lg' | 'scale-xl' {
-    if (charCount > 1500) return 'scale-sm';
-    if (charCount > 1000) return 'scale-md';
-    if (charCount > 600) return 'scale-lg';
-    return 'scale-xl';
-}
-
 // Tarot proportions (550x950), tiered up as content grows — used by the
 // headless-capture pages (CaptureCombinedCrewCard.vue, Capture.vue) to size
 // their wrapper div so the card grows to fit content instead of the face
@@ -53,8 +46,8 @@ export function contentScaleClass(charCount: number): 'scale-sm' | 'scale-md' | 
 // `CardBackFace` are also embedded inside a fixed-aspect responsive
 // container elsewhere (CardRenderer.vue's live flip-preview), so for those
 // two the sizing has to live in the capture page instead of the component.
-const TAROT_RATIO = 950 / 550;
-const TAROT_WIDTH_TIERS = [550, 650, 750, 850, 950, 1050, 1150];
+export const TAROT_RATIO = 950 / 550;
+export const TAROT_WIDTH_TIERS = [550, 650, 750, 850, 950, 1050, 1150];
 
 export function tarotCardSize(totalChars: number): { width: number; height: number } {
     const tierIndex = Math.min(Math.floor(totalChars / 900), TAROT_WIDTH_TIERS.length - 1);
@@ -108,6 +101,59 @@ export function createComboImage(frontDataUrl: string, backDataUrl: string): Pro
         frontImg.src = frontDataUrl;
         backImg.src = backDataUrl;
     });
+}
+
+// Real-world tarot card size (pg matches BonanzaDeck.blade.php's print CSS,
+// which already produces correctly card-sized physical pages) — 2.75in x
+// 4.75in, exactly the 550:950 ratio every tarotCardSize() tier shares.
+const CARD_WIDTH_PT = 2.75 * 72;
+const CARD_HEIGHT_PT = 4.75 * 72;
+
+// Fits an element's captured pixel dimensions into the fixed physical card
+// page, preserving aspect ratio (letterboxed, centered, never stretched).
+// Every normal tarotCardSize() tier already shares the page's own 2.75:4.75
+// ratio exactly, so this fills the page edge-to-edge with no letterboxing in
+// the common case — it only kicks in for the rare pathologically-dense-card
+// fallback (useTarotGrowToFit growing height past the tarot proportion).
+function fitToCardPage(elWidth: number, elHeight: number): { w: number; h: number; x: number; y: number } {
+    const scale = Math.min(CARD_WIDTH_PT / elWidth, CARD_HEIGHT_PT / elHeight);
+    const w = elWidth * scale;
+    const h = elHeight * scale;
+    return { w, h, x: (CARD_WIDTH_PT - w) / 2, y: (CARD_HEIGHT_PT - h) / 2 };
+}
+
+// Two-page print-ready PDF (front, then back) from the same toPng() data
+// URLs createComboImage() combines into a single downloadable PNG. The PAGE
+// is always the fixed physical tarot card size (2.75in x 4.75in) regardless
+// of how many pixels the capture used — capturing at a bigger tarotCardSize
+// tier (for a content-dense card) means more pixels/crisper text scaled down
+// to fit that same physical page, not a physically bigger page. Previously
+// this sized the page 1:1 with the captured element's pixel dimensions
+// (assuming 96dpi), which grew the PHYSICAL page every time a denser card
+// needed a bigger capture tier, instead of keeping a fixed card-sized page.
+export async function exportComboAsPdf(
+    frontDataUrl: string,
+    backDataUrl: string,
+    frontEl: HTMLElement,
+    backEl: HTMLElement,
+    filename: string,
+): Promise<void> {
+    const { jsPDF } = await import('jspdf');
+
+    const front = fitToCardPage(frontEl.offsetWidth, frontEl.offsetHeight);
+    const back = fitToCardPage(backEl.offsetWidth, backEl.offsetHeight);
+
+    const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: [CARD_WIDTH_PT, CARD_HEIGHT_PT],
+    });
+    pdf.addImage(frontDataUrl, 'PNG', front.x, front.y, front.w, front.h);
+
+    pdf.addPage([CARD_WIDTH_PT, CARD_HEIGHT_PT], 'portrait');
+    pdf.addImage(backDataUrl, 'PNG', back.x, back.y, back.w, back.h);
+
+    pdf.save(filename);
 }
 
 export function triggerDownload(dataUrl: string, filename: string): void {

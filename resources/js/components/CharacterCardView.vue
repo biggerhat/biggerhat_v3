@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 import Button from '@/components/ui/button/Button.vue';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import type { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
@@ -106,8 +107,15 @@ const addToCollection = () => {
     );
 };
 
-const frontImageUrl = computed(() => (props.miniature.front_image ? '/storage/' + props.miniature.front_image : null));
-const backImageUrl = computed(() => (props.miniature.back_image ? '/storage/' + props.miniature.back_image : null));
+// Cache-bust signal for a generated Leader/Totem card image (fixed,
+// overwritten-in-place filename) — see cacheBustedImagePath. Absent/null for
+// a real miniature's static art, which never needs busting.
+const frontImageUrl = computed(() =>
+    props.miniature.front_image ? '/storage/' + cacheBustedImagePath(props.miniature.front_image, props.miniature.card_image_generated_at) : null,
+);
+const backImageUrl = computed(() =>
+    props.miniature.back_image ? '/storage/' + cacheBustedImagePath(props.miniature.back_image, props.miniature.card_image_generated_at) : null,
+);
 </script>
 
 <template>
@@ -122,7 +130,7 @@ const backImageUrl = computed(() => (props.miniature.back_image ? '/storage/' + 
                 >
                     <div class="card-face" style="backface-visibility: hidden">
                         <img
-                            :src="'/storage/' + miniature.front_image"
+                            :src="frontImageUrl ?? '/storage/' + miniature.front_image"
                             :alt="miniature.display_name"
                             loading="lazy"
                             decoding="async"
@@ -131,7 +139,7 @@ const backImageUrl = computed(() => (props.miniature.back_image ? '/storage/' + 
                     </div>
                     <div class="card-face absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
                         <img
-                            :src="'/storage/' + miniature.back_image"
+                            :src="backImageUrl ?? '/storage/' + miniature.back_image"
                             :alt="miniature.display_name"
                             loading="lazy"
                             decoding="async"

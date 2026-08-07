@@ -12,13 +12,11 @@ use App\Models\Campaign\AdvancementAttackMod;
 use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignCrewCard;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Campaign\WeeklyEvent;
-use App\Models\CustomCharacter;
 use App\Models\Upgrade;
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Dev/CI convenience seeder for Campaign Mode (Index of the Untold) catalogs.
@@ -32,8 +30,9 @@ use Illuminate\Support\Facades\DB;
  *
  * Post-consolidation: equipment / injuries live on the `upgrades` table,
  * crew card effects live on `abilities`, summoning advancements live on
- * `actions`, totems live on `custom_characters` — all filtered via
- * `game_mode_type = 'campaign'` + a discriminator column where needed.
+ * `actions`, totem templates live on `campaign_totem_templates` — all
+ * filtered via `game_mode_type = 'campaign'` + a discriminator column where
+ * needed.
  * Attack Mod / Tactical Mod / Action / Ability advancements have their own
  * dedicated tables (advancement_attack_mods / advancement_tactical_mods /
  * advancement_actions / advancement_abilities).
@@ -300,43 +299,29 @@ class CampaignCatalogSeeder extends Seeder
 
     private function seedTotems(): void
     {
-        if (CustomCharacter::query()->where('is_campaign_totem_template', true)->exists()) {
+        if (CampaignTotemTemplate::query()->exists()) {
             return;
         }
 
-        $systemUserId = $this->ensureSystemUser();
-
         // Modest placeholder stats — these template rows just need valid
-        // non-null stat columns; share_code/slug are auto-generated on create.
+        // non-null stat columns.
         $totemStats = ['health' => 3, 'defense' => 4, 'willpower' => 5, 'speed' => 4];
 
         foreach ([3, 7, 11] as $fv) {
-            CustomCharacter::create([
-                'user_id' => $systemUserId,
+            CampaignTotemTemplate::create([
                 'name' => "Spirit Familiar {$fv}",
-                'display_name' => "Spirit Familiar {$fv}",
-                'is_campaign_totem' => true,
-                'is_campaign_totem_template' => true,
                 'campaign_totem_flip_value' => $fv,
                 ...$totemStats,
             ]);
         }
 
-        CustomCharacter::create([
-            'user_id' => $systemUserId,
+        CampaignTotemTemplate::create([
             'name' => 'Sniveling Coward',
-            'display_name' => 'Sniveling Coward',
-            'is_campaign_totem' => true,
-            'is_campaign_totem_template' => true,
             'campaign_is_black_joker_totem' => true,
             ...$totemStats,
         ]);
-        CustomCharacter::create([
-            'user_id' => $systemUserId,
+        CampaignTotemTemplate::create([
             'name' => 'Mini Master',
-            'display_name' => 'Mini Master',
-            'is_campaign_totem' => true,
-            'is_campaign_totem_template' => true,
             'campaign_is_mini_master' => true,
             ...$totemStats,
         ]);
@@ -375,21 +360,5 @@ class CampaignCatalogSeeder extends Seeder
             'flip_value' => null,
             'is_black_joker' => true,
         ]);
-    }
-
-    private function ensureSystemUser(): int
-    {
-        $email = 'system-totem-templates@biggerhat.local';
-
-        return (int) (User::query()->where('email', $email)->value('id')
-            ?? DB::table('users')->insertGetId([
-                'name' => 'System (Totem Templates)',
-                'slug' => 'system-totem-templates',
-                'email' => $email,
-                'password' => bcrypt(\Illuminate\Support\Str::random(40)),
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
     }
 }

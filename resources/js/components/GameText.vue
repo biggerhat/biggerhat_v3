@@ -10,11 +10,21 @@ defineOptions({
 interface Props {
     text: string;
     iconClass?: HTMLAttributes['class'];
+    /** Passed straight through to GameIcon's own sizeEm prop — leave unset
+     * to use GameIcon's default (matches surrounding body text); override
+     * for a context where inline icons should read smaller/larger than the
+     * prose around them. */
+    iconSizeEm?: number;
     maxLength?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    iconClass: 'h-4 inline-block align-text-bottom',
+    // No height utility here — GameIcon is a text glyph, not a replaced
+    // element, so its rendered size comes purely from font-size (sizeEm).
+    // An explicit height shorter than that font-size doesn't clip/scale the
+    // glyph; it just shrinks the box vertical-align anchors against, making
+    // the (unclipped, full-size) glyph visually hang below the text line.
+    iconClass: 'inline-block align-text-bottom',
     maxLength: 0,
 });
 
@@ -88,6 +98,6 @@ const segments = computed((): Segment[] => {
 <template>
     <template v-for="(segment, i) in segments" :key="i">
         <template v-if="segment.type === 'text'">{{ segment.value }}</template>
-        <GameIcon v-else :type="segment.iconType" :class-name="iconClass" />
+        <GameIcon v-else :type="segment.iconType" :class-name="iconClass" :size-em="iconSizeEm" />
     </template>
 </template>

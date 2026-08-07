@@ -8,6 +8,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerT
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { Images, Maximize2, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
@@ -92,6 +93,10 @@ interface PreviewMember {
         abilities: CustomCharacterAbility[];
         front_image?: string | null;
         back_image?: string | null;
+        // Cache-bust signal for front_image/back_image above — see
+        // CustomCharacter.card_image_generated_at / GameController's
+        // customCharacter eager-load selects.
+        card_image_generated_at?: string | null;
     } | null;
 }
 
@@ -171,6 +176,10 @@ const currentSculptId = computed(() => {
 // the generated card renders once one exists, same as the inline expand view.
 const effectiveFrontImage = computed(() => props.member?.front_image ?? props.member?.custom_character?.front_image ?? null);
 const effectiveBackImage = computed(() => props.member?.back_image ?? props.member?.custom_character?.back_image ?? null);
+// Cache-bust signal for the generated Leader/Totem card art above — only
+// relevant when the source is custom_character (a real miniature's static
+// front_image never has this field, and never needs busting).
+const effectiveGeneratedAt = computed(() => (props.member?.front_image ? null : (props.member?.custom_character?.card_image_generated_at ?? null)));
 
 // Visual sculpt picker: dropdown is fast for keyboard users and power-users,
 // but picking by name alone is hard when half the sculpts share one. The
@@ -228,14 +237,20 @@ const handleVisualPick = (miniatureId: number) => {
                     </DrawerHeader>
                 </div>
                 <div class="flex-1 overflow-y-auto">
+                    <!-- Card height is capped well below the drawer's full height (not
+                         65dvh, the pre-sticky size) — since this block is sticky it
+                         permanently occupies that much of the viewport, and at 65dvh
+                         there was barely any room left to see the Notes/upgrades
+                         section scroll underneath it. Full-size art is still one tap
+                         away via the fullscreen button. -->
                     <div v-if="effectiveFrontImage" class="sticky top-0 z-10 bg-background px-4 pb-2">
                         <!-- Desktop: side-by-side combo view -->
                         <div class="hidden items-start justify-center gap-2 sm:flex">
                             <div class="relative">
                                 <img
-                                    :src="'/storage/' + effectiveFrontImage"
+                                    :src="'/storage/' + cacheBustedImagePath(effectiveFrontImage, effectiveGeneratedAt)"
                                     :alt="member.display_name + ' front'"
-                                    class="max-h-[65dvh] w-auto rounded-lg object-contain"
+                                    class="max-h-[32dvh] w-auto rounded-lg object-contain"
                                 />
                                 <button
                                     class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
@@ -243,8 +258,10 @@ const handleVisualPick = (miniatureId: number) => {
                                     aria-label="View fullscreen"
                                     @click="
                                         emit('open-fullscreen', {
-                                            src: '/storage/' + effectiveFrontImage,
-                                            backSrc: effectiveBackImage ? '/storage/' + effectiveBackImage : null,
+                                            src: '/storage/' + cacheBustedImagePath(effectiveFrontImage, effectiveGeneratedAt),
+                                            backSrc: effectiveBackImage
+                                                ? '/storage/' + cacheBustedImagePath(effectiveBackImage, effectiveGeneratedAt)
+                                                : null,
                                             title: member.display_name,
                                         })
                                     "
@@ -254,9 +271,9 @@ const handleVisualPick = (miniatureId: number) => {
                             </div>
                             <div v-if="effectiveBackImage" class="relative">
                                 <img
-                                    :src="'/storage/' + effectiveBackImage"
+                                    :src="'/storage/' + cacheBustedImagePath(effectiveBackImage, effectiveGeneratedAt)"
                                     :alt="member.display_name + ' back'"
-                                    class="max-h-[65dvh] w-auto rounded-lg object-contain"
+                                    class="max-h-[32dvh] w-auto rounded-lg object-contain"
                                 />
                                 <button
                                     class="absolute bottom-2 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
@@ -264,8 +281,8 @@ const handleVisualPick = (miniatureId: number) => {
                                     aria-label="View fullscreen"
                                     @click="
                                         emit('open-fullscreen', {
-                                            src: '/storage/' + effectiveBackImage,
-                                            backSrc: '/storage/' + effectiveFrontImage,
+                                            src: '/storage/' + cacheBustedImagePath(effectiveBackImage, effectiveGeneratedAt),
+                                            backSrc: '/storage/' + cacheBustedImagePath(effectiveFrontImage, effectiveGeneratedAt),
                                             title: member.display_name,
                                         })
                                     "
@@ -276,7 +293,7 @@ const handleVisualPick = (miniatureId: number) => {
                         </div>
                         <!-- Mobile: flip card -->
                         <div
-                            class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[65dvh] [&_img]:w-auto [&_img]:object-contain"
+                            class="flex min-h-0 flex-1 items-start justify-center sm:hidden [&_img]:max-h-[32dvh] [&_img]:w-auto [&_img]:object-contain"
                         >
                             <CharacterCardView
                                 :key="effectiveFrontImage"
@@ -286,6 +303,7 @@ const handleVisualPick = (miniatureId: number) => {
                                     slug: '',
                                     front_image: effectiveFrontImage,
                                     back_image: effectiveBackImage,
+                                    card_image_generated_at: effectiveGeneratedAt,
                                 }"
                                 :show-link="false"
                                 :show-collection="false"

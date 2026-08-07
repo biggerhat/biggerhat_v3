@@ -53,6 +53,7 @@ import { factionBackground } from '@/composables/useFactionColor';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER_PROMINENT, CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { playerName } from '@/lib/gameDisplay';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
@@ -199,6 +200,9 @@ interface CampaignCrewCardPayload {
     // effect set changes. Null until the first render lands.
     front_image: string | null;
     back_image: string | null;
+    // Cache-bust signal for the two fields above — set only when
+    // CombinedCrewCardImageGenerator::generate() finishes (see GameController::campaignCrewCardPayload()).
+    card_generated_at: string | null;
 }
 
 const props = defineProps<{
@@ -1168,7 +1172,7 @@ const crewCardImageSrc = (side: 'a' | 'b'): string | null => {
     const card = crewCardPayload(side);
     if (!card) return null;
     const showBack = flippedCrewCard.value[side] && card.back_image;
-    return showBack ? card.back_image : card.front_image;
+    return cacheBustedImagePath(showBack ? card.back_image : card.front_image, card.card_generated_at);
 };
 
 // Once a Campaign game finishes, each player runs their OWN Aftermath (the
@@ -4527,11 +4531,16 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text) -->
                                         <img
                                             v-if="myCrewCard.front_image"
-                                            :src="'/storage/' + myCrewCard.front_image"
+                                            :src="'/storage/' + cacheBustedImagePath(myCrewCard.front_image, myCrewCard.card_generated_at)"
                                             :alt="`${myPlayer?.master_name ?? 'My'} Crew Card`"
                                             class="max-h-96 cursor-pointer rounded-md border-2"
                                             :style="myCrewCardBorderStyle"
-                                            @click="openCardFullscreen({ src: '/storage/' + myCrewCard.front_image, title: 'Crew Card' })"
+                                            @click="
+                                                openCardFullscreen({
+                                                    src: '/storage/' + cacheBustedImagePath(myCrewCard.front_image, myCrewCard.card_generated_at),
+                                                    title: 'Crew Card',
+                                                })
+                                            "
                                         />
                                         <!-- Fallback text rendering while the combined image hasn't generated yet -->
                                         <template v-else>
@@ -4837,6 +4846,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 slug: '',
                                                 front_image: member.custom_character.front_image,
                                                 back_image: member.custom_character.back_image,
+                                                card_image_generated_at: member.custom_character.card_image_generated_at,
                                             }"
                                             :show-link="false"
                                             :show-collection="false"
@@ -5134,11 +5144,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text) -->
                                         <img
                                             v-if="opponentCrewCard.front_image"
-                                            :src="'/storage/' + opponentCrewCard.front_image"
+                                            :src="
+                                                '/storage/' + cacheBustedImagePath(opponentCrewCard.front_image, opponentCrewCard.card_generated_at)
+                                            "
                                             :alt="`${opponent?.master_name ?? 'Opponent'} Crew Card`"
                                             class="max-h-96 cursor-pointer rounded-md border-2"
                                             :style="opponentCrewCardBorderStyle"
-                                            @click="openCardFullscreen({ src: '/storage/' + opponentCrewCard!.front_image!, title: 'Crew Card' })"
+                                            @click="
+                                                openCardFullscreen({
+                                                    src:
+                                                        '/storage/' +
+                                                        cacheBustedImagePath(opponentCrewCard!.front_image!, opponentCrewCard!.card_generated_at),
+                                                    title: 'Crew Card',
+                                                })
+                                            "
                                         />
                                         <!-- Fallback text rendering while the combined image hasn't generated yet -->
                                         <template v-else>
@@ -5437,6 +5456,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 slug: '',
                                                 front_image: member.custom_character.front_image,
                                                 back_image: member.custom_character.back_image,
+                                                card_image_generated_at: member.custom_character.card_image_generated_at,
                                             }"
                                             :show-link="false"
                                             :show-collection="false"

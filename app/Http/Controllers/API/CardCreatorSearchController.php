@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Enums\ActionTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
@@ -26,9 +27,17 @@ class CardCreatorSearchController extends Controller
             return response()->json([]);
         }
 
+        // Tab filter for the browse modal (Attack/Tactical) — absent/invalid
+        // values leave results unfiltered, matching the inline autocomplete's
+        // existing behavior.
+        $type = (string) $request->get('type', '');
+        $typeFilter = in_array($type, [ActionTypeEnum::Attack->value, ActionTypeEnum::Tactical->value], true) ? $type : null;
+
         $actions = Action::where('name', 'LIKE', "%{$q}%")
+            ->when($typeFilter !== null, fn ($qq) => $qq->where('type', $typeFilter))
             ->with('triggers')
-            ->limit(15)
+            ->orderBy('name')
+            ->limit(30)
             ->get();
 
         return response()->json($actions->map(fn (Action $a) => [
@@ -66,7 +75,8 @@ class CardCreatorSearchController extends Controller
         }
 
         $abilities = Ability::where('name', 'LIKE', "%{$q}%")
-            ->limit(15)
+            ->orderBy('name')
+            ->limit(30)
             ->get();
 
         return response()->json($abilities->map(fn (Ability $a) => [

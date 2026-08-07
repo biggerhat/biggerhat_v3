@@ -32,6 +32,7 @@ use Illuminate\Support\Str;
  * @property array{type: string, id: int|string, name: string}|null $crew_card_choice
  * @property string|null $crew_card_front_image generated image of the crew's starter effect (T2-22) — see CombinedCrewCardEffects
  * @property string|null $crew_card_back_image generated image of every currently-held Tier-4 borrowed effect (T2-22) — see CombinedCrewCardEffects
+ * @property \Carbon\CarbonInterface|null $crew_card_generated_at set only when CombinedCrewCardImageGenerator::generate() finishes — the cache-bust signal for crew_card_front_image/crew_card_back_image
  * @property int $scrip
  * @property int $total_wins
  * @property \Carbon\CarbonImmutable|null $retired_at
@@ -69,6 +70,7 @@ class CampaignCrew extends Model
             'retired_at' => 'immutable_datetime',
             'starting_anew_at' => 'immutable_datetime',
             'crew_card_choice' => 'array',
+            'crew_card_generated_at' => 'datetime',
         ];
     }
 

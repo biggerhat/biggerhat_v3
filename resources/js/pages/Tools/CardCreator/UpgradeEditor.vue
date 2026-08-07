@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
+import UpgradeBackFace from '@/components/CardCreator/UpgradeBackFace.vue';
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
-import { createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
+import UpgradeFrontFace from '@/components/CardCreator/UpgradeFrontFace.vue';
+import { createComboImage, exportComboAsPdf, fetchFontEmbedCSS, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,9 +13,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Download, Loader2, Plus, Save, Trash2 } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Download, FileText, Loader2, Plus, Save, Trash2 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 
 interface EnumOption {
@@ -107,6 +111,51 @@ const saving = ref(false);
 const exporting = ref(false);
 const errors = ref<Record<string, string>>({});
 const cardRendererRef = ref<InstanceType<typeof UpgradeCardRenderer> | null>(null);
+const exportFrontRef = ref<InstanceType<typeof UpgradeFrontFace> | null>(null);
+const exportBackRef = ref<InstanceType<typeof UpgradeBackFace> | null>(null);
+const printFrontRef = ref<InstanceType<typeof UpgradeFrontFace> | null>(null);
+const printBackRef = ref<InstanceType<typeof UpgradeBackFace> | null>(null);
+
+// The live preview (UpgradeCardRenderer.vue) sits in this page's 1/3-width
+// column, which routinely clamps its box below every tarotCardSize tier —
+// there's no room for it to grow into, so it falls back to shrinkToFit
+// (shrinking text to fit whatever width the column allows) rather than
+// growing. Exports must not inherit that constraint, so both PNG and PDF
+// export capture from their own hidden, off-screen, unconstrained instances
+// instead of the live preview — measured on demand right before each
+// export, not continuously, since they're never shown on screen. Char-count
+// guess mirrors UpgradeCardRenderer.vue's frontChars formula.
+const contentCharGuess = () =>
+    tarotCardSize(
+        contentBlocks.reduce((sum, block) => {
+            if (block.type === 'text') return sum + (block.text?.length ?? 0);
+            const d = block.data;
+            if (!d) return sum;
+            const triggerChars = ((d.triggers as { name: string; description: string | null }[] | undefined) ?? []).reduce(
+                (ts, t) => ts + (t.description?.length ?? 0) + t.name.length,
+                0,
+            );
+            return sum + ((d.description as string | null)?.length ?? 0) + ((d.name as string | undefined)?.length ?? 0) + triggerChars;
+        }, 0),
+    ).width;
+const {
+    width: exportWidth,
+    height: exportHeight,
+    measure: measureExportSize,
+} = useTarotGrowToFit(
+    () => exportFrontRef.value?.rootRef,
+    () => exportBackRef.value?.rootRef,
+    contentCharGuess,
+);
+const {
+    width: printWidth,
+    height: printHeight,
+    measure: measurePrintSize,
+} = useTarotGrowToFit(
+    () => printFrontRef.value?.rootRef,
+    () => printBackRef.value?.rootRef,
+    contentCharGuess,
+);
 
 const noneToNull = (v: string | null | undefined) => (!v || v === 'none' ? null : v);
 
@@ -249,33 +298,51 @@ const pickSearchResult = (official: any) => {
 
 // Image export
 
+const exportingPdf = ref(false);
+
+// Shared by exportImages() (PNG) and exportPdf() below.
+const captureFaces = async (
+    frontEl: HTMLElement | null | undefined,
+    backEl: HTMLElement | null | undefined,
+): Promise<{ frontData: string; backData: string; frontEl: HTMLElement; backEl: HTMLElement } | null> => {
+    if (!frontEl || !backEl) return null;
+    const { toPng } = await import('html-to-image');
+    const fontEmbedCSS = await fetchFontEmbedCSS();
+    const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
+    const frontData = await toPng(frontEl, opts);
+    const backData = await toPng(backEl, opts);
+    return { frontData, backData, frontEl, backEl };
+};
+
 const exportImages = async () => {
-    if (!cardRendererRef.value) return;
     exporting.value = true;
     try {
-        const { toPng } = await import('html-to-image');
-        const fontEmbedCSS = await fetchFontEmbedCSS();
-        const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
-        const frontEl = cardRendererRef.value.frontRef;
-        const backEl = cardRendererRef.value.backRef;
-        if (!frontEl || !backEl) return;
-        const origFrontBackface = frontEl.style.backfaceVisibility;
-        frontEl.style.backfaceVisibility = 'visible';
-        const frontData = await toPng(frontEl, opts);
-        frontEl.style.backfaceVisibility = origFrontBackface;
-        const origTransform = backEl.style.transform;
-        const origBackface = backEl.style.backfaceVisibility;
-        backEl.style.transform = 'none';
-        backEl.style.backfaceVisibility = 'visible';
-        const backData = await toPng(backEl, opts);
-        backEl.style.transform = origTransform;
-        backEl.style.backfaceVisibility = origBackface;
-        const comboData = await createComboImage(frontData, backData);
+        await measureExportSize();
+        const captured = await captureFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
+        if (!captured) return;
+        const comboData = await createComboImage(captured.frontData, captured.backData);
         triggerDownload(comboData, `${form.name || 'upgrade'}.png`);
     } catch (e) {
         console.error('Image export failed:', e);
     } finally {
         exporting.value = false;
+    }
+};
+
+// Captures the hidden print-mode faces (light theme — see printFrontRef/
+// printBackRef in the template), same shape as exportImages() above but
+// from the print instances instead of the export instances.
+const exportPdf = async () => {
+    exportingPdf.value = true;
+    try {
+        await measurePrintSize();
+        const captured = await captureFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
+        if (!captured) return;
+        await exportComboAsPdf(captured.frontData, captured.backData, captured.frontEl, captured.backEl, `${form.name || 'upgrade'}.pdf`);
+    } catch (e) {
+        console.error('PDF export failed:', e);
+    } finally {
+        exportingPdf.value = false;
     }
 };
 
@@ -348,12 +415,17 @@ const blockTypeLabel = (type: string) => {
     return map[type] ?? type;
 };
 
-const blockTypeColor = (type: string) => {
+// Alternates a lighter/darker shade of the type's tint by list position
+// (idx, across the whole mixed-type list — same treatment CardFrontFace.vue
+// gives the rendered card face via alternatingBoxBg) so adjacent blocks are
+// visually distinguishable even when they're the same type back-to-back.
+const blockTypeColor = (type: string, idx: number) => {
+    const even = idx % 2 === 0;
     const map: Record<string, string> = {
         text: 'bg-muted',
-        ability: 'bg-blue-500/10 border-blue-500/20',
-        action: 'bg-amber-500/10 border-amber-500/20',
-        trigger: 'bg-purple-500/10 border-purple-500/20',
+        ability: even ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-500/5 border-blue-500/15',
+        action: even ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-500/5 border-amber-500/15',
+        trigger: even ? 'bg-purple-500/10 border-purple-500/20' : 'bg-purple-500/5 border-purple-500/15',
     };
     return map[type] ?? 'bg-muted';
 };
@@ -545,7 +617,7 @@ const blockTypeColor = (type: string) => {
                                             v-for="(block, idx) in contentBlocks"
                                             :key="'block-' + idx"
                                             class="rounded-lg border p-3"
-                                            :class="blockTypeColor(block.type)"
+                                            :class="blockTypeColor(block.type, idx)"
                                         >
                                             <div class="mb-2 flex items-center justify-between">
                                                 <div class="flex items-center gap-2">
@@ -621,6 +693,7 @@ const blockTypeColor = (type: string) => {
                                                         rows="2"
                                                         class="text-xs"
                                                     />
+                                                    <IconTokenPalette class="mt-1" />
                                                 </template>
                                             </div>
 
@@ -675,6 +748,7 @@ const blockTypeColor = (type: string) => {
                                                     rows="2"
                                                     class="text-xs"
                                                 />
+                                                <IconTokenPalette class="mt-1" />
                                                 <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                                                     <Checkbox
                                                         :checked="block.data!.is_signature"
@@ -785,6 +859,7 @@ const blockTypeColor = (type: string) => {
                                                             rows="2"
                                                             class="text-xs"
                                                         />
+                                                        <IconTokenPalette class="mt-1" />
                                                     </template>
                                                 </div>
                                                 <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeToken(tIdx)">
@@ -845,6 +920,7 @@ const blockTypeColor = (type: string) => {
                                                             rows="2"
                                                             class="text-xs"
                                                         />
+                                                        <IconTokenPalette class="mt-1" />
                                                     </template>
                                                 </div>
                                                 <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeMarker(mIdx)">
@@ -881,11 +957,18 @@ const blockTypeColor = (type: string) => {
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <h3 class="text-sm font-semibold">Preview</h3>
-                            <Button variant="outline" size="sm" class="text-xs" :disabled="exporting || !form.name" @click="exportImages">
-                                <Loader2 v-if="exporting" class="mr-1 size-3 animate-spin" />
-                                <Download v-else class="mr-1 size-3" />
-                                {{ exporting ? 'Exporting...' : 'Export Image' }}
-                            </Button>
+                            <div class="flex gap-2">
+                                <Button variant="outline" size="sm" class="text-xs" :disabled="exporting || !form.name" @click="exportImages">
+                                    <Loader2 v-if="exporting" class="mr-1 size-3 animate-spin" />
+                                    <Download v-else class="mr-1 size-3" />
+                                    {{ exporting ? 'Exporting...' : 'Export Image' }}
+                                </Button>
+                                <Button variant="outline" size="sm" class="text-xs" :disabled="exportingPdf || !form.name" @click="exportPdf">
+                                    <Loader2 v-if="exportingPdf" class="mr-1 size-3 animate-spin" />
+                                    <FileText v-else class="mr-1 size-3" />
+                                    {{ exportingPdf ? 'Exporting...' : 'Export PDF' }}
+                                </Button>
+                            </div>
                         </div>
                         <UpgradeCardRenderer
                             ref="cardRendererRef"
@@ -902,6 +985,87 @@ const blockTypeColor = (type: string) => {
                             :back-tokens="backTokens"
                             :back-markers="backMarkers"
                         />
+
+                        <!-- Hidden export-only instance (dark theme, matching the live
+                             preview) — exportImages() captures these instead of the live
+                             preview above, which is width-clamped by this page's 1/3
+                             column and can't reliably grow to fit dense content (see
+                             UpgradeCardRenderer.vue's doc comment). Fixed off-screen,
+                             unconstrained by any layout, sized via grow-to-fit measured
+                             on demand right before export — see measureExportSize in
+                             exportImages(). -->
+                        <div
+                            class="pointer-events-none fixed left-[-9999px] top-0"
+                            :style="{ width: exportWidth + 'px', height: exportHeight + 'px' }"
+                        >
+                            <UpgradeFrontFace
+                                ref="exportFrontRef"
+                                :name="form.name || domainLabel + ' Name'"
+                                :domain="domain"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :upgrade-type="form.type || null"
+                                :upgrade-type-label="upgradeTypeLabel"
+                                :limitations="form.limitations || null"
+                                :limitations-label="limitationsLabel"
+                                :master-name="form.master_name || null"
+                                :keyword-name="form.keyword_name || null"
+                                :content-blocks="contentBlocks"
+                                :card-min-height="exportHeight"
+                            />
+                        </div>
+                        <div
+                            class="pointer-events-none fixed left-[-9999px] top-0"
+                            :style="{ width: exportWidth + 'px', height: exportHeight + 'px' }"
+                        >
+                            <UpgradeBackFace
+                                ref="exportBackRef"
+                                :name="form.name || domainLabel + ' Name'"
+                                :domain="domain"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :master-name="form.master_name || null"
+                                :back-tokens="backTokens"
+                                :back-markers="backMarkers"
+                                :card-min-height="exportHeight"
+                            />
+                        </div>
+
+                        <!-- Hidden print-only instance (light theme, see printMode) —
+                             exportPdf() captures these instead of the live dark preview
+                             above. Fixed off-screen position so this doesn't affect page
+                             layout/scroll. Sized via the same grow-to-fit measurement
+                             (printWidth/printHeight, measured on demand right before
+                             export — see measurePrintSize in exportPdf()) rather than a
+                             fixed 550x950 box, which clipped dense cards. -->
+                        <div class="pointer-events-none fixed left-[-9999px] top-0" :style="{ width: printWidth + 'px', height: printHeight + 'px' }">
+                            <UpgradeFrontFace
+                                ref="printFrontRef"
+                                :name="form.name || domainLabel + ' Name'"
+                                :domain="domain"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :upgrade-type="form.type || null"
+                                :upgrade-type-label="upgradeTypeLabel"
+                                :limitations="form.limitations || null"
+                                :limitations-label="limitationsLabel"
+                                :master-name="form.master_name || null"
+                                :keyword-name="form.keyword_name || null"
+                                :content-blocks="contentBlocks"
+                                :card-min-height="printHeight"
+                                print-mode
+                            />
+                        </div>
+                        <div class="pointer-events-none fixed left-[-9999px] top-0" :style="{ width: printWidth + 'px', height: printHeight + 'px' }">
+                            <UpgradeBackFace
+                                ref="printBackRef"
+                                :name="form.name || domainLabel + ' Name'"
+                                :domain="domain"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :master-name="form.master_name || null"
+                                :back-tokens="backTokens"
+                                :back-markers="backMarkers"
+                                :card-min-height="printHeight"
+                                print-mode
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

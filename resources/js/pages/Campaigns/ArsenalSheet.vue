@@ -2,10 +2,9 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import { blobToDataURL, createComboImage, fetchFontEmbedCSS, getFactionVar, triggerDownload } from '@/components/CardCreator/utils';
+import { blobToDataURL, createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import FactionLogo from '@/components/FactionLogo.vue';
 import GameText from '@/components/GameText.vue';
 import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -186,6 +186,8 @@ interface ArsenalCustomCharacter {
     station: string | null;
     front_image: string | null;
     back_image: string | null;
+    // Cache-bust signal for front_image/back_image above — see CustomCharacterData.card_image_generated_at.
+    card_image_generated_at: string | null;
 }
 interface ArsenalRow {
     id: number;
@@ -224,6 +226,8 @@ interface CrewData {
     // Null until the first render lands.
     crew_card_front_image: string | null;
     crew_card_back_image: string | null;
+    // Cache-bust signal for the two fields above — see CustomCharacterData.card_image_generated_at.
+    crew_card_generated_at: string | null;
     // Owner-only; the Card Creator CustomUpgrade the starter effect was saved
     // into (see StartingArsenalController::saveCrewCardToCardCreator). Null
     // for non-owners and for owners who haven't named/saved a crew card yet.
@@ -276,6 +280,7 @@ interface EquipmentItem {
     abilities: CrewCardLinkedAbility[];
     locked: boolean;
     applied_effects: string[];
+    excludes_from_cr: boolean;
 }
 
 interface XpBox {
@@ -659,13 +664,17 @@ const targetActionOptions = (position: number): Array<{ ref: number; name: strin
 // whenever action/ability-affecting fields change. front_image is a fixed,
 // overwritten-in-place filename, so its URL string never changes when the
 // job finishes — card_image_generated_at (set only by the job itself, once
-// the render completes) is the reliable "the new image is ready" signal.
+// the render completes) is the reliable "the new image is ready" signal, and
+// CharacterCardView appends it as a cache-busting query param directly off
+// each `leader`/`totem` prop, so no separately-tracked "did I witness the
+// transition" ref is needed here — this poll only drives the loading spinner
+// (and the `router.reload` needed to see the timestamp change at all, since
+// the render happens in a queued job).
 // updated_at is NOT reliable here: it's also bumped synchronously by the DB
 // save that dispatches the (async) render job, before that job has even
 // started, which previously made a quick undo-then-redo report "done" after
 // its very first poll — before the redo's render had actually run.
 const cardRegenerating = ref<{ leader: boolean; totem: boolean }>({ leader: false, totem: false });
-const cardCacheBust = ref<{ leader: number; totem: number }>({ leader: 0, totem: 0 });
 
 const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
     cardRegenerating.value[target] = true;
@@ -676,7 +685,6 @@ const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: s
                 const current = (target === 'leader' ? props.leader : props.totem)?.card_image_generated_at;
                 if (current && current !== previousGeneratedAt) {
                     cardRegenerating.value[target] = false;
-                    cardCacheBust.value[target] = Date.now();
                 } else if (attemptsLeft > 1) {
                     pollCardRegeneration(target, previousGeneratedAt, attemptsLeft - 1);
                 } else {
@@ -686,17 +694,6 @@ const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: s
         });
     }, 2000);
 };
-
-const leaderFrontImageSrc = computed(() =>
-    props.leader?.front_image && cardCacheBust.value.leader
-        ? `${props.leader.front_image}?v=${cardCacheBust.value.leader}`
-        : (props.leader?.front_image ?? null),
-);
-const totemFrontImageSrc = computed(() =>
-    props.totem?.front_image && cardCacheBust.value.totem
-        ? `${props.totem.front_image}?v=${cardCacheBust.value.totem}`
-        : (props.totem?.front_image ?? null),
-);
 
 const logAdvancement = (position: number) => {
     const d = drafts.value[position];
@@ -775,11 +772,10 @@ const removeAdvancement = async (a: AdvancementTaken) => {
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
 
-// ───────── Card viewer (equipment / crew card / injury — Dialog) ─────────
-type CardView =
-    | { kind: 'equipment'; title: string; equipment: EquipmentItem }
-    | { kind: 'crew'; title: string; cards: Array<{ title: string; effect: CrewCardEffectRow }> }
-    | { kind: 'injury'; title: string; description: string | null };
+// ───────── Card viewer (equipment / injury — Dialog) ─────────
+// Crew Card has its own dedicated flip-card display in the main panel above
+// (image + fallback text, same pattern as Leader/Totem) — no dialog needed.
+type CardView = { kind: 'equipment'; title: string; equipment: EquipmentItem } | { kind: 'injury'; title: string; description: string | null };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
@@ -787,32 +783,9 @@ const viewEquipment = (equipment: EquipmentItem) => {
 const viewInjury = (injury: InjuryItem) => {
     viewCard.value = { kind: 'injury', title: injury.name, description: injury.description };
 };
-// Each held Crew Card effect (the starter + every currently-held Tier-4
-// borrowed effect, pg 32, 54) has its own generated card image, so this
-// shows a list of individually-rendered cards rather than merging their text
-// into one — a generated image can't be "merged" the way plain text was.
-// Crew Card art is deliberately un-themed (it's shared catalog content any
-// crew could hold) — the faction/Leader banner around it below is live,
-// sourced from this crew's own current Leader, not baked into the image.
-const viewCrewCard = () => {
-    const starter = props.crew.crew_card_effect;
-    if (!starter) return;
-    const borrowed = props.crew.crew_card_advancements
-        .filter((a): a is typeof a & { effect: CrewCardEffectRow } => a.effect !== null)
-        .map((a) => ({ title: a.effect.name, effect: a.effect }));
-    viewCard.value = {
-        kind: 'crew',
-        title: props.crew.crew_card_display_name ?? starter.name,
-        cards: [{ title: starter.name, effect: starter }, ...borrowed],
-    };
-};
 const closeViewCard = (open: boolean) => {
     if (!open) viewCard.value = null;
 };
-
-// Flip state for the combined crew card image (T2-22: starter front, borrowed back).
-const crewCardFlipped = ref(false);
-watch(viewCard, () => (crewCardFlipped.value = false));
 
 // ───────── Ad-hoc Add Unit (mid-game events outside the normal hire flow) ─────────
 interface CharacterSearchResult {
@@ -990,12 +963,6 @@ const removeEquipment = async (eq: EquipmentItem) => {
         onSuccess: () => closeViewCard(false),
     });
 };
-
-// Crew Card art is un-themed shared catalog content (see viewCrewCard() above)
-// — this crew's own current Leader/faction is shown as live UI chrome around
-// the rendered image instead, so it's always correct for whoever's actually
-// holding the card and never needs the art regenerated.
-const crewCardFactionVar = computed(() => getFactionVar(props.leader?.faction ?? null));
 
 // ───────── Unit card preview (Drawer) ─────────
 const unitPreviewRow = ref<ArsenalRow | null>(null);
@@ -1274,7 +1241,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <CardTitle>Leader</CardTitle>
                         <a
                             v-if="leader?.combination_image"
-                            :href="'/storage/' + leader.combination_image"
+                            :href="'/storage/' + cacheBustedImagePath(leader.combination_image, leader.card_image_generated_at)"
                             download
                             class="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
                         >
@@ -1300,8 +1267,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                         id: leader.id,
                                         display_name: leader.display_name,
                                         slug: '',
-                                        front_image: leaderFrontImageSrc,
+                                        front_image: leader.front_image,
                                         back_image: leader.back_image,
+                                        card_image_generated_at: leader.card_image_generated_at,
                                     }"
                                     :show-link="false"
                                     :show-collection="false"
@@ -1360,7 +1328,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <CardTitle>Totem</CardTitle>
                         <a
                             v-if="totem?.combination_image"
-                            :href="'/storage/' + totem.combination_image"
+                            :href="'/storage/' + cacheBustedImagePath(totem.combination_image, totem.card_image_generated_at)"
                             download
                             class="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent"
                         >
@@ -1380,8 +1348,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                         id: totem.id,
                                         display_name: totem.display_name,
                                         slug: '',
-                                        front_image: totemFrontImageSrc,
+                                        front_image: totem.front_image,
                                         back_image: totem.back_image,
+                                        card_image_generated_at: totem.card_image_generated_at,
                                     }"
                                     :show-link="false"
                                     :show-collection="false"
@@ -1446,59 +1415,77 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 >
                                     <Button size="sm" variant="outline">Edit Crew Card</Button>
                                 </Link>
-                                <Button v-if="crew.crew_card_effect" size="sm" variant="outline" @click="viewCrewCard">View card</Button>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div v-if="crew.crew_card_effect" class="space-y-2">
-                            <p class="font-medium">{{ crew.crew_card_display_name ?? crew.crew_card_effect.name }}</p>
-                            <p v-if="crew.crew_card_choice" class="text-xs">
-                                <span class="font-semibold capitalize">{{ crew.crew_card_choice.type }}:</span> {{ crew.crew_card_choice.name }}
-                            </p>
-                            <p v-if="crew.crew_card_effect.body" class="text-xs text-muted-foreground">
-                                <GameText :text="crew.crew_card_effect.body" />
-                            </p>
-                            <div v-if="crew.crew_card_effect.abilities.length" class="space-y-1">
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
-                                <div v-for="ab in crew.crew_card_effect.abilities" :key="ab.id" class="text-xs">
-                                    <span class="font-medium">{{ ab.name }}</span>
-                                    <span v-if="ab.description" class="text-muted-foreground"> — <GameText :text="ab.description" /> </span>
-                                </div>
-                            </div>
-                            <div v-if="crew.crew_card_effect.actions.length" class="space-y-1">
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
-                                <div v-for="ac in crew.crew_card_effect.actions" :key="ac.id" class="text-xs">
-                                    <span class="font-medium">{{ ac.name }}</span>
-                                    <span class="text-muted-foreground">
-                                        ({{ ac.type }}<template v-if="ac.stat !== null">, {{ ac.stat }}</template
-                                        >)</span
-                                    >
-                                    <span v-if="ac.description" class="text-muted-foreground"> — <GameText :text="ac.description" /> </span>
-                                </div>
-                            </div>
+                        <!-- Combined card (starter front, every held Tier-4 borrow back, T2-22) —
+                             shown as an actual flip card, same as Leader/Totem below, once generated. -->
+                        <div v-if="crew.crew_card_front_image" class="mx-auto w-full max-w-[280px]">
+                            <CharacterCardView
+                                :miniature="{
+                                    id: crew.id,
+                                    display_name: crew.crew_card_display_name ?? crew.crew_card_effect?.name ?? 'Crew Card',
+                                    slug: '',
+                                    front_image: crew.crew_card_front_image,
+                                    back_image: crew.crew_card_back_image,
+                                    card_image_generated_at: crew.crew_card_generated_at,
+                                }"
+                                :show-link="false"
+                                :show-collection="false"
+                            />
                         </div>
-                        <p v-else class="text-sm text-muted-foreground">
-                            No crew card effect picked.
-                            <Link
-                                v-if="view_mode.is_owner"
-                                :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, crew.share_code])"
-                                class="text-primary underline"
-                            >
-                                Pick one
-                            </Link>
-                        </p>
-
-                        <!-- Tier-4 borrowed effects (pg 32, 54) stack alongside the starter effect. -->
-                        <div v-if="crew.crew_card_advancements.length" class="mt-3 space-y-3 border-t pt-3">
-                            <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Borrowed Effects (Tier 4)</p>
-                            <div v-for="adv in crew.crew_card_advancements" :key="adv.id" class="space-y-1">
-                                <p class="text-sm font-medium">{{ adv.effect?.name }}</p>
-                                <p v-if="adv.effect?.body" class="text-xs text-muted-foreground">
-                                    <GameText :text="adv.effect.body" />
+                        <!-- Fallback text rendering while the combined image hasn't generated yet. -->
+                        <template v-else>
+                            <div v-if="crew.crew_card_effect" class="space-y-2">
+                                <p class="font-medium">{{ crew.crew_card_display_name ?? crew.crew_card_effect.name }}</p>
+                                <p v-if="crew.crew_card_choice" class="text-xs">
+                                    <span class="font-semibold capitalize">{{ crew.crew_card_choice.type }}:</span> {{ crew.crew_card_choice.name }}
                                 </p>
+                                <p v-if="crew.crew_card_effect.body" class="text-xs text-muted-foreground">
+                                    <GameText :text="crew.crew_card_effect.body" />
+                                </p>
+                                <div v-if="crew.crew_card_effect.abilities.length" class="space-y-1">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                                    <div v-for="ab in crew.crew_card_effect.abilities" :key="ab.id" class="text-xs">
+                                        <span class="font-medium">{{ ab.name }}</span>
+                                        <span v-if="ab.description" class="text-muted-foreground"> — <GameText :text="ab.description" /> </span>
+                                    </div>
+                                </div>
+                                <div v-if="crew.crew_card_effect.actions.length" class="space-y-1">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                                    <div v-for="ac in crew.crew_card_effect.actions" :key="ac.id" class="text-xs">
+                                        <span class="font-medium">{{ ac.name }}</span>
+                                        <span class="text-muted-foreground">
+                                            ({{ ac.type }}<template v-if="ac.stat !== null">, {{ ac.stat }}</template
+                                            >)</span
+                                        >
+                                        <span v-if="ac.description" class="text-muted-foreground"> — <GameText :text="ac.description" /> </span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                            <p v-else class="text-sm text-muted-foreground">
+                                No crew card effect picked.
+                                <Link
+                                    v-if="view_mode.is_owner"
+                                    :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, crew.share_code])"
+                                    class="text-primary underline"
+                                >
+                                    Pick one
+                                </Link>
+                            </p>
+
+                            <!-- Tier-4 borrowed effects (pg 32, 54) stack alongside the starter effect. -->
+                            <div v-if="crew.crew_card_advancements.length" class="mt-3 space-y-3 border-t pt-3">
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Borrowed Effects (Tier 4)</p>
+                                <div v-for="adv in crew.crew_card_advancements" :key="adv.id" class="space-y-1">
+                                    <p class="text-sm font-medium">{{ adv.effect?.name }}</p>
+                                    <p v-if="adv.effect?.body" class="text-xs text-muted-foreground">
+                                        <GameText :text="adv.effect.body" />
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
                     </CardContent>
                 </Card>
 
@@ -2035,6 +2022,14 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <Badge v-if="eq.locked" variant="outline" class="text-[10px]" title="Advancement attached — must keep this equipment">
                                 🔒 Locked
                             </Badge>
+                            <Badge
+                                v-if="eq.excludes_from_cr"
+                                variant="outline"
+                                class="text-[10px]"
+                                title="This equipment never counts towards your campaign rating"
+                            >
+                                Free (no CR)
+                            </Badge>
                             <Badge v-if="eq.br != null" variant="outline" class="text-[10px] tabular-nums">BR {{ eq.br }}</Badge>
                             <Badge v-if="eq.cc != null" variant="outline" class="text-[10px] tabular-nums">{{ eq.cc }} cc</Badge>
                         </div>
@@ -2117,13 +2112,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
             </CardContent>
         </Card>
 
-        <!-- Card viewer — equipment / crew card. The combined Crew Card image can
-             grow well past a single card's width (CombinedCrewCardFace's tarot
-             tiers go up to 1150px) — capping the dialog at sm:max-w-lg like the
-             other kinds forces it to scale down hard, shrinking its embedded
-             text along with it. Give the crew-card kind a much wider dialog. -->
+        <!-- Card viewer — equipment / injury. -->
         <Dialog :open="viewCard !== null" @update:open="closeViewCard">
-            <DialogContent class="max-h-[85vh] overflow-y-auto" :class="viewCard?.kind === 'crew' ? 'sm:max-w-3xl' : 'sm:max-w-lg'">
+            <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{{ viewCard?.title }}</DialogTitle>
                 </DialogHeader>
@@ -2138,6 +2129,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     />
                     <div class="flex flex-wrap gap-1.5">
                         <Badge variant="outline" class="text-[10px] capitalize">{{ viewCard.equipment.source }}</Badge>
+                        <Badge v-if="viewCard.equipment.excludes_from_cr" variant="outline" class="text-[10px]">Free (no CR)</Badge>
                         <Badge v-if="viewCard.equipment.br != null" variant="outline" class="text-[10px] tabular-nums"
                             >BR {{ viewCard.equipment.br }}</Badge
                         >
@@ -2179,67 +2171,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             Remove Equipment
                         </Button>
                     </DialogFooter>
-                </div>
-
-                <!-- Crew card -->
-                <div v-else-if="viewCard?.kind === 'crew'" class="space-y-4">
-                    <!-- Leader/faction context is this crew's own, live — not baked into the shared card art. -->
-                    <div v-if="leader" class="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <FactionLogo :faction="leader.faction" class-name="size-4 shrink-0" />
-                        <span
-                            >Held by <span class="font-medium text-foreground">{{ leader.display_name }}</span
-                            >'s crew</span
-                        >
-                    </div>
-
-                    <!-- Combined card (starter + every held Tier-4 borrow, with restriction qualifier text).
-                         A fixed px height cap previously made embedded text render tiny on a
-                         tall/dense combined card — but scaling to the dialog's full width alone
-                         let the image (up to 1150x1986 at the top content tier) render taller
-                         than the viewport, which is what QA saw as "too big for the screen".
-                         A *viewport-relative* max-height fixes both: it scales down proportionally
-                         with real screen size (no more tiny text) while still fitting on-screen
-                         without scrolling in the common case. -->
-                    <div v-if="crew.crew_card_front_image" class="relative mx-auto w-fit">
-                        <img
-                            :src="
-                                '/storage/' + (crewCardFlipped && crew.crew_card_back_image ? crew.crew_card_back_image : crew.crew_card_front_image)
-                            "
-                            :alt="viewCard.title"
-                            class="mx-auto max-h-[70vh] max-w-full rounded-md border-2"
-                            :style="leader ? { borderColor: `hsl(var(${crewCardFactionVar}))` } : {}"
-                        />
-                        <Button
-                            v-if="crew.crew_card_back_image"
-                            size="sm"
-                            variant="secondary"
-                            class="absolute bottom-2 right-2"
-                            @click="crewCardFlipped = !crewCardFlipped"
-                        >
-                            {{ crewCardFlipped ? 'Show Front' : 'Show Back' }}
-                        </Button>
-                    </div>
-                    <!-- Fallback text rendering while the combined image hasn't generated yet -->
-                    <template v-else>
-                        <div v-for="(c, idx) in viewCard.cards" :key="`crewcard-${c.effect.id}-${idx}`" :class="idx > 0 ? 'border-t pt-4' : ''">
-                            <p class="mb-1.5 text-xs font-medium">{{ c.title }}</p>
-                            <p v-if="c.effect.body" class="text-xs leading-relaxed text-muted-foreground"><GameText :text="c.effect.body" /></p>
-                            <div v-if="c.effect.abilities.length" class="mt-2 space-y-2">
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
-                                <AbilityCard v-for="ab in c.effect.abilities" :key="`ca-${ab.id}`" :ability="ab" :hide-footer="true" />
-                            </div>
-                            <div v-if="c.effect.actions.length" class="mt-2 space-y-2">
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
-                                <ActionCard v-for="ac in c.effect.actions" :key="`cac-${ac.id}`" :action="ac" :hide-footer="true" />
-                            </div>
-                            <div v-if="c.effect.triggers.length" class="mt-2 space-y-2">
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Triggers</p>
-                                <TriggerCard v-for="tg in c.effect.triggers" :key="`catg-${tg.id}`" :trigger="tg"
-                                    ><template #footer></template
-                                ></TriggerCard>
-                            </div>
-                        </div>
-                    </template>
                 </div>
 
                 <!-- Injury -->
@@ -2461,6 +2392,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             slug: unitPreviewRow.custom_character.slug,
                             front_image: unitPreviewRow.custom_character.front_image,
                             back_image: unitPreviewRow.custom_character.back_image,
+                            card_image_generated_at: unitPreviewRow.custom_character.card_image_generated_at,
                         }"
                         :character-slug="unitPreviewRow.custom_character.slug"
                         :show-collection="false"

@@ -16,6 +16,7 @@ use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignCrewCardAdvancement;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Trigger;
@@ -106,8 +107,7 @@ class LeaderAdvancementService
                 if ($catalogId === null) {
                     return 'Totem Advancement requires a totem choice.';
                 }
-                $template = CustomCharacter::query()
-                    ->where('is_campaign_totem_template', true)
+                $template = CampaignTotemTemplate::query()
                     ->whereKey($catalogId)
                     ->first();
                 if (! $template) {
@@ -889,8 +889,7 @@ class LeaderAdvancementService
         ?int $totemSize,
         ?string $totemBase,
     ): void {
-        $template = CustomCharacter::query()
-            ->where('is_campaign_totem_template', true)
+        $template = CampaignTotemTemplate::query()
             ->whereKey($templateId)
             ->with(['campaignTotemActions.triggers', 'campaignTotemAbilities'])
             ->first();

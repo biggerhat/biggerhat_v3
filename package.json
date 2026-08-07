@@ -45,6 +45,7 @@
         "concurrently": "^9.0.1",
         "embla-carousel-vue": "^8.6.0",
         "html-to-image": "^1.11.13",
+        "jspdf": "^4.2.1",
         "laravel-vite-plugin": "^1.0",
         "lucide-vue-next": "^0.468.0",
         "puppeteer": "^25.1.0",

@@ -6,6 +6,7 @@ use App\Enums\ActionRangeTypeEnum;
 use App\Enums\ActionTypeEnum;
 use App\Enums\BaseSizeEnum;
 use App\Enums\Campaign\CampaignStatusEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
@@ -208,6 +209,17 @@ class CustomCharacterController extends Controller
     {
         $character = CustomCharacter::where('share_code', $shareCode)->firstOrFail();
 
+        // The Bruiser/Strategist tag (pg 18) is shown on the rendered card as
+        // a characteristic, alongside the player's own up-to-two picks. This
+        // is display-only — appended here rather than persisted onto the
+        // `characteristics` column — so it doesn't round-trip into the
+        // Leader Builder edit form and get counted against that two-pick cap
+        // or duplicated on repeat saves.
+        $characteristics = $character->characteristics ?? [];
+        if ($character->is_campaign_leader && $tag = LeaderTagEnum::tryFrom((string) $character->tag)) {
+            $characteristics[] = $tag->label();
+        }
+
         return inertia('CardCreator/Capture', [
             'card' => [
                 'name' => $character->name,
@@ -225,7 +237,7 @@ class CustomCharacterController extends Controller
                 'size' => $character->size,
                 'base' => (string) ($character->base->value ?? ''),
                 'keywords' => $character->keywords ?? [],
-                'characteristics' => $character->characteristics ?? [],
+                'characteristics' => $characteristics,
                 // Never populated — Custom Card Creator character art is
                 // client-blob-only, not persisted server-side.
                 'characterImage' => null,

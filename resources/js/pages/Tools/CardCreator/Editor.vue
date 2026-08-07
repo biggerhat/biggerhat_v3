@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import AbilityLookupModal from '@/components/CardCreator/AbilityLookupModal.vue';
+import ActionLookupModal from '@/components/CardCreator/ActionLookupModal.vue';
+import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
+import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import { blobToDataURL, createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
+import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
+import { blobToDataURL, createComboImage, exportComboAsPdf, fetchFontEmbedCSS, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -11,9 +16,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 
 interface EnumOption {
@@ -249,55 +255,102 @@ const removeImage = () => {
 const saving = ref(false);
 const errors = ref<Record<string, string>>({});
 const cardRendererRef = ref<InstanceType<typeof CardRenderer> | null>(null);
+const exportFrontRef = ref<InstanceType<typeof CardFrontFace> | null>(null);
+const exportBackRef = ref<InstanceType<typeof CardBackFace> | null>(null);
+const printFrontRef = ref<InstanceType<typeof CardFrontFace> | null>(null);
+const printBackRef = ref<InstanceType<typeof CardBackFace> | null>(null);
 const exporting = ref(false);
+const exportingPdf = ref(false);
+
+// The live preview (CardRenderer.vue) sits in this page's 1/3-width column,
+// which routinely clamps its box below every tarotCardSize tier — there's no
+// room for it to grow into, so it falls back to shrinkToFit (shrinking text
+// to fit whatever width the column allows) rather than growing. Exports must
+// not inherit that constraint, so both PNG and PDF export capture from their
+// own hidden, off-screen, unconstrained instances instead of the live
+// preview — these grow-to-fit measures on demand right before each export,
+// not continuously, since they're never shown on screen.
+const {
+    width: exportWidth,
+    height: exportHeight,
+    measure: measureExportSize,
+} = useTarotGrowToFit(
+    () => exportFrontRef.value?.rootRef,
+    () => exportBackRef.value?.rootRef,
+    () => tarotCardSize(abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0)).width,
+);
+const {
+    width: printWidth,
+    height: printHeight,
+    measure: measurePrintSize,
+} = useTarotGrowToFit(
+    () => printFrontRef.value?.rootRef,
+    () => printBackRef.value?.rootRef,
+    () => tarotCardSize(abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0)).width,
+);
+
+// Shared by exportImages() (PNG) and exportPdf() below — captures both faces
+// as toPng() data URLs, restoring every temporary style/src mutation made to
+// get a clean capture.
+const captureFaces = async (
+    frontEl: HTMLElement | null | undefined,
+    backEl: HTMLElement | null | undefined,
+): Promise<{ frontData: string; backData: string; frontEl: HTMLElement; backEl: HTMLElement } | null> => {
+    if (!frontEl || !backEl) return null;
+    const { toPng } = await import('html-to-image');
+    const fontEmbedCSS = await fetchFontEmbedCSS();
+    const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
+
+    // Convert any blob: image sources to data URLs so html-to-image can embed them
+    const blobImages = frontEl.querySelectorAll<HTMLImageElement>('img[src^="blob:"]');
+    const origSrcs: { el: HTMLImageElement; src: string }[] = [];
+    for (const img of blobImages) {
+        origSrcs.push({ el: img, src: img.src });
+        img.src = await blobToDataURL(img.src);
+    }
+
+    const frontData = await toPng(frontEl, opts);
+
+    // Restore original blob sources
+    for (const { el, src } of origSrcs) {
+        el.src = src;
+    }
+
+    const backData = await toPng(backEl, opts);
+
+    return { frontData, backData, frontEl, backEl };
+};
 
 const exportImages = async () => {
-    if (!cardRendererRef.value) return;
     exporting.value = true;
     try {
-        const { toPng } = await import('html-to-image');
-        const fontEmbedCSS = await fetchFontEmbedCSS();
-        const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
-        const frontEl = cardRendererRef.value.frontRef;
-        const backEl = cardRendererRef.value.backRef;
-        if (!frontEl || !backEl) return;
-
-        // Convert any blob: image sources to data URLs so html-to-image can embed them
-        const blobImages = frontEl.querySelectorAll<HTMLImageElement>('img[src^="blob:"]');
-        const origSrcs: { el: HTMLImageElement; src: string }[] = [];
-        for (const img of blobImages) {
-            origSrcs.push({ el: img, src: img.src });
-            img.src = await blobToDataURL(img.src);
-        }
-
-        // Temporarily make front face visible for capture
-        const origFrontBackface = frontEl.style.backfaceVisibility;
-        frontEl.style.backfaceVisibility = 'visible';
-        const frontData = await toPng(frontEl, opts);
-        frontEl.style.backfaceVisibility = origFrontBackface;
-
-        // Restore original blob sources
-        for (const { el, src } of origSrcs) {
-            el.src = src;
-        }
-
-        // Temporarily remove the flip transform and backface-visibility so the back is captured correctly
-        const origTransform = backEl.style.transform;
-        const origBackface = backEl.style.backfaceVisibility;
-        backEl.style.transform = 'none';
-        backEl.style.backfaceVisibility = 'visible';
-        const backData = await toPng(backEl, opts);
-        backEl.style.transform = origTransform;
-        backEl.style.backfaceVisibility = origBackface;
-
-        const comboData = await createComboImage(frontData, backData);
-        const baseName = form.name || 'card';
-
-        triggerDownload(comboData, `${baseName}.png`);
+        await measureExportSize();
+        const captured = await captureFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
+        if (!captured) return;
+        const comboData = await createComboImage(captured.frontData, captured.backData);
+        triggerDownload(comboData, `${form.name || 'card'}.png`);
     } catch (e) {
         console.error('Image export failed:', e);
     } finally {
         exporting.value = false;
+    }
+};
+
+// PDF export captures the hidden print-mode faces (light theme + bottom Hp
+// line — see printFrontRef/printBackRef in the template), same shape as
+// exportImages() above but from the print instances instead of the export
+// instances.
+const exportPdf = async () => {
+    exportingPdf.value = true;
+    try {
+        await measurePrintSize();
+        const captured = await captureFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
+        if (!captured) return;
+        await exportComboAsPdf(captured.frontData, captured.backData, captured.frontEl, captured.backEl, `${form.name || 'card'}.pdf`);
+    } catch (e) {
+        console.error('PDF export failed:', e);
+    } finally {
+        exportingPdf.value = false;
     }
 };
 
@@ -449,6 +502,22 @@ const pickAbility = (official: any) => {
     searchResults.value = [];
     searchQuery.value = '';
     searchType.value = null;
+};
+
+// ───────── Browse modals (mirrors Leader Builder's Action/Ability Lookup
+// Modal, T3-32, but without keyword/cost-cap constraints — any homebrew
+// card can borrow any official action/ability as a starting point). ─────────
+const actionModalOpen = ref(false);
+const abilityModalOpen = ref(false);
+
+// Same trigger-stripping as pickAction above — triggers are added separately
+// via the per-action trigger search so they aren't tied to a single source.
+const commitActionsFromModal = (picked: ActionData[]) => {
+    for (const a of picked) actions.push({ ...a, triggers: [] });
+};
+
+const commitAbilitiesFromModal = (picked: AbilityData[]) => {
+    for (const a of picked) abilities.push({ ...a });
 };
 
 const searchTriggers = (q: string, actionIndex: number) => {
@@ -988,6 +1057,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     </button>
                                                 </div>
                                             </div>
+                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="abilityModalOpen = true"
+                                                ><Plus class="mr-1 size-3" /> Browse</Button
+                                            >
                                             <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAbility"
                                                 ><Plus class="mr-1 size-3" /> Custom</Button
                                             >
@@ -996,11 +1068,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                         <!-- Same per-type tint as the Custom Upgrade editor's Card Content
                                              blocks (blockTypeColor in UpgradeEditor.vue) — breaks up the
                                              Abilities/Actions/Triggers sections visually instead of every
-                                             block looking identical. -->
+                                             block looking identical. Alternates a lighter/darker shade of
+                                             that tint by list position so adjacent entries are distinguishable. -->
                                         <div
                                             v-for="(ability, aIdx) in abilities"
                                             :key="'ability-' + aIdx"
-                                            class="space-y-2 rounded-lg border border-blue-500/20 bg-blue-500/10 p-3"
+                                            class="space-y-2 rounded-lg border p-3"
+                                            :class="aIdx % 2 === 0 ? 'border-blue-500/20 bg-blue-500/10' : 'border-blue-500/15 bg-blue-500/5'"
                                         >
                                             <template v-if="ability.source_id">
                                                 <div class="flex items-center justify-between">
@@ -1051,6 +1125,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     rows="2"
                                                     class="text-xs"
                                                 />
+                                                <IconTokenPalette class="mt-1" />
                                             </template>
                                         </div>
                                     </div>
@@ -1094,15 +1169,21 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     </button>
                                                 </div>
                                             </div>
+                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="actionModalOpen = true"
+                                                ><Plus class="mr-1 size-3" /> Browse</Button
+                                            >
                                             <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAction"
                                                 ><Plus class="mr-1 size-3" /> Custom</Button
                                             >
                                         </div>
 
+                                        <!-- Alternates a lighter/darker amber shade by list position — see the
+                                             matching comment on the Abilities boxes above. -->
                                         <div
                                             v-for="(action, idx) in actions"
                                             :key="'action-' + idx"
-                                            class="space-y-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3"
+                                            class="space-y-3 rounded-lg border p-3"
+                                            :class="idx % 2 === 0 ? 'border-amber-500/20 bg-amber-500/10' : 'border-amber-500/15 bg-amber-500/5'"
                                         >
                                             <div class="flex items-center justify-between">
                                                 <div class="flex flex-1 items-center gap-2">
@@ -1175,6 +1256,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                 </div>
                                             </div>
                                             <Textarea v-model="action.description" placeholder="Action description..." rows="2" class="text-xs" />
+                                            <IconTokenPalette class="mt-1" />
                                             <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                                                 <Checkbox
                                                     :checked="action.is_signature"
@@ -1212,10 +1294,17 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         </button>
                                                     </div>
                                                 </div>
+                                                <!-- Alternates a lighter/darker purple shade by list position — see
+                                                     the matching comment on the Abilities boxes above. -->
                                                 <div
                                                     v-for="(trigger, tIdx) in action.triggers"
                                                     :key="'trigger-' + tIdx"
-                                                    class="flex items-start gap-2 rounded border border-purple-500/20 bg-purple-500/10 p-2"
+                                                    class="flex items-start gap-2 rounded border p-2"
+                                                    :class="
+                                                        tIdx % 2 === 0
+                                                            ? 'border-purple-500/20 bg-purple-500/10'
+                                                            : 'border-purple-500/15 bg-purple-500/5'
+                                                    "
                                                 >
                                                     <template v-if="trigger.source_id">
                                                         <div class="flex-1 text-xs">
@@ -1282,11 +1371,18 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <h3 class="text-sm font-semibold">Preview</h3>
-                            <Button variant="outline" size="sm" class="text-xs" :disabled="exporting || !form.name" @click="exportImages">
-                                <Loader2 v-if="exporting" class="mr-1 size-3 animate-spin" />
-                                <Download v-else class="mr-1 size-3" />
-                                {{ exporting ? 'Exporting...' : 'Export Image' }}
-                            </Button>
+                            <div class="flex gap-2">
+                                <Button variant="outline" size="sm" class="text-xs" :disabled="exporting || !form.name" @click="exportImages">
+                                    <Loader2 v-if="exporting" class="mr-1 size-3 animate-spin" />
+                                    <Download v-else class="mr-1 size-3" />
+                                    {{ exporting ? 'Exporting...' : 'Export Image' }}
+                                </Button>
+                                <Button variant="outline" size="sm" class="text-xs" :disabled="exportingPdf || !form.name" @click="exportPdf">
+                                    <Loader2 v-if="exportingPdf" class="mr-1 size-3 animate-spin" />
+                                    <FileText v-else class="mr-1 size-3" />
+                                    {{ exportingPdf ? 'Exporting...' : 'Export PDF' }}
+                                </Button>
+                            </div>
                         </div>
                         <CardRenderer
                             ref="cardRendererRef"
@@ -1312,6 +1408,107 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             :linked-crew-upgrades="linkedCrewUpgrades"
                             :linked-totems="linkedTotems"
                         />
+
+                        <!-- Hidden export-only instance (dark theme, matching the live
+                             preview) — exportImages() captures these instead of the live
+                             preview above, which is width-clamped by this page's 1/3
+                             column and can't reliably grow to fit dense content (see
+                             CardRenderer.vue's doc comment). Fixed off-screen, unconstrained
+                             by any layout, sized via grow-to-fit measured on demand right
+                             before export — see measureExportSize in exportImages(). -->
+                        <div
+                            class="pointer-events-none fixed left-[-9999px] top-0"
+                            :style="{ width: exportWidth + 'px', height: exportHeight + 'px' }"
+                        >
+                            <CardFrontFace
+                                ref="exportFrontRef"
+                                :name="form.name || 'Character Name'"
+                                :title="form.title || null"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :second-faction="form.second_faction !== 'none' ? form.second_faction : null"
+                                :station="form.station || 'minion'"
+                                :cost="form.cost"
+                                :health="form.health"
+                                :defense="form.defense"
+                                :defense-suit="form.defense_suit || null"
+                                :willpower="form.willpower"
+                                :willpower-suit="form.willpower_suit || null"
+                                :speed="form.speed"
+                                :size="form.size"
+                                :base="String(form.base)"
+                                :keywords="keywords"
+                                :characteristics="characteristics"
+                                :character-image="characterImagePreview"
+                                :abilities="abilities"
+                                :linked-crew-upgrades="linkedCrewUpgrades"
+                                :linked-totems="linkedTotems"
+                                :card-min-height="exportHeight"
+                            />
+                        </div>
+                        <div
+                            class="pointer-events-none fixed left-[-9999px] top-0"
+                            :style="{ width: exportWidth + 'px', height: exportHeight + 'px' }"
+                        >
+                            <CardBackFace
+                                ref="exportBackRef"
+                                :name="form.name || 'Character Name'"
+                                :title="form.title || null"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :second-faction="form.second_faction !== 'none' ? form.second_faction : null"
+                                :actions="actions"
+                                :abilities="abilities"
+                                :card-min-height="exportHeight"
+                            />
+                        </div>
+
+                        <!-- Hidden print-only instance (light theme + bottom Hp line,
+                             see printMode) — exportPdf() captures these instead of the
+                             live dark preview above. Fixed off-screen position so this
+                             doesn't affect page layout/scroll. Sized via the same
+                             grow-to-fit measurement (printWidth/printHeight, measured on
+                             demand right before export — see measurePrintSize in
+                             exportPdf()) rather than a fixed 550x950 box, which clipped
+                             dense cards. -->
+                        <div class="pointer-events-none fixed left-[-9999px] top-0" :style="{ width: printWidth + 'px', height: printHeight + 'px' }">
+                            <CardFrontFace
+                                ref="printFrontRef"
+                                :name="form.name || 'Character Name'"
+                                :title="form.title || null"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :second-faction="form.second_faction !== 'none' ? form.second_faction : null"
+                                :station="form.station || 'minion'"
+                                :cost="form.cost"
+                                :health="form.health"
+                                :defense="form.defense"
+                                :defense-suit="form.defense_suit || null"
+                                :willpower="form.willpower"
+                                :willpower-suit="form.willpower_suit || null"
+                                :speed="form.speed"
+                                :size="form.size"
+                                :base="String(form.base)"
+                                :keywords="keywords"
+                                :characteristics="characteristics"
+                                :character-image="characterImagePreview"
+                                :abilities="abilities"
+                                :linked-crew-upgrades="linkedCrewUpgrades"
+                                :linked-totems="linkedTotems"
+                                :card-min-height="printHeight"
+                                print-mode
+                            />
+                        </div>
+                        <div class="pointer-events-none fixed left-[-9999px] top-0" :style="{ width: printWidth + 'px', height: printHeight + 'px' }">
+                            <CardBackFace
+                                ref="printBackRef"
+                                :name="form.name || 'Character Name'"
+                                :title="form.title || null"
+                                :faction="form.faction !== 'none' ? form.faction : null"
+                                :second-faction="form.second_faction !== 'none' ? form.second_faction : null"
+                                :actions="actions"
+                                :abilities="abilities"
+                                :card-min-height="printHeight"
+                                print-mode
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1329,5 +1526,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </Button>
             </div>
         </div>
+
+        <ActionLookupModal v-model:open="actionModalOpen" @commit="commitActionsFromModal" />
+        <AbilityLookupModal v-model:open="abilityModalOpen" @commit="commitAbilitiesFromModal" />
     </div>
 </template>

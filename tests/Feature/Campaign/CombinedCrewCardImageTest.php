@@ -19,6 +19,7 @@ use App\Models\Marker;
 use App\Models\Token;
 use App\Models\Upgrade;
 use App\Models\User;
+use App\Support\Campaign\CombinedCrewCardEffects;
 use Illuminate\Support\Facades\Bus;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -49,7 +50,8 @@ it('capture page combines the starter effect with a generic Tier-4 borrow and a 
     $starter->actions()->attach($starterAction->id, ['is_signature_action' => false]);
     $crew->update(['crew_card_effect_id' => $starter->id]);
 
-    // A generic (campaign_crew_card-sourced) Tier-4 borrow — no restriction concept.
+    // A generic (campaign_crew_card-sourced) Tier-4 borrow — no restriction
+    // pivot of its own, so it falls back to CombinedCrewCardEffects::BORROWED_RESTRICTION.
     $genericAbility = Ability::factory()->create(['name' => 'Generic Boon']);
     $genericBorrow = CampaignCrewCard::factory()->create();
     $genericBorrow->abilities()->attach($genericAbility->id);
@@ -79,11 +81,73 @@ it('capture page combines the starter effect with a generic Tier-4 borrow and a 
                 $starterItem = $items->firstWhere('data.name', 'Starter Swing');
                 $genericItem = $items->firstWhere('data.name', 'Generic Boon');
                 $restrictedItem = $items->firstWhere('data.name', $restrictedAbility->name);
-                $expectedQualifier = CrewUpgradeRestrictionEnum::FriendlyKeyword->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Ability);
+                $expectedStarterQualifier = CombinedCrewCardEffects::DEFAULT_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Action);
+                $expectedGenericQualifier = CombinedCrewCardEffects::BORROWED_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Ability);
+                $expectedRestrictedQualifier = CrewUpgradeRestrictionEnum::FriendlyKeyword->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Ability);
 
-                return $starterItem && $starterItem['qualifier'] === null
-                    && $genericItem && $genericItem['qualifier'] === null
-                    && $restrictedItem && $restrictedItem['qualifier'] === $expectedQualifier;
+                return $starterItem && $starterItem['qualifier'] === $expectedStarterQualifier
+                    && $genericItem && $genericItem['qualifier'] === $expectedGenericQualifier
+                    && $restrictedItem && $restrictedItem['qualifier'] === $expectedRestrictedQualifier;
+            })
+        );
+});
+
+it('capture page also exposes a generic (type-less) qualifier variant, for grouping effects that share a restriction', function () {
+    [, $crew] = combinedCardFixture();
+
+    $starterAction = Action::factory()->create(['name' => 'Starter Swing']);
+    $starter = CampaignCrewCard::factory()->create();
+    $starter->actions()->attach($starterAction->id, ['is_signature_action' => false]);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    $restrictedAbility = Ability::factory()->create(['name' => 'Keyword Gift']);
+    $upgrade = Upgrade::factory()->create(['domain' => UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->abilities()->attach($restrictedAbility->id, ['restriction' => CrewUpgradeRestrictionEnum::FriendlyKeyword->value]);
+    CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $upgrade->id,
+        'crew_card_effect_type' => Upgrade::class,
+    ]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('items', function ($items) use ($restrictedAbility) {
+                $items = collect($items);
+                $starterItem = $items->firstWhere('data.name', 'Starter Swing');
+                $restrictedItem = $items->firstWhere('data.name', $restrictedAbility->name);
+
+                return $starterItem['qualifier_generic'] === CombinedCrewCardEffects::DEFAULT_RESTRICTION->descriptorGeneric()
+                    && $restrictedItem['qualifier_generic'] === CrewUpgradeRestrictionEnum::FriendlyKeyword->descriptorGeneric();
+            })
+        );
+});
+
+it('capture page gives two borrowed effects sharing the same restriction an identical restriction and qualifier_generic, so the face groups them under one header', function () {
+    [, $crew] = combinedCardFixture();
+
+    $sharedRestriction = CrewUpgradeRestrictionEnum::FriendlyKeyword->value;
+    $abilityOne = Ability::factory()->create(['name' => 'Shared Restriction Ability']);
+    $abilityTwo = Ability::factory()->create(['name' => 'Shared Restriction Ability Two']);
+    $upgrade = Upgrade::factory()->create(['domain' => UpgradeDomainTypeEnum::Crew->value]);
+    $upgrade->abilities()->attach([$abilityOne->id => ['restriction' => $sharedRestriction], $abilityTwo->id => ['restriction' => $sharedRestriction]]);
+    CampaignCrewCardAdvancement::create([
+        'campaign_crew_id' => $crew->id,
+        'crew_card_effect_id' => $upgrade->id,
+        'crew_card_effect_type' => Upgrade::class,
+    ]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('items', function ($items) use ($abilityOne, $abilityTwo) {
+                $items = collect($items);
+                $itemOne = $items->firstWhere('data.name', $abilityOne->name);
+                $itemTwo = $items->firstWhere('data.name', $abilityTwo->name);
+
+                return $itemOne && $itemTwo
+                    && $itemOne['restriction'] === $itemTwo['restriction']
+                    && $itemOne['qualifier_generic'] === $itemTwo['qualifier_generic'];
             })
         );
 });
@@ -152,13 +216,16 @@ it('capture page surfaces the starter\'s own token/marker/upgrade-type pick as a
     $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('items', function ($items) {
+            ->where('items', function ($items) use ($starter) {
                 $choice = collect($items)->firstWhere('type', 'choice');
 
                 return $choice
                     && $choice['source'] === 'starter'
                     && $choice['data']['type'] === 'token'
-                    && $choice['data']['name'] === 'Corpse Counter';
+                    && $choice['data']['name'] === 'Corpse Counter'
+                    // Names which effect this pick belongs to, for the
+                    // face's top-of-card "Chosen for X:" note.
+                    && $choice['data']['effect_name'] === $starter->name;
             })
         );
 });
@@ -177,13 +244,14 @@ it('capture page surfaces a borrowed effect\'s own choice pick as a choice item 
     $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('items', function ($items) {
+            ->where('items', function ($items) use ($borrow) {
                 $choice = collect($items)->firstWhere('type', 'choice');
 
                 return $choice
                     && $choice['source'] === 'borrowed'
                     && $choice['data']['type'] === 'marker'
-                    && $choice['data']['name'] === 'Scheme Marker';
+                    && $choice['data']['name'] === 'Scheme Marker'
+                    && $choice['data']['effect_name'] === $borrow->name;
             })
         );
 });

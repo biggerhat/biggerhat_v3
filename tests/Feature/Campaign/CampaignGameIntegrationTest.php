@@ -99,7 +99,9 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
         'crew_card_effect_id' => $starter->id,
         'crew_card_front_image' => 'campaign-crews/1/crew-card.png',
         'crew_card_back_image' => 'campaign-crews/1/crew-card-back.png',
+        'crew_card_generated_at' => now()->subMinute(),
     ]);
+    $generatedAt = $crewA->fresh()->crew_card_generated_at;
 
     $borrowedEffect = \App\Models\Campaign\CampaignCrewCard::factory()->create(['name' => 'Borrowed Boon']);
     \App\Models\Campaign\CampaignCrewCardAdvancement::create([
@@ -120,8 +122,13 @@ it('Games/Show campaign_context exposes each crew\'s starter + borrowed Crew Car
             ->where('campaign_context.crew_a_card.borrowed.0.effect.name', 'Borrowed Boon')
             ->where('campaign_context.crew_a_card.front_image', 'campaign-crews/1/crew-card.png')
             ->where('campaign_context.crew_a_card.back_image', 'campaign-crews/1/crew-card-back.png')
+            // Cache-bust signal for the two fields above (see GameController::
+            // campaignCrewCardPayload()) — without it a regenerated combined
+            // crew card (fixed filename) would keep showing a stale browser cache.
+            ->where('campaign_context.crew_a_card.card_generated_at', $generatedAt->toJSON())
             ->where('campaign_context.crew_b_card.effect', null)
             ->where('campaign_context.crew_b_card.back_image', null)
+            ->where('campaign_context.crew_b_card.card_generated_at', null)
         );
 });
 
@@ -436,7 +443,9 @@ it('campaign_arsenal includes card images and doesn\'t crash for a custom-charac
         'health' => 6, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30, 'cost' => 6,
         'front_image' => 'custom/front.png',
         'back_image' => 'custom/back.png',
+        'card_image_generated_at' => now()->subMinute(),
     ]);
+    $generatedAt = $custom->fresh()->card_image_generated_at;
     \App\Models\Campaign\CampaignArsenalModel::create([
         'campaign_crew_id' => $crewA->id,
         'custom_character_id' => $custom->id,
@@ -447,13 +456,17 @@ it('campaign_arsenal includes card images and doesn\'t crash for a custom-charac
         ->get(route('games.show', $game->uuid))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('campaign_arsenal', function ($arsenal) {
+            ->where('campaign_arsenal', function ($arsenal) use ($generatedAt) {
                 $row = collect($arsenal)->firstWhere('label', 'Homebrew Hire');
 
                 return $row
                     && $row['name'] === 'Homebrew Ally'
                     && $row['front_image'] === 'custom/front.png'
-                    && $row['back_image'] === 'custom/back.png';
+                    && $row['back_image'] === 'custom/back.png'
+                    // Cache-bust signal for the two fields above — a real
+                    // catalog miniature's art never sets this (see the
+                    // sibling test below), only ever a Custom Character.
+                    && $row['card_image_generated_at'] === $generatedAt->toJSON();
             })
         );
 });
@@ -481,7 +494,11 @@ it('campaign_arsenal includes card images for an official-catalog-hired unit', f
             ->where('campaign_arsenal', function ($arsenal) {
                 $row = collect($arsenal)->firstWhere('label', 'Old Bessie');
 
-                return $row && $row['front_image'] === 'char/front.png' && $row['back_image'] === 'char/back.png';
+                return $row
+                    && $row['front_image'] === 'char/front.png'
+                    && $row['back_image'] === 'char/back.png'
+                    // A real catalog miniature's art is static — no cache-bust needed.
+                    && $row['card_image_generated_at'] === null;
             })
         );
 });
@@ -728,6 +745,38 @@ it('Games/Show exposes the Campaign Leader\'s actions/abilities via custom_chara
                 fn ($members) => collect($members)->firstWhere('hiring_category', 'leader')['custom_character']['actions'][0]['name'] === 'Immolate'
                     && collect($members)->firstWhere('hiring_category', 'leader')['custom_character']['abilities'][0]['name'] === 'Cast to Cinders',
             ));
+});
+
+it('Games/Show exposes the Leader\'s card_image_generated_at, the cache-bust signal for its generated card art', function () {
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    $leader = CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-test-005',
+        'name' => 'Carded Leader',
+        'display_name' => 'Carded Leader',
+        'slug' => 'carded-leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+        'front_image' => 'custom-characters/1/front.png',
+        'back_image' => 'custom-characters/1/back.png',
+        'card_image_generated_at' => now()->subMinute(),
+    ]);
+    $generatedAt = $leader->fresh()->card_image_generated_at;
+    $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), ['arsenal_model_ids' => []])->assertOk();
+    $game->update(['status' => GameStatusEnum::InProgress->value]);
+
+    $this->actingAs($userA)
+        ->get(route('games.show', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where(
+            'game.players.0.crew_members',
+            fn ($members) => collect($members)->firstWhere('hiring_category', 'leader')['custom_character']['card_image_generated_at']
+                === $generatedAt->toJSON(),
+        ));
 });
 
 it('submitCampaignCrew carries injuries from a previous aftermath onto the leader and hired models', function () {

@@ -8,17 +8,15 @@ use App\Http\Requests\Admin\Campaign\StoreTotemTemplateRequest;
 use App\Http\Requests\Admin\Campaign\UpdateTotemTemplateRequest;
 use App\Models\Ability;
 use App\Models\Action;
-use App\Models\CustomCharacter;
+use App\Models\Campaign\CampaignTotemTemplate;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class TotemTemplateAdminController extends Controller
 {
     public function index(Request $request)
     {
         return inertia('Admin/Campaign/TotemTemplate/Index', [
-            'items' => CustomCharacter::query()
-                ->where('is_campaign_totem_template', true)
+            'items' => CampaignTotemTemplate::query()
                 ->orderBy('campaign_totem_flip_value')
                 ->orderBy('name')
                 ->get(['id', 'name', 'faction', 'campaign_totem_flip_value', 'campaign_is_black_joker_totem', 'campaign_is_red_joker_totem', 'campaign_totem_special_replace']),
@@ -42,10 +40,8 @@ class TotemTemplateAdminController extends Controller
         return inertia('Admin/Campaign/TotemTemplate/Form', $this->formProps());
     }
 
-    public function edit(Request $request, CustomCharacter $totemTemplate)
+    public function edit(Request $request, CampaignTotemTemplate $totemTemplate)
     {
-        abort_unless($totemTemplate->is_campaign_totem_template, 404);
-
         $totemTemplate->load(['campaignTotemActions:id,name', 'campaignTotemAbilities:id,name']);
 
         return inertia('Admin/Campaign/TotemTemplate/Form', array_merge(
@@ -60,16 +56,10 @@ class TotemTemplateAdminController extends Controller
         $name = $validated['name'];
         [$actionIds, $signatureIds, $abilityIds] = $this->extractLinks($validated);
 
-        $totem = CustomCharacter::create(array_merge($validated, [
-            'user_id' => $request->user()->id,
-            'display_name' => $name,
-            'slug' => Str::slug($name),
+        $totem = CampaignTotemTemplate::create(array_merge($validated, [
             // Default base to 30mm when left blank; it stays editable when the
             // totem is added to a crew (pg 52).
             'base' => $validated['base'] ?? '30',
-            'is_campaign_totem_template' => true,
-            'is_public' => false,
-            'count' => 1,
         ]));
 
         $this->syncLinks($totem, $actionIds, $signatureIds, $abilityIds);
@@ -77,17 +67,12 @@ class TotemTemplateAdminController extends Controller
         return redirect()->route('admin.campaign.totem-templates.index')->withMessage("{$name} created.");
     }
 
-    public function update(UpdateTotemTemplateRequest $request, CustomCharacter $totemTemplate)
+    public function update(UpdateTotemTemplateRequest $request, CampaignTotemTemplate $totemTemplate)
     {
-        abort_unless($totemTemplate->is_campaign_totem_template, 404);
-
         $validated = $request->validated();
-        $name = $validated['name'];
         [$actionIds, $signatureIds, $abilityIds] = $this->extractLinks($validated);
 
         $totemTemplate->update(array_merge($validated, [
-            'display_name' => $name,
-            'slug' => Str::slug($name),
             'base' => $validated['base'] ?? '30',
         ]));
 
@@ -118,7 +103,7 @@ class TotemTemplateAdminController extends Controller
      * @param  int[]  $signatureIds
      * @param  int[]  $abilityIds
      */
-    private function syncLinks(CustomCharacter $totem, array $actionIds, array $signatureIds, array $abilityIds): void
+    private function syncLinks(CampaignTotemTemplate $totem, array $actionIds, array $signatureIds, array $abilityIds): void
     {
         $signature = array_flip($signatureIds);
         $actionPivot = [];
@@ -130,10 +115,8 @@ class TotemTemplateAdminController extends Controller
         $totem->campaignTotemAbilities()->sync($abilityIds);
     }
 
-    public function delete(Request $request, CustomCharacter $totemTemplate)
+    public function delete(Request $request, CampaignTotemTemplate $totemTemplate)
     {
-        abort_unless($totemTemplate->is_campaign_totem_template, 404);
-
         $name = $totemTemplate->name;
         $totemTemplate->delete();
 

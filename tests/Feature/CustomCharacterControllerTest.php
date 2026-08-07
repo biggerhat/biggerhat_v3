@@ -4,6 +4,7 @@ use App\Enums\Campaign\CampaignStatusEnum;
 use App\Events\CampaignCrewUpdated;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
@@ -436,6 +437,39 @@ it('index flags campaign_still_live=true only while the linked campaign is genui
     expect($byName['Never Linked']['campaign_still_live'])->toBeFalse();
 });
 
+it('never lists a Totem Template among a user\'s own custom characters — it lives on a separate table now', function () {
+    // Regression: Totem Templates used to be CustomCharacter rows
+    // (is_campaign_totem_template=true) owned via user_id by whichever admin
+    // created them — undistinguished from that admin's own personal cards in
+    // this exact index. Now they live on campaign_totem_templates, a table
+    // this query never touches, so a template can never leak in here.
+    $admin = User::factory()->create();
+    CampaignTotemTemplate::factory()->create(['name' => 'Spirit Familiar 7']);
+    CustomCharacter::create(array_merge(ccValidPayload(['name' => 'My Real Card']), ['user_id' => $admin->id]));
+
+    $response = $this->actingAs($admin)->get(route('tools.card_creator.index'))->assertOk();
+
+    $names = collect($response->viewData('page')['props']['characters'])->pluck('name')->all();
+    expect($names)->toEqual(['My Real Card']);
+});
+
+it('cannot resolve a Totem Template id through the generic destroy route at all', function () {
+    // Regression: the old destroy() guard only checked is_campaign_leader/
+    // is_campaign_totem, never is_campaign_totem_template, so a template
+    // could be deleted through this route with zero protection. Now the
+    // route model-binds against CustomCharacter specifically — a Totem
+    // Template's id lives in a disjoint table/id-space, so this 404s
+    // structurally rather than relying on an app-level guard to catch it.
+    $admin = User::factory()->create();
+    $template = CampaignTotemTemplate::factory()->create();
+
+    expect(CustomCharacter::find($template->id))->toBeNull();
+
+    $this->actingAs($admin)
+        ->deleteJson(route('tools.card_creator.destroy', $template->id))
+        ->assertNotFound();
+});
+
 it('serves the public share page without auth, regardless of is_public', function () {
     $user = User::factory()->create();
     $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'is_public' => false]));
@@ -456,4 +490,35 @@ it('serves the headless-Chrome capture page without auth', function () {
     $this->get(route('tools.card_creator.capture', $character->share_code))
         ->assertOk()
         ->assertInertia(fn ($p) => $p->where('card.name', 'Capture Me')->where('card.faction', 'guild'));
+});
+
+it('capture appends the Bruiser/Strategist tag as a display characteristic for a Campaign Leader (pg 18)', function () {
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload([
+        'name' => 'Upstart Leader',
+        'is_campaign_leader' => true,
+        'tag' => 'bruiser',
+        'characteristics' => ['Living'],
+    ]), ['user_id' => $user->id]));
+
+    $this->get(route('tools.card_creator.capture', $character->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living', 'Bruiser']));
+
+    // The persisted column itself is untouched — this is a display-only
+    // addition so it doesn't round-trip into the Leader Builder edit form
+    // and get duplicated on the next save.
+    expect($character->fresh()->characteristics)->toBe(['Living']);
+});
+
+it('capture does not add a tag characteristic for a non-leader custom character', function () {
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload([
+        'name' => 'Regular Card',
+        'characteristics' => ['Living'],
+    ]), ['user_id' => $user->id]));
+
+    $this->get(route('tools.card_creator.capture', $character->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living']));
 });

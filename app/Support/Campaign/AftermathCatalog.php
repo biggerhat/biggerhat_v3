@@ -757,46 +757,60 @@ class AftermathCatalog
             ])
             ->orderBy('name')
             ->get()
-            ->map(function (Upgrade $u) {
-                $u->actions->each(
-                    fn (Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
-                );
-
-                return [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'front_image' => $u->front_image,
-                    'back_image' => $u->back_image,
-                    'plentiful' => null,
-                    'description' => $u->description,
-                    'actions' => $u->actions->map(fn (Action $a) => [
-                        'name' => $a->name,
-                        'type' => $a->type,
-                        'is_signature' => $a->is_signature,
-                        'stone_cost' => $a->stone_cost,
-                        'range' => $a->range,
-                        'range_type' => $a->range_type,
-                        'stat' => $a->stat,
-                        'stat_suits' => $a->stat_suits,
-                        'stat_modifier' => $a->stat_modifier,
-                        'resisted_by' => $a->resisted_by,
-                        'target_number' => $a->target_number,
-                        'target_suits' => $a->target_suits,
-                        'damage' => $a->damage,
-                        'description' => $a->description,
-                        'triggers' => self::triggerSummaries($a->triggers),
-                    ])->all(),
-                    'abilities' => $u->abilities->map(fn (Ability $ab) => [
-                        'name' => $ab->name,
-                        'suits' => $ab->suits,
-                        'defensive_ability_type' => $ab->defensive_ability_type,
-                        'costs_stone' => $ab->costs_stone,
-                        'description' => $ab->description,
-                    ])->all(),
-                ];
-            })
+            ->map(fn (Upgrade $u) => self::shapeUpgradeCard($u))
             ->values()
             ->all();
+    }
+
+    /**
+     * Full card shape (image + actions/abilities, each with their own
+     * triggers) for a single catalog Upgrade row — shared by
+     * injuryCatalogForAttachment() above and ArsenalSheetController's
+     * injury/equipment "view card" dialogs, so both surfaces render
+     * identically instead of one falling back to description-only text.
+     * Expects `actions.triggers` and `abilities` already eager-loaded;
+     * lazy-loads them otherwise (fine for the single-row call sites).
+     *
+     * @return array<string, mixed>
+     */
+    public static function shapeUpgradeCard(Upgrade $u): array
+    {
+        $u->actions->each(
+            fn (Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
+        );
+
+        return [
+            'id' => $u->id,
+            'name' => $u->name,
+            'front_image' => $u->front_image,
+            'back_image' => $u->back_image,
+            'plentiful' => null,
+            'description' => $u->description,
+            'actions' => $u->actions->map(fn (Action $a) => [
+                'name' => $a->name,
+                'type' => $a->type,
+                'is_signature' => $a->is_signature,
+                'stone_cost' => $a->stone_cost,
+                'range' => $a->range,
+                'range_type' => $a->range_type,
+                'stat' => $a->stat,
+                'stat_suits' => $a->stat_suits,
+                'stat_modifier' => $a->stat_modifier,
+                'resisted_by' => $a->resisted_by,
+                'target_number' => $a->target_number,
+                'target_suits' => $a->target_suits,
+                'damage' => $a->damage,
+                'description' => $a->description,
+                'triggers' => self::triggerSummaries($a->triggers),
+            ])->all(),
+            'abilities' => $u->abilities->map(fn (Ability $ab) => [
+                'name' => $ab->name,
+                'suits' => $ab->suits,
+                'defensive_ability_type' => $ab->defensive_ability_type,
+                'costs_stone' => $ab->costs_stone,
+                'description' => $ab->description,
+            ])->all(),
+        ];
     }
 
     /**

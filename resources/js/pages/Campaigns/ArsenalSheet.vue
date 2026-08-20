@@ -156,6 +156,18 @@ interface InjuryItem {
     id: number;
     name: string;
     description: string | null;
+    front_image?: string | null;
+    actions?: EquipmentAction[];
+    abilities?: CrewCardLinkedAbility[];
+}
+
+interface GainedAbilityItem {
+    id: number;
+    name: string;
+    suits: string | null;
+    defensive_ability_type: string | null;
+    costs_stone: boolean;
+    description: string | null;
 }
 
 interface ArsenalCharacter {
@@ -202,7 +214,7 @@ interface ArsenalRow {
     gained_characteristics: string[];
     lucky_miss: string[];
     // Real Abilities gained permanently from a Lucky Miss result (pg 36).
-    gained_abilities: InjuryItem[];
+    gained_abilities: GainedAbilityItem[];
     // Currently-held Crew Card actions/abilities this specific model
     // qualifies for (pg 15-16) — see CrewCardUpgradeMatcher.
     upgrades: Array<{ id: number; type: string; name: string }>;
@@ -373,6 +385,9 @@ const props = defineProps<{
     leader_advancements: AdvancementTaken[];
     advancement_catalogs: AdvancementCatalogs | null;
     equipment: EquipmentItem[];
+    // Deduplicated union of every Arsenal Model's `upgrades` below (pg 15-16)
+    // — everything the crew's units currently qualify for, in one place.
+    available_crew_upgrades: Array<{ id: number; type: string; name: string }>;
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
     // Constrained pool for crew cards that require a token/marker/upgrade
@@ -775,13 +790,44 @@ const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) =>
 // ───────── Card viewer (equipment / injury — Dialog) ─────────
 // Crew Card has its own dedicated flip-card display in the main panel above
 // (image + fallback text, same pattern as Leader/Totem) — no dialog needed.
-type CardView = { kind: 'equipment'; title: string; equipment: EquipmentItem } | { kind: 'injury'; title: string; description: string | null };
+type CardView =
+    | { kind: 'equipment'; title: string; equipment: EquipmentItem }
+    | { kind: 'injury'; title: string; description: string | null; front_image: string | null; actions: EquipmentAction[]; abilities: CrewCardLinkedAbility[] };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
 };
 const viewInjury = (injury: InjuryItem) => {
-    viewCard.value = { kind: 'injury', title: injury.name, description: injury.description };
+    viewCard.value = {
+        kind: 'injury',
+        title: injury.name,
+        description: injury.description,
+        front_image: injury.front_image ?? null,
+        actions: injury.actions ?? [],
+        abilities: injury.abilities ?? [],
+    };
+};
+// A gained Ability (from a Lucky Miss result) has no card image/actions of
+// its own — reuses the same 'injury' card view, wrapped as a single-ability
+// list, so it renders through AbilityCard instead of plain description text.
+const viewGainedAbility = (ability: GainedAbilityItem) => {
+    viewCard.value = {
+        kind: 'injury',
+        title: ability.name,
+        description: null,
+        front_image: null,
+        actions: [],
+        abilities: [
+            {
+                id: ability.id,
+                name: ability.name,
+                suits: ability.suits,
+                defensive_ability_type: ability.defensive_ability_type,
+                costs_stone: ability.costs_stone,
+                description: ability.description,
+            },
+        ],
+    };
 };
 const closeViewCard = (open: boolean) => {
     if (!open) viewCard.value = null;
@@ -1961,8 +2007,8 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 role="button"
                                 tabindex="0"
                                 title="Ability gained from a Lucky Miss result"
-                                @click.stop="viewInjury(ab)"
-                                @keydown.enter.stop="viewInjury(ab)"
+                                @click.stop="viewGainedAbility(ab)"
+                                @keydown.enter.stop="viewGainedAbility(ab)"
                             >
                                 {{ ab.name }}
                             </Badge>
@@ -1991,6 +2037,24 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         Pick starting arsenal
                     </Link>
                 </p>
+            </CardContent>
+        </Card>
+
+        <!-- Crew Card upgrades available across the whole roster — dedupes what's
+             otherwise only shown scattered per-model above (pg 15-16). -->
+        <Card v-if="available_crew_upgrades.length" class="mt-6">
+            <CardHeader>
+                <CardTitle>Available Upgrades ({{ available_crew_upgrades.length }})</CardTitle>
+            </CardHeader>
+            <CardContent class="flex flex-wrap gap-1.5">
+                <Badge
+                    v-for="up in available_crew_upgrades"
+                    :key="`avail-up-${up.type}-${up.id}`"
+                    variant="outline"
+                    class="border-purple-500/50 text-[10px] text-purple-600 dark:text-purple-400"
+                >
+                    {{ up.name }}
+                </Badge>
             </CardContent>
         </Card>
 
@@ -2140,9 +2204,15 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             >{{ viewCard.equipment.cc }} cc</Badge
                         >
                     </div>
-                    <p v-if="viewCard.equipment.description" class="text-xs leading-relaxed text-muted-foreground">
-                        <GameText :text="viewCard.equipment.description" />
-                    </p>
+                    <!-- The card (image + Ability/Action cards) already carries the rules
+                         text — the raw description is only shown as a fallback when none
+                         of that exists, instead of always repeating it underneath. -->
+                    <template v-if="!viewCard.equipment.front_image && !viewCard.equipment.abilities.length && !viewCard.equipment.actions.length">
+                        <p v-if="viewCard.equipment.description" class="text-xs leading-relaxed text-muted-foreground">
+                            <GameText :text="viewCard.equipment.description" />
+                        </p>
+                        <p v-else class="text-xs text-muted-foreground">No rules text recorded for this equipment.</p>
+                    </template>
                     <div v-if="viewCard.equipment.abilities.length" class="space-y-2">
                         <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
                         <AbilityCard v-for="ab in viewCard.equipment.abilities" :key="`eqab-${ab.id}`" :ability="ab" :hide-footer="true" />
@@ -2157,12 +2227,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         </p>
                         <p v-for="(effect, i) in viewCard.equipment.applied_effects" :key="i" class="text-xs">+ {{ effect }}</p>
                     </div>
-                    <p
-                        v-if="!viewCard.equipment.description && !viewCard.equipment.abilities.length && !viewCard.equipment.actions.length"
-                        class="text-xs text-muted-foreground"
-                    >
-                        No rules text recorded for this equipment.
-                    </p>
                     <DialogFooter v-if="view_mode.is_owner && viewCard.equipment.source !== 'starting_lucky_upstart'">
                         <Button
                             variant="destructive"
@@ -2176,12 +2240,26 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </DialogFooter>
                 </div>
 
-                <!-- Injury -->
-                <div v-else-if="viewCard?.kind === 'injury'" class="text-sm">
-                    <p v-if="viewCard.description" class="text-xs leading-relaxed text-muted-foreground">
-                        <GameText :text="viewCard.description" />
-                    </p>
-                    <p v-else class="text-xs text-muted-foreground">No rules text recorded for this injury.</p>
+                <!-- Injury / gained ability -->
+                <div v-else-if="viewCard?.kind === 'injury'" class="space-y-2 text-sm">
+                    <img
+                        v-if="viewCard.front_image"
+                        :src="'/storage/' + viewCard.front_image"
+                        :alt="viewCard.title"
+                        class="mx-auto max-h-[40vh] max-w-full rounded-md border-2 object-contain"
+                    />
+                    <template v-if="!viewCard.front_image && !viewCard.abilities.length && !viewCard.actions.length">
+                        <p v-if="viewCard.description" class="text-xs leading-relaxed text-muted-foreground">
+                            <GameText :text="viewCard.description" />
+                        </p>
+                        <p v-else class="text-xs text-muted-foreground">No rules text recorded.</p>
+                    </template>
+                    <div v-if="viewCard.abilities.length" class="space-y-2">
+                        <AbilityCard v-for="ab in viewCard.abilities" :key="`injab-${ab.id}`" :ability="ab" :hide-footer="true" />
+                    </div>
+                    <div v-if="viewCard.actions.length" class="space-y-2">
+                        <ActionCard v-for="ac in viewCard.actions" :key="`injac-${ac.id}`" :action="ac" :hide-footer="true" />
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

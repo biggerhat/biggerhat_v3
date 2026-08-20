@@ -320,10 +320,12 @@ class ArsenalSheetController extends Controller
                 // instead of the official catalog — exactly one of character/
                 // customCharacter is set per row.
                 'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,size,keywords,characteristics,card_image_generated_at',
-                'injuries.injury:id,name,description',
+                'injuries.injury:id,name,description,front_image,back_image',
+                'injuries.injury.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'injuries.injury.abilities',
                 // Real Abilities gained permanently outside the base
                 // Character catalog row (currently only via Lucky Miss, pg 36).
-                'gainedAbilities:id,name,description',
+                'gainedAbilities:id,name,suits,defensive_ability_type,costs_stone,description',
             ]),
         ]);
         // Starter + Tier-4 borrowed effects (pg 32, 54) — full action/trigger
@@ -383,7 +385,11 @@ class ArsenalSheetController extends Controller
         if (! empty($leaderTotemIds)) {
             $injuriesByCharacter = CampaignArsenalModelInjury::query()
                 ->whereIn('custom_character_id', $leaderTotemIds)
-                ->with('injury:id,name,description')
+                ->with([
+                    'injury:id,name,description,front_image,back_image',
+                    'injury.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                    'injury.abilities',
+                ])
                 ->get()
                 ->groupBy('custom_character_id');
 
@@ -421,8 +427,53 @@ class ArsenalSheetController extends Controller
         // different names for the same crew card.
         $crewCardDisplayName = $crewCardCustomUpgrade?->display_name ?? $crew->crewCardEffect?->name; // @phpstan-ignore nullsafe.neverNull ($crewCardCustomUpgrade is genuinely nullable — see its ternary above)
 
+        $arsenalModelsPayload = $crew->arsenalModels->map(fn ($m) => [
+            'id' => $m->id,
+            'character_id' => $m->character_id,
+            'label' => $m->label,
+            'is_peon' => $m->is_peon,
+            'ignored_for_limits' => $m->ignored_for_limits,
+            'acquired_via' => $m->acquired_via,
+            'character' => $m->character ? [
+                ...$m->character->only(['id', 'slug', 'display_name', 'cost', 'faction', 'station']),
+                'standard_miniature' => $m->character->standardMiniatures->first()?->only(['id', 'display_name', 'front_image', 'back_image', 'character_id', 'slug']),
+            ] : null,
+            'custom_character' => $m->customCharacter ? [
+                'id' => $m->customCharacter->id,
+                'slug' => $m->customCharacter->slug,
+                'display_name' => $m->customCharacter->display_name,
+                'cost' => $m->customCharacter->cost,
+                'faction' => $m->customCharacter->getRawOriginal('faction'),
+                'station' => $m->customCharacter->getRawOriginal('station'),
+                'front_image' => $m->customCharacter->front_image,
+                'back_image' => $m->customCharacter->back_image,
+                // Cache-bust signal for the two fields above — set only
+                // when LeaderCardImageGenerator::generate() finishes.
+                'card_image_generated_at' => $m->customCharacter->card_image_generated_at,
+            ] : null,
+            'injuries' => $m->injuries->map(fn ($i) => $this->shapeInjury($i))->filter()->values()->all(),
+            'gained_characteristics' => $m->gained_characteristics ?? [],
+            'lucky_miss' => collect($m->gained_lucky_miss_ids ?? [])
+                ->map(fn ($id) => $luckyMissNames[$id] ?? null)
+                ->filter()
+                ->values(),
+            // Real Abilities gained permanently from a Lucky Miss
+            // result (pg 36) — additive to the model's base Character abilities.
+            'gained_abilities' => $m->gainedAbilities->map(fn (Ability $a) => $this->shapeGainedAbility($a))->values()->all(),
+            // Currently-held Crew Card actions/abilities this specific
+            // model qualifies for (pg 15-16) — see CrewCardUpgradeMatcher.
+            // @phpstan-ignore argument.type (Collection<TValue> is invariant in Larastan; the filtered shape here is correct at runtime)
+            'upgrades' => $this->resolveCrewCardUpgradesFor($m, $crewKeywordNames, $crewCardActionAbilityItems),
+        ]);
+
         return inertia('Campaigns/ArsenalSheet', [
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
+            // Deduplicated union of every unit's qualifying Crew Card
+            // upgrades (pg 15-16) — the per-model badges below only ever show
+            // this scattered across each Arsenal Model card, so there was no
+            // single place to see "everything the crew's units currently
+            // qualify for" at a glance.
+            'available_crew_upgrades' => $arsenalModelsPayload->pluck('upgrades')->flatten(1)->unique(fn (array $u) => "{$u['type']}-{$u['id']}")->values(),
             'crew' => array_merge(
                 $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image', 'crew_card_back_image', 'crew_card_generated_at']),
                 [
@@ -446,44 +497,7 @@ class ArsenalSheetController extends Controller
                         'id' => $adv->id,
                         'effect' => CombinedCrewCardEffects::advancementEffectRow($adv),
                     ])->all(),
-                    'arsenal_models' => $crew->arsenalModels->map(fn ($m) => [
-                        'id' => $m->id,
-                        'character_id' => $m->character_id,
-                        'label' => $m->label,
-                        'is_peon' => $m->is_peon,
-                        'ignored_for_limits' => $m->ignored_for_limits,
-                        'acquired_via' => $m->acquired_via,
-                        'character' => $m->character ? [
-                            ...$m->character->only(['id', 'slug', 'display_name', 'cost', 'faction', 'station']),
-                            'standard_miniature' => $m->character->standardMiniatures->first()?->only(['id', 'display_name', 'front_image', 'back_image', 'character_id', 'slug']),
-                        ] : null,
-                        'custom_character' => $m->customCharacter ? [
-                            'id' => $m->customCharacter->id,
-                            'slug' => $m->customCharacter->slug,
-                            'display_name' => $m->customCharacter->display_name,
-                            'cost' => $m->customCharacter->cost,
-                            'faction' => $m->customCharacter->getRawOriginal('faction'),
-                            'station' => $m->customCharacter->getRawOriginal('station'),
-                            'front_image' => $m->customCharacter->front_image,
-                            'back_image' => $m->customCharacter->back_image,
-                            // Cache-bust signal for the two fields above — set only
-                            // when LeaderCardImageGenerator::generate() finishes.
-                            'card_image_generated_at' => $m->customCharacter->card_image_generated_at,
-                        ] : null,
-                        'injuries' => $m->injuries->map(fn ($i) => $this->shapeInjury($i))->filter()->values()->all(),
-                        'gained_characteristics' => $m->gained_characteristics ?? [],
-                        'lucky_miss' => collect($m->gained_lucky_miss_ids ?? [])
-                            ->map(fn ($id) => $luckyMissNames[$id] ?? null)
-                            ->filter()
-                            ->values(),
-                        // Real Abilities gained permanently from a Lucky Miss
-                        // result (pg 36) — additive to the model's base Character abilities.
-                        'gained_abilities' => $m->gainedAbilities->map(fn (Ability $a) => $this->shapeGainedAbility($a))->values()->all(),
-                        // Currently-held Crew Card actions/abilities this specific
-                        // model qualifies for (pg 15-16) — see CrewCardUpgradeMatcher.
-                        // @phpstan-ignore argument.type (Collection<TValue> is invariant in Larastan; the filtered shape here is correct at runtime)
-                        'upgrades' => $this->resolveCrewCardUpgradesFor($m, $crewKeywordNames, $crewCardActionAbilityItems),
-                    ]),
+                    'arsenal_models' => $arsenalModelsPayload,
                 ],
             ),
             'leader' => $leader,
@@ -564,6 +578,9 @@ class ArsenalSheetController extends Controller
      *
      * @return array{id: int, name: string, description: string|null}|null
      */
+    /**
+     * @return array<string, mixed>|null
+     */
     private function shapeInjury(CampaignArsenalModelInjury $pivot): ?array
     {
         $injury = $pivot->injury;
@@ -571,15 +588,24 @@ class ArsenalSheetController extends Controller
             return null;
         }
 
-        return ['id' => $injury->id, 'name' => $injury->name, 'description' => $injury->description];
+        // Full card shape (image + actions/abilities) so "view" opens a real
+        // card like equipment does, not a description-only dialog.
+        return AftermathCatalog::shapeUpgradeCard($injury);
     }
 
     /**
-     * @return array{id: int, name: string, description: string|null}
+     * @return array{id: int, name: string, suits: string|null, defensive_ability_type: string|null, costs_stone: bool, description: string|null}
      */
     private function shapeGainedAbility(Ability $ability): array
     {
-        return ['id' => $ability->id, 'name' => $ability->name, 'description' => $ability->description];
+        return [
+            'id' => $ability->id,
+            'name' => $ability->name,
+            'suits' => $ability->suits,
+            'defensive_ability_type' => $ability->defensive_ability_type,
+            'costs_stone' => (bool) $ability->costs_stone,
+            'description' => $ability->description,
+        ];
     }
 
     /**

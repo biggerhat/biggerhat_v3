@@ -394,6 +394,33 @@ it('arsenal_models.upgrades requires BOTH crew keywords for a borrowed generic T
         );
 });
 
+it('available_crew_upgrades is the deduplicated union of every unit\'s qualifying upgrades', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $keyword = \App\Models\Keyword::find($crew->keyword_1_id);
+
+    $starterAction = \App\Models\Action::factory()->create(['name' => 'Starter Swing']);
+    $starter = CampaignCrewCard::factory()->create();
+    $starter->actions()->attach($starterAction->id, ['is_signature_action' => false]);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    // Two units that both qualify for the same starter action — the
+    // aggregate must list it once, not twice.
+    $minionA = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $minionA->keywords()->attach($keyword);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $minionA->id]);
+    $minionB = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $minionB->keywords()->attach($keyword);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $minionB->id]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('available_crew_upgrades', fn ($upgrades) => collect($upgrades)->where('name', 'Starter Swing')->count() === 1)
+        );
+});
+
 it('exposes story_log entries in chronological order, including games with no story written', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -1134,7 +1161,9 @@ it('exposes an arsenal model\'s permanently gained Abilities from a Lucky Miss r
 
     $char = Character::factory()->create(['cost' => 6]);
     $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $char->id]);
-    $ability = \App\Models\Ability::factory()->create(['name' => 'Uncanny Luck', 'description' => 'Once per turn...']);
+    $ability = \App\Models\Ability::factory()->create([
+        'name' => 'Uncanny Luck', 'description' => 'Once per turn...', 'suits' => 'ram', 'costs_stone' => true,
+    ]);
     $model->gainedAbilities()->attach($ability->id, ['source' => 'lucky_miss']);
 
     $this->actingAs($owner)
@@ -1143,6 +1172,33 @@ it('exposes an arsenal model\'s permanently gained Abilities from a Lucky Miss r
         ->assertInertia(fn ($page) => $page
             ->where('crew.arsenal_models.0.gained_abilities.0.name', 'Uncanny Luck')
             ->where('crew.arsenal_models.0.gained_abilities.0.description', 'Once per turn...')
+            // Card-view fields (QA: click Lucky Miss/Injury should show a
+            // card, not just description text) — AbilityCard needs these.
+            ->where('crew.arsenal_models.0.gained_abilities.0.suits', 'ram')
+            ->where('crew.arsenal_models.0.gained_abilities.0.costs_stone', true)
+        );
+});
+
+it('exposes an injury\'s full card shape (image + actions/abilities), not just description', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $char = Character::factory()->create(['cost' => 6]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $char->id]);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed', 'front_image' => 'injuries/concussed.png']);
+    $injuryAction = \App\Models\Action::factory()->create(['name' => 'Woozy Swing']);
+    $injury->actions()->attach($injuryAction->id, ['is_signature_action' => false]);
+    \Illuminate\Support\Facades\DB::table('campaign_arsenal_model_injuries')->insert([
+        'campaign_arsenal_model_id' => $model->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.arsenal_models.0.injuries.0.name', 'Concussed')
+            ->where('crew.arsenal_models.0.injuries.0.front_image', 'injuries/concussed.png')
+            ->where('crew.arsenal_models.0.injuries.0.actions.0.name', 'Woozy Swing')
         );
 });
 

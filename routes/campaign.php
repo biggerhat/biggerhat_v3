@@ -107,6 +107,9 @@ Route::middleware(['campaign.access'])->group(function () {
         // Arsenal Sheet (authenticated path — public share is above).
         Route::get('/campaigns/{campaign}/crews/{crew}/arsenal', [ArsenalSheetController::class, 'show'])
             ->name('campaigns.crews.arsenal.show');
+        // Flat black-and-white print reference — Print/Save-as-PDF from the browser.
+        Route::get('/campaigns/{campaign}/crews/{crew}/arsenal/print', [ArsenalSheetController::class, 'print'])
+            ->name('campaigns.crews.arsenal.print');
         // Ad-hoc unit/equipment adds — mid-game events outside Starting Arsenal/Weekly Hire/Aftermath.
         Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/models', [ArsenalSheetController::class, 'addManualArsenalModel'])
             ->name('campaigns.crews.arsenal.models.store');

@@ -74,6 +74,77 @@ class ArsenalSheetController extends Controller
     }
 
     /**
+     * Flat, black-and-white print reference for the crew's Leader/Totem
+     * stat blocks + arsenal roster + equipment locker, laid out for a
+     * browser Print/Save-as-PDF dialog — same `window.print()` +
+     * Tailwind `print:` pattern as CrewBuilderController::quickRef()'s
+     * identical non-Campaign reference sheet, so there's no new PDF
+     * pipeline to maintain alongside it.
+     */
+    public function print(Request $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        if ($crew->campaign_id !== $campaign->id) {
+            abort(404);
+        }
+
+        $user = $request->user();
+        $isMember = $user && (
+            $user->hasRole('super_admin')
+            || $campaign->players()->where('user_id', $user->id)->exists()
+        );
+
+        if (! $isMember) {
+            abort(403);
+        }
+
+        $leader = $crew->leader;
+        $totem = $crew->totem;
+
+        $crew->load(['arsenalModels' => fn ($q) => $q->active()->with([
+            'character:id,display_name,cost,station',
+            'customCharacter:id,display_name,cost,station',
+        ])]);
+        $models = $crew->arsenalModels->map(function (CampaignArsenalModel $m) {
+            $source = $m->character ?? $m->customCharacter;
+
+            return [
+                'name' => $m->displayName(),
+                'cost' => $source?->cost,
+                'station' => $source?->station?->value,
+            ];
+        })->values();
+
+        return inertia('Campaigns/ArsenalPrint', [
+            'campaign' => $campaign->only(['id']),
+            'crew' => $crew->only(['id', 'share_code', 'name', 'faction']),
+            'leader' => $leader ? $this->shapeCustomCharacterForPrint($leader) : null,
+            'totem' => $totem ? $this->shapeCustomCharacterForPrint($totem) : null,
+            'models' => $models,
+            'equipment' => collect(AftermathCatalog::ownedEquipment($crew, $leader))
+                ->map(fn (array $e) => ['name' => $e['name'], 'br' => $e['br'], 'cc' => $e['cc'], 'description' => $e['description']])
+                ->values(),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function shapeCustomCharacterForPrint(CustomCharacter $c): array
+    {
+        return [
+            'name' => $c->name,
+            'health' => $c->campaign_health,
+            'defense' => $c->campaign_df,
+            'willpower' => $c->campaign_wp,
+            'speed' => $c->campaign_sp,
+            'size' => $c->size,
+            'characteristics' => $c->characteristics ?? [],
+            'abilities' => $c->abilities ?? [],
+            'actions' => $c->actions ?? [],
+        ];
+    }
+
+    /**
      * Ad-hoc arsenal model add — for something that happened at the table
      * outside the normal Starting Arsenal/Weekly Hire flow (e.g. a summoned
      * or otherwise gained model). No hireability restriction and no scrip

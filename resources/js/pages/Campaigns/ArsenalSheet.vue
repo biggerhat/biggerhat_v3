@@ -22,7 +22,7 @@ import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Calendar, Copy, Download, Loader2, Pencil, Plus, Swords, Tag } from 'lucide-vue-next';
+import { Calendar, Copy, Download, Loader2, Pencil, Plus, Printer, Swords, Tag } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface KeywordRow {
@@ -1208,6 +1208,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" @click="copyShareLink"> <Copy class="mr-1 h-3 w-3" /> Share </Button>
+                <Link :href="route('campaigns.crews.arsenal.print', [campaign.id, crew.share_code])">
+                    <Button size="sm" variant="outline"> <Printer class="mr-1 h-3 w-3" /> Printable Download </Button>
+                </Link>
                 <!-- Pre-campaign: refine identity/keywords in the Leader Builder.
                      Post-campaign: full action/ability editing lives in the Card Creator
                      (faction, keywords, archetype, tag are locked once campaign starts). -->

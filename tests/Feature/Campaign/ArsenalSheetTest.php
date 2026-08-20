@@ -123,6 +123,52 @@ it('blocks non-members from the authed arsenal route', function () {
         ->assertForbidden();
 });
 
+it('print renders the flat black-and-white reference for a crew member', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Printable Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $character = Character::factory()->create(['name' => 'Rank and File', 'title' => null, 'cost' => 5]);
+    CampaignArsenalModel::create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $character->id,
+        'acquired_via' => 'manual',
+    ]);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Printed Trinket']);
+    \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.print', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Campaigns/ArsenalPrint')
+            ->where('leader.name', 'Printable Leader')
+            ->where('models.0.name', 'Rank and File')
+            ->where('equipment.0.name', 'Printed Trinket')
+        );
+});
+
+it('print rejects a non-member', function () {
+    $owner = sheetUser();
+    $outsider = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $this->actingAs($outsider)
+        ->get(route('campaigns.crews.arsenal.print', [$campaign, $crew->share_code]))
+        ->assertForbidden();
+});
+
 it('serves the public share link without auth when the feature flag is on', function () {
     Feature::for(null)->activate('m4e-campaign-mode');
     $owner = sheetUser();

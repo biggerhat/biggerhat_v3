@@ -44,15 +44,23 @@ class CombinedCrewCardImageGenerator
         $browsershot = Browsershot::url($url)
             ->noSandbox()
             ->select($selector)
-            // CombinedCrewCardFace picks its own tarot-proportioned box,
-            // tiered up (to a max of 1150x1986) as the crew's held effects
-            // grow — the viewport just needs to comfortably exceed the
-            // largest tier plus the capture page's padding so Chrome never
-            // has to reflow the fixed-width card; the element screenshot
-            // itself captures exactly whatever size #card-crew rendered at.
+            // CombinedCrewCardFace measures its own real rendered content
+            // and settles on the smallest tarot-tiered box (up to a max of
+            // 1150x1986) it actually fits in — the viewport just needs to
+            // comfortably exceed the largest tier plus the capture page's
+            // padding so Chrome never has to reflow the fixed-width card;
+            // the element screenshot itself captures exactly whatever size
+            // the face rendered at. waitForSelector blocks the screenshot
+            // until that face's own measurement pass has finished (see
+            // data-capture-ready in CombinedCrewCardFace.vue) — network
+            // idle alone doesn't wait for this JS-driven layout settling.
             ->windowSize(1300, 2200)
             ->deviceScaleFactor(2)
             ->waitUntilNetworkIdle()
+            // Descendant combinator: data-capture-ready lives on
+            // CombinedCrewCardFace's own root, one level inside the
+            // #card-crew-front/#card-crew-back wrapper div $selector targets.
+            ->waitForSelector("{$selector} [data-capture-ready=\"true\"]")
             ->timeout(60);
 
         if ($node = config('services.browsershot.node_binary')) {

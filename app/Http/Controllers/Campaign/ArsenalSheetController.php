@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\AdvancementTableEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
 use App\Events\CampaignCrewUpdated;
@@ -155,6 +156,18 @@ class ArsenalSheetController extends Controller
      */
     public function removeEquipment(RemoveEquipmentRequest $request, Campaign $campaign, CampaignCrew $crew, CampaignEquipment $equipment)
     {
+        // Lucky Upstart's free starter equipment (pg 17) isn't a normal
+        // pickup — it's re-derived from the leader's own build on every
+        // Leader Builder save (LeaderBuilderController::update()), so
+        // removing it here would just have it reappear on the next edit.
+        if ($equipment->source === 'starting_lucky_upstart') {
+            return redirect()->back()->withMessage(
+                "Lucky Upstart's starter equipment can't be removed here — change it from the Leader Builder instead.",
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
         $isLocked = CampaignLeaderAdvancement::query()
             ->where('from_equipment_id', $equipment->id)
             ->exists();
@@ -273,6 +286,23 @@ class ArsenalSheetController extends Controller
 
         $leader = $crew->leader;
         $totem = $crew->totem;
+
+        // Display-only characteristic additions on the live card — appended
+        // here (not persisted onto the `characteristics` column) so they
+        // don't round-trip into the Leader Builder edit form and get counted
+        // against its two-pick cap or duplicated on repeat saves. Mirrors
+        // CustomCharacterController::capture's identical Bruiser/Strategist
+        // append for the exported card image, which this page didn't share.
+        if ($leader) {
+            $leaderCharacteristics = $leader->characteristics ?? [];
+            if (! in_array('Unique', $leaderCharacteristics, true)) {
+                $leaderCharacteristics[] = 'Unique';
+            }
+            if ($tag = LeaderTagEnum::tryFrom((string) $leader->tag)) {
+                $leaderCharacteristics[] = $tag->label();
+            }
+            $leader->setAttribute('characteristics', $leaderCharacteristics);
+        }
 
         // Leader/Totem injuries (pg 33-34) — same table as arsenal model
         // injuries, keyed by custom_character_id instead. Neither

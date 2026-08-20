@@ -529,6 +529,33 @@ it('exposes Leader/Totem injuries in the payload and counts them toward Campaign
     expect($crew->activeInjuryCount())->toBe(2);
 });
 
+it('exposes Unique and the Bruiser/Strategist tag as display-only leader characteristics', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'tag' => \App\Enums\Campaign\LeaderTagEnum::Strategist->value,
+        'name' => 'Tagged Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+        'characteristics' => ['Living'],
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('leader.characteristics', ['Living', 'Unique', 'Strategist'])
+        );
+
+    // Display-only: never persisted onto the model.
+    expect($leader->fresh()->characteristics)->toBe(['Living']);
+});
+
 it('exposes equipment actions and marks equipment locked once an advancement targets it', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -1349,6 +1376,24 @@ it('removeEquipment refuses when an advancement is attached to this equipment in
         'applied_to_action_index' => -1,
         'position_in_xp_track' => 0,
         'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.equipment.destroy', [$campaign, $crew->share_code, $equipment->id]))
+        ->assertRedirect();
+
+    expect($equipment->fresh()->annihilated_at)->toBeNull();
+});
+
+it('removeEquipment refuses to remove Lucky Upstart\'s free starter equipment', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Free Trinket']);
+    $equipment = \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'starting_lucky_upstart',
+        'excludes_from_cr' => true,
     ]);
 
     $this->actingAs($owner)

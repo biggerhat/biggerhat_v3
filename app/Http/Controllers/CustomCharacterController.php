@@ -209,15 +209,21 @@ class CustomCharacterController extends Controller
     {
         $character = CustomCharacter::where('share_code', $shareCode)->firstOrFail();
 
-        // The Bruiser/Strategist tag (pg 18) is shown on the rendered card as
-        // a characteristic, alongside the player's own up-to-two picks. This
+        // The Bruiser/Strategist tag (pg 18) and the "Unique" characteristic
+        // (every built Leader is a one-of-a-kind named model) are shown on
+        // the rendered card alongside the player's own up-to-two picks. This
         // is display-only — appended here rather than persisted onto the
         // `characteristics` column — so it doesn't round-trip into the
         // Leader Builder edit form and get counted against that two-pick cap
         // or duplicated on repeat saves.
         $characteristics = $character->characteristics ?? [];
-        if ($character->is_campaign_leader && $tag = LeaderTagEnum::tryFrom((string) $character->tag)) {
-            $characteristics[] = $tag->label();
+        if ($character->is_campaign_leader) {
+            if (! in_array('Unique', $characteristics, true)) {
+                $characteristics[] = 'Unique';
+            }
+            if ($tag = LeaderTagEnum::tryFrom((string) $character->tag)) {
+                $characteristics[] = $tag->label();
+            }
         }
 
         return inertia('CardCreator/Capture', [

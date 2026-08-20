@@ -2160,7 +2160,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     >
                         No rules text recorded for this equipment.
                     </p>
-                    <DialogFooter v-if="view_mode.is_owner">
+                    <DialogFooter v-if="view_mode.is_owner && viewCard.equipment.source !== 'starting_lucky_upstart'">
                         <Button
                             variant="destructive"
                             size="sm"

@@ -84,10 +84,9 @@ class LeaderBuilderController extends Controller
             'characteristic_options' => fn () => Characteristic::query()
                 ->orderBy('name')
                 ->pluck('name'),
-            // Lucky Upstart flips a card, then may only take equipment whose BR
-            // matches that flip exactly (pg 17) — same shape/filtering the
-            // Aftermath Barter step already uses for the identical BR-match
-            // concept, so the picker can filter client-side the same way.
+            // Lucky Upstart's free starter equipment (pg 17) — flip-match is
+            // no longer enforced (see StoreLeaderRequest), so this is just
+            // the full campaign equipment catalog to pick from.
             'equipment_catalog' => fn () => AftermathCatalog::equipment(),
             'lucky_upstart_equipment_id' => CampaignEquipment::query()
                 ->where('campaign_crew_id', $crew->id)

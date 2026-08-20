@@ -492,7 +492,7 @@ it('serves the headless-Chrome capture page without auth', function () {
         ->assertInertia(fn ($p) => $p->where('card.name', 'Capture Me')->where('card.faction', 'guild'));
 });
 
-it('capture appends the Bruiser/Strategist tag as a display characteristic for a Campaign Leader (pg 18)', function () {
+it('capture appends Unique and the Bruiser/Strategist tag as display characteristics for a Campaign Leader (pg 18)', function () {
     $user = User::factory()->create();
     $character = CustomCharacter::create(array_merge(ccValidPayload([
         'name' => 'Upstart Leader',
@@ -503,7 +503,7 @@ it('capture appends the Bruiser/Strategist tag as a display characteristic for a
 
     $this->get(route('tools.card_creator.capture', $character->share_code))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living', 'Bruiser']));
+        ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living', 'Unique', 'Bruiser']));
 
     // The persisted column itself is untouched — this is a display-only
     // addition so it doesn't round-trip into the Leader Builder edit form

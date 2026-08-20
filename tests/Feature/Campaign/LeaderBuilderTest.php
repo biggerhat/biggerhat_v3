@@ -112,6 +112,45 @@ it('offers the official characteristic catalog as picker options', function () {
         ->assertInertia(fn ($page) => $page->where('characteristic_options', fn ($opts) => collect($opts)->contains('Living')));
 });
 
+it('exposes archetype special_notes (e.g. Lucky Upstart\'s free-equipment rule) for the help text', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.crews.leader.edit', [$crew->campaign_id, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('archetypes.0.slug', LeaderArchetypeEnum::LuckyUpstart->value)
+            ->where('archetypes.0.special_notes', LeaderArchetypeEnum::LuckyUpstart->specialNotes())
+        );
+});
+
+it('accepts a characteristic outside the official catalog (custom characteristic)', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $faction = FactionEnum::Guild;
+    $kw1 = keywordWithModelInFaction($faction);
+    $kw2 = Keyword::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Custom Trait Leader',
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => $faction->value,
+            'keyword_1_id' => $kw1->id, 'keyword_2_id' => $kw2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [],
+            'abilities' => [],
+            'characteristics' => ['Homebrew Trait'],
+        ])
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors('characteristics');
+
+    $leader = CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->firstOrFail();
+    expect($leader->characteristics)->toBe(['Homebrew Trait']);
+});
+
 it('blocks non-owner from the Leader Builder', function () {
     $owner = leaderUser();
     $other = leaderUser();
@@ -434,6 +473,40 @@ it('save accepts an action sourced from a valid in-keyword ally', function () {
     expect(CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->exists())->toBeTrue();
 });
 
+it('save retains an action\'s built-in stat_suits/stat_modifier on the stored leader', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $k1 = keywordWithModelInFaction(FactionEnum::Resurrectionists);
+    $k2 = Keyword::factory()->create();
+
+    $action = Action::factory()->create(['stone_cost' => 5]);
+    $ally = Character::factory()->create(['faction' => FactionEnum::Resurrectionists, 'cost' => 6, 'station' => CharacterStationEnum::Minion]);
+    $ally->keywords()->attach($k1);
+    $ally->actions()->attach($action);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
+            'name' => 'Suited Leader',
+            'archetype' => LeaderArchetypeEnum::Generalist->value,
+            'tag' => LeaderTagEnum::Bruiser->value,
+            'faction' => FactionEnum::Resurrectionists->value,
+            'keyword_1_id' => $k1->id, 'keyword_2_id' => $k2->id,
+            'size' => 2, 'base' => 30,
+            'actions' => [[
+                'name' => $action->name, 'type' => 'attack', 'category' => 'attack',
+                'stone_cost' => 5, 'is_signature' => false, 'triggers' => [],
+                'source_id' => $action->id, 'source_character_id' => $ally->id,
+                'stat' => 6, 'stat_suits' => 'ram', 'stat_modifier' => 'positive',
+            ]],
+            'abilities' => [],
+        ])
+        ->assertRedirect();
+
+    $leader = CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->firstOrFail();
+    expect($leader->actions[0]['stat_suits'])->toBe('ram');
+    expect($leader->actions[0]['stat_modifier'])->toBe('positive');
+});
+
 it('save rejects an action sourced from a master (pg 17)', function () {
     $user = leaderUser();
     $crew = crewFor($user);
@@ -541,7 +614,6 @@ it('Lucky Upstart leader records a free starter equipment excluded from CR', fun
             'actions' => [],
             'abilities' => [],
             'lucky_upstart_equipment_id' => $equip->id,
-            'lucky_upstart_flip_value' => 7,
         ])
         ->assertRedirect();
 
@@ -552,14 +624,14 @@ it('Lucky Upstart leader records a free starter equipment excluded from CR', fun
     expect((bool) $eq->excludes_from_cr)->toBeTrue();
 });
 
-it('Lucky Upstart rejects equipment whose BR does not match the flip', function () {
+it('Lucky Upstart rejects a non-equipment upgrade as the starter pick', function () {
     $user = leaderUser();
     $crew = crewFor($user);
     $faction = FactionEnum::Guild;
     $kw1 = keywordWithModelInFaction($faction);
     $kw2 = Keyword::factory()->create();
 
-    $equip = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Lucky Charm', 'campaign_br' => 7]);
+    $notEquipment = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Not Equipment']);
 
     $this->actingAs($user)
         ->post(route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]), [
@@ -571,8 +643,7 @@ it('Lucky Upstart rejects equipment whose BR does not match the flip', function 
             'size' => 2, 'base' => 30,
             'actions' => [],
             'abilities' => [],
-            'lucky_upstart_equipment_id' => $equip->id,
-            'lucky_upstart_flip_value' => 3,
+            'lucky_upstart_equipment_id' => $notEquipment->id,
         ])
         ->assertSessionHasErrors('lucky_upstart_equipment_id');
 

@@ -32,6 +32,7 @@ interface ArchetypeRow {
     tactical_action_cost_cap: number;
     abilities_count: number;
     ability_cost_cap: number;
+    special_notes: string | null;
 }
 
 interface KeywordRow {
@@ -146,28 +147,9 @@ const form = ref({
     actions: props.leader?.actions ?? ([] as ActionData[]),
     abilities: props.leader?.abilities ?? ([] as AbilityData[]),
     lucky_upstart_equipment_id: props.lucky_upstart_equipment_id ?? null,
-    lucky_upstart_flip_value: null as number | null,
 });
 
 const archetype = computed(() => props.archetypes.find((a) => a.slug === form.value.archetype) ?? null);
-
-// Lucky Upstart flips a card, then may only take equipment whose BR matches
-// that flip exactly (pg 17) — same BR-match rule the Aftermath Barter step
-// enforces, just gated on a single flip instead of a purchase list.
-const eligibleLuckyUpstartEquipment = computed(() => {
-    const flip = form.value.lucky_upstart_flip_value;
-    if (flip == null) return props.equipment_catalog;
-    return props.equipment_catalog.filter((e) => e.is_always_available || e.br === flip);
-});
-
-watch(
-    () => form.value.lucky_upstart_flip_value,
-    () => {
-        if (!eligibleLuckyUpstartEquipment.value.some((e) => e.id === form.value.lucky_upstart_equipment_id)) {
-            form.value.lucky_upstart_equipment_id = null;
-        }
-    },
-);
 
 const attackActions = computed(() => form.value.actions.filter((a) => a.category === 'attack'));
 const tacticalActions = computed(() => form.value.actions.filter((a) => a.category === 'tactical'));
@@ -269,6 +251,14 @@ const addCharacteristic = (c: string) => {
 
 const removeCharacteristic = (i: number) => form.value.characteristics.splice(i, 1);
 
+const customCharacteristicInput = ref('');
+const addCustomCharacteristic = () => {
+    const c = customCharacteristicInput.value.trim();
+    if (!c) return;
+    addCharacteristic(c);
+    customCharacteristicInput.value = '';
+};
+
 // ───────── Submit ─────────
 const submitting = ref(false);
 const submit = async () => {
@@ -341,35 +331,30 @@ const submit = async () => {
                         Attack: {{ archetype.attack_actions_count }} (≤ cost {{ archetype.attack_action_cost_cap }})
                         <span v-if="archetype.attack_gets_trigger">+ 1 trigger</span>
                         • Tactical: {{ archetype.tactical_actions_count }} (≤ cost {{ archetype.tactical_action_cost_cap }}) • Abilities:
-                        {{ archetype.abilities_count }}
+                        {{ archetype.abilities_count }} (≤ cost {{ archetype.ability_cost_cap }})
+                        <template v-if="archetype.special_notes">
+                            <br />
+                            {{ archetype.special_notes }}
+                        </template>
                     </p>
                     <InputError :message="usePage().props.errors.archetype" />
                 </div>
-                <div v-if="form.archetype === 'lucky_upstart'" class="grid gap-3 md:col-span-2 md:grid-cols-[120px_1fr]">
-                    <div>
-                        <Label for="lucky_upstart_flip_value">Flip (1–13)</Label>
-                        <Input id="lucky_upstart_flip_value" type="number" min="1" max="13" v-model.number="form.lucky_upstart_flip_value" />
-                        <InputError :message="usePage().props.errors.lucky_upstart_flip_value" />
-                    </div>
-                    <div>
-                        <Label>Free starter equipment (Lucky Upstart)</Label>
-                        <Select
-                            :model-value="form.lucky_upstart_equipment_id?.toString() ?? '__none__'"
-                            @update:model-value="(v) => (form.lucky_upstart_equipment_id = v === '__none__' ? null : Number(v))"
-                        >
-                            <SelectTrigger class="h-9 w-full text-sm text-foreground">
-                                <SelectValue placeholder="— pick equipment —" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="__none__">— pick equipment —</SelectItem>
-                                <SelectItem v-for="e in eligibleLuckyUpstartEquipment" :key="e.id" :value="e.id.toString()">{{ e.name }}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <p class="mt-1 text-[11px] text-muted-foreground">
-                            Flip a card (may not be cheated) — take equipment whose BR matches exactly. Doesn't count toward Campaign Rating (pg 17).
-                        </p>
-                        <InputError :message="usePage().props.errors.lucky_upstart_equipment_id" />
-                    </div>
+                <div v-if="form.archetype === 'lucky_upstart'">
+                    <Label>Free starter equipment (Lucky Upstart)</Label>
+                    <Select
+                        :model-value="form.lucky_upstart_equipment_id?.toString() ?? '__none__'"
+                        @update:model-value="(v) => (form.lucky_upstart_equipment_id = v === '__none__' ? null : Number(v))"
+                    >
+                        <SelectTrigger class="h-9 w-full text-sm text-foreground">
+                            <SelectValue placeholder="— pick equipment —" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none__">— pick equipment —</SelectItem>
+                            <SelectItem v-for="e in equipment_catalog" :key="e.id" :value="e.id.toString()">{{ e.name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p class="mt-1 text-[11px] text-muted-foreground">Doesn't count toward Campaign Rating (pg 17).</p>
+                    <InputError :message="usePage().props.errors.lucky_upstart_equipment_id" />
                 </div>
                 <div>
                     <Label>Faction (declared)</Label>
@@ -463,10 +448,11 @@ const submit = async () => {
                     <p class="text-xs font-medium uppercase text-muted-foreground">Attack</p>
                     <div v-for="(a, idx) in form.actions" :key="`atk-${idx}`">
                         <div v-if="a.category === 'attack'" class="space-y-1 rounded-md border p-2 text-sm">
-                            <div class="flex items-center justify-between">
-                                <span
-                                    >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
-                                >
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex min-w-0 flex-1 items-center gap-2">
+                                    <Input v-model="a.name" class="h-7 flex-1 text-sm" />
+                                    <Badge variant="outline" class="shrink-0 text-[10px]">cost {{ a.stone_cost }}</Badge>
+                                </div>
                                 <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
                             </div>
                             <!-- Heavy Hitter keeps one trigger — pick which when the source has several. -->
@@ -500,10 +486,11 @@ const submit = async () => {
                     <p class="text-xs font-medium uppercase text-muted-foreground">Tactical</p>
                     <div v-for="(a, idx) in form.actions" :key="`tac-${idx}`">
                         <div v-if="a.category === 'tactical'" class="space-y-1 rounded-md border p-2 text-sm">
-                            <div class="flex items-center justify-between">
-                                <span
-                                    >{{ a.name }} <Badge variant="outline" class="text-[10px]">cost {{ a.stone_cost }}</Badge></span
-                                >
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex min-w-0 flex-1 items-center gap-2">
+                                    <Input v-model="a.name" class="h-7 flex-1 text-sm" />
+                                    <Badge variant="outline" class="shrink-0 text-[10px]">cost {{ a.stone_cost }}</Badge>
+                                </div>
                                 <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
                             </div>
                             <InputError :message="(usePage().props.errors as Record<string, string>)[`actions.${idx}.source_character_id`]" />
@@ -524,8 +511,8 @@ const submit = async () => {
             <CardContent class="space-y-4">
                 <Button variant="outline" :disabled="!form.keyword_1_id" @click="abilityModalOpen = true">Browse Abilities</Button>
                 <div v-for="(ab, idx) in form.abilities" :key="`abi-${idx}`" class="space-y-1 rounded-md border p-2 text-sm">
-                    <div class="flex items-center justify-between">
-                        <span class="font-medium">{{ ab.name }}</span>
+                    <div class="flex items-center justify-between gap-2">
+                        <Input v-model="ab.name" class="h-7 flex-1 text-sm font-medium" />
                         <Button variant="ghost" size="sm" @click="removeAbility(idx)">Remove</Button>
                     </div>
                     <InputError :message="(usePage().props.errors as Record<string, string>)[`abilities.${idx}.source_character_id`]" />
@@ -550,6 +537,23 @@ const submit = async () => {
                         <SelectItem v-for="c in availableCharacteristics" :key="c" :value="c">{{ c }}</SelectItem>
                     </SelectContent>
                 </Select>
+                <div class="flex gap-2">
+                    <Input
+                        v-model="customCharacteristicInput"
+                        placeholder="Or type a custom characteristic"
+                        class="flex-1"
+                        :disabled="form.characteristics.length >= 2"
+                        @keydown.enter.prevent="addCustomCharacteristic"
+                    />
+                    <Button
+                        variant="outline"
+                        type="button"
+                        :disabled="form.characteristics.length >= 2 || !customCharacteristicInput.trim()"
+                        @click="addCustomCharacteristic"
+                    >
+                        Add
+                    </Button>
+                </div>
                 <div class="flex flex-wrap gap-2">
                     <Badge v-for="(c, i) in form.characteristics" :key="c" class="cursor-pointer" @click="removeCharacteristic(i)"> {{ c }} × </Badge>
                 </div>

@@ -385,7 +385,7 @@ class ArsenalSheetController extends Controller
                 // instead of the official catalog — exactly one of character/
                 // customCharacter is set per row.
                 'customCharacter:id,slug,display_name,cost,faction,station,front_image,back_image,size,keywords,characteristics,card_image_generated_at',
-                'injuries.injury:id,name,description,front_image,back_image',
+                'injuries.injury:id,name,description,front_image,back_image,plentiful',
                 'injuries.injury.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                 'injuries.injury.abilities',
                 // Real Abilities gained permanently outside the base
@@ -451,7 +451,7 @@ class ArsenalSheetController extends Controller
             $injuriesByCharacter = CampaignArsenalModelInjury::query()
                 ->whereIn('custom_character_id', $leaderTotemIds)
                 ->with([
-                    'injury:id,name,description,front_image,back_image',
+                    'injury:id,name,description,front_image,back_image,plentiful',
                     'injury.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                     'injury.abilities',
                 ])

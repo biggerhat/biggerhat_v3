@@ -30,6 +30,7 @@ interface CampaignCrewCardPayload {
     borrowed: Array<{ id: number; effect: CrewCardEffect | null }>;
     front_image: string | null;
     back_image: string | null;
+    card_generated_at: string | null;
 }
 
 const props = defineProps<{
@@ -295,7 +296,7 @@ const confirmPendingScheme = () => {
                 class="mt-2"
             >
                 <HeadingEyebrow class="mb-1">Crew Card — {{ upgrade.name }}</HeadingEyebrow>
-                <div class="max-w-[260px] [&_img]:w-full">
+                <div class="max-w-[380px] [&_img]:w-full">
                     <UpgradeFlipCard
                         :front-image="upgrade.front_image"
                         :back-image="upgrade.back_image"
@@ -309,10 +310,11 @@ const confirmPendingScheme = () => {
                  effects, shown for both sides before turn 1 (T2-28). -->
             <div v-if="campaignCardForPlayer(player)?.effect" class="mt-2">
                 <HeadingEyebrow class="mb-1">Crew Card — {{ campaignCardForPlayer(player)!.effect!.name }}</HeadingEyebrow>
-                <div v-if="campaignCardForPlayer(player)!.front_image" class="max-w-[260px] [&_img]:w-full">
+                <div v-if="campaignCardForPlayer(player)!.front_image" class="max-w-[380px] [&_img]:w-full">
                     <UpgradeFlipCard
                         :front-image="campaignCardForPlayer(player)!.front_image"
                         :back-image="campaignCardForPlayer(player)!.back_image"
+                        :generated-at="campaignCardForPlayer(player)!.card_generated_at"
                         :alt-text="campaignCardForPlayer(player)!.effect!.name"
                         :show-link="false"
                     />

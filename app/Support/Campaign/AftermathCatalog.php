@@ -763,6 +763,35 @@ class AftermathCatalog
     }
 
     /**
+     * The full Equipment catalog (pg 21-29), offered as a mid-game attach
+     * option — same "anything on the table" reasoning as
+     * injuryCatalogForAttachment() above (QA: the in-play attach editor
+     * previously only offered the crew's already-OWNED equipment via
+     * ownedEquipmentForAttachment(), which is right for pre-game setup
+     * (assigning gear you've actually earned) but wrong mid-game, where a
+     * player needs to record something that just happened at the table —
+     * same self-reported freedom the standard (non-Campaign) tracker's
+     * attach-any-upgrade flow already has).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function equipmentCatalogForAttachment(): array
+    {
+        return Upgrade::query()
+            ->where('campaign_upgrade_kind', 'equipment')
+            ->where('campaign_is_red_joker_entry', false)
+            ->with([
+                'actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'abilities',
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Upgrade $u) => self::shapeUpgradeCard($u))
+            ->values()
+            ->all();
+    }
+
+    /**
      * Full card shape (image + actions/abilities, each with their own
      * triggers) for a single catalog Upgrade row — shared by
      * injuryCatalogForAttachment() above and ArsenalSheetController's
@@ -784,7 +813,11 @@ class AftermathCatalog
             'name' => $u->name,
             'front_image' => $u->front_image,
             'back_image' => $u->back_image,
-            'plentiful' => null,
+            // A real printed-on-card limit (e.g. "Plentiful 2"), not an
+            // ownership count — GamePlayController::updateCrewMember()
+            // already exempts campaign_upgrade_kind === 'injury' from this
+            // check entirely, so it's harmless there even when set.
+            'plentiful' => $u->plentiful,
             'description' => $u->description,
             'actions' => $u->actions->map(fn (Action $a) => [
                 'name' => $a->name,

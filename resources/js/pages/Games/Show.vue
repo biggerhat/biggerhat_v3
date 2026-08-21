@@ -5842,6 +5842,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         :search="injurySearch"
         :usage-count="injuryUsageCount"
         title="Attach Injury"
+        options-label="All Injuries"
         @update:open="injuryDialogOpen = $event"
         @update:search="injurySearch = $event"
         @toggle="toggleInjury"

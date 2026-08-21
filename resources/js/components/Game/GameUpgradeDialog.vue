@@ -39,8 +39,10 @@ const props = withDefaults(
         usageCount: (upgradeId: number) => number;
         /** Dialog title — defaults to the equipment-management wording; the mid-game injury picker (pg 34) reuses this same component with its own title. */
         title?: string;
+        /** Label on the full-catalog section — "All Upgrades" by default, "All Injuries" for the injury picker. */
+        optionsLabel?: string;
     }>(),
-    { title: 'Manage Upgrades' },
+    { title: 'Manage Upgrades', optionsLabel: 'All Upgrades' },
 );
 
 const emit = defineEmits<{
@@ -118,9 +120,15 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                 </div>
             </div>
 
-            <!-- All upgrades -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">All Upgrades</summary>
+            <!-- Full catalog — the main way to attach something new (QA: this
+                 was collapsed by default and always labeled "All Upgrades"
+                 even for the injury picker, which made the dialog look
+                 empty/broken on first open). Open by default since it's the
+                 primary interaction, not a rarely-needed extra. -->
+            <details class="rounded-md border" open>
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">{{
+                    optionsLabel
+                }}</summary>
                 <div class="border-t px-1 pb-1 pt-1">
                     <Input :model-value="search" placeholder="Filter..." class="mb-1" @update:model-value="(v) => emit('update:search', String(v))" />
                     <div class="max-h-36 space-y-0.5 overflow-y-auto">

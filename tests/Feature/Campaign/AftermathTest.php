@@ -191,6 +191,68 @@ it('renders the lightweight recap for a locked manually-logged aftermath, source
         );
 });
 
+it('recap resolves injuries by model name and advancements by name, not just a raw count', function () {
+    [$user, $campaign, $crew] = aftermathFixture();
+    $game = CampaignGame::factory()->create([
+        'campaign_id' => $campaign->id,
+        'crew_a_id' => $crew->id,
+        'crew_b_id' => null,
+        'base_game_id' => null,
+        'week_number' => 3,
+        'winner_crew_id' => $crew->id,
+    ]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'status' => 'locked',
+    ]);
+
+    $character = \App\Models\Character::factory()->create(['name' => 'Rank and File', 'title' => null]);
+    $arsenalModel = \App\Models\Campaign\CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $character->id,
+    ]);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed']);
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $arsenalModel->id,
+        'injury_upgrade_id' => $injury->id,
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Recap Leader',
+        'faction' => 'guild',
+        'station' => 'master',
+        'health' => 12, 'defense' => 5, 'willpower' => 6, 'speed' => 5,
+        'tag' => 'bruiser',
+    ]);
+    $ability = \App\Models\Campaign\AdvancementAbility::factory()->create(['talent_name' => 'Recap Ability']);
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'ability',
+        'position_in_xp_track' => 2,
+        'applied_to_action_index' => -1,
+        'advancement_catalog_id' => $ability->id,
+        'catalog_core_id' => $ability->id,
+        'source_aftermath_id' => $aftermath->id,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.aftermaths.recap', $aftermath))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('injuries.0.model_name', 'Rank and File')
+            ->where('injuries.0.injury_name', 'Concussed')
+            ->where('advancements.0.name', 'Recap Ability > Recap Leader')
+            ->where('tally.injuries', 1)
+        );
+});
+
 it('blocks non-owners from viewing the recap', function () {
     [, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

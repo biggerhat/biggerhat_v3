@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\ActionRangeTypeEnum;
 use App\Enums\ActionTypeEnum;
 use App\Enums\BaseSizeEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
@@ -106,6 +107,11 @@ class CustomCharacterRequest extends FormRequest
             'linked_totems.*.id' => ['required', 'integer'],
             'linked_totems.*.name' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
+            // Campaign Leader's Bruiser/Strategist tag (pg 18) — no rules
+            // effect (self-reported at Aftermath), so it's editable here
+            // post-creation rather than locked with the other campaign
+            // invariants CustomCharacterController::update() protects.
+            'tag' => ['nullable', 'string', Rule::enum(LeaderTagEnum::class)],
         ];
     }
 }

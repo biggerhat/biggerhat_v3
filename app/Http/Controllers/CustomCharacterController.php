@@ -113,11 +113,14 @@ class CustomCharacterController extends Controller
     {
         $validated = $request->validated();
 
-        // A campaign leader can be edited here for action/ability detail, but the
-        // generic editor must not break its campaign invariants — it must stay a
-        // cost-0, stone-generating Master (pg 18). Campaign-only fields (tag,
-        // archetype, is_campaign_leader, current, campaign_*) aren't in the
-        // validated set, so update() preserves them untouched.
+        // A campaign leader can be edited here for action/ability/tag detail,
+        // but the generic editor must not break its campaign invariants — it
+        // must stay a cost-0, stone-generating Master (pg 18). Other
+        // campaign-only fields (archetype, is_campaign_leader, current,
+        // campaign_*) aren't in the validated set, so update() preserves
+        // them untouched. tag has no rules-derived effect (pg 18's +1 XP
+        // condition is self-reported at Aftermath, not enforced here), so
+        // there's no invariant to protect by locking it.
         if ($customCharacter->is_campaign_leader) {
             $validated['station'] = 'master';
             $validated['generates_stone'] = true;
@@ -265,6 +268,10 @@ class CustomCharacterController extends Controller
             'action_types' => ActionTypeEnum::toSelectOptions(),
             'range_types' => ActionRangeTypeEnum::toSelectOptions(),
             'defensive_ability_types' => DefensiveAbilityTypeEnum::toSelectOptions(),
+            // Campaign Leader's Bruiser/Strategist tag (pg 18) — editable here
+            // post-creation (QA: doesn't drive any automatic rule yet, so
+            // there's no reason to lock it once the Leader is built).
+            'tags' => LeaderTagEnum::toSelectOptions(),
         ];
     }
 }

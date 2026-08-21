@@ -225,6 +225,26 @@ it('update preserves campaign-leader invariants regardless of submitted values',
     expect($leader->cost)->toBeNull();
 });
 
+it('update lets a Campaign Leader\'s tag be changed, unlike the other locked campaign invariants', function () {
+    $user = User::factory()->create();
+    $leader = CustomCharacter::create(array_merge(ccValidPayload([
+        'tag' => 'bruiser',
+    ]), [
+        'user_id' => $user->id,
+        'is_campaign_leader' => true,
+        'station' => 'master',
+        'generates_stone' => true,
+        'is_unhirable' => false,
+        'cost' => null,
+    ]));
+
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.update', $leader->id), ccValidPayload(['tag' => 'strategist']))
+        ->assertOk();
+
+    expect($leader->fresh()->tag)->toBe('strategist');
+});
+
 it('update broadcasts CampaignCrewUpdated when a campaign leader is edited', function () {
     Event::fake([CampaignCrewUpdated::class]);
 

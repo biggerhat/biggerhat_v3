@@ -237,8 +237,13 @@ class StartingArsenalController extends Controller
     {
         $crewCard = CampaignCrewCard::query()
             ->with([
-                'actions:id,name,type,stat,stat_suits,range,range_type,description',
-                'abilities:id,name,suits,defensive_ability_type,costs_stone,description',
+                // Full field set — CombinedCrewCardEffects::build() reads
+                // these same fields back once this becomes an editable copy
+                // (shapeActionBlock()); a partial select here would silently
+                // drop stone_cost/damage/triggers/etc. from the crew's own
+                // card the first time they save an edit.
+                'actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
+                'abilities',
             ])
             ->find($crewCardId);
         if (! $crewCard) {
@@ -262,11 +267,23 @@ class StartingArsenalController extends Controller
             $blocks[] = ['type' => 'action', 'data' => [
                 'name' => $ac->name,
                 'type' => $ac->type,
+                'stone_cost' => $ac->stone_cost,
                 'stat' => $ac->stat,
                 'stat_suits' => $ac->stat_suits,
+                'stat_modifier' => $ac->stat_modifier,
                 'range' => $ac->range,
                 'range_type' => $ac->range_type,
+                'resisted_by' => $ac->resisted_by,
+                'target_number' => $ac->target_number,
+                'target_suits' => $ac->target_suits,
+                'damage' => $ac->damage,
                 'description' => $ac->description,
+                'triggers' => $ac->triggers->map(fn ($t) => [
+                    'name' => $t->name,
+                    'suits' => $t->suits,
+                    'stone_cost' => $t->stone_cost,
+                    'description' => $t->description,
+                ])->all(),
             ]];
         }
 

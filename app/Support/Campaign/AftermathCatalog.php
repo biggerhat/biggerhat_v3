@@ -51,6 +51,11 @@ class AftermathCatalog
             ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
             ->where('campaign_upgrade_kind', 'equipment')
             ->where('campaign_is_red_joker_entry', false)
+            // Those Who Thirst items are picked from the separate red-joker
+            // sub-table (pg 30), never the normal shopping list — barter()
+            // rejects a purchase of one outright, so listing it here let a
+            // player select an item Confirm could never actually accept.
+            ->where('campaign_ttw_only', false)
             ->orderBy('campaign_br')
             ->orderBy('name')
             ->get()

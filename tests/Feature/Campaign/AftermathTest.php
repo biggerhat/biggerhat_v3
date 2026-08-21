@@ -829,6 +829,24 @@ it('Phase 3 Barter rejects a Those Who Thirst item from the normal purchases lis
     expect($aftermath->fresh()->current_phase)->toBe(3);
 });
 
+it('Phase 3 Barter equipment_catalog excludes Those Who Thirst items, since barter() always rejects buying one', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => [],
+    ]);
+    $ttw = Upgrade::factory()->campaignEquipmentTtw()->create(['name' => 'Thirsty Trinket']);
+    $normal = Upgrade::factory()->campaignEquipment()->create(['name' => 'Regular Gear']);
+
+    $response = $this->actingAs($user)->get(route('campaigns.aftermaths.show', $aftermath));
+
+    $catalogNames = collect($response->viewData('page')['props']['equipment_catalog'])->pluck('name');
+    expect($catalogNames)->not->toContain($ttw->name);
+    expect($catalogNames)->toContain($normal->name);
+});
+
 it('Phase 3 Barter empty purchases still advances the phase', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

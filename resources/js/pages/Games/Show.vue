@@ -5766,6 +5766,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
         @sculpt-change="onSculptChange"
         @open-fullscreen="openCardFullscreen"
         @notes-change="onCrewMemberNotesChange"
+        @view-upgrade="openAttachedUpgradePreview"
     />
 
     <!-- Crew Card Preview Drawer -->

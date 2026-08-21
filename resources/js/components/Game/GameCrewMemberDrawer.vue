@@ -44,6 +44,7 @@ interface AttachedUpgrade {
     // GameAttachedUpgradeDrawer.vue already renders elsewhere; this drawer
     // previously only showed the freeform notes box, never the actual effect.
     description?: string | null;
+    front_image?: string | null;
     actions?: AttachedUpgradeAction[];
     abilities?: AttachedUpgradeAbility[];
 }
@@ -128,7 +129,15 @@ const emit = defineEmits<{
     (e: 'open-fullscreen', payload: { src: string; backSrc: string | null; title: string | null }): void;
     /** Persist a note edit. Parent handles the API + broadcast. */
     (e: 'notes-change', payload: { notes: string | null; attached_upgrades: AttachedUpgrade[] }): void;
+    /** Open the shared attached-upgrade card preview (parent owns that drawer). */
+    (e: 'view-upgrade', upgrade: AttachedUpgrade): void;
 }>();
+
+// Same "is there anything to actually show" guard as Show.vue's own
+// openAttachedUpgradePreview() — no point making a name clickable if the
+// preview would just open empty.
+const hasUpgradeCard = (upgrade: AttachedUpgrade) =>
+    !!(upgrade.front_image || upgrade.description || upgrade.actions?.length || upgrade.abilities?.length);
 
 // Local copies so the textareas stay responsive while debounced saves fly
 // upstream. Mirror member props on open and on every prop change.
@@ -355,28 +364,21 @@ const handleVisualPick = (miniatureId: number) => {
                              pushed out of view, since it doesn't affect the outer
                              container's height. -->
                             <div class="space-y-1.5">
+                                <!-- Name only — click to view the real card (image, or
+                                     ActionCard/AbilityCard rules text) via the same
+                                     GameAttachedUpgradeDrawer preview the main crew list
+                                     uses, instead of expanding full rules text inline for
+                                     every item (QA: hard to scan a long list this way). -->
                                 <div v-for="upgrade in member.attached_upgrades ?? []" :key="upgrade.id" class="rounded-md border p-2">
-                                    <div class="text-xs font-medium">{{ upgrade.name }}</div>
-                                    <!-- Real rules text — an Injury's effect or an Equipment's granted
-                                     action/ability, not just the flavor description. Same shape
-                                     GameAttachedUpgradeDrawer.vue already renders elsewhere; this
-                                     drawer previously only ever showed the freeform notes box below. -->
-                                    <p v-if="upgrade.description" class="mt-1 text-xs leading-relaxed text-muted-foreground">
-                                        {{ upgrade.description }}
-                                    </p>
-                                    <div v-if="upgrade.actions?.length || upgrade.abilities?.length" class="mt-1.5 space-y-1.5">
-                                        <ActionCard
-                                            v-for="(a, i) in upgrade.actions ?? []"
-                                            :key="`au-action-${upgrade.id}-${i}`"
-                                            :action="a"
-                                            :hide-footer="true"
-                                        />
-                                        <AbilityCard
-                                            v-for="(ab, i) in upgrade.abilities ?? []"
-                                            :key="`au-ability-${upgrade.id}-${i}`"
-                                            :ability="ab"
-                                            :hide-footer="true"
-                                        />
+                                    <div
+                                        class="flex items-center gap-1.5 text-xs font-medium"
+                                        :class="hasUpgradeCard(upgrade) ? 'cursor-pointer hover:text-primary' : ''"
+                                        :role="hasUpgradeCard(upgrade) ? 'button' : undefined"
+                                        :tabindex="hasUpgradeCard(upgrade) ? 0 : undefined"
+                                        @click="hasUpgradeCard(upgrade) && emit('view-upgrade', upgrade)"
+                                        @keydown.enter="hasUpgradeCard(upgrade) && emit('view-upgrade', upgrade)"
+                                    >
+                                        {{ upgrade.name }}
                                     </div>
                                     <Textarea
                                         v-model="upgradeNotes[upgrade.id]"

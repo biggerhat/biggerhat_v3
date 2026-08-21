@@ -23,7 +23,7 @@ import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Calendar, Copy, Download, Loader2, Pencil, Plus, Printer, Swords, Tag } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 interface KeywordRow {
     id: number;
@@ -709,6 +709,26 @@ const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: s
         });
     }, 2000);
 };
+
+// Returning from editing the Leader/Totem in the Card Creator (?poll_card=
+// leader|totem, set by Editor.vue's "Back to Arsenal Sheet" link after a
+// save) lands on a freshly-mounted page — pollCardRegeneration only ever
+// got triggered by actions taken directly on THIS page (e.g. logAdvancement
+// below), so a card image edited via the external editor just sat stale
+// until a later, unrelated reload happened to catch up. Cleans the query
+// param off the URL so a manual refresh doesn't re-trigger the poll.
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get('poll_card');
+    if (target !== 'leader' && target !== 'totem') return;
+
+    const previousGeneratedAt = (target === 'leader' ? props.leader : props.totem)?.card_image_generated_at;
+    pollCardRegeneration(target, previousGeneratedAt);
+
+    params.delete('poll_card');
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : ''));
+});
 
 const logAdvancement = (position: number) => {
     const d = drafts.value[position];

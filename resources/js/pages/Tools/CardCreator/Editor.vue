@@ -127,6 +127,16 @@ const isEdit = computed(() => !!props.character);
 const isCampaignLeader = computed(() => props.character?.is_campaign_leader ?? false);
 const isCampaignTotem = computed(() => props.character?.is_campaign_totem ?? false);
 const isCampaignManaged = computed(() => isCampaignLeader.value || isCampaignTotem.value);
+
+// Set once a save actually goes through this session — see the save handler
+// below and ArsenalSheet.vue's poll_card handling.
+const justSavedCardTarget = ref<'leader' | 'totem' | null>(null);
+const campaignBackUrl = computed(() => {
+    if (!props.campaign_back_url) return null;
+    if (!justSavedCardTarget.value) return props.campaign_back_url;
+
+    return `${props.campaign_back_url}?poll_card=${justSavedCardTarget.value}`;
+});
 const formatSlug = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const displayNameLength = computed(() => {
@@ -401,6 +411,15 @@ const save = async () => {
         return;
     }
 
+    // The Leader/Totem card image regenerates in a queued job, not
+    // synchronously — flag it so "Back to Arsenal Sheet" can ask that page
+    // to poll for the finished image instead of showing whatever was
+    // already on disk from before this save (see ArsenalSheet.vue's
+    // poll_card handling).
+    if (isCampaignManaged.value) {
+        justSavedCardTarget.value = isCampaignTotem.value ? 'totem' : 'leader';
+    }
+
     if (data.redirect) {
         router.visit(data.redirect);
         return;
@@ -644,7 +663,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <div class="mb-4 flex gap-2">
-                <Link v-if="props.campaign_back_url" :href="props.campaign_back_url">
+                <Link v-if="campaignBackUrl" :href="campaignBackUrl">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to Arsenal Sheet</Button>
                 </Link>
                 <Link :href="route('tools.card_creator.index')">

@@ -1016,6 +1016,11 @@ const submitAdjustScrip = () => {
 };
 
 const removeEquipment = async (eq: EquipmentItem) => {
+    // Close the card-view Dialog before opening the confirm Dialog — two
+    // stacked Dialog roots (same fixed z-50 on both, per DialogContent.vue)
+    // made the confirm prompt render behind/unreachable under the still-open
+    // card view, which read as "Remove Equipment doesn't do anything" (QA).
+    closeViewCard(false);
     if (
         !(await confirmDialog({
             title: 'Remove equipment',
@@ -1025,9 +1030,7 @@ const removeEquipment = async (eq: EquipmentItem) => {
     ) {
         return;
     }
-    router.delete(route('campaigns.crews.arsenal.equipment.destroy', [props.campaign.id, props.crew.share_code, eq.id]), {
-        onSuccess: () => closeViewCard(false),
-    });
+    router.delete(route('campaigns.crews.arsenal.equipment.destroy', [props.campaign.id, props.crew.share_code, eq.id]));
 };
 
 // ───────── Unit card preview (Drawer) ─────────

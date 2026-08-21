@@ -23,6 +23,7 @@ use App\Models\Trigger;
 use App\Models\Upgrade;
 use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Shared Leadership-Experience advancement engine (pg 31, 38-50). Both the
@@ -50,8 +51,44 @@ class LeaderAdvancementService
         // XP-track box tiers keyed by index — the box reached caps tier (pg 31).
         $track = $leader->xp_track ?? CustomCharacter::defaultXpTrack();
         $boxTierByIndex = [];
+        $filledByIndex = [];
         foreach ($track as $box) {
             $boxTierByIndex[$box['index']] = $box['tier'] ?? null;
+            $filledByIndex[$box['index']] = ! empty($box['filled']);
+        }
+
+        // pg 31: "Each Advancement...must be resolved in the order the boxes
+        // appear" — an earned, advancement-granting box can't be skipped
+        // while an earlier one is still unresolved. "Earned" here means
+        // already filled OR being filled by this very batch (the Aftermath
+        // wizard validates before it marks the newly-earned boxes filled, so
+        // a box targeted in this same submission counts as earned too).
+        $positionsInThisBatch = collect($advancements)
+            ->pluck('position_in_xp_track')
+            ->filter(fn ($p) => $p !== null)
+            ->map(fn ($p) => (int) $p)
+            ->all();
+        $resolvedOrResolving = array_unique(array_merge(
+            CampaignLeaderAdvancement::query()
+                ->where('custom_character_id', $leader->id)
+                ->pluck('position_in_xp_track')
+                ->map(fn ($p) => (int) $p)
+                ->all(),
+            $positionsInThisBatch,
+        ));
+        foreach ($boxTierByIndex as $idx => $tier) {
+            if ($tier === null || in_array($idx, $resolvedOrResolving, true)) {
+                continue;
+            }
+            $earned = $filledByIndex[$idx] ?? false;
+            if (! $earned) {
+                continue;
+            }
+            foreach ($positionsInThisBatch as $p) {
+                if ($p > $idx) {
+                    return "Advancements must be resolved in order — the box at position {$idx} hasn't been logged yet.";
+                }
+            }
         }
 
         // An annihilated totem is gone from the arsenal (pg 32: "you may only
@@ -64,6 +101,15 @@ class LeaderAdvancementService
             ->where('current', true)
             ->whereNull('annihilated_at')
             ->exists();
+
+        // pg 32: adding a trigger to an action that already has 2+ triggers
+        // (from any source) costs 2 scrip; below that, it's free. Tracked as
+        // a running per-target count + a scrip tally across this whole batch,
+        // since Aftermath can submit several advancements at once and two of
+        // them could target the same action's 2nd and 3rd trigger together.
+        $crewForScrip = CampaignCrew::find($leader->campaign_crew_id);
+        $triggerCountByTarget = [];
+        $scripNeeded = 0;
 
         $sawSummoning = false;
         foreach ($advancements as $a) {
@@ -168,6 +214,19 @@ class LeaderAdvancementService
                 $targetError = $this->validateAttackTacticalTarget($leader, $a, $attackTacticalRow);
                 if (is_string($targetError)) {
                     return $targetError;
+                }
+
+                // pg 32: a trigger-type pick (not Skl Boost/Signature) costs 2
+                // scrip once the target action already has 2+ triggers.
+                if ($attackTacticalRow->modifier_type === 'trigger') {
+                    $targetKey = $this->triggerTargetKey($a);
+                    if (! array_key_exists($targetKey, $triggerCountByTarget)) {
+                        $triggerCountByTarget[$targetKey] = $this->currentTriggerCountForTarget($leader, $a);
+                    }
+                    if ($triggerCountByTarget[$targetKey] >= 2) {
+                        $scripNeeded += 2;
+                    }
+                    $triggerCountByTarget[$targetKey]++;
                 }
             }
 
@@ -323,6 +382,13 @@ class LeaderAdvancementService
             }
         }
 
+        if ($scripNeeded > 0) {
+            $availableScrip = $crewForScrip ? $crewForScrip->scrip : 0;
+            if ($availableScrip < $scripNeeded) {
+                return "Adding a 3rd+ trigger to an action costs 2 scrip (pg 32) — this crew needs {$scripNeeded} scrip but only has {$availableScrip}.";
+            }
+        }
+
         return null;
     }
 
@@ -393,6 +459,77 @@ class LeaderAdvancementService
     }
 
     /**
+     * Groups advancements within one validate()/create() batch that target
+     * the exact same action, so a batch adding two triggers to the same
+     * action counts them both toward the "2+ triggers" scrip threshold
+     * instead of evaluating each in isolation against the pre-batch count.
+     */
+    private function triggerTargetKey(array $a): string
+    {
+        $actionIndex = $a['applied_to_action_index'] ?? null;
+        $actionId = $a['applied_to_action_id'] ?? null;
+
+        if (isset($a['from_equipment_id'])) {
+            return "equipment:{$a['from_equipment_id']}:{$actionId}";
+        }
+        if (isset($a['applied_to_custom_character_id'])) {
+            return "totem:{$a['applied_to_custom_character_id']}:{$actionIndex}";
+        }
+
+        return "leader:{$actionIndex}";
+    }
+
+    /**
+     * Current trigger count on the advancement's target action, from every
+     * source (base catalog + any previously-applied Attack/Tactical Mod
+     * trigger) — pg 32: "if the action already has two or more triggers,
+     * you must pay 2 scrip" to add another one. Skl Boost/Signature
+     * modifiers never add a trigger, so they're excluded from this count.
+     */
+    private function currentTriggerCountForTarget(CustomCharacter $leader, array $a): int
+    {
+        $appliedToCustomCharacterId = $a['applied_to_custom_character_id'] ?? null;
+        $fromEquipmentId = $a['from_equipment_id'] ?? null;
+        $actionIndex = $a['applied_to_action_index'] ?? null;
+        $appliedToActionId = $a['applied_to_action_id'] ?? null;
+
+        if ($fromEquipmentId !== null) {
+            if ($appliedToActionId === null) {
+                return 0;
+            }
+            $baseCount = Action::query()->whereKey($appliedToActionId)->first()?->triggers()->count() ?? 0;
+
+            return $baseCount + $this->existingEquipmentTriggerAdvancementCount((int) $fromEquipmentId, (int) $appliedToActionId);
+        }
+
+        $target = $appliedToCustomCharacterId !== null ? CustomCharacter::find($appliedToCustomCharacterId) : $leader;
+        if (! $target || $actionIndex === null || ! isset($target->actions[$actionIndex])) {
+            return 0;
+        }
+
+        return count($target->actions[$actionIndex]['triggers'] ?? []);
+    }
+
+    /**
+     * How many prior Attack/Tactical Mod advancements already added a real
+     * trigger (not a Skl Boost/Signature) to this exact Equipment instance's
+     * granted action — Equipment has no per-instance actions[] array to
+     * count triggers on directly (see applyAdvancementModifier()'s
+     * Equipment no-op), so this replays the same modifier_type lookup
+     * against each existing CampaignLeaderAdvancement row instead.
+     */
+    private function existingEquipmentTriggerAdvancementCount(int $fromEquipmentId, int $appliedToActionId): int
+    {
+        return CampaignLeaderAdvancement::query()
+            ->where('from_equipment_id', $fromEquipmentId)
+            ->where('applied_to_action_id', $appliedToActionId)
+            ->whereIn('source_table', [AdvancementTableEnum::AttackMod, AdvancementTableEnum::TacticalMod])
+            ->get(['source_table', 'advancement_catalog_id'])
+            ->filter(fn (CampaignLeaderAdvancement $row) => $this->modifierTypeFor($row->source_table, $row->advancement_catalog_id) === 'trigger')
+            ->count();
+    }
+
+    /**
      * Persist the advancement records against the leader and apply the
      * mechanical effect to the leader's card data (actions/abilities JSON).
      *
@@ -400,6 +537,10 @@ class LeaderAdvancementService
      */
     public function create(CustomCharacter $leader, array $advancements, ?int $sourceAftermathId): void
     {
+        // Mirrors validate()'s identical running count — see triggerTargetKey()/
+        // currentTriggerCountForTarget() docblocks (pg 32 scrip rule).
+        $triggerCountByTarget = [];
+
         foreach ($advancements as $a) {
             $table = AdvancementTableEnum::from($a['source_table']);
             $catalogId = isset($a['catalog_id']) ? (int) $a['catalog_id'] : null;
@@ -498,7 +639,40 @@ class LeaderAdvancementService
                     : null,
                 default => null,
             };
+
+            // pg 32: adding a trigger to an action that already has 2+
+            // triggers costs 2 scrip — charged regardless of target (the
+            // Equipment branch above intentionally applies nothing
+            // mechanically, but the scrip cost still applies).
+            if (
+                ($table === AdvancementTableEnum::AttackMod || $table === AdvancementTableEnum::TacticalMod)
+                && ($advancementRow instanceof AdvancementAttackMod || $advancementRow instanceof AdvancementTacticalMod)
+                && $advancementRow->modifier_type === 'trigger'
+            ) {
+                $targetKey = $this->triggerTargetKey($a);
+                if (! array_key_exists($targetKey, $triggerCountByTarget)) {
+                    $triggerCountByTarget[$targetKey] = $this->currentTriggerCountForTarget($leader, $a);
+                }
+                if ($triggerCountByTarget[$targetKey] >= 2) {
+                    $this->chargeScrip($leader->campaign_crew_id, 2);
+                }
+                $triggerCountByTarget[$targetKey]++;
+            }
         }
+    }
+
+    /**
+     * pg 32's 2-scrip trigger cost — locked so a concurrent scrip mutation
+     * (Barter, another advancement) can't race this decrement.
+     */
+    private function chargeScrip(int $campaignCrewId, int $amount): void
+    {
+        DB::transaction(function () use ($campaignCrewId, $amount) {
+            $crew = CampaignCrew::lockForUpdate()->find($campaignCrewId);
+            if ($crew) {
+                $crew->update(['scrip' => max(0, $crew->scrip - $amount)]);
+            }
+        });
     }
 
     /**
@@ -1025,7 +1199,39 @@ class LeaderAdvancementService
             return;
         }
 
+        // pg 32: refund the 2 scrip this trigger cost, if it did. Respec
+        // always reverts newest-first and this row hasn't been undone/deleted
+        // yet, so the target's CURRENT trigger count (base + every
+        // advancement-trigger up to and including this one) is exactly what
+        // it was right after this advancement was created — one higher than
+        // "how many existed before it was added". create() charged scrip
+        // when that before-count was >= 2, i.e. when the current count here
+        // is >= 3.
+        if ($advancement->source_table === AdvancementTableEnum::AttackMod || $advancement->source_table === AdvancementTableEnum::TacticalMod) {
+            $modifierType = $this->modifierTypeFor($advancement->source_table, $advancement->advancement_catalog_id);
+            if ($modifierType === 'trigger' && $this->currentTriggerCountForTarget($leader, $this->advancementAsTargetArray($advancement)) >= 3) {
+                $this->chargeScrip($crew->id, -2);
+            }
+        }
+
         $this->undoAdvancement($leader, $advancement);
+    }
+
+    /**
+     * Reshapes a logged advancement's target fields into the same array
+     * shape `validate()`/`create()` build from the request payload, so the
+     * shared trigger-target helpers can be reused when reverting.
+     *
+     * @return array<string, int|null>
+     */
+    private function advancementAsTargetArray(CampaignLeaderAdvancement $advancement): array
+    {
+        return [
+            'applied_to_action_index' => $advancement->applied_to_action_index,
+            'applied_to_action_id' => $advancement->applied_to_action_id,
+            'applied_to_custom_character_id' => $advancement->applied_to_custom_character_id,
+            'from_equipment_id' => $advancement->from_equipment_id,
+        ];
     }
 
     /**

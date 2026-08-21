@@ -56,6 +56,17 @@ function lciLeaderWithEarnedBox(User $user): array
         'xp_track' => $track,
     ]);
 
+    // Box 0 is earned but the tests below only log against box 2 — resolve
+    // it directly so the "resolve advancements in box order" rule doesn't
+    // block them.
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'attack_mod',
+        'position_in_xp_track' => 0,
+        'applied_to_action_index' => -1,
+        'acquired_at' => now(),
+    ]);
+
     return [$crew->campaign, $crew, $leader];
 }
 

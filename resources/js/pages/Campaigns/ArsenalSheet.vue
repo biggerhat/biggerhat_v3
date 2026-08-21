@@ -429,6 +429,11 @@ const takenByPosition = computed<Record<number, AdvancementTaken>>(() =>
 const advancementSlots = computed(() =>
     xpTrack.value.filter((b) => b.filled && b.tier !== null).map((b) => ({ position: b.index, tier: b.tier as number })),
 );
+// pg 31: advancements resolve in strict box-position order — the earliest
+// earned-but-unlogged slot is the only one a player can currently log.
+const firstUnresolvedPosition = computed(
+    () => advancementSlots.value.find((slot) => !takenByPosition.value[slot.position])?.position ?? null,
+);
 
 const catalogRowsFor = (table: string): CatalogRow[] => advancementCatalogs.value[table] ?? [];
 
@@ -1666,7 +1671,10 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                     {{ advancementName(takenByPosition[slot.position]) }}
                                 </div>
                                 <!-- Owner picker for an empty slot -->
-                                <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="space-y-2">
+                                <div
+                                    v-else-if="view_mode.is_owner && drafts[slot.position] && slot.position === firstUnresolvedPosition"
+                                    class="space-y-2"
+                                >
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
                                         <Select
@@ -1989,6 +1997,11 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             <GameText :text="selectedDraftRow(slot.position)!.body!" />
                                         </p>
                                     </template>
+                                </div>
+                                <!-- Owner picker locked — pg 31: resolve earlier earned boxes first -->
+                                <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="text-muted-foreground">
+                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge> — resolve box
+                                    {{ firstUnresolvedPosition }} first
                                 </div>
                                 <!-- Viewer, not yet chosen -->
                                 <div v-else class="text-muted-foreground">

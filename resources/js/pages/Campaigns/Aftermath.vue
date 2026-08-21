@@ -411,6 +411,21 @@ interface AdvDraft {
     crew_card_source_id: number | null;
 }
 
+// pg 31: advancements resolve in strict box-position order — block
+// confirming if a later queued box has a pick while an earlier one doesn't.
+const advanceLeaderOutOfOrder = computed(() => {
+    let sawUnfilled = false;
+    for (const adv of advancementsQueued.value) {
+        const chosen = (advDrafts.value[adv.position_in_xp_track]?.catalog_id ?? null) !== null;
+        if (!chosen) {
+            sawUnfilled = true;
+        } else if (sawUnfilled) {
+            return true;
+        }
+    }
+    return false;
+});
+
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
     if (!xp_track.value) return [];
     let remaining = totalXp.value;
@@ -1501,12 +1516,17 @@ const submitInjuries = () => {
                     </div>
                 </fieldset>
 
+                <p v-if="advanceLeaderOutOfOrder" class="text-xs text-destructive">
+                    Advancements must be resolved in box order (pg 31) — pick one for every earlier box before a later one.
+                </p>
                 <div class="flex items-center justify-between">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <div class="flex gap-2">
                         <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip phase</Button>
-                        <Button :disabled="!is_owner" @click="submitAdvanceLeader">Confirm Advancements &amp; advance</Button>
+                        <Button :disabled="!is_owner || advanceLeaderOutOfOrder" @click="submitAdvanceLeader">
+                            Confirm Advancements &amp; advance
+                        </Button>
                     </div>
                 </div>
             </CardContent>

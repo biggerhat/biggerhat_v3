@@ -102,6 +102,57 @@ it('rejects a too-high-tier advancement at a low-tier box', function () {
     expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
 });
 
+it('rejects logging a later box while an earlier earned box is still unresolved (pg 31)', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user); // box 0 (tier 1) earned, unlogged
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true; // box 2 (tier 2) also earned
+    $leader->update(['xp_track' => $track]);
+
+    $advancement = AdvancementAttackMod::factory()->create(['flip_value' => 5]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'attack_mod',
+            'catalog_id' => $advancement->id,
+            'flip_value' => 13,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
+});
+
+it('allows logging box 0 then box 2 in order once box 0 is resolved (pg 31)', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[2]['filled'] = true;
+    $leader->update(['xp_track' => $track]);
+
+    $first = AdvancementAttackMod::factory()->create(['flip_value' => 5]);
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 0,
+            'source_table' => 'attack_mod',
+            'catalog_id' => $first->id,
+            'flip_value' => 13,
+        ])
+        ->assertRedirect();
+
+    $second = AdvancementAttackMod::factory()->create(['flip_value' => 5]);
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 2,
+            'source_table' => 'attack_mod',
+            'catalog_id' => $second->id,
+            'flip_value' => 13,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(2);
+});
+
 it('rejects a second advancement on a box that already has one', function () {
     $user = advUser();
     [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
@@ -387,6 +438,7 @@ it('a lookup Action advancement uses the catalog row\'s own Signature flag, inde
     $track = $leader->xp_track;
     $track[2]['filled'] = true;
     $leader->update(['xp_track' => $track]);
+    CampaignLeaderAdvancement::create(['custom_character_id' => $leader->id, 'source_table' => 'attack_mod', 'position_in_xp_track' => 0, 'applied_to_action_index' => -1, 'acquired_at' => now()]); // resolve box 0 first
 
     // Linked Action itself is NOT flagged signature — the catalog row's
     // own admin-set flag is authoritative, not the linked Action's.
@@ -413,6 +465,7 @@ it('an Any Joker Action pick inherits Signature status from the source ally\'s a
     $track = $leader->xp_track;
     $track[2]['filled'] = true;
     $leader->update(['xp_track' => $track]);
+    CampaignLeaderAdvancement::create(['custom_character_id' => $leader->id, 'source_table' => 'attack_mod', 'position_in_xp_track' => 0, 'applied_to_action_index' => -1, 'acquired_at' => now()]); // resolve box 0 first
 
     $keyword = \App\Models\Keyword::factory()->create();
     $leader->update(['keywords' => [['id' => $keyword->id, 'name' => $keyword->name]]]);
@@ -444,6 +497,7 @@ it('applies an Ability advancement to the crew\'s Totem instead of the Leader', 
     $track = $leader->xp_track;
     $track[2]['filled'] = true; // box index 2 is tier 2 in the canonical track
     $leader->update(['xp_track' => $track]);
+    CampaignLeaderAdvancement::create(['custom_character_id' => $leader->id, 'source_table' => 'attack_mod', 'position_in_xp_track' => 0, 'applied_to_action_index' => -1, 'acquired_at' => now()]); // resolve box 0 first
     $totem = totemForCrew($crew, $user);
 
     $ability = \App\Models\Campaign\AdvancementAbility::factory()->create(['talent_name' => 'Totem Ward']);
@@ -509,6 +563,7 @@ it('applies an Action advancement to the crew\'s Totem instead of the Leader', f
     $track = $leader->xp_track;
     $track[2]['filled'] = true; // box index 2 is tier 2 in the canonical track
     $leader->update(['xp_track' => $track]);
+    CampaignLeaderAdvancement::create(['custom_character_id' => $leader->id, 'source_table' => 'attack_mod', 'position_in_xp_track' => 0, 'applied_to_action_index' => -1, 'acquired_at' => now()]); // resolve box 0 first
     $totem = totemForCrew($crew, $user);
 
     $bespoke = \App\Models\Campaign\AdvancementAction::factory()->create(['talent_name' => 'Totem Talent']);
@@ -683,6 +738,88 @@ it('applies an Attack Mod trigger to the crew\'s Totem instead of the Leader', f
 
     $totem->refresh();
     expect($totem->actions[0]['triggers'])->toBeEmpty();
+});
+
+it('does not charge scrip for the 1st or 2nd trigger on an action', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $crew->update(['scrip' => 0]);
+    $leader->update(['actions' => [
+        ['name' => 'Leader Attack', 'type' => 'attack', 'category' => 'attack', 'is_signature' => false, 'stone_cost' => 0, 'stat' => 5, 'triggers' => []],
+    ]]);
+    $trigger = AdvancementAttackMod::factory()->create(['name' => 'First Trigger', 'flip_value' => 5]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 0,
+            'source_table' => 'attack_mod',
+            'catalog_id' => $trigger->id,
+            'applied_to_action_index' => 0,
+            'flip_value' => 13,
+        ])
+        ->assertRedirect();
+
+    expect(collect($leader->fresh()->actions[0]['triggers'])->pluck('name'))->toContain('First Trigger');
+    expect($crew->fresh()->scrip)->toBe(0);
+});
+
+it('charges 2 scrip for a 3rd+ trigger on an action (pg 32), and refunds it on Respec', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $crew->update(['scrip' => 5]);
+    $leader->update(['actions' => [
+        ['name' => 'Leader Attack', 'type' => 'attack', 'category' => 'attack', 'is_signature' => false, 'stone_cost' => 0, 'stat' => 5, 'triggers' => [
+            ['name' => 'Existing 1', 'suits' => null, 'stone_cost' => 0, 'description' => null],
+            ['name' => 'Existing 2', 'suits' => null, 'stone_cost' => 0, 'description' => null],
+        ]],
+    ]]);
+    $trigger = AdvancementAttackMod::factory()->create(['name' => 'Third Trigger', 'flip_value' => 5]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 0,
+            'source_table' => 'attack_mod',
+            'catalog_id' => $trigger->id,
+            'applied_to_action_index' => 0,
+            'flip_value' => 13,
+        ])
+        ->assertRedirect();
+
+    expect(collect($leader->fresh()->actions[0]['triggers'])->pluck('name'))->toContain('Third Trigger');
+    expect($crew->fresh()->scrip)->toBe(3);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
+        ->assertRedirect();
+
+    expect($crew->fresh()->scrip)->toBe(5);
+});
+
+it('rejects a 3rd+ trigger advancement when the crew can\'t afford the 2 scrip cost', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $crew->update(['scrip' => 1]);
+    $leader->update(['actions' => [
+        ['name' => 'Leader Attack', 'type' => 'attack', 'category' => 'attack', 'is_signature' => false, 'stone_cost' => 0, 'stat' => 5, 'triggers' => [
+            ['name' => 'Existing 1', 'suits' => null, 'stone_cost' => 0, 'description' => null],
+            ['name' => 'Existing 2', 'suits' => null, 'stone_cost' => 0, 'description' => null],
+        ]],
+    ]]);
+    $trigger = AdvancementAttackMod::factory()->create(['name' => 'Third Trigger', 'flip_value' => 5]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 0,
+            'source_table' => 'attack_mod',
+            'catalog_id' => $trigger->id,
+            'applied_to_action_index' => 0,
+            'flip_value' => 13,
+        ])
+        ->assertRedirect();
+
+    expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
+    expect(collect($leader->fresh()->actions[0]['triggers']))->toHaveCount(2);
+    expect($crew->fresh()->scrip)->toBe(1);
 });
 
 it('rejects targeting a Totem that does not belong to this crew', function () {

@@ -744,6 +744,34 @@ it('applies an Attack Mod trigger to an Equipment-granted action without mutatin
     expect(CampaignLeaderAdvancement::find($advancement->id))->toBeNull();
 });
 
+it('an Equipment-targeted Skl Boost overlays the boosted stat in AftermathCatalog::ownedEquipment(), since the shared catalog action can\'t be mutated per-instance', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $equipment = \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crew->id]);
+    $action = \App\Models\Action::factory()->create(['name' => 'Granted Slash', 'type' => 'attack', 'stat' => 5]);
+    $equipment->catalog->actions()->attach($action->id, ['is_signature_action' => false]);
+    $sklBoost = AdvancementAttackMod::factory()->sklBoost(5, 6)->create(['flip_value' => 7]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.advancements.store', [$campaign->id, $crew->share_code]), [
+            'position_in_xp_track' => 0,
+            'source_table' => 'attack_mod',
+            'catalog_id' => $sklBoost->id,
+            'from_equipment_id' => $equipment->id,
+            'applied_to_action_id' => $action->id,
+            'flip_value' => 7,
+        ])
+        ->assertRedirect();
+
+    $owned = \App\Support\Campaign\AftermathCatalog::ownedEquipment($crew->fresh(), $leader->fresh());
+    $ownedAction = collect($owned)->firstWhere('id', $equipment->id)['actions'][0];
+    expect($ownedAction['name'])->toBe('Granted Slash');
+    expect($ownedAction['stat'])->toBe(6);
+    // The shared catalog Action row itself is untouched — other crews
+    // owning the same equipment must not see this crew's boost.
+    expect((int) $action->fresh()->stat)->toBe(5);
+});
+
 it('rejects targeting Equipment that does not belong to this crew', function () {
     $user = advUser();
     [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);

@@ -655,6 +655,28 @@ const sklBoostEligible = (row: CatalogRow | null, stat: number | string | null):
     return current >= row.skl_from && current <= max;
 };
 
+// Equipment target picker for an Attack/Tactical Mod (pg 31) — two owned
+// copies of the same equipment previously rendered as identical rows with
+// no way to tell them apart once each carries its own advancement (QA).
+// Appends an ordinal when the name is duplicated, plus whatever's already
+// attached to that specific instance.
+const equipmentTargetOptions = computed(() => {
+    const seenByName = new Map<string, number>();
+    const totalByName = new Map<string, number>();
+    for (const eq of props.equipment) {
+        totalByName.set(eq.name, (totalByName.get(eq.name) ?? 0) + 1);
+    }
+
+    return props.equipment.map((eq) => {
+        const ordinal = (seenByName.get(eq.name) ?? 0) + 1;
+        seenByName.set(eq.name, ordinal);
+        const suffix = (totalByName.get(eq.name) ?? 0) > 1 ? ` #${ordinal}` : '';
+        const effects = eq.applied_effects.length ? ` — ${eq.applied_effects.join(', ')}` : '';
+
+        return { id: eq.id, label: `${eq.name}${suffix}${eq.locked ? ' 🔒' : ''}${effects}` };
+    });
+});
+
 // The category-filtered, Skl-Boost-eligible action options for the picker's
 // draft, sourced from whichever target (Leader/Totem/Equipment) is selected.
 // `ref` is an actions[] array index for Leader/Totem, or the real actions.id
@@ -748,6 +770,7 @@ const logAdvancement = (position: number) => {
     const isTotemAdvancement = d.source_table === 'totem';
     const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
     const isAbility = d.source_table === 'ability';
+    const isAction = d.source_table === 'action';
     const isSummoning = d.source_table === 'summoning';
     const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
     if (isTrigger && targetActionOptions(position).length) {
@@ -756,7 +779,7 @@ const logAdvancement = (position: number) => {
             return;
         }
     }
-    const targetsTotem = isTotemAdvancement || ((isTrigger || isAbility || isSummoning) && d.target_type === 'totem');
+    const targetsTotem = isTotemAdvancement || ((isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem');
     const targetsLeader = !targetsTotem && d.source_table !== 'crew_card' && d.target_type !== 'equipment';
     const targetsCrewCard = d.source_table === 'crew_card';
     const prevLeaderGeneratedAt = props.leader?.card_image_generated_at;
@@ -780,7 +803,7 @@ const logAdvancement = (position: number) => {
             applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
             applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
             applied_to_custom_character_id:
-                (isTrigger || isAbility || isSummoning) && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
+                (isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
             from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
             crew_card_choice: d.crew_card_choice_id !== null ? { id: d.crew_card_choice_id } : null,
         },
@@ -1869,8 +1892,8 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="__none__">— pick equipment —</SelectItem>
-                                                <SelectItem v-for="eq in equipment" :key="eq.id" :value="eq.id.toString()">
-                                                    {{ eq.name }}{{ eq.locked ? ' 🔒' : '' }}
+                                                <SelectItem v-for="opt in equipmentTargetOptions" :key="opt.id" :value="opt.id.toString()">
+                                                    {{ opt.label }}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -1910,10 +1933,11 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             </Select>
                                         </template>
                                     </div>
-                                    <!-- Ability/Summoning: pick what to affect (Leader/Totem) -->
+                                    <!-- Action/Ability/Summoning: pick what to affect (Leader/Totem) -->
                                     <div
                                         v-if="
-                                            (drafts[slot.position].source_table === 'ability' ||
+                                            (drafts[slot.position].source_table === 'action' ||
+                                                drafts[slot.position].source_table === 'ability' ||
                                                 drafts[slot.position].source_table === 'summoning') &&
                                             drafts[slot.position].catalog_id !== null
                                         "

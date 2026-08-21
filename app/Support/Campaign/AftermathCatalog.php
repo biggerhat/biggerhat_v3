@@ -114,11 +114,15 @@ class AftermathCatalog
                         'name' => $a->name,
                         'category' => $category($a),
                         'type' => $category($a),
-                        'is_signature' => (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from morphedByMany)
+                        'is_signature' => in_array($a->id, $info['signature_action_ids'] ?? [], true)
+                            ? true
+                            : (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from morphedByMany)
                         'stone_cost' => $a->stone_cost,
                         'range' => $a->range,
                         'range_type' => $a->range_type instanceof \BackedEnum ? $a->range_type->value : $a->range_type,
-                        'stat' => $a->stat,
+                        // A Skl Boost modifier overlays the boosted value at
+                        // display time — see the docblock above.
+                        'stat' => $info['skl_overlay_by_action_id'][$a->id] ?? $a->stat,
                         'stat_suits' => $a->stat_suits,
                         'stat_modifier' => $a->stat_modifier instanceof \BackedEnum ? $a->stat_modifier->value : $a->stat_modifier,
                         'resisted_by' => $a->resisted_by,
@@ -149,7 +153,7 @@ class AftermathCatalog
     }
 
     /**
-     * @return array<int, array{applied_effects: array<int, string>, triggers_by_action_id: array<int, array<int, array<string, mixed>>>}>
+     * @return array<int, array{applied_effects: array<int, string>, triggers_by_action_id: array<int, array<int, array<string, mixed>>>, skl_overlay_by_action_id: array<int, int>, signature_action_ids: array<int, int>}>
      */
     private static function equipmentAdvancementInfo(?int $leaderId): array
     {
@@ -189,6 +193,21 @@ class AftermathCatalog
                     'stone_cost' => $catalogRow->trigger->stone_cost ?? 0,
                     'description' => $catalogRow->trigger->description,
                 ];
+            }
+
+            // Skl Boost/Signature modifiers mutate the Leader/Totem's own
+            // actions[] in place (LeaderAdvancementService::
+            // applySklBoostToTarget()/applySignatureToTarget()) — but a
+            // shared catalog Action row can't be mutated per-instance the
+            // same way (QA: "Skill Boost not applying correctly" — it
+            // silently never applied, or displayed, for an Equipment
+            // target). Overlaid at display time in ownedEquipment() instead,
+            // same pattern as the trigger merge above.
+            if ($catalogRow?->modifier_type === 'skl_boost' && $row->applied_to_action_id !== null && $catalogRow->skl_to !== null) {
+                $result[$row->from_equipment_id]['skl_overlay_by_action_id'][$row->applied_to_action_id] = $catalogRow->skl_to;
+            }
+            if ($catalogRow?->modifier_type === 'signature' && $row->applied_to_action_id !== null) {
+                $result[$row->from_equipment_id]['signature_action_ids'][] = $row->applied_to_action_id;
             }
         }
 

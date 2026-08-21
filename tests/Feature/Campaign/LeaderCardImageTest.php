@@ -7,7 +7,6 @@ use App\Enums\PermissionEnum;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
@@ -106,7 +105,7 @@ it('queues a card regeneration when an advancement is logged directly from the A
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id);
 });
 
-it('queues a card regeneration when a logged advancement is removed', function () {
+it('queues a card regeneration when the leader is respecced', function () {
     $user = lciUser();
     [$campaign, $crew, $leader] = lciLeaderWithEarnedBox($user);
     $ability = \App\Models\Campaign\AdvancementAbility::factory()->create(['talent_name' => 'Card Test Ability']);
@@ -116,11 +115,10 @@ it('queues a card regeneration when a logged advancement is removed', function (
         'source_table' => 'ability',
         'catalog_id' => $ability->id,
     ]);
-    $logged = CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
 
     Bus::fake();
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $logged]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id);

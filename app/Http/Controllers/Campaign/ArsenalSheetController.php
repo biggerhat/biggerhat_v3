@@ -11,6 +11,7 @@ use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
+use App\Http\Requests\Campaign\AdjustLeaderXpRequest;
 use App\Http\Requests\Campaign\AdjustScripRequest;
 use App\Http\Requests\Campaign\RemoveEquipmentRequest;
 use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
@@ -282,6 +283,70 @@ class ArsenalSheetController extends Controller
         $reasonSuffix = ! empty($validated['reason']) ? " ({$validated['reason']})" : '';
 
         return redirect()->back()->withMessage("Scrip adjusted by {$sign}{$validated['amount']}{$reasonSuffix}.");
+    }
+
+    /**
+     * Freeform Leadership Experience correction (QA: "before adding
+     * advancement can set experience") — a signed delta in xp_track boxes,
+     * same self-service/owner-gated tier as taking an advancement (see
+     * AdjustLeaderXpRequest's docblock for why this isn't organizer-only
+     * like adjustScrip above). Positive fills the first N unfilled boxes in
+     * ascending order (mirrors CampaignAftermathController::advanceLeader()'s
+     * auto-fill); negative unfills the last N filled boxes in descending
+     * order, skipping any box that already has an advancement logged
+     * against it — unfilling a box out from under a taken advancement would
+     * leave that advancement's position_in_xp_track dangling.
+     */
+    public function adjustLeaderXp(AdjustLeaderXpRequest $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        $amount = (int) $request->validated()['amount'];
+
+        $leader = CustomCharacter::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->where('is_campaign_leader', true)
+            ->where('current', true)
+            ->first();
+        if (! $leader) {
+            return redirect()->back()->withMessage('No active leader.', null, MessageTypeEnum::error);
+        }
+
+        $changed = 0;
+        DB::transaction(function () use ($leader, $amount, &$changed) {
+            $locked = CustomCharacter::lockForUpdate()->find($leader->id);
+            $track = $locked->xp_track ?? CustomCharacter::defaultXpTrack();
+
+            if ($amount > 0) {
+                $remaining = $amount;
+                for ($i = 0; $i < count($track) && $remaining > 0; $i++) {
+                    if (empty($track[$i]['filled'])) {
+                        $track[$i]['filled'] = true;
+                        $remaining--;
+                        $changed++;
+                    }
+                }
+            } else {
+                $remaining = abs($amount);
+                $takenPositions = CampaignLeaderAdvancement::query()
+                    ->where('custom_character_id', $locked->id)
+                    ->pluck('position_in_xp_track')
+                    ->all();
+                for ($i = count($track) - 1; $i >= 0 && $remaining > 0; $i--) {
+                    if (! empty($track[$i]['filled']) && ! in_array($track[$i]['index'], $takenPositions, true)) {
+                        $track[$i]['filled'] = false;
+                        $remaining--;
+                        $changed++;
+                    }
+                }
+            }
+
+            $locked->update(['xp_track' => $track]);
+        });
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        $sign = $amount > 0 ? '+' : '';
+
+        return redirect()->back()->withMessage("Experience adjusted by {$sign}{$amount} ({$changed} box(es) changed).");
     }
 
     /**

@@ -126,7 +126,7 @@ it('rejects a second advancement on a box that already has one', function () {
     expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(1);
 });
 
-it('removes a logged advancement', function () {
+it('respec undoes a single logged advancement, leaving its XP box filled', function () {
     $user = advUser();
     [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
     $adv = CampaignLeaderAdvancement::create([
@@ -138,10 +138,82 @@ it('removes a logged advancement', function () {
     ]);
 
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $adv->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     expect(CampaignLeaderAdvancement::find($adv->id))->toBeNull();
+    $box = collect($leader->fresh()->xp_track)->firstWhere('index', 0);
+    expect($box['filled'])->toBeTrue();
+});
+
+it('respec undoes every advancement in reverse chronological order, safely deleting the Totem last', function () {
+    $user = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    $track = $leader->xp_track;
+    $track[26]['filled'] = true; // tier-3 box (Totem)
+    $track[2]['filled'] = true; // tier-2 box
+    $leader->update(['xp_track' => $track]);
+
+    // Totem taken first (chronologically earlier acquired_at)...
+    $totemAdv = CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'totem',
+        'position_in_xp_track' => 26,
+        'applied_to_action_index' => -1,
+        'acquired_at' => now()->subMinute(),
+    ]);
+    $totem = CustomCharacter::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_totem' => true,
+        'current' => true,
+        'name' => 'Little Friend',
+        'faction' => 'guild',
+        'health' => 4, 'defense' => 4, 'willpower' => 4, 'speed' => 5, 'base' => 30,
+        'actions' => [],
+    ]);
+    // ...then an Ability targeting the Totem, taken afterward. A bespoke
+    // (no ability_id link) AdvancementAbility row's catalog_core_id is its
+    // own id (LeaderAdvancementService::resolveCoreCatalogId()).
+    $ability = \App\Models\Campaign\AdvancementAbility::factory()->create(['talent_name' => 'Totem Trick']);
+    $totem->update(['abilities' => [['id' => $ability->id, 'name' => 'Totem Trick', 'source_id' => $ability->id]]]);
+    CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'ability',
+        'position_in_xp_track' => 2,
+        'applied_to_action_index' => -1,
+        'applied_to_custom_character_id' => $totem->id,
+        'advancement_catalog_id' => $ability->id,
+        'catalog_core_id' => $ability->id,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
+        ->assertRedirect();
+
+    expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(0);
+    expect(CustomCharacter::query()->where('is_campaign_totem', true)->where('current', true)->where('campaign_crew_id', $crew->id)->exists())
+        ->toBeFalse();
+});
+
+it('respec rejects a non-owner', function () {
+    $user = advUser();
+    $other = advUser();
+    [$campaign, $crew, $leader] = leaderWithEarnedTier1Box($user);
+    CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'attack_mod',
+        'position_in_xp_track' => 0,
+        'applied_to_action_index' => -1,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($other)
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
+        ->assertForbidden();
+
+    expect(CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->count())->toBe(1);
 });
 
 it('applies and reverses a Skl Boost attack-mod advancement on the target action', function () {
@@ -167,7 +239,7 @@ it('applies and reverses a Skl Boost attack-mod advancement on the target action
 
     $advancement = CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     $leader->refresh();
@@ -224,7 +296,7 @@ it('applies and reverses a ranged Skl Boost to the action\'s actual prior Skl, n
     expect($advancement->applied_skl_from)->toBe(1);
 
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     $leader->refresh();
@@ -254,7 +326,7 @@ it('applies and reverses a Signature attack-mod advancement on the target action
 
     $advancement = CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     $leader->refresh();
@@ -394,7 +466,7 @@ it('applies an Ability advancement to the crew\'s Totem instead of the Leader', 
     expect($advancement->applied_to_custom_character_id)->toBe($totem->id);
 
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     $totem->refresh();
@@ -459,7 +531,7 @@ it('applies an Action advancement to the crew\'s Totem instead of the Leader', f
     expect($advancement->applied_to_custom_character_id)->toBe($totem->id);
 
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     $totem->refresh();
@@ -606,7 +678,7 @@ it('applies an Attack Mod trigger to the crew\'s Totem instead of the Leader', f
     expect($advancement->applied_to_custom_character_id)->toBe($totem->id);
 
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     $totem->refresh();
@@ -667,7 +739,7 @@ it('applies an Attack Mod trigger to an Equipment-granted action without mutatin
 
     // Nothing was mutated, so removal is a clean no-op mechanically.
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $advancement->id]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
     expect(CampaignLeaderAdvancement::find($advancement->id))->toBeNull();
 });

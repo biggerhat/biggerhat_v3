@@ -1573,6 +1573,91 @@ it('adjustScrip rejects a zero amount', function () {
         ->assertSessionHasErrors('amount');
 });
 
+it('adjustLeaderXp fills the first N unfilled boxes in ascending order', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'XP Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => 3])
+        ->assertRedirect();
+
+    $track = collect($leader->fresh()->xp_track);
+    expect($track->where('filled', true)->pluck('index')->sort()->values()->all())->toBe([0, 1, 2]);
+});
+
+it('adjustLeaderXp unfills the last N filled boxes, skipping any with an advancement already logged', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $track = \App\Models\CustomCharacter::defaultXpTrack();
+    $track[0]['filled'] = true;
+    $track[1]['filled'] = true;
+    $track[2]['filled'] = true;
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'XP Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+        'xp_track' => $track,
+    ]);
+    // Box 2 already has an advancement — unfilling must skip it and reach further back.
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'attack_mod',
+        'position_in_xp_track' => 2,
+        'applied_to_action_index' => -1,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => -2])
+        ->assertRedirect();
+
+    $track = collect($leader->fresh()->xp_track);
+    expect($track->firstWhere('index', 0)['filled'])->toBeFalse();
+    expect($track->firstWhere('index', 1)['filled'])->toBeFalse();
+    expect($track->firstWhere('index', 2)['filled'])->toBeTrue();
+});
+
+it('adjustLeaderXp rejects a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'XP Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+
+    $this->actingAs($other)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => 3])
+        ->assertForbidden();
+});
+
+it('adjustLeaderXp rejects a zero amount', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => 0])
+        ->assertSessionHasErrors('amount');
+});
+
 it('exposes front_image/back_image on owned equipment in the Arsenal Sheet payload', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);

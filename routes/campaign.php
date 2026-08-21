@@ -95,8 +95,10 @@ Route::middleware(['campaign.access'])->group(function () {
         // Arsenal Sheet's XP track (also taken during the Aftermath).
         Route::post('/campaigns/{campaign}/crews/{crew}/leader/advancements', [LeaderAdvancementController::class, 'store'])
             ->name('campaigns.crews.leader.advancements.store');
-        Route::delete('/campaigns/{campaign}/crews/{crew}/leader/advancements/{advancement}', [LeaderAdvancementController::class, 'destroy'])
-            ->name('campaigns.crews.leader.advancements.destroy');
+        // Individual advancements aren't removable one at a time (pg 31) —
+        // Respec undoes the whole track at once instead.
+        Route::post('/campaigns/{campaign}/crews/{crew}/leader/respec', [LeaderAdvancementController::class, 'respec'])
+            ->name('campaigns.crews.leader.respec');
 
         // Starting Arsenal — 25-ss spend wizard + crew card effect picker.
         Route::get('/campaigns/{campaign}/crews/{crew}/starting-arsenal', [StartingArsenalController::class, 'edit'])
@@ -124,6 +126,9 @@ Route::middleware(['campaign.access'])->group(function () {
         // table ruling or a missed award), not a player-initiated spend.
         Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/scrip', [ArsenalSheetController::class, 'adjustScrip'])
             ->name('campaigns.crews.arsenal.scrip.update');
+        // Freeform Leadership Experience correction — crew-owner self-service.
+        Route::post('/campaigns/{campaign}/crews/{crew}/leader/xp', [ArsenalSheetController::class, 'adjustLeaderXp'])
+            ->name('campaigns.crews.leader.xp.update');
 
         // Weekly cycle. Organizer advances the week (+ rolls Weekly Event if enabled).
         Route::post('/campaigns/{campaign}/weeks/advance', [WeeklyCycleController::class, 'advance'])

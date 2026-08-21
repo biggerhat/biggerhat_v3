@@ -689,15 +689,24 @@ const targetActionOptions = (position: number): Array<{ ref: number; name: strin
 // save that dispatches the (async) render job, before that job has even
 // started, which previously made a quick undo-then-redo report "done" after
 // its very first poll — before the redo's render had actually run.
-const cardRegenerating = ref<{ leader: boolean; totem: boolean }>({ leader: false, totem: false });
+const cardRegenerating = ref<{ leader: boolean; totem: boolean; crew_card: boolean }>({ leader: false, totem: false, crew_card: false });
 
-const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
+const pollCardRegeneration = (
+    target: 'leader' | 'totem' | 'crew_card',
+    previousGeneratedAt: string | null | undefined,
+    attemptsLeft = 8,
+) => {
     cardRegenerating.value[target] = true;
     setTimeout(() => {
         router.reload({
-            only: ['leader', 'totem'],
+            only: ['leader', 'totem', 'crew'],
             onSuccess: () => {
-                const current = (target === 'leader' ? props.leader : props.totem)?.card_image_generated_at;
+                const current =
+                    target === 'leader'
+                        ? props.leader?.card_image_generated_at
+                        : target === 'totem'
+                          ? props.totem?.card_image_generated_at
+                          : props.crew.crew_card_generated_at;
                 if (current && current !== previousGeneratedAt) {
                     cardRegenerating.value[target] = false;
                 } else if (attemptsLeft > 1) {
@@ -749,8 +758,10 @@ const logAdvancement = (position: number) => {
     }
     const targetsTotem = isTotemAdvancement || ((isTrigger || isAbility || isSummoning) && d.target_type === 'totem');
     const targetsLeader = !targetsTotem && d.source_table !== 'crew_card' && d.target_type !== 'equipment';
+    const targetsCrewCard = d.source_table === 'crew_card';
     const prevLeaderGeneratedAt = props.leader?.card_image_generated_at;
     const prevTotemGeneratedAt = props.totem?.card_image_generated_at;
+    const prevCrewCardGeneratedAt = props.crew.crew_card_generated_at;
     router.post(
         route('campaigns.crews.leader.advancements.store', [props.campaign.id, props.crew.share_code]),
         {
@@ -777,32 +788,55 @@ const logAdvancement = (position: number) => {
             onSuccess: () => {
                 if (targetsLeader) pollCardRegeneration('leader', prevLeaderGeneratedAt);
                 if (targetsTotem) pollCardRegeneration('totem', prevTotemGeneratedAt);
+                if (targetsCrewCard) pollCardRegeneration('crew_card', prevCrewCardGeneratedAt);
             },
         },
     );
 };
 
-const removeAdvancement = async (a: AdvancementTaken) => {
+// Individual advancements aren't removable one at a time (pg 31) — Respec
+// undoes the whole track at once instead (see LeaderAdvancementController::
+// respec()). Experience boxes stay earned; only the picks reset.
+const respecLeader = async () => {
     if (
         !(await confirmDialog({
-            title: 'Remove advancement',
-            message: 'Remove this advancement so you can pick a different one?',
+            title: 'Respec Leader',
+            message:
+                "Undo every advancement this Leader has taken? Experience boxes stay earned — you'll re-take advancements in order afterward. If a Totem advancement was taken, this deletes the Totem entirely.",
             destructive: true,
         }))
     ) {
         return;
     }
-    // The removed advancement's leader-vs-totem target isn't exposed on the
-    // taken-advancement row, so poll both — harmless when one wasn't affected,
-    // it just won't see card_image_generated_at change and will stop after its attempts.
+    // Respec can undo any mix of advancement types (including Crew Card
+    // ones), so poll all three — harmless when one wasn't affected, it just
+    // won't see its generated_at change and stops after its attempts.
     const prevLeaderGeneratedAt = props.leader?.card_image_generated_at;
     const prevTotemGeneratedAt = props.totem?.card_image_generated_at;
-    router.delete(route('campaigns.crews.leader.advancements.destroy', [props.campaign.id, props.crew.share_code, a.id]), {
-        onSuccess: () => {
-            pollCardRegeneration('leader', prevLeaderGeneratedAt);
-            if (props.totem) pollCardRegeneration('totem', prevTotemGeneratedAt);
+    const prevCrewCardGeneratedAt = props.crew.crew_card_generated_at;
+    router.post(
+        route('campaigns.crews.leader.respec', [props.campaign.id, props.crew.share_code]),
+        {},
+        {
+            onSuccess: () => {
+                pollCardRegeneration('leader', prevLeaderGeneratedAt);
+                if (props.totem) pollCardRegeneration('totem', prevTotemGeneratedAt);
+                pollCardRegeneration('crew_card', prevCrewCardGeneratedAt);
+            },
         },
-    });
+    );
+};
+
+// Freeform Leadership Experience correction (QA: "before adding advancement
+// can set experience") — signed delta in boxes, mirrors the scrip adjuster.
+const xpAdjustAmount = ref<number | null>(null);
+const adjustLeaderXp = () => {
+    if (!xpAdjustAmount.value) return;
+    router.post(
+        route('campaigns.crews.leader.xp.update', [props.campaign.id, props.crew.share_code]),
+        { amount: xpAdjustAmount.value },
+        { onSuccess: () => (xpAdjustAmount.value = null) },
+    );
 };
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
@@ -1562,12 +1596,25 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 </Card>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Leadership Experience</CardTitle>
-                        <p class="text-[10px] text-muted-foreground">
-                            XP track (pg 31) — fills from logged games via the Aftermath's Advance Leader step.
-                            <span v-if="xpTrack.length" class="font-medium">{{ xpFilled }} / {{ xpTrack.length }} earned.</span>
-                        </p>
+                    <CardHeader class="flex-row items-start justify-between space-y-0">
+                        <div>
+                            <CardTitle>Leadership Experience</CardTitle>
+                            <p class="text-[10px] text-muted-foreground">
+                                XP track (pg 31) — fills from logged games via the Aftermath's Advance Leader step.
+                                <span v-if="xpTrack.length" class="font-medium">{{ xpFilled }} / {{ xpTrack.length }} earned.</span>
+                            </p>
+                        </div>
+                        <div v-if="view_mode.is_owner && leader" class="flex shrink-0 items-center gap-1.5">
+                            <Input
+                                v-model.number="xpAdjustAmount"
+                                type="number"
+                                placeholder="±N"
+                                title="Set experience — signed delta in boxes"
+                                class="h-8 w-16 text-xs"
+                            />
+                            <Button size="sm" variant="outline" :disabled="!xpAdjustAmount" @click="adjustLeaderXp">Set XP</Button>
+                            <Button size="sm" variant="destructive" @click="respecLeader">Respec</Button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <!-- Real 39-box track from the leader's xp_track; numbered boxes are advancement tiers. -->
@@ -1589,20 +1636,11 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <div v-if="advancementSlots.length" class="mt-3 space-y-1.5">
                             <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Advancements</p>
                             <div v-for="slot in advancementSlots" :key="slot.position" class="rounded-md border p-2 text-xs">
-                                <!-- Logged -->
-                                <div v-if="takenByPosition[slot.position]" class="flex items-center justify-between gap-2">
-                                    <span>
-                                        <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
-                                        {{ advancementName(takenByPosition[slot.position]) }}
-                                    </span>
-                                    <Button
-                                        v-if="view_mode.is_owner"
-                                        size="sm"
-                                        variant="ghost"
-                                        @click="removeAdvancement(takenByPosition[slot.position])"
-                                    >
-                                        Remove
-                                    </Button>
+                                <!-- Logged — not individually removable (pg 31); use Respec above to
+                                     undo the whole track at once. -->
+                                <div v-if="takenByPosition[slot.position]" class="flex items-center gap-2">
+                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
+                                    {{ advancementName(takenByPosition[slot.position]) }}
                                 </div>
                                 <!-- Owner picker for an empty slot -->
                                 <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="space-y-2">

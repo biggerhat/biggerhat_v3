@@ -9,7 +9,6 @@ use App\Events\CampaignWeekAdvanced;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\CustomCharacter;
 use App\Models\User;
@@ -186,11 +185,9 @@ it('CampaignCrewUpdated is dispatched when an advancement is logged and when it\
 
     Event::assertDispatched(CampaignCrewUpdated::class, fn ($e) => $e->crew->id === $crew->id);
 
-    $advancement = CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->where('position_in_xp_track', 0)->firstOrFail();
-
     Event::fake([CampaignCrewUpdated::class]);
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign, $crew->share_code, $advancement]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign, $crew->share_code]))
         ->assertRedirect();
 
     Event::assertDispatched(CampaignCrewUpdated::class, fn ($e) => $e->crew->id === $crew->id);

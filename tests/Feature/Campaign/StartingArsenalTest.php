@@ -176,6 +176,31 @@ it('saves the crew card to the Card Creator when named, and updates on re-save',
     expect(\App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->count())->toBe(1);
 });
 
+it('saves the crew card to the Card Creator with the full action field set, not a lossy partial copy', function () {
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash']);
+    $action = \App\Models\Action::factory()->create(['name' => 'Grab', 'stone_cost' => 2, 'damage' => '2/3/4']);
+    $trigger = \App\Models\Trigger::factory()->create(['name' => 'Critical Strike']);
+    $action->triggers()->attach($trigger->id);
+    $effect->actions()->attach($action->id, ['is_signature_action' => false]);
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'My Crew Card',
+        ])
+        ->assertRedirect();
+
+    $upgrade = \App\Models\CustomUpgrade::where('user_id', $user->id)->where('name', 'My Crew Card')->firstOrFail();
+    $actionBlock = collect($upgrade->content_blocks)->firstWhere('type', 'action');
+    expect($actionBlock['data']['stone_cost'])->toBe(2);
+    expect($actionBlock['data']['damage'])->toBe('2/3/4');
+    expect($actionBlock['data']['triggers'][0]['name'])->toBe('Critical Strike');
+});
+
 it('updates the same Card Creator card by crew rather than duplicating it when the crew card name changes between saves', function () {
     $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
     $user = arsenalUser();

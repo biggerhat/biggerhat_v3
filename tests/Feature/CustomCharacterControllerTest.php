@@ -225,6 +225,26 @@ it('update preserves campaign-leader invariants regardless of submitted values',
     expect($leader->cost)->toBeNull();
 });
 
+it('update lets a Campaign Leader\'s tag be changed, unlike the other locked campaign invariants', function () {
+    $user = User::factory()->create();
+    $leader = CustomCharacter::create(array_merge(ccValidPayload([
+        'tag' => 'bruiser',
+    ]), [
+        'user_id' => $user->id,
+        'is_campaign_leader' => true,
+        'station' => 'master',
+        'generates_stone' => true,
+        'is_unhirable' => false,
+        'cost' => null,
+    ]));
+
+    $this->actingAs($user)
+        ->putJson(route('tools.card_creator.update', $leader->id), ccValidPayload(['tag' => 'strategist']))
+        ->assertOk();
+
+    expect($leader->fresh()->tag)->toBe('strategist');
+});
+
 it('update broadcasts CampaignCrewUpdated when a campaign leader is edited', function () {
     Event::fake([CampaignCrewUpdated::class]);
 
@@ -492,7 +512,7 @@ it('serves the headless-Chrome capture page without auth', function () {
         ->assertInertia(fn ($p) => $p->where('card.name', 'Capture Me')->where('card.faction', 'guild'));
 });
 
-it('capture appends the Bruiser/Strategist tag as a display characteristic for a Campaign Leader (pg 18)', function () {
+it('capture appends Unique and the Bruiser/Strategist tag as display characteristics for a Campaign Leader (pg 18)', function () {
     $user = User::factory()->create();
     $character = CustomCharacter::create(array_merge(ccValidPayload([
         'name' => 'Upstart Leader',
@@ -503,7 +523,7 @@ it('capture appends the Bruiser/Strategist tag as a display characteristic for a
 
     $this->get(route('tools.card_creator.capture', $character->share_code))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living', 'Bruiser']));
+        ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living', 'Unique', 'Bruiser']));
 
     // The persisted column itself is untouched — this is a display-only
     // addition so it doesn't round-trip into the Leader Builder edit form

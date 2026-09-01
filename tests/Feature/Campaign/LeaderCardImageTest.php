@@ -7,7 +7,6 @@ use App\Enums\PermissionEnum;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
-use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
@@ -55,6 +54,17 @@ function lciLeaderWithEarnedBox(User $user): array
         'station' => 'master',
         'health' => 12, 'defense' => 5, 'willpower' => 6, 'speed' => 5,
         'xp_track' => $track,
+    ]);
+
+    // Box 0 is earned but the tests below only log against box 2 — resolve
+    // it directly so the "resolve advancements in box order" rule doesn't
+    // block them.
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'attack_mod',
+        'position_in_xp_track' => 0,
+        'applied_to_action_index' => -1,
+        'acquired_at' => now(),
     ]);
 
     return [$crew->campaign, $crew, $leader];
@@ -106,7 +116,7 @@ it('queues a card regeneration when an advancement is logged directly from the A
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id);
 });
 
-it('queues a card regeneration when a logged advancement is removed', function () {
+it('queues a card regeneration when the leader is respecced', function () {
     $user = lciUser();
     [$campaign, $crew, $leader] = lciLeaderWithEarnedBox($user);
     $ability = \App\Models\Campaign\AdvancementAbility::factory()->create(['talent_name' => 'Card Test Ability']);
@@ -116,11 +126,10 @@ it('queues a card regeneration when a logged advancement is removed', function (
         'source_table' => 'ability',
         'catalog_id' => $ability->id,
     ]);
-    $logged = CampaignLeaderAdvancement::where('custom_character_id', $leader->id)->firstOrFail();
 
     Bus::fake();
     $this->actingAs($user)
-        ->delete(route('campaigns.crews.leader.advancements.destroy', [$campaign->id, $crew->share_code, $logged]))
+        ->post(route('campaigns.crews.leader.respec', [$campaign->id, $crew->share_code]))
         ->assertRedirect();
 
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id);

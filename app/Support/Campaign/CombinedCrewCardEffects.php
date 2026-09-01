@@ -10,6 +10,7 @@ use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignCrewCardAdvancement;
+use App\Models\CustomUpgrade;
 use App\Models\Marker;
 use App\Models\Token;
 use App\Models\Trigger;
@@ -70,8 +71,31 @@ class CombinedCrewCardEffects
         // starter effect on the front (CombinedCrewCardImageGenerator's
         // crew_card_front_image), every held Tier-4 borrow on the back
         // (crew_card_back_image) — see CombinedCrewCardFace's `side` prop.
-        $starter = $crew->crewCardEffect;
-        if ($starter) {
+        //
+        // Once the player has saved an editable copy of their crew card via
+        // "Edit Crew Card" (StartingArsenalController::saveCrewCardToCardCreator()
+        // → a CustomUpgrade flagged is_campaign_crew_card), THAT edited copy
+        // is the source of truth — not the immutable catalog row it started
+        // from. Without this, edits made in the Card Creator editor never
+        // showed up anywhere that represents "the crew's card" (not the
+        // generated image, not the Arsenal Sheet's live view).
+        $customCrewCard = CustomUpgrade::query()->where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->first();
+
+        if ($customCrewCard) {
+            $starterName = $customCrewCard->display_name;
+            foreach ($customCrewCard->content_blocks ?? [] as $i => $block) {
+                $items[] = match ($block['type'] ?? null) {
+                    'text' => ['type' => 'text', 'qualifier' => null, 'qualifier_generic' => null, 'restriction' => null, 'source' => 'starter', 'data' => ['body' => $block['text'] ?? '']],
+                    'action' => ['type' => 'action', 'qualifier' => self::DEFAULT_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Action), 'qualifier_generic' => self::DEFAULT_RESTRICTION->descriptorGeneric(), 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeActionBlock($i, $block['data'] ?? [])],
+                    'ability' => ['type' => 'ability', 'qualifier' => self::DEFAULT_RESTRICTION->descriptor(CrewUpgradeRestrictionDescriptorTypeEnum::Ability), 'qualifier_generic' => self::DEFAULT_RESTRICTION->descriptorGeneric(), 'restriction' => self::DEFAULT_RESTRICTION->value, 'source' => 'starter', 'data' => self::shapeAbilityBlock($i, $block['data'] ?? [])],
+                    default => null,
+                };
+            }
+            $items = array_values(array_filter($items));
+            if ($crew->crew_card_choice) {
+                $items[] = ['type' => 'choice', 'qualifier' => null, 'qualifier_generic' => null, 'restriction' => null, 'source' => 'starter', 'data' => [...$crew->crew_card_choice, 'effect_name' => $starterName]];
+            }
+        } elseif ($starter = $crew->crewCardEffect) {
             if ($starter->description) {
                 $items[] = ['type' => 'text', 'qualifier' => null, 'qualifier_generic' => null, 'restriction' => null, 'source' => 'starter', 'data' => ['body' => $starter->description]];
             }
@@ -291,8 +315,8 @@ class CombinedCrewCardEffects
                         'actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
                         'abilities',
                         'triggers',
-                        'tokens:id,name,description',
-                        'markers:id,name,description,base',
+                        'tokens:id,name,description,is_general',
+                        'markers:id,name,description,base,is_general',
                     ],
                 ]);
             },
@@ -337,8 +361,8 @@ class CombinedCrewCardEffects
             ->whereNotNull('character_id')
             ->with([
                 'character:id',
-                'character.tokens:id,name,description',
-                'character.markers:id,name,description,base',
+                'character.tokens:id,name,description,is_general',
+                'character.markers:id,name,description,base,is_general',
             ])
             ->get();
 
@@ -365,11 +389,16 @@ class CombinedCrewCardEffects
             }
         }
 
-        $tokenItems = $tokens->unique('id')->sortBy('name')->values()->map(fn (Token $t) => [
+        // "General" tokens/markers (Focus, Shielded, Scheme, Strategy,
+        // Remains, …) are universal Malifaux game pieces, not something this
+        // specific crew grants — excluded from its own quick-reference even
+        // when the heuristic linker (LinkTokensAndMarkers) attached one via
+        // a text-mention match rather than an actual grant.
+        $tokenItems = $tokens->reject(fn (Token $t) => $t->is_general)->unique('id')->sortBy('name')->values()->map(fn (Token $t) => [
             'type' => 'token', 'id' => $t->id, 'name' => $t->name, 'description' => $t->description, 'base' => null,
         ]);
 
-        $markerItems = $markers->unique('id')->sortBy('name')->values()->map(fn (Marker $m) => [
+        $markerItems = $markers->reject(fn (Marker $m) => $m->is_general)->unique('id')->sortBy('name')->values()->map(fn (Marker $m) => [
             'type' => 'marker', 'id' => $m->id, 'name' => $m->name, 'description' => $m->description, 'base' => (string) $m->base,
         ]);
 
@@ -396,6 +425,54 @@ class CombinedCrewCardEffects
         $enum = CrewUpgradeRestrictionEnum::tryFrom($restriction);
 
         return $enum?->descriptorGeneric();
+    }
+
+    /**
+     * Shapes an action block from a player-edited crew card's content_blocks
+     * (see StartingArsenalController::saveCrewCardToCardCreator()) into the
+     * same output shape as shapeAction() — content_blocks has no catalog id,
+     * so `$i` (the block's position) stands in for it, and fields the Card
+     * Creator editor doesn't capture (triggers) default empty.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function shapeActionBlock(int $i, array $data): array
+    {
+        return [
+            'id' => $i,
+            'name' => $data['name'] ?? '',
+            'type' => $data['type'] ?? null,
+            'is_signature' => false,
+            'stone_cost' => $data['stone_cost'] ?? 0,
+            'range' => $data['range'] ?? null,
+            'range_type' => $data['range_type'] ?? null,
+            'stat' => $data['stat'] ?? null,
+            'stat_suits' => $data['stat_suits'] ?? null,
+            'stat_modifier' => $data['stat_modifier'] ?? null,
+            'resisted_by' => $data['resisted_by'] ?? null,
+            'target_number' => $data['target_number'] ?? null,
+            'target_suits' => $data['target_suits'] ?? null,
+            'damage' => $data['damage'] ?? null,
+            'description' => $data['description'] ?? null,
+            'triggers' => $data['triggers'] ?? [],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function shapeAbilityBlock(int $i, array $data): array
+    {
+        return [
+            'id' => $i,
+            'name' => $data['name'] ?? '',
+            'suits' => $data['suits'] ?? null,
+            'defensive_ability_type' => $data['defensive_ability_type'] ?? null,
+            'costs_stone' => (bool) ($data['costs_stone'] ?? false),
+            'description' => $data['description'] ?? null,
+        ];
     }
 
     /** @return array<string, mixed> */

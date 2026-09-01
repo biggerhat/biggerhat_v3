@@ -2,7 +2,7 @@
 import { formatRange, splitSuits } from '@/components/CardCreator/utils';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
-import { computed } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 interface TriggerData {
     name: string;
@@ -153,40 +153,56 @@ const effectRows = computed<EffectRow[]>(() => {
 // sourced from a Tier-4 borrow (whichever kind that row happens to be).
 const firstBorrowedRowIndex = computed(() => effectRows.value.findIndex((row) => row.source === 'borrowed'));
 
-// Tarot proportions (matches Leader/Totem/single-catalog-row cards): 550x950.
-// A combined card holds the starter effect plus every Tier-4 borrow, so its
-// content is unbounded — rather than shrinking text to cram it into a fixed
-// 550x950 box (which either clips or becomes unreadable), the CARD ITSELF
-// grows through discrete tiers, always keeping the tarot aspect ratio, while
-// text stays one fixed, comfortably large size throughout.
+// Tarot proportions (matches Leader/Totem/single-catalog-row cards): every
+// tier keeps this 550:950 ratio. A combined card holds the starter effect
+// plus every Tier-4 borrow, so its content ranges from a single line to a
+// full page — rather than guess a tier from a char count (which produced a
+// card sized for the WORST case at that count, baking large blank areas
+// into light cards' generated images) or shrinking text into a fixed box,
+// `measure()` below actually renders the content and grows through
+// discrete tarot-ratio tiers, stopping at the smallest one the content
+// really fits, so the box is always tarot-proportioned but never bigger
+// than one card face actually needs.
 const TAROT_RATIO = 950 / 550;
-const WIDTH_TIERS = [550, 650, 750, 850, 950, 1050, 1150];
+const WIDTH_TIERS = [350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1050, 1100, 1150];
 
-const totalContentChars = computed(() => {
-    if (props.side === 'back') {
-        return props.tokensMarkers.reduce((sum, tm) => sum + tm.name.length + (tm.description?.length ?? 0), 0);
+const rootRef = ref<HTMLElement | null>(null);
+const cardWidth = ref(WIDTH_TIERS[0]);
+// null while unmeasured/mid-measurement (no floor applied — see measure()),
+// so the very first paint doesn't flash a wrong-sized box before settling.
+const cardHeight = ref<number | null>(null);
+const ready = ref(false);
+
+const measure = async () => {
+    ready.value = false;
+    for (let i = 0; i < WIDTH_TIERS.length; i++) {
+        const width = WIDTH_TIERS[i];
+        cardWidth.value = width;
+        // No forced floor while measuring this tier — otherwise scrollHeight
+        // just reports back the floor itself instead of the content's real,
+        // unconstrained height, masking the case where content is smaller
+        // than even the current tier's tarot-proportioned budget.
+        cardHeight.value = null;
+        await nextTick();
+        const naturalHeight = rootRef.value?.scrollHeight ?? 0;
+        const budget = Math.round(width * TAROT_RATIO);
+        if (naturalHeight <= budget) {
+            cardHeight.value = budget;
+            ready.value = true;
+            return;
+        }
+        if (i === WIDTH_TIERS.length - 1) {
+            // Pathologically dense content that outgrows even the largest
+            // tier: grow past the tarot proportion rather than clip.
+            cardHeight.value = naturalHeight;
+            ready.value = true;
+            return;
+        }
     }
+};
 
-    return visibleItems.value.reduce((sum, item) => {
-        if (item.type === 'text') {
-            return sum + (item.data as TextData).body.length;
-        }
-        if (item.type === 'choice') {
-            const c = item.data as ChoiceData;
-            return sum + c.type.length + c.name.length + c.effect_name.length;
-        }
-        const d = item.data as ActionData & AbilityData;
-        const qualifierChars = item.qualifier?.length ?? 0;
-        const triggerChars = 'triggers' in d ? d.triggers.reduce((ts, t) => ts + (t.description?.length ?? 0) + t.name.length, 0) : 0;
-        return sum + qualifierChars + (d.description?.length ?? 0) + d.name.length + triggerChars;
-    }, 0);
-});
-
-const cardWidth = computed(() => {
-    const tierIndex = Math.min(Math.floor(totalContentChars.value / 900), WIDTH_TIERS.length - 1);
-    return WIDTH_TIERS[tierIndex];
-});
-const cardHeight = computed(() => Math.round(cardWidth.value * TAROT_RATIO));
+onMounted(measure);
+watch(() => [props.side, props.items, props.tokensMarkers], measure, { deep: true });
 
 const isAction = (item: CombinedItem): item is CombinedItem & { data: ActionData } => item.type === 'action';
 const isAbility = (item: CombinedItem): item is CombinedItem & { data: AbilityData } => item.type === 'ability';
@@ -196,14 +212,21 @@ const isText = (item: CombinedItem): item is CombinedItem & { data: TextData } =
 </script>
 
 <template>
-    <!-- No overflow-hidden here — the tarot-tiered size above is a target,
-         not a hard cap. If a real crew's content ever outgrows the largest
-         tier, the box grows past it rather than silently clipping content;
-         the rounded corners on the border strips below make that safe. -->
+    <!-- No overflow-hidden here — the tarot-tiered size measure() settles on
+         is a target, not a hard cap. If a real crew's content ever outgrows
+         the largest tier, the box grows past it rather than silently
+         clipping content; the rounded corners on the border strips below
+         make that safe. cardHeight is null mid-measurement (see measure()),
+         so min-height is left unset rather than forced to 0px/'null'px. -->
     <div
+        ref="rootRef"
         class="card-face card-crew relative flex flex-col bg-neutral-900 text-white"
-        :style="{ width: cardWidth + 'px', minHeight: cardHeight + 'px' }"
+        :style="[{ width: cardWidth + 'px' }, cardHeight !== null ? { minHeight: cardHeight + 'px' } : {}]"
+        :data-capture-ready="ready"
     >
+        <!-- data-capture-ready flips true once measure() settles — the
+             headless capture page's Browsershot generator waits on this
+             attribute so it never screenshots a mid-measurement frame. -->
         <!-- Border -->
         <div class="h-1.5 w-full rounded-t-lg" style="background: hsl(var(--primary))" />
 

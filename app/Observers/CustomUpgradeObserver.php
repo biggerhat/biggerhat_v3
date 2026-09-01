@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Jobs\Campaign\GenerateCombinedCrewCardImage;
 use App\Models\CustomUpgrade;
 use Illuminate\Support\Str;
 
@@ -34,6 +35,22 @@ class CustomUpgradeObserver
                 $i++;
             }
             $upgrade->slug = $slug;
+        }
+    }
+
+    /**
+     * A player editing their crew card's content via the normal Card
+     * Creator editor (CustomUpgradeController::update()) needs the
+     * generated Crew Card image to reflect it — mirrors
+     * CampaignArsenalModelObserver's identical regenerate-on-change hook.
+     * StartingArsenalController::update() already dispatches this itself
+     * right after the INITIAL save-to-Card-Creator, so this only needs to
+     * cover later edits.
+     */
+    public function updated(CustomUpgrade $upgrade): void
+    {
+        if ($upgrade->is_campaign_crew_card && $upgrade->campaign_crew_id && $upgrade->wasChanged('content_blocks')) {
+            GenerateCombinedCrewCardImage::dispatch($upgrade->campaign_crew_id)->afterCommit();
         }
     }
 }

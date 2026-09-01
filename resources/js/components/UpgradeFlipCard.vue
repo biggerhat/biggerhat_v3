@@ -2,6 +2,7 @@
 import CardFullscreenDialog from '@/components/CardFullscreenDialog.vue';
 import Button from '@/components/ui/button/Button.vue';
 import { CARD_HOVER } from '@/lib/cardHover';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { router } from '@inertiajs/vue3';
 import { Maximize2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -12,13 +13,18 @@ const props = defineProps<{
     altText?: string;
     upgradeSlug?: string;
     showLink?: boolean;
+    // Fixed, overwritten-in-place filenames (Leader/Totem/Crew Card
+    // generators) never change on their own — without this, a regenerated
+    // image can sit stale in the browser cache indefinitely (QA: "Crew Card
+    // image isn't displaying correctly during Scheme selection").
+    generatedAt?: string | null;
 }>();
 
 const flipped = ref(false);
 const fullscreenOpen = ref(false);
 
-const frontImageUrl = computed(() => '/storage/' + props.frontImage);
-const backImageUrl = computed(() => (props.backImage ? '/storage/' + props.backImage : null));
+const frontImageUrl = computed(() => '/storage/' + cacheBustedImagePath(props.frontImage, props.generatedAt));
+const backImageUrl = computed(() => (props.backImage ? '/storage/' + cacheBustedImagePath(props.backImage, props.generatedAt) : null));
 </script>
 
 <template>
@@ -28,16 +34,16 @@ const backImageUrl = computed(() => (props.backImage ? '/storage/' + props.backI
                 <div class="relative w-full" :class="{ 'card-flipped': flipped }" style="transition: transform 0.5s; transform-style: preserve-3d">
                     <div style="backface-visibility: hidden">
                         <img
-                            :src="'/storage/' + frontImage"
+                            :src="frontImageUrl"
                             :alt="(altText ?? 'Card') + ' (front)'"
                             loading="lazy"
                             decoding="async"
                             class="aspect-[550/950] h-full w-full rounded-lg object-cover"
                         />
                     </div>
-                    <div v-if="backImage" class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
+                    <div v-if="backImageUrl" class="absolute inset-0" style="backface-visibility: hidden; transform: rotateY(180deg)">
                         <img
-                            :src="'/storage/' + backImage"
+                            :src="backImageUrl"
                             :alt="(altText ?? 'Card') + ' (back)'"
                             loading="lazy"
                             decoding="async"

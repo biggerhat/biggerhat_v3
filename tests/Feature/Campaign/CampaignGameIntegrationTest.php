@@ -1246,42 +1246,38 @@ it('solo Campaign setup auto-fills a generic opponent — no opponent faction/ma
     expect($opponent->crew_skipped)->toBeTrue();
 });
 
-it('character_upgrades at InProgress offers the campaign crew\'s own earned equipment, not the full catalog', function () {
+it('character_upgrades at InProgress offers the full campaign Equipment catalog, not just what\'s owned', function () {
+    // QA: attaching equipment mid-game should work like the standard
+    // tracker's self-reported "attach anything" freedom, not be limited to
+    // gear the crew has already earned (that restriction is still correct
+    // for pre-game setup — see buildCampaignEquipmentProp()/CrewSelect).
     [$userA, , , $crewA, , $game] = campaignGameSetup();
     $game->update(['status' => GameStatusEnum::InProgress->value]);
 
-    $owned = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Owned Trinket']);
-    \App\Models\Campaign\CampaignEquipment::factory()->count(2)->create([
-        'campaign_crew_id' => $crewA->id,
-        'equipment_upgrade_id' => $owned->id,
-    ]);
-    // Unowned equipment from the catalog must not leak into the player's picker.
-    \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Unowned Trinket']);
-    // Annihilated (inactive) copies must not count.
+    $owned = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Owned Trinket', 'plentiful' => 2]);
     \App\Models\Campaign\CampaignEquipment::factory()->create([
         'campaign_crew_id' => $crewA->id,
         'equipment_upgrade_id' => $owned->id,
-        'annihilated_at' => now(),
     ]);
+    // Unowned equipment from the catalog now DOES appear — that's the fix.
+    $unowned = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Unowned Trinket']);
+    // The Red Joker "Those Who Thirst" entry is a special reflip-table
+    // result, not a normal selectable pickup — excluded either way.
+    \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Those Who Thirst', 'campaign_is_red_joker_entry' => true]);
 
     $this->actingAs($userA)
         ->get(route('games.show', $game->uuid))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('character_upgrades', [[
-                'id' => $owned->id,
-                'name' => 'Owned Trinket',
-                'slug' => $owned->slug,
-                'front_image' => $owned->front_image,
-                'back_image' => $owned->back_image,
-                'type' => $owned->type?->value,
-                'plentiful' => 2,
-                'power_bar_count' => $owned->power_bar_count,
-                'description' => $owned->description,
-                'is_advanced' => false,
-                'actions' => [],
-                'abilities' => [],
-            ]])
+            ->where('character_upgrades', function ($upgrades) use ($owned) {
+                $names = collect($upgrades)->pluck('name');
+                $ownedRow = collect($upgrades)->firstWhere('id', $owned->id);
+
+                return $names->contains('Owned Trinket')
+                    && $names->contains('Unowned Trinket')
+                    && ! $names->contains('Those Who Thirst')
+                    && $ownedRow['plentiful'] === 2;
+            })
         );
 });
 

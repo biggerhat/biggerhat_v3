@@ -123,6 +123,52 @@ it('blocks non-members from the authed arsenal route', function () {
         ->assertForbidden();
 });
 
+it('print renders the flat black-and-white reference for a crew member', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'Printable Leader',
+        'faction' => FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $character = Character::factory()->create(['name' => 'Rank and File', 'title' => null, 'cost' => 5]);
+    CampaignArsenalModel::create([
+        'campaign_crew_id' => $crew->id,
+        'character_id' => $character->id,
+        'acquired_via' => 'manual',
+    ]);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Printed Trinket']);
+    \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.print', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Campaigns/ArsenalPrint')
+            ->where('leader.name', 'Printable Leader')
+            ->where('models.0.name', 'Rank and File')
+            ->where('equipment.0.name', 'Printed Trinket')
+        );
+});
+
+it('print rejects a non-member', function () {
+    $owner = sheetUser();
+    $outsider = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $this->actingAs($outsider)
+        ->get(route('campaigns.crews.arsenal.print', [$campaign, $crew->share_code]))
+        ->assertForbidden();
+});
+
 it('serves the public share link without auth when the feature flag is on', function () {
     Feature::for(null)->activate('m4e-campaign-mode');
     $owner = sheetUser();
@@ -348,6 +394,33 @@ it('arsenal_models.upgrades requires BOTH crew keywords for a borrowed generic T
         );
 });
 
+it('available_crew_upgrades is the deduplicated union of every unit\'s qualifying upgrades', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $keyword = \App\Models\Keyword::find($crew->keyword_1_id);
+
+    $starterAction = \App\Models\Action::factory()->create(['name' => 'Starter Swing']);
+    $starter = CampaignCrewCard::factory()->create();
+    $starter->actions()->attach($starterAction->id, ['is_signature_action' => false]);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    // Two units that both qualify for the same starter action — the
+    // aggregate must list it once, not twice.
+    $minionA = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $minionA->keywords()->attach($keyword);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $minionA->id]);
+    $minionB = Character::factory()->create(['station' => \App\Enums\CharacterStationEnum::Minion]);
+    $minionB->keywords()->attach($keyword);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $minionB->id]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('available_crew_upgrades', fn ($upgrades) => collect($upgrades)->where('name', 'Starter Swing')->count() === 1)
+        );
+});
+
 it('exposes story_log entries in chronological order, including games with no story written', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
@@ -527,6 +600,33 @@ it('exposes Leader/Totem injuries in the payload and counts them toward Campaign
         );
 
     expect($crew->activeInjuryCount())->toBe(2);
+});
+
+it('exposes Unique and the Bruiser/Strategist tag as display-only leader characteristics', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'tag' => \App\Enums\Campaign\LeaderTagEnum::Strategist->value,
+        'name' => 'Tagged Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+        'characteristics' => ['Living'],
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('leader.characteristics', ['Living', 'Unique', 'Strategist'])
+        );
+
+    // Display-only: never persisted onto the model.
+    expect($leader->fresh()->characteristics)->toBe(['Living']);
 });
 
 it('exposes equipment actions and marks equipment locked once an advancement targets it', function () {
@@ -1061,7 +1161,9 @@ it('exposes an arsenal model\'s permanently gained Abilities from a Lucky Miss r
 
     $char = Character::factory()->create(['cost' => 6]);
     $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $char->id]);
-    $ability = \App\Models\Ability::factory()->create(['name' => 'Uncanny Luck', 'description' => 'Once per turn...']);
+    $ability = \App\Models\Ability::factory()->create([
+        'name' => 'Uncanny Luck', 'description' => 'Once per turn...', 'suits' => 'ram', 'costs_stone' => true,
+    ]);
     $model->gainedAbilities()->attach($ability->id, ['source' => 'lucky_miss']);
 
     $this->actingAs($owner)
@@ -1070,6 +1172,33 @@ it('exposes an arsenal model\'s permanently gained Abilities from a Lucky Miss r
         ->assertInertia(fn ($page) => $page
             ->where('crew.arsenal_models.0.gained_abilities.0.name', 'Uncanny Luck')
             ->where('crew.arsenal_models.0.gained_abilities.0.description', 'Once per turn...')
+            // Card-view fields (QA: click Lucky Miss/Injury should show a
+            // card, not just description text) — AbilityCard needs these.
+            ->where('crew.arsenal_models.0.gained_abilities.0.suits', 'ram')
+            ->where('crew.arsenal_models.0.gained_abilities.0.costs_stone', true)
+        );
+});
+
+it('exposes an injury\'s full card shape (image + actions/abilities), not just description', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $char = Character::factory()->create(['cost' => 6]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $char->id]);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed', 'front_image' => 'injuries/concussed.png']);
+    $injuryAction = \App\Models\Action::factory()->create(['name' => 'Woozy Swing']);
+    $injury->actions()->attach($injuryAction->id, ['is_signature_action' => false]);
+    \Illuminate\Support\Facades\DB::table('campaign_arsenal_model_injuries')->insert([
+        'campaign_arsenal_model_id' => $model->id, 'injury_upgrade_id' => $injury->id, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('crew.arsenal_models.0.injuries.0.name', 'Concussed')
+            ->where('crew.arsenal_models.0.injuries.0.front_image', 'injuries/concussed.png')
+            ->where('crew.arsenal_models.0.injuries.0.actions.0.name', 'Woozy Swing')
         );
 });
 
@@ -1358,6 +1487,24 @@ it('removeEquipment refuses when an advancement is attached to this equipment in
     expect($equipment->fresh()->annihilated_at)->toBeNull();
 });
 
+it('removeEquipment refuses to remove Lucky Upstart\'s free starter equipment', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $upgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Free Trinket']);
+    $equipment = \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $upgrade->id,
+        'source' => 'starting_lucky_upstart',
+        'excludes_from_cr' => true,
+    ]);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.equipment.destroy', [$campaign, $crew->share_code, $equipment->id]))
+        ->assertRedirect();
+
+    expect($equipment->fresh()->annihilated_at)->toBeNull();
+});
+
 it('removeEquipment rejects a non-owner', function () {
     $owner = sheetUser();
     $other = sheetUser();
@@ -1423,6 +1570,91 @@ it('adjustScrip rejects a zero amount', function () {
 
     $this->actingAs($owner)
         ->post(route('campaigns.crews.arsenal.scrip.update', [$campaign, $crew->share_code]), ['amount' => 0])
+        ->assertSessionHasErrors('amount');
+});
+
+it('adjustLeaderXp fills the first N unfilled boxes in ascending order', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'XP Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => 3])
+        ->assertRedirect();
+
+    $track = collect($leader->fresh()->xp_track);
+    expect($track->where('filled', true)->pluck('index')->sort()->values()->all())->toBe([0, 1, 2]);
+});
+
+it('adjustLeaderXp unfills the last N filled boxes, skipping any with an advancement already logged', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $track = \App\Models\CustomCharacter::defaultXpTrack();
+    $track[0]['filled'] = true;
+    $track[1]['filled'] = true;
+    $track[2]['filled'] = true;
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'XP Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+        'xp_track' => $track,
+    ]);
+    // Box 2 already has an advancement — unfilling must skip it and reach further back.
+    \App\Models\Campaign\CampaignLeaderAdvancement::create([
+        'custom_character_id' => $leader->id,
+        'source_table' => 'attack_mod',
+        'position_in_xp_track' => 2,
+        'applied_to_action_index' => -1,
+        'acquired_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => -2])
+        ->assertRedirect();
+
+    $track = collect($leader->fresh()->xp_track);
+    expect($track->firstWhere('index', 0)['filled'])->toBeFalse();
+    expect($track->firstWhere('index', 1)['filled'])->toBeFalse();
+    expect($track->firstWhere('index', 2)['filled'])->toBeTrue();
+});
+
+it('adjustLeaderXp rejects a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'name' => 'XP Leader',
+        'faction' => \App\Enums\FactionEnum::Resurrectionists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+
+    $this->actingAs($other)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => 3])
+        ->assertForbidden();
+});
+
+it('adjustLeaderXp rejects a zero amount', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.leader.xp.update', [$campaign, $crew->share_code]), ['amount' => 0])
         ->assertSessionHasErrors('amount');
 });
 

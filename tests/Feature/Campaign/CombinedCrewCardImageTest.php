@@ -299,6 +299,23 @@ it('capture page surfaces tokens/markers gathered from the crew\'s active arsena
         );
 });
 
+it('capture page excludes a "general" marker (Scheme/Strategy/Remains) — universal, not crew-specific', function () {
+    [, $crew] = combinedCardFixture();
+
+    $general = Marker::factory()->create(['name' => 'Scheme', 'is_general' => true]);
+    $specific = Marker::factory()->create(['name' => 'Ice Pillar', 'is_general' => false]);
+    $character = Character::factory()->create();
+    $character->markers()->attach([$general->id, $specific->id]);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $character->id]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('tokensMarkers', 1)
+            ->where('tokensMarkers.0.name', 'Ice Pillar')
+        );
+});
+
 it('capture page surfaces tokens/markers tagged on a borrowed Crew Card Upgrade directly (via app:link-tokens-and-markers\' existing Upgrade link)', function () {
     [, $crew] = combinedCardFixture();
 
@@ -370,6 +387,77 @@ it('capture page contributes nothing from a hired homebrew Custom Character (no 
     $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('tokensMarkers', 0));
+});
+
+it('capture page reads the starter effect from the player\'s edited CustomUpgrade crew card copy, not the immutable catalog row, once one exists', function () {
+    [$user, $crew] = combinedCardFixture();
+
+    $starterAction = Action::factory()->create(['name' => 'Catalog Swing']);
+    $starter = CampaignCrewCard::factory()->create(['name' => 'Catalog Starter']);
+    $starter->actions()->attach($starterAction->id, ['is_signature_action' => false]);
+    $crew->update(['crew_card_effect_id' => $starter->id]);
+
+    \App\Models\CustomUpgrade::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'name' => 'My Edited Card',
+        'display_name' => 'My Edited Card',
+        'slug' => 'my-edited-card',
+        'domain' => UpgradeDomainTypeEnum::Crew->value,
+        'is_campaign_crew_card' => true,
+        'content_blocks' => [
+            ['type' => 'text', 'text' => 'Edited flavor text.'],
+            ['type' => 'action', 'data' => ['name' => 'Edited Swing', 'type' => 'attack', 'stone_cost' => 2, 'description' => 'Hits harder now.']],
+        ],
+    ]);
+
+    $this->get(route('tools.card_creator.capture_crew_card_combined', $crew->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('items', function ($items) {
+                $items = collect($items);
+
+                return $items->firstWhere('data.name', 'Edited Swing') !== null
+                    && $items->firstWhere('data.name', 'Catalog Swing') === null;
+            })
+        );
+});
+
+it('dispatches a combined card regeneration when a player edits their crew card\'s content via the Card Creator', function () {
+    [$user, $crew] = combinedCardFixture();
+    $customCard = \App\Models\CustomUpgrade::create([
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'name' => 'My Crew Card',
+        'display_name' => 'My Crew Card',
+        'slug' => 'my-crew-card',
+        'domain' => UpgradeDomainTypeEnum::Crew->value,
+        'is_campaign_crew_card' => true,
+        'content_blocks' => [['type' => 'text', 'text' => 'Original.']],
+    ]);
+
+    Bus::fake();
+    $customCard->update(['content_blocks' => [['type' => 'text', 'text' => 'Edited.']]]);
+
+    Bus::assertDispatched(GenerateCombinedCrewCardImage::class, fn ($job) => $job->campaignCrewId === $crew->id);
+});
+
+it('does not dispatch a combined card regeneration for a non-crew-card CustomUpgrade edit', function () {
+    $user = User::factory()->create();
+    $upgrade = \App\Models\CustomUpgrade::create([
+        'user_id' => $user->id,
+        'name' => 'Regular Homebrew Upgrade',
+        'display_name' => 'Regular Homebrew Upgrade',
+        'slug' => 'regular-homebrew-upgrade',
+        'domain' => UpgradeDomainTypeEnum::Crew->value,
+        'is_campaign_crew_card' => false,
+        'content_blocks' => [['type' => 'text', 'text' => 'Original.']],
+    ]);
+
+    Bus::fake();
+    $upgrade->update(['content_blocks' => [['type' => 'text', 'text' => 'Edited.']]]);
+
+    Bus::assertNotDispatched(GenerateCombinedCrewCardImage::class);
 });
 
 it('dispatches a combined card regeneration when an arsenal model is hired', function () {

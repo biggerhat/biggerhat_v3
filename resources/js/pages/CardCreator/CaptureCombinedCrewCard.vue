@@ -73,13 +73,18 @@ defineProps<{
     <Head title="Crew Card capture" />
 
     <!-- No sizing here — CombinedCrewCardFace picks its own width/height
-         (tarot-proportioned, tiered up as content grows) since it's the one
-         that knows the content volume. display: inline-block makes each
+         (tarot-proportioned, measured to fit its own content) since it's the
+         one that knows the content volume. display: inline-block makes each
          wrapper hug its own exact box so Browsershot's element screenshot
          captures precisely one card face at a time, not a full-width
          wrapper — CombinedCrewCardImageGenerator selects #card-crew-front
-         and #card-crew-back as two separate screenshots off this one page. -->
-    <div class="flex flex-col gap-8 bg-transparent p-8">
+         and #card-crew-back as two separate screenshots off this one page.
+         items-start is required for that: a flex-col container's default
+         align-items:stretch overrides inline-block's own sizing and
+         stretches each wrapper to the full container width regardless of
+         the card's own (narrower) width — exactly the oversized-canvas bug
+         this page exists to avoid. -->
+    <div class="flex flex-col items-start gap-8 bg-transparent p-8">
         <div id="card-crew-front" style="display: inline-block">
             <CombinedCrewCardFace :crew-name="crewName" :items="items" :tokens-markers="tokensMarkers" side="front" />
         </div>

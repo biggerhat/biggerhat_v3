@@ -7,6 +7,7 @@ use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameModeTypeEnum;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Character;
@@ -56,11 +57,12 @@ class StoreLeaderRequest extends FormRequest
             'base' => ['required', 'integer', Rule::enum(BaseSizeEnum::class)],
             'characteristics' => ['nullable', 'array', 'max:2'],
             'characteristics.*' => ['string', 'max:64'],
-            // Lucky Upstart's free starter equipment pick (pg 17): flip a card
-            // (self-reported, like every other flip in this app), then take
-            // equipment whose BR matches exactly — enforced in withValidator().
+            // Lucky Upstart's free starter equipment pick (pg 17) — the BR-flip
+            // requirement is relaxed here (self-reported and un-representable
+            // for a Joker flip, same reasoning as the Totem advancement flip
+            // drop); the item just has to actually be equipment, checked in
+            // withValidator().
             'lucky_upstart_equipment_id' => ['nullable', 'integer', 'exists:upgrades,id'],
-            'lucky_upstart_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
             // Actions / abilities — shape matches CardCreator/Editor; source_id
             // is the original Action/Ability row this was picked from.
             'actions' => ['nullable', 'array'],
@@ -186,24 +188,20 @@ class StoreLeaderRequest extends FormRequest
                 }
             }
 
-            // Lucky Upstart's free starter equipment (pg 17): "flip a card,
-            // which may not be cheated, then select an equipment upgrade
-            // which corresponds to that flip's value exactly." Self-reported
-            // flip, server-validated against the item's BR — same pattern as
-            // the Totem exact-match check in LeaderAdvancementService.
+            // Lucky Upstart's free starter equipment (pg 17) — the flip-match
+            // requirement is dropped (see the `lucky_upstart_equipment_id`
+            // rule comment above); this just confirms the picked id is
+            // actually a campaign equipment catalog row, matching the same
+            // scope AftermathCatalog::equipment() uses to build the picker.
             if ($archetype === LeaderArchetypeEnum::LuckyUpstart && $this->filled('lucky_upstart_equipment_id')) {
-                $flip = $this->input('lucky_upstart_flip_value');
-                if ($flip === null) {
-                    $validator->errors()->add('lucky_upstart_flip_value', 'Flip a card to determine which equipment you may take.');
-                } else {
-                    $item = Upgrade::query()->whereKey((int) $this->input('lucky_upstart_equipment_id'))->first();
-                    $matches = $item && ((bool) $item->campaign_is_always_available || (int) $item->campaign_br === (int) $flip);
-                    if (! $matches) {
-                        $validator->errors()->add(
-                            'lucky_upstart_equipment_id',
-                            "That equipment's BR does not match your flip of {$flip}."
-                        );
-                    }
+                $isEquipment = Upgrade::query()
+                    ->whereKey((int) $this->input('lucky_upstart_equipment_id'))
+                    ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+                    ->where('campaign_upgrade_kind', 'equipment')
+                    ->where('campaign_is_red_joker_entry', false)
+                    ->exists();
+                if (! $isEquipment) {
+                    $validator->errors()->add('lucky_upstart_equipment_id', 'Not a valid starter equipment choice.');
                 }
             }
 

@@ -159,6 +159,37 @@ class CampaignAftermathController extends Controller
             'crew:id,share_code,name,faction',
         ]);
 
+        // QA: the recap only ever showed a raw injury COUNT and nothing about
+        // advancements at all — resolve both to the actual named details.
+        $injuries = CampaignArsenalModelInjury::query()
+            ->where('acquired_aftermath_id', $aftermath->id)
+            ->with([
+                'injury:id,name',
+                'customCharacter:id,display_name',
+                'arsenalModel:id,character_id,custom_character_id,label',
+                'arsenalModel.character:id,display_name',
+                'arsenalModel.customCharacter:id,display_name',
+            ])
+            ->get()
+            ->map(function (CampaignArsenalModelInjury $pivot) {
+                if (! $pivot->injury) {
+                    return null;
+                }
+
+                return ['model_name' => $this->recapInjuryModelName($pivot), 'injury_name' => $pivot->injury->name];
+            })
+            ->filter()
+            ->values();
+
+        $advancements = CampaignLeaderAdvancement::query()
+            ->where('source_aftermath_id', $aftermath->id)
+            ->orderBy('position_in_xp_track')
+            ->get()
+            ->map(fn (CampaignLeaderAdvancement $a) => [
+                'name' => implode(' > ', AftermathCatalog::advancementContextChain($a)) ?: $a->source_table->label(),
+            ])
+            ->values();
+
         return inertia('Campaigns/GameRecap', [
             'campaign' => $aftermath->campaignGame->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
             'crew' => $aftermath->crew->only(['id', 'share_code', 'name', 'faction']),
@@ -166,8 +197,10 @@ class CampaignAftermathController extends Controller
             'story_entry' => $aftermath->story_entry,
             'locked' => $aftermath->status === 'locked',
             'result' => $this->aftermathPrefill($aftermath),
+            'injuries' => $injuries,
+            'advancements' => $advancements,
             'tally' => [
-                'injuries' => CampaignArsenalModelInjury::where('acquired_aftermath_id', $aftermath->id)->count(),
+                'injuries' => $injuries->count(),
                 'doctor_attempts' => DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->count(),
                 'lucky_misses' => DB::table('campaign_aftermath_doctor')
                     ->where('campaign_aftermath_id', $aftermath->id)
@@ -176,6 +209,34 @@ class CampaignAftermathController extends Controller
                 'ttw_pickups' => CampaignEquipment::where('acquired_aftermath_id', $aftermath->id)->where('source', 'joker')->count(),
             ],
         ]);
+    }
+
+    /**
+     * Which model an injury pivot applies to — a Leader/Totem directly
+     * (custom_character_id) or a hired Arsenal Model (catalog Character or
+     * a homebrew Custom Character hire), preferring a player-set nickname.
+     */
+    private function recapInjuryModelName(CampaignArsenalModelInjury $pivot): string
+    {
+        if ($pivot->customCharacter) {
+            return $pivot->customCharacter->display_name;
+        }
+
+        $arsenalModel = $pivot->arsenalModel;
+        if (! $arsenalModel) {
+            return 'Unknown model';
+        }
+        if ($arsenalModel->label) {
+            return $arsenalModel->label;
+        }
+        if ($arsenalModel->character) {
+            return $arsenalModel->character->display_name;
+        }
+        if ($arsenalModel->customCharacter) {
+            return $arsenalModel->customCharacter->display_name;
+        }
+
+        return 'Unknown model';
     }
 
     /**

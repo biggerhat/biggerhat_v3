@@ -33,6 +33,13 @@ interface Tally {
     lucky_misses: number;
     ttw_pickups: number;
 }
+interface InjuryEntry {
+    model_name: string;
+    injury_name: string;
+}
+interface AdvancementEntry {
+    name: string;
+}
 
 const props = defineProps<{
     campaign: CampaignData;
@@ -41,12 +48,14 @@ const props = defineProps<{
     story_entry: string | null;
     locked: boolean;
     result: Result;
+    injuries: InjuryEntry[];
+    advancements: AdvancementEntry[];
     tally: Tally;
 }>();
 
 const tallyParts = computed(() => {
     const parts: string[] = [];
-    if (props.tally.injuries > 0) parts.push(`Injuries: ${props.tally.injuries}`);
+    // Injuries get their own detailed list below instead of a raw count here.
     if (props.tally.doctor_attempts > 0) parts.push(`Doctor: ${props.tally.doctor_attempts}`);
     if (props.tally.lucky_misses > 0) parts.push(`Lucky Miss: ${props.tally.lucky_misses}`);
     if (props.tally.ttw_pickups > 0) parts.push(`TTW pickup: ${props.tally.ttw_pickups}`);
@@ -116,7 +125,7 @@ const resultVariant = computed(() => {
             </CardContent>
         </Card>
 
-        <Card>
+        <Card class="mb-4">
             <CardHeader>
                 <CardTitle>Story</CardTitle>
             </CardHeader>
@@ -124,6 +133,31 @@ const resultVariant = computed(() => {
                 <p v-if="story_entry" class="whitespace-pre-wrap text-sm">{{ story_entry }}</p>
                 <p v-else class="text-sm italic text-muted-foreground">No story written for this game.</p>
                 <p v-if="tallyParts.length" class="mt-2 text-xs text-muted-foreground">{{ tallyParts.join(' · ') }}</p>
+            </CardContent>
+        </Card>
+
+        <Card v-if="injuries.length" class="mb-4">
+            <CardHeader>
+                <CardTitle>Injuries ({{ injuries.length }})</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ul class="space-y-1 text-sm">
+                    <li v-for="(inj, i) in injuries" :key="i" class="flex items-center justify-between gap-2">
+                        <span>{{ inj.model_name }}</span>
+                        <Badge variant="destructive" class="text-[10px]">{{ inj.injury_name }}</Badge>
+                    </li>
+                </ul>
+            </CardContent>
+        </Card>
+
+        <Card v-if="advancements.length">
+            <CardHeader>
+                <CardTitle>Advancements Taken ({{ advancements.length }})</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ul class="space-y-1 text-sm">
+                    <li v-for="(adv, i) in advancements" :key="i">{{ adv.name }}</li>
+                </ul>
             </CardContent>
         </Card>
     </div>

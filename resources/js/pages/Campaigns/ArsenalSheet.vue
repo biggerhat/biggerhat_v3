@@ -22,8 +22,8 @@ import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Calendar, Copy, Download, Loader2, Pencil, Plus, Swords, Tag } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { Calendar, Copy, Download, Loader2, Pencil, Plus, Printer, Swords, Tag } from 'lucide-vue-next';
+import { computed, onMounted, ref, watch } from 'vue';
 
 interface KeywordRow {
     id: number;
@@ -156,6 +156,18 @@ interface InjuryItem {
     id: number;
     name: string;
     description: string | null;
+    front_image?: string | null;
+    actions?: EquipmentAction[];
+    abilities?: CrewCardLinkedAbility[];
+}
+
+interface GainedAbilityItem {
+    id: number;
+    name: string;
+    suits: string | null;
+    defensive_ability_type: string | null;
+    costs_stone: boolean;
+    description: string | null;
 }
 
 interface ArsenalCharacter {
@@ -202,7 +214,7 @@ interface ArsenalRow {
     gained_characteristics: string[];
     lucky_miss: string[];
     // Real Abilities gained permanently from a Lucky Miss result (pg 36).
-    gained_abilities: InjuryItem[];
+    gained_abilities: GainedAbilityItem[];
     // Currently-held Crew Card actions/abilities this specific model
     // qualifies for (pg 15-16) — see CrewCardUpgradeMatcher.
     upgrades: Array<{ id: number; type: string; name: string }>;
@@ -373,6 +385,9 @@ const props = defineProps<{
     leader_advancements: AdvancementTaken[];
     advancement_catalogs: AdvancementCatalogs | null;
     equipment: EquipmentItem[];
+    // Deduplicated union of every Arsenal Model's `upgrades` below (pg 15-16)
+    // — everything the crew's units currently qualify for, in one place.
+    available_crew_upgrades: Array<{ id: number; type: string; name: string }>;
     campaign_rating: CampaignRating;
     view_mode: ViewMode;
     // Constrained pool for crew cards that require a token/marker/upgrade
@@ -413,6 +428,11 @@ const takenByPosition = computed<Record<number, AdvancementTaken>>(() =>
 // Earned advancement slots — filled boxes that grant an advancement (numbered).
 const advancementSlots = computed(() =>
     xpTrack.value.filter((b) => b.filled && b.tier !== null).map((b) => ({ position: b.index, tier: b.tier as number })),
+);
+// pg 31: advancements resolve in strict box-position order — the earliest
+// earned-but-unlogged slot is the only one a player can currently log.
+const firstUnresolvedPosition = computed(
+    () => advancementSlots.value.find((slot) => !takenByPosition.value[slot.position])?.position ?? null,
 );
 
 const catalogRowsFor = (table: string): CatalogRow[] => advancementCatalogs.value[table] ?? [];
@@ -640,6 +660,28 @@ const sklBoostEligible = (row: CatalogRow | null, stat: number | string | null):
     return current >= row.skl_from && current <= max;
 };
 
+// Equipment target picker for an Attack/Tactical Mod (pg 31) — two owned
+// copies of the same equipment previously rendered as identical rows with
+// no way to tell them apart once each carries its own advancement (QA).
+// Appends an ordinal when the name is duplicated, plus whatever's already
+// attached to that specific instance.
+const equipmentTargetOptions = computed(() => {
+    const seenByName = new Map<string, number>();
+    const totalByName = new Map<string, number>();
+    for (const eq of props.equipment) {
+        totalByName.set(eq.name, (totalByName.get(eq.name) ?? 0) + 1);
+    }
+
+    return props.equipment.map((eq) => {
+        const ordinal = (seenByName.get(eq.name) ?? 0) + 1;
+        seenByName.set(eq.name, ordinal);
+        const suffix = (totalByName.get(eq.name) ?? 0) > 1 ? ` #${ordinal}` : '';
+        const effects = eq.applied_effects.length ? ` — ${eq.applied_effects.join(', ')}` : '';
+
+        return { id: eq.id, label: `${eq.name}${suffix}${eq.locked ? ' 🔒' : ''}${effects}` };
+    });
+});
+
 // The category-filtered, Skl-Boost-eligible action options for the picker's
 // draft, sourced from whichever target (Leader/Totem/Equipment) is selected.
 // `ref` is an actions[] array index for Leader/Totem, or the real actions.id
@@ -674,15 +716,24 @@ const targetActionOptions = (position: number): Array<{ ref: number; name: strin
 // save that dispatches the (async) render job, before that job has even
 // started, which previously made a quick undo-then-redo report "done" after
 // its very first poll — before the redo's render had actually run.
-const cardRegenerating = ref<{ leader: boolean; totem: boolean }>({ leader: false, totem: false });
+const cardRegenerating = ref<{ leader: boolean; totem: boolean; crew_card: boolean }>({ leader: false, totem: false, crew_card: false });
 
-const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
+const pollCardRegeneration = (
+    target: 'leader' | 'totem' | 'crew_card',
+    previousGeneratedAt: string | null | undefined,
+    attemptsLeft = 8,
+) => {
     cardRegenerating.value[target] = true;
     setTimeout(() => {
         router.reload({
-            only: ['leader', 'totem'],
+            only: ['leader', 'totem', 'crew'],
             onSuccess: () => {
-                const current = (target === 'leader' ? props.leader : props.totem)?.card_image_generated_at;
+                const current =
+                    target === 'leader'
+                        ? props.leader?.card_image_generated_at
+                        : target === 'totem'
+                          ? props.totem?.card_image_generated_at
+                          : props.crew.crew_card_generated_at;
                 if (current && current !== previousGeneratedAt) {
                     cardRegenerating.value[target] = false;
                 } else if (attemptsLeft > 1) {
@@ -695,6 +746,26 @@ const pollCardRegeneration = (target: 'leader' | 'totem', previousGeneratedAt: s
     }, 2000);
 };
 
+// Returning from editing the Leader/Totem in the Card Creator (?poll_card=
+// leader|totem, set by Editor.vue's "Back to Arsenal Sheet" link after a
+// save) lands on a freshly-mounted page — pollCardRegeneration only ever
+// got triggered by actions taken directly on THIS page (e.g. logAdvancement
+// below), so a card image edited via the external editor just sat stale
+// until a later, unrelated reload happened to catch up. Cleans the query
+// param off the URL so a manual refresh doesn't re-trigger the poll.
+onMounted(() => {
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get('poll_card');
+    if (target !== 'leader' && target !== 'totem') return;
+
+    const previousGeneratedAt = (target === 'leader' ? props.leader : props.totem)?.card_image_generated_at;
+    pollCardRegeneration(target, previousGeneratedAt);
+
+    params.delete('poll_card');
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', window.location.pathname + (query ? `?${query}` : ''));
+});
+
 const logAdvancement = (position: number) => {
     const d = drafts.value[position];
     if (!d || d.catalog_id == null) {
@@ -704,6 +775,7 @@ const logAdvancement = (position: number) => {
     const isTotemAdvancement = d.source_table === 'totem';
     const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
     const isAbility = d.source_table === 'ability';
+    const isAction = d.source_table === 'action';
     const isSummoning = d.source_table === 'summoning';
     const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
     if (isTrigger && targetActionOptions(position).length) {
@@ -712,10 +784,12 @@ const logAdvancement = (position: number) => {
             return;
         }
     }
-    const targetsTotem = isTotemAdvancement || ((isTrigger || isAbility || isSummoning) && d.target_type === 'totem');
+    const targetsTotem = isTotemAdvancement || ((isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem');
     const targetsLeader = !targetsTotem && d.source_table !== 'crew_card' && d.target_type !== 'equipment';
+    const targetsCrewCard = d.source_table === 'crew_card';
     const prevLeaderGeneratedAt = props.leader?.card_image_generated_at;
     const prevTotemGeneratedAt = props.totem?.card_image_generated_at;
+    const prevCrewCardGeneratedAt = props.crew.crew_card_generated_at;
     router.post(
         route('campaigns.crews.leader.advancements.store', [props.campaign.id, props.crew.share_code]),
         {
@@ -734,7 +808,7 @@ const logAdvancement = (position: number) => {
             applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
             applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
             applied_to_custom_character_id:
-                (isTrigger || isAbility || isSummoning) && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
+                (isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem' ? (props.totem?.id ?? undefined) : undefined,
             from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
             crew_card_choice: d.crew_card_choice_id !== null ? { id: d.crew_card_choice_id } : null,
         },
@@ -742,32 +816,55 @@ const logAdvancement = (position: number) => {
             onSuccess: () => {
                 if (targetsLeader) pollCardRegeneration('leader', prevLeaderGeneratedAt);
                 if (targetsTotem) pollCardRegeneration('totem', prevTotemGeneratedAt);
+                if (targetsCrewCard) pollCardRegeneration('crew_card', prevCrewCardGeneratedAt);
             },
         },
     );
 };
 
-const removeAdvancement = async (a: AdvancementTaken) => {
+// Individual advancements aren't removable one at a time (pg 31) — Respec
+// undoes the whole track at once instead (see LeaderAdvancementController::
+// respec()). Experience boxes stay earned; only the picks reset.
+const respecLeader = async () => {
     if (
         !(await confirmDialog({
-            title: 'Remove advancement',
-            message: 'Remove this advancement so you can pick a different one?',
+            title: 'Respec Leader',
+            message:
+                "Undo every advancement this Leader has taken? Experience boxes stay earned — you'll re-take advancements in order afterward. If a Totem advancement was taken, this deletes the Totem entirely.",
             destructive: true,
         }))
     ) {
         return;
     }
-    // The removed advancement's leader-vs-totem target isn't exposed on the
-    // taken-advancement row, so poll both — harmless when one wasn't affected,
-    // it just won't see card_image_generated_at change and will stop after its attempts.
+    // Respec can undo any mix of advancement types (including Crew Card
+    // ones), so poll all three — harmless when one wasn't affected, it just
+    // won't see its generated_at change and stops after its attempts.
     const prevLeaderGeneratedAt = props.leader?.card_image_generated_at;
     const prevTotemGeneratedAt = props.totem?.card_image_generated_at;
-    router.delete(route('campaigns.crews.leader.advancements.destroy', [props.campaign.id, props.crew.share_code, a.id]), {
-        onSuccess: () => {
-            pollCardRegeneration('leader', prevLeaderGeneratedAt);
-            if (props.totem) pollCardRegeneration('totem', prevTotemGeneratedAt);
+    const prevCrewCardGeneratedAt = props.crew.crew_card_generated_at;
+    router.post(
+        route('campaigns.crews.leader.respec', [props.campaign.id, props.crew.share_code]),
+        {},
+        {
+            onSuccess: () => {
+                pollCardRegeneration('leader', prevLeaderGeneratedAt);
+                if (props.totem) pollCardRegeneration('totem', prevTotemGeneratedAt);
+                pollCardRegeneration('crew_card', prevCrewCardGeneratedAt);
+            },
         },
-    });
+    );
+};
+
+// Freeform Leadership Experience correction (QA: "before adding advancement
+// can set experience") — signed delta in boxes, mirrors the scrip adjuster.
+const xpAdjustAmount = ref<number | null>(null);
+const adjustLeaderXp = () => {
+    if (!xpAdjustAmount.value) return;
+    router.post(
+        route('campaigns.crews.leader.xp.update', [props.campaign.id, props.crew.share_code]),
+        { amount: xpAdjustAmount.value },
+        { onSuccess: () => (xpAdjustAmount.value = null) },
+    );
 };
 
 const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) => s + (m.character?.cost ?? 0), 0));
@@ -775,13 +872,44 @@ const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) =>
 // ───────── Card viewer (equipment / injury — Dialog) ─────────
 // Crew Card has its own dedicated flip-card display in the main panel above
 // (image + fallback text, same pattern as Leader/Totem) — no dialog needed.
-type CardView = { kind: 'equipment'; title: string; equipment: EquipmentItem } | { kind: 'injury'; title: string; description: string | null };
+type CardView =
+    | { kind: 'equipment'; title: string; equipment: EquipmentItem }
+    | { kind: 'injury'; title: string; description: string | null; front_image: string | null; actions: EquipmentAction[]; abilities: CrewCardLinkedAbility[] };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
 };
 const viewInjury = (injury: InjuryItem) => {
-    viewCard.value = { kind: 'injury', title: injury.name, description: injury.description };
+    viewCard.value = {
+        kind: 'injury',
+        title: injury.name,
+        description: injury.description,
+        front_image: injury.front_image ?? null,
+        actions: injury.actions ?? [],
+        abilities: injury.abilities ?? [],
+    };
+};
+// A gained Ability (from a Lucky Miss result) has no card image/actions of
+// its own — reuses the same 'injury' card view, wrapped as a single-ability
+// list, so it renders through AbilityCard instead of plain description text.
+const viewGainedAbility = (ability: GainedAbilityItem) => {
+    viewCard.value = {
+        kind: 'injury',
+        title: ability.name,
+        description: null,
+        front_image: null,
+        actions: [],
+        abilities: [
+            {
+                id: ability.id,
+                name: ability.name,
+                suits: ability.suits,
+                defensive_ability_type: ability.defensive_ability_type,
+                costs_stone: ability.costs_stone,
+                description: ability.description,
+            },
+        ],
+    };
 };
 const closeViewCard = (open: boolean) => {
     if (!open) viewCard.value = null;
@@ -950,6 +1078,11 @@ const submitAdjustScrip = () => {
 };
 
 const removeEquipment = async (eq: EquipmentItem) => {
+    // Close the card-view Dialog before opening the confirm Dialog — two
+    // stacked Dialog roots (same fixed z-50 on both, per DialogContent.vue)
+    // made the confirm prompt render behind/unreachable under the still-open
+    // card view, which read as "Remove Equipment doesn't do anything" (QA).
+    closeViewCard(false);
     if (
         !(await confirmDialog({
             title: 'Remove equipment',
@@ -959,9 +1092,7 @@ const removeEquipment = async (eq: EquipmentItem) => {
     ) {
         return;
     }
-    router.delete(route('campaigns.crews.arsenal.equipment.destroy', [props.campaign.id, props.crew.share_code, eq.id]), {
-        onSuccess: () => closeViewCard(false),
-    });
+    router.delete(route('campaigns.crews.arsenal.equipment.destroy', [props.campaign.id, props.crew.share_code, eq.id]));
 };
 
 // ───────── Unit card preview (Drawer) ─────────
@@ -1208,6 +1339,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" @click="copyShareLink"> <Copy class="mr-1 h-3 w-3" /> Share </Button>
+                <Link :href="route('campaigns.crews.arsenal.print', [campaign.id, crew.share_code])">
+                    <Button size="sm" variant="outline"> <Printer class="mr-1 h-3 w-3" /> Printable Download </Button>
+                </Link>
                 <!-- Pre-campaign: refine identity/keywords in the Leader Builder.
                      Post-campaign: full action/ability editing lives in the Card Creator
                      (faction, keywords, archetype, tag are locked once campaign starts). -->
@@ -1490,12 +1624,25 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 </Card>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Leadership Experience</CardTitle>
-                        <p class="text-[10px] text-muted-foreground">
-                            XP track (pg 31) — fills from logged games via the Aftermath's Advance Leader step.
-                            <span v-if="xpTrack.length" class="font-medium">{{ xpFilled }} / {{ xpTrack.length }} earned.</span>
-                        </p>
+                    <CardHeader class="flex-row items-start justify-between space-y-0">
+                        <div>
+                            <CardTitle>Leadership Experience</CardTitle>
+                            <p class="text-[10px] text-muted-foreground">
+                                XP track (pg 31) — fills from logged games via the Aftermath's Advance Leader step.
+                                <span v-if="xpTrack.length" class="font-medium">{{ xpFilled }} / {{ xpTrack.length }} earned.</span>
+                            </p>
+                        </div>
+                        <div v-if="view_mode.is_owner && leader" class="flex shrink-0 items-center gap-1.5">
+                            <Input
+                                v-model.number="xpAdjustAmount"
+                                type="number"
+                                placeholder="±N"
+                                title="Set experience — signed delta in boxes"
+                                class="h-8 w-16 text-xs"
+                            />
+                            <Button size="sm" variant="outline" :disabled="!xpAdjustAmount" @click="adjustLeaderXp">Set XP</Button>
+                            <Button size="sm" variant="destructive" @click="respecLeader">Respec</Button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <!-- Real 39-box track from the leader's xp_track; numbered boxes are advancement tiers. -->
@@ -1517,23 +1664,17 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <div v-if="advancementSlots.length" class="mt-3 space-y-1.5">
                             <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Advancements</p>
                             <div v-for="slot in advancementSlots" :key="slot.position" class="rounded-md border p-2 text-xs">
-                                <!-- Logged -->
-                                <div v-if="takenByPosition[slot.position]" class="flex items-center justify-between gap-2">
-                                    <span>
-                                        <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
-                                        {{ advancementName(takenByPosition[slot.position]) }}
-                                    </span>
-                                    <Button
-                                        v-if="view_mode.is_owner"
-                                        size="sm"
-                                        variant="ghost"
-                                        @click="removeAdvancement(takenByPosition[slot.position])"
-                                    >
-                                        Remove
-                                    </Button>
+                                <!-- Logged — not individually removable (pg 31); use Respec above to
+                                     undo the whole track at once. -->
+                                <div v-if="takenByPosition[slot.position]" class="flex items-center gap-2">
+                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
+                                    {{ advancementName(takenByPosition[slot.position]) }}
                                 </div>
                                 <!-- Owner picker for an empty slot -->
-                                <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="space-y-2">
+                                <div
+                                    v-else-if="view_mode.is_owner && drafts[slot.position] && slot.position === firstUnresolvedPosition"
+                                    class="space-y-2"
+                                >
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
                                         <Select
@@ -1759,8 +1900,8 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="__none__">— pick equipment —</SelectItem>
-                                                <SelectItem v-for="eq in equipment" :key="eq.id" :value="eq.id.toString()">
-                                                    {{ eq.name }}{{ eq.locked ? ' 🔒' : '' }}
+                                                <SelectItem v-for="opt in equipmentTargetOptions" :key="opt.id" :value="opt.id.toString()">
+                                                    {{ opt.label }}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
@@ -1800,10 +1941,11 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             </Select>
                                         </template>
                                     </div>
-                                    <!-- Ability/Summoning: pick what to affect (Leader/Totem) -->
+                                    <!-- Action/Ability/Summoning: pick what to affect (Leader/Totem) -->
                                     <div
                                         v-if="
-                                            (drafts[slot.position].source_table === 'ability' ||
+                                            (drafts[slot.position].source_table === 'action' ||
+                                                drafts[slot.position].source_table === 'ability' ||
                                                 drafts[slot.position].source_table === 'summoning') &&
                                             drafts[slot.position].catalog_id !== null
                                         "
@@ -1855,6 +1997,11 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             <GameText :text="selectedDraftRow(slot.position)!.body!" />
                                         </p>
                                     </template>
+                                </div>
+                                <!-- Owner picker locked — pg 31: resolve earlier earned boxes first -->
+                                <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="text-muted-foreground">
+                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge> — resolve box
+                                    {{ firstUnresolvedPosition }} first
                                 </div>
                                 <!-- Viewer, not yet chosen -->
                                 <div v-else class="text-muted-foreground">
@@ -1958,8 +2105,8 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 role="button"
                                 tabindex="0"
                                 title="Ability gained from a Lucky Miss result"
-                                @click.stop="viewInjury(ab)"
-                                @keydown.enter.stop="viewInjury(ab)"
+                                @click.stop="viewGainedAbility(ab)"
+                                @keydown.enter.stop="viewGainedAbility(ab)"
                             >
                                 {{ ab.name }}
                             </Badge>
@@ -1988,6 +2135,24 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         Pick starting arsenal
                     </Link>
                 </p>
+            </CardContent>
+        </Card>
+
+        <!-- Crew Card upgrades available across the whole roster — dedupes what's
+             otherwise only shown scattered per-model above (pg 15-16). -->
+        <Card v-if="available_crew_upgrades.length" class="mt-6">
+            <CardHeader>
+                <CardTitle>Available Upgrades ({{ available_crew_upgrades.length }})</CardTitle>
+            </CardHeader>
+            <CardContent class="flex flex-wrap gap-1.5">
+                <Badge
+                    v-for="up in available_crew_upgrades"
+                    :key="`avail-up-${up.type}-${up.id}`"
+                    variant="outline"
+                    class="border-purple-500/50 text-[10px] text-purple-600 dark:text-purple-400"
+                >
+                    {{ up.name }}
+                </Badge>
             </CardContent>
         </Card>
 
@@ -2137,9 +2302,15 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             >{{ viewCard.equipment.cc }} cc</Badge
                         >
                     </div>
-                    <p v-if="viewCard.equipment.description" class="text-xs leading-relaxed text-muted-foreground">
-                        <GameText :text="viewCard.equipment.description" />
-                    </p>
+                    <!-- The card (image + Ability/Action cards) already carries the rules
+                         text — the raw description is only shown as a fallback when none
+                         of that exists, instead of always repeating it underneath. -->
+                    <template v-if="!viewCard.equipment.front_image && !viewCard.equipment.abilities.length && !viewCard.equipment.actions.length">
+                        <p v-if="viewCard.equipment.description" class="text-xs leading-relaxed text-muted-foreground">
+                            <GameText :text="viewCard.equipment.description" />
+                        </p>
+                        <p v-else class="text-xs text-muted-foreground">No rules text recorded for this equipment.</p>
+                    </template>
                     <div v-if="viewCard.equipment.abilities.length" class="space-y-2">
                         <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
                         <AbilityCard v-for="ab in viewCard.equipment.abilities" :key="`eqab-${ab.id}`" :ability="ab" :hide-footer="true" />
@@ -2154,13 +2325,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         </p>
                         <p v-for="(effect, i) in viewCard.equipment.applied_effects" :key="i" class="text-xs">+ {{ effect }}</p>
                     </div>
-                    <p
-                        v-if="!viewCard.equipment.description && !viewCard.equipment.abilities.length && !viewCard.equipment.actions.length"
-                        class="text-xs text-muted-foreground"
-                    >
-                        No rules text recorded for this equipment.
-                    </p>
-                    <DialogFooter v-if="view_mode.is_owner">
+                    <DialogFooter v-if="view_mode.is_owner && viewCard.equipment.source !== 'starting_lucky_upstart'">
                         <Button
                             variant="destructive"
                             size="sm"
@@ -2173,12 +2338,26 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </DialogFooter>
                 </div>
 
-                <!-- Injury -->
-                <div v-else-if="viewCard?.kind === 'injury'" class="text-sm">
-                    <p v-if="viewCard.description" class="text-xs leading-relaxed text-muted-foreground">
-                        <GameText :text="viewCard.description" />
-                    </p>
-                    <p v-else class="text-xs text-muted-foreground">No rules text recorded for this injury.</p>
+                <!-- Injury / gained ability -->
+                <div v-else-if="viewCard?.kind === 'injury'" class="space-y-2 text-sm">
+                    <img
+                        v-if="viewCard.front_image"
+                        :src="'/storage/' + viewCard.front_image"
+                        :alt="viewCard.title"
+                        class="mx-auto max-h-[40vh] max-w-full rounded-md border-2 object-contain"
+                    />
+                    <template v-if="!viewCard.front_image && !viewCard.abilities.length && !viewCard.actions.length">
+                        <p v-if="viewCard.description" class="text-xs leading-relaxed text-muted-foreground">
+                            <GameText :text="viewCard.description" />
+                        </p>
+                        <p v-else class="text-xs text-muted-foreground">No rules text recorded.</p>
+                    </template>
+                    <div v-if="viewCard.abilities.length" class="space-y-2">
+                        <AbilityCard v-for="ab in viewCard.abilities" :key="`injab-${ab.id}`" :ability="ab" :hide-footer="true" />
+                    </div>
+                    <div v-if="viewCard.actions.length" class="space-y-2">
+                        <ActionCard v-for="ac in viewCard.actions" :key="`injac-${ac.id}`" :action="ac" :hide-footer="true" />
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

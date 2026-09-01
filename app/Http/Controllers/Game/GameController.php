@@ -858,10 +858,12 @@ class GameController extends Controller
 
     /**
      * Upgrade catalog offered by the in-play "attach upgrade" editor. Campaign
-     * games swap the standard catalog for the acting player's own earned
-     * equipment (pg 19: "any equipment in your arsenal may be attached to any
-     * model in your crew... without cost") — never the full campaign equipment
-     * catalog, so a player can't attach equipment their crew hasn't earned.
+     * games swap the standard catalog for the full campaign Equipment catalog
+     * (pg 21-29) — mid-game, self-reported "attach anything on the table"
+     * freedom, same as the standard tracker's own attach-any-upgrade flow
+     * (QA: this previously offered only the crew's already-owned equipment,
+     * which is right for pre-game setup — see buildCampaignEquipmentProp()
+     * below — but wrong here).
      */
     private function buildCharacterUpgradesProp(Game $game): \Illuminate\Support\Collection
     {
@@ -882,12 +884,7 @@ class GameController extends Controller
                 ->values();
         }
 
-        $campaignCrew = $this->resolveCampaignCrewForUser($game);
-        if (! $campaignCrew) {
-            return collect();
-        }
-
-        return collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew, $campaignCrew->leader));
+        return collect(\App\Support\Campaign\AftermathCatalog::equipmentCatalogForAttachment());
     }
 
     /**

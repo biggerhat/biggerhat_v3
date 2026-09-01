@@ -119,6 +119,7 @@ const props = defineProps<{
         action_types: EnumOption[];
         range_types: EnumOption[];
         defensive_ability_types: EnumOption[];
+        tags: EnumOption[];
     };
     campaign_back_url: string | null;
 }>();
@@ -127,6 +128,16 @@ const isEdit = computed(() => !!props.character);
 const isCampaignLeader = computed(() => props.character?.is_campaign_leader ?? false);
 const isCampaignTotem = computed(() => props.character?.is_campaign_totem ?? false);
 const isCampaignManaged = computed(() => isCampaignLeader.value || isCampaignTotem.value);
+
+// Set once a save actually goes through this session — see the save handler
+// below and ArsenalSheet.vue's poll_card handling.
+const justSavedCardTarget = ref<'leader' | 'totem' | null>(null);
+const campaignBackUrl = computed(() => {
+    if (!props.campaign_back_url) return null;
+    if (!justSavedCardTarget.value) return props.campaign_back_url;
+
+    return `${props.campaign_back_url}?poll_card=${justSavedCardTarget.value}`;
+});
 const formatSlug = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const displayNameLength = computed(() => {
@@ -156,6 +167,9 @@ const form = reactive({
     generates_stone: props.character?.generates_stone ?? false,
     is_unhirable: props.character?.is_unhirable ?? false,
     notes: props.character?.notes ?? '',
+    // Only meaningful (and only editable — see the template) for a Campaign
+    // Leader; left as whatever it already is for every other character.
+    tag: props.character?.tag ?? 'bruiser',
 });
 
 watch(
@@ -369,6 +383,7 @@ const save = async () => {
         willpower_suit: noneToNull(form.willpower_suit),
         second_faction: noneToNull(form.second_faction),
         title: form.title || null,
+        tag: isCampaignLeader.value ? form.tag : null,
         actions: actions.map((a) => ({
             ...a,
             range_type: noneToNull(a.range_type),
@@ -399,6 +414,15 @@ const save = async () => {
         errors.value = data.errors ?? {};
         saving.value = false;
         return;
+    }
+
+    // The Leader/Totem card image regenerates in a queued job, not
+    // synchronously — flag it so "Back to Arsenal Sheet" can ask that page
+    // to poll for the finished image instead of showing whatever was
+    // already on disk from before this save (see ArsenalSheet.vue's
+    // poll_card handling).
+    if (isCampaignManaged.value) {
+        justSavedCardTarget.value = isCampaignTotem.value ? 'totem' : 'leader';
     }
 
     if (data.redirect) {
@@ -644,7 +668,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <div class="mb-4 flex gap-2">
-                <Link v-if="props.campaign_back_url" :href="props.campaign_back_url">
+                <Link v-if="campaignBackUrl" :href="campaignBackUrl">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to Arsenal Sheet</Button>
                 </Link>
                 <Link :href="route('tools.card_creator.index')">
@@ -714,11 +738,21 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 v-if="isCampaignLeader"
                                 class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
                             >
-                                <strong>Campaign Leader</strong> — faction, keywords, archetype, and tag are locked. Edit name, actions, and abilities
-                                freely.
-                                <div class="mt-1.5 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                                <strong>Campaign Leader</strong> — faction, keywords, and archetype are locked. Edit name, actions, abilities, and
+                                tag freely.
+                                <div class="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
                                     <span v-if="character?.archetype"><strong>Archetype:</strong> {{ formatSlug(character.archetype) }}</span>
-                                    <span v-if="character?.tag"><strong>Tag:</strong> {{ formatSlug(character.tag) }}</span>
+                                    <span class="flex items-center gap-1.5">
+                                        <strong>Tag:</strong>
+                                        <Select v-model="form.tag">
+                                            <SelectTrigger class="h-7 w-auto gap-1 text-[11px] text-foreground">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem v-for="t in enums.tags" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </span>
                                 </div>
                             </div>
                             <div

@@ -113,11 +113,14 @@ class CustomCharacterController extends Controller
     {
         $validated = $request->validated();
 
-        // A campaign leader can be edited here for action/ability detail, but the
-        // generic editor must not break its campaign invariants — it must stay a
-        // cost-0, stone-generating Master (pg 18). Campaign-only fields (tag,
-        // archetype, is_campaign_leader, current, campaign_*) aren't in the
-        // validated set, so update() preserves them untouched.
+        // A campaign leader can be edited here for action/ability/tag detail,
+        // but the generic editor must not break its campaign invariants — it
+        // must stay a cost-0, stone-generating Master (pg 18). Other
+        // campaign-only fields (archetype, is_campaign_leader, current,
+        // campaign_*) aren't in the validated set, so update() preserves
+        // them untouched. tag has no rules-derived effect (pg 18's +1 XP
+        // condition is self-reported at Aftermath, not enforced here), so
+        // there's no invariant to protect by locking it.
         if ($customCharacter->is_campaign_leader) {
             $validated['station'] = 'master';
             $validated['generates_stone'] = true;
@@ -209,15 +212,21 @@ class CustomCharacterController extends Controller
     {
         $character = CustomCharacter::where('share_code', $shareCode)->firstOrFail();
 
-        // The Bruiser/Strategist tag (pg 18) is shown on the rendered card as
-        // a characteristic, alongside the player's own up-to-two picks. This
+        // The Bruiser/Strategist tag (pg 18) and the "Unique" characteristic
+        // (every built Leader is a one-of-a-kind named model) are shown on
+        // the rendered card alongside the player's own up-to-two picks. This
         // is display-only — appended here rather than persisted onto the
         // `characteristics` column — so it doesn't round-trip into the
         // Leader Builder edit form and get counted against that two-pick cap
         // or duplicated on repeat saves.
         $characteristics = $character->characteristics ?? [];
-        if ($character->is_campaign_leader && $tag = LeaderTagEnum::tryFrom((string) $character->tag)) {
-            $characteristics[] = $tag->label();
+        if ($character->is_campaign_leader) {
+            if (! in_array('Unique', $characteristics, true)) {
+                $characteristics[] = 'Unique';
+            }
+            if ($tag = LeaderTagEnum::tryFrom((string) $character->tag)) {
+                $characteristics[] = $tag->label();
+            }
         }
 
         return inertia('CardCreator/Capture', [
@@ -259,6 +268,10 @@ class CustomCharacterController extends Controller
             'action_types' => ActionTypeEnum::toSelectOptions(),
             'range_types' => ActionRangeTypeEnum::toSelectOptions(),
             'defensive_ability_types' => DefensiveAbilityTypeEnum::toSelectOptions(),
+            // Campaign Leader's Bruiser/Strategist tag (pg 18) — editable here
+            // post-creation (QA: doesn't drive any automatic rule yet, so
+            // there's no reason to lock it once the Leader is built).
+            'tags' => LeaderTagEnum::toSelectOptions(),
         ];
     }
 }

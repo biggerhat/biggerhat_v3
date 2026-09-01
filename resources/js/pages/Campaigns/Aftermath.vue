@@ -236,6 +236,7 @@ interface EquipmentTargetItem {
     id: number;
     name: string;
     locked: boolean;
+    applied_effects: string[];
     actions: EquipmentActionSummary[];
 }
 interface XpTrackPayload {
@@ -409,6 +410,21 @@ interface AdvDraft {
     crew_card_item_type: 'action' | 'ability' | 'trigger' | null;
     crew_card_source_id: number | null;
 }
+
+// pg 31: advancements resolve in strict box-position order — block
+// confirming if a later queued box has a pick while an earlier one doesn't.
+const advanceLeaderOutOfOrder = computed(() => {
+    let sawUnfilled = false;
+    for (const adv of advancementsQueued.value) {
+        const chosen = (advDrafts.value[adv.position_in_xp_track]?.catalog_id ?? null) !== null;
+        if (!chosen) {
+            sawUnfilled = true;
+        } else if (sawUnfilled) {
+            return true;
+        }
+    }
+    return false;
+});
 
 const advancementsQueued = computed<QueuedAdvancement[]>(() => {
     if (!xp_track.value) return [];
@@ -616,6 +632,28 @@ const selectedDraftRow = (position: number): CatalogRow | null => {
 const equipmentFor = (equipmentId: number | null): EquipmentTargetItem | null =>
     (xp_track.value?.equipment ?? []).find((e) => e.id === equipmentId) ?? null;
 
+// Two owned copies of the same equipment previously rendered as identical
+// picker rows with no way to tell them apart once each carries its own
+// advancement (QA) — append an ordinal when the name is duplicated, plus
+// whatever's already attached to that specific instance.
+const equipmentTargetOptions = computed(() => {
+    const list = xp_track.value?.equipment ?? [];
+    const seenByName = new Map<string, number>();
+    const totalByName = new Map<string, number>();
+    for (const eq of list) {
+        totalByName.set(eq.name, (totalByName.get(eq.name) ?? 0) + 1);
+    }
+
+    return list.map((eq) => {
+        const ordinal = (seenByName.get(eq.name) ?? 0) + 1;
+        seenByName.set(eq.name, ordinal);
+        const suffix = (totalByName.get(eq.name) ?? 0) > 1 ? ` #${ordinal}` : '';
+        const effects = eq.applied_effects.length ? ` — ${eq.applied_effects.join(', ')}` : '';
+
+        return { id: eq.id, label: `${eq.name}${suffix}${eq.locked ? ' 🔒' : ''}${effects}` };
+    });
+});
+
 // Crew Card table only (pg 17-18): whether the selected borrowed effect also
 // requires picking a token/marker/upgrade type, and the constrained pool it
 // picks from (same pool Starting Arsenal uses).
@@ -681,6 +719,7 @@ const submitAdvanceLeader = () => {
                 const isTotemAdvancement = d.source_table === 'totem';
                 const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
                 const isAbility = d.source_table === 'ability';
+                const isAction = d.source_table === 'action';
                 const isSummoning = d.source_table === 'summoning';
                 const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
                 const isCrewCard = d.source_table === 'crew_card';
@@ -696,7 +735,9 @@ const submitAdvanceLeader = () => {
                     applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
                     applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
                     applied_to_custom_character_id:
-                        (isTrigger || isAbility || isSummoning) && d.target_type === 'totem' ? (xp_track.value?.totem_id ?? undefined) : undefined,
+                        (isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem'
+                            ? (xp_track.value?.totem_id ?? undefined)
+                            : undefined,
                     from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
                     joker_color: isTrigger ? deriveJokerColor(adv.position_in_xp_track) : undefined,
                     position_in_xp_track: adv.position_in_xp_track,
@@ -1365,8 +1406,8 @@ const submitInjuries = () => {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="__none__">— pick equipment —</SelectItem>
-                                            <SelectItem v-for="eq in xp_track?.equipment ?? []" :key="eq.id" :value="eq.id.toString()">
-                                                {{ eq.name }}{{ eq.locked ? ' 🔒' : '' }}
+                                            <SelectItem v-for="opt in equipmentTargetOptions" :key="opt.id" :value="opt.id.toString()">
+                                                {{ opt.label }}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1407,10 +1448,11 @@ const submitInjuries = () => {
                                     </Select>
                                 </div>
                             </div>
-                            <!-- Ability/Summoning: pick what to affect (Leader/Totem) -->
+                            <!-- Action/Ability/Summoning: pick what to affect (Leader/Totem) -->
                             <div
                                 v-if="
-                                    (advDrafts[adv.position_in_xp_track].source_table === 'ability' ||
+                                    (advDrafts[adv.position_in_xp_track].source_table === 'action' ||
+                                        advDrafts[adv.position_in_xp_track].source_table === 'ability' ||
                                         advDrafts[adv.position_in_xp_track].source_table === 'summoning') &&
                                     advDrafts[adv.position_in_xp_track].catalog_id !== null
                                 "
@@ -1474,12 +1516,17 @@ const submitInjuries = () => {
                     </div>
                 </fieldset>
 
+                <p v-if="advanceLeaderOutOfOrder" class="text-xs text-destructive">
+                    Advancements must be resolved in box order (pg 31) — pick one for every earlier box before a later one.
+                </p>
                 <div class="flex items-center justify-between">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <div class="flex gap-2">
                         <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip phase</Button>
-                        <Button :disabled="!is_owner" @click="submitAdvanceLeader">Confirm Advancements &amp; advance</Button>
+                        <Button :disabled="!is_owner || advanceLeaderOutOfOrder" @click="submitAdvanceLeader">
+                            Confirm Advancements &amp; advance
+                        </Button>
                     </div>
                 </div>
             </CardContent>

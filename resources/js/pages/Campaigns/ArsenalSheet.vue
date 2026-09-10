@@ -15,6 +15,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerT
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
@@ -409,7 +410,7 @@ const props = defineProps<{
         // Auto-computed tally of what changed that week (pg 34-35 injuries,
         // Back-Alley Doctor, Lucky Miss, Those Who Thirst) — same week the
         // freeform entry was written for.
-        tally: { injuries: number; doctor_attempts: number; lucky_misses: number; ttw_pickups: number };
+        tally: { injuries: number; doctor_attempts: number; lucky_misses: number; ttw_pickups: number; equipment_purchased: number };
     }>;
     // Full campaign equipment catalog (pg 19) — owner-only, for the "Add
     // Equipment" ad-hoc picker. Small/bounded, so filtered client-side
@@ -536,12 +537,19 @@ const advancementContext = (a: AdvancementTaken): string | null => {
 
 // Story Log tally line — only mentions the counters that actually happened
 // that week, so a quiet week's entry stays free of "0" noise.
-const storyTallyParts = (tally: { injuries: number; doctor_attempts: number; lucky_misses: number; ttw_pickups: number }): string[] => {
+const storyTallyParts = (tally: {
+    injuries: number;
+    doctor_attempts: number;
+    lucky_misses: number;
+    ttw_pickups: number;
+    equipment_purchased: number;
+}): string[] => {
     const parts: string[] = [];
     if (tally.injuries > 0) parts.push(`Injuries: ${tally.injuries}`);
     if (tally.doctor_attempts > 0) parts.push(`Doctor: ${tally.doctor_attempts}`);
     if (tally.lucky_misses > 0) parts.push(`Lucky Miss: ${tally.lucky_misses}`);
     if (tally.ttw_pickups > 0) parts.push(`TTW pickup: ${tally.ttw_pickups}`);
+    if (tally.equipment_purchased > 0) parts.push(`Equipment: ${tally.equipment_purchased}`);
     return parts;
 };
 
@@ -1025,6 +1033,27 @@ const submitRename = (model: ArsenalRow) => {
                 }
             },
         },
+    );
+};
+
+// ───────── Story Log: edit a written entry after the fact ─────────
+const editingStoryId = ref<number | null>(null);
+const storyDraft = ref('');
+
+const startEditStory = (entry: { id: number; story_entry: string | null }) => {
+    editingStoryId.value = entry.id;
+    storyDraft.value = entry.story_entry ?? '';
+};
+
+const cancelEditStory = () => {
+    editingStoryId.value = null;
+};
+
+const submitEditStory = (entryId: number) => {
+    router.post(
+        route('campaigns.aftermaths.story.update', entryId),
+        { story_entry: storyDraft.value.trim() || null },
+        { preserveScroll: true, onSuccess: () => (editingStoryId.value = null) },
     );
 };
 
@@ -2265,9 +2294,25 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             >
                                 View Game Log
                             </Link>
+                            <button
+                                v-if="view_mode.is_owner && editingStoryId !== entry.id"
+                                class="ml-auto inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                                @click="startEditStory(entry)"
+                            >
+                                <Pencil class="h-3 w-3" /> Edit
+                            </button>
                         </div>
-                        <p v-if="entry.story_entry" class="whitespace-pre-wrap">{{ entry.story_entry }}</p>
-                        <p v-else class="italic text-muted-foreground">No story written for this game.</p>
+                        <div v-if="editingStoryId === entry.id" class="space-y-2">
+                            <Textarea v-model="storyDraft" rows="3" placeholder="What happened this game?" />
+                            <div class="flex gap-2">
+                                <Button size="sm" @click="submitEditStory(entry.id)">Save</Button>
+                                <Button size="sm" variant="outline" @click="cancelEditStory">Cancel</Button>
+                            </div>
+                        </div>
+                        <template v-else>
+                            <p v-if="entry.story_entry" class="whitespace-pre-wrap">{{ entry.story_entry }}</p>
+                            <p v-else class="italic text-muted-foreground">No story written for this game.</p>
+                        </template>
                         <p v-if="storyTallyParts(entry.tally).length" class="mt-1.5 text-[11px] text-muted-foreground">
                             {{ storyTallyParts(entry.tally).join(' · ') }}
                         </p>

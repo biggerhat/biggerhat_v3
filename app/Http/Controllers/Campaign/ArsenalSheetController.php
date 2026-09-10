@@ -737,7 +737,16 @@ class ArsenalSheetController extends Controller
             ->groupBy('acquired_aftermath_id')
             ->pluck('total', 'acquired_aftermath_id');
 
-        return $aftermaths->map(function (CampaignAftermath $a) use ($injuryCounts, $doctorCounts, $luckyMissCounts, $ttwCounts) {
+        // QA: regular Barter purchases (the common case) were never tallied —
+        // only Those Who Thirst joker pickups were counted above.
+        $equipmentPurchasedCounts = CampaignEquipment::query()
+            ->whereIn('acquired_aftermath_id', $aftermathIds)
+            ->where('source', 'barter')
+            ->selectRaw('acquired_aftermath_id, count(*) as total')
+            ->groupBy('acquired_aftermath_id')
+            ->pluck('total', 'acquired_aftermath_id');
+
+        return $aftermaths->map(function (CampaignAftermath $a) use ($injuryCounts, $doctorCounts, $luckyMissCounts, $ttwCounts, $equipmentPurchasedCounts) {
             $baseGame = $a->campaignGame->baseGame;
 
             return [
@@ -762,6 +771,7 @@ class ArsenalSheetController extends Controller
                     'doctor_attempts' => (int) ($doctorCounts[$a->id] ?? 0),
                     'lucky_misses' => (int) ($luckyMissCounts[$a->id] ?? 0),
                     'ttw_pickups' => (int) ($ttwCounts[$a->id] ?? 0),
+                    'equipment_purchased' => (int) ($equipmentPurchasedCounts[$a->id] ?? 0),
                 ],
             ];
         })->all();

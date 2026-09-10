@@ -202,5 +202,11 @@ Route::middleware(['campaign.access'])->group(function () {
             ->name('campaigns.aftermaths.determine-injuries');
         Route::post('/campaigns/aftermaths/{aftermath}/finalize', [CampaignAftermathController::class, 'finalize'])
             ->name('campaigns.aftermaths.finalize');
+        // Story entry is written once during the Aftermath wizard (pg 34-35
+        // "recount the events") with no way to fix a typo or add a detail
+        // remembered later — this lets the owner edit it after the fact,
+        // locked or not.
+        Route::post('/campaigns/aftermaths/{aftermath}/story', [CampaignAftermathController::class, 'updateStory'])
+            ->name('campaigns.aftermaths.story.update');
     });
 });

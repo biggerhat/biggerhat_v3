@@ -15,7 +15,6 @@ use App\Models\Action;
 use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
-use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
@@ -160,83 +159,23 @@ class CampaignAftermathController extends Controller
         ]);
 
         // QA: the recap only ever showed a raw injury COUNT and nothing about
-        // advancements at all — resolve both to the actual named details.
-        $injuries = CampaignArsenalModelInjury::query()
-            ->where('acquired_aftermath_id', $aftermath->id)
-            ->with([
-                'injury:id,name',
-                'customCharacter:id,display_name',
-                'arsenalModel:id,character_id,custom_character_id,label',
-                'arsenalModel.character:id,display_name',
-                'arsenalModel.customCharacter:id,display_name',
-            ])
-            ->get()
-            ->map(function (CampaignArsenalModelInjury $pivot) {
-                if (! $pivot->injury) {
-                    return null;
-                }
-
-                return ['model_name' => $this->recapInjuryModelName($pivot), 'injury_name' => $pivot->injury->name];
-            })
-            ->filter()
-            ->values();
-
-        $advancements = CampaignLeaderAdvancement::query()
-            ->where('source_aftermath_id', $aftermath->id)
-            ->orderBy('position_in_xp_track')
-            ->get()
-            ->map(fn (CampaignLeaderAdvancement $a) => [
-                'name' => implode(' > ', AftermathCatalog::advancementContextChain($a)) ?: $a->source_table->label(),
-            ])
-            ->values();
+        // advancements or equipment purchased — resolve all three to named
+        // details. Shared with GameController's Summary-page campaign recap.
+        $recap = AftermathCatalog::recapPayload($aftermath);
 
         return inertia('Campaigns/GameRecap', [
+            'aftermath_id' => $aftermath->id,
             'campaign' => $aftermath->campaignGame->campaign->only(['id', 'name', 'current_week', 'length_weeks']),
             'crew' => $aftermath->crew->only(['id', 'share_code', 'name', 'faction']),
             'week_number' => $aftermath->campaignGame->week_number,
-            'story_entry' => $aftermath->story_entry,
+            'story_entry' => $recap['story_entry'],
             'locked' => $aftermath->status === 'locked',
             'result' => $this->aftermathPrefill($aftermath),
-            'injuries' => $injuries,
-            'advancements' => $advancements,
-            'tally' => [
-                'injuries' => $injuries->count(),
-                'doctor_attempts' => DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->count(),
-                'lucky_misses' => DB::table('campaign_aftermath_doctor')
-                    ->where('campaign_aftermath_id', $aftermath->id)
-                    ->where('outcome', 'lucky_miss_reflip')
-                    ->count(),
-                'ttw_pickups' => CampaignEquipment::where('acquired_aftermath_id', $aftermath->id)->where('source', 'joker')->count(),
-            ],
+            'injuries' => $recap['injuries'],
+            'advancements' => $recap['advancements'],
+            'equipment_purchased' => $recap['equipment_purchased'],
+            'tally' => $recap['tally'],
         ]);
-    }
-
-    /**
-     * Which model an injury pivot applies to — a Leader/Totem directly
-     * (custom_character_id) or a hired Arsenal Model (catalog Character or
-     * a homebrew Custom Character hire), preferring a player-set nickname.
-     */
-    private function recapInjuryModelName(CampaignArsenalModelInjury $pivot): string
-    {
-        if ($pivot->customCharacter) {
-            return $pivot->customCharacter->display_name;
-        }
-
-        $arsenalModel = $pivot->arsenalModel;
-        if (! $arsenalModel) {
-            return 'Unknown model';
-        }
-        if ($arsenalModel->label) {
-            return $arsenalModel->label;
-        }
-        if ($arsenalModel->character) {
-            return $arsenalModel->character->display_name;
-        }
-        if ($arsenalModel->customCharacter) {
-            return $arsenalModel->customCharacter->display_name;
-        }
-
-        return 'Unknown model';
     }
 
     /**
@@ -1362,6 +1301,26 @@ class CampaignAftermathController extends Controller
         return redirect()->route('campaigns.crews.arsenal.show', [
             $aftermath->campaignGame->campaign_id, $aftermath->crew->share_code,
         ])->withMessage('Aftermath closed.');
+    }
+
+    /**
+     * QA: story_entry was write-once (set only by determineInjuries()/
+     * finalize() during the wizard, pg 34-35) with no way to fix a typo or
+     * add a detail remembered later. Editable afterward regardless of lock
+     * status — the wizard itself is locked, but the freeform recap text
+     * isn't a game-state field, just narrative.
+     */
+    public function updateStory(Request $request, CampaignAftermath $aftermath)
+    {
+        $this->ensureAftermathOwner($request, $aftermath);
+
+        $data = $request->validate([
+            'story_entry' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $aftermath->update(['story_entry' => $data['story_entry'] ?? null]);
+
+        return redirect()->back()->withMessage('Story updated.');
     }
 
     /**

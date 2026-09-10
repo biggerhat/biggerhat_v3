@@ -242,6 +242,14 @@ it('recap resolves injuries by model name and advancements by name, not just a r
         'acquired_at' => now(),
     ]);
 
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Recap Trinket']);
+    \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $equipmentUpgrade->id,
+        'source' => 'barter',
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
     $this->actingAs($user)
         ->get(route('campaigns.aftermaths.recap', $aftermath))
         ->assertOk()
@@ -249,7 +257,9 @@ it('recap resolves injuries by model name and advancements by name, not just a r
             ->where('injuries.0.model_name', 'Rank and File')
             ->where('injuries.0.injury_name', 'Concussed')
             ->where('advancements.0.name', 'Recap Ability > Recap Leader')
+            ->where('equipment_purchased.0.name', 'Recap Trinket')
             ->where('tally.injuries', 1)
+            ->where('tally.equipment_purchased', 1)
         );
 });
 

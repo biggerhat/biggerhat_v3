@@ -2842,8 +2842,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <div v-if="crewCardImageSrc(side)" class="relative w-fit">
                             <img
                                 :src="'/storage/' + crewCardImageSrc(side)"
-                                class="max-h-96 rounded-md border"
+                                class="max-h-96 cursor-pointer rounded-md border"
                                 :alt="`${side === 'a' ? 'Crew A' : 'Crew B'} Crew Card`"
+                                @click="
+                                    openCardFullscreen({
+                                        src: '/storage/' + crewCardImageSrc(side),
+                                        backSrc: crewCardPayload(side)?.back_image
+                                            ? '/storage/' +
+                                              cacheBustedImagePath(crewCardPayload(side)!.back_image, crewCardPayload(side)!.card_generated_at)
+                                            : null,
+                                        title: `${side === 'a' ? 'Crew A' : 'Crew B'} Crew Card`,
+                                    })
+                                "
                             />
                             <button
                                 v-if="crewCardPayload(side)?.back_image"

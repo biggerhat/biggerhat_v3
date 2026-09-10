@@ -2,9 +2,12 @@
 
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
+use App\Models\Token;
 use App\Models\User;
 
 function cuValidPayload(array $overrides = []): array
@@ -268,6 +271,31 @@ it('gives a Campaign crew card a back link to the Arsenal Sheet', function () {
         ->get(route('tools.card_creator.upgrades.edit', $crewCard->id))
         ->assertOk()
         ->assertInertia(fn ($p) => $p->where('campaign_back_url', route('campaigns.crews.arsenal.show', [$crew->campaign_id, $crew->share_code])));
+});
+
+it('gives a Campaign crew card the crew\'s live-computed tokens/markers, not its own back_tokens column', function () {
+    $user = User::factory()->create();
+    $campaign = Campaign::factory()->create(['organizer_user_id' => $user->id]);
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $token = Token::factory()->create(['name' => 'Corpse Counter']);
+    $character = Character::factory()->create();
+    $character->tokens()->attach($token->id);
+    CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => $character->id]);
+
+    $crewCard = CustomUpgrade::create(array_merge(cuValidPayload(['domain' => 'crew']), [
+        'user_id' => $user->id,
+        'campaign_crew_id' => $crew->id,
+        'is_campaign_crew_card' => true,
+        // Stale/irrelevant — the real card never reads this column.
+        'back_tokens' => [['name' => 'Should not appear', 'description' => null]],
+    ]));
+
+    $this->actingAs($user)
+        ->get(route('tools.card_creator.upgrades.edit', $crewCard->id))
+        ->assertOk()
+        ->assertInertia(fn ($p) => $p->where('crew_computed_tokens_markers', [
+            ['type' => 'token', 'id' => $token->id, 'name' => 'Corpse Counter', 'description' => $token->description, 'base' => null],
+        ]));
 });
 
 it('gives a non-campaign upgrade no back link', function () {

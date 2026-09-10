@@ -59,6 +59,7 @@ const props = defineProps<{
         back_markers: MarkerData[] | null;
         notes: string | null;
         share_code: string;
+        is_campaign_crew_card: boolean;
     } | null;
     domain: string;
     enums: {
@@ -70,6 +71,11 @@ const props = defineProps<{
         range_types: EnumOption[];
     };
     campaign_back_url: string | null;
+    // Auto-calculated from the crew's arsenal (CombinedCrewCardEffects::
+    // arsenalTokensAndMarkers()) — only present for an is_campaign_crew_card
+    // upgrade, whose own back_tokens/back_markers columns are never read by
+    // the actual generated card (see the readonly section below).
+    crew_computed_tokens_markers: { type: 'token' | 'marker'; name: string; description: string | null }[] | null;
 }>();
 
 const isEdit = computed(() => !!props.upgrade);
@@ -788,8 +794,12 @@ const blockTypeColor = (type: string, idx: number) => {
                         </Card>
                     </Collapsible>
 
-                    <!-- Back Face: Tokens & Markers (crew only) -->
-                    <Collapsible v-if="isCrew" default-open>
+                    <!-- Back Face: Tokens & Markers (crew only). Not shown for a
+                         synced campaign crew card — its back face's tokens/
+                         markers are auto-calculated from the crew's live
+                         arsenal (see the read-only section below), so editing
+                         them here would silently do nothing on the real card. -->
+                    <Collapsible v-if="isCrew && !props.upgrade?.is_campaign_crew_card" default-open>
                         <Card>
                             <CardContent class="p-4">
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
@@ -928,6 +938,49 @@ const blockTypeColor = (type: string, idx: number) => {
                                                 </button>
                                             </div>
                                         </div>
+                                    </div>
+                                </CollapsibleContent>
+                            </CardContent>
+                        </Card>
+                    </Collapsible>
+
+                    <!-- Back Face: Tokens & Markers, read-only, for a synced
+                         campaign crew card — auto-calculated from the crew's
+                         current arsenal, not something this editor can change. -->
+                    <Collapsible v-if="isCrew && props.upgrade?.is_campaign_crew_card" default-open>
+                        <Card>
+                            <CardContent class="p-4">
+                                <CollapsibleTrigger class="flex w-full items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="text-sm font-semibold">Back — Tokens & Markers</h3>
+                                        <Badge
+                                            v-if="props.crew_computed_tokens_markers?.length"
+                                            variant="secondary"
+                                            class="text-[10px]"
+                                            >{{ props.crew_computed_tokens_markers.length }}</Badge
+                                        >
+                                    </div>
+                                    <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <p class="mt-3 mb-2 text-xs text-muted-foreground">
+                                        Automatically calculated from your crew's current arsenal — shown here for reference, not editable.
+                                    </p>
+                                    <div v-if="!props.crew_computed_tokens_markers?.length" class="text-xs text-muted-foreground">
+                                        No tokens or markers currently held by this crew.
+                                    </div>
+                                    <div
+                                        v-for="(item, idx) in props.crew_computed_tokens_markers"
+                                        :key="item.type + '-' + item.name + '-' + idx"
+                                        class="mb-2 rounded-lg border p-2"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-medium">{{ item.name }}</span>
+                                            <Badge variant="outline" class="px-1 py-0 text-[8px]">{{
+                                                item.type === 'token' ? 'Token' : 'Marker'
+                                            }}</Badge>
+                                        </div>
+                                        <div v-if="item.description" class="text-xs text-muted-foreground">{{ item.description }}</div>
                                     </div>
                                 </CollapsibleContent>
                             </CardContent>

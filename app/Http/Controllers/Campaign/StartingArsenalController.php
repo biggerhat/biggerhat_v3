@@ -250,6 +250,23 @@ class StartingArsenalController extends Controller
             return;
         }
 
+        $existing = CustomUpgrade::query()
+            ->where('campaign_crew_id', $crewId)
+            ->where('is_campaign_crew_card', true)
+            ->first();
+
+        // Once synced, re-saving the Starting Arsenal wizard with the SAME
+        // crew_card_effect_id (e.g. renaming, or an unrelated field change)
+        // must not touch content_blocks again — the player may have since
+        // added to it via the Card Creator editor, and rebuilding from the
+        // immutable catalog row would silently wipe that out. Only a genuine
+        // re-pick of a different crew card effect refreshes it.
+        if ($existing && $existing->synced_crew_card_id === $crewCardId) {
+            $existing->update(['name' => $name, 'display_name' => $name, 'faction' => $faction]);
+
+            return;
+        }
+
         $blocks = [];
         if (! empty($crewCard->description)) {
             $blocks[] = ['type' => 'text', 'text' => $crewCard->description];
@@ -287,13 +304,14 @@ class StartingArsenalController extends Controller
             ]];
         }
 
-        $existing = CustomUpgrade::query()
-            ->where('campaign_crew_id', $crewId)
-            ->where('is_campaign_crew_card', true)
-            ->first();
-
         if ($existing) {
-            $existing->update(['name' => $name, 'display_name' => $name, 'faction' => $faction, 'content_blocks' => $blocks]);
+            $existing->update([
+                'name' => $name,
+                'display_name' => $name,
+                'faction' => $faction,
+                'content_blocks' => $blocks,
+                'synced_crew_card_id' => $crewCardId,
+            ]);
 
             return;
         }
@@ -308,6 +326,7 @@ class StartingArsenalController extends Controller
             'faction' => $faction,
             'content_blocks' => $blocks,
             'is_campaign_crew_card' => true,
+            'synced_crew_card_id' => $crewCardId,
         ]);
     }
 

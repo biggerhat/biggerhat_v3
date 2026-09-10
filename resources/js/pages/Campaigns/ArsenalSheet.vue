@@ -754,20 +754,29 @@ const pollCardRegeneration = (
     }, 2000);
 };
 
-// Returning from editing the Leader/Totem in the Card Creator (?poll_card=
-// leader|totem, set by Editor.vue's "Back to Arsenal Sheet" link after a
-// save) lands on a freshly-mounted page — pollCardRegeneration only ever
-// got triggered by actions taken directly on THIS page (e.g. logAdvancement
-// below), so a card image edited via the external editor just sat stale
+// Returning from editing the Leader/Totem in the Card Creator, or from an
+// Aftermath advancement batch (?poll_card=leader|totem|crew_card, comma-
+// separated — set by Editor.vue's and Aftermath.vue's "Back to Arsenal"
+// links after a save) lands on a freshly-mounted page — pollCardRegeneration
+// only ever got triggered by actions taken directly on THIS page (e.g.
+// logAdvancement below), so a card image edited elsewhere just sat stale
 // until a later, unrelated reload happened to catch up. Cleans the query
 // param off the URL so a manual refresh doesn't re-trigger the poll.
 onMounted(() => {
     const params = new URLSearchParams(window.location.search);
-    const target = params.get('poll_card');
-    if (target !== 'leader' && target !== 'totem') return;
+    const isPollTarget = (t: string): t is 'leader' | 'totem' | 'crew_card' => t === 'leader' || t === 'totem' || t === 'crew_card';
+    const targets = (params.get('poll_card') ?? '').split(',').filter(isPollTarget);
+    if (!targets.length) return;
 
-    const previousGeneratedAt = (target === 'leader' ? props.leader : props.totem)?.card_image_generated_at;
-    pollCardRegeneration(target, previousGeneratedAt);
+    for (const target of targets) {
+        const previousGeneratedAt =
+            target === 'leader'
+                ? props.leader?.card_image_generated_at
+                : target === 'totem'
+                  ? props.totem?.card_image_generated_at
+                  : props.crew.crew_card_generated_at;
+        pollCardRegeneration(target, previousGeneratedAt);
+    }
 
     params.delete('poll_card');
     const query = params.toString();

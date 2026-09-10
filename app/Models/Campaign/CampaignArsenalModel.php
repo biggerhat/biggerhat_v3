@@ -241,6 +241,12 @@ class CampaignArsenalModel extends Model
      * crew, pg 36). The copy is its own model — it leaves the title group, and
      * its gained Lucky Miss effects are not carried. Equipment is crew-level in
      * this data model and is not duplicated here.
+     *
+     * Traitor specifically (pg 34: "the model gains the keywords of its new
+     * crew's leader") re-grants the TARGET crew's own primary keyword instead
+     * of carrying over whatever the model had granted in its old crew — a
+     * defector has no relation to that. Doppelganger stays in the same crew,
+     * so the existing grant (if any) still applies unchanged.
      */
     public function copyForCampaign(int $targetCrewId, string $acquiredVia, bool $ignoredForLimits = false): self
     {
@@ -254,7 +260,9 @@ class CampaignArsenalModel extends Model
             'ignored_for_limits' => $ignoredForLimits,
             'title_group_key' => null,
             'gained_characteristics' => $this->gained_characteristics,
-            'granted_keyword_id' => $this->granted_keyword_id,
+            'granted_keyword_id' => $acquiredVia === 'traitor'
+                ? CampaignCrew::query()->whereKey($targetCrewId)->value('keyword_1_id')
+                : $this->granted_keyword_id,
             'acquired_via' => $acquiredVia,
         ]);
 

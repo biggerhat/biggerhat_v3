@@ -2627,20 +2627,36 @@ it('CustomCharacter::attemptAnnihilation spends Miraculous Recovery the first ti
     expect($leader->fresh()->current)->toBeFalse();
 });
 
-it('CampaignArsenalModel::copyForCampaign carries the granted_keyword_id to the defector copy', function () {
+it('CampaignArsenalModel::copyForCampaign carries the granted_keyword_id unchanged for a Doppelganger copy (same crew)', function () {
     $user = amUser();
     $campaign = Campaign::factory()->create();
     $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
-    $targetCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id]);
     $keyword = \App\Models\Keyword::factory()->create();
     $model = CampaignArsenalModel::factory()->create([
         'campaign_crew_id' => $crew->id,
         'granted_keyword_id' => $keyword->id,
     ]);
 
-    $copy = $model->copyForCampaign($targetCrew->id, 'traitor');
+    $copy = $model->copyForCampaign($crew->id, 'doppelganger', ignoredForLimits: true);
 
     expect($copy->granted_keyword_id)->toBe($keyword->id);
+});
+
+it('CampaignArsenalModel::copyForCampaign grants the new crew\'s own keyword for a Traitor defector, not the old crew\'s grant', function () {
+    $user = amUser();
+    $campaign = Campaign::factory()->create();
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $oldKeyword = \App\Models\Keyword::factory()->create();
+    $newKeyword = \App\Models\Keyword::factory()->create();
+    $targetCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'keyword_1_id' => $newKeyword->id]);
+    $model = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'granted_keyword_id' => $oldKeyword->id,
+    ]);
+
+    $copy = $model->copyForCampaign($targetCrew->id, 'traitor');
+
+    expect($copy->granted_keyword_id)->toBe($newKeyword->id);
 });
 
 it('Phase 6 review screen: phase_summary rolls up what Phases 1-5 already committed', function () {

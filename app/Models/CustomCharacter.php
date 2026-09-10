@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BaseSizeEnum;
+use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
@@ -71,6 +72,35 @@ class CustomCharacter extends Model
             'campaign_size' => 'integer',
             'campaign_br' => 'integer',
         ];
+    }
+
+    /**
+     * The `characteristics` column plus the Bruiser/Strategist tag (pg 18)
+     * and the "Unique" characteristic (every built Leader is a one-of-a-kind
+     * named model), for display only. Not persisted onto `characteristics`
+     * itself so it doesn't round-trip into the Leader Builder edit form and
+     * get counted against its two-pick cap or duplicated on repeat saves.
+     * Every render surface (live Arsenal Sheet, card image capture, print
+     * sheet) should call this instead of reading `characteristics` raw.
+     *
+     * @return array<int, string>
+     */
+    public function displayCharacteristics(): array
+    {
+        $characteristics = $this->characteristics ?? [];
+
+        if (! $this->is_campaign_leader) {
+            return $characteristics;
+        }
+
+        if (! in_array('Unique', $characteristics, true)) {
+            $characteristics[] = 'Unique';
+        }
+        if ($tag = LeaderTagEnum::tryFrom((string) $this->tag)) {
+            $characteristics[] = $tag->label();
+        }
+
+        return $characteristics;
     }
 
     /**

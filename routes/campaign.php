@@ -44,6 +44,13 @@ Route::middleware(['campaign.access'])->group(function () {
     Route::get('/a/{share_code}', [ArsenalSheetController::class, 'share'])
         ->name('campaigns.crews.arsenal.share');
 
+    // Flat black-and-white print reference — same audience as the share link
+    // above (viewers without the app), so it's public for the same reason,
+    // not gated to campaign membership. Route-model binding uses share_code
+    // for crew (its getRouteKeyName returns 'share_code').
+    Route::get('/campaigns/{campaign}/crews/{crew}/arsenal/print', [ArsenalSheetController::class, 'print'])
+        ->name('campaigns.crews.arsenal.print');
+
     // Public, reusable campaign invite link — same "outside auth, bounce
     // unauthenticated visitors to login" treatment as the invitation accept
     // screen above. Bound by uuid, not the campaign's normal integer id.
@@ -109,9 +116,6 @@ Route::middleware(['campaign.access'])->group(function () {
         // Arsenal Sheet (authenticated path — public share is above).
         Route::get('/campaigns/{campaign}/crews/{crew}/arsenal', [ArsenalSheetController::class, 'show'])
             ->name('campaigns.crews.arsenal.show');
-        // Flat black-and-white print reference — Print/Save-as-PDF from the browser.
-        Route::get('/campaigns/{campaign}/crews/{crew}/arsenal/print', [ArsenalSheetController::class, 'print'])
-            ->name('campaigns.crews.arsenal.print');
         // Ad-hoc unit/equipment adds — mid-game events outside Starting Arsenal/Weekly Hire/Aftermath.
         Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/models', [ArsenalSheetController::class, 'addManualArsenalModel'])
             ->name('campaigns.crews.arsenal.models.store');

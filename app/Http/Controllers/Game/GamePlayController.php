@@ -908,6 +908,7 @@ class GamePlayController extends Controller
                 $identifiedScheme->next_scheme_one_id,
                 $identifiedScheme->next_scheme_two_id,
                 $identifiedScheme->next_scheme_three_id,
+                $identifiedScheme->next_scheme_four_id,
             ])) : [];
             $player->update([
                 'current_scheme_id' => $validated['identified_scheme_id'],
@@ -990,6 +991,7 @@ class GamePlayController extends Controller
                     $nextScheme->next_scheme_one_id,
                     $nextScheme->next_scheme_two_id,
                     $nextScheme->next_scheme_three_id,
+                    $nextScheme->next_scheme_four_id,
                 ])) : [];
 
                 $player->update([

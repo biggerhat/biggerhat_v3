@@ -60,6 +60,7 @@ const formInfo = ref({
     next_scheme_one_id: null,
     next_scheme_two_id: null,
     next_scheme_three_id: null,
+    next_scheme_four_id: null,
 });
 
 const addRequirement = (type: string) => {
@@ -106,6 +107,7 @@ onMounted(() => {
     formInfo.value.next_scheme_one_id = props.scheme?.next_scheme_one_id ?? null;
     formInfo.value.next_scheme_two_id = props.scheme?.next_scheme_two_id ?? null;
     formInfo.value.next_scheme_three_id = props.scheme?.next_scheme_three_id ?? null;
+    formInfo.value.next_scheme_four_id = props.scheme?.next_scheme_four_id ?? null;
 });
 </script>
 
@@ -248,7 +250,7 @@ onMounted(() => {
                             </div>
                         </div>
                         <div class="flex flex-col space-y-1.5">
-                            <div class="grid auto-rows-min gap-4 md:grid-cols-3">
+                            <div class="grid auto-rows-min gap-4 md:grid-cols-4">
                                 <div class="flex flex-col space-y-1.5">
                                     <Label for="next_scheme_one_id">Next Scheme</Label>
                                     <Select id="next_scheme_one_id" v-model="formInfo.next_scheme_one_id">
@@ -290,6 +292,20 @@ onMounted(() => {
                                         </SelectContent>
                                     </Select>
                                     <InputError :message="usePage().props.errors.next_scheme_three_id" />
+                                </div>
+                                <div class="flex flex-col space-y-1.5">
+                                    <Label for="next_scheme_four_id">Next Scheme</Label>
+                                    <Select id="next_scheme_four_id" v-model="formInfo.next_scheme_four_id">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Scheme" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem v-for="scheme in props.schemes" :value="scheme.value" :key="scheme.value">
+                                                {{ scheme.name }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError :message="usePage().props.errors.next_scheme_four_id" />
                                 </div>
                             </div>
                         </div>

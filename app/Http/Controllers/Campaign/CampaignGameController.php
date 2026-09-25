@@ -121,7 +121,7 @@ class CampaignGameController extends Controller
 
         // Generate scenario triple just like the standard flow (pg 19 — campaign
         // games use scenario).
-        $seasonEnum = PoolSeasonEnum::cases()[0]; // First/default season
+        $seasonEnum = PoolSeasonEnum::defaultSeason();
         [$strategy, $deployment, $schemePool] = $this->resolveScenario($seasonEnum);
 
         $game = DB::transaction(function () use ($campaign, $data, $myCrew, $opponentCrew, $encounterSize, $crA, $crB, $ssBonus, $strategy, $deployment, $schemePool, $seasonEnum, $request) {
@@ -217,7 +217,7 @@ class CampaignGameController extends Controller
         $encounterSize = max(20, min(50, $arsenalA + 6));
         $crA = $myCrew->campaignRating();
 
-        $seasonEnum = PoolSeasonEnum::cases()[0];
+        $seasonEnum = PoolSeasonEnum::defaultSeason();
         [$strategy, $deployment, $schemePool] = $this->resolveScenario($seasonEnum);
 
         $game = DB::transaction(function () use ($campaign, $myCrew, $encounterSize, $crA, $strategy, $deployment, $schemePool, $seasonEnum, $request) {

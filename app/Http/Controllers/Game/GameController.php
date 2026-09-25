@@ -75,7 +75,7 @@ class GameController extends Controller
 
     public function create(): Response|ResponseFactory
     {
-        $seasons = collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+        $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
             'label' => $s->label(),
         ]);
@@ -301,7 +301,7 @@ class GameController extends Controller
             if (! $scheme) {
                 continue;
             }
-            foreach ([$scheme->next_scheme_one_id, $scheme->next_scheme_two_id, $scheme->next_scheme_three_id] as $nextId) {
+            foreach ([$scheme->next_scheme_one_id, $scheme->next_scheme_two_id, $scheme->next_scheme_three_id, $scheme->next_scheme_four_id] as $nextId) {
                 if ($nextId && ! isset($seen[$nextId])) {
                     $seen[$nextId] = true;
                     $queue[] = $nextId;
@@ -1805,6 +1805,7 @@ class GameController extends Controller
                     $revealedScheme->next_scheme_one_id,
                     $revealedScheme->next_scheme_two_id,
                     $revealedScheme->next_scheme_three_id,
+                    $revealedScheme->next_scheme_four_id,
                 ]))
                 : ($game->scheme_pool ?? []);
             if (empty($poolIds)) {
@@ -1925,6 +1926,7 @@ class GameController extends Controller
                     $revealedScheme->next_scheme_one_id,
                     $revealedScheme->next_scheme_two_id,
                     $revealedScheme->next_scheme_three_id,
+                    $revealedScheme->next_scheme_four_id,
                 ])) : [];
             } else {
                 $possibleIds = $game->scheme_pool ?? [];

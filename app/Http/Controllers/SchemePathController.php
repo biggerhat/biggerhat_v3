@@ -34,6 +34,7 @@ class SchemePathController extends Controller
                     $s->next_scheme_one_id,
                     $s->next_scheme_two_id,
                     $s->next_scheme_three_id,
+                    $s->next_scheme_four_id,
                 ])),
             ]);
 
@@ -42,7 +43,7 @@ class SchemePathController extends Controller
                 'value' => $seasonEnum->value,
                 'label' => $seasonEnum->label(),
             ],
-            'seasons' => fn () => collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+            'seasons' => fn () => collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
                 'value' => $s->value,
                 'label' => $s->label(),
             ]),

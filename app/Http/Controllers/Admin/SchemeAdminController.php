@@ -78,6 +78,7 @@ class SchemeAdminController extends Controller
             'next_scheme_one_id' => ['nullable', 'integer'],
             'next_scheme_two_id' => ['nullable', 'integer'],
             'next_scheme_three_id' => ['nullable', 'integer'],
+            'next_scheme_four_id' => ['nullable', 'integer'],
         ]);
 
         // Clean up requirements — normalize "none" to null

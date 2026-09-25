@@ -200,7 +200,7 @@ class TournamentController extends Controller
 
     public function create(): Response|ResponseFactory
     {
-        $seasons = collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+        $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
             'label' => $s->label(),
         ]);
@@ -277,7 +277,7 @@ class TournamentController extends Controller
 
         $standings = $this->standings->compute($tournament);
 
-        $seasons = collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+        $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
             'label' => $s->label(),
         ]);

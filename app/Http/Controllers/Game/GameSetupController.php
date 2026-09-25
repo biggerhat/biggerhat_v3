@@ -465,6 +465,7 @@ class GameSetupController extends Controller
                         $currentScheme->next_scheme_one_id,
                         $currentScheme->next_scheme_two_id,
                         $currentScheme->next_scheme_three_id,
+                        $currentScheme->next_scheme_four_id,
                     ]));
                 }
             }
@@ -479,6 +480,7 @@ class GameSetupController extends Controller
             $chosenScheme->next_scheme_one_id,
             $chosenScheme->next_scheme_two_id,
             $chosenScheme->next_scheme_three_id,
+            $chosenScheme->next_scheme_four_id,
         ])) : [];
 
         $playerUpdate = [

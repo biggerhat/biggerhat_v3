@@ -59,6 +59,12 @@ class Scheme extends Model
         return $this->belongsTo(Scheme::class, 'next_scheme_three_id');
     }
 
+    /** @return BelongsTo<Scheme, $this> */
+    public function nextSchemeFour(): BelongsTo
+    {
+        return $this->belongsTo(Scheme::class, 'next_scheme_four_id');
+    }
+
     /**
      * Shape a scheme for the Game tracker frontend — includes requirements and
      * follow-up scheme ids so the client can chain selections without another
@@ -78,6 +84,7 @@ class Scheme extends Model
             'next_scheme_one_id' => $this->next_scheme_one_id,
             'next_scheme_two_id' => $this->next_scheme_two_id,
             'next_scheme_three_id' => $this->next_scheme_three_id,
+            'next_scheme_four_id' => $this->next_scheme_four_id,
         ];
     }
 }

@@ -242,6 +242,14 @@ it('recap resolves injuries by model name and advancements by name, not just a r
         'acquired_at' => now(),
     ]);
 
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Recap Trinket']);
+    \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crew->id,
+        'equipment_upgrade_id' => $equipmentUpgrade->id,
+        'source' => 'barter',
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
     $this->actingAs($user)
         ->get(route('campaigns.aftermaths.recap', $aftermath))
         ->assertOk()
@@ -249,7 +257,9 @@ it('recap resolves injuries by model name and advancements by name, not just a r
             ->where('injuries.0.model_name', 'Rank and File')
             ->where('injuries.0.injury_name', 'Concussed')
             ->where('advancements.0.name', 'Recap Ability > Recap Leader')
+            ->where('equipment_purchased.0.name', 'Recap Trinket')
             ->where('tally.injuries', 1)
+            ->where('tally.equipment_purchased', 1)
         );
 });
 
@@ -2617,20 +2627,36 @@ it('CustomCharacter::attemptAnnihilation spends Miraculous Recovery the first ti
     expect($leader->fresh()->current)->toBeFalse();
 });
 
-it('CampaignArsenalModel::copyForCampaign carries the granted_keyword_id to the defector copy', function () {
+it('CampaignArsenalModel::copyForCampaign carries the granted_keyword_id unchanged for a Doppelganger copy (same crew)', function () {
     $user = amUser();
     $campaign = Campaign::factory()->create();
     $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
-    $targetCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id]);
     $keyword = \App\Models\Keyword::factory()->create();
     $model = CampaignArsenalModel::factory()->create([
         'campaign_crew_id' => $crew->id,
         'granted_keyword_id' => $keyword->id,
     ]);
 
-    $copy = $model->copyForCampaign($targetCrew->id, 'traitor');
+    $copy = $model->copyForCampaign($crew->id, 'doppelganger', ignoredForLimits: true);
 
     expect($copy->granted_keyword_id)->toBe($keyword->id);
+});
+
+it('CampaignArsenalModel::copyForCampaign grants the new crew\'s own keyword for a Traitor defector, not the old crew\'s grant', function () {
+    $user = amUser();
+    $campaign = Campaign::factory()->create();
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id]);
+    $oldKeyword = \App\Models\Keyword::factory()->create();
+    $newKeyword = \App\Models\Keyword::factory()->create();
+    $targetCrew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'keyword_1_id' => $newKeyword->id]);
+    $model = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crew->id,
+        'granted_keyword_id' => $oldKeyword->id,
+    ]);
+
+    $copy = $model->copyForCampaign($targetCrew->id, 'traitor');
+
+    expect($copy->granted_keyword_id)->toBe($newKeyword->id);
 });
 
 it('Phase 6 review screen: phase_summary rolls up what Phases 1-5 already committed', function () {

@@ -238,7 +238,17 @@ class SeasonSeeder extends Seeder
                 'next_scheme_one_id' => $schemes[$nextNames[0]]->id ?? null,
                 'next_scheme_two_id' => $schemes[$nextNames[1]]->id ?? null,
                 'next_scheme_three_id' => $schemes[$nextNames[2]]->id ?? null,
+                'next_scheme_four_id' => $this->nextSchemeIdByOffset($schemes, $nextNames, 3),
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, Scheme>  $schemes
+     * @param  array<int, string>  $nextNames
+     */
+    private function nextSchemeIdByOffset(array $schemes, array $nextNames, int $offset): ?int
+    {
+        return isset($nextNames[$offset]) ? ($schemes[$nextNames[$offset]]->id ?? null) : null;
     }
 }

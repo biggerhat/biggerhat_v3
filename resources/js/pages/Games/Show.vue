@@ -301,6 +301,17 @@ const props = defineProps<{
         crew_a_card: CampaignCrewCardPayload;
         crew_b_card: CampaignCrewCardPayload;
     } | null;
+    /** Summary view only — the viewing user's own Aftermath recap for this
+     *  completed Campaign game (null for an opponent, spectator, or a game
+     *  with no logged Aftermath yet). See AftermathCatalog::recapPayload(). */
+    campaign_aftermath_recap?: {
+        aftermath_id: number;
+        crew_name: string;
+        story_entry: string | null;
+        injuries: { model_name: string; injury_name: string }[];
+        advancements: { name: string }[];
+        equipment_purchased: { name: string }[];
+    } | null;
     campaign_arsenal?: {
         /** The CampaignArsenalModel row's own id — distinct per owned physical
          *  copy, even when several share the same character_id. */
@@ -1192,6 +1203,20 @@ const startAftermath = () => {
     if (!props.campaign_context?.id) return;
     startingAftermath.value = true;
     router.post(route('campaigns.aftermaths.start', props.campaign_context.id), {}, { onFinish: () => (startingAftermath.value = false) });
+};
+const editingCampaignStory = ref(false);
+const campaignStoryDraft = ref('');
+const startEditCampaignStory = () => {
+    campaignStoryDraft.value = props.campaign_aftermath_recap?.story_entry ?? '';
+    editingCampaignStory.value = true;
+};
+const submitEditCampaignStory = () => {
+    if (!props.campaign_aftermath_recap) return;
+    router.post(
+        route('campaigns.aftermaths.story.update', props.campaign_aftermath_recap.aftermath_id),
+        { story_entry: campaignStoryDraft.value.trim() || null },
+        { preserveScroll: true, onSuccess: () => (editingCampaignStory.value = false) },
+    );
 };
 const cardFullscreenOpen = ref(false);
 const cardFullscreenSrc = ref<string | null>(null);
@@ -2817,8 +2842,18 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         <div v-if="crewCardImageSrc(side)" class="relative w-fit">
                             <img
                                 :src="'/storage/' + crewCardImageSrc(side)"
-                                class="max-h-96 rounded-md border"
+                                class="max-h-96 cursor-pointer rounded-md border"
                                 :alt="`${side === 'a' ? 'Crew A' : 'Crew B'} Crew Card`"
+                                @click="
+                                    openCardFullscreen({
+                                        src: '/storage/' + crewCardImageSrc(side),
+                                        backSrc: crewCardPayload(side)?.back_image
+                                            ? '/storage/' +
+                                              cacheBustedImagePath(crewCardPayload(side)!.back_image, crewCardPayload(side)!.card_generated_at)
+                                            : null,
+                                        title: `${side === 'a' ? 'Crew A' : 'Crew B'} Crew Card`,
+                                    })
+                                "
                             />
                             <button
                                 v-if="crewCardPayload(side)?.back_image"
@@ -2879,6 +2914,52 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </template>
                     </template>
                 </div>
+            </div>
+
+            <!-- Campaign Aftermath recap — only for a completed/abandoned Campaign
+                 game viewed by the crew's own owner (private narrative). QA: this
+                 page previously showed nothing campaign-related at all for a game
+                 played through the live tracker, unlike a manually-logged game's
+                 dedicated recap page (GameRecap.vue), which this mirrors. -->
+            <div v-if="campaign_aftermath_recap" class="mb-4 rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
+                <div class="mb-1.5 flex items-center justify-between">
+                    <span class="font-medium uppercase text-primary">Campaign Recap — {{ campaign_aftermath_recap.crew_name }}</span>
+                    <button
+                        v-if="!editingCampaignStory"
+                        class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                        @click="startEditCampaignStory"
+                    >
+                        <Pencil class="h-3 w-3" /> Edit Story
+                    </button>
+                </div>
+                <div v-if="editingCampaignStory" class="space-y-2">
+                    <Textarea v-model="campaignStoryDraft" rows="3" class="bg-background text-foreground" placeholder="What happened this game?" />
+                    <div class="flex gap-2">
+                        <Button size="sm" @click="submitEditCampaignStory">Save</Button>
+                        <Button size="sm" variant="outline" @click="editingCampaignStory = false">Cancel</Button>
+                    </div>
+                </div>
+                <template v-else>
+                    <p v-if="campaign_aftermath_recap.story_entry" class="whitespace-pre-wrap text-foreground">
+                        {{ campaign_aftermath_recap.story_entry }}
+                    </p>
+                    <p v-else class="italic text-muted-foreground">No story written for this game.</p>
+                </template>
+                <ul v-if="campaign_aftermath_recap.injuries.length" class="mt-2 space-y-0.5">
+                    <li v-for="(inj, i) in campaign_aftermath_recap.injuries" :key="'recap-inj-' + i" class="text-foreground">
+                        {{ inj.model_name }} — <span class="text-destructive">{{ inj.injury_name }}</span>
+                    </li>
+                </ul>
+                <ul v-if="campaign_aftermath_recap.advancements.length" class="mt-1 space-y-0.5">
+                    <li v-for="(adv, i) in campaign_aftermath_recap.advancements" :key="'recap-adv-' + i" class="text-foreground">
+                        Advancement: {{ adv.name }}
+                    </li>
+                </ul>
+                <ul v-if="campaign_aftermath_recap.equipment_purchased.length" class="mt-1 space-y-0.5">
+                    <li v-for="(eq, i) in campaign_aftermath_recap.equipment_purchased" :key="'recap-eq-' + i" class="text-foreground">
+                        Purchased: {{ eq.name }}
+                    </li>
+                </ul>
             </div>
 
             <Link

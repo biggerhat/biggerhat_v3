@@ -180,7 +180,7 @@ const crewCardName = ref('');
 watch(selectedCrewCardEffectId, () => {
     selectedCrewCardChoiceId.value = null;
     if (selectedCrewCard.value && !crewCardName.value) {
-        crewCardName.value = `${props.crew.name} — ${selectedCrewCard.value.name}`;
+        crewCardName.value = selectedCrewCard.value.name;
     }
 });
 

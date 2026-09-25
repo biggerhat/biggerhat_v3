@@ -27,6 +27,7 @@ use App\Models\Strategy;
 use App\Models\Token;
 use App\Models\User;
 use App\Notifications\Game\GameOpponentJoined;
+use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -74,7 +75,7 @@ class GameController extends Controller
 
     public function create(): Response|ResponseFactory
     {
-        $seasons = collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+        $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
             'label' => $s->label(),
         ]);
@@ -300,7 +301,7 @@ class GameController extends Controller
             if (! $scheme) {
                 continue;
             }
-            foreach ([$scheme->next_scheme_one_id, $scheme->next_scheme_two_id, $scheme->next_scheme_three_id] as $nextId) {
+            foreach ([$scheme->next_scheme_one_id, $scheme->next_scheme_two_id, $scheme->next_scheme_three_id, $scheme->next_scheme_four_id] as $nextId) {
                 if ($nextId && ! isset($seen[$nextId])) {
                     $seen[$nextId] = true;
                     $queue[] = $nextId;
@@ -505,6 +506,16 @@ class GameController extends Controller
                 : null;
             $props['campaign_totem'] = fn () => $this->buildCampaignTotemProp($game);
             $props['campaign_leader'] = fn () => $this->buildCampaignLeaderProp($game);
+        }
+
+        // QA: a Campaign game played through the live Game Tracker routed
+        // straight to the generic tracker summary with zero campaign data —
+        // no story, injuries, or advancements — even for the crew's own
+        // owner, unlike a manually-logged game's dedicated recap page.
+        // Resolved to the viewing user's own aftermath only (private
+        // narrative), same ownership check as CampaignAftermathController.
+        if ($context === GameShowContext::Summary) {
+            $props['campaign_aftermath_recap'] = fn () => $this->buildCampaignAftermathRecapProp($game);
         }
 
         return $props;
@@ -834,6 +845,48 @@ class GameController extends Controller
         $leader = $campaignCrew?->leader;
 
         return $leader ? ['id' => $leader->id, 'name' => $leader->name, 'injuries' => $this->customCharacterInjuries($leader->id)] : null;
+    }
+
+    /**
+     * The viewing user's own Aftermath recap (story/injuries/advancements/
+     * equipment purchased) for a completed Campaign game — null for anyone
+     * else (opponent, spectator, unauthenticated), for a non-Campaign game,
+     * or when this crew hasn't logged an Aftermath for it yet. See
+     * AftermathCatalog::recapPayload(), shared with the manually-logged
+     * game's dedicated recap page (CampaignAftermathController::recap()).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildCampaignAftermathRecapProp(Game $game): ?array
+    {
+        if ($game->format !== \App\Enums\GameFormatEnum::Campaign || ! Auth::check()) {
+            return null;
+        }
+
+        $campaignCrew = $this->resolveCampaignCrewForUser($game);
+        if (! $campaignCrew) {
+            return null;
+        }
+
+        $campaignGame = \App\Models\Campaign\CampaignGame::query()->where('base_game_id', $game->id)->first();
+        if (! $campaignGame) {
+            return null;
+        }
+
+        $aftermath = \App\Models\Campaign\CampaignAftermath::query()
+            ->where('campaign_game_id', $campaignGame->id)
+            ->where('campaign_crew_id', $campaignCrew->id)
+            ->first();
+
+        if (! $aftermath) {
+            return null;
+        }
+
+        return [
+            'aftermath_id' => $aftermath->id,
+            'crew_name' => $campaignCrew->name,
+            ...AftermathCatalog::recapPayload($aftermath),
+        ];
     }
 
     /**
@@ -1752,6 +1805,7 @@ class GameController extends Controller
                     $revealedScheme->next_scheme_one_id,
                     $revealedScheme->next_scheme_two_id,
                     $revealedScheme->next_scheme_three_id,
+                    $revealedScheme->next_scheme_four_id,
                 ]))
                 : ($game->scheme_pool ?? []);
             if (empty($poolIds)) {
@@ -1872,6 +1926,7 @@ class GameController extends Controller
                     $revealedScheme->next_scheme_one_id,
                     $revealedScheme->next_scheme_two_id,
                     $revealedScheme->next_scheme_three_id,
+                    $revealedScheme->next_scheme_four_id,
                 ])) : [];
             } else {
                 $possibleIds = $game->scheme_pool ?? [];

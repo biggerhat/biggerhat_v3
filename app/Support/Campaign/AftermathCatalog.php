@@ -18,6 +18,7 @@ use App\Models\Campaign\AdvancementTacticalMod;
 use App\Models\Campaign\BackAlleyDoctorResult;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
+use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignEquipment;
@@ -1153,5 +1154,100 @@ class AftermathCatalog
             : [];
 
         return array_values(array_filter([$name, $granted ? implode(', ', $granted) : null]));
+    }
+
+    /**
+     * Named injuries/advancements/equipment-purchased + tally counts for one
+     * aftermath's recap — shared by CampaignAftermathController::recap()
+     * (the manually-logged-game recap page) and GameController's Summary
+     * prop for a game that WAS played through the live Game Tracker (which
+     * otherwise showed the generic tracker summary with no campaign data at
+     * all).
+     *
+     * @return array{story_entry: string|null, injuries: array<int, array{model_name: string, injury_name: string}>, advancements: array<int, array{name: string}>, equipment_purchased: array<int, array{name: string}>, tally: array{injuries: int, doctor_attempts: int, lucky_misses: int, ttw_pickups: int, equipment_purchased: int}}
+     */
+    public static function recapPayload(CampaignAftermath $aftermath): array
+    {
+        $injuries = CampaignArsenalModelInjury::query()
+            ->where('acquired_aftermath_id', $aftermath->id)
+            ->with([
+                'injury:id,name',
+                'customCharacter:id,display_name',
+                'arsenalModel:id,character_id,custom_character_id,label',
+                'arsenalModel.character:id,display_name',
+                'arsenalModel.customCharacter:id,display_name',
+            ])
+            ->get()
+            ->map(function (CampaignArsenalModelInjury $pivot) {
+                if (! $pivot->injury) {
+                    return null;
+                }
+
+                return ['model_name' => self::recapInjuryModelName($pivot), 'injury_name' => $pivot->injury->name];
+            })
+            ->filter()
+            ->values();
+
+        $advancements = CampaignLeaderAdvancement::query()
+            ->where('source_aftermath_id', $aftermath->id)
+            ->orderBy('position_in_xp_track')
+            ->get()
+            ->map(fn (CampaignLeaderAdvancement $a) => [
+                'name' => implode(' > ', self::advancementContextChain($a)) ?: $a->source_table->label(),
+            ])
+            ->values();
+
+        $equipmentPurchased = CampaignEquipment::query()
+            ->where('acquired_aftermath_id', $aftermath->id)
+            ->where('source', 'barter')
+            ->with('catalog:id,name')
+            ->get()
+            ->map(fn (CampaignEquipment $e) => ['name' => $e->catalog?->name ?? 'Unknown equipment']) // @phpstan-ignore nullsafe.neverNull (equipment_upgrade_id is a genuinely nullable FK per CampaignEquipment's own docblock)
+            ->values();
+
+        return [
+            'story_entry' => $aftermath->story_entry,
+            'injuries' => $injuries->all(),
+            'advancements' => $advancements->all(),
+            'equipment_purchased' => $equipmentPurchased->all(),
+            'tally' => [
+                'injuries' => $injuries->count(),
+                'doctor_attempts' => DB::table('campaign_aftermath_doctor')->where('campaign_aftermath_id', $aftermath->id)->count(),
+                'lucky_misses' => DB::table('campaign_aftermath_doctor')
+                    ->where('campaign_aftermath_id', $aftermath->id)
+                    ->where('outcome', 'lucky_miss_reflip')
+                    ->count(),
+                'ttw_pickups' => CampaignEquipment::where('acquired_aftermath_id', $aftermath->id)->where('source', 'joker')->count(),
+                'equipment_purchased' => $equipmentPurchased->count(),
+            ],
+        ];
+    }
+
+    /**
+     * Which model an injury pivot applies to — a Leader/Totem directly
+     * (custom_character_id) or a hired Arsenal Model (catalog Character or
+     * a homebrew Custom Character hire), preferring a player-set nickname.
+     */
+    private static function recapInjuryModelName(CampaignArsenalModelInjury $pivot): string
+    {
+        if ($pivot->customCharacter) {
+            return $pivot->customCharacter->display_name;
+        }
+
+        $arsenalModel = $pivot->arsenalModel;
+        if (! $arsenalModel) {
+            return 'Unknown model';
+        }
+        if ($arsenalModel->label) {
+            return $arsenalModel->label;
+        }
+        if ($arsenalModel->character) {
+            return $arsenalModel->character->display_name;
+        }
+        if ($arsenalModel->customCharacter) {
+            return $arsenalModel->customCharacter->display_name;
+        }
+
+        return 'Unknown model';
     }
 }

@@ -159,14 +159,15 @@ it('print renders the flat black-and-white reference for a crew member', functio
         );
 });
 
-it('print rejects a non-member', function () {
+it('print is public like the share link, for viewers without the app', function () {
+    Feature::for(null)->activate('m4e-campaign-mode');
     $owner = sheetUser();
-    $outsider = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
 
-    $this->actingAs($outsider)
-        ->get(route('campaigns.crews.arsenal.print', [$campaign, $crew->share_code]))
-        ->assertForbidden();
+    // Anonymous request — no actingAs.
+    $this->get(route('campaigns.crews.arsenal.print', [$campaign, $crew->share_code]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Campaigns/ArsenalPrint'));
 });
 
 it('serves the public share link without auth when the feature flag is on', function () {

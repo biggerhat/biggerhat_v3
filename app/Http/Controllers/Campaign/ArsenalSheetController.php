@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Campaign;
 
 use App\Enums\Campaign\AdvancementTableEnum;
-use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
 use App\Events\CampaignCrewUpdated;
@@ -80,22 +79,15 @@ class ArsenalSheetController extends Controller
      * browser Print/Save-as-PDF dialog — same `window.print()` +
      * Tailwind `print:` pattern as CrewBuilderController::quickRef()'s
      * identical non-Campaign reference sheet, so there's no new PDF
-     * pipeline to maintain alongside it.
+     * pipeline to maintain alongside it. Public like share() — anyone with
+     * the Arsenal Sheet link can already view the same data; the printable
+     * version exists specifically for viewers without the app (pg n/a,
+     * QA request), so it deliberately isn't gated to campaign membership.
      */
-    public function print(Request $request, Campaign $campaign, CampaignCrew $crew)
+    public function print(Campaign $campaign, CampaignCrew $crew)
     {
         if ($crew->campaign_id !== $campaign->id) {
             abort(404);
-        }
-
-        $user = $request->user();
-        $isMember = $user && (
-            $user->hasRole('super_admin')
-            || $campaign->players()->where('user_id', $user->id)->exists()
-        );
-
-        if (! $isMember) {
-            abort(403);
         }
 
         $leader = $crew->leader;
@@ -139,7 +131,7 @@ class ArsenalSheetController extends Controller
             'willpower' => $c->campaign_wp,
             'speed' => $c->campaign_sp,
             'size' => $c->size,
-            'characteristics' => $c->characteristics ?? [],
+            'characteristics' => $c->displayCharacteristics(),
             'abilities' => $c->abilities ?? [],
             'actions' => $c->actions ?? [],
         ];
@@ -425,21 +417,11 @@ class ArsenalSheetController extends Controller
         $leader = $crew->leader;
         $totem = $crew->totem;
 
-        // Display-only characteristic additions on the live card — appended
-        // here (not persisted onto the `characteristics` column) so they
-        // don't round-trip into the Leader Builder edit form and get counted
-        // against its two-pick cap or duplicated on repeat saves. Mirrors
-        // CustomCharacterController::capture's identical Bruiser/Strategist
-        // append for the exported card image, which this page didn't share.
+        // Display-only characteristic additions on the live card — see
+        // CustomCharacter::displayCharacteristics(), shared with the card
+        // image capture export and the print sheet.
         if ($leader) {
-            $leaderCharacteristics = $leader->characteristics ?? [];
-            if (! in_array('Unique', $leaderCharacteristics, true)) {
-                $leaderCharacteristics[] = 'Unique';
-            }
-            if ($tag = LeaderTagEnum::tryFrom((string) $leader->tag)) {
-                $leaderCharacteristics[] = $tag->label();
-            }
-            $leader->setAttribute('characteristics', $leaderCharacteristics);
+            $leader->setAttribute('characteristics', $leader->displayCharacteristics());
         }
 
         // Leader/Totem injuries (pg 33-34) — same table as arsenal model
@@ -755,7 +737,16 @@ class ArsenalSheetController extends Controller
             ->groupBy('acquired_aftermath_id')
             ->pluck('total', 'acquired_aftermath_id');
 
-        return $aftermaths->map(function (CampaignAftermath $a) use ($injuryCounts, $doctorCounts, $luckyMissCounts, $ttwCounts) {
+        // QA: regular Barter purchases (the common case) were never tallied —
+        // only Those Who Thirst joker pickups were counted above.
+        $equipmentPurchasedCounts = CampaignEquipment::query()
+            ->whereIn('acquired_aftermath_id', $aftermathIds)
+            ->where('source', 'barter')
+            ->selectRaw('acquired_aftermath_id, count(*) as total')
+            ->groupBy('acquired_aftermath_id')
+            ->pluck('total', 'acquired_aftermath_id');
+
+        return $aftermaths->map(function (CampaignAftermath $a) use ($injuryCounts, $doctorCounts, $luckyMissCounts, $ttwCounts, $equipmentPurchasedCounts) {
             $baseGame = $a->campaignGame->baseGame;
 
             return [
@@ -780,6 +771,7 @@ class ArsenalSheetController extends Controller
                     'doctor_attempts' => (int) ($doctorCounts[$a->id] ?? 0),
                     'lucky_misses' => (int) ($luckyMissCounts[$a->id] ?? 0),
                     'ttw_pickups' => (int) ($ttwCounts[$a->id] ?? 0),
+                    'equipment_purchased' => (int) ($equipmentPurchasedCounts[$a->id] ?? 0),
                 ],
             ];
         })->all();

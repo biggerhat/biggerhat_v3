@@ -704,54 +704,76 @@ const targetActionOptions = (position: number): Array<{ ref: number; name: strin
     return source.filter((a) => a.category === category && sklBoostEligible(row, a.stat));
 };
 
+// QA: "Skill Boost cards aren't refreshing when you get back to arsenal" —
+// Aftermath's own "back to Arsenal" links never carried the `?poll_card=`
+// hint ArsenalSheet.vue's onMounted() needs to catch up a stale card image
+// (mirrors the fix already in place for the Card Creator editor's back
+// link). Tracks which of leader/totem/crew_card the just-submitted batch
+// touched — same target derivation ArsenalSheet.vue's own logAdvancement()
+// uses — and carries it into the link once the submit succeeds.
+const pollCardTargets = ref<Set<'leader' | 'totem' | 'crew_card'>>(new Set());
+const arsenalShowHref = computed(() => {
+    const base = route('campaigns.crews.arsenal.show', [props.aftermath.campaign_game.campaign.id, props.aftermath.crew.share_code]);
+    return pollCardTargets.value.size ? `${base}?poll_card=${[...pollCardTargets.value].join(',')}` : base;
+});
+
 const submitAdvanceLeader = () => {
-    router.post(route('campaigns.aftermaths.advance-leader', props.aftermath.id), {
-        bruiser_killed_non_peon: xpForm.value.bruiser_killed,
-        strategist_interacted: xpForm.value.strategist_interacted,
-        lost: xpForm.value.lost,
-        advancements: advancementsQueued.value
-            .filter((adv) => {
-                const d = advDrafts.value[adv.position_in_xp_track];
-                return d && d.catalog_id !== null;
-            })
-            .map((adv) => {
-                const d = advDrafts.value[adv.position_in_xp_track]!;
-                const isTotemAdvancement = d.source_table === 'totem';
-                const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
-                const isAbility = d.source_table === 'ability';
-                const isAction = d.source_table === 'action';
-                const isSummoning = d.source_table === 'summoning';
-                const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
-                const isCrewCard = d.source_table === 'crew_card';
-                return {
-                    source_table: d.source_table,
-                    catalog_id: d.catalog_id,
-                    crew_card_source: isCrewCard ? (selectedDraftRow(adv.position_in_xp_track)?.source ?? 'campaign_crew_card') : undefined,
-                    // crew_upgrade rows only (pg 32): catalog_id above is the
-                    // picked item's own id (action/ability/trigger) — these
-                    // pin down which item and which card it came from.
-                    crew_card_item_type: isCrewCard ? selectedDraftRow(adv.position_in_xp_track)?.item_type : undefined,
-                    crew_card_upgrade_id: isCrewCard ? selectedDraftRow(adv.position_in_xp_track)?.source_id : undefined,
-                    applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
-                    applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
-                    applied_to_custom_character_id:
-                        (isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem'
-                            ? (xp_track.value?.totem_id ?? undefined)
-                            : undefined,
-                    from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
-                    joker_color: isTrigger ? deriveJokerColor(adv.position_in_xp_track) : undefined,
-                    position_in_xp_track: adv.position_in_xp_track,
-                    free_choice:
-                        d.free_choice_source_id || d.free_choice_source_character_id
-                            ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
-                            : null,
-                    totem_name: isTotemAdvancement ? d.totem_name || null : null,
-                    totem_size: isTotemAdvancement ? d.totem_size || null : null,
-                    totem_base: isTotemAdvancement ? d.totem_base || null : null,
-                    crew_card_choice: d.crew_card_choice_id !== null ? { id: d.crew_card_choice_id } : null,
-                };
-            }),
-    } as Record<string, unknown>);
+    const targets = new Set<'leader' | 'totem' | 'crew_card'>();
+    router.post(
+        route('campaigns.aftermaths.advance-leader', props.aftermath.id),
+        {
+            bruiser_killed_non_peon: xpForm.value.bruiser_killed,
+            strategist_interacted: xpForm.value.strategist_interacted,
+            lost: xpForm.value.lost,
+            advancements: advancementsQueued.value
+                .filter((adv) => {
+                    const d = advDrafts.value[adv.position_in_xp_track];
+                    return d && d.catalog_id !== null;
+                })
+                .map((adv) => {
+                    const d = advDrafts.value[adv.position_in_xp_track]!;
+                    const isTotemAdvancement = d.source_table === 'totem';
+                    const isTrigger = d.source_table === 'attack_mod' || d.source_table === 'tactical_mod';
+                    const isAbility = d.source_table === 'ability';
+                    const isAction = d.source_table === 'action';
+                    const isSummoning = d.source_table === 'summoning';
+                    const isEquipmentTarget = isTrigger && d.target_type === 'equipment';
+                    const isCrewCard = d.source_table === 'crew_card';
+                    const targetsTotem = isTotemAdvancement || ((isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem');
+                    if (isCrewCard) targets.add('crew_card');
+                    else if (targetsTotem) targets.add('totem');
+                    else if (!isEquipmentTarget) targets.add('leader');
+                    return {
+                        source_table: d.source_table,
+                        catalog_id: d.catalog_id,
+                        crew_card_source: isCrewCard ? (selectedDraftRow(adv.position_in_xp_track)?.source ?? 'campaign_crew_card') : undefined,
+                        // crew_upgrade rows only (pg 32): catalog_id above is the
+                        // picked item's own id (action/ability/trigger) — these
+                        // pin down which item and which card it came from.
+                        crew_card_item_type: isCrewCard ? selectedDraftRow(adv.position_in_xp_track)?.item_type : undefined,
+                        crew_card_upgrade_id: isCrewCard ? selectedDraftRow(adv.position_in_xp_track)?.source_id : undefined,
+                        applied_to_action_index: isTrigger && !isEquipmentTarget ? d.applied_to_action_index : undefined,
+                        applied_to_action_id: isEquipmentTarget ? d.applied_to_action_id : undefined,
+                        applied_to_custom_character_id:
+                            (isTrigger || isAbility || isAction || isSummoning) && d.target_type === 'totem'
+                                ? (xp_track.value?.totem_id ?? undefined)
+                                : undefined,
+                        from_equipment_id: isEquipmentTarget ? (d.target_equipment_id ?? undefined) : undefined,
+                        joker_color: isTrigger ? deriveJokerColor(adv.position_in_xp_track) : undefined,
+                        position_in_xp_track: adv.position_in_xp_track,
+                        free_choice:
+                            d.free_choice_source_id || d.free_choice_source_character_id
+                                ? { source_id: d.free_choice_source_id, source_character_id: d.free_choice_source_character_id }
+                                : null,
+                        totem_name: isTotemAdvancement ? d.totem_name || null : null,
+                        totem_size: isTotemAdvancement ? d.totem_size || null : null,
+                        totem_base: isTotemAdvancement ? d.totem_base || null : null,
+                        crew_card_choice: d.crew_card_choice_id !== null ? { id: d.crew_card_choice_id } : null,
+                    };
+                }),
+        } as Record<string, unknown>,
+        { onSuccess: () => targets.forEach((t) => pollCardTargets.value.add(t)) },
+    );
 };
 
 // ───────── Phase 5 (Doctor) ─────────
@@ -908,7 +930,7 @@ const submitInjuries = () => {
         <div class="mb-6 flex items-start justify-between">
             <div>
                 <Link
-                    :href="route('campaigns.crews.arsenal.show', [aftermath.campaign_game.campaign.id, aftermath.crew.share_code])"
+                    :href="arsenalShowHref"
                     class="text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 >
                     ← {{ aftermath.crew.name }}
@@ -921,7 +943,7 @@ const submitInjuries = () => {
                     }}</Badge>
                 </p>
             </div>
-            <Link :href="route('campaigns.crews.arsenal.show', [aftermath.campaign_game.campaign.id, aftermath.crew.share_code])">
+            <Link :href="arsenalShowHref">
                 <Button variant="outline">Back to Arsenal</Button>
             </Link>
         </div>

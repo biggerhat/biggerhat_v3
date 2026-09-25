@@ -17,11 +17,12 @@ function createSchemeChain(): array
     $pool = Scheme::factory()->count(3)->create(['season' => $season]);
 
     foreach ($pool as $scheme) {
-        $followUps = Scheme::factory()->count(3)->create(['season' => $season]);
+        $followUps = Scheme::factory()->count(4)->create(['season' => $season]);
         $scheme->update([
             'next_scheme_one_id' => $followUps[0]->id,
             'next_scheme_two_id' => $followUps[1]->id,
             'next_scheme_three_id' => $followUps[2]->id,
+            'next_scheme_four_id' => $followUps[3]->id,
         ]);
     }
 
@@ -39,8 +40,8 @@ function createDuelGame(array $pool, User $user1, User $user2): array
     ]);
 
     // Each player picks a scheme — pool becomes that scheme's follow-ups
-    $p1Pool = array_values(array_filter([$pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id]));
-    $p2Pool = array_values(array_filter([$pool[1]->next_scheme_one_id, $pool[1]->next_scheme_two_id, $pool[1]->next_scheme_three_id]));
+    $p1Pool = array_values(array_filter([$pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id, $pool[0]->next_scheme_four_id]));
+    $p2Pool = array_values(array_filter([$pool[1]->next_scheme_one_id, $pool[1]->next_scheme_two_id, $pool[1]->next_scheme_three_id, $pool[1]->next_scheme_four_id]));
 
     $p1 = GamePlayer::factory()->create([
         'game_id' => $game->id, 'user_id' => $user1->id, 'slot' => 1,
@@ -65,7 +66,7 @@ function createSoloGame(array $pool, User $user): array
         'is_solo' => true,
     ]);
 
-    $p1Pool = array_values(array_filter([$pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id]));
+    $p1Pool = array_values(array_filter([$pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id, $pool[0]->next_scheme_four_id]));
 
     $p1 = GamePlayer::factory()->create([
         'game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1,
@@ -113,7 +114,7 @@ it('sets scheme_pool when selecting initial scheme', function () {
     expect($player->current_scheme_id)->toBe($pool[0]->id);
     // scheme_pool should be the chosen scheme's follow-up chain
     $expectedPool = array_values(array_filter([
-        $pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id,
+        $pool[0]->next_scheme_one_id, $pool[0]->next_scheme_two_id, $pool[0]->next_scheme_three_id, $pool[0]->next_scheme_four_id,
     ]));
     expect($player->scheme_pool)->toBe($expectedPool);
 });
@@ -180,6 +181,24 @@ it('records scheme_action as discarded with next_scheme_id', function () {
     expect($p1->current_scheme_id)->toBe($nextId);
 });
 
+it('allows advancing to the fourth downstream scheme', function () {
+    $pool = createSchemeChain();
+    $user1 = User::factory()->create();
+    $user2 = User::factory()->create();
+    ['game' => $game, 'p1' => $p1] = createDuelGame($pool, $user1, $user2);
+
+    $nextId = $pool[0]->next_scheme_four_id;
+
+    submitTurn($this, $user1, $game, [
+        'scheme_points' => 1,
+        'scheme_action' => 'scored',
+        'next_scheme_id' => $nextId,
+    ])->assertOk();
+
+    $p1->refresh();
+    expect($p1->current_scheme_id)->toBe($nextId);
+});
+
 it('updates scheme_pool when switching schemes', function () {
     $pool = createSchemeChain();
     $user1 = User::factory()->create();
@@ -197,7 +216,7 @@ it('updates scheme_pool when switching schemes', function () {
 
     $p1->refresh();
     $expectedPool = array_values(array_filter([
-        $nextScheme->next_scheme_one_id, $nextScheme->next_scheme_two_id, $nextScheme->next_scheme_three_id,
+        $nextScheme->next_scheme_one_id, $nextScheme->next_scheme_two_id, $nextScheme->next_scheme_three_id, $nextScheme->next_scheme_four_id,
     ]));
     // If next scheme has no follow-ups, pool keeps previous value
     if (! empty($expectedPool)) {
@@ -305,7 +324,7 @@ it('updates opponent scheme_pool after identifying scored scheme', function () {
     $p2->refresh();
     // Pool should now be pool[1]'s follow-up chain
     $expectedPool = array_values(array_filter([
-        $pool[1]->next_scheme_one_id, $pool[1]->next_scheme_two_id, $pool[1]->next_scheme_three_id,
+        $pool[1]->next_scheme_one_id, $pool[1]->next_scheme_two_id, $pool[1]->next_scheme_three_id, $pool[1]->next_scheme_four_id,
     ]));
     expect($p2->scheme_pool)->toBe($expectedPool);
 });

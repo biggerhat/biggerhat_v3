@@ -229,6 +229,39 @@ it('updates the same Card Creator card by crew rather than duplicating it when t
     expect($original->fresh()->name)->toBe('Renamed');
 });
 
+it('does not overwrite a Card-Creator-edited crew card on an unrelated re-save', function () {
+    $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'My Crew Card',
+        ])
+        ->assertRedirect();
+
+    $upgrade = \App\Models\CustomUpgrade::where('campaign_crew_id', $crew->id)->where('is_campaign_crew_card', true)->firstOrFail();
+    expect($upgrade->synced_crew_card_id)->toBe($effect->id);
+
+    // Simulate an edit made afterward in the Card Creator editor.
+    $upgrade->update(['content_blocks' => [['type' => 'text', 'text' => 'Player-added note']]]);
+
+    // Re-saving the wizard again with the SAME crew_card_effect_id (e.g. just
+    // adjusting hires) must not rebuild content_blocks from the catalog row.
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), [
+            'hires' => [],
+            'crew_card_effect_id' => $effect->id,
+            'crew_card_name' => 'My Crew Card',
+        ])
+        ->assertRedirect();
+
+    expect($upgrade->fresh()->content_blocks)->toBe([['type' => 'text', 'text' => 'Player-added note']]);
+});
+
 it('blocks deleting the saved crew card from the generic Card Creator editor', function () {
     $effect = CampaignCrewCard::factory()->create(['name' => 'Loot Their Stash', 'description' => 'Steal a thing.']);
     $user = arsenalUser();

@@ -107,3 +107,21 @@ it('shows next schemes on scheme view', function () {
             ->has('scheme.next_schemes', 1)
         );
 });
+
+it('shows all four downstream schemes on scheme view', function () {
+    $followUps = Scheme::factory()->count(4)->create();
+    $scheme = Scheme::factory()->create([
+        'next_scheme_one_id' => $followUps[0]->id,
+        'next_scheme_two_id' => $followUps[1]->id,
+        'next_scheme_three_id' => $followUps[2]->id,
+        'next_scheme_four_id' => $followUps[3]->id,
+    ]);
+
+    $response = $this->get(route('schemes.view', $scheme));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Seasons/SchemeView')
+            ->has('scheme.next_schemes', 4)
+        );
+});

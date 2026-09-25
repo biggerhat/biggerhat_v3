@@ -10,7 +10,7 @@ class SchemeController extends Controller
 {
     public function view(Scheme $scheme): Response
     {
-        $scheme->load('nextSchemeOne', 'nextSchemeTwo', 'nextSchemeThree');
+        $scheme->load('nextSchemeOne', 'nextSchemeTwo', 'nextSchemeThree', 'nextSchemeFour');
 
         return inertia('Seasons/SchemeView', [
             'scheme' => [
@@ -29,6 +29,7 @@ class SchemeController extends Controller
                     $scheme->nextSchemeOne,
                     $scheme->nextSchemeTwo,
                     $scheme->nextSchemeThree,
+                    $scheme->nextSchemeFour,
                 ])->filter()->map(fn (Scheme $s) => [
                     'id' => $s->id,
                     'name' => $s->name,

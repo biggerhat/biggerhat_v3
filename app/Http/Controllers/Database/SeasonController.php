@@ -55,7 +55,7 @@ class SeasonController extends Controller
                 'value' => $seasonEnum->value,
                 'label' => $seasonEnum->label(),
             ],
-            'seasons' => collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+            'seasons' => collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
                 'value' => $s->value,
                 'label' => $s->label(),
             ]),

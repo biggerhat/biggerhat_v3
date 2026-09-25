@@ -168,7 +168,13 @@ defineExpose({ rootRef });
                         <span class="w-9 text-center">
                             <span v-if="action.stat != null" class="inline-flex items-center justify-center gap-0.5">
                                 {{ action.stat
-                                }}<GameIcon v-for="s in splitSuits(action.stat_suits)" :key="s" :type="s" class-name="text-xs" :size-em="1.0" />
+                                }}<GameIcon v-if="action.stat_modifier" :type="action.stat_modifier" class-name="text-xs" :size-em="1.0" /><GameIcon
+                                    v-for="s in splitSuits(action.stat_suits)"
+                                    :key="s"
+                                    :type="s"
+                                    class-name="text-xs"
+                                    :size-em="1.0"
+                                />
                             </span>
                             <span v-else>-</span>
                         </span>
@@ -252,7 +258,13 @@ defineExpose({ rootRef });
                         <span class="w-9 text-center">
                             <span v-if="action.stat != null" class="inline-flex items-center justify-center gap-0.5">
                                 {{ action.stat
-                                }}<GameIcon v-for="s in splitSuits(action.stat_suits)" :key="s" :type="s" class-name="text-xs" :size-em="1.0" />
+                                }}<GameIcon v-if="action.stat_modifier" :type="action.stat_modifier" class-name="text-xs" :size-em="1.0" /><GameIcon
+                                    v-for="s in splitSuits(action.stat_suits)"
+                                    :key="s"
+                                    :type="s"
+                                    class-name="text-xs"
+                                    :size-em="1.0"
+                                />
                             </span>
                             <span v-else>-</span>
                         </span>

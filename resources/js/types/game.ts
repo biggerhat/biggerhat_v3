@@ -120,6 +120,7 @@ export interface SchemeData {
     next_scheme_one_id: number | null;
     next_scheme_two_id: number | null;
     next_scheme_three_id: number | null;
+    next_scheme_four_id: number | null;
 }
 
 export interface DeploymentData {

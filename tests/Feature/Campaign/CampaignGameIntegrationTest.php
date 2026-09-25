@@ -269,6 +269,82 @@ it('Games/Show payload campaign_context is null for non-campaign games', functio
 
 // ───── Arsenal-constraint enforcement at crew select ─────
 
+// ───── /games/{uuid}/summary campaign recap ─────
+
+it('games.summary exposes campaign_aftermath_recap to the owning crew\'s own player, with named injuries/advancements/equipment', function () {
+    [$userA, , $campaign, $crewA, , $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::Completed->value]);
+    $campaignGame = CampaignGame::where('base_game_id', $game->id)->firstOrFail();
+
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $campaignGame->id,
+        'campaign_crew_id' => $crewA->id,
+        'status' => 'locked',
+        'story_entry' => 'We won, barely.',
+    ]);
+
+    $character = Character::factory()->create(['name' => 'Rank and File', 'title' => null]);
+    $arsenalModel = CampaignArsenalModel::factory()->create([
+        'campaign_crew_id' => $crewA->id,
+        'character_id' => $character->id,
+    ]);
+    $injury = \App\Models\Upgrade::factory()->campaignInjury()->create(['name' => 'Concussed']);
+    \App\Models\Campaign\CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $arsenalModel->id,
+        'injury_upgrade_id' => $injury->id,
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
+    $equipmentUpgrade = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Recap Trinket']);
+    \App\Models\Campaign\CampaignEquipment::create([
+        'campaign_crew_id' => $crewA->id,
+        'equipment_upgrade_id' => $equipmentUpgrade->id,
+        'source' => 'barter',
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('games.summary', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Games/Show')
+            ->where('campaign_aftermath_recap.aftermath_id', $aftermath->id)
+            ->where('campaign_aftermath_recap.crew_name', $crewA->name)
+            ->where('campaign_aftermath_recap.story_entry', 'We won, barely.')
+            ->where('campaign_aftermath_recap.injuries.0.model_name', 'Rank and File')
+            ->where('campaign_aftermath_recap.injuries.0.injury_name', 'Concussed')
+            ->where('campaign_aftermath_recap.equipment_purchased.0.name', 'Recap Trinket')
+        );
+});
+
+it('games.summary campaign_aftermath_recap is null for the opponent (no aftermath logged for their crew)', function () {
+    [$userA, $userB, , $crewA, , $game] = campaignGameSetup();
+    $game->update(['status' => GameStatusEnum::Completed->value]);
+    $campaignGame = CampaignGame::where('base_game_id', $game->id)->firstOrFail();
+    CampaignAftermath::factory()->create([
+        'campaign_game_id' => $campaignGame->id,
+        'campaign_crew_id' => $crewA->id,
+        'status' => 'locked',
+        'story_entry' => 'Only crew A logged this.',
+    ]);
+
+    $this->actingAs($userB)
+        ->get(route('games.summary', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('campaign_aftermath_recap', null));
+});
+
+it('games.summary campaign_aftermath_recap is null for a non-campaign game', function () {
+    $user = cintUser();
+    $game = Game::factory()->create(['status' => GameStatusEnum::Completed->value, 'creator_id' => $user->id]);
+    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1]);
+
+    $this->actingAs($user)
+        ->get(route('games.summary', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('campaign_aftermath_recap', null));
+});
+
 it('submitCrew rejects characters not in the player crew arsenal', function () {
     [$userA, , , $crewA, , $game] = campaignGameSetup();
 

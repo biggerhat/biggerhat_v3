@@ -49,7 +49,7 @@ class ScenarioGeneratorController extends Controller
                 'value' => $seasonEnum->value,
                 'label' => $seasonEnum->label(),
             ],
-            'seasons' => fn () => collect(PoolSeasonEnum::cases())->map(fn (PoolSeasonEnum $s) => [
+            'seasons' => fn () => collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
                 'value' => $s->value,
                 'label' => $s->label(),
             ]),

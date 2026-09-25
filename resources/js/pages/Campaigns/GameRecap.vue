@@ -3,8 +3,10 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Textarea } from '@/components/ui/textarea';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { Pencil } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface CampaignData {
     id: number;
@@ -32,6 +34,7 @@ interface Tally {
     doctor_attempts: number;
     lucky_misses: number;
     ttw_pickups: number;
+    equipment_purchased: number;
 }
 interface InjuryEntry {
     model_name: string;
@@ -40,8 +43,12 @@ interface InjuryEntry {
 interface AdvancementEntry {
     name: string;
 }
+interface EquipmentEntry {
+    name: string;
+}
 
 const props = defineProps<{
+    aftermath_id: number;
     campaign: CampaignData;
     crew: CrewData;
     week_number: number;
@@ -50,17 +57,30 @@ const props = defineProps<{
     result: Result;
     injuries: InjuryEntry[];
     advancements: AdvancementEntry[];
+    equipment_purchased: EquipmentEntry[];
     tally: Tally;
 }>();
 
 const tallyParts = computed(() => {
     const parts: string[] = [];
-    // Injuries get their own detailed list below instead of a raw count here.
+    // Injuries and Equipment purchased get their own detailed lists below
+    // instead of a raw count here.
     if (props.tally.doctor_attempts > 0) parts.push(`Doctor: ${props.tally.doctor_attempts}`);
     if (props.tally.lucky_misses > 0) parts.push(`Lucky Miss: ${props.tally.lucky_misses}`);
     if (props.tally.ttw_pickups > 0) parts.push(`TTW pickup: ${props.tally.ttw_pickups}`);
     return parts;
 });
+
+const editingStory = ref(false);
+const storyDraft = ref(props.story_entry ?? '');
+
+const submitEditStory = () => {
+    router.post(
+        route('campaigns.aftermaths.story.update', props.aftermath_id),
+        { story_entry: storyDraft.value.trim() || null },
+        { preserveScroll: true, onSuccess: () => (editingStory.value = false) },
+    );
+};
 
 const resultLabel = computed(() => {
     if (props.result.withdrew) return 'Withdrew';
@@ -126,12 +146,24 @@ const resultVariant = computed(() => {
         </Card>
 
         <Card class="mb-4">
-            <CardHeader>
+            <CardHeader class="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>Story</CardTitle>
+                <button v-if="!editingStory" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" @click="editingStory = true">
+                    <Pencil class="h-3 w-3" /> Edit
+                </button>
             </CardHeader>
             <CardContent>
-                <p v-if="story_entry" class="whitespace-pre-wrap text-sm">{{ story_entry }}</p>
-                <p v-else class="text-sm italic text-muted-foreground">No story written for this game.</p>
+                <div v-if="editingStory" class="space-y-2">
+                    <Textarea v-model="storyDraft" rows="4" placeholder="What happened this game?" />
+                    <div class="flex gap-2">
+                        <Button size="sm" @click="submitEditStory">Save</Button>
+                        <Button size="sm" variant="outline" @click="editingStory = false">Cancel</Button>
+                    </div>
+                </div>
+                <template v-else>
+                    <p v-if="story_entry" class="whitespace-pre-wrap text-sm">{{ story_entry }}</p>
+                    <p v-else class="text-sm italic text-muted-foreground">No story written for this game.</p>
+                </template>
                 <p v-if="tallyParts.length" class="mt-2 text-xs text-muted-foreground">{{ tallyParts.join(' · ') }}</p>
             </CardContent>
         </Card>
@@ -150,13 +182,24 @@ const resultVariant = computed(() => {
             </CardContent>
         </Card>
 
-        <Card v-if="advancements.length">
+        <Card v-if="advancements.length" class="mb-4">
             <CardHeader>
                 <CardTitle>Advancements Taken ({{ advancements.length }})</CardTitle>
             </CardHeader>
             <CardContent>
                 <ul class="space-y-1 text-sm">
                     <li v-for="(adv, i) in advancements" :key="i">{{ adv.name }}</li>
+                </ul>
+            </CardContent>
+        </Card>
+
+        <Card v-if="equipment_purchased.length">
+            <CardHeader>
+                <CardTitle>Equipment Purchased ({{ equipment_purchased.length }})</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ul class="space-y-1 text-sm">
+                    <li v-for="(eq, i) in equipment_purchased" :key="i">{{ eq.name }}</li>
                 </ul>
             </CardContent>
         </Card>

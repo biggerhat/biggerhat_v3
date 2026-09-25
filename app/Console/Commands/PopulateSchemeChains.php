@@ -18,18 +18,19 @@ class PopulateSchemeChains extends Command
 
         foreach ($seasons as $season) {
             $schemes = Scheme::where('season', $season)->get();
-            if ($schemes->count() < 4) {
-                $this->warn("Season {$season->value} has fewer than 4 schemes, skipping.");
+            if ($schemes->count() < 5) {
+                $this->warn("Season {$season->value} has fewer than 5 schemes, skipping.");
 
                 continue;
             }
 
             foreach ($schemes as $scheme) {
-                $others = $schemes->where('id', '!=', $scheme->id)->shuffle()->take(3)->values();
+                $others = $schemes->where('id', '!=', $scheme->id)->shuffle()->take(4)->values();
                 $scheme->update([
                     'next_scheme_one_id' => $others[0]->id,
                     'next_scheme_two_id' => $others[1]->id,
                     'next_scheme_three_id' => $others[2]->id,
+                    'next_scheme_four_id' => $others[3]->id,
                 ]);
                 $updated++;
             }

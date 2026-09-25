@@ -355,41 +355,26 @@ const handleVisualPick = (miniatureId: number) => {
                             </span>
                         </div>
 
-                        <div v-if="(member.attached_upgrades ?? []).length" class="space-y-2">
+                        <!-- QA: don't show a notes field for each upgrade — list them
+                             compactly like the token badges above instead, clickable
+                             to view the real card (image, or ActionCard/AbilityCard
+                             rules text) via the same GameAttachedUpgradeDrawer preview
+                             the main crew list uses. -->
+                        <div v-if="(member.attached_upgrades ?? []).length" class="space-y-1">
                             <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attached Upgrades</div>
-                            <!-- No separate scrollbox here — this flows within the single
-                             scroll region above (see the sticky-card comment near the
-                             top). A nested scrollbox would create a confusing
-                             double-scrollbar and wouldn't stop the card from being
-                             pushed out of view, since it doesn't affect the outer
-                             container's height. -->
-                            <div class="space-y-1.5">
-                                <!-- Name only — click to view the real card (image, or
-                                     ActionCard/AbilityCard rules text) via the same
-                                     GameAttachedUpgradeDrawer preview the main crew list
-                                     uses, instead of expanding full rules text inline for
-                                     every item (QA: hard to scan a long list this way). -->
-                                <div v-for="upgrade in member.attached_upgrades ?? []" :key="upgrade.id" class="rounded-md border p-2">
-                                    <div
-                                        class="flex items-center gap-1.5 text-xs font-medium"
-                                        :class="hasUpgradeCard(upgrade) ? 'cursor-pointer hover:text-primary' : ''"
-                                        :role="hasUpgradeCard(upgrade) ? 'button' : undefined"
-                                        :tabindex="hasUpgradeCard(upgrade) ? 0 : undefined"
-                                        @click="hasUpgradeCard(upgrade) && emit('view-upgrade', upgrade)"
-                                        @keydown.enter="hasUpgradeCard(upgrade) && emit('view-upgrade', upgrade)"
-                                    >
-                                        {{ upgrade.name }}
-                                    </div>
-                                    <Textarea
-                                        v-model="upgradeNotes[upgrade.id]"
-                                        :placeholder="canEditNotes ? 'Notes for this upgrade…' : 'No notes'"
-                                        :readonly="!canEditNotes"
-                                        :disabled="!canEditNotes && !upgradeNotes[upgrade.id]"
-                                        rows="1"
-                                        class="mt-1.5 text-xs"
-                                        @input="queueSave"
-                                    />
-                                </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span
+                                    v-for="upgrade in member.attached_upgrades ?? []"
+                                    :key="upgrade.id"
+                                    class="rounded border border-primary/50 bg-primary/10 px-1.5 py-0.5 text-xs font-medium"
+                                    :class="hasUpgradeCard(upgrade) ? 'cursor-pointer hover:bg-primary/20' : ''"
+                                    :role="hasUpgradeCard(upgrade) ? 'button' : undefined"
+                                    :tabindex="hasUpgradeCard(upgrade) ? 0 : undefined"
+                                    @click="hasUpgradeCard(upgrade) && emit('view-upgrade', upgrade)"
+                                    @keydown.enter="hasUpgradeCard(upgrade) && emit('view-upgrade', upgrade)"
+                                >
+                                    {{ upgrade.name }}
+                                </span>
                             </div>
                         </div>
                     </div>

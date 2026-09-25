@@ -12,6 +12,7 @@ use App\Enums\UpgradeTypeEnum;
 use App\Http\Requests\CustomUpgradeRequest;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomUpgrade;
+use App\Support\Campaign\CombinedCrewCardEffects;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +32,7 @@ class CustomUpgradeController extends Controller
             'domain' => $domain,
             'enums' => $this->enumOptions(),
             'campaign_back_url' => null,
+            'crew_computed_tokens_markers' => null,
         ]);
     }
 
@@ -52,10 +54,15 @@ class CustomUpgradeController extends Controller
         $this->authorize('update', $customUpgrade);
 
         $campaignBackUrl = null;
+        $crewComputedTokensMarkers = null;
         if ($customUpgrade->is_campaign_crew_card && $customUpgrade->campaign_crew_id) {
             $crew = CampaignCrew::find($customUpgrade->campaign_crew_id);
             if ($crew) {
                 $campaignBackUrl = route('campaigns.crews.arsenal.show', [$crew->campaign_id, $crew->share_code]);
+                // The real generated card's back face reads this, not this
+                // upgrade's own back_tokens/back_markers columns — shown
+                // read-only in the editor so it doesn't look like a dead end.
+                $crewComputedTokensMarkers = CombinedCrewCardEffects::arsenalTokensAndMarkers($crew);
             }
         }
 
@@ -64,6 +71,7 @@ class CustomUpgradeController extends Controller
             'domain' => $customUpgrade->domain instanceof \App\Enums\UpgradeDomainTypeEnum ? $customUpgrade->domain->value : $customUpgrade->domain,
             'enums' => $this->enumOptions(),
             'campaign_back_url' => $campaignBackUrl,
+            'crew_computed_tokens_markers' => $crewComputedTokensMarkers,
         ]);
     }
 

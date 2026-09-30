@@ -503,11 +503,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
         });
     });
 
-    // M4E Campaign Mode admin catalogs. Wrapped in `campaign.access` so users
-    // without the feature flag / permission see 404 on these admin URLs
-    // (hides feature existence while pre-release). Standard CRUD layout — a
-    // local closure builds the 6 routes per resource since they're uniform.
-    Route::prefix('campaign')->name('campaign.')->middleware('campaign.access')->group(function () {
+    // M4E Campaign Mode admin catalogs. Standard CRUD layout — a local closure builds the 6 routes per resource since they're uniform.
+    Route::prefix('campaign')->name('campaign.')->group(function () {
         $crud = function (string $controller, string $prefix, string $name, string $binding) {
             Route::controller($controller)->prefix($prefix)->name("$name.")->group(function () use ($binding) {
                 Route::get('/', 'index')->name('index')->middleware('permission:view_campaign_catalog');

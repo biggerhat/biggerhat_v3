@@ -112,8 +112,7 @@ const adminGroups: AdminNavGroup[] = [
         ],
     },
     {
-        // M4E Campaign Mode (Index of the Untold) advancement charts. Gated
-        // below on `campaign_features_enabled` alongside Campaign — Catalog.
+        // M4E Campaign Mode (Index of the Untold) advancement charts.
         // Split out of that group since these 5 were faking a second nesting
         // level via an "Advancement — " label prefix — a real group makes the
         // prefix redundant, so it's dropped here.
@@ -258,11 +257,8 @@ const dashboardNav = computed<NavItem[]>(() => [
     },
 ]);
 
-const campaignFeaturesEnabled = computed(() => !!page.props.campaign_features_enabled);
-
 const filteredAdminNav = computed(() => {
     return adminGroups
-        .filter((group) => !group.title.startsWith('Campaign — ') || campaignFeaturesEnabled.value)
         .map((group) => ({
             title: group.title,
             collapsible: true,

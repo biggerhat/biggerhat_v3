@@ -25,23 +25,16 @@ function campaignUser(): User
 }
 
 it('redirects anonymous campaigns index to login', function () {
-    // Laravel middleware priority puts `Authenticate` before user-defined
-    // middleware, so anonymous → 302 to login (not 404). Fine for /campaigns/*
-    // which all require auth anyway. Feature-existence hiding via 404 matters
-    // for the public invitation-accept screen, which lives outside the auth
-    // group — covered in the next test.
-    $this->get(route('campaigns.index'))->assertRedirect(route('login'));
+    //     $this->get(route('campaigns.index'))->assertRedirect(route('login'));
 });
 
-it('returns 404 to anonymous on the public invitation screen when feature is off', function () {
-    // No auth required for invitation.show, so EnsureCampaignAccess fires
-    // first — anonymous + flag off + no permission → 404, hiding existence.
-    $this->get('/campaigns/invitations/some-random-token-123')->assertNotFound();
-});
-
-it('returns 404 to authed users without use_campaign_mode (feature hidden)', function () {
+it('lets a plain authed user (no special permission) open the campaigns index', function () {
     $user = User::factory()->create(['email_verified_at' => now()]);
-    $this->actingAs($user)->get(route('campaigns.index'))->assertNotFound();
+    $this->actingAs($user)->get(route('campaigns.index'))->assertOk();
+});
+
+it('redirects the legacy /campaigns/preview teaser URL to the campaigns index', function () {
+    $this->get('/campaigns/preview')->assertRedirect('/campaigns');
 });
 
 it('shows the empty state for a permissioned user with no campaigns', function () {

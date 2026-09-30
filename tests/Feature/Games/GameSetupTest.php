@@ -224,17 +224,3 @@ it('never surfaces Campaign in the standalone game-create format list, even with
             ->where('formats', fn ($formats) => collect($formats)->pluck('value')->doesntContain('campaign'))
         );
 });
-
-it('rejects a direct POST with format=campaign from users without campaign access', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->post(route('games.store'), [
-            'encounter_size' => 50,
-            'season' => 'core',
-            'format' => 'campaign',
-        ])
-        ->assertSessionHasErrors('format');
-
-    expect(Game::query()->where('creator_id', $user->id)->count())->toBe(0);
-});

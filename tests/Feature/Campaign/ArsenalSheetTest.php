@@ -13,7 +13,6 @@ use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Character;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
-use Laravel\Pennant\Feature;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -160,7 +159,6 @@ it('print renders the flat black-and-white reference for a crew member', functio
 });
 
 it('print is public like the share link, for viewers without the app', function () {
-    Feature::for(null)->activate('m4e-campaign-mode');
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);
 
@@ -170,8 +168,7 @@ it('print is public like the share link, for viewers without the app', function 
         ->assertInertia(fn ($page) => $page->component('Campaigns/ArsenalPrint'));
 });
 
-it('serves the public share link without auth when the feature flag is on', function () {
-    Feature::for(null)->activate('m4e-campaign-mode');
+it('serves the public share link without auth', function () {
     $owner = sheetUser();
     [, $crew] = crewFor2($owner);
 
@@ -183,16 +180,6 @@ it('serves the public share link without auth when the feature flag is on', func
             ->where('view_mode.is_owner', false)
             ->where('view_mode.is_member', false)
         );
-});
-
-it('hides the public share link with a 404 when the campaign feature is off', function () {
-    $owner = sheetUser();
-    [, $crew] = crewFor2($owner);
-
-    // Anonymous + feature flag off + no permission → 404 (campaign.access gate
-    // runs before everything since the public share route has no auth).
-    $this->get(route('campaigns.crews.arsenal.share', $crew->share_code))
-        ->assertNotFound();
 });
 
 it('returns 404 for an unknown share code', function () {

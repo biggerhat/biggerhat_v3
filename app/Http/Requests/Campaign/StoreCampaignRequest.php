@@ -2,14 +2,13 @@
 
 namespace App\Http\Requests\Campaign;
 
-use App\Support\CampaignAccess;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCampaignRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return CampaignAccess::canUse($this->user());
+        return true;
     }
 
     public function rules(): array

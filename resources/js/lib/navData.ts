@@ -41,7 +41,6 @@ import {
 export interface MainNavContext {
     isAuthenticated: boolean;
     canAccessAdmin: boolean;
-    campaignFeaturesEnabled: boolean;
     hasChannels: boolean;
     factionItems: NavItem[];
 }
@@ -106,12 +105,7 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     icon: Trophy,
                     badge: 'Beta',
                 },
-                // Authed users with campaign access see the full Campaigns link
-                // (Beta badge now that the feature is approaching open beta).
-                // Authed users WITHOUT access see a teaser entry routing to the
-                // public coming-soon page — keeps discovery alive while gating
-                // the actual feature.
-                ...(ctx.isAuthenticated && ctx.campaignFeaturesEnabled
+                ...(ctx.isAuthenticated
                     ? [
                           {
                               title: 'Campaigns',
@@ -120,16 +114,7 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                               badge: 'Beta',
                           },
                       ]
-                    : ctx.isAuthenticated
-                      ? [
-                            {
-                                title: 'Campaigns',
-                                href: route('campaigns.preview'),
-                                icon: Trophy,
-                                badge: 'Soon',
-                            },
-                        ]
-                      : []),
+                    : []),
             ],
         },
         ...buildMyHatNav({ isAuthenticated: ctx.isAuthenticated, hasChannels: ctx.hasChannels }),

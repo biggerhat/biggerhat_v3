@@ -29,7 +29,6 @@ const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
 const isTos = computed(() => page.props.currentGameSystem?.slug === 'tos');
-const campaignFeaturesEnabled = computed(() => !!page.props.campaign_features_enabled);
 
 // Allegiance entries from the shared `tos_allegiance_info` map — same source
 // of truth as the AllegianceLogo component, so admin-uploaded logos and
@@ -82,7 +81,6 @@ const mainNavItems = computed(() =>
     buildMainNav({
         isAuthenticated: isAuthenticated.value,
         canAccessAdmin: canAccessAdmin.value,
-        campaignFeaturesEnabled: campaignFeaturesEnabled.value,
         hasChannels: channelIds.value.length > 0,
         factionItems: malifauxFactionItems.value,
     }),

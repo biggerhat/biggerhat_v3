@@ -36,11 +36,6 @@ class FeatureFlagsServiceProvider extends ServiceProvider
             'description' => 'Side-by-side character stat comparison page.',
             'default' => false,
         ],
-        'm4e-campaign-mode' => [
-            'label' => 'M4E Campaign Mode',
-            'description' => 'Index of the Untold campaign system — Arsenal Sheets, Leader Builder, Aftermath flow. Pre-release. While off, users with the use_campaign_mode permission (and super_admin) can still access the UI for playtesting.',
-            'default' => false,
-        ],
     ];
 
     public function boot(): void
@@ -76,6 +71,27 @@ class FeatureFlagsServiceProvider extends ServiceProvider
     public static function hasGlobalOverride(string $name): bool
     {
         return self::readStoredOverride($name) !== null;
+    }
+
+    /**
+     * The global on/off value for a registered flag, read straight from the
+     * database override (falling back to the registry default).
+     *
+     * Deliberately bypasses `Feature::active()` — Pennant resolves and then
+     * *persists* a value per scope (e.g. per authenticated user) the first
+     * time it's checked, and an admin's `Feature::for(null)->activate()`
+     * only ever writes the null-scope row. Any user already resolved (every
+     * logged-in user, since HandleInertiaRequests checks this on every
+     * request) stays cached on their stale per-user value forever, so a
+     * global toggle silently fails to reach anyone who'd already loaded a
+     * page. Reading the override directly keeps this flag's value truly
+     * global and always live.
+     */
+    public static function isActive(string $name): bool
+    {
+        $default = self::FLAGS[$name]['default'] ?? false;
+
+        return self::resolveGlobal($name, $default);
     }
 
     /**

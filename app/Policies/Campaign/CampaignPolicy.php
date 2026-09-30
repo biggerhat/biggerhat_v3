@@ -7,9 +7,8 @@ use App\Models\Campaign\Campaign;
 use App\Models\User;
 
 /**
- * Authorization for Campaign actions. The feature-flag gate runs ahead of
- * these checks (`campaign.access` middleware); this layer enforces
- * organizer-vs-player permissions within an accessible campaign.
+ * Authorization for Campaign actions — enforces organizer-vs-player
+ * permissions within a campaign.
  */
 class CampaignPolicy
 {

@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Enums\FactionEnum;
 use App\Enums\TOS\AllegianceEnum;
 use App\Models\Announcement;
-use App\Support\CampaignAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
@@ -66,7 +65,6 @@ class HandleInertiaRequests extends Middleware
             'faction_info' => FactionEnum::buildDetails(),
             'tos_allegiance_info' => AllegianceEnum::buildDetails(),
             'currentGameSystem' => $this->resolveGameSystem($request),
-            'campaign_features_enabled' => CampaignAccess::canUse($request->user()),
             'announcements' => fn () => $this->activeAnnouncements($request),
             'unread_notifications_count' => fn () => $this->unreadNotificationsCount($request),
             'auth' => [

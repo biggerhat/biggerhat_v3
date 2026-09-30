@@ -342,8 +342,7 @@ class ArsenalSheetController extends Controller
     }
 
     /**
-     * Public share — anyone with the share_code can view. Still gated by
-     * `campaign.access` upstream so the page stays hidden while pre-release.
+     * Public share — anyone with the share_code can view.
      */
     public function share(Request $request, string $shareCode)
     {

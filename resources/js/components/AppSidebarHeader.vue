@@ -45,7 +45,6 @@ const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
 const isTos = computed(() => page.props.currentGameSystem?.slug === 'tos');
 const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
-const campaignFeaturesEnabled = computed(() => !!page.props.campaign_features_enabled);
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
 const open = ref(false);
@@ -105,7 +104,6 @@ const malifauxNavigateItems = computed(() => {
             buildMainNav({
                 isAuthenticated: isLoggedIn.value,
                 canAccessAdmin: canAccessAdmin.value,
-                campaignFeaturesEnabled: campaignFeaturesEnabled.value,
                 hasChannels: channelIds.value.length > 0,
                 factionItems: [],
             }),

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,9 @@ class SessionsAdminController extends Controller
 
     public function destroy(Request $request, string $id): RedirectResponse
     {
+        $userId = DB::table('sessions')->where('id', $id)->value('user_id');
         DB::table('sessions')->where('id', $id)->delete();
+        AdminAudit::log('Revoked a session', null, ['user_id' => $userId]);
 
         return back()->withMessage('Session revoked.');
     }
@@ -51,6 +54,7 @@ class SessionsAdminController extends Controller
     public function destroyAllForUser(Request $request, int $userId): RedirectResponse
     {
         $deleted = DB::table('sessions')->where('user_id', $userId)->delete();
+        AdminAudit::log('Revoked all sessions for a user', null, ['user_id' => $userId, 'count' => $deleted]);
 
         return back()->withMessage("{$deleted} session(s) revoked.");
     }

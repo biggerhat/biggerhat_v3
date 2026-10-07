@@ -159,7 +159,22 @@ class DashboardAdminController extends Controller
      */
     private function analytics(): array
     {
-        return Cache::remember(self::ANALYTICS_CACHE_KEY, now()->addMinutes(self::ANALYTICS_CACHE_MINUTES), fn () => $this->fetchAnalyticsFresh());
+        $cached = Cache::get(self::ANALYTICS_CACHE_KEY);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $fresh = $this->fetchAnalyticsFresh();
+
+        // A failed fetch is only held briefly so a transient GA4 error doesn't
+        // blank the analytics panel for the full TTL.
+        Cache::put(
+            self::ANALYTICS_CACHE_KEY,
+            $fresh,
+            $fresh['error'] !== null ? now()->addMinute() : now()->addMinutes(self::ANALYTICS_CACHE_MINUTES),
+        );
+
+        return $fresh;
     }
 
     /**

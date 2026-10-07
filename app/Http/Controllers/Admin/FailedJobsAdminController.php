@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -43,6 +44,7 @@ class FailedJobsAdminController extends Controller
 
         try {
             Artisan::call('queue:retry', ['id' => [$uuid]]);
+            AdminAudit::log('Retried a failed job', null, ['uuid' => $uuid]);
 
             return back()->withMessage('Job queued for retry.');
         } catch (Throwable $e) {
@@ -54,6 +56,7 @@ class FailedJobsAdminController extends Controller
     {
         try {
             Artisan::call('queue:retry', ['id' => ['all']]);
+            AdminAudit::log('Retried all failed jobs');
 
             return back()->withMessage('All failed jobs queued for retry.');
         } catch (Throwable $e) {
@@ -64,13 +67,16 @@ class FailedJobsAdminController extends Controller
     public function destroy(Request $request, string $uuid): RedirectResponse
     {
         DB::table('failed_jobs')->where('uuid', $uuid)->delete();
+        AdminAudit::log('Deleted a failed job', null, ['uuid' => $uuid]);
 
         return back()->withMessage('Failed job deleted.');
     }
 
     public function flush(Request $request): RedirectResponse
     {
+        $count = DB::table('failed_jobs')->count();
         DB::table('failed_jobs')->delete();
+        AdminAudit::log('Flushed all failed jobs', null, ['count' => $count]);
 
         return back()->withMessage('All failed jobs cleared.');
     }

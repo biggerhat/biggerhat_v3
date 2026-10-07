@@ -288,6 +288,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
         Route::get('/', 'index')->name('index')->middleware('permission:view_user');
         Route::get('/edit/{user}', 'edit')->name('edit')->middleware('permission:view_user');
         Route::post('/update/{user}', 'update')->name('update')->middleware('permission:edit_user');
+        Route::post('/{user}/rename', 'rename')->name('rename')->middleware('role:super_admin');
         Route::post('/{user}/password-reset-link', 'generatePasswordResetLink')->name('password_reset_link')->middleware('permission:edit_user');
         Route::post('/delete/{user}', 'delete')->name('delete')->middleware('permission:delete_user');
     });

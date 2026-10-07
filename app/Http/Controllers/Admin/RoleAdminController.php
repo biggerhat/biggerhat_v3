@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\MessageTypeEnum;
 use App\Enums\PermissionEnum;
 use App\Enums\PermissionGroupEnum;
+use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\RoleRequest;
+use App\Support\AdminAudit;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -48,46 +51,53 @@ class RoleAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(RoleRequest $request)
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('roles')],
-            'permissions' => ['required', 'array'],
-        ]);
-
-        $permissions = Permission::whereIn('name', $request->permissions)->get();
+        $validated = $request->validated();
 
         $role = Role::create([
-            'name' => $request->name,
+            'name' => $validated['name'],
             'guard_name' => 'web',
         ]);
 
-        $role->syncPermissions($permissions);
+        $role->syncPermissions(Permission::whereIn('name', $validated['permissions'])->get());
+
+        AdminAudit::log('Created role '.$role->name, $role, ['permissions' => $validated['permissions']]);
 
         return to_route('admin.roles.index')->withMessage($role->name.' created successfully!');
     }
 
-    public function update(Request $request, Role $role)
+    public function update(RoleRequest $request, Role $role)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('roles')->ignore($role->id)],
-            'permissions' => ['required', 'array'],
+        $validated = $request->validated();
+        $before = $role->permissions->pluck('name')->sort()->values()->all();
+
+        $role->update(['name' => $validated['name']]);
+        $role->syncPermissions(Permission::whereIn('name', $validated['permissions'])->get());
+
+        $after = collect($validated['permissions'])->sort()->values()->all();
+        AdminAudit::log('Updated role '.$role->name, $role, [
+            'added' => array_values(array_diff($after, $before)),
+            'removed' => array_values(array_diff($before, $after)),
         ]);
-
-        $permissions = Permission::whereIn('name', $validated['permissions'])->get();
-        unset($validated['permissions']);
-
-        $role->update($validated);
-        $role->syncPermissions($permissions);
 
         return to_route('admin.roles.index')->withMessage($role->name.' updated successfully!');
     }
 
     public function delete(Request $request, Role $role)
     {
-        $name = $role->name;
+        if (RoleEnum::tryFrom($role->name)) {
+            return back()->withMessage('Built-in roles cannot be deleted.', null, MessageTypeEnum::error);
+        }
 
+        if ($role->users()->exists()) {
+            return back()->withMessage($role->name.' still has users assigned — remove them first.', null, MessageTypeEnum::error);
+        }
+
+        $name = $role->name;
         $role->delete();
+
+        AdminAudit::log('Deleted role '.$name);
 
         return to_route('admin.roles.index')->withMessage($name.' has been deleted.');
     }

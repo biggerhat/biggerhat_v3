@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Response;
@@ -17,8 +18,7 @@ use Inertia\ResponseFactory;
  * Super-admin escape hatch for the tournament state machine. Bypasses the
  * normal canTransitionRoundTo / canEditScenario gates to fix tournaments
  * stuck in bad states (TO clicked Start prematurely, round confirmed by
- * mistake, etc.). Every action here is logged via the model's
- * LogsAdminActivity trait so the audit trail tells us who reverted what.
+ * mistake, etc.). Every action here is logged via AdminAudit.
  */
 class TournamentOverrideAdminController extends Controller
 {
@@ -85,6 +85,7 @@ class TournamentOverrideAdminController extends Controller
     {
         $data = $request->validate([
             'status' => ['required', 'string'],
+            'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
         $next = TournamentStatusEnum::tryFrom($data['status']);
@@ -92,7 +93,13 @@ class TournamentOverrideAdminController extends Controller
             return back()->withMessage('Unknown status.');
         }
 
+        $previous = $tournament->status;
         $tournament->update(['status' => $next]);
+        AdminAudit::log('Forced tournament status', $tournament, [
+            'from' => $previous->value,
+            'to' => $next->value,
+            'reason' => $data['reason'] ?? null,
+        ]);
 
         return back()->withMessage("Tournament forced to {$next->label()}.");
     }
@@ -101,6 +108,7 @@ class TournamentOverrideAdminController extends Controller
     {
         $data = $request->validate([
             'status' => ['required', 'string'],
+            'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
         $next = TournamentRoundStatusEnum::tryFrom($data['status']);
@@ -117,7 +125,14 @@ class TournamentOverrideAdminController extends Controller
         if ($next === TournamentRoundStatusEnum::Completed && ! $round->completed_at) {
             $update['completed_at'] = now();
         }
+        $previous = $round->status;
         $round->update($update);
+        AdminAudit::log('Forced round status', $round, [
+            'tournament_id' => $tournament->id,
+            'from' => $previous->value,
+            'to' => $next->value,
+            'reason' => $data['reason'] ?? null,
+        ]);
 
         return back()->withMessage("Round {$round->round_number} forced to {$next->value}.");
     }
@@ -126,6 +141,7 @@ class TournamentOverrideAdminController extends Controller
     {
         // Soft-delete via the SoftDeletes trait. Hard-delete intentionally not
         // exposed — bring it back manually if recovery is needed.
+        AdminAudit::log('Soft-deleted tournament '.$tournament->name, $tournament);
         $tournament->delete();
 
         return redirect()->route('admin.tournaments.index')->withMessage('Tournament deleted (soft).');

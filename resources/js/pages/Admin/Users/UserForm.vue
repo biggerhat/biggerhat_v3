@@ -59,8 +59,18 @@ const submit = () => {
     form.post(route('admin.users.update', { user: props.user.slug }));
 };
 
-// ─── Password Reset Link ───
 const page = usePage<SharedData>();
+
+// ─── Rename (super admin only) ───
+const isSuperAdmin = computed(() => !!page.props.auth.is_super_admin);
+const renameForm = useForm({ name: props.user.name as string });
+const renameUnchanged = computed(() => renameForm.name.trim() === props.user.name);
+
+const submitRename = () => {
+    renameForm.post(route('admin.users.rename', { user: props.user.slug }));
+};
+
+// ─── Password Reset Link ───
 const resetLink = computed(() => (page.props.flash as any)?.reset_link ?? null);
 const generatingResetLink = ref(false);
 const resetLinkCopied = ref(false);
@@ -139,6 +149,30 @@ const copyResetLink = async () => {
                             Update User
                         </Button>
                     </div>
+                </form>
+            </CardContent>
+        </Card>
+
+        <!-- Rename (super admin only) -->
+        <Card v-if="isSuperAdmin">
+            <CardHeader>
+                <CardTitle>Change Username</CardTitle>
+                <CardDescription>
+                    Usernames are locked for users after signup. Changing it also changes this user's profile URL, so old links to their profile will
+                    stop working.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form class="flex flex-col gap-2" @submit.prevent="submitRename">
+                    <Label for="rename-name">Username</Label>
+                    <div class="flex gap-2">
+                        <Input id="rename-name" v-model="renameForm.name" class="max-w-sm" maxlength="255" />
+                        <Button type="submit" :disabled="renameForm.processing || renameUnchanged">
+                            <LoaderCircle v-if="renameForm.processing" class="h-4 w-4 animate-spin" />
+                            Rename
+                        </Button>
+                    </div>
+                    <InputError :message="renameForm.errors.name" />
                 </form>
             </CardContent>
         </Card>

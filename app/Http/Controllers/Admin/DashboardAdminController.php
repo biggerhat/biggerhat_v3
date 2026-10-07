@@ -21,6 +21,9 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use Spatie\Analytics\Facades\Analytics;
@@ -32,6 +35,8 @@ class DashboardAdminController extends Controller
     private const ANALYTICS_CACHE_KEY = 'admin:dashboard:analytics:v1';
 
     private const ANALYTICS_CACHE_MINUTES = 30;
+
+    private const COUNT_CACHE_MINUTES = 5;
 
     public function index(Request $request): Response|ResponseFactory|RedirectResponse
     {
@@ -122,7 +127,14 @@ class DashboardAdminController extends Controller
                 $visibleItems[] = [
                     'label' => $item['label'],
                     'href' => $item['href'],
-                    'count' => is_callable($item['count']) ? ($item['count'])() : null,
+                    // Counts are cosmetic — a short cache avoids ~15 COUNT(*) queries per visit.
+                    'count' => is_callable($item['count'])
+                        ? Cache::remember(
+                            'admin:dashboard:count:'.Str::slug($group['title'].' '.$item['label']),
+                            now()->addMinutes(self::COUNT_CACHE_MINUTES),
+                            $item['count'],
+                        )
+                        : null,
                 ];
             }
             if (count($visibleItems) > 0) {
@@ -138,13 +150,17 @@ class DashboardAdminController extends Controller
     }
 
     /**
-     * @return array{pending_feedback: int|null}
+     * @return array{pending_feedback: int|null, failed_jobs: int|null}
      */
     private function stats($user): array
     {
         return [
             'pending_feedback' => $user->can('view_feedback')
                 ? Feedback::where('status', FeedbackStatusEnum::New->value)->count()
+                : null,
+            // Ops signal for super admins only (failed-jobs tool is super_admin gated).
+            'failed_jobs' => $user->hasRole('super_admin') && Schema::hasTable('failed_jobs')
+                ? DB::table('failed_jobs')->count()
                 : null,
         ];
     }

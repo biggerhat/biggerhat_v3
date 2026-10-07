@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import AdminActions from '@/components/AdminActions.vue';
+import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { valueUpdater } from '@/lib/utils';
-import { Head, router } from '@inertiajs/vue3';
-import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { h, ref } from 'vue';
-
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { Head, router } from '@inertiajs/vue3';
+import { onBeforeUnmount, ref } from 'vue';
 
 interface Transmission {
     id: number;
@@ -19,98 +15,44 @@ interface Transmission {
     url: string;
     transmission_type: string;
     content_type: string;
-    channel: { id: number; name: string; slug: string };
+    channel: { id: number; name: string; slug: string } | null;
     factions: string[] | null;
     release_date: string | null;
 }
 
-const columns: ColumnDef<Transmission>[] = [
-    {
-        accessorKey: 'title',
-        header: () => h('div', {}, 'Title'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('title'));
-        },
-    },
-    {
-        id: 'channel',
-        header: () => h('div', {}, 'Channel'),
-        cell: ({ row }) => {
-            return h('div', {}, row.original.channel?.name ?? '-');
-        },
-    },
-    {
-        accessorKey: 'transmission_type',
-        header: () => h('div', {}, 'Type'),
-        cell: ({ row }) => {
-            return h('div', { class: 'capitalize' }, row.getValue('transmission_type'));
-        },
-    },
-    {
-        accessorKey: 'content_type',
-        header: () => h('div', {}, 'Content'),
-        cell: ({ row }) => {
-            return h('div', { class: 'capitalize' }, String(row.getValue('content_type')).replace(/_/g, ' '));
-        },
-    },
-    {
-        id: 'factions',
-        header: () => h('div', {}, 'Factions'),
-        cell: ({ row }) => {
-            const factions = row.original.factions;
-            return h('div', {}, factions?.length ? factions.join(', ') : '-');
-        },
-    },
-    {
-        accessorKey: 'release_date',
-        header: () => h('div', {}, 'Release Date'),
-        cell: ({ row }) => {
-            return h('div', {}, row.getValue('release_date') ?? '-');
-        },
-    },
-    {
-        id: 'actions',
-        enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
-        cell: ({ row }) => {
-            const transmission = row.original;
-
-            return h(
-                'div',
-                { class: 'relative' },
-                h(AdminActions, {
-                    name: transmission.title,
-                    editRoute: route('admin.transmissions.edit', transmission.slug),
-                    deleteRoute: route('admin.transmissions.delete', transmission.slug),
-                }),
-            );
-        },
-    },
-];
-
 const props = defineProps<{
-    transmissions: Transmission[];
+    transmissions: {
+        data: Transmission[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+        first_page_url: string;
+        last_page_url: string;
+        next_page_url: string | null;
+        prev_page_url: string | null;
+        path: string;
+        from: number | null;
+        to: number | null;
+    };
+    filters: { q: string };
 }>();
 
-const columnFilters = ref<ColumnFiltersState>([]);
+const search = ref(props.filters.q);
 
-const table = useVueTable({
-    get data() {
-        return props.transmissions;
-    },
-    get columns() {
-        return columns;
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
-    getFilteredRowModel: getFilteredRowModel(),
-    state: {
-        get columnFilters() {
-            return columnFilters.value;
-        },
-    },
-});
+let debounce: ReturnType<typeof setTimeout> | undefined;
+onBeforeUnmount(() => clearTimeout(debounce));
+
+const onSearchInput = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+        router.get(
+            route('admin.transmissions.index'),
+            { q: search.value || undefined },
+            { only: ['transmissions', 'filters'], replace: true, preserveState: true, preserveScroll: true },
+        );
+    }, 300);
+};
 </script>
 
 <template>
@@ -124,42 +66,48 @@ const table = useVueTable({
 
     <div class="container mx-auto mt-6 h-full px-2">
         <div class="flex items-center justify-between py-4">
-            <Input
-                class="max-w-sm"
-                placeholder="Filter Transmissions"
-                :model-value="table.getColumn('title')?.getFilterValue() as string"
-                @update:model-value="table.getColumn('title')?.setFilterValue($event)"
-            />
-            <div>Total {{ props.transmissions.length }}</div>
+            <Input v-model="search" class="max-w-sm" placeholder="Search Transmissions" @input="onSearchInput" />
+            <div>Total {{ transmissions.total }}</div>
         </div>
         <div class="rounded-md border">
             <Table>
                 <TableHeader>
-                    <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
-                        <TableHead v-for="header in headerGroup.headers" :key="header.id">
-                            <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
-                        </TableHead>
+                    <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Channel</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Content</TableHead>
+                        <TableHead>Factions</TableHead>
+                        <TableHead>Release Date</TableHead>
+                        <TableHead>Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <template v-if="table.getRowModel().rows?.length">
-                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id" :data-state="row.getIsSelected() ? 'selected' : undefined">
-                            <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
-                                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
+                    <template v-if="transmissions.data.length">
+                        <TableRow v-for="t in transmissions.data" :key="t.id">
+                            <TableCell>{{ t.title }}</TableCell>
+                            <TableCell>{{ t.channel?.name ?? '-' }}</TableCell>
+                            <TableCell class="capitalize">{{ t.transmission_type }}</TableCell>
+                            <TableCell class="capitalize">{{ String(t.content_type).replace(/_/g, ' ') }}</TableCell>
+                            <TableCell>{{ t.factions?.length ? t.factions.join(', ') : '-' }}</TableCell>
+                            <TableCell>{{ t.release_date ?? '-' }}</TableCell>
+                            <TableCell>
+                                <AdminActions
+                                    :name="t.title"
+                                    :edit-route="route('admin.transmissions.edit', t.slug)"
+                                    :delete-route="route('admin.transmissions.delete', t.slug)"
+                                />
                             </TableCell>
                         </TableRow>
                     </template>
-                    <template v-else>
-                        <TableRow>
-                            <TableCell :colspan="columns.length" class="h-24 text-center"> No results. </TableCell>
-                        </TableRow>
-                    </template>
+                    <TableRow v-else>
+                        <TableCell colspan="7" class="h-24 text-center"> No results. </TableCell>
+                    </TableRow>
                 </TableBody>
             </Table>
         </div>
-        <div class="flex items-center justify-end space-x-2 py-4">
-            <Button variant="outline" size="sm" :disabled="!table.getCanPreviousPage()" @click="table.previousPage()"> Previous </Button>
-            <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()"> Next </Button>
+        <div class="py-4">
+            <InertiaPagination :paginator="transmissions" :only="['transmissions']" />
         </div>
     </div>
 </template>

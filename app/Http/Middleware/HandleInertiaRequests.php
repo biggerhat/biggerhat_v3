@@ -40,6 +40,12 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Resolve once — Spatie caches the permission set, but each call still
+        // walks it, and this runs on every Inertia request.
+        $user = $request->user();
+        $permissions = $user ? $user->getAllPermissions()->pluck('name') : collect();
+        $isSuperAdmin = (bool) $user?->hasRole('super_admin');
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -68,12 +74,12 @@ class HandleInertiaRequests extends Middleware
             'announcements' => fn () => $this->activeAnnouncements($request),
             'unread_notifications_count' => fn () => $this->unreadNotificationsCount($request),
             'auth' => [
-                'user' => $request->user() ?? null,
-                'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
+                'user' => $user,
+                'permissions' => $permissions,
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'can_access_admin' => $this->canAccessAdmin($request),
                 'can_view_tos' => (bool) $request->user()?->can('view_tos'),
-                'is_super_admin' => (bool) $request->user()?->hasRole('super_admin'),
+                'is_super_admin' => $isSuperAdmin,
                 'is_supporter' => (bool) $request->user()?->isSupporter(),
                 'impersonating' => $request->user() && app('impersonate')->isImpersonating()
                     ? [
@@ -91,7 +97,9 @@ class HandleInertiaRequests extends Middleware
                 'channel_ids' => fn () => $request->user()?->channels()->pluck('channels.id')->toArray() ?? [],
             ],
             'ziggy' => [
-                ...(new Ziggy)->toArray(),
+                // Guests / permission-less users never see admin UI, so they get
+                // the trimmed route table (see config/ziggy.php).
+                ...(new Ziggy($isSuperAdmin || $permissions->isNotEmpty() ? null : 'public'))->toArray(),
                 'location' => $request->url(),
             ],
         ];

@@ -44,7 +44,7 @@ class CustomCardModerationAdminController extends Controller
                 'user' => $c->user ? ['id' => $c->user->id, 'name' => $c->user->name] : null,
                 'created_at' => $c->created_at?->toIso8601String(),
                 'share_url' => route('tools.card_creator.share', $c->share_code),
-                'edit_url' => $c->user_id ? null : null, // Edit goes through user — admin doesn't edit directly
+                'edit_url' => null, // Edit goes through the owner — admin doesn't edit directly
             ]);
         }
 

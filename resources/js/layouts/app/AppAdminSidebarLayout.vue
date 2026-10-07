@@ -20,7 +20,9 @@ withDefaults(defineProps<Props>(), {
 });
 
 const page = usePage();
-const pageKey = computed(() => page.url);
+// Key on the path only — filtering/sorting/paginating changes the query string and
+// must not remount the whole page (that drops focus and replays the fade).
+const pageKey = computed(() => page.url.split('?')[0]);
 
 const toast = useToast();
 const flashMessage = computed(() => (page.props as { flash?: { message?: string | null } }).flash?.message ?? null);

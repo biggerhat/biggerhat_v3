@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import InertiaPagination from '@/components/InertiaPagination.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Head, Link } from '@inertiajs/vue3';
+import { Input } from '@/components/ui/input';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { onBeforeUnmount, ref } from 'vue';
 
 interface TournamentRow {
     id: number;
@@ -15,10 +18,40 @@ interface TournamentRow {
     event_date: string | null;
 }
 
-defineProps<{
-    tournaments: TournamentRow[];
+const props = defineProps<{
+    tournaments: {
+        data: TournamentRow[];
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+        first_page_url: string;
+        last_page_url: string;
+        next_page_url: string | null;
+        prev_page_url: string | null;
+        path: string;
+        from: number | null;
+        to: number | null;
+    };
+    filters: { q: string };
     tournament_statuses: { value: string; label: string }[];
 }>();
+
+const search = ref(props.filters.q);
+
+let debounce: ReturnType<typeof setTimeout> | undefined;
+onBeforeUnmount(() => clearTimeout(debounce));
+
+const onSearchInput = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+        router.get(
+            route('admin.tournaments.index'),
+            { q: search.value || undefined },
+            { only: ['tournaments', 'filters'], replace: true, preserveState: true, preserveScroll: true },
+        );
+    }, 300);
+};
 
 const statusBadgeClass = (status: string | null) => {
     switch (status) {
@@ -46,8 +79,9 @@ const statusBadgeClass = (status: string | null) => {
         </template>
     </PageBanner>
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
+        <Input v-model="search" class="max-w-sm" placeholder="Search tournaments" @input="onSearchInput" />
         <div class="space-y-2">
-            <Card v-for="t in tournaments" :key="t.id">
+            <Card v-for="t in tournaments.data" :key="t.id">
                 <CardContent class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:gap-3">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
@@ -66,7 +100,8 @@ const statusBadgeClass = (status: string | null) => {
                     </Button>
                 </CardContent>
             </Card>
-            <div v-if="!tournaments.length" class="py-12 text-center text-sm text-muted-foreground">No tournaments.</div>
+            <div v-if="!tournaments.data.length" class="py-12 text-center text-sm text-muted-foreground">No tournaments.</div>
         </div>
+        <InertiaPagination :paginator="tournaments" :only="['tournaments']" />
     </div>
 </template>

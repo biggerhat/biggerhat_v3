@@ -20,7 +20,11 @@ interface Session {
     is_current: boolean;
 }
 
-const props = defineProps<{ sessions: Session[] }>();
+const props = defineProps<{ sessions: Session[]; total: number; capped: boolean; show_guests: boolean }>();
+
+const toggleGuests = () => {
+    router.get(route('admin.sessions.index'), props.show_guests ? {} : { guests: 1 }, { replace: true, preserveScroll: true });
+};
 
 // Group by user so the UI can collapse "Bob: 3 sessions" into one expandable row.
 const grouped = computed(() => {
@@ -94,13 +98,13 @@ const revokeAllForUser = async (userId: number) => {
         <template #subtitle>
             <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                 Database-stored sessions. Revoking a session forces a logout on the next request.
-                <Badge variant="secondary">{{ sessions.length }}</Badge>
+                <Badge variant="secondary">{{ capped ? `${sessions.length} of ${total}` : total }}</Badge>
+                <Button variant="outline" size="sm" @click="toggleGuests">{{ show_guests ? 'Hide guest sessions' : 'Show guest sessions' }}</Button>
             </div>
         </template>
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <div class="space-y-3">
             <Card v-for="group in grouped" :key="group.user?.id ?? 'guest'">
                 <CardContent class="space-y-2 p-4">

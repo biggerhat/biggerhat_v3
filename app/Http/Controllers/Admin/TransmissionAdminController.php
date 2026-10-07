@@ -17,8 +17,18 @@ class TransmissionAdminController extends Controller
 {
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
+        $search = trim($request->string('q')->toString());
+
+        $transmissions = Transmission::query()
+            ->with('channel:id,name,slug')
+            ->when($search !== '', fn ($q) => $q->where('title', 'like', '%'.addcslashes($search, '%_\\').'%'))
+            ->orderByDesc('created_at')
+            ->paginate(25)
+            ->withQueryString();
+
         return inertia('Admin/Transmissions/Index', [
-            'transmissions' => Transmission::with('channel:id,name,slug')->orderBy('created_at', 'DESC')->get(),
+            'transmissions' => $transmissions,
+            'filters' => ['q' => $search],
         ]);
     }
 

@@ -24,12 +24,15 @@ class TournamentOverrideAdminController extends Controller
 {
     public function index(Request $request): Response|ResponseFactory
     {
+        $search = trim($request->string('q')->toString());
+
         $tournaments = Tournament::query()
             ->withCount(['players', 'rounds'])
+            ->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))
             ->latest()
-            ->limit(50)
-            ->get()
-            ->map(fn (Tournament $t) => [
+            ->paginate(25)
+            ->withQueryString()
+            ->through(fn (Tournament $t) => [
                 'id' => $t->id,
                 'uuid' => $t->uuid,
                 'name' => $t->name,
@@ -41,6 +44,7 @@ class TournamentOverrideAdminController extends Controller
 
         return inertia('Admin/Tournaments/Index', [
             'tournaments' => $tournaments,
+            'filters' => ['q' => $search],
             'tournament_statuses' => collect(TournamentStatusEnum::cases())
                 ->map(fn ($c) => ['value' => $c->value, 'label' => $c->label()])
                 ->values(),

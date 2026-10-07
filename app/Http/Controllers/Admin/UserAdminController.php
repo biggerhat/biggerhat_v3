@@ -17,8 +17,25 @@ class UserAdminController extends Controller
 {
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
+        $search = trim($request->string('q')->toString());
+        $role = $request->string('role')->toString();
+
+        $users = User::query()
+            ->select(['id', 'name', 'slug', 'email', 'email_verified_at', 'created_at'])
+            ->with('roles:id,name')
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.addcslashes($search, '%_\\').'%';
+                $query->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('email', 'like', $like));
+            })
+            ->when($role !== '', fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', $role)))
+            ->orderBy('name')
+            ->paginate(25)
+            ->withQueryString();
+
         return inertia('Admin/Users/Index', [
-            'users' => User::with('roles')->orderBy('name', 'ASC')->get(),
+            'users' => $users,
+            'filters' => ['q' => $search, 'role' => $role],
+            'roles' => Role::orderBy('name')->pluck('name'),
         ]);
     }
 

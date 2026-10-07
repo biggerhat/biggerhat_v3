@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use Throwable;
@@ -16,18 +17,26 @@ class FailedJobsAdminController extends Controller
 {
     public function index(Request $request): Response|ResponseFactory
     {
+        // Select only what the page needs — `payload` can be hundreds of KB per
+        // row — and cap the stack trace; the summary line carries the headline.
         $rows = DB::table('failed_jobs')
+            ->select(['id', 'uuid', 'connection', 'queue', 'failed_at', 'exception', 'payload'])
             ->orderByDesc('failed_at')
             ->paginate(50);
 
-        // Decode payload + lift commonly-needed fields onto each row so the
-        // Vue page doesn't need to reach into raw JSON.
         $rows->getCollection()->transform(function ($row) {
             $payload = json_decode($row->payload, true) ?: [];
-            $row->job_name = $payload['displayName'] ?? ($payload['job'] ?? 'Unknown');
-            $row->exception_summary = $this->summarizeException($row->exception);
 
-            return $row;
+            return [
+                'id' => $row->id,
+                'uuid' => $row->uuid,
+                'connection' => $row->connection,
+                'queue' => $row->queue,
+                'failed_at' => $row->failed_at,
+                'job_name' => $payload['displayName'] ?? ($payload['job'] ?? 'Unknown'),
+                'exception_summary' => $this->summarizeException($row->exception),
+                'exception' => Str::limit($row->exception, 4000, "\n… (truncated)"),
+            ];
         });
 
         return inertia('Admin/FailedJobs/Index', [

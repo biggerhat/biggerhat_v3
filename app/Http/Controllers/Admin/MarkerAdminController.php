@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\BaseSizeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\MarkerRequest;
 use App\Models\Character;
 use App\Models\Marker;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class MarkerAdminController extends Controller
 {
@@ -33,15 +33,9 @@ class MarkerAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(MarkerRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'base' => ['required', 'integer', Rule::enum(BaseSizeEnum::class)],
-            'description' => ['nullable', 'string'],
-            'characters' => ['nullable', 'array'],
-            'upgrades' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $characterIds = Character::whereIn('slug', $validated['characters'] ?? [])->pluck('id');
         $upgradeIds = Upgrade::whereIn('slug', $validated['upgrades'] ?? [])->pluck('id');
@@ -56,15 +50,9 @@ class MarkerAdminController extends Controller
         return redirect()->route('admin.markers.index')->withMessage("{$marker->name} created successfully.");
     }
 
-    public function update(Request $request, Marker $marker)
+    public function update(MarkerRequest $request, Marker $marker)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'base' => ['required', 'integer', Rule::enum(BaseSizeEnum::class)],
-            'description' => ['nullable', 'string'],
-            'characters' => ['nullable', 'array'],
-            'upgrades' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $characterIds = Character::whereIn('slug', $validated['characters'] ?? [])->pluck('id');
         $upgradeIds = Upgrade::whereIn('slug', $validated['upgrades'] ?? [])->pluck('id');

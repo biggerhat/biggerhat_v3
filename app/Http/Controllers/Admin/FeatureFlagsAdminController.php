@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateFeatureFlagRequest;
 use App\Providers\FeatureFlagsServiceProvider;
 use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
@@ -35,15 +36,13 @@ class FeatureFlagsAdminController extends Controller
         ]);
     }
 
-    public function update(Request $request, string $name): RedirectResponse
+    public function update(UpdateFeatureFlagRequest $request, string $name): RedirectResponse
     {
         if (! array_key_exists($name, FeatureFlagsServiceProvider::FLAGS)) {
             return back()->withMessage('Unknown feature flag.');
         }
 
-        $action = $request->validate([
-            'action' => ['required', 'string', 'in:activate,deactivate,clear'],
-        ])['action'];
+        $action = $request->validated()['action'];
 
         // Pennant's database driver stores rows keyed by feature + scope, where
         // null scope is our "global override" channel. activate/deactivate write

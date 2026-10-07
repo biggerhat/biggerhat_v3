@@ -96,3 +96,45 @@ it('links actions and signature actions by plain numeric id', function () {
     expect($character->actions()->pluck('actions.id')->all())->toEqualCanonicalizing([$a1->id, $a2->id]);
     expect($character->actions()->wherePivot('is_signature_action', true)->pluck('actions.id')->all())->toEqual([$a2->id]);
 });
+
+it('links a totem by slug and clears the relation when the totem is removed', function () {
+    $totem = Character::factory()->create(['name' => 'Spirit Totem']);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.characters.store'), baseCharacterPayload(['totem' => $totem->slug]))
+        ->assertRedirect(route('admin.characters.index'));
+
+    $character = Character::where('name', 'Test Character')->first();
+    expect($character->has_totem_id)->toBe($totem->id);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.characters.update', $character->slug), baseCharacterPayload(['totem' => null]))
+        ->assertRedirect(route('admin.characters.index'));
+
+    expect($character->fresh()->has_totem_id)->toBeNull();
+});
+
+it('rejects an unknown totem slug instead of erroring', function () {
+    $this->actingAs($this->admin)
+        ->post(route('admin.characters.store'), baseCharacterPayload(['totem' => 'does-not-exist']))
+        ->assertSessionHasErrors('totem');
+
+    expect(Character::where('name', 'Test Character')->exists())->toBeFalse();
+});
+
+it('accepts a payload with the optional relation arrays omitted', function () {
+    $payload = baseCharacterPayload();
+    unset($payload['keywords'], $payload['characteristics'], $payload['abilities'], $payload['markers'], $payload['tokens'], $payload['totem']);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.characters.store'), $payload)
+        ->assertRedirect(route('admin.characters.index'));
+
+    expect(Character::where('name', 'Test Character')->exists())->toBeTrue();
+});
+
+it('rejects invalid character fields', function () {
+    $this->actingAs($this->admin)
+        ->post(route('admin.characters.store'), baseCharacterPayload(['faction' => 'not-a-faction', 'health' => 'lots']))
+        ->assertSessionHasErrors(['faction', 'health']);
+});

@@ -268,7 +268,6 @@ class UpgradeAdminController extends Controller
         [$widthBack, $heightBack] = getimagesize(Storage::disk('public')->path($upgrade->back_image));
         $background = imagecreatetruecolor($widthFront + $widthBack, $heightFront);
 
-        header('Content-Type: image/jpeg');
         $outputImage = $background;
 
         $frontUrl = imagecreatefromjpeg(Storage::disk('public')->path($upgrade->front_image));
@@ -284,7 +283,18 @@ class UpgradeAdminController extends Controller
 
         $path = Storage::disk('public')->path('/');
         imagejpeg($outputImage, $path.$filePath);
+
+        // Each save writes a fresh combo file — drop the generated one it replaces.
+        // combination_image can also point at the front image (single-sided upgrades),
+        // so only ever delete files this method generated.
+        $previous = $upgrade->combination_image;
         $upgrade->update(['combination_image' => $filePath]);
+        if ($previous && $previous !== $filePath && str_contains($previous, '_combo.')) {
+            Storage::disk('public')->delete($previous);
+        }
+
         imagedestroy($outputImage);
+        imagedestroy($frontUrl);
+        imagedestroy($backUrl);
     }
 }

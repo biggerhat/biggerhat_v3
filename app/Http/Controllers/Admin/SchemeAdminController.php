@@ -95,7 +95,7 @@ class SchemeAdminController extends Controller
 
         // Handle Images
         $nameSlug = Str::slug($validated['name']);
-        if ($validated['image']) {
+        if ($validated['image'] ?? null) {
             $extension = $validated['image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s.%s', Str::slug($nameSlug), $uuid, $extension);

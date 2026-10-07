@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreApiTokenRequest;
 use App\Models\User;
 use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
@@ -50,14 +51,9 @@ class ApiTokensAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreApiTokenRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'abilities' => ['array'],
-            'abilities.*' => ['string', 'max:64'],
-        ]);
+        $data = $request->validated();
 
         /** @var User $user */
         $user = User::findOrFail($data['user_id']);

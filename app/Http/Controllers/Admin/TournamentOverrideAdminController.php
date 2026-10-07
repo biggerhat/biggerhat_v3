@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ForceRoundStatusRequest;
+use App\Http\Requests\Admin\ForceTournamentStatusRequest;
 use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
@@ -85,12 +87,9 @@ class TournamentOverrideAdminController extends Controller
         ]);
     }
 
-    public function forceTournamentStatus(Request $request, Tournament $tournament): RedirectResponse
+    public function forceTournamentStatus(ForceTournamentStatusRequest $request, Tournament $tournament): RedirectResponse
     {
-        $data = $request->validate([
-            'status' => ['required', 'string'],
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
+        $data = $request->validated();
 
         $next = TournamentStatusEnum::tryFrom($data['status']);
         if (! $next) {
@@ -108,12 +107,9 @@ class TournamentOverrideAdminController extends Controller
         return back()->withMessage("Tournament forced to {$next->label()}.");
     }
 
-    public function forceRoundStatus(Request $request, Tournament $tournament, TournamentRound $round): RedirectResponse
+    public function forceRoundStatus(ForceRoundStatusRequest $request, Tournament $tournament, TournamentRound $round): RedirectResponse
     {
-        $data = $request->validate([
-            'status' => ['required', 'string'],
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
+        $data = $request->validated();
 
         $next = TournamentRoundStatusEnum::tryFrom($data['status']);
         if (! $next || $round->tournament_id !== $tournament->id) {

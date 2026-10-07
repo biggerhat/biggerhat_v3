@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\TriggerRequest;
 use App\Models\Trigger;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class TriggerAdminController extends Controller
 {
@@ -35,14 +35,14 @@ class TriggerAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(TriggerRequest $request)
     {
         $trigger = $this->validateAndSave($request);
 
         return redirect()->route('admin.triggers.index')->withMessage("{$trigger->name} created successfully.");
     }
 
-    public function update(Request $request, Trigger $trigger)
+    public function update(TriggerRequest $request, Trigger $trigger)
     {
         $trigger = $this->validateAndSave($request, $trigger);
 
@@ -57,22 +57,13 @@ class TriggerAdminController extends Controller
         return redirect()->route('admin.triggers.index')->withMessage("{$name} has been deleted.");
     }
 
-    private function validateAndSave(Request $request, ?Trigger $trigger = null): Trigger
+    private function validateAndSave(TriggerRequest $request, ?Trigger $trigger = null): Trigger
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'suits' => ['nullable', 'string', 'max:255'],
-            'stone_cost' => ['required', 'integer', 'min:0'],
-            'description' => ['nullable', 'string'],
-            // Optional — defaults to 'standard' on the column when not sent.
-            'game_mode_type' => ['sometimes', 'string', Rule::enum(GameModeTypeEnum::class)],
-        ]);
+        $validated = $request->validated();
 
         if (! $trigger) {
+            // Slug is derived from the name by the UsesSlugName trait on every save.
             $trigger = Trigger::create($validated);
-            $trigger->update([
-                'slug' => $trigger->id.'-'.$trigger->slug,
-            ]);
         } else {
             $trigger->update($validated);
         }

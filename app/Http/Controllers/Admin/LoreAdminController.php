@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\LoreMediaTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\LoreRequest;
 use App\Models\Character;
 use App\Models\Lore;
 use App\Models\LoreMedia;
 use App\Models\TOS\Unit as TosUnit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Str;
 
 class LoreAdminController extends Controller
@@ -76,14 +77,14 @@ class LoreAdminController extends Controller
             ->all();
     }
 
-    public function store(Request $request)
+    public function store(LoreRequest $request)
     {
         $lore = $this->validateAndSave($request);
 
         return redirect()->route('admin.lores.index')->withMessage("{$lore->name} created successfully.");
     }
 
-    public function update(Request $request, Lore $lore)
+    public function update(LoreRequest $request, Lore $lore)
     {
         $lore = $this->validateAndSave($request, $lore);
 
@@ -98,21 +99,9 @@ class LoreAdminController extends Controller
         return redirect()->route('admin.lores.index')->withMessage("{$name} has been deleted.");
     }
 
-    private function validateAndSave(Request $request, ?Lore $lore = null): Lore
+    private function validateAndSave(LoreRequest $request, ?Lore $lore = null): Lore
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'file' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg,png,webp,pdf'],
-            'remove_file' => ['nullable', 'boolean'],
-            'lore_media' => ['nullable', 'array'],
-            'characters' => ['nullable', 'array'],
-            'tos_units' => ['nullable', 'array'],
-            // Inline new media creation (array of objects)
-            'new_media' => ['nullable', 'array'],
-            'new_media.*.name' => ['required_with:new_media', 'string', 'max:255'],
-            'new_media.*.type' => ['required_with:new_media', 'string', Rule::enum(LoreMediaTypeEnum::class)],
-            'new_media.*.link' => ['nullable', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         // Handle file upload
         $fileData = [];
@@ -129,34 +118,36 @@ class LoreAdminController extends Controller
             $fileData['file'] = null;
         }
 
-        // Resolve existing media by name
-        $mediaIds = LoreMedia::whereIn('name', $validated['lore_media'] ?? [])->pluck('id')->toArray();
+        return DB::transaction(function () use ($validated, $fileData, $lore) {
+            // Resolve existing media by name
+            $mediaIds = LoreMedia::whereIn('name', $validated['lore_media'] ?? [])->pluck('id')->toArray();
 
-        // Create new inline media and collect their IDs
-        foreach ($validated['new_media'] ?? [] as $newMediaData) {
-            if (! empty($newMediaData['name']) && ! empty($newMediaData['type'])) {
-                $newMedia = LoreMedia::create([
-                    'name' => $newMediaData['name'],
-                    'type' => $newMediaData['type'],
-                    'link' => $newMediaData['link'] ?? null,
-                ]);
-                $mediaIds[] = $newMedia->id;
+            // Create new inline media and collect their IDs
+            foreach ($validated['new_media'] ?? [] as $newMediaData) {
+                if (! empty($newMediaData['name']) && ! empty($newMediaData['type'])) {
+                    $newMedia = LoreMedia::create([
+                        'name' => $newMediaData['name'],
+                        'type' => $newMediaData['type'],
+                        'link' => $newMediaData['link'] ?? null,
+                    ]);
+                    $mediaIds[] = $newMedia->id;
+                }
             }
-        }
 
-        $characters = Character::whereIn('display_name', $validated['characters'] ?? [])->get();
-        $tosUnitIds = TosUnit::whereIn('slug', $validated['tos_units'] ?? [])->pluck('id');
+            $characters = Character::whereIn('display_name', $validated['characters'] ?? [])->get();
+            $tosUnitIds = TosUnit::whereIn('slug', $validated['tos_units'] ?? [])->pluck('id');
 
-        if (! $lore) {
-            $lore = Lore::create(['name' => $validated['name'], ...$fileData]);
-        } else {
-            $lore->update(['name' => $validated['name'], ...$fileData]);
-        }
+            if (! $lore) {
+                $lore = Lore::create(['name' => $validated['name'], ...$fileData]);
+            } else {
+                $lore->update(['name' => $validated['name'], ...$fileData]);
+            }
 
-        $lore->media()->sync($mediaIds);
-        $lore->characters()->sync($characters->pluck('id'));
-        $lore->tosUnits()->sync($tosUnitIds);
+            $lore->media()->sync($mediaIds);
+            $lore->characters()->sync($characters->pluck('id'));
+            $lore->tosUnits()->sync($tosUnitIds);
 
-        return $lore;
+            return $lore;
+        });
     }
 }

@@ -162,7 +162,7 @@ onMounted(() => {
     });
 
     props.package?.tos_units?.forEach((unit) => {
-        formInfo.value.tos_units.push(unit.name);
+        formInfo.value.tos_units.push(unit.slug);
     });
 });
 </script>
@@ -364,7 +364,6 @@ onMounted(() => {
                                             v-model="formInfo.tos_units"
                                             placeholder="Select TOS Units"
                                             :options="props.tos_units"
-                                            option-value="name"
                                         />
                                         <InputError :message="usePage().props.errors.tos_units" />
                                     </div>
@@ -391,7 +390,9 @@ onMounted(() => {
                                             >
                                                 <span class="truncate">{{ name }}</span>
                                                 <div class="flex shrink-0 items-center gap-3">
-                                                    <label class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                                                    <label
+                                                        class="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground"
+                                                    >
                                                         <Checkbox
                                                             :checked="formInfo.character_special_orders[name]"
                                                             @update:checked="(val: boolean) => (formInfo.character_special_orders[name] = val)"

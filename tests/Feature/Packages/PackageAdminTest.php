@@ -319,7 +319,7 @@ it('stores a package flagged as tos with linked tos units', function () {
         ->post(route('admin.packages.store'), [
             'name' => 'Abyssinia Starter Box',
             'game_system' => GameSystemEnum::Tos->value,
-            'tos_units' => [$unit->name],
+            'tos_units' => [$unit->slug],
         ])
         ->assertRedirect(route('admin.packages.index'));
 

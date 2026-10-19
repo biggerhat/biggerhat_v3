@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\FactionEnum;
 use App\Enums\PodSourceEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\PodLinkRequest;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\PodLink;
 use App\Models\Upgrade;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class PodLinkAdminController extends Controller
 {
@@ -39,20 +39,24 @@ class PodLinkAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(PodLinkRequest $request)
     {
-        $validated = $this->validateRequest($request);
-        $podLink = PodLink::create($validated);
-        $this->syncRelationships($podLink, $request);
+        $podLink = DB::transaction(function () use ($request) {
+            $podLink = PodLink::create($request->safe()->only(['name', 'source', 'url']));
+            $this->syncRelationships($podLink, $request);
+
+            return $podLink;
+        });
 
         return redirect()->route('admin.pod_links.index')->withMessage("{$podLink->name} created successfully.");
     }
 
-    public function update(Request $request, PodLink $podLink)
+    public function update(PodLinkRequest $request, PodLink $podLink)
     {
-        $validated = $this->validateRequest($request);
-        $podLink->update($validated);
-        $this->syncRelationships($podLink, $request);
+        DB::transaction(function () use ($request, $podLink) {
+            $podLink->update($request->safe()->only(['name', 'source', 'url']));
+            $this->syncRelationships($podLink, $request);
+        });
 
         return redirect()->route('admin.pod_links.index')->withMessage("{$podLink->name} has been updated.");
     }
@@ -65,27 +69,18 @@ class PodLinkAdminController extends Controller
         return redirect()->route('admin.pod_links.index')->withMessage("{$name} has been deleted.");
     }
 
-    private function validateRequest(Request $request): array
+    private function syncRelationships(PodLink $podLink, PodLinkRequest $request): void
     {
-        return $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'source' => ['required', 'string', Rule::enum(PodSourceEnum::class)],
-            'url' => ['required', 'url', 'max:2048'],
-        ]);
-    }
-
-    private function syncRelationships(PodLink $podLink, Request $request): void
-    {
-        $miniatureIds = Miniature::whereIn('id', $request->input('miniatures', []))->pluck('id');
+        $miniatureIds = Miniature::whereIn('id', $request->validated('miniatures', []))->pluck('id');
         $podLink->miniatures()->sync($miniatureIds);
 
-        $upgradeIds = Upgrade::whereIn('slug', $request->input('upgrades', []))->pluck('id');
+        $upgradeIds = Upgrade::whereIn('slug', $request->validated('upgrades', []))->pluck('id');
         $podLink->upgrades()->sync($upgradeIds);
 
-        $keywordIds = Keyword::whereIn('slug', $request->input('keywords', []))->pluck('id');
+        $keywordIds = Keyword::whereIn('slug', $request->validated('keywords', []))->pluck('id');
         $podLink->keywords()->sync($keywordIds);
 
-        $podLink->syncFactionTags($request->input('factions', []));
+        $podLink->syncFactionTags($request->validated('factions', []));
     }
 
     private function getFormData(): array

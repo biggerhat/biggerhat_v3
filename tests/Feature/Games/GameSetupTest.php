@@ -36,6 +36,22 @@ it('creates a 2-player game', function () {
     expect($game->is_solo)->toBeFalse();
 });
 
+it('defaults the create form to the latest season', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get(route('games.create'))
+        ->assertInertia(fn ($page) => $page
+            ->where('default_season', PoolSeasonEnum::defaultSeason()->value)
+            ->where('seasons.0.value', PoolSeasonEnum::defaultSeason()->value));
+});
+
+it('rejects an unknown season', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'nope'])
+        ->assertSessionHasErrors('season');
+});
+
 it('creates a solo game and skips setup phase', function () {
     $user = User::factory()->create();
 

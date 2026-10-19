@@ -98,6 +98,7 @@ class GameController extends Controller
 
         return inertia('Games/Create', [
             'seasons' => $seasons,
+            'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_sizes' => [35, 40, 50],
             'formats' => $formats,
         ]);

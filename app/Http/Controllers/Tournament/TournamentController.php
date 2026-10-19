@@ -212,6 +212,7 @@ class TournamentController extends Controller
 
         return inertia('Tournaments/Create', [
             'seasons' => $seasons,
+            'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_types' => $encounterTypes,
         ]);
     }

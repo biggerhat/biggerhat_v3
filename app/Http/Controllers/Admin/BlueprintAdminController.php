@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\BlueprintRequest;
 use App\Models\Blueprint;
 use App\Models\Character;
 use App\Models\Miniature;
 use App\Models\Package;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class BlueprintAdminController extends Controller
 {
@@ -44,14 +44,14 @@ class BlueprintAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(BlueprintRequest $request)
     {
         $blueprint = $this->validateAndSave($request);
 
         return redirect()->route('admin.blueprints.index')->withMessage("{$blueprint->name} created successfully.");
     }
 
-    public function update(Request $request, Blueprint $blueprint)
+    public function update(BlueprintRequest $request, Blueprint $blueprint)
     {
         $blueprint = $this->validateAndSave($request, $blueprint);
 
@@ -66,17 +66,9 @@ class BlueprintAdminController extends Controller
         return redirect()->route('admin.blueprints.index')->withMessage("{$name} has been deleted.");
     }
 
-    private function validateAndSave(Request $request, ?Blueprint $blueprint = null): Blueprint
+    private function validateAndSave(BlueprintRequest $request, ?Blueprint $blueprint = null): Blueprint
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'source_url' => ['nullable', 'string', 'max:500'],
-            'sculpt_version' => ['required', 'string', Rule::enum(SculptVersionEnum::class)],
-            'published_at' => ['nullable', 'date'],
-            'characters' => ['nullable', 'array'],
-            'miniatures' => ['nullable', 'array'],
-            'packages' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $data = [
             'name' => $validated['name'],

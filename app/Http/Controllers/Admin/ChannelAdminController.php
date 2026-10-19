@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ChannelRequest;
 use App\Models\Channel;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -32,14 +33,14 @@ class ChannelAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(ChannelRequest $request)
     {
         $channel = $this->validateAndSave($request);
 
         return redirect()->route('admin.channels.index')->withMessage("{$channel->name} created successfully.");
     }
 
-    public function update(Request $request, Channel $channel)
+    public function update(ChannelRequest $request, Channel $channel)
     {
         $channel = $this->validateAndSave($request, $channel);
 
@@ -64,15 +65,9 @@ class ChannelAdminController extends Controller
         ];
     }
 
-    private function validateAndSave(Request $request, ?Channel $channel = null): Channel
+    private function validateAndSave(ChannelRequest $request, ?Channel $channel = null): Channel
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'image' => ['nullable', 'image', 'max:4096'],
-            'user_ids' => ['nullable', 'array'],
-            'user_ids.*' => ['integer', 'exists:users,id'],
-        ]);
+        $validated = $request->validated();
 
         if ($request->hasFile('image')) {
             if ($channel && $channel->image) {

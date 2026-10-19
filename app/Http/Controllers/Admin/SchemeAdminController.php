@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\PoolSeasonEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\SchemeRequest;
 use App\Models\Scheme;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Storage;
 use Str;
 
@@ -36,14 +36,14 @@ class SchemeAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(SchemeRequest $request)
     {
         $scheme = $this->validateAndSave($request);
 
         return redirect()->route('admin.schemes.index')->withMessage("{$scheme->name} created successfully.");
     }
 
-    public function update(Request $request, Scheme $scheme)
+    public function update(SchemeRequest $request, Scheme $scheme)
     {
         $scheme = $this->validateAndSave($request, $scheme);
 
@@ -58,28 +58,14 @@ class SchemeAdminController extends Controller
         return redirect()->route('admin.schemes.index')->withMessage("{$name} has been deleted.");
     }
 
-    private function validateAndSave(Request $request, ?Scheme $scheme = null): Scheme
+    private function validateAndSave(SchemeRequest $request, ?Scheme $scheme = null): Scheme
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'season' => ['required', 'string', Rule::enum(PoolSeasonEnum::class)],
-            'selector' => ['nullable', 'string'],
-            'prerequisite' => ['nullable', 'string'],
-            'reveal' => ['nullable', 'string'],
-            'scoring' => ['nullable', 'string'],
-            'additional' => ['nullable', 'string'],
-            'requirements' => ['nullable', 'array'],
-            'requirements.*.type' => ['required', 'string', 'in:select_model,select_marker,terrain_note'],
-            'requirements.*.allegiance' => ['nullable', 'string', 'in:enemy,friendly'],
-            'requirements.*.unique' => ['nullable', 'boolean'],
-            'requirements.*.cost_operator' => ['nullable', 'string', 'in:>,<,>=,<=,none'],
-            'requirements.*.cost_value' => ['nullable', 'integer', 'min:0', 'max:20'],
-            'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'next_scheme_one_id' => ['nullable', 'integer'],
-            'next_scheme_two_id' => ['nullable', 'integer'],
-            'next_scheme_three_id' => ['nullable', 'integer'],
-            'next_scheme_four_id' => ['nullable', 'integer'],
-        ]);
+        $validated = $request->validated();
+
+        // reveal/scoring/additional are NOT NULL text columns; a blank form field arrives as null.
+        foreach (['reveal', 'scoring', 'additional'] as $column) {
+            $validated[$column] ??= '';
+        }
 
         // Clean up requirements — normalize "none" to null
         if (! empty($validated['requirements'])) {

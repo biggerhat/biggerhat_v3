@@ -42,6 +42,7 @@ use App\Models\User;
 use App\Notifications\Game\GameOpponentJoined;
 use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -1446,10 +1447,22 @@ class GameController extends Controller
             return redirect()->route('games.show', $game->uuid);
         }
 
-        $game->update([
-            'status' => GameStatusEnum::Abandoned,
-            'completed_at' => now(),
-        ]);
+        // Re-check under lock: a concurrent completion must not be overwritten by Abandoned.
+        $abandoned = DB::transaction(function () use ($game): bool {
+            $locked = Game::lockForUpdate()->find($game->id);
+            if (! $locked || $locked->status->isFinished()) {
+                return false;
+            }
+            $locked->update(['status' => GameStatusEnum::Abandoned, 'completed_at' => now()]);
+
+            return true;
+        });
+
+        if (! $abandoned) {
+            return redirect()->route('games.show', $game->uuid);
+        }
+
+        $game->refresh();
 
         if (! $game->is_solo) {
             broadcast(new GameStatusChanged($game))->toOthers();

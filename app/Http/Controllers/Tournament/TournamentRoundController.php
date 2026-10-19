@@ -20,6 +20,7 @@ use App\Services\TournamentTrackerGameFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class TournamentRoundController extends Controller
 {
@@ -134,64 +135,77 @@ class TournamentRoundController extends Controller
             // accidentally picking the same scheme twice, which left the spawned
             // game with only 2 distinct picks.
             'scheme_pool.*' => ['integer', 'exists:schemes,id', 'distinct'],
-            'status' => ['sometimes', 'string'],
+            'status' => ['sometimes', 'string', Rule::enum(TournamentRoundStatusEnum::class)],
         ], [
             'scheme_pool.*.distinct' => 'A round cannot have duplicate schemes — pick three different schemes.',
         ]);
 
-        // Scenario edits gated by the state machine. Only checked when the
-        // user actually included scenario fields in the request.
-        $scenarioFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
-        if (! empty($scenarioFields)) {
-            if ($error = $this->stateMachine->canEditScenario($tournament, $round)) {
-                return response()->json(['error' => $error], 422);
-            }
-        }
+        // State-machine checks and the writes they guard share one locked
+        // transaction, so two concurrent requests (double-click on Start Round)
+        // can't both pass the check and double-create tracker games.
+        $error = DB::transaction(function () use ($tournament, $round, $validated): ?JsonResponse {
+            $round = TournamentRound::lockForUpdate()->findOrFail($round->id);
 
-        // Build the persisted set explicitly: only fields the user submitted,
-        // plus server-set side-effects (started_at / completed_at) when status
-        // transitions across InProgress / Completed.
-        $userFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
-
-        if (isset($validated['status'])) {
-            $newStatus = TournamentRoundStatusEnum::from($validated['status']);
-
-            if ($error = $this->stateMachine->canTransitionRoundTo($round, $newStatus)) {
-                return response()->json(['error' => $error], 422);
+            // Scenario edits gated by the state machine. Only checked when the
+            // user actually included scenario fields in the request.
+            $scenarioFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
+            if (! empty($scenarioFields)) {
+                if ($error = $this->stateMachine->canEditScenario($tournament, $round)) {
+                    return response()->json(['error' => $error], 422);
+                }
             }
 
-            $userFields['status'] = $newStatus;
+            // Build the persisted set explicitly: only fields the user submitted,
+            // plus server-set side-effects (started_at / completed_at) when status
+            // transitions across InProgress / Completed.
+            $userFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
 
-            if ($newStatus === TournamentRoundStatusEnum::InProgress) {
-                $userFields['started_at'] = $round->started_at ?? now();
+            if (isset($validated['status'])) {
+                $newStatus = TournamentRoundStatusEnum::from($validated['status']);
+
+                if ($error = $this->stateMachine->canTransitionRoundTo($round, $newStatus)) {
+                    return response()->json(['error' => $error], 422);
+                }
+
+                $userFields['status'] = $newStatus;
+
+                if ($newStatus === TournamentRoundStatusEnum::InProgress) {
+                    $userFields['started_at'] = $round->started_at ?? now();
+                }
+                if ($newStatus === TournamentRoundStatusEnum::Completed) {
+                    $userFields['completed_at'] = $round->completed_at ?? now();
+                }
             }
-            if ($newStatus === TournamentRoundStatusEnum::Completed) {
-                $userFields['completed_at'] = $round->completed_at ?? now();
+
+            $round->update($userFields);
+
+            // When the round transitions into InProgress:
+            //  - Mark every bye game as Completed (byes are scoreless; held at
+            //    Pending until Start so bye points don't hit standings early).
+            //  - Create the tracker Game rows for every non-bye paired game.
+            //    Tracker games only exist for rounds that have actually started,
+            //    so pair/re-pair during Setup doesn't churn Game rows and the
+            //    tournament page doesn't advertise observable games before play.
+            if (isset($newStatus) && $newStatus === TournamentRoundStatusEnum::InProgress) {
+                $round->games()
+                    ->where('is_bye', true)
+                    ->where('result', TournamentGameResultEnum::Pending)
+                    ->update(['result' => TournamentGameResultEnum::Completed]);
+
+                $this->trackerGames->createForRound($tournament, $round->fresh());
             }
-        }
 
-        $round->update($userFields);
+            // If the scenario changed, push it down to any tracker games already
+            // linked to this round so participants see the updated scenario.
+            if (! empty($scenarioFields)) {
+                $this->trackerGames->syncScenarioForRound($round->fresh());
+            }
 
-        // When the round transitions into InProgress:
-        //  - Mark every bye game as Completed (byes are scoreless; held at
-        //    Pending until Start so bye points don't hit standings early).
-        //  - Create the tracker Game rows for every non-bye paired game.
-        //    Tracker games only exist for rounds that have actually started,
-        //    so pair/re-pair during Setup doesn't churn Game rows and the
-        //    tournament page doesn't advertise observable games before play.
-        if (isset($newStatus) && $newStatus === TournamentRoundStatusEnum::InProgress) {
-            $round->games()
-                ->where('is_bye', true)
-                ->where('result', TournamentGameResultEnum::Pending)
-                ->update(['result' => TournamentGameResultEnum::Completed]);
+            return null;
+        });
 
-            $this->trackerGames->createForRound($tournament, $round->fresh());
-        }
-
-        // If the scenario changed, push it down to any tracker games already
-        // linked to this round so participants see the updated scenario.
-        if (! empty($scenarioFields)) {
-            $this->trackerGames->syncScenarioForRound($round->fresh());
+        if ($error) {
+            return $error;
         }
 
         $this->broadcastUpdate($tournament, 'round_updated');

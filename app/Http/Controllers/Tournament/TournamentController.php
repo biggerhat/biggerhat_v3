@@ -21,6 +21,7 @@ use App\Services\TournamentStateMachine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -497,16 +498,27 @@ class TournamentController extends Controller
         $this->authorize('manage', $tournament);
 
         $validated = $request->validate([
-            'status' => ['required', 'string'],
+            'status' => ['required', 'string', Rule::enum(TournamentStatusEnum::class)],
         ]);
 
         $newStatus = TournamentStatusEnum::from($validated['status']);
 
-        if ($error = $this->stateMachine->canTransitionTournamentTo($tournament, $newStatus)) {
+        // Re-check the transition against the locked row: the early state may be stale.
+        $error = DB::transaction(function () use ($tournament, $newStatus): ?string {
+            $locked = Tournament::lockForUpdate()->findOrFail($tournament->id);
+
+            if ($error = $this->stateMachine->canTransitionTournamentTo($locked, $newStatus)) {
+                return $error;
+            }
+
+            $locked->update(['status' => $newStatus]);
+
+            return null;
+        });
+
+        if ($error) {
             return response()->json(['error' => $error], 422);
         }
-
-        $tournament->update(['status' => $newStatus]);
 
         $this->broadcastUpdate($tournament, 'status_changed');
 

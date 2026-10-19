@@ -20,6 +20,7 @@ function publicGetRoutes(): array
             || str_starts_with($r->getName(), 'ignition')
             || str_starts_with($r->getName(), 'debugbar')
             || str_starts_with($r->getName(), 'impersonate')
+            || str_starts_with($r->getName(), 'scramble')
             || str_starts_with($r->getName(), 'storage.')
             // Streams / downloads / needs headless Chrome (Browsershot).
             || in_array($r->getName(), ['broadcasting.auth', 'tools.pdf.download', 'tools.bonanza_loot_deck.print', 'sanctum.csrf-cookie'], true))

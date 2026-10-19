@@ -40,7 +40,7 @@ class Character extends Model
     use UsesUpgrades;
 
     /**
-     * @var array<string>|bool
+     * @var array<string>
      */
     protected $guarded = [];
 

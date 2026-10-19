@@ -7,6 +7,7 @@ use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\ScoreTournamentGameRequest;
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
@@ -14,6 +15,7 @@ use App\Models\TournamentRound;
 use App\Services\TournamentTrackerGameFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TournamentGameController extends Controller
 {
@@ -145,14 +147,24 @@ class TournamentGameController extends Controller
             return response()->json(['error' => 'No tracker game linked'], 422);
         }
 
-        if ($trackerGame->status === GameStatusEnum::Completed) {
-            return response()->json(['error' => 'Tracker game is already completed'], 422);
+        if ($trackerGame->status->isFinished()) {
+            return response()->json(['error' => 'Tracker game is already finished'], 422);
         }
 
-        $trackerGame->update([
-            'status' => GameStatusEnum::Completed,
-            'completed_at' => now(),
-        ]);
+        // Re-check under lock so a concurrent abandon/complete isn't clobbered.
+        $completed = DB::transaction(function () use ($trackerGame): bool {
+            $locked = Game::lockForUpdate()->find($trackerGame->id);
+            if (! $locked || $locked->status->isFinished()) {
+                return false;
+            }
+            $locked->update(['status' => GameStatusEnum::Completed, 'completed_at' => now()]);
+
+            return true;
+        });
+
+        if (! $completed) {
+            return response()->json(['error' => 'Tracker game is already finished'], 422);
+        }
 
         $this->broadcastUpdate($tournament, 'tracker_completed');
 

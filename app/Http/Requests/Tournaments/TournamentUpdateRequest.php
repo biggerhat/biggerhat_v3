@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Tournaments;
 
+use App\Enums\EncounterTypeEnum;
+use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentTiebreakerEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,9 +27,9 @@ class TournamentUpdateRequest extends FormRequest
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'encounter_size' => ['sometimes', 'integer', 'min:20', 'max:100'],
-            'encounter_type' => ['sometimes', 'string'],
+            'encounter_type' => ['sometimes', Rule::enum(EncounterTypeEnum::class)],
             'planned_rounds' => ['sometimes', 'integer', 'min:1', 'max:7'],
-            'season' => ['sometimes', 'string'],
+            'season' => ['sometimes', Rule::enum(PoolSeasonEnum::class)],
             'event_date' => ['sometimes', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],

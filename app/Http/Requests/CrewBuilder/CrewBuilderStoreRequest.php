@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\CrewBuilder;
 
+use App\Enums\FactionEnum;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CrewBuilderStoreRequest extends FormRequest
 {
@@ -22,7 +24,7 @@ class CrewBuilderStoreRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'description' => 'nullable|array',
-            'faction' => 'required|string',
+            'faction' => ['required', Rule::enum(FactionEnum::class)],
             'master_id' => 'required|exists:characters,id',
             'encounter_size' => 'required|integer|min:1',
             'crew_data' => 'present|array',

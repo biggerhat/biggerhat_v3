@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Tournaments;
 
+use App\Enums\DeploymentEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,7 +23,7 @@ class TournamentRoundUpdateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'deployment' => ['nullable', 'string'],
+            'deployment' => ['nullable', Rule::enum(DeploymentEnum::class)],
             'strategy_id' => ['nullable', 'exists:strategies,id'],
             'scheme_pool' => ['nullable', 'array', 'min:3', 'max:3'],
             // `distinct` rejects a pool that repeats the same scheme id — TOs were

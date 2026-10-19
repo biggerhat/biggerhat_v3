@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\FactionEnum;
 use App\Enums\TOS\AllegianceEnum;
 use App\Models\Announcement;
+use App\Support\AdminNav;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
@@ -72,6 +73,8 @@ class HandleInertiaRequests extends Middleware
             'tos_allegiance_info' => AllegianceEnum::buildDetails(),
             'currentGameSystem' => $this->resolveGameSystem($request),
             'announcements' => fn () => $this->activeAnnouncements($request),
+            // Admin sidebar + Cmd-K palette source; only resolved on admin pages.
+            'adminNav' => fn () => $request->is('admin', 'admin/*') ? AdminNav::forUser($request->user()) : null,
             'unread_notifications_count' => fn () => $this->unreadNotificationsCount($request),
             'auth' => [
                 'user' => $user,

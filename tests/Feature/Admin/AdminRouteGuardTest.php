@@ -12,6 +12,8 @@ it('has no admin route guarded only by the admin.any entry middleware', function
     $allowlist = [
         // Landing page: visibility of each section is filtered per-permission inside the controller.
         'admin.dashboard',
+        // Palette search: each result type is permission-filtered inside the controller.
+        'admin.search',
     ];
 
     $unguarded = collect(Route::getRoutes()->getRoutes())

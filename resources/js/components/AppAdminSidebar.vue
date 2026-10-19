@@ -4,249 +4,26 @@ import GameSystemSwitcher from '@/components/GameSystemSwitcher.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem, type SharedData } from '@/types';
+import { adminNavIcon } from '@/lib/adminNavIcons';
+import { type NavGroup, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import {
-    Activity,
-    AlertTriangle,
-    ArrowLeft,
-    ArrowUpCircle,
-    BookOpen,
-    Clock,
-    Coins,
-    Eraser,
-    ExternalLink,
-    FileImage,
-    FileText,
-    Flag,
-    Gauge,
-    ImageOff,
-    Key,
-    KeyRound,
-    Megaphone,
-    MessageSquareText,
-    MonitorSmartphone,
-    Newspaper,
-    Package,
-    Puzzle,
-    Radio,
-    Radius,
-    ServerCrash,
-    Shield,
-    ShieldAlert,
-    ShieldCheck,
-    Swords,
-    Telescope as TelescopeIcon,
-    Trash2,
-    Trophy,
-    Users,
-} from 'lucide-vue-next';
+import { ArrowLeft, Gauge } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 const page = usePage<SharedData>();
-const permissions = computed(() => page.props.auth.permissions ?? []);
-const isSuperAdmin = computed(() => !!page.props.auth.is_super_admin);
 
-const hasPermission = (permission?: string) => {
-    if (!permission) return true;
-    if (permission === 'super_admin') return isSuperAdmin.value;
-    return permission.split('|').some((p) => permissions.value.includes(p));
-};
+// Groups arrive already permission-filtered from App\Support\AdminNav (shared
+// Inertia prop) — the same source the dashboard tiles and Cmd-K palette use.
+const adminNav = computed<NavGroup[]>(() =>
+    (page.props.adminNav ?? []).map((group) => ({
+        title: group.title,
+        collapsible: true,
+        collapsed: false,
+        items: group.items.map((item) => ({ title: item.title, href: item.href, icon: adminNavIcon(item.icon), external: item.external })),
+    })),
+);
 
-interface AdminNavGroup {
-    title: string;
-    items: (NavItem & { permission?: string })[];
-}
-
-const adminGroups: AdminNavGroup[] = [
-    {
-        title: 'Game Data',
-        items: [
-            { title: 'Characters', href: route('admin.characters.index'), icon: BookOpen, permission: 'view_character' },
-            { title: 'Miniatures', href: route('admin.miniatures.index'), icon: BookOpen, permission: 'view_miniature' },
-            { title: 'Actions', href: route('admin.actions.index'), icon: Swords, permission: 'view_action' },
-            { title: 'Abilities', href: route('admin.abilities.index'), icon: Shield, permission: 'view_ability' },
-            { title: 'Triggers', href: route('admin.triggers.index'), icon: Swords, permission: 'view_trigger' },
-            { title: 'Keywords', href: route('admin.keywords.index'), icon: KeyRound, permission: 'view_keyword' },
-            { title: 'Characteristics', href: route('admin.characteristics.index'), icon: BookOpen, permission: 'view_characteristic' },
-            { title: 'Upgrades', href: route('admin.upgrades.index'), icon: ArrowUpCircle, permission: 'view_upgrade' },
-            { title: 'Crew Cards', href: route('admin.crews.index'), icon: ArrowUpCircle, permission: 'view_crew' },
-            { title: 'Tokens', href: route('admin.tokens.index'), icon: Puzzle, permission: 'view_token' },
-            { title: 'Markers', href: route('admin.markers.index'), icon: Radius, permission: 'view_marker' },
-            { title: 'Schemes', href: route('admin.schemes.index'), icon: BookOpen, permission: 'view_scheme' },
-            { title: 'Strategies', href: route('admin.strategies.index'), icon: BookOpen, permission: 'view_strategy' },
-            { title: 'Bonanza Loot Cards', href: route('admin.loot_cards.index'), icon: Coins, permission: 'super_admin' },
-        ],
-    },
-    {
-        title: 'Content',
-        items: [
-            { title: 'Articles', href: route('admin.blog.posts.index'), icon: Newspaper, permission: 'create_posts|edit_posts' },
-            { title: 'Article Categories', href: route('admin.blog.categories.index'), icon: Newspaper, permission: 'create_posts|edit_posts' },
-            { title: 'Site News', href: route('admin.news.posts.index'), icon: Megaphone, permission: 'manage_news' },
-            { title: 'News Categories', href: route('admin.news.categories.index'), icon: Megaphone, permission: 'manage_news' },
-            { title: 'Lore', href: route('admin.lores.index'), icon: BookOpen, permission: 'view_lore' },
-            { title: 'Lore Media', href: route('admin.lore_media.index'), icon: BookOpen, permission: 'view_lore' },
-            { title: 'Blueprints', href: route('admin.blueprints.index'), icon: FileImage, permission: 'view_blueprint' },
-            { title: 'Packages', href: route('admin.packages.index'), icon: Package, permission: 'view_package' },
-            { title: 'Announcements', href: route('admin.announcements.index'), icon: Megaphone, permission: 'super_admin' },
-        ],
-    },
-    {
-        title: 'Community',
-        items: [
-            { title: 'Channels', href: route('admin.channels.index'), icon: Radio, permission: 'view_channel' },
-            { title: 'Transmissions', href: route('admin.transmissions.index'), icon: Radio, permission: 'view_channel' },
-            { title: 'POD Links', href: route('admin.pod_links.index'), icon: ExternalLink, permission: 'view_pod_link' },
-            { title: 'Feedback', href: route('admin.feedback.index'), icon: MessageSquareText, permission: 'view_feedback' },
-        ],
-    },
-    {
-        title: 'Access & Security',
-        items: [
-            { title: 'Users', href: route('admin.users.index'), icon: Users, permission: 'view_user' },
-            { title: 'Roles', href: route('admin.roles.index'), icon: ShieldCheck, permission: 'view_role' },
-            { title: 'API Tokens', href: route('admin.api_tokens.index'), icon: Key, permission: 'super_admin' },
-            { title: 'Sessions', href: route('admin.sessions.index'), icon: MonitorSmartphone, permission: 'super_admin' },
-            { title: 'Custom Cards', href: route('admin.custom_cards.index'), icon: ShieldAlert, permission: 'super_admin' },
-        ],
-    },
-    {
-        // M4E Campaign Mode (Index of the Untold) advancement charts.
-        // Split out of that group since these 5 were faking a second nesting
-        // level via an "Advancement — " label prefix — a real group makes the
-        // prefix redundant, so it's dropped here.
-        title: 'Campaign — Advancement',
-        items: [
-            {
-                title: 'Attack Mod',
-                href: route('admin.campaign.advancement-attack-mod.index'),
-                icon: Swords,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Tactical Mod',
-                href: route('admin.campaign.advancement-tactical-mod.index'),
-                icon: Swords,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Action',
-                href: route('admin.campaign.advancement-action.index'),
-                icon: Swords,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Ability',
-                href: route('admin.campaign.advancement-ability.index'),
-                icon: Shield,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Summoning',
-                href: route('admin.actions.index') + '?game_mode=campaign&campaign_advancement_kind=summoning',
-                icon: Puzzle,
-                permission: 'view_campaign_catalog',
-            },
-        ],
-    },
-    {
-        // Post Catalog Consolidation: equipment / injuries / crew card effects /
-        // totems all live on the core catalog (upgrades / abilities / actions /
-        // triggers / custom_characters with game_mode_type='campaign') — those
-        // links are filtered shortcuts into the core admin pages.
-        title: 'Campaign — Catalog',
-        items: [
-            {
-                title: 'Crew Card Effects',
-                href: route('admin.abilities.index') + '?game_mode=campaign&crew_card=1',
-                icon: ArrowUpCircle,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Equipment',
-                href: route('admin.upgrades.index') + '?game_mode=campaign&campaign_upgrade_kind=equipment',
-                icon: Package,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Injuries',
-                href: route('admin.upgrades.index') + '?game_mode=campaign&campaign_upgrade_kind=injury',
-                icon: AlertTriangle,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Totem Templates',
-                href: route('admin.campaign.totem-templates.index'),
-                icon: Puzzle,
-                permission: 'view_campaign_catalog',
-            },
-            {
-                title: 'Campaign Crew Cards',
-                href: route('admin.campaign.crew-cards.index'),
-                icon: Newspaper,
-                permission: 'view_campaign_catalog',
-            },
-            { title: 'Lucky Miss', href: route('admin.campaign.lucky-miss.index'), icon: Shield, permission: 'view_campaign_catalog' },
-            {
-                title: 'Back-Alley Doctor',
-                href: route('admin.campaign.back-alley-doctor.index'),
-                icon: Activity,
-                permission: 'view_campaign_catalog',
-            },
-            { title: 'Weekly Events', href: route('admin.campaign.weekly-events.index'), icon: Newspaper, permission: 'view_campaign_catalog' },
-        ],
-    },
-    {
-        // Merged "TOS — Units" + "TOS — Cards" — mirrors the single "Game Data"
-        // group Malifaux's equivalent catalog uses; the old split served no
-        // purpose.
-        title: 'TOS Catalog',
-        items: [
-            { title: 'Units', href: route('admin.tos.units.index'), icon: Swords, permission: 'view_tos_unit' },
-            { title: 'Sculpts', href: route('admin.tos.sculpts.index'), icon: FileImage, permission: 'view_tos_sculpt' },
-            { title: 'Special Rules', href: route('admin.tos.special_rules.index'), icon: BookOpen, permission: 'view_tos_special_unit_rule' },
-            { title: 'Abilities', href: route('admin.tos.abilities.index'), icon: Shield, permission: 'view_tos_ability' },
-            { title: 'Actions', href: route('admin.tos.actions.index'), icon: Swords, permission: 'view_tos_action' },
-            { title: 'Triggers', href: route('admin.tos.triggers.index'), icon: Swords, permission: 'view_tos_trigger' },
-            { title: 'Allegiances', href: route('admin.tos.allegiances.index'), icon: Shield, permission: 'view_tos_allegiance' },
-            { title: 'Allegiance Cards', href: route('admin.tos.allegiance_cards.index'), icon: BookOpen, permission: 'view_tos_allegiance_card' },
-            { title: 'Assets', href: route('admin.tos.assets.index'), icon: Package, permission: 'view_tos_asset' },
-            { title: 'Stratagems', href: route('admin.tos.stratagems.index'), icon: Newspaper, permission: 'view_tos_stratagem' },
-        ],
-    },
-    {
-        // Read-only observability — nothing here changes state.
-        title: 'Diagnostics',
-        items: [
-            { title: 'Activity Log', href: route('admin.activity.index'), icon: Activity, permission: 'super_admin' },
-            { title: 'Games', href: route('admin.games.index'), icon: Swords, permission: 'super_admin' },
-            { title: 'Failed Jobs', href: route('admin.failed_jobs.index'), icon: AlertTriangle, permission: 'super_admin' },
-            { title: 'Image Health', href: route('admin.image_health.index'), icon: ImageOff, permission: 'super_admin' },
-            // Log Viewer + Telescope are separate Blade-rendered apps. external=true
-            // makes the sidebar use a plain <a> so the browser does a full page nav
-            // — Inertia's XHR-then-fallback path leaves the prior URL in place,
-            // which breaks Log Viewer's relative API calls.
-            { title: 'Logs', href: '/log-viewer', icon: FileText, permission: 'super_admin', external: true },
-            { title: 'Telescope', href: '/telescope', icon: TelescopeIcon, permission: 'super_admin', external: true },
-        ],
-    },
-    {
-        // Admin actions that change live state/config right now, as opposed to
-        // Diagnostics' read-only tools.
-        title: 'System Controls',
-        items: [
-            { title: 'Maintenance', href: route('admin.maintenance.index'), icon: ServerCrash, permission: 'super_admin' },
-            { title: 'Cache Controls', href: route('admin.cache.index'), icon: Eraser, permission: 'super_admin' },
-            { title: 'Schedule', href: route('admin.schedule.index'), icon: Clock, permission: 'super_admin' },
-            { title: 'Trash', href: route('admin.trash.index'), icon: Trash2, permission: 'super_admin' },
-            { title: 'Feature Flags', href: route('admin.features.index'), icon: Flag, permission: 'super_admin' },
-            { title: 'Tournament Override', href: route('admin.tournaments.index'), icon: Trophy, permission: 'super_admin' },
-        ],
-    },
-];
-
-const dashboardNav = computed<NavItem[]>(() => [
+const dashboardNav = computed<NavGroup[]>(() => [
     {
         items: [
             { title: 'Dashboard', href: route('admin.dashboard'), icon: Gauge },
@@ -256,17 +33,6 @@ const dashboardNav = computed<NavItem[]>(() => [
         ],
     },
 ]);
-
-const filteredAdminNav = computed(() => {
-    return adminGroups
-        .map((group) => ({
-            title: group.title,
-            collapsible: true,
-            collapsed: false,
-            items: group.items.filter((item) => hasPermission(item.permission)),
-        }))
-        .filter((group) => group.items.length > 0);
-});
 </script>
 
 <template>
@@ -288,7 +54,7 @@ const filteredAdminNav = computed(() => {
 
         <SidebarContent>
             <NavMain :items="dashboardNav" />
-            <NavMain :items="filteredAdminNav" />
+            <NavMain :items="adminNav" storage-key="admin" />
         </SidebarContent>
 
         <SidebarFooter>

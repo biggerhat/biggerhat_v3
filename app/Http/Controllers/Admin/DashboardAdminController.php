@@ -4,26 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\FeedbackStatusEnum;
 use App\Http\Controllers\Controller;
-use App\Models\BlogPost;
-use App\Models\Character;
 use App\Models\Feedback;
-use App\Models\Keyword;
-use App\Models\Miniature;
-use App\Models\TOS\Ability as TosAbility;
-use App\Models\TOS\Allegiance as TosAllegiance;
-use App\Models\TOS\AllegianceCard as TosAllegianceCard;
-use App\Models\TOS\Asset as TosAsset;
-use App\Models\TOS\SpecialUnitRule as TosSpecialUnitRule;
-use App\Models\TOS\Stratagem as TosStratagem;
-use App\Models\TOS\Unit as TosUnit;
-use App\Models\Upgrade;
 use App\Models\User;
+use App\Support\AdminNav;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use Spatie\Analytics\Facades\Analytics;
@@ -63,86 +51,36 @@ class DashboardAdminController extends Controller
     /**
      * @return array<int, array{title: string, description: string, items: array<int, array{label: string, href: string, count: int|null}>}>
      */
-    private function groupsForUser($user): array
+    /**
+     * Dashboard tiles: the shared admin nav (App\Support\AdminNav), with a
+     * cached row count on the items that define one.
+     *
+     * @return array<int, array{title: string, description: string, items: array<int, array{label: string, href: string, count: int|null}>}>
+     */
+    private function groupsForUser(User $user): array
     {
-        $groups = [
-            [
-                'title' => 'Game Data',
-                'description' => 'Characters, rules, upgrades, and board pieces.',
-                'items' => [
-                    ['label' => 'Characters', 'permission' => 'view_character', 'href' => route('admin.characters.index'), 'count' => fn () => Character::count()],
-                    ['label' => 'Miniatures', 'permission' => 'view_miniature', 'href' => route('admin.miniatures.index'), 'count' => fn () => Miniature::count()],
-                    ['label' => 'Keywords', 'permission' => 'view_keyword', 'href' => route('admin.keywords.index'), 'count' => fn () => Keyword::count()],
-                    ['label' => 'Upgrades', 'permission' => 'view_upgrade', 'href' => route('admin.upgrades.index'), 'count' => fn () => Upgrade::count()],
-                ],
-            ],
-            [
-                'title' => 'Content',
-                'description' => 'Articles, lore, blueprints, and packages.',
-                'items' => [
-                    ['label' => 'Articles', 'permission' => 'create_posts|edit_posts', 'href' => route('admin.blog.posts.index'), 'count' => fn () => BlogPost::count()],
-                    ['label' => 'Lore', 'permission' => 'view_lore', 'href' => route('admin.lores.index'), 'count' => null],
-                    ['label' => 'Blueprints', 'permission' => 'view_blueprint', 'href' => route('admin.blueprints.index'), 'count' => null],
-                ],
-            ],
-            [
-                'title' => 'Community',
-                'description' => 'Channels, feedback, and external links.',
-                'items' => [
-                    ['label' => 'Channels', 'permission' => 'view_channel', 'href' => route('admin.channels.index'), 'count' => null],
-                    ['label' => 'Feedback', 'permission' => 'view_feedback', 'href' => route('admin.feedback.index'), 'count' => fn () => Feedback::count()],
-                    ['label' => 'POD Links', 'permission' => 'view_pod_link', 'href' => route('admin.pod_links.index'), 'count' => null],
-                ],
-            ],
-            [
-                'title' => 'Access',
-                'description' => 'Users and roles.',
-                'items' => [
-                    ['label' => 'Users', 'permission' => 'view_user', 'href' => route('admin.users.index'), 'count' => fn () => User::count()],
-                    ['label' => 'Roles', 'permission' => 'view_role', 'href' => route('admin.roles.index'), 'count' => null],
-                ],
-            ],
-            [
-                'title' => 'The Other Side',
-                'description' => 'Allegiances, units, cards, assets, and stratagems.',
-                'items' => [
-                    ['label' => 'Allegiances', 'permission' => 'view_tos_allegiance', 'href' => route('admin.tos.allegiances.index'), 'count' => fn () => TosAllegiance::count()],
-                    ['label' => 'Allegiance Cards', 'permission' => 'view_tos_allegiance_card', 'href' => route('admin.tos.allegiance_cards.index'), 'count' => fn () => TosAllegianceCard::count()],
-                    ['label' => 'Units', 'permission' => 'view_tos_unit', 'href' => route('admin.tos.units.index'), 'count' => fn () => TosUnit::count()],
-                    ['label' => 'Special Rules', 'permission' => 'view_tos_special_unit_rule', 'href' => route('admin.tos.special_rules.index'), 'count' => fn () => TosSpecialUnitRule::count()],
-                    ['label' => 'Abilities', 'permission' => 'view_tos_ability', 'href' => route('admin.tos.abilities.index'), 'count' => fn () => TosAbility::count()],
-                    ['label' => 'Assets', 'permission' => 'view_tos_asset', 'href' => route('admin.tos.assets.index'), 'count' => fn () => TosAsset::count()],
-                    ['label' => 'Stratagems', 'permission' => 'view_tos_stratagem', 'href' => route('admin.tos.stratagems.index'), 'count' => fn () => TosStratagem::count()],
-                ],
-            ],
-        ];
-
         $result = [];
-        foreach ($groups as $group) {
+        foreach (AdminNav::definition() as $group) {
             $visibleItems = [];
             foreach ($group['items'] as $item) {
-                if (! $this->userHasAnyPermission($user, $item['permission'])) {
+                if ($item['external'] || ! AdminNav::allows($user, $item['permission'])) {
                     continue;
                 }
                 $visibleItems[] = [
-                    'label' => $item['label'],
+                    'label' => $item['title'],
                     'href' => $item['href'],
-                    // Counts are cosmetic — a short cache avoids ~15 COUNT(*) queries per visit.
-                    'count' => is_callable($item['count'])
+                    // Counts are cosmetic — a short cache avoids a COUNT(*) per item per visit.
+                    'count' => $item['count'] !== null
                         ? Cache::remember(
-                            'admin:dashboard:count:'.Str::slug($group['title'].' '.$item['label']),
+                            'admin:dashboard:count:'.$item['key'],
                             now()->addMinutes(self::COUNT_CACHE_MINUTES),
                             $item['count'],
                         )
                         : null,
                 ];
             }
-            if (count($visibleItems) > 0) {
-                $result[] = [
-                    'title' => $group['title'],
-                    'description' => $group['description'],
-                    'items' => $visibleItems,
-                ];
+            if ($visibleItems !== []) {
+                $result[] = ['title' => $group['title'], 'description' => $group['description'], 'items' => $visibleItems];
             }
         }
 
@@ -297,20 +235,5 @@ class DashboardAdminController extends Controller
                 'fetched_at' => now()->toIso8601String(),
             ];
         }
-    }
-
-    private function userHasAnyPermission($user, string $permission): bool
-    {
-        if ($user->hasRole('super_admin')) {
-            return true;
-        }
-
-        foreach (explode('|', $permission) as $p) {
-            if ($user->can($p)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

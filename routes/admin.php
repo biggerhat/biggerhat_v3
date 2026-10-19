@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AbilityAdminController;
 use App\Http\Controllers\Admin\ActionAdminController;
 use App\Http\Controllers\Admin\ActivityAdminController;
+use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AnnouncementsAdminController;
 use App\Http\Controllers\Admin\ApiTokensAdminController;
 use App\Http\Controllers\Admin\BlogCategoryAdminController;
@@ -65,6 +66,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('admin.')->group(function () {
     Route::get('/', [DashboardAdminController::class, 'index'])->name('dashboard');
+    // Per-type permissions are enforced inside the controller (see AdminSearchController).
+    Route::get('/search', AdminSearchController::class)->name('search');
     Route::post('/refresh-analytics', [DashboardAdminController::class, 'refreshAnalytics'])->name('refresh_analytics')->middleware('role:super_admin');
 
     // Super-admin-only diagnostics + tooling.

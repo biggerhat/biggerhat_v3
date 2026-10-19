@@ -5,6 +5,7 @@ namespace App\Http\Requests\Tournaments;
 use App\Enums\DeploymentEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class TournamentRoundUpdateRequest extends FormRequest
@@ -14,6 +15,8 @@ class TournamentRoundUpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
+        Gate::authorize('manage', $this->route('tournament'));
+
         return true;
     }
 

@@ -2,15 +2,20 @@
 
 namespace App\Http\Requests\Campaign;
 
+use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CampaignGameStoreSoloRequest extends FormRequest
 {
+    use AuthorizesCampaignAccess;
+
     /**
-     * Ownership and policy checks stay in the controller; this request only validates.
+     * Ownership/policy checks run here so they precede validation (matching the old controller order).
      */
     public function authorize(): bool
     {
+        $this->ensureCampaignMember($this, $this->route('campaign'));
+
         return true;
     }
 

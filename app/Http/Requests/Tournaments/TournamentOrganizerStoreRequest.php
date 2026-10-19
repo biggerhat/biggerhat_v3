@@ -3,14 +3,17 @@
 namespace App\Http\Requests\Tournaments;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 class TournamentOrganizerStoreRequest extends FormRequest
 {
     /**
-     * Ownership and policy checks stay in the controller; this request only validates.
+     * Ownership/policy checks run here so they precede validation (matching the old controller order).
      */
     public function authorize(): bool
     {
+        Gate::authorize('addOrganizer', $this->route('tournament'));
+
         return true;
     }
 

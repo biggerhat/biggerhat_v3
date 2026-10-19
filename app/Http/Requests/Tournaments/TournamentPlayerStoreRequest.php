@@ -4,15 +4,18 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Enums\FactionEnum;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class TournamentPlayerStoreRequest extends FormRequest
 {
     /**
-     * Ownership and policy checks stay in the controller; this request only validates.
+     * Ownership/policy checks run here so they precede validation (matching the old controller order).
      */
     public function authorize(): bool
     {
+        Gate::authorize('manage', $this->route('tournament'));
+
         return true;
     }
 

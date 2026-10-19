@@ -7,10 +7,12 @@ use Illuminate\Foundation\Http\FormRequest;
 class GarrisonUpdateSculptRequest extends FormRequest
 {
     /**
-     * Ownership and policy checks stay in the controller; this request only validates.
+     * Ownership/policy checks run here so they precede validation (matching the old controller order).
      */
     public function authorize(): bool
     {
+        abort_unless($this->route('garrisonUnit')->garrison_id === $this->route('garrison')->id, 404);
+
         return true;
     }
 

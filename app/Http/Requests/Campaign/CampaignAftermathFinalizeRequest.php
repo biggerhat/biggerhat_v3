@@ -2,15 +2,20 @@
 
 namespace App\Http\Requests\Campaign;
 
+use App\Traits\Campaign\AuthorizesCampaignAccess;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CampaignAftermathFinalizeRequest extends FormRequest
 {
+    use AuthorizesCampaignAccess;
+
     /**
-     * Ownership and policy checks stay in the controller; this request only validates.
+     * Ownership/policy checks run here so they precede validation (matching the old controller order).
      */
     public function authorize(): bool
     {
+        $this->ensureAftermathOwner($this, $this->route('aftermath'));
+
         return true;
     }
 

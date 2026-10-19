@@ -94,3 +94,26 @@ it('rejects guests on the same write endpoints', function () {
     $this->postJson(route('collection.remove_bulk'), ['miniature_ids' => [1]])->assertUnauthorized();
     $this->postJson(route('tools.crew_builder.store'), ['name' => 'x', 'faction' => 'guild'])->assertUnauthorized();
 });
+
+// ─── Authorization must precede validation ───
+// Converting inline validate() to FormRequests runs validation before the
+// controller body, so ownership checks live in authorize(). A stranger sending
+// an invalid payload must get 403, not a validation error that leaks rules.
+
+it('returns 403 (not 422) to a stranger sending an invalid payload', function () {
+    $owner = User::factory()->create();
+    $stranger = User::factory()->create();
+    $tournament = Tournament::factory()->create(['creator_id' => $owner->id]);
+    $build = CrewBuild::factory()->create(['user_id' => $owner->id]);
+    $wishlist = App\Models\Wishlist::create(['user_id' => $owner->id, 'name' => 'Mine']);
+
+    $this->actingAs($stranger);
+
+    $this->putJson(route('tournaments.update', $tournament->uuid), ['season' => 'nope'])->assertForbidden();
+    $this->putJson(route('tournaments.status', $tournament->uuid), ['status' => 'nope'])->assertForbidden();
+    $this->postJson(route('tournaments.players.add', $tournament->uuid), [])->assertForbidden();
+    $this->putJson(route('tools.crew_builder.update', $build), ['faction' => 'nope'])->assertForbidden();
+    $this->putJson(route('wishlists.update', $wishlist), ['name' => ''])->assertForbidden();
+    $this->postJson(route('wishlists.items.add', $wishlist), [])->assertForbidden();
+    $this->postJson(route('wishlists.add_keyword', $wishlist), [])->assertForbidden();
+});

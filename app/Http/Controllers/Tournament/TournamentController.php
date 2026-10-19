@@ -9,8 +9,10 @@ use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
-use App\Enums\TournamentTiebreakerEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tournaments\TournamentStoreRequest;
+use App\Http\Requests\Tournaments\TournamentUpdateRequest;
+use App\Http\Requests\Tournaments\TournamentUpdateStatusRequest;
 use App\Models\Character;
 use App\Models\Scheme;
 use App\Models\Strategy;
@@ -22,7 +24,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -220,24 +221,9 @@ class TournamentController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(TournamentStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'encounter_size' => ['required', 'integer', 'min:20', 'max:100'],
-            'encounter_type' => ['sometimes', 'string'],
-            'planned_rounds' => ['required', 'integer', 'min:1', 'max:7'],
-            'season' => ['required', 'string'],
-            'event_date' => ['required', 'date'],
-            'location' => ['nullable', 'string', 'max:255'],
-            'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            // Bye-game scoring (defaults to Gaining Grounds 3 / +4 / 6).
-            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
-        ]);
+        $validated = $request->validated();
 
         $tournament = Tournament::create([
             ...$validated,
@@ -427,7 +413,7 @@ class TournamentController extends Controller
         ]);
     }
 
-    public function update(Request $request, Tournament $tournament)
+    public function update(TournamentUpdateRequest $request, Tournament $tournament)
     {
         $this->authorize('manage', $tournament);
 
@@ -445,21 +431,7 @@ class TournamentController extends Controller
             $request->replace(['tiebreaker_mode' => $request->input('tiebreaker_mode')]);
         }
 
-        $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'encounter_size' => ['sometimes', 'integer', 'min:20', 'max:100'],
-            'encounter_type' => ['sometimes', 'string'],
-            'planned_rounds' => ['sometimes', 'integer', 'min:1', 'max:7'],
-            'season' => ['sometimes', 'string'],
-            'event_date' => ['sometimes', 'date'],
-            'location' => ['nullable', 'string', 'max:255'],
-            'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
-        ]);
+        $validated = $request->validated();
 
         $tournament->update($validated);
 
@@ -493,13 +465,11 @@ class TournamentController extends Controller
         return redirect()->route('tournaments.index');
     }
 
-    public function updateStatus(Request $request, Tournament $tournament): JsonResponse
+    public function updateStatus(TournamentUpdateStatusRequest $request, Tournament $tournament): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
-        $validated = $request->validate([
-            'status' => ['required', 'string', Rule::enum(TournamentStatusEnum::class)],
-        ]);
+        $validated = $request->validated();
 
         $newStatus = TournamentStatusEnum::from($validated['status']);
 

@@ -2,21 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\GameSystemSwitchRequest;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 
 class GameSystemController extends Controller
 {
-    private const ALLOWED = ['malifaux', 'tos'];
-
     private const COOKIE = 'preferred_game_system';
 
-    public function switch(Request $request): RedirectResponse
+    public function switch(GameSystemSwitchRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'system' => ['required', 'string', 'in:'.implode(',', self::ALLOWED)],
-        ]);
+        $validated = $request->validated();
 
         $system = $validated['system'];
 

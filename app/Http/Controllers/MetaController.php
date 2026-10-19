@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MetaStoreRequest;
 use App\Models\Meta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,11 +32,9 @@ class MetaController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(MetaStoreRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $meta = Meta::findOrCreateByName($validated['name']);
 

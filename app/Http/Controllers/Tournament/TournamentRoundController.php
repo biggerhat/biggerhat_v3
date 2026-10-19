@@ -7,6 +7,7 @@ use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tournaments\TournamentRoundUpdateRequest;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
@@ -20,7 +21,6 @@ use App\Services\TournamentTrackerGameFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class TournamentRoundController extends Controller
 {
@@ -123,22 +123,11 @@ class TournamentRoundController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function update(Request $request, Tournament $tournament, TournamentRound $round): JsonResponse
+    public function update(TournamentRoundUpdateRequest $request, Tournament $tournament, TournamentRound $round): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
-        $validated = $request->validate([
-            'deployment' => ['nullable', 'string'],
-            'strategy_id' => ['nullable', 'exists:strategies,id'],
-            'scheme_pool' => ['nullable', 'array', 'min:3', 'max:3'],
-            // `distinct` rejects a pool that repeats the same scheme id — TOs were
-            // accidentally picking the same scheme twice, which left the spawned
-            // game with only 2 distinct picks.
-            'scheme_pool.*' => ['integer', 'exists:schemes,id', 'distinct'],
-            'status' => ['sometimes', 'string', Rule::enum(TournamentRoundStatusEnum::class)],
-        ], [
-            'scheme_pool.*.distinct' => 'A round cannot have duplicate schemes — pick three different schemes.',
-        ]);
+        $validated = $request->validated();
 
         // State-machine checks and the writes they guard share one locked
         // transaction, so two concurrent requests (double-click on Start Round)

@@ -7,6 +7,8 @@ use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\ScoreTournamentGameRequest;
+use App\Http\Requests\Tournaments\TournamentGameStoreRequest;
+use App\Http\Requests\Tournaments\TournamentGameToggleForfeitRequest;
 use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
@@ -25,16 +27,11 @@ class TournamentGameController extends Controller
         private readonly TournamentTrackerGameFactory $trackerGames,
     ) {}
 
-    public function store(Request $request, Tournament $tournament, TournamentRound $round): JsonResponse
+    public function store(TournamentGameStoreRequest $request, Tournament $tournament, TournamentRound $round): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
-        $validated = $request->validate([
-            'player_one_id' => ['required', 'exists:tournament_players,id'],
-            'player_two_id' => ['nullable', 'exists:tournament_players,id'],
-            'is_bye' => ['sometimes', 'boolean'],
-            'table_number' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         $isBye = $validated['is_bye'] ?? false;
         $playerOne = TournamentPlayer::find($validated['player_one_id']);
@@ -171,7 +168,7 @@ class TournamentGameController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function toggleForfeit(Request $request, Tournament $tournament, TournamentGame $game): JsonResponse
+    public function toggleForfeit(TournamentGameToggleForfeitRequest $request, Tournament $tournament, TournamentGame $game): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
@@ -192,9 +189,7 @@ class TournamentGameController extends Controller
                 'player_two_vp' => null,
             ]);
         } else {
-            $validated = $request->validate([
-                'forfeit_player_id' => ['required', 'exists:tournament_players,id'],
-            ]);
+            $validated = $request->validated();
 
             $game->update([
                 'is_forfeit' => true,

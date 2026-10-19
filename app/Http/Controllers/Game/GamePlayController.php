@@ -13,6 +13,13 @@ use App\Events\GameTurnAdvanced;
 use App\Events\TournamentUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
+use App\Http\Requests\Games\GamePlayAdjustBonanzaVpRequest;
+use App\Http\Requests\Games\GamePlayAttachLootRequest;
+use App\Http\Requests\Games\GamePlayBulkAttachTokenRequest;
+use App\Http\Requests\Games\GamePlayEditTurnScoreRequest;
+use App\Http\Requests\Games\GamePlayRestoreTokensRequest;
+use App\Http\Requests\Games\GamePlaySelectLootRequest;
+use App\Http\Requests\Games\GamePlayYoinkLootRequest;
 use App\Http\Requests\Games\ReplaceCrewMemberRequest;
 use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;
@@ -141,15 +148,11 @@ class GamePlayController extends Controller
      * Quick Add: attach one token to many of the player's live crew members at
      * once. Members are validated to belong to the player (policy) and alive.
      */
-    public function bulkAttachToken(Request $request, Game $game): JsonResponse
+    public function bulkAttachToken(GamePlayBulkAttachTokenRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
 
-        $validated = $request->validate([
-            'token_id' => ['required', 'integer', 'exists:tokens,id'],
-            'member_ids' => ['required', 'array', 'min:1'],
-            'member_ids.*' => ['integer'],
-        ]);
+        $validated = $request->validated();
 
         $token = Token::findOrFail($validated['token_id']);
 
@@ -214,16 +217,11 @@ class GamePlayController extends Controller
     /**
      * Undo an end-of-turn removal: re-attach the given {member, token} pairs.
      */
-    public function restoreTokens(Request $request, Game $game): JsonResponse
+    public function restoreTokens(GamePlayRestoreTokensRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
 
-        $validated = $request->validate([
-            'tokens' => ['required', 'array', 'min:1'],
-            'tokens.*.member_id' => ['required', 'integer'],
-            'tokens.*.token_id' => ['required', 'integer'],
-            'tokens.*.token_name' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $byMember = collect($validated['tokens'])->groupBy('member_id');
         $members = GameCrewMember::where('game_id', $game->id)
@@ -576,7 +574,7 @@ class GamePlayController extends Controller
      * shoehorn into GameTurn rows, so we just bump total_points directly.
      * Negative deltas are allowed (death = -3 to a minimum of 0).
      */
-    public function adjustBonanzaVp(Request $request, Game $game): JsonResponse
+    public function adjustBonanzaVp(GamePlayAdjustBonanzaVpRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
 
@@ -584,10 +582,7 @@ class GamePlayController extends Controller
             return response()->json(['error' => 'This action is only available in Bonanza Brawl games.'], 422);
         }
 
-        $validated = $request->validate([
-            'slot' => ['sometimes', 'integer', 'in:1,2'],
-            'delta' => ['required', 'integer', 'min:-20', 'max:20'],
-        ]);
+        $validated = $request->validated();
 
         $slot = (int) ($validated['slot'] ?? 0);
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
@@ -634,15 +629,11 @@ class GamePlayController extends Controller
         ]);
     }
 
-    public function selectLoot(Request $request, Game $game): JsonResponse
+    public function selectLoot(GamePlaySelectLootRequest $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
 
-        $validated = $request->validate([
-            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
-            'loot_card_id' => ['required', 'integer', 'exists:loot_cards,id'],
-            'side' => ['required', 'string', 'in:a,b'],
-        ]);
+        $validated = $request->validated();
 
         /** @var GameCrewMember $member */
         $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
@@ -667,15 +658,11 @@ class GamePlayController extends Controller
         ]);
     }
 
-    public function attachLoot(Request $request, Game $game): JsonResponse
+    public function attachLoot(GamePlayAttachLootRequest $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
 
-        $validated = $request->validate([
-            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
-            'loot_card_id' => ['required', 'integer', 'exists:loot_cards,id'],
-            'side' => ['required', 'string', 'in:a,b'],
-        ]);
+        $validated = $request->validated();
 
         /** @var GameCrewMember $member */
         $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
@@ -689,15 +676,11 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function yoinkLoot(Request $request, Game $game): JsonResponse
+    public function yoinkLoot(GamePlayYoinkLootRequest $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
 
-        $validated = $request->validate([
-            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
-            'marker_id' => ['required', 'string'],
-            'side' => ['required', 'string', 'in:a,b'],
-        ]);
+        $validated = $request->validated();
 
         /** @var GameCrewMember $member */
         $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
@@ -815,7 +798,7 @@ class GamePlayController extends Controller
      * score without giving them a full history-editor (which would muddy
      * tournament integrations).
      */
-    public function editTurnScore(Request $request, Game $game, GameTurn $turn): JsonResponse
+    public function editTurnScore(GamePlayEditTurnScoreRequest $request, Game $game, GameTurn $turn): JsonResponse
     {
         if ($game->status !== GameStatusEnum::InProgress) {
             return response()->json(['error' => 'Game not in progress'], 422);
@@ -836,10 +819,7 @@ class GamePlayController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
-            'scheme_points' => ['required', 'integer', 'min:0', 'max:3'],
-        ]);
+        $validated = $request->validated();
 
         DB::transaction(function () use ($game, $player, $turn, $validated) {
             $bonusUsedThisTurn = $validated['strategy_points'] > 1;

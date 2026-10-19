@@ -4,6 +4,13 @@ namespace App\Http\Controllers\TOS\Database;
 
 use App\Enums\TOS\GarrisonFormatEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TOS\CompanyAddStratagemRequest;
+use App\Http\Requests\TOS\CompanyAddUnitRequest;
+use App\Http\Requests\TOS\CompanyAttachAssetRequest;
+use App\Http\Requests\TOS\CompanySetGarrisonRequest;
+use App\Http\Requests\TOS\CompanyStoreRequest;
+use App\Http\Requests\TOS\CompanyUpdateRequest;
+use App\Http\Requests\TOS\CompanyUpdateSculptRequest;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\Asset;
 use App\Models\TOS\Company;
@@ -72,17 +79,9 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(CompanyStoreRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'allegiance_id' => ['required', 'integer', 'exists:tos_allegiances,id'],
-            'garrison_id' => ['nullable', 'integer', 'exists:tos_garrisons,id'],
-            'format' => ['nullable', Rule::enum(GarrisonFormatEnum::class)],
-            // An Envoy is a second, different Allegiance (June 2026 errata).
-            'envoy_allegiance_id' => ['nullable', 'integer', 'exists:tos_allegiances,id', 'different:allegiance_id'],
-            'notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         // If the user picked a Garrison, snap the allegiance + format to it
         // (the Builder UI already locks the pickers, but server-side
@@ -289,14 +288,11 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function update(Request $request, Company $company): RedirectResponse
+    public function update(CompanyUpdateRequest $request, Company $company): RedirectResponse
     {
         $this->authorizeCompany($company);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $company->update($validated);
 
@@ -311,13 +307,11 @@ class CompanyController extends Controller
      * Garrison would have allowed (the Builder simply unrestricts going
      * forward — same call as a casual Company).
      */
-    public function setGarrison(Request $request, Company $company): RedirectResponse
+    public function setGarrison(CompanySetGarrisonRequest $request, Company $company): RedirectResponse
     {
         $this->authorizeCompany($company);
 
-        $validated = $request->validate([
-            'garrison_id' => ['nullable', 'integer', 'exists:tos_garrisons,id'],
-        ]);
+        $validated = $request->validated();
 
         if (! empty($validated['garrison_id'])) {
             $garrison = Garrison::where('id', $validated['garrison_id'])
@@ -458,14 +452,11 @@ class CompanyController extends Controller
         return false;
     }
 
-    public function addUnit(Request $request, Company $company): RedirectResponse
+    public function addUnit(CompanyAddUnitRequest $request, Company $company): RedirectResponse
     {
         $this->authorizeCompany($company);
 
-        $validated = $request->validate([
-            'unit_id' => ['required', 'integer', 'exists:tos_units,id'],
-            'is_commander' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $unit = Unit::findOrFail($validated['unit_id']);
         $promotingCommander = ! empty($validated['is_commander']);
@@ -583,14 +574,12 @@ class CompanyController extends Controller
      * page loads. Validates that the sculpt actually belongs to the unit so
      * users can't pin an unrelated sculpt onto a different unit.
      */
-    public function updateSculpt(Request $request, Company $company, CompanyUnit $companyUnit): RedirectResponse
+    public function updateSculpt(CompanyUpdateSculptRequest $request, Company $company, CompanyUnit $companyUnit): RedirectResponse
     {
         $this->authorizeCompany($company);
         abort_unless($companyUnit->company_id === $company->id, 404);
 
-        $validated = $request->validate([
-            'sculpt_id' => ['nullable', 'integer', 'exists:tos_unit_sculpts,id'],
-        ]);
+        $validated = $request->validated();
 
         if ($validated['sculpt_id'] !== null) {
             $sculptUnitId = UnitSculpt::whereKey($validated['sculpt_id'])->value('unit_id');
@@ -634,14 +623,12 @@ class CompanyController extends Controller
         return back();
     }
 
-    public function attachAsset(Request $request, Company $company, CompanyUnit $companyUnit): RedirectResponse
+    public function attachAsset(CompanyAttachAssetRequest $request, Company $company, CompanyUnit $companyUnit): RedirectResponse
     {
         $this->authorizeCompany($company);
         abort_unless($companyUnit->company_id === $company->id, 404);
 
-        $validated = $request->validate([
-            'asset_id' => ['required', 'integer', 'exists:tos_assets,id'],
-        ]);
+        $validated = $request->validated();
 
         $asset = Asset::with('limits')->findOrFail($validated['asset_id']);
         $companyUnit->load(['unit', 'assets.limits']);
@@ -729,13 +716,11 @@ class CompanyController extends Controller
      * Add a Stratagem to the Company's deck. Enforces the deck size (6), the
      * Allegiance/Envoy availability, and the two-Envoy-Stratagem cap (p. 13/30).
      */
-    public function addStratagem(Request $request, Company $company): RedirectResponse
+    public function addStratagem(CompanyAddStratagemRequest $request, Company $company): RedirectResponse
     {
         $this->authorizeCompany($company);
 
-        $validated = $request->validate([
-            'stratagem_id' => ['required', 'integer', 'exists:tos_stratagems,id'],
-        ]);
+        $validated = $request->validated();
 
         $stratagem = Stratagem::findOrFail($validated['stratagem_id']);
 

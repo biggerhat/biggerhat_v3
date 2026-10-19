@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\Campaign\AdvancementTableEnum;
 use App\Enums\Campaign\BackAlleyDoctorOutcomeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\GameModeTypeEnum;
@@ -10,6 +9,13 @@ use App\Enums\MessageTypeEnum;
 use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Campaign\CampaignAftermathAdvanceLeaderRequest;
+use App\Http\Requests\Campaign\CampaignAftermathBarterRequest;
+use App\Http\Requests\Campaign\CampaignAftermathDoctorRequest;
+use App\Http\Requests\Campaign\CampaignAftermathDrawHandRequest;
+use App\Http\Requests\Campaign\CampaignAftermathFinalizeRequest;
+use App\Http\Requests\Campaign\CampaignAftermathPaydayRequest;
+use App\Http\Requests\Campaign\CampaignAftermathUpdateStoryRequest;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Campaign\BackAlleyDoctorResult;
@@ -201,7 +207,7 @@ class CampaignAftermathController extends Controller
         ];
     }
 
-    public function drawHand(Request $request, CampaignAftermath $aftermath)
+    public function drawHand(CampaignAftermathDrawHandRequest $request, CampaignAftermath $aftermath)
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
@@ -209,10 +215,7 @@ class CampaignAftermathController extends Controller
             return redirect()->back();
         }
 
-        $data = $request->validate([
-            'completed_without_withdrawing' => ['required', 'boolean'],
-            'schemes_completed' => ['required', 'integer', 'min:0', 'max:3'],
-        ]);
+        $data = $request->validated();
 
         $size = CampaignRules::aftermathHandSize(
             $data['completed_without_withdrawing'],
@@ -240,7 +243,7 @@ class CampaignAftermathController extends Controller
             ->withMessage(sprintf('Draw %d card(s) from your fate deck. On to Payday.', $size));
     }
 
-    public function payday(Request $request, CampaignAftermath $aftermath)
+    public function payday(CampaignAftermathPaydayRequest $request, CampaignAftermath $aftermath)
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
@@ -248,10 +251,7 @@ class CampaignAftermathController extends Controller
             return redirect()->back();
         }
 
-        $data = $request->validate([
-            'vp' => ['required', 'integer', 'min:0', 'max:30'],
-            'won' => ['required', 'boolean'],
-        ]);
+        $data = $request->validated();
 
         // CR comes from the per-game snapshot — both crews' CRs at game start
         // are captured on the campaign_games row, so we don't trust the client
@@ -318,7 +318,7 @@ class CampaignAftermathController extends Controller
      *
      * Purchases deduct cc from crew.scrip; insufficient scrip is rejected.
      */
-    public function barter(Request $request, CampaignAftermath $aftermath)
+    public function barter(CampaignAftermathBarterRequest $request, CampaignAftermath $aftermath)
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
@@ -326,12 +326,7 @@ class CampaignAftermathController extends Controller
             return redirect()->back();
         }
 
-        $data = $request->validate([
-            'purchases' => ['nullable', 'array'],
-            // Equipment lives on `upgrades` post-consolidation. The `exists`
-            // rule requires the row to be campaign-mode equipment specifically.
-            'purchases.*' => ['integer', 'exists:upgrades,id'],
-        ]);
+        $data = $request->validated();
 
         $crew = $aftermath->crew;
         $purchaseIds = $data['purchases'] ?? [];
@@ -429,7 +424,7 @@ class CampaignAftermathController extends Controller
      *   - lucky_miss_reflip: detach + remove, follow-up reflip on Lucky Miss
      *     table is deferred to next iteration
      */
-    public function doctor(Request $request, CampaignAftermath $aftermath)
+    public function doctor(CampaignAftermathDoctorRequest $request, CampaignAftermath $aftermath)
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
@@ -449,24 +444,7 @@ class CampaignAftermathController extends Controller
             ])->withMessage('No Injuries optional rule — Phases 5 + 6 skipped, aftermath complete.');
         }
 
-        $data = $request->validate([
-            'attempts' => ['nullable', 'array'],
-            // Validate existence here so we can fail fast on bogus IDs rather
-            // than silently `continue` past them later — otherwise a player
-            // could drain their own scrip on non-resolving attempts.
-            'attempts.*.injury_pivot_id' => ['required', 'integer', 'exists:campaign_arsenal_model_injuries,id'],
-            // The player makes the doctor flip at the table and picks the result
-            // they got from the chart (pg 33); the server applies its outcome.
-            'attempts.*.result_id' => ['required', 'integer', 'exists:back_alley_doctor_results,id'],
-            'attempts.*.cheated' => ['nullable', 'boolean'],
-            // Required when the chosen result adds a new injury (Oops / flip 9
-            // RemovedAndReflip) — the injury picked from the chart.
-            'attempts.*.added_injury_upgrade_id' => ['nullable', 'integer', 'exists:upgrades,id'],
-            // The Lucky Miss result rolled after a red-joker annihilation; or, if
-            // that Lucky Miss flip is itself a joker, Doppelganger.
-            'attempts.*.lucky_miss_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'attempts.*.lucky_miss_is_joker' => ['nullable', 'boolean'],
-        ]);
+        $data = $request->validated();
 
         $attempts = $data['attempts'] ?? [];
         $crew = $aftermath->crew;
@@ -956,7 +934,7 @@ class CampaignAftermathController extends Controller
      * catalog data is fully entered and the picker UI can preview the
      * composed Leader card.
      */
-    public function advanceLeader(Request $request, CampaignAftermath $aftermath)
+    public function advanceLeader(CampaignAftermathAdvanceLeaderRequest $request, CampaignAftermath $aftermath)
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
@@ -964,55 +942,7 @@ class CampaignAftermathController extends Controller
             return redirect()->back();
         }
 
-        $data = $request->validate([
-            // In-game facts the system can't derive on its own (the tracker
-            // doesn't capture "Interacted within 6\" of the enemy DZ", and a
-            // solo loss is indistinguishable from a draw). The conditional
-            // bonuses are gated server-side by the Leader's actual tag and the
-            // total is computed by CampaignRules — the client never sends a raw
-            // XP total, so it can't inflate it or claim the wrong tag's bonus.
-            'bruiser_killed_non_peon' => ['required', 'boolean'],
-            'strategist_interacted' => ['required', 'boolean'],
-            'lost' => ['required', 'boolean'],
-            'advancements' => ['nullable', 'array'],
-            'advancements.*.source_table' => ['required', 'string', Rule::enum(AdvancementTableEnum::class)],
-            'advancements.*.catalog_id' => ['nullable', 'integer'],
-            'advancements.*.applied_to_action_index' => ['nullable', 'integer'],
-            // Attack/Tactical Mod target (pg 31, 38-43) — see the sibling rule
-            // block in StoreLeaderAdvancementRequest for the full explanation.
-            'advancements.*.applied_to_custom_character_id' => ['nullable', 'integer', 'exists:custom_characters,id'],
-            'advancements.*.applied_to_action_id' => ['nullable', 'integer', 'exists:actions,id'],
-            'advancements.*.position_in_xp_track' => ['required', 'integer', 'min:0', 'max:38'],
-            // Any Joker (Action/Ability tables, pg 49/51): the free pick from
-            // an eligible ally, resolved via the Leader Builder's search.
-            'advancements.*.free_choice' => ['nullable', 'array'],
-            'advancements.*.free_choice.source_id' => ['nullable', 'integer'],
-            'advancements.*.free_choice.source_character_id' => ['nullable', 'integer', 'exists:characters,id'],
-            // Optional: the originating equipment for an attack/tactical
-            // modifier that targets an equipment-derived action (pg 31).
-            'advancements.*.from_equipment_id' => ['nullable', 'integer', 'exists:campaign_equipment,id'],
-            // Optional: required for Totem source_table — server validates
-            // the flip-value matches the chosen totem template exactly.
-            'advancements.*.flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            // Which Joker the player flipped for an Attack/Tactical Mod Joker-gated
-            // row (pg 38-43) — verified against the catalog row server-side.
-            'advancements.*.joker_color' => ['nullable', 'string', 'in:red,black'],
-            'advancements.*.totem_name' => ['nullable', 'string', 'max:100'],
-            'advancements.*.totem_size' => ['nullable', 'integer', 'min:1', 'max:50'],
-            'advancements.*.totem_base' => ['nullable', 'string', 'max:10'],
-            // Crew Card table (pg 17-18): the token/marker/upgrade-type pick a
-            // borrowed effect requires, if any — see StoreLeaderAdvancementRequest.
-            'advancements.*.crew_card_choice' => ['nullable', 'array'],
-            'advancements.*.crew_card_choice.id' => ['nullable'],
-            // Crew Card table (pg 32, 54): which of the two Tier-4 pools
-            // catalog_id resolves against — see StoreLeaderAdvancementRequest.
-            'advancements.*.crew_card_source' => ['nullable', 'string', 'in:campaign_crew_card,crew_upgrade'],
-            // crew_upgrade source only (pg 32): catalog_id above is the picked
-            // item's own id (an Action/Ability/Trigger row) — these two pin
-            // down which single item and which source card it came from.
-            'advancements.*.crew_card_item_type' => ['nullable', 'string', 'in:action,ability,trigger'],
-            'advancements.*.crew_card_upgrade_id' => ['nullable', 'integer'],
-        ]);
+        $data = $request->validated();
 
         $aftermath->loadMissing('crew');
         $leader = $aftermath->crew->leader;
@@ -1283,13 +1213,11 @@ class CampaignAftermathController extends Controller
         ])->withMessage('Aftermath complete.');
     }
 
-    public function finalize(Request $request, CampaignAftermath $aftermath)
+    public function finalize(CampaignAftermathFinalizeRequest $request, CampaignAftermath $aftermath)
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
-        $data = $request->validate([
-            'story_entry' => ['nullable', 'string', 'max:5000'],
-        ]);
+        $data = $request->validated();
 
         $aftermath->update([
             'status' => 'locked',
@@ -1310,13 +1238,11 @@ class CampaignAftermathController extends Controller
      * status — the wizard itself is locked, but the freeform recap text
      * isn't a game-state field, just narrative.
      */
-    public function updateStory(Request $request, CampaignAftermath $aftermath)
+    public function updateStory(CampaignAftermathUpdateStoryRequest $request, CampaignAftermath $aftermath)
     {
         $this->ensureAftermathOwner($request, $aftermath);
 
-        $data = $request->validate([
-            'story_entry' => ['nullable', 'string', 'max:5000'],
-        ]);
+        $data = $request->validated();
 
         $aftermath->update(['story_entry' => $data['story_entry'] ?? null]);
 

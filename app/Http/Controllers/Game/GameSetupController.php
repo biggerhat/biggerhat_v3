@@ -9,6 +9,7 @@ use App\Enums\GameStatusEnum;
 use App\Events\GameSetupStepCompleted;
 use App\Events\GameStatusChanged;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Games\GameSetupSubmitCampaignCrewRequest;
 use App\Http\Requests\Games\SubmitCrewRequest;
 use App\Http\Requests\Games\SubmitFactionRequest;
 use App\Http\Requests\Games\SubmitMasterRequest;
@@ -33,7 +34,6 @@ use App\Services\LootDeckService;
 use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -278,7 +278,7 @@ class GameSetupController extends Controller
      * crew_skipped = true (the "done" marker) rather than creating a synthetic
      * CrewBuild — campaign crew builds have no catalog master_id.
      */
-    public function submitCampaignCrew(Request $request, Game $game): JsonResponse
+    public function submitCampaignCrew(GameSetupSubmitCampaignCrewRequest $request, Game $game): JsonResponse
     {
         if ($game->format !== GameFormatEnum::Campaign) {
             return response()->json(['error' => 'Not a Campaign game'], 422);
@@ -290,19 +290,7 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Invalid game state'], 422);
         }
 
-        $validated = $request->validate([
-            // CampaignArsenalModel row ids, not Character catalog ids — one
-            // entry per physical model hired, so owning several copies of the
-            // same catalog Character hires exactly the ones picked instead of
-            // every owned copy at once.
-            'arsenal_model_ids' => ['present', 'array'],
-            'arsenal_model_ids.*' => ['integer', 'exists:campaign_arsenal_models,id'],
-            // Owned equipment (pg 19) optionally attached to a specific hire
-            // (or the Leader) at selection time, instead of only during play.
-            'equipment_assignments' => ['nullable', 'array'],
-            'equipment_assignments.*.equipment_id' => ['required', 'integer'],
-            'equipment_assignments.*.target' => ['required', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $arsenalModelIds = array_map('intval', $validated['arsenal_model_ids']);
 

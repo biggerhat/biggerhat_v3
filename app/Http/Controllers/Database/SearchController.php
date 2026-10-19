@@ -16,6 +16,7 @@ use App\Enums\ResistanceTypeEnum;
 use App\Enums\SortTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Database\SearchSaveSearchRequest;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
@@ -485,12 +486,8 @@ class SearchController extends Controller
         }, 'malifaux-search-results.csv', ['Content-Type' => 'text/csv']);
     }
 
-    public function saveSearch(Request $request): \Illuminate\Http\RedirectResponse
+    public function saveSearch(SearchSaveSearchRequest $request): \Illuminate\Http\RedirectResponse
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'query_params' => ['required', 'array'],
-        ]);
 
         $request->user()->savedSearches()->create([
             'name' => $request->name,

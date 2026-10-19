@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
 use App\Http\Controllers\Concerns\BuildsPageMeta;
+use App\Http\Requests\CrewBuilder\CrewBuilderReferencesRequest;
+use App\Http\Requests\CrewBuilder\CrewBuilderStoreRequest;
+use App\Http\Requests\CrewBuilder\CrewBuilderUpdateRequest;
 use App\Http\Resources\CharacterCrewBuilderResource;
 use App\Models\Character;
 use App\Models\CrewBuild;
@@ -167,21 +170,9 @@ class CrewBuilderController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(CrewBuilderStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|array',
-            'faction' => 'required|string',
-            'master_id' => 'required|exists:characters,id',
-            'encounter_size' => 'required|integer|min:1',
-            'crew_data' => 'present|array',
-            'custom_crew_data' => 'nullable|array',
-            'miniature_selections' => 'nullable|array',
-            'crew_upgrade_id' => 'nullable|exists:upgrades,id',
-            'copied_from_id' => 'nullable|exists:crew_builds,id',
-            'custom_references' => 'nullable|array',
-        ]);
+        $validated = $request->validated();
 
         $build = CrewBuild::create([
             ...$validated,
@@ -197,24 +188,11 @@ class CrewBuilderController extends Controller
         ]);
     }
 
-    public function update(Request $request, CrewBuild $crewBuild)
+    public function update(CrewBuilderUpdateRequest $request, CrewBuild $crewBuild)
     {
         $this->authorize('update', $crewBuild);
 
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'description' => 'nullable|array',
-            'faction' => 'sometimes|string',
-            'master_id' => 'sometimes|exists:characters,id',
-            'encounter_size' => 'sometimes|integer|min:1',
-            'crew_data' => 'sometimes|array',
-            'custom_crew_data' => 'nullable|array',
-            'miniature_selections' => 'nullable|array',
-            'crew_upgrade_id' => 'nullable|exists:upgrades,id',
-            'is_archived' => 'sometimes|boolean',
-            'is_public' => 'sometimes|boolean',
-            'custom_references' => 'nullable|array',
-        ]);
+        $validated = $request->validated();
 
         $crewBuild->update($validated);
 
@@ -432,12 +410,9 @@ class CrewBuilderController extends Controller
         ]);
     }
 
-    public function references(Request $request): JsonResponse
+    public function references(CrewBuilderReferencesRequest $request): JsonResponse
     {
-        $ids = $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'integer',
-        ])['ids'];
+        $ids = $request->validated('ids');
 
         return response()->json(CrewBuild::computeReferences($ids));
     }

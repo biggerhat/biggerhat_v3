@@ -4,6 +4,13 @@ namespace App\Http\Controllers\TOS\Database;
 
 use App\Enums\TOS\GarrisonFormatEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TOS\GarrisonAddUnitRequest;
+use App\Http\Requests\TOS\GarrisonAttachAssetRequest;
+use App\Http\Requests\TOS\GarrisonPickEnvoyRequest;
+use App\Http\Requests\TOS\GarrisonPickStratagemRequest;
+use App\Http\Requests\TOS\GarrisonStoreRequest;
+use App\Http\Requests\TOS\GarrisonUpdateRequest;
+use App\Http\Requests\TOS\GarrisonUpdateSculptRequest;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
@@ -13,7 +20,6 @@ use App\Models\TOS\Stratagem;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -58,14 +64,9 @@ class GarrisonController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(GarrisonStoreRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'allegiance_id' => ['required', 'integer', 'exists:tos_allegiances,id'],
-            'format' => ['required', 'string', Rule::in(array_column(GarrisonFormatEnum::cases(), 'value'))],
-            'notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $garrison = Garrison::create([
             'user_id' => Auth::id(),
@@ -86,15 +87,11 @@ class GarrisonController extends Controller
         ]);
     }
 
-    public function update(Request $request, Garrison $garrison): RedirectResponse
+    public function update(GarrisonUpdateRequest $request, Garrison $garrison): RedirectResponse
     {
         $this->authorizeGarrison($garrison);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'format' => ['required', 'string', Rule::in(array_column(GarrisonFormatEnum::cases(), 'value'))],
-            'notes' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $garrison->update($validated);
 
@@ -189,14 +186,11 @@ class GarrisonController extends Controller
     // counts in real time so users rarely hit these errors, but the server
     // re-validates regardless.
 
-    public function addUnit(Request $request, Garrison $garrison): RedirectResponse
+    public function addUnit(GarrisonAddUnitRequest $request, Garrison $garrison): RedirectResponse
     {
         $this->authorizeGarrison($garrison);
 
-        $validated = $request->validate([
-            'unit_id' => ['required', 'integer', 'exists:tos_units,id'],
-            'is_commander' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $unit = Unit::findOrFail($validated['unit_id']);
         $asCommander = ! empty($validated['is_commander']);
@@ -258,14 +252,12 @@ class GarrisonController extends Controller
      * Unit slot. Mirrors `CompanyController::updateSculpt` — validates the
      * sculpt actually belongs to the unit so a bad ID can't slip through.
      */
-    public function updateSculpt(Request $request, Garrison $garrison, GarrisonUnit $garrisonUnit): RedirectResponse
+    public function updateSculpt(GarrisonUpdateSculptRequest $request, Garrison $garrison, GarrisonUnit $garrisonUnit): RedirectResponse
     {
         $this->authorizeGarrison($garrison);
         abort_unless($garrisonUnit->garrison_id === $garrison->id, 404);
 
-        $validated = $request->validate([
-            'sculpt_id' => ['nullable', 'integer', 'exists:tos_unit_sculpts,id'],
-        ]);
+        $validated = $request->validated();
 
         if ($validated['sculpt_id'] !== null) {
             $sculptUnitId = UnitSculpt::whereKey($validated['sculpt_id'])->value('unit_id');
@@ -282,14 +274,11 @@ class GarrisonController extends Controller
      * `delta` is +1 by default; the UI's quantity stepper passes ±1 to
      * the same endpoint. Total cost across all rows stays under budget.
      */
-    public function attachAsset(Request $request, Garrison $garrison): RedirectResponse
+    public function attachAsset(GarrisonAttachAssetRequest $request, Garrison $garrison): RedirectResponse
     {
         $this->authorizeGarrison($garrison);
 
-        $validated = $request->validate([
-            'asset_id' => ['required', 'integer', 'exists:tos_assets,id'],
-            'delta' => ['nullable', 'integer', 'min:-99', 'max:99'],
-        ]);
+        $validated = $request->validated();
 
         $asset = Asset::with('limits')->findOrFail($validated['asset_id']);
         $delta = (int) ($validated['delta'] ?? 1);
@@ -344,13 +333,11 @@ class GarrisonController extends Controller
         return back();
     }
 
-    public function pickStratagem(Request $request, Garrison $garrison): RedirectResponse
+    public function pickStratagem(GarrisonPickStratagemRequest $request, Garrison $garrison): RedirectResponse
     {
         $this->authorizeGarrison($garrison);
 
-        $validated = $request->validate([
-            'stratagem_id' => ['required', 'integer', 'exists:tos_stratagems,id'],
-        ]);
+        $validated = $request->validated();
 
         $stratagem = Stratagem::findOrFail($validated['stratagem_id']);
 
@@ -379,13 +366,11 @@ class GarrisonController extends Controller
         return back();
     }
 
-    public function pickEnvoy(Request $request, Garrison $garrison): RedirectResponse
+    public function pickEnvoy(GarrisonPickEnvoyRequest $request, Garrison $garrison): RedirectResponse
     {
         $this->authorizeGarrison($garrison);
 
-        $validated = $request->validate([
-            'allegiance_card_id' => ['required', 'integer', 'exists:tos_allegiance_cards,id'],
-        ]);
+        $validated = $request->validated();
 
         if ($garrison->envoyCount() === 0) {
             return back()->withErrors(['allegiance_card_id' => 'This format does not include an Envoy slot.']);

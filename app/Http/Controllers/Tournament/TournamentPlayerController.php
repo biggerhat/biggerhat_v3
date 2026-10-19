@@ -2,25 +2,24 @@
 
 namespace App\Http\Controllers\Tournament;
 
-use App\Enums\FactionEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Concerns\ResolvesMeta;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tournaments\TournamentPlayerStoreRequest;
+use App\Http\Requests\Tournaments\TournamentPlayerUpdateRequest;
 use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use App\Models\User;
 use App\Notifications\Tournament\TournamentPlayerRegistered;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class TournamentPlayerController extends Controller
 {
     use BroadcastsTournamentUpdates;
     use ResolvesMeta;
 
-    public function store(Request $request, Tournament $tournament): JsonResponse
+    public function store(TournamentPlayerStoreRequest $request, Tournament $tournament): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
@@ -43,18 +42,7 @@ class TournamentPlayerController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
-            'display_name' => ['required', 'string', 'max:255'],
-            'user_id' => ['nullable', 'exists:users,id'],
-            // Validate against the enum — `faction` is cast to FactionEnum on
-            // the model, so a non-enum string would crash on read (which is why
-            // standings/pairing read getRawOriginal('faction') defensively).
-            'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
-            'is_ringer' => ['sometimes', 'boolean'],
-            'meta_id' => ['nullable', 'integer', 'exists:metas,id'],
-            // Convenience: lets the registration form create a new meta inline.
-            'meta_name' => ['nullable', 'string', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $this->resolveMetaFromName($validated);
 
@@ -85,20 +73,11 @@ class TournamentPlayerController extends Controller
         return response()->json(['success' => true, 'player' => $player]);
     }
 
-    public function update(Request $request, Tournament $tournament, TournamentPlayer $player): JsonResponse
+    public function update(TournamentPlayerUpdateRequest $request, Tournament $tournament, TournamentPlayer $player): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
-        $validated = $request->validate([
-            'display_name' => ['sometimes', 'string', 'max:255'],
-            'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
-            'is_ringer' => ['sometimes', 'boolean'],
-            'is_disqualified' => ['sometimes', 'boolean'],
-            'dropped_after_round' => ['sometimes', 'nullable', 'integer', 'min:0'],
-            'user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
-            'meta_id' => ['sometimes', 'nullable', 'integer', 'exists:metas,id'],
-            'meta_name' => ['sometimes', 'nullable', 'string', 'max:100'],
-        ]);
+        $validated = $request->validated();
 
         $this->resolveMetaFromName($validated);
 

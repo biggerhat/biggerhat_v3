@@ -62,9 +62,10 @@ use App\Http\Controllers\TOS\Admin\SpecialUnitRuleAdminController as TosSpecialU
 use App\Http\Controllers\TOS\Admin\StratagemAdminController as TosStratagemAdminController;
 use App\Http\Controllers\TOS\Admin\TriggerAdminController as TosTriggerAdminController;
 use App\Http\Controllers\TOS\Admin\UnitAdminController as TosUnitAdminController;
+use App\Http\Middleware\WrapAdminWritesInTransaction;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('admin.')->group(function () {
+Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWritesInTransaction::class])->name('admin.')->group(function () {
     Route::get('/', [DashboardAdminController::class, 'index'])->name('dashboard');
     // Per-type permissions are enforced inside the controller (see AdminSearchController).
     Route::get('/search', AdminSearchController::class)->name('search');

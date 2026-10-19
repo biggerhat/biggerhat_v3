@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tournament;
 
 use App\Enums\DeploymentEnum;
+use App\Enums\EncounterTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
@@ -10,6 +11,7 @@ use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Character;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
@@ -205,7 +207,7 @@ class TournamentController extends Controller
             'label' => $s->label(),
         ]);
 
-        $encounterTypes = collect(\App\Enums\EncounterTypeEnum::cases())->map(fn ($e) => [
+        $encounterTypes = collect(EncounterTypeEnum::cases())->map(fn ($e) => [
             'value' => $e->value,
             'label' => $e->label(),
         ]);
@@ -312,7 +314,7 @@ class TournamentController extends Controller
         // Masters grouped by name with titles — only used in the score-entry
         // dialog, so defer under its own group.
         $mastersDeferred = Inertia::defer(function () {
-            $characters = \App\Models\Character::standard()->where('station', 'master')
+            $characters = Character::standard()->where('station', 'master')
                 ->where('is_hidden', false)
                 ->orderBy('name')->orderBy('title')
                 ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
@@ -340,7 +342,7 @@ class TournamentController extends Controller
             'standings' => $standings,
             'seasons' => $seasons,
             'factions' => fn () => FactionEnum::buildDetails(),
-            'encounter_types' => collect(\App\Enums\EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
+            'encounter_types' => collect(EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
             'all_deployments' => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()]),
             // Deferred below — page renders without these, a follow-up request
             // fills them in. Grouping means strategies + schemes batch into one

@@ -9,6 +9,7 @@ use App\Models\TOS\AllegianceCard;
 use App\Models\TOS\Asset;
 use App\Models\TOS\SpecialUnitRule;
 use App\Models\TOS\Stratagem;
+use App\Models\TOS\Unit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -69,7 +70,7 @@ class AllegianceController extends Controller
         $units = collect();
         $statistics = $this->emptyStatistics();
         if ($this->shouldLoad($resourceType, 'units')) {
-            $query = \App\Models\TOS\Unit::query()
+            $query = Unit::query()
                 ->with([
                     'sides:id,unit_id,side,speed,defense,willpower,armor',
                     'sculpts',

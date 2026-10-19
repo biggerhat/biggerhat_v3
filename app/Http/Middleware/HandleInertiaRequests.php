@@ -5,6 +5,12 @@ namespace App\Http\Middleware;
 use App\Enums\FactionEnum;
 use App\Enums\TOS\AllegianceEnum;
 use App\Models\Announcement;
+use App\Models\Character;
+use App\Models\Miniature;
+use App\Models\Package;
+use App\Models\TOS\Unit;
+use App\Models\TOS\UnitSculpt;
+use App\Models\WishlistItem;
 use App\Support\AdminNav;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -262,7 +268,7 @@ class HandleInertiaRequests extends Middleware
             return [];
         }
 
-        $items = \App\Models\WishlistItem::query()
+        $items = WishlistItem::query()
             ->whereIn('wishlist_id', $user->wishlists()->select('id'))
             ->select('wishlist_id', 'wishlistable_type', 'wishlistable_id')
             ->get();
@@ -275,11 +281,11 @@ class HandleInertiaRequests extends Middleware
             }
 
             $key = match ($item->wishlistable_type) {
-                \App\Models\Character::class => 'characters',
-                \App\Models\Miniature::class => 'miniatures',
-                \App\Models\Package::class => 'packages',
-                \App\Models\TOS\Unit::class => 'units',
-                \App\Models\TOS\UnitSculpt::class => 'unit_sculpts',
+                Character::class => 'characters',
+                Miniature::class => 'miniatures',
+                Package::class => 'packages',
+                Unit::class => 'units',
+                UnitSculpt::class => 'unit_sculpts',
                 default => null,
             };
 

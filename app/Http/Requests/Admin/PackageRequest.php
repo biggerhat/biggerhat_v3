@@ -9,6 +9,7 @@ use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\TOS\Unit;
+use App\Rules\SingleMatch;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -46,15 +47,15 @@ class PackageRequest extends FormRequest
             'back_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'characters' => ['nullable', 'array'],
-            'characters.*' => ['string', Rule::exists(Character::class, 'display_name')],
+            'characters.*' => ['string', new SingleMatch(Character::class, 'display_name')],
             'character_quantities' => ['nullable', 'array'],
             'character_quantities.*' => ['nullable', 'integer', 'min:1'],
             'character_special_orders' => ['nullable', 'array'],
             'character_special_orders.*' => ['nullable', 'boolean'],
             'miniatures' => ['nullable', 'array'],
-            'miniatures.*' => ['string', Rule::exists(Miniature::class, 'display_name')],
+            'miniatures.*' => ['string', new SingleMatch(Miniature::class, 'display_name')],
             'keywords' => ['nullable', 'array'],
-            'keywords.*' => ['string', Rule::exists(Keyword::class, 'name')],
+            'keywords.*' => ['string', new SingleMatch(Keyword::class, 'name')],
             // Keyed by slug — TOS Unit names collide across title variants.
             'tos_units' => ['nullable', 'array'],
             'tos_units.*' => ['string', Rule::exists(Unit::class, 'slug')],

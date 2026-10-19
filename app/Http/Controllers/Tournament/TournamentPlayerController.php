@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tournament;
 
 use App\Enums\FactionEnum;
+use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Concerns\ResolvesMeta;
 use App\Http\Controllers\Controller;
@@ -34,7 +35,7 @@ class TournamentPlayerController extends Controller
         // round in progress, which would either need a forced bye or look like
         // a missing pairing. Wait until the round ends.
         if ($tournament->rounds()
-            ->where('status', \App\Enums\TournamentRoundStatusEnum::InProgress)
+            ->where('status', TournamentRoundStatusEnum::InProgress)
             ->exists()
         ) {
             return response()->json([

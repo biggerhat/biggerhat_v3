@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RoleEnum;
 use App\Models\User;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -16,7 +17,8 @@ class SupportersController extends Controller
     public function index(): Response|ResponseFactory
     {
         return inertia('Supporters/Index', [
-            'supporters' => User::role('supporter')
+            'supporters' => // whereHas rather than ->role(): the latter throws when the role row doesn't exist yet.
+            User::whereHas('roles', fn ($q) => $q->where('name', RoleEnum::Supporter->value))
                 ->where('show_on_supporters_page', true)
                 ->orderByDesc('supporter_since')
                 ->get(['id', 'name', 'supporter_since'])

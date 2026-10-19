@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EncounterTypeEnum;
 use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentStatusEnum;
@@ -35,7 +36,7 @@ class Tournament extends Model
         return [
             'status' => TournamentStatusEnum::class,
             'season' => PoolSeasonEnum::class,
-            'encounter_type' => \App\Enums\EncounterTypeEnum::class,
+            'encounter_type' => EncounterTypeEnum::class,
             'tiebreaker_mode' => TournamentTiebreakerEnum::class,
             'event_date' => 'date',
         ];

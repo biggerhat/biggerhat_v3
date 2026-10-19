@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { AlertTriangle, ArrowLeft, Globe, Lock, Package, Plus, Printer, Search, Share2, Shield, Trash2, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -467,6 +468,8 @@ function removeStratagem(s: StratagemMin) {
     router.post(route('tos.companies.stratagems.remove', [props.company.slug, s.slug]), {}, { preserveScroll: true, only: reloadOnly });
 }
 
+const toast = useToast();
+
 async function copyShareLink() {
     const url = window.location.origin + route('tos.companies.shared', props.company.share_code, false);
     try {
@@ -474,8 +477,8 @@ async function copyShareLink() {
         shareCopied.value = true;
         setTimeout(() => (shareCopied.value = false), 1800);
     } catch {
-        // Fallback: prompt the user with the URL.
-        window.prompt('Copy this share link:', url);
+        // Clipboard unavailable (insecure context / denied) — show the link to copy by hand.
+        toast.info('Copy this share link', { description: url, duration: 15000 });
     }
 }
 

@@ -9,6 +9,7 @@ use App\Enums\ModifierTypeEnum;
 use App\Enums\ResistanceTypeEnum;
 use App\Models\Character;
 use App\Models\Trigger;
+use App\Rules\SingleMatch;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -45,9 +46,9 @@ class ActionRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'internal_notes' => ['nullable', 'string'],
             'triggers' => ['nullable', 'array'],
-            'triggers.*' => ['string', Rule::exists(Trigger::class, 'name')],
+            'triggers.*' => ['string', new SingleMatch(Trigger::class, 'name')],
             'characters' => ['nullable', 'array'],
-            'characters.*' => ['string', Rule::exists(Character::class, 'display_name')],
+            'characters.*' => ['string', new SingleMatch(Character::class, 'display_name')],
             // Campaign-only — Summoning advancement is the only remaining shared-catalog
             // kind (Action advancement lives on its own table). Cleared by the
             // controller unless the mode is campaign.

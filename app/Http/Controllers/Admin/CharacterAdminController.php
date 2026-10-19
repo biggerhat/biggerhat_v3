@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
+use App\Enums\CrewUpgradeModeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\SuitEnum;
@@ -87,7 +88,7 @@ class CharacterAdminController extends Controller
                 $query->where('slug', 'totem');
             })->toSelectOptions('display_name', 'slug'),
             'crew_upgrades' => fn () => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
-            'crew_upgrade_modes' => fn () => \App\Enums\CrewUpgradeModeEnum::toSelectOptions(),
+            'crew_upgrade_modes' => fn () => CrewUpgradeModeEnum::toSelectOptions(),
             'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
             'all_characters' => fn () => Character::orderBy('display_name')->toSelectOptions('display_name', 'slug'),
         ];

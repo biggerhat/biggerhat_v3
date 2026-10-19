@@ -6,6 +6,7 @@ use App\Enums\LoreMediaTypeEnum;
 use App\Models\Character;
 use App\Models\LoreMedia;
 use App\Models\TOS\Unit as TosUnit;
+use App\Rules\SingleMatch;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,9 +30,9 @@ class LoreRequest extends FormRequest
             'file' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg,png,webp,pdf'],
             'remove_file' => ['nullable', 'boolean'],
             'lore_media' => ['nullable', 'array'],
-            'lore_media.*' => ['string', Rule::exists(LoreMedia::class, 'name')],
+            'lore_media.*' => ['string', new SingleMatch(LoreMedia::class, 'name')],
             'characters' => ['nullable', 'array'],
-            'characters.*' => ['string', Rule::exists(Character::class, 'display_name')],
+            'characters.*' => ['string', new SingleMatch(Character::class, 'display_name')],
             'tos_units' => ['nullable', 'array'],
             'tos_units.*' => ['string', Rule::exists(TosUnit::class, 'slug')],
             // Inline new media creation (array of objects)

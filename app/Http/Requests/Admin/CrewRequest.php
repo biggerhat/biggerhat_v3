@@ -10,6 +10,7 @@ use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Token;
+use App\Rules\SingleMatch;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -38,13 +39,13 @@ class CrewRequest extends FormRequest
             'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'tokens' => ['nullable', 'array'],
-            'tokens.*' => ['string', Rule::exists(Token::class, 'name')],
+            'tokens.*' => ['string', new SingleMatch(Token::class, 'name')],
             'markers' => ['nullable', 'array'],
-            'markers.*' => ['string', Rule::exists(Marker::class, 'name')],
+            'markers.*' => ['string', new SingleMatch(Marker::class, 'name')],
             'characters' => ['nullable', 'array'],
-            'characters.*' => ['string', Rule::exists(Character::class, 'display_name')],
+            'characters.*' => ['string', new SingleMatch(Character::class, 'display_name')],
             'keywords' => ['nullable', 'array'],
-            'keywords.*' => ['string', Rule::exists(Keyword::class, 'name')],
+            'keywords.*' => ['string', new SingleMatch(Keyword::class, 'name')],
             'upgradeable_rows' => ['nullable', 'array'],
             'upgradeable_rows.*.type' => ['required', 'string', 'in:action,ability,trigger'],
             'upgradeable_rows.*.id' => ['required', 'integer'],

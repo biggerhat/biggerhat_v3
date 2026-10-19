@@ -59,3 +59,18 @@ it('keeps every state-changing admin route off GET', function () {
 
     expect($writes)->toBe([]);
 });
+
+it('rolls back everything a failed admin write already saved', function () {
+    $admin = App\Models\User::factory()->create();
+    $admin->givePermissionTo(Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'edit_keyword', 'guard_name' => 'web']));
+
+    // Fail after the keyword row is created, as a later relation sync would.
+    App\Models\Keyword::created(fn () => throw new RuntimeException('boom'));
+
+    $this->withoutExceptionHandling();
+    expect(fn () => $this->actingAs($admin)->post(route('admin.keywords.store'), [
+        'name' => 'Half Saved', 'game_mode_type' => 'standard',
+    ]))->toThrow(RuntimeException::class);
+
+    expect(App\Models\Keyword::where('name', 'Half Saved')->exists())->toBeFalse();
+});

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { captureLootCardImage } from '@/composables/useLootCardCapture';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
@@ -87,6 +88,8 @@ const isCreate = computed(() => props.card === null);
 const slugList = (rows: { slug: string }[]) => rows.map((r) => r.slug);
 
 // Suit + value are create-only; immutable on edit.
+// Select items can't carry an empty value, so "none" is a sentinel.
+const NONE = '__none__';
 const newSuit = ref<string>('crow');
 const newValue = ref<number | null>(null);
 const newValueLabel = ref<string>('');
@@ -318,13 +321,16 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                     <div v-if="isCreate" class="grid gap-3 sm:grid-cols-2">
                         <div class="space-y-1.5">
                             <Label for="suit">Suit</Label>
-                            <select id="suit" v-model="newSuit" class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
-                                <option value="crow">Crow</option>
-                                <option value="mask">Mask</option>
-                                <option value="ram">Ram</option>
-                                <option value="tome">Tome</option>
-                                <option value="joker">Joker</option>
-                            </select>
+                            <Select v-model="newSuit">
+                                <SelectTrigger id="suit"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="crow">Crow</SelectItem>
+                                    <SelectItem value="mask">Mask</SelectItem>
+                                    <SelectItem value="ram">Ram</SelectItem>
+                                    <SelectItem value="tome">Tome</SelectItem>
+                                    <SelectItem value="joker">Joker</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <p v-if="form.errors.suit" class="text-xs text-destructive">{{ form.errors.suit }}</p>
                         </div>
                         <div v-if="!isJoker" class="space-y-1.5">
@@ -338,15 +344,14 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                         </div>
                         <div v-else class="space-y-1.5">
                             <Label for="value_label">Display Label</Label>
-                            <select
-                                id="value_label"
-                                v-model="newValueLabel"
-                                class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                            >
-                                <option value="">Choose…</option>
-                                <option value="Red Joker">Red Joker</option>
-                                <option value="Black Joker">Black Joker</option>
-                            </select>
+                            <Select :model-value="newValueLabel || NONE" @update:model-value="(v) => (newValueLabel = v === NONE ? '' : String(v))">
+                                <SelectTrigger id="value_label"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem :value="NONE">Choose…</SelectItem>
+                                    <SelectItem value="Red Joker">Red Joker</SelectItem>
+                                    <SelectItem value="Black Joker">Black Joker</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <p v-if="form.errors.value_label" class="text-xs text-destructive">{{ form.errors.value_label }}</p>
                         </div>
                     </div>

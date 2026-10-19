@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Game;
 
 use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameFormatEnum;
 use App\Enums\GameRoleEnum;
 use App\Enums\GameShowContext;
 use App\Enums\GameStatusEnum;
@@ -16,15 +17,27 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\StoreGameRequest;
 use App\Http\Requests\Games\UpdateGameSettingsRequest;
 use App\Http\Requests\Games\UpdateScenarioRequest;
+use App\Models\Campaign\CampaignAftermath;
+use App\Models\Campaign\CampaignArsenalModel;
+use App\Models\Campaign\CampaignArsenalModelInjury;
+use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignCrewCard;
+use App\Models\Campaign\CampaignCrewCardAdvancement;
+use App\Models\Campaign\CampaignGame;
+use App\Models\Campaign\LuckyMiss;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\GameTurn;
+use App\Models\LootCard;
+use App\Models\Marker;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Token;
+use App\Models\TournamentGame;
+use App\Models\Upgrade;
 use App\Models\User;
 use App\Notifications\Game\GameOpponentJoined;
 use App\Support\Campaign\AftermathCatalog;
@@ -86,9 +99,9 @@ class GameController extends Controller
         // the fact). Campaign games always start from the Campaign hub
         // instead (CampaignGameController::store()/playLive()), which
         // creates the campaign_games link eagerly and unambiguously.
-        $formats = collect(\App\Enums\GameFormatEnum::cases())
-            ->reject(fn (\App\Enums\GameFormatEnum $f) => $f === \App\Enums\GameFormatEnum::Campaign)
-            ->map(fn (\App\Enums\GameFormatEnum $f) => [
+        $formats = collect(GameFormatEnum::cases())
+            ->reject(fn (GameFormatEnum $f) => $f === GameFormatEnum::Campaign)
+            ->map(fn (GameFormatEnum $f) => [
                 'value' => $f->value,
                 'label' => $f->label(),
                 'default_encounter_size' => $f->defaultEncounterSize(),
@@ -109,7 +122,7 @@ class GameController extends Controller
         $validated = $request->validated();
 
         $seasonEnum = PoolSeasonEnum::from($validated['season']);
-        $format = \App\Enums\GameFormatEnum::tryFrom($validated['format'] ?? '') ?? \App\Enums\GameFormatEnum::Standard;
+        $format = GameFormatEnum::tryFrom($validated['format'] ?? '') ?? GameFormatEnum::Standard;
 
         // Bonanza Brawl skips scenario generation — it has no Strategy / Scheme
         // pool / Deployment, scoring is event-driven VP, and encounter size is
@@ -135,14 +148,14 @@ class GameController extends Controller
         // personal scratchpad where the user tracks their own model's HP, loot
         // attachments, and VP. Slot 2 stays inert (created so existing
         // firstWhere('slot', 2) callsites don't blow up) but never surfaces.
-        $isSolo = $format === \App\Enums\GameFormatEnum::BonanzaBrawl
+        $isSolo = $format === GameFormatEnum::BonanzaBrawl
             ? true
             : filter_var($request->input('is_solo', false), FILTER_VALIDATE_BOOLEAN);
 
         // Bonanza locks encounter_size to its rule-defined value regardless of
         // what the form sent — the format spec is authoritative.
-        $encounterSize = $format === \App\Enums\GameFormatEnum::BonanzaBrawl
-            ? \App\Enums\GameFormatEnum::BonanzaBrawl->defaultEncounterSize()
+        $encounterSize = $format === GameFormatEnum::BonanzaBrawl
+            ? GameFormatEnum::BonanzaBrawl->defaultEncounterSize()
             : $validated['encounter_size'];
 
         $game = Game::create([
@@ -428,7 +441,7 @@ class GameController extends Controller
             'all_schemes' => $allSchemes,
             'all_deployments' => $allDeployments,
             'all_markers' => fn () => $isSelf && in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::SchemeSelect])
-                ? \App\Models\Marker::orderBy('name')->get(['id', 'name', 'slug'])
+                ? Marker::orderBy('name')->get(['id', 'name', 'slug'])
                 : [],
             'tokens' => fn () => $this->buildTokensProp($game, $context),
             'character_upgrades' => fn () => $isSelf && $game->status === GameStatusEnum::InProgress
@@ -476,8 +489,8 @@ class GameController extends Controller
         // attached_upgrades (all reference cards by id). Live audiences only — the
         // summary historically omits it; preserved here, revisit as a follow-up.
         if ($context !== GameShowContext::Summary) {
-            $props['loot_card_catalog'] = fn () => ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl && $game->status === GameStatusEnum::InProgress)
-                ? \App\Models\LootCard::with([
+            $props['loot_card_catalog'] = fn () => ($game->format === GameFormatEnum::BonanzaBrawl && $game->status === GameStatusEnum::InProgress)
+                ? LootCard::with([
                     // Column lists mirror BonanzaLootDeckController's public reference
                     // page so the in-game side-picker can render the same full
                     // ActionCard/AbilityCard/LootTriggerDisplay detail, not just names.
@@ -502,7 +515,7 @@ class GameController extends Controller
             $props['campaign_context'] = fn () => $this->buildCampaignContext($game);
             $props['campaign_arsenal'] = fn () => $this->buildCampaignArsenalProp($game);
             $props['campaign_owned_equipment'] = fn () => $this->buildCampaignEquipmentProp($game);
-            $props['campaign_leader_option'] = fn () => $game->format === \App\Enums\GameFormatEnum::Campaign
+            $props['campaign_leader_option'] = fn () => $game->format === GameFormatEnum::Campaign
                 ? $this->campaignLeaderMasterOption($game)
                 : null;
             $props['campaign_totem'] = fn () => $this->buildCampaignTotemProp($game);
@@ -529,11 +542,11 @@ class GameController extends Controller
      */
     private function buildCampaignContext(Game $game): ?array
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
+        if ($game->format !== GameFormatEnum::Campaign) {
             return null;
         }
 
-        $wrap = \App\Models\Campaign\CampaignGame::query()
+        $wrap = CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->with([
                 'campaign:id,name,current_week,length_weeks',
@@ -634,7 +647,7 @@ class GameController extends Controller
         ];
     }
 
-    private function applyCrewCardSignatureFlags(\App\Models\Campaign\CampaignCrew $crew): void
+    private function applyCrewCardSignatureFlags(CampaignCrew $crew): void
     {
         $crew->crewCardEffect?->actions->each(
             fn ($a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from BelongsToMany)
@@ -649,11 +662,11 @@ class GameController extends Controller
     /**
      * @return array{effect: array<string, mixed>|null, borrowed: array<int, array<string, mixed>>, front_image: string|null, back_image: string|null, card_generated_at: string|null}
      */
-    private function campaignCrewCardPayload(\App\Models\Campaign\CampaignCrew $crew): array
+    private function campaignCrewCardPayload(CampaignCrew $crew): array
     {
         return [
             'effect' => $this->crewCardEffectPayload($crew->crewCardEffect),
-            'borrowed' => $crew->crewCardAdvancements->map(fn (\App\Models\Campaign\CampaignCrewCardAdvancement $adv) => [
+            'borrowed' => $crew->crewCardAdvancements->map(fn (CampaignCrewCardAdvancement $adv) => [
                 'id' => $adv->id,
                 'effect' => $this->crewCardEffectPayload($adv->crewCardEffect),
             ])->all(),
@@ -674,7 +687,7 @@ class GameController extends Controller
      * expects — a plain `toArray()` would leak the Upgrade model's many
      * unrelated admin/catalog columns into this payload.
      */
-    private function crewCardEffectPayload(\App\Models\Campaign\CampaignCrewCard|\App\Models\Upgrade|null $effect): ?array
+    private function crewCardEffectPayload(CampaignCrewCard|Upgrade|null $effect): ?array
     {
         if (! $effect) {
             return null;
@@ -686,7 +699,7 @@ class GameController extends Controller
             'body' => $effect->description,
             // Real per-card art only ever exists on an Upgrade-sourced effect —
             // the shared CampaignCrewCard catalog has no card art column.
-            'front_image' => $effect instanceof \App\Models\Upgrade ? $effect->front_image : null,
+            'front_image' => $effect instanceof Upgrade ? $effect->front_image : null,
             'actions' => $effect->actions,
             'abilities' => $effect->abilities,
         ];
@@ -700,8 +713,8 @@ class GameController extends Controller
      */
     private function buildCampaignArsenalProp(Game $game): array
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
-            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+        if ($game->format !== GameFormatEnum::Campaign
+            || $game->status !== GameStatusEnum::CrewSelect
             || ! Auth::check()) {
             return [];
         }
@@ -720,9 +733,9 @@ class GameController extends Controller
         // Resolves gained_lucky_miss_ids to names for display — mirrors
         // ArsenalSheetController, which surfaces the same label/injuries/
         // lucky_miss/gained_abilities fields for this identical model.
-        $luckyMissNames = \App\Models\Campaign\LuckyMiss::query()->pluck('name', 'id');
+        $luckyMissNames = LuckyMiss::query()->pluck('name', 'id');
 
-        return \App\Models\Campaign\CampaignArsenalModel::query()
+        return CampaignArsenalModel::query()
             ->where('campaign_crew_id', $campaignCrew->id)
             ->active()
             ->with([
@@ -737,7 +750,7 @@ class GameController extends Controller
                 'gainedAbilities:id,name,description',
             ])
             ->get()
-            ->map(function (\App\Models\Campaign\CampaignArsenalModel $m) use ($leaderKeywordSlugs, $luckyMissNames) {
+            ->map(function (CampaignArsenalModel $m) use ($leaderKeywordSlugs, $luckyMissNames) {
                 $generatedAt = null;
                 if ($m->customCharacter) {
                     $custom = $m->customCharacter;
@@ -816,8 +829,8 @@ class GameController extends Controller
      */
     private function buildCampaignTotemProp(Game $game): ?array
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
-            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+        if ($game->format !== GameFormatEnum::Campaign
+            || $game->status !== GameStatusEnum::CrewSelect
             || ! Auth::check()) {
             return null;
         }
@@ -836,8 +849,8 @@ class GameController extends Controller
      */
     private function buildCampaignLeaderProp(Game $game): ?array
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
-            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+        if ($game->format !== GameFormatEnum::Campaign
+            || $game->status !== GameStatusEnum::CrewSelect
             || ! Auth::check()) {
             return null;
         }
@@ -860,7 +873,7 @@ class GameController extends Controller
      */
     private function buildCampaignAftermathRecapProp(Game $game): ?array
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign || ! Auth::check()) {
+        if ($game->format !== GameFormatEnum::Campaign || ! Auth::check()) {
             return null;
         }
 
@@ -869,12 +882,12 @@ class GameController extends Controller
             return null;
         }
 
-        $campaignGame = \App\Models\Campaign\CampaignGame::query()->where('base_game_id', $game->id)->first();
+        $campaignGame = CampaignGame::query()->where('base_game_id', $game->id)->first();
         if (! $campaignGame) {
             return null;
         }
 
-        $aftermath = \App\Models\Campaign\CampaignAftermath::query()
+        $aftermath = CampaignAftermath::query()
             ->where('campaign_game_id', $campaignGame->id)
             ->where('campaign_crew_id', $campaignCrew->id)
             ->first();
@@ -900,7 +913,7 @@ class GameController extends Controller
      */
     private function customCharacterInjuries(int $customCharacterId): array
     {
-        return \App\Models\Campaign\CampaignArsenalModelInjury::query()
+        return CampaignArsenalModelInjury::query()
             ->where('custom_character_id', $customCharacterId)
             ->with('injury:id,name')
             ->get()
@@ -921,10 +934,10 @@ class GameController extends Controller
      */
     private function buildCharacterUpgradesProp(Game $game): \Illuminate\Support\Collection
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
-            return \App\Models\Upgrade::standard()->forCharacters()->orderBy('name')
+        if ($game->format !== GameFormatEnum::Campaign) {
+            return Upgrade::standard()->forCharacters()->orderBy('name')
                 ->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count', 'description'])
-                ->map(fn (\App\Models\Upgrade $u) => [
+                ->map(fn (Upgrade $u) => [
                     'id' => $u->id,
                     'name' => $u->name,
                     'slug' => $u->slug,
@@ -938,7 +951,7 @@ class GameController extends Controller
                 ->values();
         }
 
-        return collect(\App\Support\Campaign\AftermathCatalog::equipmentCatalogForAttachment());
+        return collect(AftermathCatalog::equipmentCatalogForAttachment());
     }
 
     /**
@@ -950,11 +963,11 @@ class GameController extends Controller
      */
     private function buildCharacterInjuriesProp(Game $game): \Illuminate\Support\Collection
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign) {
+        if ($game->format !== GameFormatEnum::Campaign) {
             return collect();
         }
 
-        return collect(\App\Support\Campaign\AftermathCatalog::injuryCatalogForAttachment());
+        return collect(AftermathCatalog::injuryCatalogForAttachment());
     }
 
     /**
@@ -965,14 +978,14 @@ class GameController extends Controller
      * data for BOTH players in a game (e.g. references) pass the other
      * player's user_id explicitly.
      */
-    private function resolveCampaignCrewForUser(Game $game, ?int $userId = null): ?\App\Models\Campaign\CampaignCrew
+    private function resolveCampaignCrewForUser(Game $game, ?int $userId = null): ?CampaignCrew
     {
         $userId ??= Auth::id();
         if (! $userId) {
             return null;
         }
 
-        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+        $campaignGame = CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->with(['crewA', 'crewB'])
             ->first();
@@ -997,7 +1010,7 @@ class GameController extends Controller
             return null;
         }
 
-        return \App\Models\Campaign\CampaignCrew::query()
+        return CampaignCrew::query()
             ->where('user_id', $userId)
             ->where('faction', $player->getRawOriginal('faction'))
             ->latest('id')
@@ -1014,8 +1027,8 @@ class GameController extends Controller
      */
     private function buildCampaignEquipmentProp(Game $game): array
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign
-            || $game->status !== \App\Enums\GameStatusEnum::CrewSelect
+        if ($game->format !== GameFormatEnum::Campaign
+            || $game->status !== GameStatusEnum::CrewSelect
             || ! Auth::check()) {
             return [];
         }
@@ -1025,7 +1038,7 @@ class GameController extends Controller
             return [];
         }
 
-        return \App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($campaignCrew, $campaignCrew->leader);
+        return AftermathCatalog::ownedEquipmentForAttachment($campaignCrew, $campaignCrew->leader);
     }
 
     /**
@@ -1036,7 +1049,7 @@ class GameController extends Controller
      */
     private function buildBonanzaCrewUpgrades(Game $game): \Illuminate\Support\Collection
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+        if ($game->format !== GameFormatEnum::BonanzaBrawl) {
             return collect();
         }
         $myPlayer = $game->players->firstWhere('user_id', Auth::id())
@@ -1045,7 +1058,7 @@ class GameController extends Controller
             return collect();
         }
 
-        $character = \App\Models\Character::with(['keywords.crewUpgrades'])->find($myPlayer->master_id);
+        $character = Character::with(['keywords.crewUpgrades'])->find($myPlayer->master_id);
         if (! $character) {
             return collect();
         }
@@ -1162,7 +1175,7 @@ class GameController extends Controller
         // tournament before any mutation so we can still broadcast after the
         // row is gone. Hard-delete clears the relation; TournamentGame.game_id
         // will dangle until the TO or destroyForGame handles it.
-        $trackerLinkedTournament = \App\Models\TournamentGame::with('round.tournament')
+        $trackerLinkedTournament = TournamentGame::with('round.tournament')
             ->where('game_id', $game->id)
             ->first()?->round?->tournament;
 
@@ -1375,7 +1388,7 @@ class GameController extends Controller
      */
     private function campaignCrewCardReferenceUpgrades(Game $game, GamePlayer $player): array
     {
-        if ($game->format !== \App\Enums\GameFormatEnum::Campaign || ! $player->user_id) {
+        if ($game->format !== GameFormatEnum::Campaign || ! $player->user_id) {
             return [];
         }
 
@@ -1387,17 +1400,17 @@ class GameController extends Controller
         $crew->loadMissing(['crewCardEffect', 'crewCardAdvancements.crewCardEffect']);
 
         $upgrades = collect();
-        if ($crew->crewCardEffect instanceof \App\Models\Upgrade) {
+        if ($crew->crewCardEffect instanceof Upgrade) {
             $upgrades->push($crew->crewCardEffect);
         }
         foreach ($crew->crewCardAdvancements as $advancement) {
-            if ($advancement->crewCardEffect instanceof \App\Models\Upgrade) {
+            if ($advancement->crewCardEffect instanceof Upgrade) {
                 $upgrades->push($advancement->crewCardEffect);
             }
         }
 
         return $upgrades->unique('id')
-            ->map(fn (\App\Models\Upgrade $u) => [
+            ->map(fn (Upgrade $u) => [
                 'id' => $u->id,
                 'name' => $u->name,
                 'slug' => $u->slug,
@@ -1444,7 +1457,7 @@ class GameController extends Controller
 
         // Surface abandon to a linked tournament — the TO's badge flips to
         // "abandoned" in real time so they can intervene (forfeit, re-enter score).
-        $tg = \App\Models\TournamentGame::with('round.tournament')->where('game_id', $game->id)->first();
+        $tg = TournamentGame::with('round.tournament')->where('game_id', $game->id)->first();
         if ($tg && $tg->round && $tg->round->tournament) {
             broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_abandoned'))->toOthers();
         }
@@ -1478,7 +1491,7 @@ class GameController extends Controller
             return [];
         }
 
-        if ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl) {
+        if ($game->format === GameFormatEnum::BonanzaBrawl) {
             return $this->buildBonanzaCharactersProp();
         }
 
@@ -1486,7 +1499,7 @@ class GameController extends Controller
         // separate prop). Solo Campaign games never show an opponent-master picker
         // either — the opponent is a generic placeholder set automatically in
         // GameSetupController::submitMaster() — so the catalog is never needed.
-        if ($game->format === \App\Enums\GameFormatEnum::Campaign) {
+        if ($game->format === GameFormatEnum::Campaign) {
             return [];
         }
 
@@ -1507,12 +1520,12 @@ class GameController extends Controller
      */
     private function campaignLeaderMasterOption(Game $game): ?array
     {
-        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+        $campaignGame = CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->first();
 
         if ($campaignGame) {
-            $crew = \App\Models\Campaign\CampaignCrew::query()
+            $crew = CampaignCrew::query()
                 ->where('campaign_id', $campaignGame->campaign_id)
                 ->where('user_id', Auth::id())
                 ->with('leader')
@@ -1527,7 +1540,7 @@ class GameController extends Controller
             if (! $player?->faction) {
                 return null;
             }
-            $crew = \App\Models\Campaign\CampaignCrew::query()
+            $crew = CampaignCrew::query()
                 ->where('user_id', Auth::id())
                 ->where('faction', $player->getRawOriginal('faction'))
                 ->whereHas('leader')
@@ -1571,7 +1584,7 @@ class GameController extends Controller
             ->orderBy('title')
             ->get();
 
-        $alternateLeaderIds = \App\Models\Upgrade::standard()->forCrews()
+        $alternateLeaderIds = Upgrade::standard()->forCrews()
             ->whereNotNull('hiring_rules')
             ->pluck('hiring_rules')
             ->map(fn ($rules) => $rules['alternate_leader_id'] ?? null)
@@ -1635,7 +1648,7 @@ class GameController extends Controller
             ->orderBy('name')
             ->orderBy('title')
             ->get()
-            ->filter(fn (Character $c) => $c->bonanzaCost() <= \App\Enums\GameFormatEnum::BonanzaBrawl->defaultEncounterSize())
+            ->filter(fn (Character $c) => $c->bonanzaCost() <= GameFormatEnum::BonanzaBrawl->defaultEncounterSize())
             ->values();
 
         $grouped = [];

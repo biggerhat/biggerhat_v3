@@ -13,6 +13,7 @@ use App\Models\Keyword;
 use App\Models\Marker;
 use App\Models\Token;
 use App\Models\Trigger;
+use App\Rules\SingleMatch;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -44,21 +45,21 @@ class UpgradeRequest extends FormRequest
             'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
             'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
             'tokens' => ['nullable', 'array'],
-            'tokens.*' => ['string', Rule::exists(Token::class, 'name')],
+            'tokens.*' => ['string', new SingleMatch(Token::class, 'name')],
             'markers' => ['nullable', 'array'],
-            'markers.*' => ['string', Rule::exists(Marker::class, 'name')],
+            'markers.*' => ['string', new SingleMatch(Marker::class, 'name')],
             'actions' => ['nullable', 'array'],
             'actions.*' => ['integer', Rule::exists(Action::class, 'id')],
             'signature_actions' => ['nullable', 'array'],
             'signature_actions.*' => ['integer', Rule::exists(Action::class, 'id')],
             'abilities' => ['nullable', 'array'],
-            'abilities.*' => ['string', Rule::exists(Ability::class, 'name')],
+            'abilities.*' => ['string', new SingleMatch(Ability::class, 'name')],
             'triggers' => ['nullable', 'array'],
-            'triggers.*' => ['string', Rule::exists(Trigger::class, 'name')],
+            'triggers.*' => ['string', new SingleMatch(Trigger::class, 'name')],
             'characters' => ['nullable', 'array'],
-            'characters.*' => ['string', Rule::exists(Character::class, 'display_name')],
+            'characters.*' => ['string', new SingleMatch(Character::class, 'display_name')],
             'keywords' => ['nullable', 'array'],
-            'keywords.*' => ['string', Rule::exists(Keyword::class, 'name')],
+            'keywords.*' => ['string', new SingleMatch(Keyword::class, 'name')],
             // Campaign-only — accept but zero out below unless mode is campaign.
             'campaign_upgrade_kind' => ['nullable', 'string', 'in:equipment,injury'],
             'campaign_br' => ['nullable', 'integer', 'min:1', 'max:13'],

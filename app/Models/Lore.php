@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\TOS\Unit;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,6 +37,6 @@ class Lore extends Model
     /** @return BelongsToMany<\App\Models\TOS\Unit, $this> */
     public function tosUnits(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\TOS\Unit::class, 'lore_tos_unit', 'lore_id', 'tos_unit_id');
+        return $this->belongsToMany(Unit::class, 'lore_tos_unit', 'lore_id', 'tos_unit_id');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\GameSystemEnum;
 use App\Enums\PackageCategoryEnum;
+use App\Models\TOS\Unit;
 use App\Traits\UsesMiniatures;
 use App\Traits\UsesSelectOptionsScope;
 use App\Traits\UsesSlugName;
@@ -59,7 +60,7 @@ class Package extends Model
     /** @return MorphToMany<\App\Models\TOS\Unit, $this> */
     public function tosUnits(): MorphToMany
     {
-        return $this->morphedByMany(\App\Models\TOS\Unit::class, 'packageable')->withPivot('quantity');
+        return $this->morphedByMany(Unit::class, 'packageable')->withPivot('quantity');
     }
 
     /** @return HasMany<PackageStoreLink, $this> */

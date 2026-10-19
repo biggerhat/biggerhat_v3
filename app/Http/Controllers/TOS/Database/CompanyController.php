@@ -9,8 +9,10 @@ use App\Models\TOS\Asset;
 use App\Models\TOS\Company;
 use App\Models\TOS\CompanyUnit;
 use App\Models\TOS\Garrison;
+use App\Models\TOS\GarrisonUnit;
 use App\Models\TOS\Stratagem;
 use App\Models\TOS\Unit;
+use App\Models\TOS\UnitSculpt;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -505,7 +507,7 @@ class CompanyController extends Controller
         // the picker UI applies, re-checked server-side for out-of-band
         // POSTs.
         if ($company->garrison_id) {
-            $inPool = \App\Models\TOS\GarrisonUnit::query()
+            $inPool = GarrisonUnit::query()
                 ->where('garrison_id', $company->garrison_id)
                 ->where('unit_id', $unit->id)
                 ->exists();
@@ -591,7 +593,7 @@ class CompanyController extends Controller
         ]);
 
         if ($validated['sculpt_id'] !== null) {
-            $sculptUnitId = \App\Models\TOS\UnitSculpt::whereKey($validated['sculpt_id'])->value('unit_id');
+            $sculptUnitId = UnitSculpt::whereKey($validated['sculpt_id'])->value('unit_id');
             abort_unless($sculptUnitId === $companyUnit->unit_id, 422, 'That sculpt does not belong to this unit.');
         }
 

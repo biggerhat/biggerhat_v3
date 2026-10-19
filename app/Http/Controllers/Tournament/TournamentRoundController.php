@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tournament;
 
 use App\Enums\DeploymentEnum;
+use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
@@ -181,8 +182,8 @@ class TournamentRoundController extends Controller
         if (isset($newStatus) && $newStatus === TournamentRoundStatusEnum::InProgress) {
             $round->games()
                 ->where('is_bye', true)
-                ->where('result', \App\Enums\TournamentGameResultEnum::Pending)
-                ->update(['result' => \App\Enums\TournamentGameResultEnum::Completed]);
+                ->where('result', TournamentGameResultEnum::Pending)
+                ->update(['result' => TournamentGameResultEnum::Completed]);
 
             $this->trackerGames->createForRound($tournament, $round->fresh());
         }

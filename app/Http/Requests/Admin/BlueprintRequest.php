@@ -6,6 +6,7 @@ use App\Enums\SculptVersionEnum;
 use App\Models\Character;
 use App\Models\Miniature;
 use App\Models\Package;
+use App\Rules\SingleMatch;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -30,11 +31,11 @@ class BlueprintRequest extends FormRequest
             'sculpt_version' => ['required', 'string', Rule::enum(SculptVersionEnum::class)],
             'published_at' => ['nullable', 'date'],
             'characters' => ['nullable', 'array'],
-            'characters.*' => ['string', Rule::exists(Character::class, 'display_name')],
+            'characters.*' => ['string', new SingleMatch(Character::class, 'display_name')],
             'miniatures' => ['nullable', 'array'],
-            'miniatures.*' => ['string', Rule::exists(Miniature::class, 'display_name')],
+            'miniatures.*' => ['string', new SingleMatch(Miniature::class, 'display_name')],
             'packages' => ['nullable', 'array'],
-            'packages.*' => ['string', Rule::exists(Package::class, 'name')],
+            'packages.*' => ['string', new SingleMatch(Package::class, 'name')],
         ];
     }
 }

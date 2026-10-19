@@ -4,8 +4,10 @@ namespace App\Http\Controllers\TOS\Database;
 
 use App\Enums\TOS\ActionTypeEnum;
 use App\Enums\TOS\AllegianceTypeEnum;
+use App\Enums\TOS\UnitSideEnum;
 use App\Enums\TOS\UsageLimitEnum;
 use App\Http\Controllers\Controller;
+use App\Models\SavedSearch;
 use App\Models\TOS\Ability;
 use App\Models\TOS\Action;
 use App\Models\TOS\Allegiance;
@@ -258,7 +260,7 @@ class SearchController extends Controller
                 ['name' => 'Full', 'value' => 'full'],
             ],
             'saved_searches' => fn () => $request->user()
-                ? \App\Models\SavedSearch::query()
+                ? SavedSearch::query()
                     ->where('user_id', $request->user()->id)
                     ->where('game_system', 'tos')
                     ->orderBy('name')
@@ -298,8 +300,8 @@ class SearchController extends Controller
                 'Glory Sp', 'Glory Df', 'Glory Wp', 'Glory Ar',
             ]);
             foreach ($units as $u) {
-                $std = $u->sides->firstWhere('side', \App\Enums\TOS\UnitSideEnum::Standard);
-                $glory = $u->sides->firstWhere('side', \App\Enums\TOS\UnitSideEnum::Glory);
+                $std = $u->sides->firstWhere('side', UnitSideEnum::Standard);
+                $glory = $u->sides->firstWhere('side', UnitSideEnum::Glory);
                 fputcsv($fh, [
                     $u->name,
                     $u->title,
@@ -323,7 +325,7 @@ class SearchController extends Controller
             'query_params' => ['required', 'array'],
         ]);
 
-        \App\Models\SavedSearch::create([
+        SavedSearch::create([
             'user_id' => $request->user()->id,
             'game_system' => 'tos',
             'name' => $validated['name'],
@@ -333,7 +335,7 @@ class SearchController extends Controller
         return back()->withMessage('Search saved.');
     }
 
-    public function deleteSavedSearch(Request $request, \App\Models\SavedSearch $savedSearch): \Illuminate\Http\RedirectResponse
+    public function deleteSavedSearch(Request $request, SavedSearch $savedSearch): \Illuminate\Http\RedirectResponse
     {
         abort_unless($savedSearch->user_id === $request->user()->id && $savedSearch->game_system === 'tos', 403);
         $savedSearch->delete();

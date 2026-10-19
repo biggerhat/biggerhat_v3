@@ -238,7 +238,7 @@ class CampaignController extends Controller
             return redirect()->back()->withMessage(
                 'Need at least 2 players before the campaign can start.',
                 null,
-                \App\Enums\MessageTypeEnum::error,
+                MessageTypeEnum::error,
             );
         }
 
@@ -254,7 +254,7 @@ class CampaignController extends Controller
                 ? 'Complete your Starting Arsenal before starting the campaign.'
                 : 'All players must complete their Starting Arsenal before the campaign can start.';
 
-            return redirect()->back()->withMessage($message, null, \App\Enums\MessageTypeEnum::error);
+            return redirect()->back()->withMessage($message, null, MessageTypeEnum::error);
         }
 
         $campaign->update([

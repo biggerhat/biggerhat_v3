@@ -45,7 +45,7 @@ class LootCardAdminController extends Controller
      */
     public function generatePdf(Request $request): \Illuminate\Http\RedirectResponse
     {
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage('Print PDF regeneration queued.');
     }
@@ -183,7 +183,7 @@ class LootCardAdminController extends Controller
         $this->handleImage($request, $card, $validated);
         $this->syncSideRelations($card, $validated);
 
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$card->name} created.");
     }
@@ -196,7 +196,7 @@ class LootCardAdminController extends Controller
         }
         $lootCard->delete();
 
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$name} deleted.");
     }
@@ -210,7 +210,7 @@ class LootCardAdminController extends Controller
         $cardFields = collect($validated)->only(['name', 'title_a', 'title_b', 'effect_a', 'effect_b', 'image'])->all();
         $lootCard->update($cardFields);
 
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$lootCard->name} updated.");
     }

@@ -49,9 +49,6 @@ class DashboardAdminController extends Controller
     }
 
     /**
-     * @return array<int, array{title: string, description: string, items: array<int, array{label: string, href: string, count: int|null}>}>
-     */
-    /**
      * Dashboard tiles: the shared admin nav (App\Support\AdminNav), with a
      * cached row count on the items that define one.
      *

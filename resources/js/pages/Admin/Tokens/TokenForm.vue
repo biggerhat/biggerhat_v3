@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
@@ -39,6 +40,9 @@ const props = defineProps({
         },
     },
 });
+
+// Select items can't carry a null/empty value, so "none" is a sentinel.
+const NONE = '__none__';
 
 const formInfo = ref({
     name: null,
@@ -92,14 +96,18 @@ onMounted(() => {
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="removal_timing">Auto-removal timing</Label>
-                            <select
-                                id="removal_timing"
-                                v-model="formInfo.removal_timing"
-                                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                            <Select
+                                :model-value="formInfo.removal_timing ?? NONE"
+                                @update:model-value="(v) => (formInfo.removal_timing = v === NONE ? null : String(v))"
                             >
-                                <option :value="null">Persists (manual removal)</option>
-                                <option v-for="opt in props.removal_timing_options" :key="opt.value" :value="opt.value">{{ opt.name }}</option>
-                            </select>
+                                <SelectTrigger id="removal_timing"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem :value="NONE">Persists (manual removal)</SelectItem>
+                                    <SelectItem v-for="opt in props.removal_timing_options" :key="opt.value" :value="String(opt.value)">{{
+                                        opt.name
+                                    }}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <InputError :message="usePage().props.errors.removal_timing" />
                         </div>
                         <div class="flex items-center gap-2">

@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\FeedbackCategoryEnum;
 use App\Enums\FeedbackStatusEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateFeedbackRequest;
 use App\Models\Feedback;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -64,14 +64,9 @@ class FeedbackAdminController extends Controller
         ]);
     }
 
-    public function update(Request $request, Feedback $feedback): RedirectResponse
+    public function update(UpdateFeedbackRequest $request, Feedback $feedback): RedirectResponse
     {
-        $validated = $request->validate([
-            'status' => ['sometimes', Rule::enum(FeedbackStatusEnum::class)],
-            'admin_notes' => ['nullable', 'string', 'max:5000'],
-        ]);
-
-        $feedback->update($validated);
+        $feedback->update($request->validated());
 
         return back();
     }

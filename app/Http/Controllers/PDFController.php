@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\CardTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PDFImageTypeEnum;
+use App\Http\Requests\PDFDownloadRequest;
 use App\Http\Resources\CharacterPDFResource;
 use App\Http\Resources\UpgradePDFResource;
 use App\Models\Character;
@@ -34,12 +35,8 @@ class PDFController extends Controller
         ]);
     }
 
-    public function download(Request $request)
+    public function download(PDFDownloadRequest $request)
     {
-        $request->validate([
-            'cards' => 'required|string',
-            'options' => 'required|string',
-        ]);
 
         $cards = base64_decode($request->get('cards'), true);
         $optionsRaw = base64_decode($request->get('options'), true);

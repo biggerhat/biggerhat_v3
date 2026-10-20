@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StrategyRequest;
 use App\Models\Strategy;
 use App\Models\Token;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Storage;
 use Str;
 
@@ -40,14 +40,14 @@ class StrategyAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StrategyRequest $request)
     {
         $strategy = $this->validateAndSave($request);
 
         return redirect()->route('admin.strategies.index')->withMessage("{$strategy->name} created successfully.");
     }
 
-    public function update(Request $request, Strategy $strategy)
+    public function update(StrategyRequest $request, Strategy $strategy)
     {
         $strategy = $this->validateAndSave($request, $strategy);
 
@@ -62,20 +62,14 @@ class StrategyAdminController extends Controller
         return redirect()->route('admin.strategies.index')->withMessage("{$name} has been deleted.");
     }
 
-    private function validateAndSave(Request $request, ?Strategy $strategy = null): Strategy
+    private function validateAndSave(StrategyRequest $request, ?Strategy $strategy = null): Strategy
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'season' => ['required', 'string', Rule::enum(PoolSeasonEnum::class)],
-            'suit' => ['nullable', 'string', Rule::enum(SuitEnum::class)],
-            'setup' => ['nullable', 'string'],
-            'rules' => ['nullable', 'string'],
-            'scoring' => ['nullable', 'string'],
-            'additional_scoring' => ['nullable', 'string'],
-            'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'token_ids' => ['nullable', 'array'],
-            'token_ids.*' => ['integer', 'exists:tokens,id'],
-        ]);
+        $validated = $request->validated();
+
+        // setup/rules/scoring are NOT NULL text columns; a blank form field arrives as null.
+        foreach (['setup', 'rules', 'scoring'] as $column) {
+            $validated[$column] ??= '';
+        }
 
         $tokenIds = $validated['token_ids'] ?? [];
         unset($validated['token_ids']);

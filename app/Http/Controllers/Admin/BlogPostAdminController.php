@@ -6,11 +6,10 @@ use App\Enums\BlogPostStatusEnum;
 use App\Enums\PermissionEnum;
 use App\Http\Controllers\Admin\Concerns\ManagesBlogPostForm;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\BlogPostRequest;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Exists;
 
 class BlogPostAdminController extends Controller
 {
@@ -63,14 +62,14 @@ class BlogPostAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(BlogPostRequest $request)
     {
         $post = $this->validateAndSave($request);
 
         return redirect()->route('admin.blog.posts.index')->withMessage("{$post->title} created successfully.");
     }
 
-    public function update(Request $request, BlogPost $blogPost)
+    public function update(BlogPostRequest $request, BlogPost $blogPost)
     {
         $this->authorizePostAccess($blogPost, $request);
 
@@ -119,10 +118,5 @@ class BlogPostAdminController extends Controller
     protected function canPublish(Request $request): bool
     {
         return $request->user()->can(PermissionEnum::PublishPosts->value);
-    }
-
-    protected function categoryIdExistsRule(): Exists
-    {
-        return Rule::exists('blog_categories', 'id')->where('is_news', false);
     }
 }

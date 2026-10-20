@@ -13,8 +13,9 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, ChevronDown, Loader2, Settings2, Trophy } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     seasons: { value: string; label: string }[];
+    default_season: string;
     encounter_types: { value: string; label: string }[];
 }>();
 
@@ -27,7 +28,7 @@ const form = useForm({
     encounter_size: 50,
     encounter_type: 'traditional',
     planned_rounds: 3,
-    season: 'core',
+    season: props.default_season,
     round_time_limit: 135,
     bye_tp: 3,
     bye_diff: 4,

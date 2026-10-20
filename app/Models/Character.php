@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
+use App\Enums\CrewUpgradeModeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\SculptVersionEnum;
@@ -39,7 +40,7 @@ class Character extends Model
     use UsesUpgrades;
 
     /**
-     * @var array<string>|bool
+     * @var array<string>
      */
     protected $guarded = [];
 
@@ -56,7 +57,7 @@ class Character extends Model
             'generates_stone' => 'boolean',
             'is_beta' => 'boolean',
             'is_unhirable' => 'boolean',
-            'crew_upgrade_mode' => \App\Enums\CrewUpgradeModeEnum::class,
+            'crew_upgrade_mode' => CrewUpgradeModeEnum::class,
             'is_hidden' => 'boolean',
         ];
     }

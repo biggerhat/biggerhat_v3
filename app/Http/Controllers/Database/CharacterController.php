@@ -71,7 +71,7 @@ class CharacterController extends Controller
         $character = Character::standard()->with('miniatures')->whereHas('miniatures')->inRandomOrder()->first();
 
         if (! $character || $character->miniatures->isEmpty()) {
-            return redirect()->route('home');
+            return redirect()->route('index');
         }
 
         $miniature = $character->miniatures->first();

@@ -6,6 +6,14 @@ use App\Enums\GameSystemEnum;
 use App\Enums\TOS\AllegianceEnum;
 use App\Enums\TOS\AssetLimitTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TOS\CollectionAddUnitRequest;
+use App\Http\Requests\TOS\CollectionAddUnitsRequest;
+use App\Http\Requests\TOS\CollectionRemoveBulkRequest;
+use App\Http\Requests\TOS\CollectionToggleAssetRequest;
+use App\Http\Requests\TOS\CollectionToggleRequest;
+use App\Http\Requests\TOS\CollectionUpdateAssetStatusRequest;
+use App\Http\Requests\TOS\CollectionUpdateStatusBulkRequest;
+use App\Http\Requests\TOS\CollectionUpdateStatusRequest;
 use App\Models\TOS\Asset;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
@@ -67,12 +75,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function toggle(Request $request)
+    public function toggle(CollectionToggleRequest $request)
     {
-        $validated = $request->validate([
-            'unit_sculpt_id' => 'required|exists:tos_unit_sculpts,id',
-            'quantity' => 'nullable|integer|min:0',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $sculptId = $validated['unit_sculpt_id'];
@@ -104,12 +109,9 @@ class CollectionController extends Controller
      * they're addable to the collection the same way a Unit sculpt is —
      * mirrors toggle() exactly, gated to Adjunct-limit Assets only.
      */
-    public function toggleAsset(Request $request)
+    public function toggleAsset(CollectionToggleAssetRequest $request)
     {
-        $validated = $request->validate([
-            'asset_id' => 'required|exists:tos_assets,id',
-            'quantity' => 'nullable|integer|min:0',
-        ]);
+        $validated = $request->validated();
 
         $asset = Asset::with('limits')->findOrFail($validated['asset_id']);
         abort_unless($asset->isAdjunct(), 422, 'Only Adjunct-limit Assets can be added to the collection.');
@@ -139,13 +141,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function updateAssetStatus(Request $request)
+    public function updateAssetStatus(CollectionUpdateAssetStatusRequest $request)
     {
-        $validated = $request->validate([
-            'asset_id' => 'required|exists:tos_assets,id',
-            'is_built' => 'nullable|boolean',
-            'is_painted' => 'nullable|boolean',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $assetId = $validated['asset_id'];
@@ -165,11 +163,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function addUnit(Request $request)
+    public function addUnit(CollectionAddUnitRequest $request)
     {
-        $validated = $request->validate([
-            'unit_id' => 'required|exists:tos_units,id',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $unit = Unit::with('sculpts')->findOrFail($validated['unit_id']);
@@ -188,12 +184,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function addUnits(Request $request)
+    public function addUnits(CollectionAddUnitsRequest $request)
     {
-        $validated = $request->validate([
-            'unit_ids' => 'required|array',
-            'unit_ids.*' => 'integer|exists:tos_units,id',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
 
@@ -211,18 +204,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function updateStatus(Request $request)
+    public function updateStatus(CollectionUpdateStatusRequest $request)
     {
-        $validated = $request->validate([
-            'unit_sculpt_id' => 'required|exists:tos_unit_sculpts,id',
-            'is_built' => 'nullable|boolean',
-            'is_painted' => 'nullable|boolean',
-            // Per-model progress for Squad units (e.g. "6 of 9 painted") —
-            // clamped server-side to the unit's Squad size below so a stale
-            // client value can't record more than the box actually has.
-            'built_count' => 'nullable|integer|min:0',
-            'painted_count' => 'nullable|integer|min:0',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $sculptId = $validated['unit_sculpt_id'];
@@ -263,26 +247,18 @@ class CollectionController extends Controller
         return $squadRule?->pivot->parameters['fireteam_count'] ?? null;
     }
 
-    public function removeBulk(Request $request)
+    public function removeBulk(CollectionRemoveBulkRequest $request)
     {
-        $validated = $request->validate([
-            'unit_sculpt_ids' => 'required|array|min:1',
-            'unit_sculpt_ids.*' => 'integer|exists:tos_unit_sculpts,id',
-        ]);
+        $validated = $request->validated();
 
         Auth::user()->collectionUnitSculpts()->detach($validated['unit_sculpt_ids']);
 
         return back();
     }
 
-    public function updateStatusBulk(Request $request)
+    public function updateStatusBulk(CollectionUpdateStatusBulkRequest $request)
     {
-        $validated = $request->validate([
-            'unit_sculpt_ids' => 'required|array|min:1',
-            'unit_sculpt_ids.*' => 'integer|exists:tos_unit_sculpts,id',
-            'is_built' => 'nullable|boolean',
-            'is_painted' => 'nullable|boolean',
-        ]);
+        $validated = $request->validated();
 
         $data = array_filter(
             ['is_built' => $validated['is_built'] ?? null, 'is_painted' => $validated['is_painted'] ?? null],

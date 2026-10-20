@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
+use App\Http\Requests\Wishlist\WishlistAddItemRequest;
+use App\Http\Requests\Wishlist\WishlistAddKeywordRequest;
+use App\Http\Requests\Wishlist\WishlistStoreRequest;
+use App\Http\Requests\Wishlist\WishlistUpdateRequest;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -11,7 +15,6 @@ use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
 use App\Models\Wishlist;
 use App\Models\WishlistItem;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -30,11 +33,9 @@ class WishlistController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(WishlistStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         $wishlist = Auth::user()->wishlists()->create($validated);
 
@@ -66,13 +67,11 @@ class WishlistController extends Controller
         ]);
     }
 
-    public function update(Request $request, Wishlist $wishlist)
+    public function update(WishlistUpdateRequest $request, Wishlist $wishlist)
     {
         $this->authorize('update', $wishlist);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-        ]);
+        $validated = $request->validated();
 
         $wishlist->update($validated);
 
@@ -88,14 +87,11 @@ class WishlistController extends Controller
         return redirect()->route('wishlists.index');
     }
 
-    public function addItem(Request $request, Wishlist $wishlist)
+    public function addItem(WishlistAddItemRequest $request, Wishlist $wishlist)
     {
         $this->authorize('update', $wishlist);
 
-        $validated = $request->validate([
-            'type' => 'required|in:character,miniature,package,unit,unit_sculpt',
-            'id' => 'required|integer',
-        ]);
+        $validated = $request->validated();
 
         $modelMap = [
             'character' => Character::class,
@@ -127,13 +123,11 @@ class WishlistController extends Controller
         return back();
     }
 
-    public function addKeyword(Request $request, Wishlist $wishlist)
+    public function addKeyword(WishlistAddKeywordRequest $request, Wishlist $wishlist)
     {
         $this->authorize('update', $wishlist);
 
-        $validated = $request->validate([
-            'keyword_id' => 'required|exists:keywords,id',
-        ]);
+        $validated = $request->validated();
 
         $keyword = Keyword::standard()->with(['characters' => function ($q) {
             $q->standard()->where('is_hidden', false)

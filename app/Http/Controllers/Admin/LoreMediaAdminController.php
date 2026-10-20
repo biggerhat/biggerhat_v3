@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\LoreMediaTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\LoreMediaRequest;
 use App\Models\LoreMedia;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class LoreMediaAdminController extends Controller
 {
@@ -32,26 +32,18 @@ class LoreMediaAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(LoreMediaRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', Rule::enum(LoreMediaTypeEnum::class)],
-            'link' => ['nullable', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         $loreMedia = LoreMedia::create($validated);
 
         return redirect()->route('admin.lore_media.index')->withMessage("{$loreMedia->name} created successfully.");
     }
 
-    public function update(Request $request, LoreMedia $loreMedia)
+    public function update(LoreMediaRequest $request, LoreMedia $loreMedia)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', Rule::enum(LoreMediaTypeEnum::class)],
-            'link' => ['nullable', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         $loreMedia->update($validated);
 

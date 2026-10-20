@@ -25,13 +25,14 @@ interface FormatOption {
 
 const props = defineProps<{
     seasons: Season[];
+    default_season: string;
     encounter_sizes: number[];
     formats: FormatOption[];
 }>();
 
 const gameName = ref('');
 const encounterSize = ref(50);
-const season = ref('core');
+const season = ref(props.default_season);
 const isSolo = ref(false);
 const format = ref<string>(props.formats[0]?.value ?? 'standard');
 const submitting = ref(false);

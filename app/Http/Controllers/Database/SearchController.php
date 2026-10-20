@@ -16,12 +16,14 @@ use App\Enums\ResistanceTypeEnum;
 use App\Enums\SortTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Database\SearchSaveSearchRequest;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
 use App\Models\Characteristic;
 use App\Models\Keyword;
 use App\Models\Marker;
+use App\Models\SavedSearch;
 use App\Models\Token;
 use App\Models\Trigger;
 use App\Models\Upgrade;
@@ -484,12 +486,8 @@ class SearchController extends Controller
         }, 'malifaux-search-results.csv', ['Content-Type' => 'text/csv']);
     }
 
-    public function saveSearch(Request $request): \Illuminate\Http\RedirectResponse
+    public function saveSearch(SearchSaveSearchRequest $request): \Illuminate\Http\RedirectResponse
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:100'],
-            'query_params' => ['required', 'array'],
-        ]);
 
         $request->user()->savedSearches()->create([
             'name' => $request->name,
@@ -499,7 +497,7 @@ class SearchController extends Controller
         return back();
     }
 
-    public function deleteSavedSearch(Request $request, \App\Models\SavedSearch $savedSearch): \Illuminate\Http\RedirectResponse
+    public function deleteSavedSearch(Request $request, SavedSearch $savedSearch): \Illuminate\Http\RedirectResponse
     {
         abort_unless($savedSearch->user_id === $request->user()->id, 403);
         $savedSearch->delete();

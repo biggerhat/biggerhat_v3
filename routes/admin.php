@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AbilityAdminController;
 use App\Http\Controllers\Admin\ActionAdminController;
 use App\Http\Controllers\Admin\ActivityAdminController;
+use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AnnouncementsAdminController;
 use App\Http\Controllers\Admin\ApiTokensAdminController;
 use App\Http\Controllers\Admin\BlogCategoryAdminController;
@@ -61,10 +62,13 @@ use App\Http\Controllers\TOS\Admin\SpecialUnitRuleAdminController as TosSpecialU
 use App\Http\Controllers\TOS\Admin\StratagemAdminController as TosStratagemAdminController;
 use App\Http\Controllers\TOS\Admin\TriggerAdminController as TosTriggerAdminController;
 use App\Http\Controllers\TOS\Admin\UnitAdminController as TosUnitAdminController;
+use App\Http\Middleware\WrapAdminWritesInTransaction;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('admin.')->group(function () {
+Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWritesInTransaction::class])->name('admin.')->group(function () {
     Route::get('/', [DashboardAdminController::class, 'index'])->name('dashboard');
+    // Per-type permissions are enforced inside the controller (see AdminSearchController).
+    Route::get('/search', AdminSearchController::class)->name('search');
     Route::post('/refresh-analytics', [DashboardAdminController::class, 'refreshAnalytics'])->name('refresh_analytics')->middleware('role:super_admin');
 
     // Super-admin-only diagnostics + tooling.
@@ -288,6 +292,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any'])->name('adm
         Route::get('/', 'index')->name('index')->middleware('permission:view_user');
         Route::get('/edit/{user}', 'edit')->name('edit')->middleware('permission:view_user');
         Route::post('/update/{user}', 'update')->name('update')->middleware('permission:edit_user');
+        Route::post('/{user}/rename', 'rename')->name('rename')->middleware('role:super_admin');
         Route::post('/{user}/password-reset-link', 'generatePasswordResetLink')->name('password_reset_link')->middleware('permission:edit_user');
         Route::post('/delete/{user}', 'delete')->name('delete')->middleware('permission:delete_user');
     });

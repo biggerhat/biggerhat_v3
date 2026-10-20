@@ -7,6 +7,8 @@ use App\Http\Controllers\Concerns\BuildsPageMeta;
 use App\Http\Controllers\Controller;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
+use App\Models\Character;
+use App\Models\Keyword;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -57,12 +59,12 @@ class BlogController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (User $u) => ['name' => $u->name, 'value' => $u->name]),
-            'tagged_characters' => fn () => \App\Models\Character::standard()
+            'tagged_characters' => fn () => Character::standard()
                 ->whereHas('blogPosts', fn ($q) => $q->whereDoesntHave('category', fn ($q2) => $q2->where('is_news', true)))
                 ->orderBy('display_name')
                 ->get(['id', 'display_name', 'slug'])
                 ->map(fn ($c) => ['name' => $c->display_name, 'value' => $c->slug]),
-            'tagged_keywords' => fn () => \App\Models\Keyword::standard()
+            'tagged_keywords' => fn () => Keyword::standard()
                 ->whereHas('blogPosts', fn ($q) => $q->whereDoesntHave('category', fn ($q2) => $q2->where('is_news', true)))
                 ->orderBy('name')
                 ->get(['id', 'name', 'slug'])

@@ -8,6 +8,7 @@ use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpgradeRequest;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
@@ -17,7 +18,6 @@ use App\Models\Token;
 use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Storage;
 use Str;
 
@@ -43,14 +43,14 @@ class UpgradeAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(UpgradeRequest $request)
     {
         $upgrade = $this->validateAndSave($request);
 
         return redirect()->route('admin.upgrades.index')->withMessage("{$upgrade->name} created successfully.");
     }
 
-    public function update(Request $request, Upgrade $upgrade)
+    public function update(UpgradeRequest $request, Upgrade $upgrade)
     {
         $upgrade = $this->validateAndSave($request, $upgrade);
 
@@ -85,7 +85,7 @@ class UpgradeAdminController extends Controller
         ];
     }
 
-    private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade
+    private function validateAndSave(UpgradeRequest $request, ?Upgrade $upgrade = null): Upgrade
     {
         $triggers = collect([]);
         $abilities = collect([]);
@@ -96,48 +96,7 @@ class UpgradeAdminController extends Controller
         $markers = collect([]);
         $tokens = collect([]);
 
-        $validated = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
-            'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
-            'description' => ['nullable', 'string'],
-            'power_bar_count' => ['nullable', 'integer'],
-            'plentiful' => ['nullable', 'integer'],
-            'type' => ['nullable', 'string'],
-            'limitations' => ['nullable', 'string'],
-            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
-            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
-            'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'tokens' => ['nullable', 'array'],
-            'markers' => ['nullable', 'array'],
-            'actions' => ['nullable', 'array'],
-            'signature_actions' => ['nullable', 'array'],
-            'abilities' => ['nullable', 'array'],
-            'triggers' => ['nullable', 'array'],
-            'characters' => ['nullable', 'array'],
-            'keywords' => ['nullable', 'array'],
-            // Campaign-only — accept but zero out below unless mode is campaign.
-            'campaign_upgrade_kind' => ['nullable', 'string', 'in:equipment,injury'],
-            'campaign_br' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'campaign_cc' => ['nullable', 'integer', 'min:0'],
-            'campaign_pool_suit_a' => ['nullable', 'string', 'max:12'],
-            'campaign_pool_suit_b' => ['nullable', 'string', 'max:12'],
-            'campaign_is_always_available' => ['sometimes', 'boolean'],
-            'campaign_ttw_only' => ['sometimes', 'boolean'],
-            'campaign_is_omens_mark' => ['sometimes', 'boolean'],
-            'campaign_is_unique' => ['sometimes', 'boolean'],
-            'campaign_leader_only' => ['sometimes', 'boolean'],
-            'campaign_non_unique_only' => ['sometimes', 'boolean'],
-            'campaign_annihilate_after_game' => ['sometimes', 'boolean'],
-            'campaign_is_red_joker_entry' => ['sometimes', 'boolean'],
-            'campaign_flip_value' => ['nullable', 'integer', 'min:1', 'max:13'],
-            'campaign_suit_pool' => ['nullable', 'string', 'in:pc,te,black_joker,red_joker'],
-            'campaign_is_traitor' => ['sometimes', 'boolean'],
-            'campaign_is_close_call' => ['sometimes', 'boolean'],
-            'campaign_annihilates_model' => ['sometimes', 'boolean'],
-            'campaign_reflip_if_no_triggers' => ['sometimes', 'boolean'],
-            'campaign_reflip_if_master_or_totem' => ['sometimes', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         // Zero out campaign-only fields if the upgrade isn't campaign mode.
         if ($validated['game_mode_type'] !== GameModeTypeEnum::Campaign->value) {
@@ -163,7 +122,7 @@ class UpgradeAdminController extends Controller
         $validated['slug'] = Str::slug($validated['name']);
 
         // Handle Images
-        if ($validated['front_image']) {
+        if (! empty($validated['front_image'])) {
             $extension = $validated['front_image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s_front.%s', $validated['slug'], $uuid, $extension);
@@ -174,7 +133,7 @@ class UpgradeAdminController extends Controller
             unset($validated['front_image']);
         }
 
-        if ($validated['back_image']) {
+        if (! empty($validated['back_image'])) {
             $extension = $validated['back_image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s_back.%s', $validated['slug'], $uuid, $extension);
@@ -268,7 +227,6 @@ class UpgradeAdminController extends Controller
         [$widthBack, $heightBack] = getimagesize(Storage::disk('public')->path($upgrade->back_image));
         $background = imagecreatetruecolor($widthFront + $widthBack, $heightFront);
 
-        header('Content-Type: image/jpeg');
         $outputImage = $background;
 
         $frontUrl = imagecreatefromjpeg(Storage::disk('public')->path($upgrade->front_image));
@@ -284,7 +242,18 @@ class UpgradeAdminController extends Controller
 
         $path = Storage::disk('public')->path('/');
         imagejpeg($outputImage, $path.$filePath);
+
+        // Each save writes a fresh combo file — drop the generated one it replaces.
+        // combination_image can also point at the front image (single-sided upgrades),
+        // so only ever delete files this method generated.
+        $previous = $upgrade->combination_image;
         $upgrade->update(['combination_image' => $filePath]);
+        if ($previous && $previous !== $filePath && str_contains($previous, '_combo.')) {
+            Storage::disk('public')->delete($previous);
+        }
+
         imagedestroy($outputImage);
+        imagedestroy($frontUrl);
+        imagedestroy($backUrl);
     }
 }

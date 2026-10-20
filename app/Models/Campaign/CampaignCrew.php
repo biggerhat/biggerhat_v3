@@ -6,6 +6,7 @@ use App\Enums\FactionEnum;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
 use App\Models\User;
+use App\Services\CampaignRules;
 use Database\Factories\Campaign\CampaignCrewFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -215,7 +216,7 @@ class CampaignCrew extends Model
      */
     public function campaignRating(): int
     {
-        return \App\Services\CampaignRules::campaignRating(
+        return CampaignRules::campaignRating(
             $this->activeEquipmentCount(),
             $this->activeLeaderAdvancementCount(),
             $this->activeInjuryCount(),

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AnnouncementRequest;
 use App\Models\Announcement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,18 +48,18 @@ class AnnouncementsAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(AnnouncementRequest $request): RedirectResponse
     {
-        $data = $this->validated($request);
+        $data = $request->validated();
         $data['created_by_id'] = $request->user()?->id;
         Announcement::create($data);
 
         return back()->withMessage('Announcement created.');
     }
 
-    public function update(Request $request, Announcement $announcement): RedirectResponse
+    public function update(AnnouncementRequest $request, Announcement $announcement): RedirectResponse
     {
-        $announcement->update($this->validated($request));
+        $announcement->update($request->validated());
 
         return back()->withMessage('Announcement updated.');
     }
@@ -68,20 +69,5 @@ class AnnouncementsAdminController extends Controller
         $announcement->delete();
 
         return back()->withMessage('Announcement deleted.');
-    }
-
-    /** @return array<string, mixed> */
-    private function validated(Request $request): array
-    {
-        return $request->validate([
-            'message' => ['required', 'string', 'max:255'],
-            'level' => ['required', 'in:info,warning,success'],
-            'audience' => ['required', 'in:all,authenticated,super_admin'],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-            'is_dismissable' => ['boolean'],
-            'link_url' => ['nullable', 'url', 'max:500'],
-            'link_label' => ['nullable', 'string', 'max:64'],
-        ]);
     }
 }

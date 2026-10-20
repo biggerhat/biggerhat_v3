@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\TokenRemovalTimingEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\TokenRequest;
 use App\Models\Character;
 use App\Models\Token;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class TokenAdminController extends Controller
 {
@@ -33,16 +33,9 @@ class TokenAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(TokenRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'removal_timing' => ['nullable', Rule::enum(TokenRemovalTimingEnum::class)],
-            'is_general' => ['boolean'],
-            'characters' => ['nullable', 'array'],
-            'upgrades' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $characterIds = Character::whereIn('slug', $validated['characters'] ?? [])->pluck('id');
         $upgradeIds = Upgrade::whereIn('slug', $validated['upgrades'] ?? [])->pluck('id');
@@ -57,16 +50,9 @@ class TokenAdminController extends Controller
         return redirect()->route('admin.tokens.index')->withMessage("{$token->name} created successfully.");
     }
 
-    public function update(Request $request, Token $token)
+    public function update(TokenRequest $request, Token $token)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'removal_timing' => ['nullable', Rule::enum(TokenRemovalTimingEnum::class)],
-            'is_general' => ['boolean'],
-            'characters' => ['nullable', 'array'],
-            'upgrades' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $characterIds = Character::whereIn('slug', $validated['characters'] ?? [])->pluck('id');
         $upgradeIds = Upgrade::whereIn('slug', $validated['upgrades'] ?? [])->pluck('id');

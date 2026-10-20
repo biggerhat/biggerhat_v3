@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Tournament;
 
 use App\Enums\DeploymentEnum;
+use App\Enums\EncounterTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
-use App\Enums\TournamentTiebreakerEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tournaments\TournamentStoreRequest;
+use App\Http\Requests\Tournaments\TournamentUpdateRequest;
+use App\Http\Requests\Tournaments\TournamentUpdateStatusRequest;
+use App\Models\Character;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
@@ -19,7 +23,7 @@ use App\Services\TournamentStateMachine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ResponseFactory;
@@ -205,35 +209,21 @@ class TournamentController extends Controller
             'label' => $s->label(),
         ]);
 
-        $encounterTypes = collect(\App\Enums\EncounterTypeEnum::cases())->map(fn ($e) => [
+        $encounterTypes = collect(EncounterTypeEnum::cases())->map(fn ($e) => [
             'value' => $e->value,
             'label' => $e->label(),
         ]);
 
         return inertia('Tournaments/Create', [
             'seasons' => $seasons,
+            'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_types' => $encounterTypes,
         ]);
     }
 
-    public function store(Request $request)
+    public function store(TournamentStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'encounter_size' => ['required', 'integer', 'min:20', 'max:100'],
-            'encounter_type' => ['sometimes', 'string'],
-            'planned_rounds' => ['required', 'integer', 'min:1', 'max:7'],
-            'season' => ['required', 'string'],
-            'event_date' => ['required', 'date'],
-            'location' => ['nullable', 'string', 'max:255'],
-            'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            // Bye-game scoring (defaults to Gaining Grounds 3 / +4 / 6).
-            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
-        ]);
+        $validated = $request->validated();
 
         $tournament = Tournament::create([
             ...$validated,
@@ -311,7 +301,7 @@ class TournamentController extends Controller
         // Masters grouped by name with titles — only used in the score-entry
         // dialog, so defer under its own group.
         $mastersDeferred = Inertia::defer(function () {
-            $characters = \App\Models\Character::standard()->where('station', 'master')
+            $characters = Character::standard()->where('station', 'master')
                 ->where('is_hidden', false)
                 ->orderBy('name')->orderBy('title')
                 ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
@@ -339,7 +329,7 @@ class TournamentController extends Controller
             'standings' => $standings,
             'seasons' => $seasons,
             'factions' => fn () => FactionEnum::buildDetails(),
-            'encounter_types' => collect(\App\Enums\EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
+            'encounter_types' => collect(EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
             'all_deployments' => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()]),
             // Deferred below — page renders without these, a follow-up request
             // fills them in. Grouping means strategies + schemes batch into one
@@ -423,7 +413,7 @@ class TournamentController extends Controller
         ]);
     }
 
-    public function update(Request $request, Tournament $tournament)
+    public function update(TournamentUpdateRequest $request, Tournament $tournament)
     {
         $this->authorize('manage', $tournament);
 
@@ -441,21 +431,7 @@ class TournamentController extends Controller
             $request->replace(['tiebreaker_mode' => $request->input('tiebreaker_mode')]);
         }
 
-        $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'encounter_size' => ['sometimes', 'integer', 'min:20', 'max:100'],
-            'encounter_type' => ['sometimes', 'string'],
-            'planned_rounds' => ['sometimes', 'integer', 'min:1', 'max:7'],
-            'season' => ['sometimes', 'string'],
-            'event_date' => ['sometimes', 'date'],
-            'location' => ['nullable', 'string', 'max:255'],
-            'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
-        ]);
+        $validated = $request->validated();
 
         $tournament->update($validated);
 
@@ -489,21 +465,30 @@ class TournamentController extends Controller
         return redirect()->route('tournaments.index');
     }
 
-    public function updateStatus(Request $request, Tournament $tournament): JsonResponse
+    public function updateStatus(TournamentUpdateStatusRequest $request, Tournament $tournament): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
-        $validated = $request->validate([
-            'status' => ['required', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $newStatus = TournamentStatusEnum::from($validated['status']);
 
-        if ($error = $this->stateMachine->canTransitionTournamentTo($tournament, $newStatus)) {
+        // Re-check the transition against the locked row: the early state may be stale.
+        $error = DB::transaction(function () use ($tournament, $newStatus): ?string {
+            $locked = Tournament::lockForUpdate()->findOrFail($tournament->id);
+
+            if ($error = $this->stateMachine->canTransitionTournamentTo($locked, $newStatus)) {
+                return $error;
+            }
+
+            $locked->update(['status' => $newStatus]);
+
+            return null;
+        });
+
+        if ($error) {
             return response()->json(['error' => $error], 422);
         }
-
-        $tournament->update(['status' => $newStatus]);
 
         $this->broadcastUpdate($tournament, 'status_changed');
 

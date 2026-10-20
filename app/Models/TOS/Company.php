@@ -2,6 +2,7 @@
 
 namespace App\Models\TOS;
 
+use App\Enums\TOS\GarrisonFormatEnum;
 use App\Models\User;
 use App\Traits\TOS\GeneratesTosSlug;
 use Database\Factories\TOS\CompanyFactory;
@@ -38,7 +39,7 @@ class Company extends Model
     {
         return [
             'is_public' => 'boolean',
-            'format' => \App\Enums\TOS\GarrisonFormatEnum::class,
+            'format' => GarrisonFormatEnum::class,
         ];
     }
 

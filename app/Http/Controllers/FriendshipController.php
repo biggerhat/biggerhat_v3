@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\MessageTypeEnum;
+use App\Http\Requests\Friendship\FriendshipStoreRequest;
 use App\Models\Friendship;
 use App\Models\User;
 use App\Notifications\Friend\FriendRequestAccepted;
@@ -42,11 +43,9 @@ class FriendshipController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(FriendshipStoreRequest $request)
     {
-        $data = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
-        ]);
+        $data = $request->validated();
 
         $requester = $request->user();
         $addresseeId = (int) $data['user_id'];

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Games;
 
 use App\Enums\GameFormatEnum;
+use App\Enums\PoolSeasonEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,7 +22,7 @@ class StoreGameRequest extends FormRequest
             // to 10 to fit Bonanza without rejecting it; max kept generous for
             // homebrew formats (Henchman Hardcore, narrative, etc).
             'encounter_size' => ['required', 'integer', 'min:10', 'max:100'],
-            'season' => ['required', 'string'],
+            'season' => ['required', 'string', Rule::enum(PoolSeasonEnum::class)],
             'is_solo' => ['sometimes', 'boolean'],
             'format' => ['sometimes', 'string', Rule::enum(GameFormatEnum::class)],
         ];

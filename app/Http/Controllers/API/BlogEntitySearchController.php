@@ -182,8 +182,8 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $deployments = collect(\App\Enums\DeploymentEnum::cases())
-            ->filter(fn (\App\Enums\DeploymentEnum $d) => str_contains(strtolower($d->label()), strtolower($q)))
+        $deployments = collect(DeploymentEnum::cases())
+            ->filter(fn (DeploymentEnum $d) => str_contains(strtolower($d->label()), strtolower($q)))
             ->take(5);
         foreach ($deployments as $deployment) {
             $results[] = [

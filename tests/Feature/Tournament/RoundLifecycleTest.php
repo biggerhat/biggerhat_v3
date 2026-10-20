@@ -330,3 +330,43 @@ it('rejects a scheme_pool with duplicate scheme ids', function () {
     // Original pool stays intact — no partial write.
     expect($round->fresh()->scheme_pool)->toBe($schemes->pluck('id')->toArray());
 });
+
+it('rejects an unknown round status instead of erroring', function () {
+    $round = TournamentRound::factory()->for($this->tournament)->create(['round_number' => 1]);
+
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.rounds.update', [$this->tournament->uuid, $round]), ['status' => 'bogus'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
+});
+
+it('rejects an unknown tournament status instead of erroring', function () {
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.status', $this->tournament->uuid), ['status' => 'bogus'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
+});
+
+it('refuses to start a round that was already started', function () {
+    \App\Models\TournamentPlayer::factory()->for($this->tournament)->count(4)->create();
+    $round = TournamentRound::factory()->for($this->tournament)->create([
+        'round_number' => 1,
+        'strategy_id' => \App\Models\Strategy::factory()->create()->id,
+        'deployment' => 'standard',
+        'scheme_pool' => \App\Models\Scheme::factory()->count(3)->create()->pluck('id')->all(),
+    ]);
+    $this->actingAs($this->creator)->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))->assertOk();
+
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.rounds.update', [$this->tournament->uuid, $round]), ['status' => 'in_progress'])
+        ->assertOk();
+    $games = Game::count();
+
+    // A stale second request (double-click) must be rejected by the state machine, not re-run the side effects.
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.rounds.update', [$this->tournament->uuid, $round]), ['status' => 'in_progress'])
+        ->assertUnprocessable();
+
+    expect($round->fresh()->status)->toBe(TournamentRoundStatusEnum::InProgress)
+        ->and(Game::count())->toBe($games);
+});

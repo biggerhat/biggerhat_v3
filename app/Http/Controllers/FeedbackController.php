@@ -4,11 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\FeedbackCategoryEnum;
 use App\Enums\FeedbackStatusEnum;
+use App\Http\Requests\FeedbackStoreRequest;
 use App\Models\Feedback;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -33,18 +32,9 @@ class FeedbackController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(FeedbackStoreRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['nullable', 'string', 'max:120'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'category' => ['required', Rule::enum(FeedbackCategoryEnum::class)],
-            'subject' => ['nullable', 'string', 'max:200'],
-            'message' => ['required', 'string', 'min:10', 'max:5000'],
-            // Honeypot — bots typically fill every field. Humans see nothing
-            // (the field is hidden via CSS in the Vue template).
-            'website' => ['nullable', 'size:0'],
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
 

@@ -7,12 +7,14 @@ use App\Enums\GameSystemEnum;
 use App\Enums\PackageCategoryEnum;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\PackageRequest;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\Package;
 use App\Models\TOS\Unit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Storage;
 use Str;
 
@@ -57,14 +59,14 @@ class PackageAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(PackageRequest $request)
     {
         $package = $this->validateAndSave($request);
 
         return redirect()->route('admin.packages.index')->withMessage("{$package->name} created successfully.");
     }
 
-    public function update(Request $request, Package $package)
+    public function update(PackageRequest $request, Package $package)
     {
         $package = $this->validateAndSave($request, $package);
 
@@ -89,44 +91,21 @@ class PackageAdminController extends Controller
             'characters' => fn () => Character::toSelectOptions('display_name', 'id'),
             'miniatures' => fn () => Miniature::toSelectOptions('display_name', 'id'),
             'keywords' => fn () => Keyword::toSelectOptions('name', 'id'),
-            'tos_units' => fn () => Unit::orderBy('name')->pluck('name')->map(fn ($name) => ['name' => $name]),
+            'tos_units' => fn () => Unit::orderBy('name')
+                ->get(['slug', 'name', 'title'])
+                ->map(fn (Unit $u) => ['name' => $u->title ? "{$u->name} — {$u->title}" : $u->name, 'value' => $u->slug])
+                ->all(),
         ];
     }
 
-    private function validateAndSave(Request $request, ?Package $package = null): Package
+    private function validateAndSave(PackageRequest $request, ?Package $package = null): Package
     {
         $characters = collect([]);
         $miniatures = collect([]);
         $keywords = collect([]);
         $tosUnits = collect([]);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'game_system' => ['nullable', 'string', 'in:'.implode(',', array_column(GameSystemEnum::toSelectOptions(), 'value'))],
-            'category' => ['nullable', 'string', 'in:'.implode(',', array_column(PackageCategoryEnum::toSelectOptions(), 'value'))],
-            'legacy_m3e_name' => ['nullable', 'string', 'max:255'],
-            'factions' => ['nullable', 'array'],
-            'factions.*' => ['string'],
-            'sku' => ['nullable', 'string', 'max:255'],
-            'upc' => ['nullable', 'string', 'max:255'],
-            'msrp' => ['nullable', 'integer'],
-            'distributor_description' => ['nullable', 'string'],
-            'sculpt_version' => ['nullable', 'string'],
-            'is_preassembled' => ['nullable', 'boolean'],
-            'released_at' => ['nullable', 'date'],
-            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'characters' => ['nullable', 'array'],
-            'character_quantities' => ['nullable', 'array'],
-            'character_quantities.*' => ['nullable', 'integer', 'min:1'],
-            'character_special_orders' => ['nullable', 'array'],
-            'character_special_orders.*' => ['nullable', 'boolean'],
-            'miniatures' => ['nullable', 'array'],
-            'keywords' => ['nullable', 'array'],
-            'tos_units' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $characterQuantities = $validated['character_quantities'] ?? [];
         unset($validated['character_quantities']);
@@ -186,28 +165,30 @@ class PackageAdminController extends Controller
         }
 
         if (isset($validated['tos_units'])) {
-            $tosUnits = Unit::whereIn('name', $validated['tos_units'])->get();
+            $tosUnits = Unit::whereIn('slug', $validated['tos_units'])->get();
             unset($validated['tos_units']);
         }
 
-        if (! $package) {
-            $package = Package::create($validated);
-        } else {
-            $package->update($validated);
-        }
+        return DB::transaction(function () use ($validated, $package, $characters, $miniatures, $keywords, $tosUnits, $characterQuantities, $characterSpecialOrders) {
+            if (! $package) {
+                $package = Package::create($validated);
+            } else {
+                $package->update($validated);
+            }
 
-        $characterSyncData = $characters->mapWithKeys(fn (Character $c) => [
-            $c->id => [
-                'quantity' => $characterQuantities[$c->display_name] ?? 1,
-                'special_order' => (bool) ($characterSpecialOrders[$c->display_name] ?? false),
-            ],
-        ]);
+            $characterSyncData = $characters->mapWithKeys(fn (Character $c) => [
+                $c->id => [
+                    'quantity' => $characterQuantities[$c->display_name] ?? 1,
+                    'special_order' => (bool) ($characterSpecialOrders[$c->display_name] ?? false),
+                ],
+            ]);
 
-        $package->characters()->sync($characterSyncData);
-        $package->miniatures()->sync($miniatures->pluck('id'));
-        $package->keywords()->sync($keywords->pluck('id'));
-        $package->tosUnits()->sync($tosUnits->pluck('id'));
+            $package->characters()->sync($characterSyncData);
+            $package->miniatures()->sync($miniatures->pluck('id'));
+            $package->keywords()->sync($keywords->pluck('id'));
+            $package->tosUnits()->sync($tosUnits->pluck('id'));
 
-        return $package;
+            return $package;
+        });
     }
 }

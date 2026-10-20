@@ -7,6 +7,9 @@ use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\ScoreTournamentGameRequest;
+use App\Http\Requests\Tournaments\TournamentGameStoreRequest;
+use App\Http\Requests\Tournaments\TournamentGameToggleForfeitRequest;
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
@@ -14,6 +17,7 @@ use App\Models\TournamentRound;
 use App\Services\TournamentTrackerGameFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TournamentGameController extends Controller
 {
@@ -23,16 +27,11 @@ class TournamentGameController extends Controller
         private readonly TournamentTrackerGameFactory $trackerGames,
     ) {}
 
-    public function store(Request $request, Tournament $tournament, TournamentRound $round): JsonResponse
+    public function store(TournamentGameStoreRequest $request, Tournament $tournament, TournamentRound $round): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
-        $validated = $request->validate([
-            'player_one_id' => ['required', 'exists:tournament_players,id'],
-            'player_two_id' => ['nullable', 'exists:tournament_players,id'],
-            'is_bye' => ['sometimes', 'boolean'],
-            'table_number' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         $isBye = $validated['is_bye'] ?? false;
         $playerOne = TournamentPlayer::find($validated['player_one_id']);
@@ -145,21 +144,31 @@ class TournamentGameController extends Controller
             return response()->json(['error' => 'No tracker game linked'], 422);
         }
 
-        if ($trackerGame->status === GameStatusEnum::Completed) {
-            return response()->json(['error' => 'Tracker game is already completed'], 422);
+        if ($trackerGame->status->isFinished()) {
+            return response()->json(['error' => 'Tracker game is already finished'], 422);
         }
 
-        $trackerGame->update([
-            'status' => GameStatusEnum::Completed,
-            'completed_at' => now(),
-        ]);
+        // Re-check under lock so a concurrent abandon/complete isn't clobbered.
+        $completed = DB::transaction(function () use ($trackerGame): bool {
+            $locked = Game::lockForUpdate()->find($trackerGame->id);
+            if (! $locked || $locked->status->isFinished()) {
+                return false;
+            }
+            $locked->update(['status' => GameStatusEnum::Completed, 'completed_at' => now()]);
+
+            return true;
+        });
+
+        if (! $completed) {
+            return response()->json(['error' => 'Tracker game is already finished'], 422);
+        }
 
         $this->broadcastUpdate($tournament, 'tracker_completed');
 
         return response()->json(['success' => true]);
     }
 
-    public function toggleForfeit(Request $request, Tournament $tournament, TournamentGame $game): JsonResponse
+    public function toggleForfeit(TournamentGameToggleForfeitRequest $request, Tournament $tournament, TournamentGame $game): JsonResponse
     {
         $this->authorize('manage', $tournament);
 
@@ -180,9 +189,7 @@ class TournamentGameController extends Controller
                 'player_two_vp' => null,
             ]);
         } else {
-            $validated = $request->validate([
-                'forfeit_player_id' => ['required', 'exists:tournament_players,id'],
-            ]);
+            $validated = $request->validated();
 
             $game->update([
                 'is_forfeit' => true,

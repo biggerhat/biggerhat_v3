@@ -10,6 +10,7 @@ use App\Enums\GameStatusEnum;
 use App\Enums\MessageTypeEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Campaign\CampaignGameStoreSoloRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
@@ -313,7 +314,7 @@ class CampaignGameController extends Controller
         ]);
     }
 
-    public function storeSolo(Request $request, Campaign $campaign)
+    public function storeSolo(CampaignGameStoreSoloRequest $request, Campaign $campaign)
     {
         $this->ensureCampaignMember($request, $campaign);
 
@@ -325,19 +326,7 @@ class CampaignGameController extends Controller
             );
         }
 
-        $data = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            // Player's own scoring + scheme/strategy progress.
-            'vp_self' => ['required', 'integer', 'min:0', 'max:20'],
-            'schemes_completed' => ['required', 'integer', 'min:0', 'max:3'],
-            // Opponent VP is optional (some scenarios are co-op-like). Default 0.
-            'vp_opponent' => ['nullable', 'integer', 'min:0', 'max:20'],
-            'won' => ['required', 'boolean'],
-            'withdrew' => ['sometimes', 'boolean'],
-            // Turn is only meaningful when the player withdrew; reject the
-            // inconsistent combo so downstream consumers can trust the row.
-            'withdrew_turn' => ['nullable', 'required_if:withdrew,true', 'integer', 'min:1', 'max:10'],
-        ]);
+        $data = $request->validated();
 
         $myCrew = CampaignCrew::firstOrCreate(
             ['campaign_id' => $campaign->id, 'user_id' => $request->user()->id],

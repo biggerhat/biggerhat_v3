@@ -4,6 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
 use App\Enums\GameSystemEnum;
+use App\Http\Requests\Collection\CollectionAddCharacterRequest;
+use App\Http\Requests\Collection\CollectionAddCharactersRequest;
+use App\Http\Requests\Collection\CollectionAddPackageRequest;
+use App\Http\Requests\Collection\CollectionRemoveBulkRequest;
+use App\Http\Requests\Collection\CollectionRemoveRequest;
+use App\Http\Requests\Collection\CollectionTogglePackageRequest;
+use App\Http\Requests\Collection\CollectionToggleRequest;
+use App\Http\Requests\Collection\CollectionUpdateStatusBulkRequest;
+use App\Http\Requests\Collection\CollectionUpdateStatusRequest;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Miniature;
@@ -66,12 +75,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function toggle(Request $request)
+    public function toggle(CollectionToggleRequest $request)
     {
-        $validated = $request->validate([
-            'miniature_id' => 'required|exists:miniatures,id',
-            'quantity' => 'nullable|integer|min:0',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $miniatureId = $validated['miniature_id'];
@@ -98,11 +104,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function addCharacter(Request $request)
+    public function addCharacter(CollectionAddCharacterRequest $request)
     {
-        $validated = $request->validate([
-            'character_id' => 'required|exists:characters,id',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $character = Character::with('standardMiniatures')->findOrFail($validated['character_id']);
@@ -123,12 +127,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function addCharacters(Request $request)
+    public function addCharacters(CollectionAddCharactersRequest $request)
     {
-        $validated = $request->validate([
-            'character_ids' => 'required|array',
-            'character_ids.*' => 'integer|exists:characters,id',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
 
@@ -146,11 +147,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function addPackage(Request $request)
+    public function addPackage(CollectionAddPackageRequest $request)
     {
-        $validated = $request->validate([
-            'package_id' => 'required|exists:packages,id',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $package = Package::with('characters.standardMiniatures')->findOrFail($validated['package_id']);
@@ -172,11 +171,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function togglePackage(Request $request)
+    public function togglePackage(CollectionTogglePackageRequest $request)
     {
-        $validated = $request->validate([
-            'package_id' => 'required|exists:packages,id',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $packageId = $validated['package_id'];
@@ -190,13 +187,9 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function updateStatus(Request $request)
+    public function updateStatus(CollectionUpdateStatusRequest $request)
     {
-        $validated = $request->validate([
-            'miniature_id' => 'required|exists:miniatures,id',
-            'is_built' => 'nullable|boolean',
-            'is_painted' => 'nullable|boolean',
-        ]);
+        $validated = $request->validated();
 
         $user = Auth::user();
         $miniatureId = $validated['miniature_id'];
@@ -216,37 +209,27 @@ class CollectionController extends Controller
         return back();
     }
 
-    public function remove(Request $request)
+    public function remove(CollectionRemoveRequest $request)
     {
-        $validated = $request->validate([
-            'miniature_id' => 'required|exists:miniatures,id',
-        ]);
+        $validated = $request->validated();
 
         Auth::user()->collectionMiniatures()->detach($validated['miniature_id']);
 
         return back();
     }
 
-    public function removeBulk(Request $request)
+    public function removeBulk(CollectionRemoveBulkRequest $request)
     {
-        $validated = $request->validate([
-            'miniature_ids' => 'required|array|min:1',
-            'miniature_ids.*' => 'integer|exists:miniatures,id',
-        ]);
+        $validated = $request->validated();
 
         Auth::user()->collectionMiniatures()->detach($validated['miniature_ids']);
 
         return back();
     }
 
-    public function updateStatusBulk(Request $request)
+    public function updateStatusBulk(CollectionUpdateStatusBulkRequest $request)
     {
-        $validated = $request->validate([
-            'miniature_ids' => 'required|array|min:1',
-            'miniature_ids.*' => 'integer|exists:miniatures,id',
-            'is_built' => 'nullable|boolean',
-            'is_painted' => 'nullable|boolean',
-        ]);
+        $validated = $request->validated();
 
         $data = array_filter(
             ['is_built' => $validated['is_built'] ?? null, 'is_painted' => $validated['is_painted'] ?? null],

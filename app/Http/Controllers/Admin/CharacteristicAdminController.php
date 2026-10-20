@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CharacteristicRequest;
 use App\Models\Characteristic;
 use Illuminate\Http\Request;
 
@@ -27,22 +28,18 @@ class CharacteristicAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(CharacteristicRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $characteristic = Characteristic::create($validated);
 
         return redirect()->route('admin.characteristics.index')->withMessage("{$characteristic->name} created successfully.");
     }
 
-    public function update(Request $request, Characteristic $characteristic)
+    public function update(CharacteristicRequest $request, Characteristic $characteristic)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $characteristic->update($validated);
 

@@ -177,8 +177,12 @@ Route::prefix('characters')->name('characters.')->group(function () {
     Route::get('/{character}', function (Character $character) {
         $character->loadMissing('standardMiniatures');
 
+        // A character with no standard miniature has no page to show.
+        $miniature = $character->standardMiniatures->first();
+        abort_if($miniature === null, 404);
+
         return \Route::dispatch(\Request::create(
-            route('characters.view', ['character' => $character, 'miniature' => $character['standardMiniatures'][0]['id'], 'slug' => $character['standardMiniatures'][0]['slug']])
+            route('characters.view', ['character' => $character, 'miniature' => $miniature->id, 'slug' => $miniature->slug])
         ));
     });
     Route::get('/{character}/{miniature:id}/', function (Character $character, Miniature $miniature) {

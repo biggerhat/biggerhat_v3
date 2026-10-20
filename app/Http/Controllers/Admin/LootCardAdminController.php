@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\LootCardRequest;
 use App\Jobs\GenerateBonanzaLootDeckPdf;
 use App\Models\Ability;
 use App\Models\Action;
@@ -44,7 +45,7 @@ class LootCardAdminController extends Controller
      */
     public function generatePdf(Request $request): \Illuminate\Http\RedirectResponse
     {
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage('Print PDF regeneration queued.');
     }
@@ -159,9 +160,9 @@ class LootCardAdminController extends Controller
         ];
     }
 
-    public function store(Request $request)
+    public function store(LootCardRequest $request)
     {
-        $validated = $this->validatePayload($request, isCreate: true);
+        $validated = $request->validated();
 
         // Random suffix avoids collisions across homebrew cards.
         $slug = Str::slug($validated['name']).'-'.Str::lower(Str::random(4));
@@ -182,7 +183,7 @@ class LootCardAdminController extends Controller
         $this->handleImage($request, $card, $validated);
         $this->syncSideRelations($card, $validated);
 
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$card->name} created.");
     }
@@ -195,21 +196,21 @@ class LootCardAdminController extends Controller
         }
         $lootCard->delete();
 
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$name} deleted.");
     }
 
-    public function update(Request $request, LootCard $lootCard)
+    public function update(LootCardRequest $request, LootCard $lootCard)
     {
-        $validated = $this->validatePayload($request, isCreate: false);
+        $validated = $request->validated();
         $this->handleImage($request, $lootCard, $validated);
         $this->syncSideRelations($lootCard, $validated);
 
         $cardFields = collect($validated)->only(['name', 'title_a', 'title_b', 'effect_a', 'effect_b', 'image'])->all();
         $lootCard->update($cardFields);
 
-        GenerateBonanzaLootDeckPdf::dispatch();
+        GenerateBonanzaLootDeckPdf::dispatch()->afterCommit();
 
         return redirect()->route('admin.loot_cards.index')->withMessage("{$lootCard->name} updated.");
     }
@@ -232,41 +233,6 @@ class LootCardAdminController extends Controller
         $value = $validated['value'] ?? null;
 
         return $value === null ? '' : (string) $value;
-    }
-
-    private function validatePayload(Request $request, bool $isCreate): array
-    {
-        $rules = [
-            'name' => ['required', 'string', 'max:255'],
-            'title_a' => ['nullable', 'string', 'max:255'],
-            'title_b' => ['nullable', 'string', 'max:255'],
-            'effect_a' => ['nullable', 'string', 'max:5000'],
-            'effect_b' => ['nullable', 'string', 'max:5000'],
-            'side_a_actions' => ['nullable', 'array'],
-            'side_a_actions.*.action_id' => ['required', 'integer', 'exists:actions,id'],
-            'side_a_actions.*.is_signature_action' => ['sometimes', 'boolean'],
-            'side_b_actions' => ['nullable', 'array'],
-            'side_b_actions.*.action_id' => ['required', 'integer', 'exists:actions,id'],
-            'side_b_actions.*.is_signature_action' => ['sometimes', 'boolean'],
-            'side_a_abilities' => ['nullable', 'array'],
-            'side_a_abilities.*' => ['integer', 'exists:abilities,id'],
-            'side_b_abilities' => ['nullable', 'array'],
-            'side_b_abilities.*' => ['integer', 'exists:abilities,id'],
-            'side_a_triggers' => ['nullable', 'array'],
-            'side_a_triggers.*' => ['integer', 'exists:triggers,id'],
-            'side_b_triggers' => ['nullable', 'array'],
-            'side_b_triggers.*' => ['integer', 'exists:triggers,id'],
-            'image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'remove_image' => ['sometimes', 'boolean'],
-        ];
-
-        if ($isCreate) {
-            $rules['suit'] = ['required', 'string', 'in:crow,mask,ram,tome,joker'];
-            $rules['value'] = ['nullable', 'integer', 'min:1', 'max:13'];
-            $rules['value_label'] = ['nullable', 'string', 'max:32'];
-        }
-
-        return $request->validate($rules);
     }
 
     /**

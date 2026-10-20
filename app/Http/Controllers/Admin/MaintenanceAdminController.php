@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -31,6 +32,7 @@ class MaintenanceAdminController extends Controller
     public function down(Request $request): RedirectResponse
     {
         $secret = Str::random(20);
+        AdminAudit::log('Site put into maintenance mode');
         Artisan::call('down', [
             '--secret' => $secret,
             '--render' => 'errors::503',
@@ -46,6 +48,7 @@ class MaintenanceAdminController extends Controller
     public function up(Request $request): RedirectResponse
     {
         Artisan::call('up');
+        AdminAudit::log('Site brought out of maintenance mode');
 
         return redirect()->route('admin.maintenance.index')->withMessage('Site is back up.');
     }

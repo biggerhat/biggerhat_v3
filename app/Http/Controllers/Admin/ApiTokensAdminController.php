@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreApiTokenRequest;
 use App\Models\User;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -49,19 +51,16 @@ class ApiTokensAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreApiTokenRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'user_id' => ['required', 'exists:users,id'],
-            'name' => ['required', 'string', 'max:255'],
-            'abilities' => ['array'],
-            'abilities.*' => ['string', 'max:64'],
-        ]);
+        $data = $request->validated();
 
         /** @var User $user */
         $user = User::findOrFail($data['user_id']);
         $abilities = $data['abilities'] ?? ['*'];
         $token = $user->createToken($data['name'], $abilities);
+
+        AdminAudit::log('Created API token '.$data['name'].' for '.$user->name, $user, ['abilities' => $abilities]);
 
         return redirect()->route('admin.api_tokens.index')
             ->with('new_api_token', [
@@ -76,6 +75,7 @@ class ApiTokensAdminController extends Controller
     {
         $token = PersonalAccessToken::find($id);
         if ($token) {
+            AdminAudit::log('Revoked API token '.$token->name, null, ['token_id' => $token->id, 'tokenable_id' => $token->tokenable_id]);
             $token->delete();
         }
 

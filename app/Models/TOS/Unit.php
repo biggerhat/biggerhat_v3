@@ -4,6 +4,8 @@ namespace App\Models\TOS;
 
 use App\Enums\TOS\AllegianceTypeEnum;
 use App\Enums\TOS\UnitSideEnum;
+use App\Models\Lore;
+use App\Models\Package;
 use App\Traits\TOS\GeneratesTosSlug;
 use Database\Factories\TOS\UnitFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -103,7 +105,7 @@ class Unit extends Model
      */
     public function packages(): MorphToMany
     {
-        return $this->morphToMany(\App\Models\Package::class, 'packageable')->withPivot('quantity');
+        return $this->morphToMany(Package::class, 'packageable')->withPivot('quantity');
     }
 
     public function allegiances(): BelongsToMany
@@ -114,7 +116,7 @@ class Unit extends Model
     /** @return BelongsToMany<\App\Models\Lore, $this> */
     public function lores(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\Lore::class, 'lore_tos_unit', 'tos_unit_id', 'lore_id');
+        return $this->belongsToMany(Lore::class, 'lore_tos_unit', 'tos_unit_id', 'lore_id');
     }
 
     public function specialUnitRules(): BelongsToMany

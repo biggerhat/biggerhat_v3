@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { TosSelectOption } from '@/types/tos';
 import { Head, router, usePage } from '@inertiajs/vue3';
@@ -112,6 +113,9 @@ const blankSide = (side: 'standard' | 'glory'): SideForm => ({
     ability_ids: [],
     action_ids: [],
 });
+
+// Select items can't carry a null/empty value, so "none" is a sentinel.
+const NONE = '__none__';
 
 const formInfo = ref({
     name: '' as string,
@@ -273,14 +277,16 @@ onMounted(() => {
                     </div>
                     <div>
                         <Label for="restriction">Neutral (any Allegiance of type)</Label>
-                        <select
-                            id="restriction"
-                            v-model="formInfo.restriction"
-                            class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                        <Select
+                            :model-value="formInfo.restriction ?? NONE"
+                            @update:model-value="(v) => (formInfo.restriction = v === NONE ? null : String(v))"
                         >
-                            <option :value="null">—</option>
-                            <option v-for="r in restrictions" :key="r.value" :value="r.value">{{ r.name }}</option>
-                        </select>
+                            <SelectTrigger id="restriction"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem :value="NONE">—</SelectItem>
+                                <SelectItem v-for="r in restrictions" :key="r.value" :value="String(r.value)">{{ r.name }}</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <p class="mt-1 text-[10px] text-muted-foreground">
                             Set when the unit is hireable by any Allegiance of that type (Neutral pool).
                         </p>

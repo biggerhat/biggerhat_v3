@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,12 +13,21 @@ use Inertia\ResponseFactory;
 
 class SessionsAdminController extends Controller
 {
+    private const MAX_ROWS = 300;
+
     public function index(Request $request): Response|ResponseFactory
     {
         // Database session driver — read directly. Group rows by user so the
         // UI can show "logged in 3 places" rather than 3 separate cards.
-        $rows = DB::table('sessions')
+        // Guest sessions pile up fast on a public site, so they're hidden unless
+        // asked for, and the list is capped to the most recent rows.
+        $showGuests = $request->boolean('guests');
+        $base = DB::table('sessions')->when(! $showGuests, fn ($q) => $q->whereNotNull('user_id'));
+        $total = (clone $base)->count();
+
+        $rows = $base
             ->orderByDesc('last_activity')
+            ->limit(self::MAX_ROWS)
             ->get();
 
         $userIds = $rows->pluck('user_id')->filter()->unique()->values();
@@ -38,12 +48,17 @@ class SessionsAdminController extends Controller
 
         return inertia('Admin/Sessions/Index', [
             'sessions' => $sessions,
+            'total' => $total,
+            'capped' => $total > self::MAX_ROWS,
+            'show_guests' => $showGuests,
         ]);
     }
 
     public function destroy(Request $request, string $id): RedirectResponse
     {
+        $userId = DB::table('sessions')->where('id', $id)->value('user_id');
         DB::table('sessions')->where('id', $id)->delete();
+        AdminAudit::log('Revoked a session', null, ['user_id' => $userId]);
 
         return back()->withMessage('Session revoked.');
     }
@@ -51,6 +66,7 @@ class SessionsAdminController extends Controller
     public function destroyAllForUser(Request $request, int $userId): RedirectResponse
     {
         $deleted = DB::table('sessions')->where('user_id', $userId)->delete();
+        AdminAudit::log('Revoked all sessions for a user', null, ['user_id' => $userId, 'count' => $deleted]);
 
         return back()->withMessage("{$deleted} session(s) revoked.");
     }

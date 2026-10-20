@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -42,6 +43,7 @@ class CacheAdminController extends Controller
 
         try {
             Artisan::call($config['command']);
+            AdminAudit::log("Cleared cache: {$config['label']}", null, ['target' => $key]);
 
             return back()->withMessage("Cleared: {$config['label']}.");
         } catch (Throwable $e) {

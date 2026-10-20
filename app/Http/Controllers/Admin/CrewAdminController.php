@@ -9,6 +9,7 @@ use App\Enums\FactionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CrewRequest;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
@@ -20,7 +21,6 @@ use App\Models\Trigger;
 use App\Models\Upgrade;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Str;
 
 class CrewAdminController extends Controller
@@ -103,14 +103,14 @@ class CrewAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(CrewRequest $request)
     {
         $upgrade = $this->validateAndSave($request);
 
         return redirect()->route('admin.crews.index')->withMessage("{$upgrade->name} created successfully.");
     }
 
-    public function update(Request $request, Upgrade $upgrade)
+    public function update(CrewRequest $request, Upgrade $upgrade)
     {
         $upgrade = $this->validateAndSave($request, $upgrade);
 
@@ -151,56 +151,31 @@ class CrewAdminController extends Controller
         ];
     }
 
-    private function validateAndSave(Request $request, ?Upgrade $upgrade = null): Upgrade
+    private function validateAndSave(CrewRequest $request, ?Upgrade $upgrade = null): Upgrade
     {
         $characters = collect([]);
         $keywords = collect([]);
         $markers = collect([]);
         $tokens = collect([]);
 
-        $validated = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
-            'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
-            'description' => ['nullable', 'string'],
-            'power_bar_count' => ['nullable', 'integer'],
-            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
-            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
-            'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:heic,jpeg,jpg,png,webp'],
-            'tokens' => ['nullable', 'array'],
-            'markers' => ['nullable', 'array'],
-            'characters' => ['nullable', 'array'],
-            'keywords' => ['nullable', 'array'],
-            'upgradeable_rows' => ['nullable', 'array'],
-            'upgradeable_rows.*.type' => ['required', 'string', 'in:action,ability,trigger'],
-            'upgradeable_rows.*.id' => ['required', 'integer'],
-            'upgradeable_rows.*.restriction' => ['nullable', 'string', Rule::enum(CrewUpgradeRestrictionEnum::class)],
-            'upgradeable_rows.*.is_signature' => ['sometimes', 'boolean'],
-            'upgradeable_rows.*.borrow_exclusion' => ['nullable', 'string', Rule::enum(CrewCardBorrowExclusionEnum::class)],
-            'hiring_rules_type' => ['nullable', 'string', 'in:fixed_crew,required_hires'],
-            'alternate_leader' => ['nullable', 'integer', 'exists:characters,id'],
-            'any_faction' => ['nullable'],
-            'fixed_crew_keyword' => ['nullable', 'string'],
-            'fixed_cache' => ['nullable', 'integer', 'min:0'],
-            'required_characteristic' => ['nullable', 'string'],
-            'required_count' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         // Build hiring_rules JSON from subfields
         $hiringRulesType = $validated['hiring_rules_type'] ?? null;
+        $hiring = $request->safe()->only(['alternate_leader', 'any_faction', 'fixed_crew_keyword', 'fixed_cache', 'required_characteristic', 'required_count']);
         unset($validated['hiring_rules_type'], $validated['alternate_leader'], $validated['any_faction'], $validated['fixed_crew_keyword'], $validated['fixed_cache'], $validated['required_characteristic'], $validated['required_count']);
 
         if ($hiringRulesType === 'fixed_crew') {
             $validated['hiring_rules'] = array_filter([
-                'alternate_leader_id' => $request->input('alternate_leader') ? (int) $request->input('alternate_leader') : null,
-                'any_faction' => (bool) $request->input('any_faction'),
-                'fixed_crew_keyword' => $request->input('fixed_crew_keyword'),
-                'fixed_cache' => $request->input('fixed_cache') !== null ? (int) $request->input('fixed_cache') : null,
+                'alternate_leader_id' => ! empty($hiring['alternate_leader']) ? (int) $hiring['alternate_leader'] : null,
+                'any_faction' => (bool) ($hiring['any_faction'] ?? false),
+                'fixed_crew_keyword' => $hiring['fixed_crew_keyword'] ?? null,
+                'fixed_cache' => isset($hiring['fixed_cache']) ? (int) $hiring['fixed_cache'] : null,
             ], fn ($v) => $v !== null && $v !== false);
         } elseif ($hiringRulesType === 'required_hires') {
             $validated['hiring_rules'] = array_filter([
-                'required_characteristic' => $request->input('required_characteristic'),
-                'required_count' => $request->input('required_count') !== null ? (int) $request->input('required_count') : null,
+                'required_characteristic' => $hiring['required_characteristic'] ?? null,
+                'required_count' => isset($hiring['required_count']) ? (int) $hiring['required_count'] : null,
             ], fn ($v) => $v !== null);
         } else {
             $validated['hiring_rules'] = null;
@@ -211,7 +186,7 @@ class CrewAdminController extends Controller
         $validated['slug'] = Str::slug($validated['name']);
 
         // Handle Images
-        if ($validated['front_image']) {
+        if (! empty($validated['front_image'])) {
             $extension = $validated['front_image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s_front.%s', $validated['slug'], $uuid, $extension);
@@ -222,7 +197,7 @@ class CrewAdminController extends Controller
             unset($validated['front_image']);
         }
 
-        if ($validated['back_image']) {
+        if (! empty($validated['back_image'])) {
             $extension = $validated['back_image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s_back.%s', $validated['slug'], $uuid, $extension);
@@ -304,7 +279,6 @@ class CrewAdminController extends Controller
         [$widthBack, $heightBack] = getimagesize(Storage::disk('public')->path($upgrade->back_image));
         $background = imagecreatetruecolor($widthFront + $widthBack, $heightFront);
 
-        header('Content-Type: image/jpeg');
         $outputImage = $background;
 
         $frontUrl = imagecreatefromjpeg(Storage::disk('public')->path($upgrade->front_image));
@@ -320,7 +294,18 @@ class CrewAdminController extends Controller
 
         $path = Storage::disk('public')->path('/');
         imagejpeg($outputImage, $path.$filePath);
+
+        // Each save writes a fresh combo file — drop the generated one it replaces.
+        // combination_image can also point at the front image (single-sided upgrades),
+        // so only ever delete files this method generated.
+        $previous = $upgrade->combination_image;
         $upgrade->update(['combination_image' => $filePath]);
+        if ($previous && $previous !== $filePath && str_contains($previous, '_combo.')) {
+            Storage::disk('public')->delete($previous);
+        }
+
         imagedestroy($outputImage);
+        imagedestroy($frontUrl);
+        imagedestroy($backUrl);
     }
 }

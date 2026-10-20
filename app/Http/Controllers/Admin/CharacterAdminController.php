@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\BaseSizeEnum;
 use App\Enums\CharacterStationEnum;
+use App\Enums\CrewUpgradeModeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CharacterRequest;
 use App\Models\Ability;
 use App\Models\Action;
 use App\Models\Character;
@@ -19,7 +21,7 @@ use App\Models\Token;
 use App\Models\Upgrade;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class CharacterAdminController extends Controller
 {
@@ -43,14 +45,14 @@ class CharacterAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(CharacterRequest $request)
     {
         $character = $this->validateAndSave($request);
 
         return redirect()->route('admin.characters.index')->withMessage("{$character->name} created successfully.");
     }
 
-    public function update(Request $request, Character $character)
+    public function update(CharacterRequest $request, Character $character)
     {
         $character = $this->validateAndSave($request, $character);
 
@@ -86,56 +88,15 @@ class CharacterAdminController extends Controller
                 $query->where('slug', 'totem');
             })->toSelectOptions('display_name', 'slug'),
             'crew_upgrades' => fn () => Upgrade::forCrews()->toSelectOptions('name', 'slug'),
-            'crew_upgrade_modes' => fn () => \App\Enums\CrewUpgradeModeEnum::toSelectOptions(),
+            'crew_upgrade_modes' => fn () => CrewUpgradeModeEnum::toSelectOptions(),
             'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
             'all_characters' => fn () => Character::orderBy('display_name')->toSelectOptions('display_name', 'slug'),
         ];
     }
 
-    private function validateAndSave(Request $request, ?Character $character = null)
+    private function validateAndSave(CharacterRequest $request, ?Character $character = null)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'title' => ['nullable', 'string', 'max:255'],
-            'nicknames' => ['nullable', 'string', 'max:255'],
-            'title_group_key' => ['nullable', 'string', 'max:255'],
-            'station' => ['nullable', 'string', Rule::enum(CharacterStationEnum::class)],
-            'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
-            'totem' => ['nullable', 'string'],
-            'keywords' => ['nullable', 'array'],
-            'characteristics' => ['nullable', 'array'],
-            'miniatures' => ['nullable', 'array'],
-            'abilities' => ['nullable', 'array'],
-            'actions' => ['nullable', 'array'],
-            'signature_actions' => ['nullable', 'array'],
-            'markers' => ['nullable', 'array'],
-            'tokens' => ['nullable', 'array'],
-            'cost' => ['nullable', 'integer'],
-            'health' => ['required', 'integer'],
-            'size' => ['required', 'integer'],
-            'base' => ['required', 'integer', Rule::enum(BaseSizeEnum::class)],
-            'speed' => ['required', 'integer'],
-            'count' => ['required', 'integer'],
-            'defense' => ['required', 'integer'],
-            'defense_suit' => ['nullable', 'string', Rule::enum(SuitEnum::class)],
-            'willpower' => ['required', 'integer'],
-            'willpower_suit' => ['nullable', 'string', Rule::enum(SuitEnum::class)],
-            'summon_target_number' => ['nullable', 'integer'],
-            'generates_stone' => ['required', 'boolean'],
-            'is_unhirable' => ['required', 'boolean'],
-            'crew_upgrade_mode' => ['nullable', 'string', Rule::enum(\App\Enums\CrewUpgradeModeEnum::class)],
-            'is_beta' => ['required', 'boolean'],
-            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
-            'is_hidden' => ['required', 'boolean'],
-            'summons' => ['nullable', 'array'],
-            'summons.*' => ['string'],
-            'replaces_into' => ['nullable', 'array'],
-            'replaces_into.*' => ['string'],
-            'replaces_on_death' => ['nullable', 'array'],
-            'replaces_on_death.*.slug' => ['required', 'string'],
-            'replaces_on_death.*.count' => ['required', 'integer', 'min:1'],
-            'replaces_on_death.*.health' => ['nullable', 'integer', 'min:1'],
-        ]);
+        $validated = $request->validated();
 
         if ($validated['station']) {
             $stationEnum = CharacterStationEnum::from($validated['station']);
@@ -148,31 +109,32 @@ class CharacterAdminController extends Controller
             unset($validated['summon_target_number']);
         }
 
-        if ($validated['totem']) {
-            $totem = Character::where('slug', $validated['totem'])->first();
-            $validated['has_totem_id'] = $totem->id;
-        }
+        // Clearing the totem field must also clear the stored relation. The
+        // slug is validated with `exists`, so the lookup can't come back null.
+        $validated['has_totem_id'] = ($validated['totem'] ?? null)
+            ? Character::where('slug', $validated['totem'])->value('id')
+            : null;
         unset($validated['totem']);
 
-        $keywords = Keyword::whereIn('name', $validated['keywords'])->get();
+        $keywords = Keyword::whereIn('name', $validated['keywords'] ?? [])->get();
         unset($validated['keywords']);
 
-        $characteristics = Characteristic::whereIn('name', $validated['characteristics'])->get();
+        $characteristics = Characteristic::whereIn('name', $validated['characteristics'] ?? [])->get();
         unset($validated['characteristics']);
 
-        $actions = Action::whereIn('id', $validated['actions'])->get();
+        $actions = Action::whereIn('id', $validated['actions'] ?? [])->get();
         unset($validated['actions']);
 
-        $signatureActions = Action::whereIn('id', $validated['signature_actions'])->get();
+        $signatureActions = Action::whereIn('id', $validated['signature_actions'] ?? [])->get();
         unset($validated['signature_actions']);
 
-        $abilities = Ability::whereIn('name', $validated['abilities'])->get();
+        $abilities = Ability::whereIn('name', $validated['abilities'] ?? [])->get();
         unset($validated['abilities']);
 
-        $markers = Marker::whereIn('name', $validated['markers'])->get();
+        $markers = Marker::whereIn('name', $validated['markers'] ?? [])->get();
         unset($validated['markers']);
 
-        $tokens = Token::whereIn('name', $validated['tokens'])->get();
+        $tokens = Token::whereIn('name', $validated['tokens'] ?? [])->get();
         unset($validated['tokens']);
 
         $summonSync = $this->buildLinkSync($validated['summons'] ?? [], 'summons');
@@ -184,36 +146,39 @@ class CharacterAdminController extends Controller
         $replacesOnDeathSync = $this->buildLinkSync($validated['replaces_on_death'] ?? [], 'replaces_on_death');
         unset($validated['replaces_on_death']);
 
-        if (! ($character)) {
-            $character = Character::create($validated);
-        } else {
-            $character->update($validated);
-        }
+        // Model write + relation syncs land together or not at all.
+        return DB::transaction(function () use ($validated, $character, $actions, $signatureActions, $keywords, $characteristics, $abilities, $markers, $tokens, $summonSync, $replacesIntoSync, $replacesOnDeathSync) {
+            if (! ($character)) {
+                $character = Character::create($validated);
+            } else {
+                $character->update($validated);
+            }
 
-        // Signature actions and main actions come from two independent
-        // multiselects, so the same action id can appear in both — attaching
-        // both collections separately would insert a duplicate pivot row for
-        // it (no unique constraint catches this). Merge into a single sync
-        // map keyed by action id instead, unioning both sets so an action
-        // marked signature-only (not also picked in the main list) still
-        // gets attached, matching the previous two-attach behavior.
-        $signatureActionIds = $signatureActions->pluck('id')->all();
-        $actionSync = $actions->concat($signatureActions)->unique('id')->mapWithKeys(fn (Action $action) => [
-            $action->id => ['is_signature_action' => in_array($action->id, $signatureActionIds, true)],
-        ]);
-        $character->actions()->sync($actionSync);
+            // Signature actions and main actions come from two independent
+            // multiselects, so the same action id can appear in both — attaching
+            // both collections separately would insert a duplicate pivot row for
+            // it (no unique constraint catches this). Merge into a single sync
+            // map keyed by action id instead, unioning both sets so an action
+            // marked signature-only (not also picked in the main list) still
+            // gets attached, matching the previous two-attach behavior.
+            $signatureActionIds = $signatureActions->pluck('id')->all();
+            $actionSync = $actions->concat($signatureActions)->unique('id')->mapWithKeys(fn (Action $action) => [
+                $action->id => ['is_signature_action' => in_array($action->id, $signatureActionIds, true)],
+            ]);
+            $character->actions()->sync($actionSync);
 
-        $character->keywords()->sync($keywords->pluck('id'));
-        $character->characteristics()->sync($characteristics->pluck('id'));
-        $character->abilities()->sync($abilities->pluck('id'));
-        $character->markers()->sync($markers->pluck('id'));
-        $character->tokens()->sync($tokens->pluck('id'));
+            $character->keywords()->sync($keywords->pluck('id'));
+            $character->characteristics()->sync($characteristics->pluck('id'));
+            $character->abilities()->sync($abilities->pluck('id'));
+            $character->markers()->sync($markers->pluck('id'));
+            $character->tokens()->sync($tokens->pluck('id'));
 
-        $character->summons()->sync($summonSync);
-        $character->replacesInto()->sync($replacesIntoSync);
-        $character->replacesOnDeath()->sync($replacesOnDeathSync);
+            $character->summons()->sync($summonSync);
+            $character->replacesInto()->sync($replacesIntoSync);
+            $character->replacesOnDeath()->sync($replacesOnDeathSync);
 
-        return $character;
+            return $character;
+        });
     }
 
     /**

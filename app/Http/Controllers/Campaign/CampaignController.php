@@ -238,7 +238,7 @@ class CampaignController extends Controller
             return redirect()->back()->withMessage(
                 'Need at least 2 players before the campaign can start.',
                 null,
-                \App\Enums\MessageTypeEnum::error,
+                MessageTypeEnum::error,
             );
         }
 
@@ -254,13 +254,26 @@ class CampaignController extends Controller
                 ? 'Complete your Starting Arsenal before starting the campaign.'
                 : 'All players must complete their Starting Arsenal before the campaign can start.';
 
-            return redirect()->back()->withMessage($message, null, \App\Enums\MessageTypeEnum::error);
+            return redirect()->back()->withMessage($message, null, MessageTypeEnum::error);
         }
 
-        $campaign->update([
-            'status' => CampaignStatusEnum::Active,
-            'started_at' => now(),
-        ]);
+        // The Planning check above is a UX guard; re-check under lock so two
+        // concurrent Start requests can't both activate (and double-broadcast).
+        $started = DB::transaction(function () use ($campaign): bool {
+            $locked = Campaign::lockForUpdate()->find($campaign->id);
+            if (! $locked || $locked->status !== CampaignStatusEnum::Planning) {
+                return false;
+            }
+            $locked->update(['status' => CampaignStatusEnum::Active, 'started_at' => now()]);
+
+            return true;
+        });
+
+        if (! $started) {
+            return redirect()->back()->withMessage('Campaign already started.');
+        }
+
+        $campaign->refresh();
 
         $this->broadcastToCampaign($campaign, new CampaignStarted($campaign));
 
@@ -272,10 +285,23 @@ class CampaignController extends Controller
     {
         $this->authorize('update', $campaign);
 
-        $campaign->update([
-            'status' => CampaignStatusEnum::Ended,
-            'ended_at' => now(),
-        ]);
+        // Only an Active campaign can end; re-check under lock so a repeat
+        // request can't overwrite ended_at or end a campaign still in Planning.
+        $ended = DB::transaction(function () use ($campaign): bool {
+            $locked = Campaign::lockForUpdate()->find($campaign->id);
+            if (! $locked || $locked->status !== CampaignStatusEnum::Active) {
+                return false;
+            }
+            $locked->update(['status' => CampaignStatusEnum::Ended, 'ended_at' => now()]);
+
+            return true;
+        });
+
+        if (! $ended) {
+            return redirect()->back()->withMessage('Only an active campaign can be ended.', null, MessageTypeEnum::error);
+        }
+
+        $campaign->refresh();
 
         return redirect()->route('campaigns.show', $campaign)
             ->withMessage("{$campaign->name} ended.");

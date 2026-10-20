@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Traits\LogsAdminActivity;
 use App\Traits\LogsCreationActivity;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Response;
@@ -44,7 +46,7 @@ class ActivityAdminController extends Controller
             $query->where('event', $event);
         }
         if ($causerId) {
-            $query->where('causer_id', $causerId)->where('causer_type', \App\Models\User::class);
+            $query->where('causer_id', $causerId)->where('causer_type', User::class);
         }
 
         $activities = $query->paginate(50)->withQueryString();
@@ -52,12 +54,12 @@ class ActivityAdminController extends Controller
         // Union registered models with names that have actually logged something —
         // shows the full list of tracked models even on a fresh install where
         // nothing has been written to activity_log yet.
-        $stored = Activity::query()
+        $stored = Cache::remember('admin:activity:stored_log_names', now()->addMinutes(10), fn () => Activity::query()
             ->whereNotNull('log_name')
             ->select('log_name')
             ->distinct()
             ->pluck('log_name')
-            ->all();
+            ->all());
 
         $logNames = collect(self::registeredLogNames())
             ->merge($stored)
@@ -74,7 +76,8 @@ class ActivityAdminController extends Controller
                 'causer' => $causerId,
             ],
             'log_names' => $logNames,
-            'events' => Activity::query()->select('event')->whereNotNull('event')->distinct()->orderBy('event')->pluck('event'),
+            // DISTINCT over the whole table is expensive once it grows — cache briefly.
+            'events' => Cache::remember('admin:activity:events', now()->addMinutes(10), fn () => Activity::query()->select('event')->whereNotNull('event')->distinct()->orderBy('event')->pluck('event')),
             'storage_ready' => true,
         ]);
     }
@@ -93,7 +96,7 @@ class ActivityAdminController extends Controller
         // v2 cache key — switched to a recursive scan so models in nested
         // namespaces (e.g. App\Models\TOS\*) are picked up. Bumping the key
         // invalidates the v1 cache entry on first hit after deploy.
-        return \Illuminate\Support\Facades\Cache::rememberForever('admin:activity:log_names:v2', function () {
+        return Cache::rememberForever('admin:activity:log_names:v2', function () {
             $names = [];
             $modelsRoot = app_path('Models');
             foreach (File::allFiles($modelsRoot) as $file) {

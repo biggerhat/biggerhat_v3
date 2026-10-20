@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\GameModeTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\KeywordRequest;
 use App\Models\Keyword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class KeywordAdminController extends Controller
 {
@@ -33,13 +33,9 @@ class KeywordAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(KeywordRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
-            'description' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $validated['slug'] = Str::slug($validated['name']);
 
@@ -48,13 +44,9 @@ class KeywordAdminController extends Controller
         return redirect()->route('admin.keywords.index')->withMessage("{$keyword->name} created successfully.");
     }
 
-    public function update(Request $request, Keyword $keyword)
+    public function update(KeywordRequest $request, Keyword $keyword)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'game_mode_type' => ['required', 'string', Rule::enum(GameModeTypeEnum::class)],
-            'description' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $keyword->update($validated);
 

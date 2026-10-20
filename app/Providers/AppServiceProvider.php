@@ -3,16 +3,20 @@
 namespace App\Providers;
 
 use App\Enums\MessageTypeEnum;
+use App\Listeners\LogImpersonation;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\ServiceProvider;
+use Lab404\Impersonate\Events\LeaveImpersonation;
+use Lab404\Impersonate\Events\TakeImpersonation;
 use Spatie\Activitylog\ActivityLogStatus;
 use Throwable;
 
@@ -23,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        Event::listen(TakeImpersonation::class, [LogImpersonation::class, 'onTake']);
+        Event::listen(LeaveImpersonation::class, [LogImpersonation::class, 'onLeave']);
+
         RedirectResponse::macro('withMessage', function (string $message, ?string $messageTitle = null, ?MessageTypeEnum $messageType = MessageTypeEnum::success) {
             Session::flash('messageType', $messageType->value);
             Session::flash('messageTitle', $messageTitle);

@@ -83,6 +83,21 @@ export interface AnnouncementBannerData {
     link_label: string | null;
 }
 
+export interface AdminNavItem {
+    key: string;
+    title: string;
+    href: string;
+    /** lucide icon name, resolved by lib/adminNavIcons.ts */
+    icon: string;
+    external: boolean;
+}
+
+export interface AdminNavGroup {
+    title: string;
+    description: string;
+    items: AdminNavItem[];
+}
+
 export interface SharedData extends PageProps {
     name: string;
     quote: { message: string; author: string };
@@ -92,6 +107,8 @@ export interface SharedData extends PageProps {
     tos_allegiance_info: Record<string, AllegianceInfo>;
     currentGameSystem: CurrentGameSystem;
     announcements: AnnouncementBannerData[];
+    /** Permission-filtered admin nav (App\Support\AdminNav); only present on /admin pages. */
+    adminNav?: AdminNavGroup[] | null;
     unread_notifications_count: number;
     ziggy: Config & { location: string };
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminPaletteContent from '@/components/AdminPaletteContent.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import CommandPaletteCatalog from '@/components/CommandPaletteCatalog.vue';
 import GameSystemSwitcher from '@/components/GameSystemSwitcher.vue';
@@ -44,6 +45,8 @@ interface QuickAction {
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
 const isTos = computed(() => page.props.currentGameSystem?.slug === 'tos');
+// Admin pages get the admin palette (pages + record search) instead of the public one.
+const isAdminPage = computed(() => !!page.props.adminNav);
 const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
@@ -55,6 +58,16 @@ const loadError = ref<string | null>(null);
 const goTo = (url: string) => {
     router.get(url);
     open.value = false;
+};
+
+// External admin links (Log Viewer, Telescope) are separate apps and need a full page load.
+const goToAdmin = (url: string, external: boolean) => {
+    if (external) {
+        window.location.href = url;
+        open.value = false;
+        return;
+    }
+    goTo(url);
 };
 
 function toQuickAction(item: NavItem): QuickAction {
@@ -192,7 +205,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
                 @click="openDialog"
             >
                 <Search class="size-4 shrink-0" />
-                <span class="hidden flex-1 text-left sm:inline">Search database…</span>
+                <span class="hidden flex-1 text-left sm:inline">{{ isAdminPage ? 'Jump to…' : 'Search database…' }}</span>
                 <kbd
                     class="ml-auto hidden h-5 items-center rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex"
                 >
@@ -212,71 +225,74 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
     </header>
 
     <CommandDialog v-model:open="open">
-        <CommandInput placeholder="Search characters, keywords, factions…" />
+        <CommandInput :placeholder="isAdminPage ? 'Jump to an admin page or find a record…' : 'Search characters, keywords, factions…'" />
         <CommandList class="max-h-[65vh]">
-            <!-- Quick-action groups render instantly — the user can navigate even
+            <AdminPaletteContent v-if="isAdminPage" @select="goToAdmin" />
+            <template v-else>
+                <!-- Quick-action groups render instantly — the user can navigate even
                  before the dynamic catalog has resolved. Entries are markRaw'd
                  (see the computed refs above) and headings are literal strings
                  so Reka's Command default-slot re-evaluation doesn't trip on
                  unwrapped reactive objects. -->
-            <CommandGroup v-if="isTos" heading="Navigate (The Other Side)">
-                <CommandItem
-                    v-for="action in tosNavigateItems"
-                    :key="action.route"
-                    :value="`navigate:${action.name}:${action.keywords ?? ''}`"
-                    @select="goTo(action.route)"
-                >
-                    <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
-                    {{ action.name }}
-                </CommandItem>
-            </CommandGroup>
-            <CommandGroup v-else heading="Navigate">
-                <CommandItem
-                    v-for="action in malifauxNavigateItems"
-                    :key="action.route"
-                    :value="`navigate:${action.name}:${action.keywords ?? ''}`"
-                    @select="goTo(action.route)"
-                >
-                    <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
-                    {{ action.name }}
-                </CommandItem>
-            </CommandGroup>
+                <CommandGroup v-if="isTos" heading="Navigate (The Other Side)">
+                    <CommandItem
+                        v-for="action in tosNavigateItems"
+                        :key="action.route"
+                        :value="`navigate:${action.name}:${action.keywords ?? ''}`"
+                        @select="goTo(action.route)"
+                    >
+                        <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
+                        {{ action.name }}
+                    </CommandItem>
+                </CommandGroup>
+                <CommandGroup v-else heading="Navigate">
+                    <CommandItem
+                        v-for="action in malifauxNavigateItems"
+                        :key="action.route"
+                        :value="`navigate:${action.name}:${action.keywords ?? ''}`"
+                        @select="goTo(action.route)"
+                    >
+                        <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
+                        {{ action.name }}
+                    </CommandItem>
+                </CommandGroup>
 
-            <CommandSeparator v-if="isLoggedIn" />
-            <CommandGroup v-if="isLoggedIn && isTos" heading="My Stuff">
-                <CommandItem
-                    v-for="action in tosMyStuffItems"
-                    :key="action.route"
-                    :value="`mine:${action.name}:${action.keywords ?? ''}`"
-                    @select="goTo(action.route)"
-                >
-                    <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
-                    {{ action.name }}
-                </CommandItem>
-            </CommandGroup>
-            <CommandGroup v-else-if="isLoggedIn" heading="My Stuff">
-                <CommandItem
-                    v-for="action in malifauxMyStuffItems"
-                    :key="action.route"
-                    :value="`mine:${action.name}:${action.keywords ?? ''}`"
-                    @select="goTo(action.route)"
-                >
-                    <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
-                    {{ action.name }}
-                </CommandItem>
-            </CommandGroup>
+                <CommandSeparator v-if="isLoggedIn" />
+                <CommandGroup v-if="isLoggedIn && isTos" heading="My Stuff">
+                    <CommandItem
+                        v-for="action in tosMyStuffItems"
+                        :key="action.route"
+                        :value="`mine:${action.name}:${action.keywords ?? ''}`"
+                        @select="goTo(action.route)"
+                    >
+                        <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
+                        {{ action.name }}
+                    </CommandItem>
+                </CommandGroup>
+                <CommandGroup v-else-if="isLoggedIn" heading="My Stuff">
+                    <CommandItem
+                        v-for="action in malifauxMyStuffItems"
+                        :key="action.route"
+                        :value="`mine:${action.name}:${action.keywords ?? ''}`"
+                        @select="goTo(action.route)"
+                    >
+                        <component :is="action.icon" class="mr-2 size-4 text-muted-foreground" />
+                        {{ action.name }}
+                    </CommandItem>
+                </CommandGroup>
 
-            <div v-if="loading" class="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
-                <Loader2 class="size-4 animate-spin" /> Loading database…
-            </div>
-            <div v-else-if="loadError" class="px-4 py-4 text-center text-xs text-destructive">
-                {{ loadError }}
-                <button type="button" class="ml-2 underline" @click="loadCatalog">Retry</button>
-            </div>
+                <div v-if="loading" class="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+                    <Loader2 class="size-4 animate-spin" /> Loading database…
+                </div>
+                <div v-else-if="loadError" class="px-4 py-4 text-center text-xs text-destructive">
+                    {{ loadError }}
+                    <button type="button" class="ml-2 underline" @click="loadCatalog">Retry</button>
+                </div>
 
-            <!-- Dynamic catalog (factions/keywords/characters/etc) only mounts
+                <!-- Dynamic catalog (factions/keywords/characters/etc) only mounts
                  once the user starts typing — keeps the initial open instant. -->
-            <CommandPaletteCatalog v-if="!loading && !loadError" :catalog="commandSearch" @select="goTo" />
+                <CommandPaletteCatalog v-if="!loading && !loadError" :catalog="commandSearch" @select="goTo" />
+            </template>
         </CommandList>
     </CommandDialog>
 </template>

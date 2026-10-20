@@ -6,19 +6,29 @@ use App\Enums\ContentTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\TransmissionTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\TransmissionRequest;
 use App\Models\Channel;
 use App\Models\Character;
 use App\Models\Keyword;
 use App\Models\Transmission;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class TransmissionAdminController extends Controller
 {
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
+        $search = trim($request->string('q')->toString());
+
+        $transmissions = Transmission::query()
+            ->with('channel:id,name,slug')
+            ->when($search !== '', fn ($q) => $q->where('title', 'like', '%'.addcslashes($search, '%_\\').'%'))
+            ->orderByDesc('created_at')
+            ->paginate(25)
+            ->withQueryString();
+
         return inertia('Admin/Transmissions/Index', [
-            'transmissions' => Transmission::with('channel:id,name,slug')->orderBy('created_at', 'DESC')->get(),
+            'transmissions' => $transmissions,
+            'filters' => ['q' => $search],
         ]);
     }
 
@@ -37,14 +47,14 @@ class TransmissionAdminController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(TransmissionRequest $request)
     {
         $transmission = $this->validateAndSave($request);
 
         return redirect()->route('admin.transmissions.index')->withMessage("{$transmission->title} created successfully.");
     }
 
-    public function update(Request $request, Transmission $transmission)
+    public function update(TransmissionRequest $request, Transmission $transmission)
     {
         $transmission = $this->validateAndSave($request, $transmission);
 
@@ -74,21 +84,9 @@ class TransmissionAdminController extends Controller
         ];
     }
 
-    private function validateAndSave(Request $request, ?Transmission $transmission = null): Transmission
+    private function validateAndSave(TransmissionRequest $request, ?Transmission $transmission = null): Transmission
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'url' => ['required', 'string', 'max:500'],
-            'channel_id' => ['required', 'integer', 'exists:channels,id'],
-            'transmission_type' => ['required', 'string', Rule::enum(TransmissionTypeEnum::class)],
-            'content_type' => ['required', 'string', Rule::enum(ContentTypeEnum::class)],
-            'factions' => ['nullable', 'array'],
-            'factions.*' => ['string', Rule::enum(FactionEnum::class)],
-            'release_date' => ['nullable', 'date'],
-            'characters' => ['nullable', 'array'],
-            'keywords' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         $characterSlugs = $validated['characters'] ?? [];
         $keywordSlugs = $validated['keywords'] ?? [];

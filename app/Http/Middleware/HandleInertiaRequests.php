@@ -5,6 +5,13 @@ namespace App\Http\Middleware;
 use App\Enums\FactionEnum;
 use App\Enums\TOS\AllegianceEnum;
 use App\Models\Announcement;
+use App\Models\Character;
+use App\Models\Miniature;
+use App\Models\Package;
+use App\Models\TOS\Unit;
+use App\Models\TOS\UnitSculpt;
+use App\Models\WishlistItem;
+use App\Support\AdminNav;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
@@ -40,6 +47,12 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        // Resolve once — Spatie caches the permission set, but each call still
+        // walks it, and this runs on every Inertia request.
+        $user = $request->user();
+        $permissions = $user ? $user->getAllPermissions()->pluck('name') : collect();
+        $isSuperAdmin = (bool) $user?->hasRole('super_admin');
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -66,14 +79,16 @@ class HandleInertiaRequests extends Middleware
             'tos_allegiance_info' => AllegianceEnum::buildDetails(),
             'currentGameSystem' => $this->resolveGameSystem($request),
             'announcements' => fn () => $this->activeAnnouncements($request),
+            // Admin sidebar + Cmd-K palette source; only resolved on admin pages.
+            'adminNav' => fn () => $request->is('admin', 'admin/*') ? AdminNav::forUser($request->user()) : null,
             'unread_notifications_count' => fn () => $this->unreadNotificationsCount($request),
             'auth' => [
-                'user' => $request->user() ?? null,
-                'permissions' => $request->user()?->getAllPermissions()->pluck('name') ?? [],
+                'user' => $user,
+                'permissions' => $permissions,
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'can_access_admin' => $this->canAccessAdmin($request),
                 'can_view_tos' => (bool) $request->user()?->can('view_tos'),
-                'is_super_admin' => (bool) $request->user()?->hasRole('super_admin'),
+                'is_super_admin' => $isSuperAdmin,
                 'is_supporter' => (bool) $request->user()?->isSupporter(),
                 'impersonating' => $request->user() && app('impersonate')->isImpersonating()
                     ? [
@@ -91,7 +106,9 @@ class HandleInertiaRequests extends Middleware
                 'channel_ids' => fn () => $request->user()?->channels()->pluck('channels.id')->toArray() ?? [],
             ],
             'ziggy' => [
-                ...(new Ziggy)->toArray(),
+                // Guests / permission-less users never see admin UI, so they get
+                // the trimmed route table (see config/ziggy.php).
+                ...(new Ziggy($isSuperAdmin || $permissions->isNotEmpty() ? null : 'public'))->toArray(),
                 'location' => $request->url(),
             ],
         ];
@@ -251,7 +268,7 @@ class HandleInertiaRequests extends Middleware
             return [];
         }
 
-        $items = \App\Models\WishlistItem::query()
+        $items = WishlistItem::query()
             ->whereIn('wishlist_id', $user->wishlists()->select('id'))
             ->select('wishlist_id', 'wishlistable_type', 'wishlistable_id')
             ->get();
@@ -264,11 +281,11 @@ class HandleInertiaRequests extends Middleware
             }
 
             $key = match ($item->wishlistable_type) {
-                \App\Models\Character::class => 'characters',
-                \App\Models\Miniature::class => 'miniatures',
-                \App\Models\Package::class => 'packages',
-                \App\Models\TOS\Unit::class => 'units',
-                \App\Models\TOS\UnitSculpt::class => 'unit_sculpts',
+                Character::class => 'characters',
+                Miniature::class => 'miniatures',
+                Package::class => 'packages',
+                Unit::class => 'units',
+                UnitSculpt::class => 'unit_sculpts',
                 default => null,
             };
 

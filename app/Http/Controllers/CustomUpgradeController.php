@@ -7,6 +7,7 @@ use App\Enums\ActionTypeEnum;
 use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Http\Requests\CustomUpgradeRequest;
@@ -68,7 +69,7 @@ class CustomUpgradeController extends Controller
 
         return inertia('Tools/CardCreator/UpgradeEditor', [
             'upgrade' => $customUpgrade,
-            'domain' => $customUpgrade->domain instanceof \App\Enums\UpgradeDomainTypeEnum ? $customUpgrade->domain->value : $customUpgrade->domain,
+            'domain' => $customUpgrade->domain instanceof UpgradeDomainTypeEnum ? $customUpgrade->domain->value : $customUpgrade->domain,
             'enums' => $this->enumOptions(),
             'campaign_back_url' => $campaignBackUrl,
             'crew_computed_tokens_markers' => $crewComputedTokensMarkers,

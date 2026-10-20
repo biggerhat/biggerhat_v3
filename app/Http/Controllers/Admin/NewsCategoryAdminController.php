@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\MessageTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CategoryRequest;
 use App\Models\BlogCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -39,12 +40,9 @@ class NewsCategoryAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(CategoryRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $validated['slug'] = Str::slug($validated['name']);
         $validated['is_news'] = true;
@@ -54,14 +52,11 @@ class NewsCategoryAdminController extends Controller
         return redirect()->route('admin.news.categories.index')->withMessage("{$category->name} created successfully.");
     }
 
-    public function update(Request $request, BlogCategory $blogCategory)
+    public function update(CategoryRequest $request, BlogCategory $blogCategory)
     {
         $this->guardIsNews($blogCategory);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
         $validated['is_news'] = true;
 
         $blogCategory->update($validated);

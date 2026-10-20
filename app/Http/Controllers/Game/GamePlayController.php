@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Game;
 
+use App\Enums\CrewUpgradeModeEnum;
 use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\TokenRemovalTimingEnum;
@@ -12,6 +13,13 @@ use App\Events\GameTurnAdvanced;
 use App\Events\TournamentUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
+use App\Http\Requests\Games\GamePlayAdjustBonanzaVpRequest;
+use App\Http\Requests\Games\GamePlayAttachLootRequest;
+use App\Http\Requests\Games\GamePlayBulkAttachTokenRequest;
+use App\Http\Requests\Games\GamePlayEditTurnScoreRequest;
+use App\Http\Requests\Games\GamePlayRestoreTokensRequest;
+use App\Http\Requests\Games\GamePlaySelectLootRequest;
+use App\Http\Requests\Games\GamePlayYoinkLootRequest;
 use App\Http\Requests\Games\ReplaceCrewMemberRequest;
 use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;
@@ -30,6 +38,7 @@ use App\Models\LootCard;
 use App\Models\Scheme;
 use App\Models\Token;
 use App\Models\TournamentGame;
+use App\Models\Upgrade;
 use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -57,7 +66,7 @@ class GamePlayController extends Controller
         // Detect loot upgrades being removed and push their card_id back to
         // the discard pile so they're not lost from the deck state.
         if (
-            $game->format === \App\Enums\GameFormatEnum::BonanzaBrawl
+            $game->format === GameFormatEnum::BonanzaBrawl
             && array_key_exists('attached_upgrades', $validated)
         ) {
             $prevLoot = collect($gameCrewMember->attached_upgrades ?? [])
@@ -79,7 +88,7 @@ class GamePlayController extends Controller
         if (isset($validated['attached_upgrades']) && ! empty($validated['attached_upgrades'])) {
             $newUpgradeIds = collect($validated['attached_upgrades'])->pluck('id')->filter()->toArray();
             if ($newUpgradeIds) {
-                $upgrades = \App\Models\Upgrade::whereIn('id', $newUpgradeIds)->get()->keyBy('id');
+                $upgrades = Upgrade::whereIn('id', $newUpgradeIds)->get()->keyBy('id');
                 // Count how many times each upgrade is used across all OTHER crew members
                 $allMembers = GameCrewMember::where('game_id', $game->id)
                     ->where('game_player_id', $gameCrewMember->game_player_id)
@@ -139,15 +148,11 @@ class GamePlayController extends Controller
      * Quick Add: attach one token to many of the player's live crew members at
      * once. Members are validated to belong to the player (policy) and alive.
      */
-    public function bulkAttachToken(Request $request, Game $game): JsonResponse
+    public function bulkAttachToken(GamePlayBulkAttachTokenRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
 
-        $validated = $request->validate([
-            'token_id' => ['required', 'integer', 'exists:tokens,id'],
-            'member_ids' => ['required', 'array', 'min:1'],
-            'member_ids.*' => ['integer'],
-        ]);
+        $validated = $request->validated();
 
         $token = Token::findOrFail($validated['token_id']);
 
@@ -212,16 +217,11 @@ class GamePlayController extends Controller
     /**
      * Undo an end-of-turn removal: re-attach the given {member, token} pairs.
      */
-    public function restoreTokens(Request $request, Game $game): JsonResponse
+    public function restoreTokens(GamePlayRestoreTokensRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
 
-        $validated = $request->validate([
-            'tokens' => ['required', 'array', 'min:1'],
-            'tokens.*.member_id' => ['required', 'integer'],
-            'tokens.*.token_id' => ['required', 'integer'],
-            'tokens.*.token_name' => ['nullable', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $byMember = collect($validated['tokens'])->groupBy('member_id');
         $members = GameCrewMember::where('game_id', $game->id)
@@ -255,7 +255,7 @@ class GamePlayController extends Controller
         // them stripped on the same row update so the UI doesn't show ghost
         // loot on a dead model. Bonanza-only; standard games never have loot.
         $droppedMarkers = [];
-        if ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl && ! $gameCrewMember->is_killed) {
+        if ($game->format === GameFormatEnum::BonanzaBrawl && ! $gameCrewMember->is_killed) {
             $droppedMarkers = app(LootDeckService::class)->dropMarkersOnDeath($game, $gameCrewMember);
             $gameCrewMember->refresh();
         }
@@ -344,7 +344,7 @@ class GamePlayController extends Controller
         } else {
             $isPeon = $character->station?->value === 'peon';
             if (! $isPeon) {
-                $tokens = \App\Models\Token::whereIn('slug', ['summon', 'slow'])->get(['id', 'name', 'slug']);
+                $tokens = Token::whereIn('slug', ['summon', 'slow'])->get(['id', 'name', 'slug']);
                 foreach ($tokens as $token) {
                     $attachedTokens[] = ['id' => $token->id, 'name' => $token->name];
                 }
@@ -492,14 +492,14 @@ class GamePlayController extends Controller
         // must belong to the master's direct crew upgrade list.
         // Bonanza: any keyword-derived crew upgrade is valid (the picked model
         // usually isn't even a master, so crew_upgrade_mode is irrelevant).
-        if ($game->format === \App\Enums\GameFormatEnum::BonanzaBrawl) {
+        if ($game->format === GameFormatEnum::BonanzaBrawl) {
             $validIds = $master->loadMissing('keywords.crewUpgrades')->keywords
                 ->flatMap(fn ($k) => $k->crewUpgrades)
                 ->pluck('id')
                 ->unique()
                 ->toArray();
         } else {
-            if ($master->crew_upgrade_mode !== \App\Enums\CrewUpgradeModeEnum::Swappable) {
+            if ($master->crew_upgrade_mode !== CrewUpgradeModeEnum::Swappable) {
                 return response()->json(['error' => 'Crew upgrades are not swappable for this master'], 422);
             }
             $validIds = $master->crewUpgrades->pluck('id')->toArray();
@@ -574,18 +574,15 @@ class GamePlayController extends Controller
      * shoehorn into GameTurn rows, so we just bump total_points directly.
      * Negative deltas are allowed (death = -3 to a minimum of 0).
      */
-    public function adjustBonanzaVp(Request $request, Game $game): JsonResponse
+    public function adjustBonanzaVp(GamePlayAdjustBonanzaVpRequest $request, Game $game): JsonResponse
     {
         $this->assertInProgress($game);
 
-        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+        if ($game->format !== GameFormatEnum::BonanzaBrawl) {
             return response()->json(['error' => 'This action is only available in Bonanza Brawl games.'], 422);
         }
 
-        $validated = $request->validate([
-            'slot' => ['sometimes', 'integer', 'in:1,2'],
-            'delta' => ['required', 'integer', 'min:-20', 'max:20'],
-        ]);
+        $validated = $request->validated();
 
         $slot = (int) ($validated['slot'] ?? 0);
         $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
@@ -632,15 +629,11 @@ class GamePlayController extends Controller
         ]);
     }
 
-    public function selectLoot(Request $request, Game $game): JsonResponse
+    public function selectLoot(GamePlaySelectLootRequest $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
 
-        $validated = $request->validate([
-            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
-            'loot_card_id' => ['required', 'integer', 'exists:loot_cards,id'],
-            'side' => ['required', 'string', 'in:a,b'],
-        ]);
+        $validated = $request->validated();
 
         /** @var GameCrewMember $member */
         $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
@@ -665,15 +658,11 @@ class GamePlayController extends Controller
         ]);
     }
 
-    public function attachLoot(Request $request, Game $game): JsonResponse
+    public function attachLoot(GamePlayAttachLootRequest $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
 
-        $validated = $request->validate([
-            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
-            'loot_card_id' => ['required', 'integer', 'exists:loot_cards,id'],
-            'side' => ['required', 'string', 'in:a,b'],
-        ]);
+        $validated = $request->validated();
 
         /** @var GameCrewMember $member */
         $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
@@ -687,15 +676,11 @@ class GamePlayController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function yoinkLoot(Request $request, Game $game): JsonResponse
+    public function yoinkLoot(GamePlayYoinkLootRequest $request, Game $game): JsonResponse
     {
         $this->assertBonanzaInProgress($game);
 
-        $validated = $request->validate([
-            'game_crew_member_id' => ['required', 'integer', 'exists:game_crew_members,id'],
-            'marker_id' => ['required', 'string'],
-            'side' => ['required', 'string', 'in:a,b'],
-        ]);
+        $validated = $request->validated();
 
         /** @var GameCrewMember $member */
         $member = GameCrewMember::findOrFail($validated['game_crew_member_id']);
@@ -714,7 +699,7 @@ class GamePlayController extends Controller
     private function assertBonanzaInProgress(Game $game): void
     {
         $this->assertInProgress($game);
-        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+        if ($game->format !== GameFormatEnum::BonanzaBrawl) {
             abort(422, 'Loot deck actions are only available in Bonanza Brawl games.');
         }
     }
@@ -813,7 +798,7 @@ class GamePlayController extends Controller
      * score without giving them a full history-editor (which would muddy
      * tournament integrations).
      */
-    public function editTurnScore(Request $request, Game $game, GameTurn $turn): JsonResponse
+    public function editTurnScore(GamePlayEditTurnScoreRequest $request, Game $game, GameTurn $turn): JsonResponse
     {
         if ($game->status !== GameStatusEnum::InProgress) {
             return response()->json(['error' => 'Game not in progress'], 422);
@@ -834,10 +819,7 @@ class GamePlayController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'strategy_points' => ['required', 'integer', 'min:0', 'max:2'],
-            'scheme_points' => ['required', 'integer', 'min:0', 'max:3'],
-        ]);
+        $validated = $request->validated();
 
         DB::transaction(function () use ($game, $player, $turn, $validated) {
             $bonusUsedThisTurn = $validated['strategy_points'] > 1;

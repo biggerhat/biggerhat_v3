@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\MiniatureRequest;
 use App\Http\Resources\MiniatureResource;
 use App\Models\Character;
 use App\Models\Miniature;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Storage;
 use Str;
 
@@ -39,14 +39,14 @@ class MiniatureAdminController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(MiniatureRequest $request)
     {
         $miniature = $this->validateAndSave($request);
 
         return redirect()->route('admin.miniatures.index')->withMessage("{$miniature->display_name} created successfully.");
     }
 
-    public function update(Request $request, Miniature $miniature)
+    public function update(MiniatureRequest $request, Miniature $miniature)
     {
         $miniature = $this->validateAndSave($request, $miniature);
 
@@ -61,30 +61,23 @@ class MiniatureAdminController extends Controller
         return redirect()->route('admin.miniatures.index')->withMessage("{$name} has been deleted.");
     }
 
-    private function validateAndSave(Request $request, ?Miniature $miniature = null): Miniature
+    private function validateAndSave(MiniatureRequest $request, ?Miniature $miniature = null): Miniature
     {
-        $validated = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            'title' => ['nullable', 'string', 'max:255'],
-            'character_id' => ['required'],
-            'front_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
-            'back_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
-            'combination_image' => ['nullable', 'file', 'max:30000', 'mimes:jpeg,jpg'],
-            'version' => ['required', 'string', Rule::enum(SculptVersionEnum::class)],
-            'use_existing_back' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $character = Character::findOrFail($validated['character_id']);
-        $displayName = $validated['name'] ?? $character->name;
+        $name = $validated['name'] ?? null;
+        $title = $validated['title'] ?? null;
+        $displayName = $name ?? $character->name;
 
-        if ($validated['name'] && $validated['title']) {
-            $displayName .= ', '.$validated['title'];
-        } elseif (! $validated['name'] && $character->title) {
+        if ($name && $title) {
+            $displayName .= ', '.$title;
+        } elseif (! $name && $character->title) {
             $displayName .= ', '.$character->title;
         }
 
         // Append promotional title for special editions without custom name/title
-        if (! $validated['name'] && ! $validated['title']) {
+        if (! $name && ! $title) {
             $version = SculptVersionEnum::from($validated['version']);
             $promoTitle = $version->promotionalTitle();
             if ($promoTitle) {
@@ -96,7 +89,7 @@ class MiniatureAdminController extends Controller
         $validated['slug'] = Str::slug($displayName);
 
         // Handle Images
-        if ($validated['front_image']) {
+        if (! empty($validated['front_image'])) {
             $extension = $validated['front_image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s_front.%s', $character->id, $uuid, $extension);
@@ -122,7 +115,7 @@ class MiniatureAdminController extends Controller
             } else {
                 unset($validated['back_image']);
             }
-        } elseif ($validated['back_image']) {
+        } elseif (! empty($validated['back_image'])) {
             $extension = $validated['back_image']->extension();
             $uuid = Str::uuid();
             $fileName = sprintf('%s_%s_back.%s', $character->id, $uuid, $extension);
@@ -174,7 +167,16 @@ class MiniatureAdminController extends Controller
         $filePath = "characters/{$miniature->character_id}/{$fileName}";
 
         imagejpeg($outputImage, Storage::disk('public')->path($filePath));
+
+        // Each save writes a fresh combo file — drop the generated one it replaces.
+        // combination_image can also point at the front image (single-sided
+        // miniatures), so only ever delete files this method generated.
+        $previous = $miniature->combination_image;
         $miniature->update(['combination_image' => $filePath]);
+        if ($previous && $previous !== $filePath && str_contains($previous, '_combo.')) {
+            Storage::disk('public')->delete($previous);
+        }
+
         imagedestroy($outputImage);
     }
 

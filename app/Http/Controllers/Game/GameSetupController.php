@@ -3,26 +3,37 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\CharacterStationEnum;
+use App\Enums\CrewUpgradeModeEnum;
 use App\Enums\GameFormatEnum;
 use App\Enums\GameStatusEnum;
 use App\Events\GameSetupStepCompleted;
 use App\Events\GameStatusChanged;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Games\GameSetupSubmitCampaignCrewRequest;
 use App\Http\Requests\Games\SubmitCrewRequest;
 use App\Http\Requests\Games\SubmitFactionRequest;
 use App\Http\Requests\Games\SubmitMasterRequest;
 use App\Http\Requests\Games\SubmitSchemeRequest;
 use App\Http\Requests\Games\UpdateOpponentNameRequest;
+use App\Models\Ability;
+use App\Models\Action;
+use App\Models\Campaign\CampaignArsenalModel;
+use App\Models\Campaign\CampaignArsenalModelInjury;
+use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignGame;
 use App\Models\Character;
 use App\Models\CrewBuild;
+use App\Models\CustomCharacter;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\Scheme;
+use App\Models\Trigger;
+use App\Models\Upgrade;
 use App\Services\LootDeckService;
+use App\Support\Campaign\AftermathCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -45,7 +56,7 @@ class GameSetupController extends Controller
         // isn't in this app) — auto-fill the opponent's faction with the same pick
         // so the step advances on a single submission instead of prompting for an
         // opponent faction that has no real meaning here.
-        if ($game->is_solo && $game->format === \App\Enums\GameFormatEnum::Campaign && $player->slot === 1) {
+        if ($game->is_solo && $game->format === GameFormatEnum::Campaign && $player->slot === 1) {
             $game->players()->where('slot', 2)->whereNull('faction')->update(['faction' => $validated['faction']]);
         }
 
@@ -55,7 +66,7 @@ class GameSetupController extends Controller
         $bothDone = DB::transaction(function () use ($game) {
             /** @var Game $locked */
             $locked = Game::lockForUpdate()->find($game->id);
-            $done = $locked->format === \App\Enums\GameFormatEnum::BonanzaBrawl
+            $done = $locked->format === GameFormatEnum::BonanzaBrawl
                 ? $locked->players()->where('slot', 1)->whereNotNull('faction')->exists()
                 : $locked->players()->whereNotNull('faction')->count() === 2;
             if ($done && $locked->status === GameStatusEnum::FactionSelect) {
@@ -100,7 +111,7 @@ class GameSetupController extends Controller
                     ->orWhere('name', $validated['master_name']);
             });
 
-        if ($game->format !== \App\Enums\GameFormatEnum::BonanzaBrawl) {
+        if ($game->format !== GameFormatEnum::BonanzaBrawl) {
             $masterQuery->where('station', CharacterStationEnum::Master->value);
         }
 
@@ -114,7 +125,7 @@ class GameSetupController extends Controller
         // Solo Campaign games track a generic opponent — no catalog master stands
         // in for a real player's built leader, so skip the opponent master picker
         // entirely and auto-fill a placeholder once the solo player locks in theirs.
-        if ($game->is_solo && $game->format === \App\Enums\GameFormatEnum::Campaign && $player->slot === 1) {
+        if ($game->is_solo && $game->format === GameFormatEnum::Campaign && $player->slot === 1) {
             $game->players()->where('slot', 2)->whereNull('master_name')->update(['master_name' => 'Opponent Campaign Leader']);
         }
 
@@ -124,7 +135,7 @@ class GameSetupController extends Controller
             // Bonanza is force-solo personal-tracking only: the user only ever
             // submits their own master, and the slot-2 GamePlayer stays empty.
             // So "done" for Bonanza means slot 1 has a pick, not both slots.
-            $done = $locked->format === \App\Enums\GameFormatEnum::BonanzaBrawl
+            $done = $locked->format === GameFormatEnum::BonanzaBrawl
                 ? $locked->players()->where('slot', 1)->whereNotNull('master_name')->exists()
                 : $locked->players()->whereNotNull('master_name')->count() === 2;
             $changed = false;
@@ -132,7 +143,7 @@ class GameSetupController extends Controller
                 // Bonanza Brawl has no Crew or Scheme select — the user fields a
                 // single model, so we auto-create one GameCrewMember for slot 1
                 // and jump straight to InProgress.
-                if ($locked->format === \App\Enums\GameFormatEnum::BonanzaBrawl) {
+                if ($locked->format === GameFormatEnum::BonanzaBrawl) {
                     /** @var GamePlayer|null $slotOne */
                     $slotOne = $locked->players()->where('slot', 1)->first();
                     if ($slotOne && $slotOne->master_id) {
@@ -211,7 +222,7 @@ class GameSetupController extends Controller
             $crewMaster = $crewBuild->master;
             // For swappable masters, default to first crew upgrade; for select_one, use the build's selection
             $activeUpgradeId = $crewBuild->crew_upgrade_id;
-            if ($crewMaster && $crewMaster->crew_upgrade_mode === \App\Enums\CrewUpgradeModeEnum::Swappable) {
+            if ($crewMaster && $crewMaster->crew_upgrade_mode === CrewUpgradeModeEnum::Swappable) {
                 /** @var \App\Models\Upgrade|null $firstUpgrade */
                 $firstUpgrade = $crewMaster->crewUpgrades()->first();
                 $activeUpgradeId = $activeUpgradeId ?? $firstUpgrade?->id;
@@ -267,7 +278,7 @@ class GameSetupController extends Controller
      * crew_skipped = true (the "done" marker) rather than creating a synthetic
      * CrewBuild — campaign crew builds have no catalog master_id.
      */
-    public function submitCampaignCrew(Request $request, Game $game): JsonResponse
+    public function submitCampaignCrew(GameSetupSubmitCampaignCrewRequest $request, Game $game): JsonResponse
     {
         if ($game->format !== GameFormatEnum::Campaign) {
             return response()->json(['error' => 'Not a Campaign game'], 422);
@@ -279,24 +290,12 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Invalid game state'], 422);
         }
 
-        $validated = $request->validate([
-            // CampaignArsenalModel row ids, not Character catalog ids — one
-            // entry per physical model hired, so owning several copies of the
-            // same catalog Character hires exactly the ones picked instead of
-            // every owned copy at once.
-            'arsenal_model_ids' => ['present', 'array'],
-            'arsenal_model_ids.*' => ['integer', 'exists:campaign_arsenal_models,id'],
-            // Owned equipment (pg 19) optionally attached to a specific hire
-            // (or the Leader) at selection time, instead of only during play.
-            'equipment_assignments' => ['nullable', 'array'],
-            'equipment_assignments.*.equipment_id' => ['required', 'integer'],
-            'equipment_assignments.*.target' => ['required', 'string'],
-        ]);
+        $validated = $request->validated();
 
         $arsenalModelIds = array_map('intval', $validated['arsenal_model_ids']);
 
         $userId = Auth::id();
-        $campaignGame = \App\Models\Campaign\CampaignGame::query()
+        $campaignGame = CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->with(['crewA', 'crewB'])
             ->first();
@@ -315,7 +314,7 @@ class GameSetupController extends Controller
             if ($game->is_solo) {
                 $myGamePlayer = $game->players()->where('user_id', $userId)->first();
                 if ($myGamePlayer?->faction) {
-                    $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
+                    $campaignCrew = CampaignCrew::query()
                         ->where('user_id', $userId)
                         ->where('faction', $myGamePlayer->getRawOriginal('faction'))
                         ->latest('id')
@@ -328,7 +327,7 @@ class GameSetupController extends Controller
             return response()->json(['error' => 'Campaign crew not found — ensure you have an active campaign with a built leader for your faction.'], 422);
         }
 
-        $ownedArsenalModels = \App\Models\Campaign\CampaignArsenalModel::query()
+        $ownedArsenalModels = CampaignArsenalModel::query()
             ->where('campaign_crew_id', $campaignCrew->id)
             ->active()
             ->get(['id', 'character_id'])
@@ -337,7 +336,7 @@ class GameSetupController extends Controller
         if (! empty($arsenalModelIds)) {
             $outside = array_diff($arsenalModelIds, $ownedArsenalModels->keys()->all());
             if (! empty($outside)) {
-                $names = \App\Models\Campaign\CampaignArsenalModel::whereIn('id', $outside)->with('character:id,display_name')->get()
+                $names = CampaignArsenalModel::whereIn('id', $outside)->with('character:id,display_name')->get()
                     ->map(fn ($m) => $m->character->display_name ?? "#{$m->id}")
                     ->implode(', ');
 
@@ -569,7 +568,7 @@ class GameSetupController extends Controller
      */
     private function validateCampaignArsenalHires(Game $game, CrewBuild $crewBuild): ?string
     {
-        $wrap = \App\Models\Campaign\CampaignGame::query()
+        $wrap = CampaignGame::query()
             ->where('base_game_id', $game->id)
             ->first();
         if (! $wrap) {
@@ -589,7 +588,7 @@ class GameSetupController extends Controller
             return 'Could not match your user to a crew in this campaign game.';
         }
 
-        $arsenalCharacterIds = \App\Models\Campaign\CampaignArsenalModel::query()
+        $arsenalCharacterIds = CampaignArsenalModel::query()
             ->where('campaign_crew_id', $crew->id)
             ->active()
             ->pluck('character_id')
@@ -598,7 +597,7 @@ class GameSetupController extends Controller
         $crewCharIds = array_map('intval', $crewBuild->crew_data ?? []);
         $outside = array_diff($crewCharIds, $arsenalCharacterIds);
         if (! empty($outside)) {
-            $names = \App\Models\Character::query()
+            $names = Character::query()
                 ->whereIn('id', $outside)
                 ->pluck('display_name')
                 ->all();
@@ -663,7 +662,7 @@ class GameSetupController extends Controller
         // the campaign crew, then fall through to the shared crew/custom-crew logic.
         if ($game->format === GameFormatEnum::Campaign) {
             $userId = \Illuminate\Support\Facades\Auth::id();
-            $campaignGame = \App\Models\Campaign\CampaignGame::query()
+            $campaignGame = CampaignGame::query()
                 ->where('base_game_id', $game->id)
                 ->with(['crewA.leader', 'crewA.totem', 'crewB.leader', 'crewB.totem'])
                 ->first();
@@ -677,7 +676,7 @@ class GameSetupController extends Controller
                 // Solo Campaign game with no CampaignGame link — find the crew by faction.
                 $myGamePlayer = $game->players()->where('user_id', $userId)->first();
                 if ($myGamePlayer?->faction) {
-                    $campaignCrew = \App\Models\Campaign\CampaignCrew::query()
+                    $campaignCrew = CampaignCrew::query()
                         ->where('user_id', $userId)
                         ->where('faction', $myGamePlayer->getRawOriginal('faction'))
                         ->with(['leader', 'totem'])
@@ -767,7 +766,7 @@ class GameSetupController extends Controller
             // several copies of the same catalog Character hires exactly the
             // rows the player selected, each with its own injuries.
             $arsenalModels = $campaignCrew
-                ? \App\Models\Campaign\CampaignArsenalModel::query()
+                ? CampaignArsenalModel::query()
                     ->where('campaign_crew_id', $campaignCrew->id)
                     ->whereIn('id', $campaignArsenalModelIds)
                     ->active()
@@ -797,7 +796,7 @@ class GameSetupController extends Controller
                 // against (it was added via the unrestricted "Add Unit" flow, so
                 // there's no cost cap/OOK surcharge to enforce here either).
                 if ($arsenalModel->custom_character_id) {
-                    $customCharacter = \App\Models\CustomCharacter::find($arsenalModel->custom_character_id);
+                    $customCharacter = CustomCharacter::find($arsenalModel->custom_character_id);
                     if (! $customCharacter) {
                         continue;
                     }
@@ -967,13 +966,13 @@ class GameSetupController extends Controller
      * @param  array<int, array{equipment_id: int, target: string}>  $assignments
      * @return array<int|string, array<int, array<string, mixed>>>|string
      */
-    private function resolveEquipmentAssignments(\App\Models\Campaign\CampaignCrew $crew, array $arsenalModelIds, array $assignments): array|string
+    private function resolveEquipmentAssignments(CampaignCrew $crew, array $arsenalModelIds, array $assignments): array|string
     {
         if (empty($assignments)) {
             return [];
         }
 
-        $owned = collect(\App\Support\Campaign\AftermathCatalog::ownedEquipmentForAttachment($crew, $crew->leader))->keyBy('id');
+        $owned = collect(AftermathCatalog::ownedEquipmentForAttachment($crew, $crew->leader))->keyBy('id');
         $usedCounts = [];
         $byTarget = [];
 
@@ -1035,7 +1034,7 @@ class GameSetupController extends Controller
      */
     private function injuryUpgrades(string $column, int $id): array
     {
-        return \App\Models\Campaign\CampaignArsenalModelInjury::query()
+        return CampaignArsenalModelInjury::query()
             ->where($column, $id)
             ->with([
                 'injury:id,name,front_image,back_image,description',
@@ -1045,9 +1044,9 @@ class GameSetupController extends Controller
             ->get()
             ->pluck('injury')
             ->filter()
-            ->map(function (\App\Models\Upgrade $u) {
+            ->map(function (Upgrade $u) {
                 $u->actions->each(
-                    fn (\App\Models\Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
+                    fn (Action $a) => $a->is_signature = (bool) $a->pivot->is_signature_action, // @phpstan-ignore property.notFound (pivot from MorphToMany)
                 );
 
                 return [
@@ -1056,7 +1055,7 @@ class GameSetupController extends Controller
                     'front_image' => $u->front_image,
                     'back_image' => $u->back_image,
                     'description' => $u->description,
-                    'actions' => $u->actions->map(fn (\App\Models\Action $a) => [
+                    'actions' => $u->actions->map(fn (Action $a) => [
                         'name' => $a->name,
                         'type' => $a->type,
                         'is_signature' => $a->is_signature,
@@ -1071,14 +1070,14 @@ class GameSetupController extends Controller
                         'target_suits' => $a->target_suits,
                         'damage' => $a->damage,
                         'description' => $a->description,
-                        'triggers' => $a->triggers->map(fn (\App\Models\Trigger $t) => [
+                        'triggers' => $a->triggers->map(fn (Trigger $t) => [
                             'name' => $t->name,
                             'suits' => $t->suits,
                             'stone_cost' => $t->stone_cost,
                             'description' => $t->description,
                         ])->all(),
                     ])->all(),
-                    'abilities' => $u->abilities->map(fn (\App\Models\Ability $a) => [
+                    'abilities' => $u->abilities->map(fn (Ability $a) => [
                         'name' => $a->name,
                         'suits' => $a->suits,
                         'defensive_ability_type' => $a->defensive_ability_type,

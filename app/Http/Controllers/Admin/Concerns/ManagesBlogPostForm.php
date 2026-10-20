@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Admin\Concerns;
 
 use App\Enums\BlogPostStatusEnum;
+use App\Http\Requests\Admin\BlogPostRequest;
 use App\Models\BlogPost;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Exists;
 
 /**
  * Shared save/upload logic for BlogPostAdminController and
@@ -19,25 +18,9 @@ trait ManagesBlogPostForm
 {
     abstract protected function canPublish(Request $request): bool;
 
-    /** Restricts blog_category_id to the categories legal for this post type. */
-    abstract protected function categoryIdExistsRule(): Exists;
-
-    private function validateAndSave(Request $request, ?BlogPost $post = null): BlogPost
+    private function validateAndSave(BlogPostRequest $request, ?BlogPost $post = null): BlogPost
     {
-        // Content arrives as a JSON string via FormData — decode it before validation
-        if ($request->has('content') && is_string($request->input('content'))) {
-            $request->merge(['content' => json_decode($request->input('content'), true)]);
-        }
-
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'content' => ['nullable', 'array'],
-            'excerpt' => ['nullable', 'string'],
-            'featured_image' => ['nullable', 'image', 'max:4096'],
-            'status' => ['required', 'string', Rule::enum(BlogPostStatusEnum::class)],
-            'blog_category_id' => ['nullable', 'integer', $this->categoryIdExistsRule()],
-            'entities' => ['nullable', 'array'],
-        ]);
+        $validated = $request->validated();
 
         // Enforce publish permission
         if ($validated['status'] === BlogPostStatusEnum::Published->value && ! $this->canPublish($request)) {

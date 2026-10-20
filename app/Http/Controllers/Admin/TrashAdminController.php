@@ -8,6 +8,7 @@ use App\Models\Blueprint;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use App\Models\Tournament;
+use App\Support\AdminAudit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Http\RedirectResponse;
@@ -79,6 +80,7 @@ class TrashAdminController extends Controller
         // via call_user_func to keep the type-checker quiet without sacrificing
         // the runtime contract (the trait is required on every entry in self::MODELS).
         \call_user_func([$model, 'restore']);
+        AdminAudit::log('Restored '.$kind.' #'.$id.' from trash', $model);
 
         return back()->withMessage('Record restored.');
     }
@@ -89,6 +91,7 @@ class TrashAdminController extends Controller
         if (! $model) {
             return back()->withMessage('Record not found.');
         }
+        AdminAudit::log('Permanently deleted '.$kind.' #'.$id, null, ['kind' => $kind, 'id' => $id]);
         \call_user_func([$model, 'forceDelete']);
 
         return back()->withMessage('Record permanently deleted.');

@@ -67,6 +67,15 @@ it('uses unique item keys and only permissions that exist', function () {
     }
 });
 
+it('gives every item a well-formed, unique destination', function () {
+    $items = collect(AdminNav::definition())->flatMap(fn ($g) => $g['items']);
+
+    foreach ($items as $item) {
+        expect($item['href'])->toMatch('#^(https?://[^\s]+|/[^\s]*)$#', "{$item['key']} has a malformed href");
+    }
+    expect($items->pluck('href')->duplicates()->all())->toBe([]);
+});
+
 it('shares the nav on admin pages only', function () {
     $this->actingAs($this->superAdmin)->get(route('admin.keywords.index'))
         ->assertInertia(fn ($page) => $page->has('adminNav')->where('adminNav.0.title', 'Game Data'));

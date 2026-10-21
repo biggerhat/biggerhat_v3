@@ -35,6 +35,15 @@ return [
         ],
     ],
 
+    // Discord bot (hat_golem) monitoring: the bot POSTs heartbeats with this
+    // bearer secret; leave unset to disable the endpoint. Outage alerts also go
+    // to the optional Discord webhook, in addition to super admins' email.
+    'bot' => [
+        'telemetry_token' => env('BOT_TELEMETRY_TOKEN'),
+        'alert_webhook' => env('BOT_ALERT_WEBHOOK'),
+        'offline_after_minutes' => (int) env('BOT_OFFLINE_AFTER_MINUTES', 3),
+    ],
+
     // Headless-Chrome (Browsershot) binary overrides for PDF rendering. Leave
     // null to use Browsershot's auto-detection; set on servers where node /
     // chrome live at non-standard paths.

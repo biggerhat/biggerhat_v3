@@ -10,7 +10,7 @@ defineProps<{ campaign_name: string }>();
     <Head title="Invitation Expired" />
     <div class="container mx-auto mt-6 max-w-xl px-4 pb-12">
         <Card>
-            <CardHeader><CardTitle>Invitation Expired</CardTitle></CardHeader>
+            <CardHeader><CardTitle as="h1">Invitation Expired</CardTitle></CardHeader>
             <CardContent>
                 <p class="text-sm text-muted-foreground">
                     The invitation to <strong>{{ campaign_name }}</strong> has expired. Ask the organizer to send a new one.

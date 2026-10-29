@@ -83,7 +83,7 @@ const isSuperAdminUser = (user: UserRow) => user.roles.some((r) => r.name === 's
     <Head title="Users - Admin" />
 
     <PageBanner title="Users" class="mb-2" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex flex-wrap items-center justify-between gap-2 py-4">
             <div class="flex flex-wrap items-center gap-2">
                 <Input v-model="search" class="w-64" placeholder="Search name or email" @input="onSearchInput" />

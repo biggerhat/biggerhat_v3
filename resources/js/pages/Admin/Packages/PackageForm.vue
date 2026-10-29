@@ -169,7 +169,7 @@ onMounted(() => {
 
 <template>
     <Head title="Package Form" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <Card>
             <CardHeader>
                 <CardTitle>Package</CardTitle>

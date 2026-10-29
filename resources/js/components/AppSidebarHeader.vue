@@ -201,7 +201,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             <button
                 type="button"
                 aria-label="Open search (⌘K)"
-                class="group inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background/60 px-3 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-w-[200px] sm:justify-start"
+                class="group inline-flex h-10 items-center gap-2 rounded-md border border-input bg-background/60 px-3 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-9 sm:min-w-[200px] sm:justify-start"
                 @click="openDialog"
             >
                 <Search class="size-4 shrink-0" />
@@ -215,7 +215,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             <button
                 type="button"
                 aria-label="Open a random character"
-                class="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                class="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:size-9"
                 @click="router.get(route('characters.random'))"
             >
                 <Dice6 class="size-4" />

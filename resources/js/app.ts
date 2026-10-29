@@ -32,7 +32,8 @@ createInertiaApp({
             return appName;
         }
 
-        return `${title} - ${appName}`;
+        // Pages using <SeoHead> already include the app name; don't append it twice.
+        return title.includes(appName) ? title : `${title} - ${appName}`;
     },
     resolve: async (name) => {
         const page = await resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue'));

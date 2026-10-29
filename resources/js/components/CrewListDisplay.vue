@@ -142,7 +142,7 @@ watch(upgradeDrawerOpen, (val) => {
                         </TooltipProvider>
                         <span class="truncate">{{ member.display_name }}</span>
                     </div>
-                    <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-white/70">
+                    <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-white/90">
                         <span v-if="member.category === 'ook'" class="flex items-center text-sm font-bold text-white">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                             <span class="text-xs font-normal text-red-300">({{ member.cost - 1 }}+1)</span>
@@ -192,7 +192,7 @@ watch(upgradeDrawerOpen, (val) => {
                         />
                         <button
                             @click.stop="openMemberFullscreen('front')"
-                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/90 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
                             title="View fullscreen"
                         >
                             <Maximize2 class="size-3.5" />
@@ -208,7 +208,7 @@ watch(upgradeDrawerOpen, (val) => {
                         />
                         <button
                             @click.stop="openMemberFullscreen('back')"
-                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/90 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
                             title="View fullscreen"
                         >
                             <Maximize2 class="size-3.5" />

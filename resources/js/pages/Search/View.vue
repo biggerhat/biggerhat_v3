@@ -1925,7 +1925,14 @@ onUnmounted(() => {
                         </button>
                     </div>
                 </div>
-                <Button variant="ghost" size="sm" class="h-10 w-10 shrink-0 p-0" title="Syntax help" @click="showSyntaxHelp = true">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    class="h-10 w-10 shrink-0 p-0"
+                    title="Syntax help"
+                    aria-label="Syntax help"
+                    @click="showSyntaxHelp = true"
+                >
                     <HelpCircle class="h-4 w-4" />
                 </Button>
             </div>
@@ -2001,15 +2008,15 @@ onUnmounted(() => {
             <div class="flex items-center gap-2">
                 <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                     <TabsList>
-                        <TabsTrigger value="images">
+                        <TabsTrigger value="images" aria-label="Cards view">
                             <LayoutGrid class="h-4 w-4" />
                             <span class="hidden sm:inline">Cards</span>
                         </TabsTrigger>
-                        <TabsTrigger value="table">
+                        <TabsTrigger value="table" aria-label="Table view">
                             <List class="h-4 w-4" />
                             <span class="hidden sm:inline">Table</span>
                         </TabsTrigger>
-                        <TabsTrigger value="full">
+                        <TabsTrigger value="full" aria-label="Full view">
                             <BookOpen class="h-4 w-4" />
                             <span class="hidden sm:inline">Full</span>
                         </TabsTrigger>
@@ -2019,7 +2026,7 @@ onUnmounted(() => {
                 <!-- Search presets -->
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                        <Button variant="outline" size="sm" class="h-8 gap-1 text-xs">
+                        <Button variant="outline" size="sm" class="h-8 gap-1 text-xs" aria-label="Presets">
                             <Sparkles class="h-3.5 w-3.5" />
                             <span class="hidden sm:inline">Presets</span>
                         </Button>
@@ -2035,7 +2042,7 @@ onUnmounted(() => {
                 <template v-if="isLoggedIn">
                     <DropdownMenu v-if="props.saved_searches?.length">
                         <DropdownMenuTrigger as-child>
-                            <Button variant="outline" size="sm" class="h-8 gap-1 text-xs">
+                            <Button variant="outline" size="sm" class="h-8 gap-1 text-xs" aria-label="Saved searches">
                                 <Bookmark class="h-3.5 w-3.5" />
                                 <span class="hidden sm:inline">Saved</span>
                                 <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ props.saved_searches.length }}</Badge>
@@ -2051,6 +2058,7 @@ onUnmounted(() => {
                                 <span class="truncate">{{ ss.name }}</span>
                                 <button
                                     class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                                    :aria-label="`Delete saved search ${ss.name}`"
                                     @click.stop="deleteSavedSearch(ss)"
                                 >
                                     <Trash2 class="h-3 w-3" />
@@ -2058,7 +2066,14 @@ onUnmounted(() => {
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button v-if="activeFilterCount > 0" variant="outline" size="sm" class="h-8 gap-1 text-xs" @click="showSaveDialog = true">
+                    <Button
+                        v-if="activeFilterCount > 0"
+                        variant="outline"
+                        size="sm"
+                        class="h-8 gap-1 text-xs"
+                        aria-label="Save this search"
+                        @click="showSaveDialog = true"
+                    >
                         <Bookmark class="h-3.5 w-3.5" />
                         <span class="hidden sm:inline">Save</span>
                     </Button>
@@ -2069,7 +2084,7 @@ onUnmounted(() => {
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
                 </Badge>
                 <div class="flex items-center gap-1.5">
-                    <Switch id="infinite-scroll-toggle" v-model="infiniteScroll" />
+                    <Switch id="infinite-scroll-toggle" v-model="infiniteScroll" aria-label="Infinite scroll" />
                     <Label for="infinite-scroll-toggle" class="hidden cursor-pointer text-xs font-medium text-muted-foreground sm:inline">
                         Infinite Scroll
                     </Label>

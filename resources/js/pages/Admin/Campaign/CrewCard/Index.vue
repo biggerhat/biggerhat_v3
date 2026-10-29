@@ -100,7 +100,7 @@ const table = useVueTable({
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-2">
             <Input class="max-w-sm" placeholder="Filter by name..." :model-value="globalFilter" @update:model-value="table.setGlobalFilter($event)" />
             <div class="text-sm text-muted-foreground">Total {{ table.getFilteredRowModel().rows.length }}</div>

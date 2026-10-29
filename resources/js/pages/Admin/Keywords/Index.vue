@@ -88,7 +88,7 @@ watch(gameModeFilter, (val) => {
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-2">
                 <Input

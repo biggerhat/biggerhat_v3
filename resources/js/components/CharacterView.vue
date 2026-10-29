@@ -270,7 +270,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     <CardHeader class="pb-3">
                         <div class="flex items-center gap-2.5">
                             <FactionLogo :faction="character.faction" class-name="size-8 shrink-0" />
-                            <CardTitle class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
+                            <CardTitle as="h1" class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
                             <AdminEditLink
                                 :href="route('admin.characters.edit', character.slug ?? character.id)"
                                 permission="edit_character"
@@ -454,7 +454,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     <CardContent class="space-y-2 p-4">
                         <HeadingEyebrow>Sculpt</HeadingEyebrow>
                         <Select :model-value="String(miniature.id)" @update:model-value="navigateToSculpt">
-                            <SelectTrigger class="w-full">
+                            <SelectTrigger class="w-full" aria-label="Sculpt">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

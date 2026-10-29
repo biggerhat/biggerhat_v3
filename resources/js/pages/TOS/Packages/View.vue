@@ -166,7 +166,7 @@ const togglePackageCollection = () => {
                     <div class="order-1 space-y-3 lg:order-2 lg:space-y-4">
                         <Card>
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-xl leading-tight lg:text-2xl">{{ package.name }}</CardTitle>
+                                <CardTitle as="h1" class="text-xl leading-tight lg:text-2xl">{{ package.name }}</CardTitle>
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div class="flex flex-wrap gap-2">

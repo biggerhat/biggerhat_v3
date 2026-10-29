@@ -67,7 +67,7 @@ const markAllRead = async () => {
             <button
                 type="button"
                 aria-label="Notifications"
-                class="relative inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                class="relative inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:size-9"
             >
                 <Bell class="size-4" />
                 <Badge
@@ -82,12 +82,7 @@ const markAllRead = async () => {
         <DropdownMenuContent class="w-80" align="end" :side-offset="4">
             <div class="flex items-center justify-between px-2 py-1.5">
                 <span class="text-sm font-medium">Notifications</span>
-                <button
-                    v-if="unreadCount > 0"
-                    type="button"
-                    class="text-xs text-primary hover:underline"
-                    @click.stop="markAllRead"
-                >
+                <button v-if="unreadCount > 0" type="button" class="text-xs text-primary hover:underline" @click.stop="markAllRead">
                     Mark all read
                 </button>
             </div>

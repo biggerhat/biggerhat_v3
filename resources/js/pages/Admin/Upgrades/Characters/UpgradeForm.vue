@@ -218,7 +218,7 @@ onMounted(() => {
 
 <template>
     <Head title="Upgrade Form" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <Card>
             <CardHeader>
                 <CardTitle>Upgrade</CardTitle>

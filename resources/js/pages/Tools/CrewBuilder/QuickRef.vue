@@ -64,7 +64,7 @@ const printPage = () => window.print();
         <!-- Crew header -->
         <div class="mb-3 flex items-center justify-between border-b pb-2">
             <div>
-                <div class="text-lg font-bold print:text-sm">{{ crew.name }}</div>
+                <h1 class="text-lg font-bold print:text-sm">{{ crew.name }}</h1>
                 <div class="text-xs text-muted-foreground print:text-[8px]">
                     {{ crew.master }} &middot; {{ crew.faction.replace('_', ' ') }} &middot; {{ crew.encounter_size }}ss &middot; Pool:
                     {{ crew.soulstone_pool }}ss

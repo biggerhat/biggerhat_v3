@@ -255,7 +255,7 @@ const togglePackageCollection = () => {
                                         class-name="h-8 w-8 shrink-0 mt-0.5"
                                     />
                                     <div>
-                                        <CardTitle class="text-xl leading-tight lg:text-2xl">{{ package.name }}</CardTitle>
+                                        <CardTitle as="h1" class="text-xl leading-tight lg:text-2xl">{{ package.name }}</CardTitle>
                                     </div>
                                 </div>
                             </CardHeader>

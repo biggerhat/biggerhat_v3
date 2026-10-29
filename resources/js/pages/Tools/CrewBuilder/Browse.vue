@@ -135,7 +135,7 @@ const { delays } = useStaggeredEntry(crewCount);
                     </button>
                 </div>
                 <Select :model-value="selectedFaction" @update:model-value="filterByFaction($event as string)">
-                    <SelectTrigger class="w-full sm:w-48">
+                    <SelectTrigger class="w-full sm:w-48" aria-label="Filter by faction">
                         <SelectValue placeholder="All Factions" />
                     </SelectTrigger>
                     <SelectContent>

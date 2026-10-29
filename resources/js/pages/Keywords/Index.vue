@@ -9,6 +9,7 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { factionForeground } from '@/composables/useFactionColor';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { valueUpdater } from '@/lib/utils';
@@ -178,12 +179,13 @@ function openMasterDrawer(master: any, event: Event) {
                                                     v-for="f in keyword.factions"
                                                     :key="f.value"
                                                     variant="outline"
-                                                    class="gap-1.5 border-transparent py-1 pl-1.5 pr-2 font-normal text-white"
-                                                    :style="{ backgroundColor: `hsl(var(--${f.value.replace(/_/g, '')}) / 0.85)` }"
+                                                    class="gap-1.5 border-transparent py-1 pl-1.5 pr-2 font-normal"
+                                                    :class="factionForeground(f.value)"
+                                                    :style="{ backgroundColor: `hsl(var(--${f.value.replace(/_/g, '')}))` }"
                                                 >
                                                     <FactionLogo :faction="f.value" class-name="size-3.5" />
                                                     <span>{{ f.label }}</span>
-                                                    <span class="text-white/70">{{ f.percent }}%</span>
+                                                    <span class="font-semibold">{{ f.percent }}%</span>
                                                 </Badge>
                                             </div>
                                             <!-- Masters + their crew upgrades -->
@@ -196,8 +198,9 @@ function openMasterDrawer(master: any, event: Event) {
                                                     <Badge
                                                         v-if="master.miniature"
                                                         variant="outline"
-                                                        class="cursor-pointer border-transparent py-1 font-medium text-white hover:opacity-80"
-                                                        :style="{ backgroundColor: `hsl(var(--${master.faction.replace(/_/g, '')}) / 0.85)` }"
+                                                        class="cursor-pointer border-transparent py-1 font-medium hover:opacity-80"
+                                                        :class="factionForeground(master.faction)"
+                                                        :style="{ backgroundColor: `hsl(var(--${master.faction.replace(/_/g, '')}))` }"
                                                         @click.prevent.stop="openMasterDrawer(master, $event)"
                                                     >
                                                         {{ master.name }}

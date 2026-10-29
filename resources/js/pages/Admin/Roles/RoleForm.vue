@@ -81,16 +81,7 @@ const submit = () => {
                     <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Role</Label>
-                            <Input
-                                id="name"
-                                type="text"
-                                required
-                                autofocus
-                                :tabindex="1"
-                                autocomplete="name"
-                                v-model="form.name"
-                                placeholder="Role"
-                            />
+                            <Input id="name" type="text" required autofocus autocomplete="name" v-model="form.name" placeholder="Role" />
                             <InputError :message="form.errors.name" />
                         </div>
                         <div class="grid w-full md:grid-cols-4">
@@ -114,7 +105,7 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <Button type="submit" class="mt-2 w-full" tabindex="5" :disabled="form.processing">
+                        <Button type="submit" class="mt-2 w-full" :disabled="form.processing">
                             <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
                             <span v-if="props.role">Update Role</span>
                             <span v-else>Create Role</span>

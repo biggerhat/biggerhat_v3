@@ -83,7 +83,7 @@ const table = useVueTable({
             <Button class="my-auto mr-2" @click="router.get(route('admin.tos.assets.create'))">Create Asset</Button>
         </template>
     </PageBanner>
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"

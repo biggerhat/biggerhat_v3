@@ -452,7 +452,7 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                             <div
                                 v-if="addDialogType === 'characters'"
                                 class="flex items-center gap-1.5 text-[10px]"
-                                :class="item.faction ? 'text-white/70' : 'text-muted-foreground'"
+                                :class="item.faction ? 'text-white/90' : 'text-muted-foreground'"
                             >
                                 <span v-if="item.station" class="capitalize">{{ item.station }}</span>
                                 <span v-if="item.miniatures?.length > 1">&middot; {{ item.miniatures.length }} sculpts</span>

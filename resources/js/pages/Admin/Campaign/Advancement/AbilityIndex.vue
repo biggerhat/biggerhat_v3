@@ -98,7 +98,7 @@ const table = useVueTable({
 
 <template>
     <Head title="Campaign — Ability Advancement — Admin" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Ability Advancements</h1>

@@ -215,7 +215,7 @@ const table = useVueTable({
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex flex-wrap items-center justify-between gap-y-2 py-4">
             <div class="flex flex-wrap items-center gap-4">
                 <Input class="max-w-sm" placeholder="Filter Packages" :model-value="searchText" @update:model-value="searchText = $event" />

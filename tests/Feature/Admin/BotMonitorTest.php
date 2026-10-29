@@ -52,6 +52,16 @@ it('stores a heartbeat for the bot', function () {
         ->and($beat->reported_at->isToday())->toBeTrue();
 });
 
+it('is not blocked by CSRF protection when the app is not under test', function () {
+    // Laravel skips CSRF checks in the testing env, which hid a 419 in production.
+    // Pretend to be production so the real middleware runs.
+    $this->app['env'] = 'production';
+
+    $this->withToken('secret-token')->postJson(route('api.bot.heartbeat'), heartbeatPayload())->assertOk();
+    // Control: an ordinary web POST without a token is still rejected.
+    $this->postJson(route('logout'))->assertStatus(419);
+});
+
 it('rejects a missing or wrong token', function () {
     $this->postJson(route('api.bot.heartbeat'), heartbeatPayload())->assertUnauthorized();
     $this->withToken('nope')->postJson(route('api.bot.heartbeat'), heartbeatPayload())->assertUnauthorized();

@@ -28,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // useCookieConsent, so it must be excepted from encryption — otherwise
         // EncryptCookies fails to decrypt it and the server reads it as null,
         // leaving the Analytics consent-mode default permanently 'denied'.
+        // routes/api.php is required from web.php, so it runs under the web group's CSRF check.
+        // The Discord bot authenticates with a bearer secret instead and has no session/token.
+        $middleware->validateCsrfTokens(except: ['api/bot/heartbeat']);
+
         $middleware->encryptCookies(except: ['appearance', 'preferred_game_system', 'cookie_consent']);
 
         $middleware->web(append: [

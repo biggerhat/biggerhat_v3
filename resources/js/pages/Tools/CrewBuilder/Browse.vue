@@ -127,6 +127,7 @@ const { delays } = useStaggeredEntry(crewCount);
                     <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input v-model="searchText" placeholder="Search crews..." class="pl-9 pr-9" />
                     <button
+                        aria-label="Clear search"
                         v-if="searchText"
                         class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         @click="searchText = ''"

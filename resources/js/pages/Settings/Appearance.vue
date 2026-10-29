@@ -12,7 +12,7 @@ import ThemeTabs from '@/components/ThemeTabs.vue';
     <div class="container mx-auto mt-6 max-w-2xl px-4 pb-12">
         <div class="space-y-10">
             <section class="space-y-3">
-                <HeadingSmall title="Appearance" description="Light, dark, or follow your system setting." />
+                <HeadingSmall as="h1" title="Appearance" description="Light, dark, or follow your system setting." />
                 <AppearanceTabs />
             </section>
 

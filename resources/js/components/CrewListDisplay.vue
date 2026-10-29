@@ -100,7 +100,7 @@ watch(upgradeDrawerOpen, (val) => {
             :key="idx"
             class="flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors"
             :class="[
-                upgrade.is_active ? 'border-amber-500/50 bg-amber-500/10' : 'border-border/50 bg-accent/30 opacity-60',
+                upgrade.is_active ? 'border-amber-500/50 bg-amber-500/10' : 'border-border/50 bg-accent/30',
                 upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
             ]"
             @click="openUpgradePreview(upgrade)"
@@ -109,7 +109,7 @@ watch(upgradeDrawerOpen, (val) => {
             <div class="min-w-0 flex-1">
                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                 <div class="text-[10px] text-muted-foreground">
-                    {{ upgrade.is_active ? 'Active Crew Card' : 'Crew Card' }}
+                    {{ upgrade.is_active ? 'Active Crew Card' : 'Crew Card · inactive' }}
                 </div>
             </div>
         </div>
@@ -145,7 +145,7 @@ watch(upgradeDrawerOpen, (val) => {
                     <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-white/90">
                         <span v-if="member.category === 'ook'" class="flex items-center text-sm font-bold text-white">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                            <span class="text-xs font-normal text-red-300">({{ member.cost - 1 }}+1)</span>
+                            <span class="text-xs font-normal text-white/90">({{ member.cost - 1 }}+1)</span>
                         </span>
                         <span v-else class="flex items-center text-sm font-bold text-white">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />

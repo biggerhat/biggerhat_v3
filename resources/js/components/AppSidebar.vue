@@ -150,10 +150,10 @@ onMounted(() => {
 
         <SidebarContent>
             <template v-if="isTos">
-                <NavMain :items="tosNavItems" />
+                <NavMain :items="tosNavItems" storage-key="tos" />
             </template>
             <template v-else>
-                <NavMain :items="mainNavItems" />
+                <NavMain :items="mainNavItems" storage-key="main" />
             </template>
         </SidebarContent>
 

@@ -1862,6 +1862,7 @@ onUnmounted(() => {
                         "
                     />
                     <button
+                        aria-label="Clear search"
                         v-if="syntaxInput"
                         class="absolute right-8 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         @click="
@@ -2045,7 +2046,7 @@ onUnmounted(() => {
                             <Button variant="outline" size="sm" class="h-8 gap-1 text-xs" aria-label="Saved searches">
                                 <Bookmark class="h-3.5 w-3.5" />
                                 <span class="hidden sm:inline">Saved</span>
-                                <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ props.saved_searches.length }}</Badge>
+                                <Badge variant="secondary" class="ml-1 px-1 py-0 text-[10px]">{{ props.saved_searches.length }}</Badge>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
@@ -2201,7 +2202,7 @@ onUnmounted(() => {
                                                 excludedCharacteristics.length
                                             "
                                             variant="secondary"
-                                            class="px-1 py-0 text-[9px]"
+                                            class="px-1 py-0 text-[10px]"
                                         >
                                             {{
                                                 excludedGameModes.length +
@@ -2262,7 +2263,9 @@ onUnmounted(() => {
                                 >
                                     Stats
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{ statsFilterCount }}</Badge>
+                                        <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                            statsFilterCount
+                                        }}</Badge>
                                         <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedStats }" />
                                     </div>
                                 </CollapsibleTrigger>
@@ -2285,6 +2288,7 @@ onUnmounted(() => {
                                                 class="h-8 border-2 border-primary text-xs"
                                             />
                                             <button
+                                                aria-label="Clear stat filter"
                                                 class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
                                                 :class="hasStatValue(stat) ? 'visible' : 'invisible'"
                                                 @click="clearStat(stat)"
@@ -2335,7 +2339,7 @@ onUnmounted(() => {
                                 >
                                     Actions
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                        <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                             actionsFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2509,7 +2513,7 @@ onUnmounted(() => {
                                 >
                                     Abilities
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                        <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                             abilitiesFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2582,7 +2586,7 @@ onUnmounted(() => {
                                 >
                                     Triggers
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                        <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                             triggersFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2636,7 +2640,7 @@ onUnmounted(() => {
                                 >
                                     Tokens
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                        <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                             tokensFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2672,7 +2676,7 @@ onUnmounted(() => {
                                 >
                                     Markers
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                        <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                             markersFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2753,7 +2757,11 @@ onUnmounted(() => {
             <div class="flex flex-wrap items-center gap-1.5">
                 <Badge v-for="(chip, idx) in activeFilters" :key="idx" variant="secondary" class="gap-1 pr-1 text-xs">
                     {{ chip.label }}
-                    <button class="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20" @click="chip.remove()">
+                    <button
+                        :aria-label="`Remove filter ${chip.label}`"
+                        class="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                        @click="chip.remove()"
+                    >
                         <X class="h-3 w-3" />
                     </button>
                 </Badge>
@@ -2867,7 +2875,7 @@ onUnmounted(() => {
                                             excludedCharacteristics.length
                                         "
                                         variant="secondary"
-                                        class="px-1 py-0 text-[9px]"
+                                        class="px-1 py-0 text-[10px]"
                                     >
                                         {{
                                             excludedGameModes.length +
@@ -2934,7 +2942,7 @@ onUnmounted(() => {
                                     >
                                         Stats
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                                 statsFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -2962,6 +2970,7 @@ onUnmounted(() => {
                                                     class="h-8 border-2 border-primary text-xs"
                                                 />
                                                 <button
+                                                    aria-label="Clear stat filter"
                                                     class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
                                                     :class="hasStatValue(stat) ? 'visible' : 'invisible'"
                                                     @click="clearStat(stat)"
@@ -2992,7 +3001,7 @@ onUnmounted(() => {
                                     >
                                         Actions
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                                 actionsFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3153,7 +3162,7 @@ onUnmounted(() => {
                                     >
                                         Abilities
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                                 abilitiesFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3221,7 +3230,7 @@ onUnmounted(() => {
                                     >
                                         Triggers
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                                 triggersFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3275,7 +3284,7 @@ onUnmounted(() => {
                                     >
                                         Tokens
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                                 tokensFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3314,7 +3323,7 @@ onUnmounted(() => {
                                     >
                                         Markers
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[9px]">{{
+                                            <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
                                                 markersFilterCount
                                             }}</Badge>
                                             <ChevronDown

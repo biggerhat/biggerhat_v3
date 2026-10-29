@@ -190,7 +190,7 @@ function submit() {
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5">
                                             <p class="truncate font-semibold">{{ a.name }}</p>
-                                            <Badge variant="outline" class="px-1 py-0 text-[9px]">Syndicate</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Syndicate</Badge>
                                         </div>
                                         <p class="text-[10px] capitalize text-muted-foreground">{{ a.type }}</p>
                                     </div>

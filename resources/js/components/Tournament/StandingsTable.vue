@@ -70,13 +70,13 @@ const props = defineProps<{
                                     <Badge
                                         v-if="entry.is_ringer"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[10px] text-white/80 sm:inline-flex"
                                         >Ringer</Badge
                                     >
                                     <Badge
                                         v-if="entry.is_dropped"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/60 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[10px] text-white/60 sm:inline-flex"
                                         >Dropped</Badge
                                     >
                                 </div>

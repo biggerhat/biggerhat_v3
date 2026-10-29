@@ -393,6 +393,7 @@ const submit = () => {
                                     </span>
                                     <span v-if="!locked && effectiveCost(c) > remainingBudget" class="text-[10px] text-white/50">Over budget</span>
                                     <Button
+                                        aria-label="Hire"
                                         variant="ghost"
                                         size="icon"
                                         class="size-7 text-white hover:bg-white/10 hover:text-white"
@@ -425,7 +426,7 @@ const submit = () => {
                             </div>
                             <div class="flex items-center gap-2">
                                 <Badge variant="outline" class="text-[10px] tabular-nums">{{ h.cost }} ss</Badge>
-                                <Button variant="ghost" size="sm" :disabled="locked" @click="removeHire(idx)">×</Button>
+                                <Button aria-label="Remove hire" variant="ghost" size="sm" :disabled="locked" @click="removeHire(idx)">×</Button>
                             </div>
                         </li>
                     </ul>

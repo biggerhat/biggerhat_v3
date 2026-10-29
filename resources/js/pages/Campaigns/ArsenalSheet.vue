@@ -432,9 +432,7 @@ const advancementSlots = computed(() =>
 );
 // pg 31: advancements resolve in strict box-position order — the earliest
 // earned-but-unlogged slot is the only one a player can currently log.
-const firstUnresolvedPosition = computed(
-    () => advancementSlots.value.find((slot) => !takenByPosition.value[slot.position])?.position ?? null,
-);
+const firstUnresolvedPosition = computed(() => advancementSlots.value.find((slot) => !takenByPosition.value[slot.position])?.position ?? null);
 
 const catalogRowsFor = (table: string): CatalogRow[] => advancementCatalogs.value[table] ?? [];
 
@@ -726,11 +724,7 @@ const targetActionOptions = (position: number): Array<{ ref: number; name: strin
 // its very first poll — before the redo's render had actually run.
 const cardRegenerating = ref<{ leader: boolean; totem: boolean; crew_card: boolean }>({ leader: false, totem: false, crew_card: false });
 
-const pollCardRegeneration = (
-    target: 'leader' | 'totem' | 'crew_card',
-    previousGeneratedAt: string | null | undefined,
-    attemptsLeft = 8,
-) => {
+const pollCardRegeneration = (target: 'leader' | 'totem' | 'crew_card', previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
     cardRegenerating.value[target] = true;
     setTimeout(() => {
         router.reload({
@@ -891,7 +885,14 @@ const totalArsenalSs = computed(() => props.crew.arsenal_models.reduce((s, m) =>
 // (image + fallback text, same pattern as Leader/Totem) — no dialog needed.
 type CardView =
     | { kind: 'equipment'; title: string; equipment: EquipmentItem }
-    | { kind: 'injury'; title: string; description: string | null; front_image: string | null; actions: EquipmentAction[]; abilities: CrewCardLinkedAbility[] };
+    | {
+          kind: 'injury';
+          title: string;
+          description: string | null;
+          front_image: string | null;
+          actions: EquipmentAction[];
+          abilities: CrewCardLinkedAbility[];
+      };
 const viewCard = ref<CardView | null>(null);
 const viewEquipment = (equipment: EquipmentItem) => {
     viewCard.value = { kind: 'equipment', title: equipment.name, equipment };
@@ -1351,7 +1352,14 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Scrip</p>
                         <p class="text-2xl font-bold tabular-nums">{{ crew.scrip }}</p>
                     </div>
-                    <Button v-if="view_mode.is_organizer" size="icon" variant="ghost" class="h-6 w-6" @click="adjustScripDialogOpen = true">
+                    <Button
+                        aria-label="Adjust scrip"
+                        v-if="view_mode.is_organizer"
+                        size="icon"
+                        variant="ghost"
+                        class="h-6 w-6"
+                        @click="adjustScripDialogOpen = true"
+                    >
                         <Pencil class="h-3 w-3" />
                     </Button>
                 </div>
@@ -1688,7 +1696,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <div
                                 v-for="box in xpTrack"
                                 :key="box.index"
-                                class="relative flex aspect-square items-center justify-center rounded-sm border text-[8px]"
+                                class="relative flex aspect-square items-center justify-center rounded-sm border text-[10px]"
                                 :class="box.filled ? 'border-primary bg-primary/70 text-primary-foreground' : 'bg-muted/30'"
                                 :title="box.tier ? `Tier ${box.tier} advancement` : undefined"
                             >
@@ -2087,7 +2095,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 </p>
                                 <p class="flex items-center gap-1 text-[10px] text-muted-foreground">
                                     {{ model.character?.station || model.custom_character?.station }}
-                                    <Badge v-if="model.custom_character" variant="outline" class="text-[9px]">Custom</Badge>
+                                    <Badge v-if="model.custom_character" variant="outline" class="text-[10px]">Custom</Badge>
                                 </p>
                             </div>
                             <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">
@@ -2439,7 +2447,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-1 truncate font-medium">
                                         {{ char.display_name }}
-                                        <Badge v-if="char.source_type === 'custom'" variant="outline" class="text-[9px]">Custom</Badge>
+                                        <Badge v-if="char.source_type === 'custom'" variant="outline" class="text-[10px]">Custom</Badge>
                                     </div>
                                     <div v-if="char.station" class="text-[10px] capitalize text-muted-foreground">{{ char.station }}</div>
                                 </div>
@@ -2459,7 +2467,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1 truncate font-medium">
                                 {{ addUnitSelected.display_name }}
-                                <Badge v-if="addUnitSelected.source_type === 'custom'" variant="outline" class="text-[9px]">Custom</Badge>
+                                <Badge v-if="addUnitSelected.source_type === 'custom'" variant="outline" class="text-[10px]">Custom</Badge>
                             </div>
                             <div v-if="addUnitSelected.station" class="text-[10px] capitalize text-muted-foreground">
                                 {{ addUnitSelected.station }}

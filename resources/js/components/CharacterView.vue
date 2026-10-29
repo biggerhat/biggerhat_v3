@@ -16,7 +16,6 @@ import { Separator } from '@/components/ui/separator';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
-import { isMobileDevice } from '@/composables/useMobileDevice';
 import { useToast } from '@/composables/useToast';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
@@ -272,7 +271,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo :faction="character.faction" class-name="size-8 shrink-0" />
                             <CardTitle as="h1" class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
                             <AdminEditLink
-                                :href="route('admin.characters.edit', character.slug ?? character.id)"
+                                :href="() => route('admin.characters.edit', character.slug ?? character.id)"
                                 permission="edit_character"
                                 label="Edit character in admin"
                             />
@@ -551,12 +550,13 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
             <!-- Image section -->
             <div class="order-1 lg:col-span-2">
-                <!-- Mobile: flip card -->
-                <div v-if="isMobileDevice()" class="mx-auto max-w-xs">
+                <!-- Narrow screens (decided by width, not user agent, so small windows and tablets get it too):
+                     flip card, since a combined front/back image is unreadable at this size -->
+                <div class="mx-auto max-w-xs lg:hidden">
                     <CharacterCardView :miniature="miniature" :show-link="false" />
                 </div>
-                <!-- Desktop: combination image or front/back side by side -->
-                <div v-else-if="miniature.combination_image" class="overflow-hidden rounded-xl shadow-lg">
+                <!-- lg and up: combination image or front/back side by side -->
+                <div v-if="miniature.combination_image" class="hidden overflow-hidden rounded-xl shadow-lg lg:block">
                     <img
                         :src="`/storage/${miniature.combination_image}`"
                         :alt="miniature.display_name"
@@ -565,7 +565,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         class="w-full"
                     />
                 </div>
-                <div v-else-if="miniature.front_image && miniature.back_image" class="grid grid-cols-2 gap-2 sm:gap-4">
+                <div v-else-if="miniature.front_image && miniature.back_image" class="hidden grid-cols-2 gap-2 sm:gap-4 lg:grid">
                     <div class="overflow-hidden rounded-xl shadow-lg">
                         <img
                             :src="`/storage/${miniature.front_image}`"
@@ -585,7 +585,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         />
                     </div>
                 </div>
-                <div v-else class="mx-auto max-w-sm">
+                <div v-else class="mx-auto hidden max-w-sm lg:block">
                     <CharacterCardView :miniature="miniature" :show-link="false" />
                 </div>
 

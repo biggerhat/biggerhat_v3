@@ -125,7 +125,6 @@ const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isA
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <Card>
             <CardContent class="space-y-3 p-4">
                 <div class="text-sm font-semibold">New announcement</div>
@@ -203,7 +202,7 @@ const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isA
                             <span v-if="a.created_by">by {{ a.created_by.name }}</span>
                         </div>
                     </div>
-                    <Button variant="outline" size="sm" @click="remove(a)">
+                    <Button aria-label="Delete announcement" variant="outline" size="sm" @click="remove(a)">
                         <Trash2 class="size-3.5" />
                     </Button>
                 </CardContent>

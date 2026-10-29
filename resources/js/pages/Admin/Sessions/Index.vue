@@ -130,10 +130,10 @@ const revokeAllForUser = async (userId: number) => {
                                 <Globe class="size-3.5 shrink-0 text-muted-foreground" />
                                 <span class="truncate font-mono">{{ s.ip_address ?? '—' }}</span>
                                 <span class="truncate text-muted-foreground" :title="s.user_agent ?? ''">{{ shortenAgent(s.user_agent) }}</span>
-                                <Badge v-if="s.is_current" variant="outline" class="text-[9px]">you</Badge>
+                                <Badge v-if="s.is_current" variant="outline" class="text-[10px]">you</Badge>
                             </div>
                             <span class="shrink-0 text-muted-foreground">{{ formatTime(s.last_activity_iso) }}</span>
-                            <Button variant="ghost" size="sm" @click="revokeSession(s)">
+                            <Button aria-label="Revoke session" variant="ghost" size="sm" @click="revokeSession(s)">
                                 <LogOut class="size-3.5" />
                             </Button>
                         </div>

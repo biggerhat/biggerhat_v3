@@ -346,11 +346,11 @@ const exportUrl = computed(() => {
                     class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
                 >
                     <span>{{ result_breakdown.units }} units</span>
-                    <span class="text-muted-foreground/50">·</span>
+                    <span class="text-muted-foreground">·</span>
                     <span>{{ result_breakdown.assets }} assets</span>
-                    <span class="text-muted-foreground/50">·</span>
+                    <span class="text-muted-foreground">·</span>
                     <span>{{ result_breakdown.stratagems }} stratagems</span>
-                    <span class="text-muted-foreground/50">·</span>
+                    <span class="text-muted-foreground">·</span>
                     <span>{{ result_breakdown.allegiance_cards }} cards</span>
                 </div>
             </template>
@@ -359,9 +359,11 @@ const exportUrl = computed(() => {
         <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 sm:px-4">
             <Tabs :model-value="filterParams.page_view ?? 'cards'" @update:model-value="(v) => handleViewChange(v as string)">
                 <TabsList>
-                    <TabsTrigger value="cards"><LayoutGrid class="h-4 w-4" /><span class="hidden sm:inline">Cards</span></TabsTrigger>
-                    <TabsTrigger value="table"><List class="h-4 w-4" /><span class="hidden sm:inline">Table</span></TabsTrigger>
-                    <TabsTrigger value="full"><BookOpen class="h-4 w-4" /><span class="hidden sm:inline">Full</span></TabsTrigger>
+                    <TabsTrigger aria-label="Cards" value="cards"
+                        ><LayoutGrid class="h-4 w-4" /><span class="hidden sm:inline">Cards</span></TabsTrigger
+                    >
+                    <TabsTrigger aria-label="Table" value="table"><List class="h-4 w-4" /><span class="hidden sm:inline">Table</span></TabsTrigger>
+                    <TabsTrigger aria-label="Full" value="full"><BookOpen class="h-4 w-4" /><span class="hidden sm:inline">Full</span></TabsTrigger>
                 </TabsList>
             </Tabs>
             <div class="flex items-center gap-2">
@@ -369,6 +371,7 @@ const exportUrl = computed(() => {
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
                 </Badge>
                 <Button
+                    aria-label="Export CSV"
                     v-if="hasActiveSearch"
                     variant="outline"
                     size="sm"
@@ -380,7 +383,14 @@ const exportUrl = computed(() => {
                 >
                     <Download class="size-3" /><span class="hidden sm:inline">Export CSV</span>
                 </Button>
-                <Button v-if="isLoggedIn && hasActiveSearch" variant="outline" size="sm" class="h-7 gap-1 text-xs" @click="saveOpen = true">
+                <Button
+                    aria-label="Save"
+                    v-if="isLoggedIn && hasActiveSearch"
+                    variant="outline"
+                    size="sm"
+                    class="h-7 gap-1 text-xs"
+                    @click="saveOpen = true"
+                >
                     <Bookmark class="size-3" /><span class="hidden sm:inline">Save</span>
                 </Button>
                 <DropdownMenu v-if="isLoggedIn && saved_searches.length">
@@ -392,7 +402,12 @@ const exportUrl = computed(() => {
                     <DropdownMenuContent align="end" class="w-72">
                         <DropdownMenuItem v-for="s in saved_searches" :key="s.id" class="flex items-center justify-between gap-2">
                             <button type="button" class="flex-1 text-left" @click="loadSavedSearch(s)">{{ s.name }}</button>
-                            <button type="button" class="text-muted-foreground hover:text-rose-600" @click="deleteSavedSearch(s)">
+                            <button
+                                aria-label="Delete saved search"
+                                type="button"
+                                class="text-muted-foreground hover:text-rose-600"
+                                @click="deleteSavedSearch(s)"
+                            >
                                 <Trash2 class="size-3" />
                             </button>
                         </DropdownMenuItem>
@@ -573,10 +588,10 @@ const exportUrl = computed(() => {
                                 :single-side="!r.sculpts[0]?.back_image"
                             />
                             <div v-else class="flex aspect-[5/7] items-center justify-center bg-muted">
-                                <Package v-if="r.result_type === 'asset'" class="size-12 text-muted-foreground/50" />
-                                <Newspaper v-else-if="r.result_type === 'stratagem'" class="size-12 text-muted-foreground/50" />
-                                <ScrollText v-else-if="r.result_type === 'allegiance_card'" class="size-12 text-muted-foreground/50" />
-                                <Sparkles v-else class="size-12 text-muted-foreground/50" />
+                                <Package v-if="r.result_type === 'asset'" class="size-12 text-muted-foreground" />
+                                <Newspaper v-else-if="r.result_type === 'stratagem'" class="size-12 text-muted-foreground" />
+                                <ScrollText v-else-if="r.result_type === 'allegiance_card'" class="size-12 text-muted-foreground" />
+                                <Sparkles v-else class="size-12 text-muted-foreground" />
                             </div>
                             <CardContent class="space-y-1.5 p-3">
                                 <div class="flex items-center justify-between gap-2">

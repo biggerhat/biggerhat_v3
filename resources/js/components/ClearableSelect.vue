@@ -39,6 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
             </Select>
         </div>
         <button
+            aria-label="Clear selection"
             class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
             :class="modelValue ? 'visible' : 'invisible'"
             @click.stop="modelValue = null"

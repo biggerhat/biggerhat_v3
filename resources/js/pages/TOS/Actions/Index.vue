@@ -145,10 +145,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                             <template v-if="a.strength != null"> · Strength {{ a.strength }}</template>
                         </p>
                         <div v-if="a.is_piercing || a.is_accurate || a.is_area || a.usage_limit" class="mb-1 flex flex-wrap gap-1">
-                            <Badge v-if="a.is_piercing" class="bg-amber-500/10 text-[9px] text-amber-700 dark:text-amber-400">Piercing</Badge>
-                            <Badge v-if="a.is_accurate" class="bg-sky-500/10 text-[9px] text-sky-700 dark:text-sky-400">Accurate</Badge>
-                            <Badge v-if="a.is_area" class="bg-rose-500/10 text-[9px] text-rose-700 dark:text-rose-400">Area</Badge>
-                            <Badge v-if="a.usage_limit" variant="outline" class="text-[9px] capitalize">{{ a.usage_limit.replace(/_/g, ' ') }}</Badge>
+                            <Badge v-if="a.is_piercing" class="bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400">Piercing</Badge>
+                            <Badge v-if="a.is_accurate" class="bg-sky-500/10 text-[10px] text-sky-700 dark:text-sky-400">Accurate</Badge>
+                            <Badge v-if="a.is_area" class="bg-rose-500/10 text-[10px] text-rose-700 dark:text-rose-400">Area</Badge>
+                            <Badge v-if="a.usage_limit" variant="outline" class="text-[10px] capitalize">{{
+                                a.usage_limit.replace(/_/g, ' ')
+                            }}</Badge>
                         </div>
                         <p v-if="a.body" class="text-xs text-muted-foreground"><TosText :text="a.body" /></p>
                         <ul v-if="a.triggers.length" class="mt-2 space-y-1 border-l-2 border-border pl-2 text-xs">

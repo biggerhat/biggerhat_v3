@@ -77,7 +77,7 @@ const isDisabled = (s: StratagemMin): boolean => deckFull.value || (s.deck_sourc
                     <Badge
                         v-if="s.deck_source === 'envoy'"
                         variant="outline"
-                        class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400"
+                        class="border-sky-500/40 px-1 py-0 text-[10px] text-sky-600 dark:text-sky-400"
                     >
                         Envoy
                     </Badge>

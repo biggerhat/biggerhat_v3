@@ -451,7 +451,14 @@ onMounted(() => {
         <div :class="embed ? '' : 'container mx-auto mt-6 sm:px-4 lg:px-6'">
             <!-- Back button (not in embed mode) -->
             <div v-if="!embed" class="mb-4 flex items-center gap-2">
-                <Button variant="outline" size="sm" class="shrink-0 gap-1.5" as="a" :href="route('tools.crew_builder.index')">
+                <Button
+                    :aria-label="isAuthenticated ? 'My Builds' : 'Build a Crew'"
+                    variant="outline"
+                    size="sm"
+                    class="shrink-0 gap-1.5"
+                    as="a"
+                    :href="route('tools.crew_builder.index')"
+                >
                     <ArrowLeft class="size-4" />
                     <span class="hidden sm:inline">{{ isAuthenticated ? 'My Builds' : 'Build a Crew' }}</span>
                 </Button>

@@ -297,16 +297,22 @@ onMounted(() => {
                         />
 
                         <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                            <button
+                            <div
                                 v-for="(scheme, idx) in candidatesForNextTurn"
                                 :key="scheme.id"
-                                type="button"
                                 class="animate-fade-in-up group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left opacity-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1"
                                 :class="suitFor(scheme.selector)?.ring ?? 'hover:ring-primary/50'"
                                 :style="candidateDelays[idx]"
-                                :title="scheme.name"
-                                @click="pickScheme(scheme)"
                             >
+                                <!-- The pick action is an overlay button (a sibling of the "Details" link below)
+                                     rather than the card itself, because a link can't live inside a button. -->
+                                <button
+                                    type="button"
+                                    class="absolute inset-0 z-[5] rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                    :aria-label="`Pick ${scheme.name}`"
+                                    :title="scheme.name"
+                                    @click="pickScheme(scheme)"
+                                />
                                 <img
                                     v-if="scheme.image_url"
                                     :src="scheme.image_url"
@@ -363,7 +369,7 @@ onMounted(() => {
                                 >
                                     Details
                                 </Link>
-                            </button>
+                            </div>
                         </div>
                     </section>
 

@@ -1279,7 +1279,7 @@ const titlesForMaster = (masterName: string | null) => {
                         <Copy class="size-3" />
                         {{ linkCopied ? 'Copied!' : 'Share' }}
                     </Button>
-                    <Button variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
+                    <Button aria-label="Show QR code" variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
                         <QrCode class="size-3" />
                     </Button>
                     <Button
@@ -1302,19 +1302,19 @@ const titlesForMaster = (masterName: string | null) => {
                     <TabsTrigger value="standings" class="gap-1 text-xs sm:text-sm">Standings</TabsTrigger>
                     <TabsTrigger value="players" class="gap-1 text-xs sm:text-sm">
                         Players
-                        <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                        <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-[10px]">{{
                             tournament.players.length
                         }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger v-if="tournament.status === 'draft' || tournament.rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
                         RSVPs
-                        <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                        <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[10px]">{{
                             tournament.rsvps.length
                         }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger value="rounds" class="gap-1 text-xs sm:text-sm">
                         Rounds
-                        <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                        <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-[10px]">{{
                             tournament.rounds.length
                         }}</Badge>
                     </TabsTrigger>
@@ -1374,7 +1374,7 @@ const titlesForMaster = (masterName: string | null) => {
                                     <Badge
                                         v-else-if="tournament.players.some((p: any) => p.user?.id === rsvp.user_id)"
                                         variant="outline"
-                                        class="px-1 py-0 text-[9px]"
+                                        class="px-1 py-0 text-[10px]"
                                         >Registered</Badge
                                     >
                                 </div>
@@ -1528,24 +1528,24 @@ const titlesForMaster = (masterName: string | null) => {
                                     <Badge
                                         v-if="player.is_ringer"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[10px] text-white/80 sm:inline-flex"
                                         >Ringer</Badge
                                     >
                                     <Star v-if="player.is_ringer" class="size-3 shrink-0 fill-amber-300 text-amber-300 sm:hidden" />
-                                    <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-[9px] text-white">DQ</Badge>
+                                    <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-[10px] text-white">DQ</Badge>
                                     <Badge
                                         v-if="player.dropped_after_round !== null"
-                                        class="shrink-0 bg-amber-700/80 px-1 py-0 text-[9px] font-semibold uppercase tracking-wide text-white"
+                                        class="shrink-0 bg-amber-700/80 px-1 py-0 text-[10px] font-semibold uppercase tracking-wide text-white"
                                         >Dropped after R{{ player.dropped_after_round }}</Badge
                                     >
                                     <Badge
                                         v-if="player.meta || player.user?.meta"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/30 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/30 px-1 py-0 text-[10px] text-white/80 sm:inline-flex"
                                         >{{ player.meta?.name || player.user?.meta?.name }}</Badge
                                     >
                                 </div>
-                                <div v-if="playerOpponents[player.id]?.length" class="mt-0.5 pl-5 text-[9px] opacity-70">
+                                <div v-if="playerOpponents[player.id]?.length" class="mt-0.5 pl-5 text-[10px] opacity-70">
                                     vs: {{ playerOpponents[player.id].join(' · ') }}
                                 </div>
                             </div>
@@ -1729,6 +1729,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </SelectContent>
                                             </Select>
                                             <button
+                                                aria-label="View deployment"
                                                 v-if="editDeployment"
                                                 class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                                                 @click="viewDeployment(editDeployment)"
@@ -1748,6 +1749,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </SelectContent>
                                             </Select>
                                             <button
+                                                aria-label="View strategy"
                                                 v-if="editStrategy"
                                                 class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                                                 @click="viewStrategy(editStrategy)"
@@ -1770,6 +1772,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </SelectContent>
                                             </Select>
                                             <button
+                                                aria-label="View scheme"
                                                 v-if="editSchemePool[idx]"
                                                 class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                                                 @click="viewScheme(editSchemePool[idx])"
@@ -1838,15 +1841,15 @@ const titlesForMaster = (masterName: string | null) => {
                                                     />
                                                     <span class="truncate text-xs font-medium sm:text-sm">{{ playerName(game.player_two_id) }}</span>
                                                 </template>
-                                                <Badge v-if="game.is_bye" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">BYE</Badge>
-                                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]"
+                                                <Badge v-if="game.is_bye" variant="outline" class="shrink-0 px-1 py-0 text-[10px]">BYE</Badge>
+                                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[10px]"
                                                     >Forfeit</Badge
                                                 >
                                                 <!-- Tracker state at a glance: amber in-progress, green done, red abandoned. -->
                                                 <Badge
                                                     v-if="game.tracker_game && !game.is_bye"
                                                     variant="outline"
-                                                    class="shrink-0 px-1 py-0 text-[9px]"
+                                                    class="shrink-0 px-1 py-0 text-[10px]"
                                                     :class="
                                                         game.tracker_game.status === 'in_progress'
                                                             ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
@@ -1900,6 +1903,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                     Undo
                                                 </Button>
                                                 <button
+                                                    aria-label="Remove game"
                                                     v-if="round.status === 'setup'"
                                                     class="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                                     @click="removeGame(game.id)"
@@ -2224,7 +2228,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         <div class="flex items-center gap-2">
                                             <Shield class="size-3.5 text-muted-foreground" />
                                             <span>{{ org.name }}</span>
-                                            <Badge v-if="org.id === tournament.creator_id" variant="outline" class="px-1 py-0 text-[9px]"
+                                            <Badge v-if="org.id === tournament.creator_id" variant="outline" class="px-1 py-0 text-[10px]"
                                                 >Creator</Badge
                                             >
                                         </div>

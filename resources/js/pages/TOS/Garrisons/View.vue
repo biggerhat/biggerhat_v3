@@ -436,7 +436,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                     <Link :href="route('tos.allegiances.view', garrison.allegiance.slug)" class="hover:text-foreground hover:underline">{{
                         garrison.allegiance.name
                     }}</Link>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>{{ format.label }}</span>
                 </div>
             </template>

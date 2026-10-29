@@ -166,7 +166,7 @@ onMounted(() => {
                             <div v-for="(entry, index) in formInfo.new_media" :key="index" class="rounded-md border bg-muted/30 p-4">
                                 <div class="mb-2 flex items-center justify-between">
                                     <span class="text-sm font-medium">New Media #{{ index + 1 }}</span>
-                                    <Button type="button" variant="ghost" size="sm" @click="removeNewMedia(index)">
+                                    <Button aria-label="Remove media" type="button" variant="ghost" size="sm" @click="removeNewMedia(index)">
                                         <Trash2 class="h-4 w-4 text-destructive" />
                                     </Button>
                                 </div>

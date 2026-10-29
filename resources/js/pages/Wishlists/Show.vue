@@ -527,6 +527,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                         <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input v-model="filterText" placeholder="Filter items..." class="pl-9 pr-9" />
                         <button
+                            aria-label="Clear filter"
                             v-if="filterText"
                             class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                             @click="filterText = ''"
@@ -595,6 +596,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     </div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -633,6 +635,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     </div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -672,6 +675,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     </div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -706,6 +710,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div v-if="mini.character_name" class="text-xs text-muted-foreground">{{ mini.character_name }}</div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -741,6 +746,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div v-if="unit.allegiance" class="text-xs text-muted-foreground">{{ unit.allegiance }}</div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -775,6 +781,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div class="text-xs text-muted-foreground">{{ sculpt.unit_name }}</div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"

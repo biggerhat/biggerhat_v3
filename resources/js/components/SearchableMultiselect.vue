@@ -118,7 +118,12 @@ const onBlur = (e: FocusEvent) => {
                 class="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs font-medium"
             >
                 {{ item.label }}
-                <button type="button" class="rounded-sm text-muted-foreground hover:text-foreground" @click="removeItem(item.value)">
+                <button
+                    aria-label="Remove selection"
+                    type="button"
+                    class="rounded-sm text-muted-foreground hover:text-foreground"
+                    @click="removeItem(item.value)"
+                >
                     <X class="h-3 w-3" />
                 </button>
             </span>
@@ -162,6 +167,7 @@ const onBlur = (e: FocusEvent) => {
                 </div>
             </div>
             <button
+                aria-label="Clear all"
                 v-if="modelValue.length"
                 type="button"
                 class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"

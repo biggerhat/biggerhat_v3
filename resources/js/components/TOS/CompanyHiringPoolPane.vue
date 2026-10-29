@@ -89,6 +89,7 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                     @update:model-value="emit('update:filterText', String($event))"
                 />
                 <button
+                    aria-label="Clear filter"
                     v-if="filterText"
                     type="button"
                     class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -152,10 +153,10 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                                 <Badge
                                     v-if="u.hire_category === 'envoy'"
                                     variant="outline"
-                                    class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400"
+                                    class="border-sky-500/40 px-1 py-0 text-[10px] text-sky-600 dark:text-sky-400"
                                     >Envoy</Badge
                                 >
-                                <Badge v-else-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
+                                <Badge v-else-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[10px]">Neutral</Badge>
                             </div>
                             <div v-if="u.title" class="truncate text-[10px] italic text-muted-foreground">{{ u.title }}</div>
                         </div>

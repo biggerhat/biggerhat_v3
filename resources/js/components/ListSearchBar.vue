@@ -42,6 +42,7 @@ const handleKeydown = (e: KeyboardEvent) => {
                 @keydown="handleKeydown"
             />
             <button
+                aria-label="Clear search"
                 v-if="nameSearch"
                 class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 @click="emit('clearSearch')"
@@ -55,11 +56,11 @@ const handleKeydown = (e: KeyboardEvent) => {
     <div class="container mx-auto mb-2 flex items-center justify-between sm:px-4">
         <Tabs :model-value="pageView ?? 'cards'" @update:model-value="emit('update:pageView', $event as string)">
             <TabsList>
-                <TabsTrigger value="cards">
+                <TabsTrigger aria-label="Cards" value="cards">
                     <LayoutGrid class="h-4 w-4" />
                     <span class="hidden sm:inline">Cards</span>
                 </TabsTrigger>
-                <TabsTrigger value="table">
+                <TabsTrigger aria-label="Table" value="table">
                     <List class="h-4 w-4" />
                     <span class="hidden sm:inline">Table</span>
                 </TabsTrigger>

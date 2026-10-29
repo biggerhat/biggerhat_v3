@@ -131,7 +131,7 @@ defineProps<{
                                                 <span
                                                     v-for="l in ac.type_links"
                                                     :key="l.id"
-                                                    class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                    class="rounded bg-secondary px-1 py-0.5 text-[10px] capitalize text-secondary-foreground"
                                                     >{{ l.type }}</span
                                                 >
                                                 <span class="font-medium">{{ ac.name }}</span>
@@ -202,7 +202,7 @@ defineProps<{
                                                 <span
                                                     v-for="l in ac.type_links"
                                                     :key="l.id"
-                                                    class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                    class="rounded bg-secondary px-1 py-0.5 text-[10px] capitalize text-secondary-foreground"
                                                     >{{ l.type }}</span
                                                 >
                                                 <span class="font-medium">{{ ac.name }}</span>

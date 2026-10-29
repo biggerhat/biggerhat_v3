@@ -39,7 +39,7 @@ const submit = () => {
 
     <div class="container mx-auto mt-6 max-w-2xl px-4 pb-12">
         <div class="flex flex-col space-y-6">
-            <HeadingSmall title="Profile information" description="Update your email address" />
+            <HeadingSmall as="h1" title="Profile information" description="Update your email address" />
 
             <form @submit.prevent="submit" class="space-y-6">
                 <div class="grid gap-2">

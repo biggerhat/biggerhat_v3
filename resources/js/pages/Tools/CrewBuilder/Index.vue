@@ -2235,7 +2235,7 @@ onUnmounted(() => {
                                                 >
                                                     <div class="flex min-w-0 items-center gap-1.5">
                                                         <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
                                                             {{ buildCategoryLabel(member.category) }}
                                                         </Badge>
                                                     </div>
@@ -2291,6 +2291,7 @@ onUnmounted(() => {
                                             Archive
                                         </Button>
                                         <Button
+                                            aria-label="Delete crew"
                                             variant="ghost"
                                             size="sm"
                                             class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
@@ -2395,7 +2396,7 @@ onUnmounted(() => {
                                                 >
                                                     <div class="flex min-w-0 items-center gap-1.5">
                                                         <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
                                                             {{ buildCategoryLabel(member.category) }}
                                                         </Badge>
                                                     </div>
@@ -2429,6 +2430,7 @@ onUnmounted(() => {
                                             Restore
                                         </Button>
                                         <Button
+                                            aria-label="Delete crew"
                                             variant="ghost"
                                             size="sm"
                                             class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
@@ -2531,7 +2533,7 @@ onUnmounted(() => {
                                             <Badge
                                                 v-if="info.isAlternateLeader"
                                                 variant="outline"
-                                                class="border-cyan-500/50 px-1 py-0 text-[9px] text-cyan-600 dark:text-cyan-400"
+                                                class="border-cyan-500/50 px-1 py-0 text-[10px] text-cyan-600 dark:text-cyan-400"
                                             >
                                                 Alt. Leader
                                             </Badge>
@@ -2622,7 +2624,7 @@ onUnmounted(() => {
                         <CardContent class="p-3 sm:p-4">
                             <!-- Row 1: Back, faction logo, crew name, encounter size -->
                             <div class="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" class="size-8 shrink-0" @click="goBack">
+                                <Button aria-label="Go back" variant="ghost" size="icon" class="size-8 shrink-0" @click="goBack">
                                     <ArrowLeft class="size-4" />
                                 </Button>
                                 <img
@@ -2927,7 +2929,7 @@ onUnmounted(() => {
                                                                     <Badge
                                                                         v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
                                                                         variant="outline"
-                                                                        class="border-white/30 px-1 py-0 text-[9px] font-normal text-white/80"
+                                                                        class="border-white/30 px-1 py-0 text-[10px] font-normal text-white/80"
                                                                     >
                                                                         {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
                                                                     </Badge>
@@ -3008,6 +3010,7 @@ onUnmounted(() => {
                                                                     />
                                                                 </Button>
                                                                 <Button
+                                                                    aria-label="Add to crew"
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     class="size-7 text-white hover:bg-white/10 hover:text-white"
@@ -3060,11 +3063,17 @@ onUnmounted(() => {
                                                     class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
                                                 >
                                                     <div class="flex min-w-0 items-center gap-2">
-                                                        <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                        <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white">Custom</Badge>
                                                         <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
                                                         <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
                                                     </div>
-                                                    <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                    <Button
+                                                        aria-label="Add custom card to crew"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        class="size-7"
+                                                        @click="addCustomToCrew(cc)"
+                                                    >
                                                         <UserPlus class="size-4" />
                                                     </Button>
                                                 </div>
@@ -3200,7 +3209,7 @@ onUnmounted(() => {
                                                             }}</span>
                                                             <Badge
                                                                 v-if="member.isCustom"
-                                                                class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white"
+                                                                class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white"
                                                                 >Custom</Badge
                                                             >
                                                         </div>
@@ -3237,6 +3246,7 @@ onUnmounted(() => {
                                                             />
                                                         </Button>
                                                         <Button
+                                                            aria-label="Remove from crew"
                                                             v-if="
                                                                 member.hiringCategory !== 'leader' &&
                                                                 member.hiringCategory !== 'totem' &&
@@ -3419,7 +3429,7 @@ onUnmounted(() => {
                                                                 <Badge
                                                                     v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
                                                                     variant="outline"
-                                                                    class="border-white/30 px-1 py-0 text-[9px] font-normal text-white/80"
+                                                                    class="border-white/30 px-1 py-0 text-[10px] font-normal text-white/80"
                                                                 >
                                                                     {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
                                                                 </Badge>
@@ -3500,6 +3510,7 @@ onUnmounted(() => {
                                                                 />
                                                             </Button>
                                                             <Button
+                                                                aria-label="Add to crew"
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 class="size-7 text-white hover:bg-white/10 hover:text-white"
@@ -3552,11 +3563,17 @@ onUnmounted(() => {
                                                 class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
                                             >
                                                 <div class="flex min-w-0 items-center gap-2">
-                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white">Custom</Badge>
                                                     <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
                                                     <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
                                                 </div>
-                                                <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                <Button
+                                                    aria-label="Add custom card to crew"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="size-7"
+                                                    @click="addCustomToCrew(cc)"
+                                                >
                                                     <UserPlus class="size-4" />
                                                 </Button>
                                             </div>
@@ -3758,7 +3775,7 @@ onUnmounted(() => {
                                                         }}</span>
                                                         <Badge
                                                             v-if="member.isCustom"
-                                                            class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white"
+                                                            class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white"
                                                             >Custom</Badge
                                                         >
                                                     </div>
@@ -3795,6 +3812,7 @@ onUnmounted(() => {
                                                         />
                                                     </Button>
                                                     <Button
+                                                        aria-label="Remove from crew"
                                                         v-if="
                                                             member.hiringCategory !== 'leader' &&
                                                             member.hiringCategory !== 'totem' &&

@@ -96,11 +96,7 @@ function slotLocations(asset: AssetMin): string[] {
                 overlay so the row reads as part of the Allegiance without
                 stomping on text contrast.
             -->
-            <div
-                v-for="cu in renderableUnits"
-                :key="cu.id"
-                :class="['group relative overflow-hidden rounded-lg border bg-card', CARD_HOVER]"
-            >
+            <div v-for="cu in renderableUnits" :key="cu.id" :class="['group relative overflow-hidden rounded-lg border bg-card', CARD_HOVER]">
                 <div :class="['absolute inset-y-0 left-0 w-1', allegianceBg]" />
                 <div :class="['pointer-events-none absolute inset-0 opacity-[0.04] transition-opacity group-hover:opacity-[0.08]', allegianceBg]" />
 
@@ -140,17 +136,17 @@ function slotLocations(asset: AssetMin): string[] {
                                 :class="cu.is_commander ? 'font-medium text-emerald-700 dark:text-emerald-400' : 'tabular-nums text-muted-foreground'"
                                 >{{ cu.is_commander ? '+' : '' }}{{ cu.unit.scrip }} Scrip</span
                             >
-                            <Badge v-if="cu.is_commander" class="bg-amber-500/10 px-1 py-0 text-[9px] text-amber-700 dark:text-amber-400"
+                            <Badge v-if="cu.is_commander" class="bg-amber-500/10 px-1 py-0 text-[10px] text-amber-700 dark:text-amber-400"
                                 >Commander</Badge
                             >
-                            <Badge v-if="cu.unit.restriction" variant="outline" class="px-1 py-0 text-[9px] capitalize"
+                            <Badge v-if="cu.unit.restriction" variant="outline" class="px-1 py-0 text-[10px] capitalize"
                                 >Neutral · {{ cu.unit.restriction }}</Badge
                             >
                             <Badge
                                 v-for="r in cu.unit.special_unit_rules.filter((r) => r.slug !== 'commander')"
                                 :key="r.id"
                                 variant="outline"
-                                class="px-1 py-0 text-[9px]"
+                                class="px-1 py-0 text-[10px]"
                                 >{{ r.name }}</Badge
                             >
                         </div>
@@ -177,7 +173,7 @@ function slotLocations(asset: AssetMin): string[] {
                 >
                     <Lock class="size-3 shrink-0 text-amber-600 dark:text-amber-400" />
                     <span class="text-xs font-medium">{{ childByParent.get(cu.unit.id)?.unit.name }}</span>
-                    <Badge class="bg-amber-500/10 px-1 py-0 text-[9px] text-amber-700 dark:text-amber-400">Combined Arms</Badge>
+                    <Badge class="bg-amber-500/10 px-1 py-0 text-[10px] text-amber-700 dark:text-amber-400">Combined Arms</Badge>
                     <span class="text-[10px] italic text-muted-foreground">auto-attached</span>
                 </div>
 
@@ -192,7 +188,7 @@ function slotLocations(asset: AssetMin): string[] {
                         <Package class="size-2.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
                         <span>{{ a.name }}</span>
                         <span class="tabular-nums text-muted-foreground">({{ a.scrip_cost }}s)</span>
-                        <span v-for="loc in slotLocations(a)" :key="loc" class="text-[8px] uppercase tracking-wider text-muted-foreground">{{
+                        <span v-for="loc in slotLocations(a)" :key="loc" class="text-[10px] uppercase tracking-wider text-muted-foreground">{{
                             loc
                         }}</span>
                         <button

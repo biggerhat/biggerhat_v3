@@ -195,7 +195,7 @@ const copyResetLink = async () => {
                     <p class="text-xs text-muted-foreground">This link expires in 60 minutes and can only be used once.</p>
                     <div class="flex gap-2">
                         <Input :model-value="resetLink" readonly class="flex-1 font-mono text-xs" />
-                        <Button variant="outline" size="icon" @click="copyResetLink">
+                        <Button aria-label="Copy reset link" variant="outline" size="icon" @click="copyResetLink">
                             <Check v-if="resetLinkCopied" class="size-4" />
                             <Copy v-else class="size-4" />
                         </Button>

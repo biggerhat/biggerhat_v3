@@ -420,7 +420,7 @@ const winRateColor = (rate: number) => {
                                     <div class="truncate font-medium">{{ g.master_name || 'Unknown Master' }}</div>
                                     <div class="text-[10px] text-muted-foreground">
                                         {{ g.encounter_size }}ss · {{ g.strategy || 'No strategy' }}
-                                        <Badge v-if="g.is_solo" variant="outline" class="ml-1 px-1 py-0 text-[8px]">Solo</Badge>
+                                        <Badge v-if="g.is_solo" variant="outline" class="ml-1 px-1 py-0 text-[10px]">Solo</Badge>
                                     </div>
                                 </div>
                                 <div class="text-right">

@@ -98,7 +98,6 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <div class="grid gap-3 sm:grid-cols-4">
             <Card
                 ><CardContent class="p-3"
@@ -175,7 +174,7 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
                         </div>
                     </div>
                     <div class="flex shrink-0 gap-1.5">
-                        <Button variant="outline" size="sm" as-child>
+                        <Button aria-label="Preview card" variant="outline" size="sm" as-child>
                             <a :href="card.share_url" target="_blank" rel="noopener"><Eye class="size-3.5" /></a>
                         </Button>
                         <Button v-if="card.is_public" variant="outline" size="sm" @click="unpublish(card)" title="Force unpublish">

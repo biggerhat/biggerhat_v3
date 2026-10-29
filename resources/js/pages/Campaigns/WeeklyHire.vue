@@ -115,7 +115,10 @@ const remaining = computed(() => props.crew.scrip - totalScripCost.value);
 // What it would cost to hire this model next, given the current running hires
 // list — mirrors StartingArsenal's per-row "Over budget" affordability check.
 const costIfAddedNow = (c: CharRow): number =>
-    scripCostFor({ character_id: c.id, label: null, display_name: c.display_name, base_cost: c.cost ?? 0, out_of_keyword: isOutOfKeyword(c) }, hires.value.length);
+    scripCostFor(
+        { character_id: c.id, label: null, display_name: c.display_name, base_cost: c.cost ?? 0, out_of_keyword: isOutOfKeyword(c) },
+        hires.value.length,
+    );
 
 const canAfford = (c: CharRow): boolean => costIfAddedNow(c) <= remaining.value;
 
@@ -228,6 +231,7 @@ const submit = () => {
                                 <div class="flex shrink-0 items-center gap-1">
                                     <span v-if="!locked && !canAfford(c)" class="text-[10px] text-white/50">Over budget</span>
                                     <Button
+                                        aria-label="Hire"
                                         variant="ghost"
                                         size="icon"
                                         class="size-7 text-white hover:bg-white/10 hover:text-white"
@@ -260,7 +264,7 @@ const submit = () => {
                             </div>
                             <div class="flex items-center gap-2">
                                 <Badge variant="outline" class="text-[10px] tabular-nums"> {{ scripCostFor(h, idx) }} scrip </Badge>
-                                <Button variant="ghost" size="sm" :disabled="locked" @click="removeHire(idx)">×</Button>
+                                <Button aria-label="Remove hire" variant="ghost" size="sm" :disabled="locked" @click="removeHire(idx)">×</Button>
                             </div>
                         </li>
                     </ul>

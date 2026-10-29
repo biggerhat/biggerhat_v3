@@ -8,7 +8,7 @@ const props = withDefaults(
         /** Heading level to render; pages whose card title is the page's main heading pass `h1`. */
         as?: 'h1' | 'h2' | 'h3' | 'h4';
     }>(),
-    { as: 'h3' },
+    { as: 'h2' },
 );
 </script>
 

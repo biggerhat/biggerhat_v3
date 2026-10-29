@@ -359,7 +359,9 @@ onMounted(() => {
                                     "
                                 />
                             </div>
-                            <Button type="button" variant="ghost" size="sm" @click="removeRule(idx)"><Trash2 class="size-4" /></Button>
+                            <Button aria-label="Remove rule" type="button" variant="ghost" size="sm" @click="removeRule(idx)"
+                                ><Trash2 class="size-4"
+                            /></Button>
                         </div>
 
                         <template v-if="ruleSlugFor(rule) === 'fireteam'">

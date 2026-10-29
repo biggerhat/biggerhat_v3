@@ -205,7 +205,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                         <div class="flex items-center gap-1.5">
                             <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
                             <span class="truncate text-xs font-medium">{{ u.name }}</span>
-                            <Badge v-if="u.restriction" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
+                            <Badge v-if="u.restriction" variant="outline" class="px-1 py-0 text-[10px]">Neutral</Badge>
                         </div>
                         <div v-if="u.title" class="truncate text-[10px] italic text-muted-foreground">{{ u.title }}</div>
                         <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -273,7 +273,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-1.5">
                             <span class="truncate text-xs font-medium">{{ s.name }}</span>
-                            <Badge variant="outline" class="px-1 py-0 text-[9px] tabular-nums">{{ s.tactical_cost }}T</Badge>
+                            <Badge variant="outline" class="px-1 py-0 text-[10px] tabular-nums">{{ s.tactical_cost }}T</Badge>
                         </div>
                         <p v-if="s.effect" class="line-clamp-2 text-[10px] text-muted-foreground">
                             <TosText :text="s.effect" />
@@ -299,6 +299,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                 <div v-for="c in filteredEnvoys" :key="c.id" class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
                     <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ c.name }}</span>
                     <Button
+                        aria-label="Pick as envoy"
                         size="icon"
                         variant="ghost"
                         class="size-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"

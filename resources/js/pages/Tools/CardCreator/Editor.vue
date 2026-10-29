@@ -738,8 +738,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 v-if="isCampaignLeader"
                                 class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
                             >
-                                <strong>Campaign Leader</strong> — faction, keywords, and archetype are locked. Edit name, actions, abilities, and
-                                tag freely.
+                                <strong>Campaign Leader</strong> — faction, keywords, and archetype are locked. Edit name, actions, abilities, and tag
+                                freely.
                                 <div class="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
                                     <span v-if="character?.archetype"><strong>Archetype:</strong> {{ formatSlug(character.archetype) }}</span>
                                     <span class="flex items-center gap-1.5">
@@ -819,6 +819,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                         class="h-32 w-full rounded-md border object-cover"
                                     />
                                     <button
+                                        aria-label="Remove image"
                                         class="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
                                         @click="removeImage"
                                     >
@@ -829,7 +830,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     v-else
                                     class="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 transition-colors hover:border-muted-foreground/50 hover:bg-muted/50"
                                 >
-                                    <ImagePlus class="size-5 shrink-0 text-muted-foreground/50" />
+                                    <ImagePlus class="size-5 shrink-0 text-muted-foreground" />
                                     <div>
                                         <span class="text-xs font-medium">Click to upload</span>
                                         <span class="ml-1 text-xs text-muted-foreground">(jpg/png/webp)</span>
@@ -920,8 +921,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="keywords.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(kw, i) in keywords" :key="'kw-' + i" variant="secondary" class="gap-1">
                                         {{ kw.name }}
-                                        <Badge v-if="kw.id" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]">Official</Badge>
-                                        <button v-if="!isCampaignManaged" class="ml-0.5 hover:text-destructive" @click="removeKeyword(i)">
+                                        <Badge v-if="kw.id" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]">Official</Badge>
+                                        <button
+                                            aria-label="Remove keyword"
+                                            v-if="!isCampaignManaged"
+                                            class="ml-0.5 hover:text-destructive"
+                                            @click="removeKeyword(i)"
+                                        >
                                             <X class="size-3" />
                                         </button>
                                     </Badge>
@@ -945,7 +951,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickKeyword(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -957,7 +963,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="characteristics.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(c, i) in characteristics" :key="'char-' + i" variant="outline" class="gap-1">
                                         {{ c }}
-                                        <button class="ml-0.5 hover:text-destructive" @click="removeCharacteristic(i)"><X class="size-3" /></button>
+                                        <button
+                                            aria-label="Remove characteristic"
+                                            class="ml-0.5 hover:text-destructive"
+                                            @click="removeCharacteristic(i)"
+                                        >
+                                            <X class="size-3" />
+                                        </button>
                                     </Badge>
                                 </div>
                                 <Input
@@ -974,13 +986,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedCrewUpgrades.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(u, i) in linkedCrewUpgrades" :key="'cu-' + i" variant="secondary" class="gap-1">
                                         {{ u.name }}
-                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]"
+                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]"
                                             >Official</Badge
                                         >
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[10px] text-purple-500"
                                             >Custom</Badge
                                         >
-                                        <button class="ml-0.5 hover:text-destructive" @click="removeCrewUpgrade(i)"><X class="size-3" /></button>
+                                        <button aria-label="Remove crew upgrade" class="ml-0.5 hover:text-destructive" @click="removeCrewUpgrade(i)">
+                                            <X class="size-3" />
+                                        </button>
                                     </Badge>
                                 </div>
                                 <div class="relative">
@@ -1001,8 +1015,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickCrewUpgrade(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[10px]"
+                                                >Official</Badge
+                                            >
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[10px] text-purple-500"
                                                 >Custom</Badge
                                             >
                                         </button>
@@ -1016,13 +1032,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedTotems.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(t, i) in linkedTotems" :key="'totem-' + i" variant="secondary" class="gap-1">
                                         {{ t.name }}
-                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[8px]"
+                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]"
                                             >Official</Badge
                                         >
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[10px] text-purple-500"
                                             >Custom</Badge
                                         >
-                                        <button class="ml-0.5 hover:text-destructive" @click="removeTotem(i)"><X class="size-3" /></button>
+                                        <button aria-label="Remove totem" class="ml-0.5 hover:text-destructive" @click="removeTotem(i)">
+                                            <X class="size-3" />
+                                        </button>
                                     </Badge>
                                 </div>
                                 <div class="relative">
@@ -1043,8 +1061,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickTotem(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[8px] text-purple-500"
+                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[10px]"
+                                                >Official</Badge
+                                            >
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[10px] text-purple-500"
                                                 >Custom</Badge
                                             >
                                         </button>
@@ -1114,9 +1134,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                 <div class="flex items-center justify-between">
                                                     <div class="flex items-center gap-2">
                                                         <span class="text-sm font-medium">{{ ability.name }}</span>
-                                                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[8px]">Official</Badge>
+                                                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[10px]">Official</Badge>
                                                     </div>
-                                                    <button class="text-muted-foreground hover:text-destructive" @click="removeAbility(aIdx)">
+                                                    <button
+                                                        aria-label="Remove ability"
+                                                        class="text-muted-foreground hover:text-destructive"
+                                                        @click="removeAbility(aIdx)"
+                                                    >
                                                         <Trash2 class="size-3.5" />
                                                     </button>
                                                 </div>
@@ -1125,7 +1149,11 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             <template v-else>
                                                 <div class="flex items-center justify-between">
                                                     <Input v-model="ability.name" placeholder="Ability name" class="h-7 text-sm font-medium" />
-                                                    <button class="ml-2 text-muted-foreground hover:text-destructive" @click="removeAbility(aIdx)">
+                                                    <button
+                                                        aria-label="Remove ability"
+                                                        class="ml-2 text-muted-foreground hover:text-destructive"
+                                                        @click="removeAbility(aIdx)"
+                                                    >
                                                         <Trash2 class="size-3.5" />
                                                     </button>
                                                 </div>
@@ -1199,7 +1227,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         @click="pickAction(r)"
                                                     >
                                                         <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge class="ml-2 text-[9px]">{{ r.type }}</Badge>
+                                                        <Badge class="ml-2 text-[10px]">{{ r.type }}</Badge>
                                                     </button>
                                                 </div>
                                             </div>
@@ -1222,11 +1250,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             <div class="flex items-center justify-between">
                                                 <div class="flex flex-1 items-center gap-2">
                                                     <Input v-model="action.name" placeholder="Action name" class="h-7 text-sm font-medium" />
-                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]"
+                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[10px]"
                                                         >Official</Badge
                                                     >
                                                 </div>
-                                                <button class="ml-2 shrink-0 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
+                                                <button
+                                                    aria-label="Remove action"
+                                                    class="ml-2 shrink-0 text-muted-foreground hover:text-destructive"
+                                                    @click="removeAction(idx)"
+                                                >
                                                     <Trash2 class="size-3.5" />
                                                 </button>
                                             </div>
@@ -1344,7 +1376,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         <div class="flex-1 text-xs">
                                                             <span class="font-medium">{{ trigger.suits }} {{ trigger.name }}:</span>
                                                             <span class="text-muted-foreground"> {{ trigger.description }}</span>
-                                                            <Badge variant="outline" class="ml-1 px-1 py-0 text-[8px]">Official</Badge>
+                                                            <Badge variant="outline" class="ml-1 px-1 py-0 text-[10px]">Official</Badge>
                                                         </div>
                                                     </template>
                                                     <template v-else>
@@ -1365,6 +1397,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         </div>
                                                     </template>
                                                     <button
+                                                        aria-label="Remove trigger"
                                                         class="mt-1 text-muted-foreground hover:text-destructive"
                                                         @click="removeTrigger(action, tIdx)"
                                                     >

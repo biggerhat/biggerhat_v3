@@ -76,7 +76,7 @@ const badgeClass = (tone?: 'amber' | 'red' | 'muted' | 'primary') => {
                             </div>
                             <span
                                 v-if="entry.badge"
-                                class="shrink-0 rounded border px-1.5 py-0 text-[9px] font-medium uppercase tracking-wider"
+                                class="shrink-0 rounded border px-1.5 py-0 text-[10px] font-medium uppercase tracking-wider"
                                 :class="badgeClass(entry.badgeTone)"
                                 >{{ entry.badge }}</span
                             >

@@ -113,7 +113,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                         <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
                         <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
                         <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
-                        <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[9px] text-muted-foreground">
+                        <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[10px] text-muted-foreground">
                             {{ usageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}
                         </span>
                     </button>
@@ -126,9 +126,9 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                  empty/broken on first open). Open by default since it's the
                  primary interaction, not a rarely-needed extra. -->
             <details class="rounded-md border" open>
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">{{
-                    optionsLabel
-                }}</summary>
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                    {{ optionsLabel }}
+                </summary>
                 <div class="border-t px-1 pb-1 pt-1">
                     <Input :model-value="search" placeholder="Filter..." class="mb-1" @update:model-value="(v) => emit('update:search', String(v))" />
                     <div class="max-h-36 space-y-0.5 overflow-y-auto">
@@ -148,7 +148,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                             <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
                             <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
                             <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
-                            <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[9px] text-muted-foreground">
+                            <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[10px] text-muted-foreground">
                                 {{ usageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}
                             </span>
                         </button>

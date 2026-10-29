@@ -271,7 +271,7 @@ const confirmPendingScheme = () => {
                         <Badge
                             v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'"
                             :class="categoryColor(member.hiring_category)"
-                            class="shrink-0 px-1 py-0 text-[9px]"
+                            class="shrink-0 px-1 py-0 text-[10px]"
                         >
                             {{ categoryLabel(member.hiring_category) }}
                         </Badge>

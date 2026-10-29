@@ -201,7 +201,7 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                         Every command below also works by mentioning Hat Gamin before the command name. The old <code>!</code> prefix is no longer
                         supported.
                     </p>
-                    <code class="mt-2 block text-xs text-muted-foreground/70">@Hat Gamin mini Lady Justice</code>
+                    <code class="mt-2 block text-xs text-muted-foreground">@Hat Gamin mini Lady Justice</code>
                 </CardContent>
             </Card>
 
@@ -222,7 +222,7 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                             </div>
                             <p class="mt-1 text-sm text-muted-foreground">{{ cmd.description }}</p>
                             <div v-if="cmd.example" class="mt-1.5">
-                                <code class="text-xs text-muted-foreground/70">{{ cmd.example }}</code>
+                                <code class="text-xs text-muted-foreground">{{ cmd.example }}</code>
                             </div>
                         </div>
                     </CardContent>

@@ -141,7 +141,7 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
                                     <div class="min-w-0 flex-1">
                                         <div class="font-medium leading-tight">{{ pod.name }}</div>
                                     </div>
-                                    <Badge variant="outline" class="shrink-0 text-[9px]">{{ sourceLabel(pod.source) }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-[10px]">{{ sourceLabel(pod.source) }}</Badge>
                                     <ExternalLink class="size-3 shrink-0 text-muted-foreground" />
                                 </a>
                             </div>

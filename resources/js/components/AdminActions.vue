@@ -48,10 +48,10 @@ const props = defineProps({
 </script>
 
 <template>
-    <TooltipProvider>
+    <TooltipProvider v-if="props.previewRoute">
         <Tooltip>
-            <TooltipTrigger>
-                <Button class="mx-2" variant="outline" v-if="props.previewRoute" @click="router.get(props.previewRoute)">
+            <TooltipTrigger as-child>
+                <Button aria-label="Preview" class="mx-2" variant="outline" @click="router.get(props.previewRoute)">
                     <Eye class="h-4 w-4" />
                 </Button>
             </TooltipTrigger>
@@ -61,10 +61,10 @@ const props = defineProps({
         </Tooltip>
     </TooltipProvider>
 
-    <TooltipProvider>
+    <TooltipProvider v-if="props.editRoute">
         <Tooltip>
-            <TooltipTrigger>
-                <Button class="mx-2 dark:bg-[#449e48]" v-if="props.editRoute" @click="router.get(props.editRoute)">
+            <TooltipTrigger as-child>
+                <Button aria-label="Edit" class="mx-2 dark:bg-[#449e48]" @click="router.get(props.editRoute)">
                     <Pencil class="h-4 w-4" />
                 </Button>
             </TooltipTrigger>
@@ -74,21 +74,21 @@ const props = defineProps({
         </Tooltip>
     </TooltipProvider>
 
-    <Dialog>
-        <DialogTrigger>
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger>
-                        <Button class="mx-2 bg-destructive" v-if="props.deleteRoute">
+    <Dialog v-if="props.deleteRoute">
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger as-child>
+                    <DialogTrigger as-child>
+                        <Button aria-label="Delete" class="mx-2 bg-destructive">
                             <Trash2 class="h-4 w-4" />
                         </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Delete {{ props.name }}</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-        </DialogTrigger>
+                    </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Delete {{ props.name }}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle> Delete {{ props.name }} </DialogTitle>
@@ -97,7 +97,7 @@ const props = defineProps({
 
             <DialogFooter class="sm:justify-start">
                 <DialogClose as-child>
-                    <Button class="bg-destructive" v-if="props.deleteRoute" @click="router.post(props.deleteRoute)"> Delete {{ props.name }} </Button>
+                    <Button class="bg-destructive" @click="router.post(props.deleteRoute)"> Delete {{ props.name }} </Button>
                 </DialogClose>
             </DialogFooter>
         </DialogContent>

@@ -13,10 +13,15 @@ import {
     Bot,
     Boxes,
     Calendar,
+    ClipboardList,
     Coins,
+    Crosshair,
     Dice6,
     FileImage,
+    Flag,
+    Gamepad2,
     Gauge,
+    Hammer,
     Heart,
     Home,
     KeyRound,
@@ -31,6 +36,7 @@ import {
     Scale,
     Shield,
     ShieldCheck,
+    Shuffle,
     Swords,
     TextSearch,
     Trophy,
@@ -97,7 +103,7 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                 {
                     title: 'Game Tracker',
                     href: route('games.index'),
-                    icon: Swords,
+                    icon: Gamepad2,
                 },
                 {
                     title: 'Tournament Tracker',
@@ -110,7 +116,7 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                           {
                               title: 'Campaigns',
                               href: route('campaigns.index'),
-                              icon: Trophy,
+                              icon: Flag,
                               badge: 'Beta',
                           },
                       ]
@@ -179,7 +185,7 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     // entry of its own — see AppSidebarHeader.vue.
                     title: 'Random Character Picker',
                     href: route('tools.random_character'),
-                    icon: Dice6,
+                    icon: Shuffle,
                     keywords: 'random character picker filtered faction keyword characteristic cost dice',
                 },
                 {
@@ -206,13 +212,13 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
         {
             title: 'Factions',
             collapsible: true,
-            collapsed: false,
+            collapsed: true,
             items: ctx.factionItems,
         },
         {
             title: 'References',
             collapsible: true,
-            collapsed: false,
+            collapsed: true,
             items: [
                 // Order intentionally mirrors TOS sidebar: abilities (passive) →
                 // actions (AP-spending) → triggers (action modifiers).
@@ -224,12 +230,12 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                 {
                     title: 'Actions',
                     href: route('actions.index'),
-                    icon: Swords,
+                    icon: Crosshair,
                 },
                 {
                     title: 'Triggers',
                     href: route('triggers.index'),
-                    icon: Swords,
+                    icon: Zap,
                 },
                 {
                     title: 'Keywords',
@@ -249,7 +255,7 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                 {
                     title: 'Crew Cards',
                     href: route('upgrades.crew.index'),
-                    icon: ArrowUpCircle,
+                    icon: ClipboardList,
                     keywords: 'crew cards crew upgrades',
                 },
                 {
@@ -277,7 +283,7 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                 {
                     title: 'Build Instructions',
                     href: route('blueprints.index'),
-                    icon: FileImage,
+                    icon: Hammer,
                 },
                 {
                     title: 'Gaining Grounds',

@@ -921,7 +921,6 @@ const submitInjuries = () => {
         story_entry: storyEntry.value || null,
     } as Record<string, unknown>);
 };
-
 </script>
 
 <template>
@@ -929,10 +928,7 @@ const submitInjuries = () => {
     <div class="container mx-auto mt-6 max-w-5xl px-4 pb-16">
         <div class="mb-6 flex items-start justify-between">
             <div>
-                <Link
-                    :href="arsenalShowHref"
-                    class="text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                >
+                <Link :href="arsenalShowHref" class="text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground">
                     ← {{ aftermath.crew.name }}
                 </Link>
                 <h1 class="mt-1 text-3xl font-black tracking-tight">Aftermath</h1>
@@ -1183,7 +1179,7 @@ const submitInjuries = () => {
                         <div
                             v-for="(box, i) in xpTrackPreview"
                             :key="i"
-                            class="relative flex aspect-square items-center justify-center rounded-sm border text-[8px]"
+                            class="relative flex aspect-square items-center justify-center rounded-sm border text-[10px]"
                             :class="boxClasses(box)"
                             :title="box.tier ? `Tier ${box.tier}` : 'no tier'"
                         >
@@ -1227,7 +1223,9 @@ const submitInjuries = () => {
                             <Select
                                 :model-value="
                                     advDrafts[adv.position_in_xp_track].catalog_id !== null
-                                        ? (selectedDraftRow(adv.position_in_xp_track) ? rowIdentity(selectedDraftRow(adv.position_in_xp_track)!) : '__none__')
+                                        ? selectedDraftRow(adv.position_in_xp_track)
+                                            ? rowIdentity(selectedDraftRow(adv.position_in_xp_track)!)
+                                            : '__none__'
                                         : '__none__'
                                 "
                                 @update:model-value="
@@ -1258,7 +1256,10 @@ const submitInjuries = () => {
                             </Select>
                             <!-- Crew Card: qualifying restriction text carried over from the original card (pg 32, 54) -->
                             <p
-                                v-if="advDrafts[adv.position_in_xp_track].source_table === 'crew_card' && selectedDraftRow(adv.position_in_xp_track)?.qualifier"
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'crew_card' &&
+                                    selectedDraftRow(adv.position_in_xp_track)?.qualifier
+                                "
                                 class="text-[11px] font-medium italic text-muted-foreground"
                             >
                                 {{ selectedDraftRow(adv.position_in_xp_track)!.qualifier }}
@@ -1621,13 +1622,10 @@ const submitInjuries = () => {
                                     <Input type="number" min="1" max="13" v-model.number="att.lucky_miss_flip_value" class="h-8 w-16" />
                                 </template>
                             </template>
-                            <span
-                                v-else-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'"
-                                class="text-[11px] text-muted-foreground"
-                            >
+                            <span v-else-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'" class="text-[11px] text-muted-foreground">
                                 Close Call — survives with no injury.
                             </span>
-                            <Button variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
+                            <Button aria-label="Remove doctor attempt" variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
                         </li>
                     </ul>
                 </div>
@@ -1670,7 +1668,7 @@ const submitInjuries = () => {
                         <span>
                             {{ m.display_name || m.character?.display_name || '—' }}
                             <span v-if="m.label" class="ml-1 text-[10px] text-muted-foreground">({{ m.label }})</span>
-                            <Badge v-if="m.tracker_killed" variant="destructive" class="ml-1.5 text-[9px]">Killed</Badge>
+                            <Badge v-if="m.tracker_killed" variant="destructive" class="ml-1.5 text-[10px]">Killed</Badge>
                         </span>
                         <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m)">Add injury</Button>
                     </li>
@@ -1756,7 +1754,7 @@ const submitInjuries = () => {
                                     </SelectContent>
                                 </Select>
                             </template>
-                            <Button variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>
+                            <Button aria-label="Remove injury flip" variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>
                         </li>
                     </ul>
                 </div>

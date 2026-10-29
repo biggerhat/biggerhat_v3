@@ -415,23 +415,23 @@ const topFactions = computed(() =>
             <!-- Tabs -->
             <Tabs v-model="activeTab">
                 <TabsList class="mb-4">
-                    <TabsTrigger value="collection">
+                    <TabsTrigger aria-label="Collection" value="collection">
                         <Library class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Collection</span>
                     </TabsTrigger>
-                    <TabsTrigger value="packages">
+                    <TabsTrigger aria-label="Packages" value="packages">
                         <Package class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Packages</span>
                     </TabsTrigger>
-                    <TabsTrigger value="factions">
+                    <TabsTrigger aria-label="Factions" value="factions">
                         <Grid2x2 class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Factions</span>
                     </TabsTrigger>
-                    <TabsTrigger value="keywords">
+                    <TabsTrigger aria-label="Keywords" value="keywords">
                         <BookOpen class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Keywords</span>
                     </TabsTrigger>
-                    <TabsTrigger value="stats">
+                    <TabsTrigger aria-label="Stats" value="stats">
                         <BarChart3 class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Stats</span>
                     </TabsTrigger>
@@ -445,6 +445,7 @@ const topFactions = computed(() =>
                             <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input v-model="filterText" placeholder="Search collection..." class="pl-9 pr-9" />
                             <button
+                                aria-label="Clear filter"
                                 v-if="filterText"
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                                 @click="filterText = ''"
@@ -611,6 +612,7 @@ const topFactions = computed(() =>
                                     </Button>
                                     <div class="ml-1 flex shrink-0 items-center gap-1">
                                         <Button
+                                            aria-label="Decrease quantity"
                                             variant="ghost"
                                             size="icon"
                                             class="size-7"
@@ -621,6 +623,7 @@ const topFactions = computed(() =>
                                         </Button>
                                         <span class="w-6 text-center text-sm font-medium tabular-nums">{{ item.quantity }}</span>
                                         <Button
+                                            aria-label="Increase quantity"
                                             variant="ghost"
                                             size="icon"
                                             class="size-7"
@@ -631,6 +634,7 @@ const topFactions = computed(() =>
                                         </Button>
                                     </div>
                                     <Button
+                                        aria-label="Remove from collection"
                                         variant="ghost"
                                         size="icon"
                                         class="ml-auto size-7 text-destructive hover:text-destructive"
@@ -698,6 +702,7 @@ const topFactions = computed(() =>
                                         </div>
                                     </div>
                                     <Button
+                                        aria-label="Remove from collection"
                                         v-if="is_owner"
                                         variant="ghost"
                                         size="icon"

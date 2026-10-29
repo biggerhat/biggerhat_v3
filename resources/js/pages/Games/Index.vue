@@ -163,7 +163,7 @@ const formatDate = (dateStr: string) => {
                                         <Badge
                                             v-if="game.format === 'bonanza_brawl'"
                                             variant="outline"
-                                            class="border-purple-500/50 px-1.5 py-0 text-[9px] text-purple-600 dark:text-purple-300"
+                                            class="border-purple-500/50 px-1.5 py-0 text-[10px] text-purple-600 dark:text-purple-300"
                                         >
                                             Bonanza Brawl
                                         </Badge>
@@ -176,19 +176,20 @@ const formatDate = (dateStr: string) => {
                                         <div v-for="player in game.players" :key="player.id" class="flex items-center gap-1.5">
                                             <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
                                             <span class="text-xs">{{ player.user?.name ?? player.opponent_name ?? 'Opponent' }}</span>
-                                            <Badge v-if="player.role" variant="outline" class="px-1 py-0 text-[9px] capitalize">
+                                            <Badge v-if="player.role" variant="outline" class="px-1 py-0 text-[10px] capitalize">
                                                 {{ player.role }}
                                             </Badge>
                                         </div>
                                         <span v-if="!game.is_solo && game.players.length < 2" class="text-xs italic text-muted-foreground"
                                             >Waiting for opponent...</span
                                         >
-                                        <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
+                                        <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[10px]">Solo</Badge>
                                     </div>
                                 </CardContent>
                             </Card>
                         </Link>
                         <button
+                            aria-label="Delete game"
                             class="absolute bottom-3 right-3 rounded-md p-1 text-destructive/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
                             @click.prevent="confirmDelete(game)"
                         >
@@ -218,7 +219,7 @@ const formatDate = (dateStr: string) => {
                                         }}</span>
                                         <span class="tabular-nums text-muted-foreground">({{ player.total_points }})</span>
                                     </span>
-                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
+                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[10px]">Solo</Badge>
                                 </div>
                                 <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
                                     <span class="tabular-nums">{{ game.encounter_size }}ss</span>
@@ -234,6 +235,7 @@ const formatDate = (dateStr: string) => {
                             </Badge>
                         </Link>
                         <button
+                            aria-label="Delete game"
                             class="absolute bottom-2 right-2 rounded-md p-1 text-destructive/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
                             @click="confirmDelete(game)"
                         >
@@ -265,10 +267,10 @@ const formatDate = (dateStr: string) => {
                                         {{ statusLabel(game.status, game.is_solo) }}
                                     </Badge>
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="game.status === 'completed'" variant="outline" class="border-muted-foreground/30 text-[9px]">
+                                        <Badge v-if="game.status === 'completed'" variant="outline" class="border-muted-foreground/30 text-[10px]">
                                             <Trophy class="mr-1 size-2.5" /> Completed
                                         </Badge>
-                                        <Badge v-else variant="outline" class="border-amber-500/50 text-[9px] text-amber-600 dark:text-amber-400">
+                                        <Badge v-else variant="outline" class="border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">
                                             <Eye class="mr-1 size-2.5" /> Public
                                         </Badge>
                                     </div>
@@ -279,7 +281,7 @@ const formatDate = (dateStr: string) => {
                                     <Badge
                                         v-if="game.format === 'bonanza_brawl'"
                                         variant="outline"
-                                        class="border-purple-500/50 px-1.5 py-0 text-[9px] text-purple-600 dark:text-purple-300"
+                                        class="border-purple-500/50 px-1.5 py-0 text-[10px] text-purple-600 dark:text-purple-300"
                                     >
                                         Bonanza Brawl
                                     </Badge>
@@ -306,7 +308,7 @@ const formatDate = (dateStr: string) => {
                                             >({{ player.total_points }})</span
                                         >
                                     </div>
-                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
+                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[10px]">Solo</Badge>
                                 </div>
                             </CardContent>
                         </Card>

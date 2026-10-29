@@ -48,7 +48,6 @@ const clearOverride = (flag: Flag) => {
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <div
             v-if="storage_ready === false"
             class="rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-900 dark:text-amber-200"
@@ -70,7 +69,7 @@ const clearOverride = (flag: Flag) => {
                         <p class="mt-1 text-xs text-muted-foreground">{{ flag.description }}</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-3">
-                        <Switch :model-value="flag.active" @update:model-value="apply(flag, $event)" />
+                        <Switch :model-value="flag.active" :aria-label="flag.label" @update:model-value="apply(flag, $event)" />
                         <Button v-if="flag.has_override" variant="ghost" size="sm" @click="clearOverride(flag)">Clear override</Button>
                     </div>
                 </CardContent>

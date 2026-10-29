@@ -295,7 +295,7 @@ function ruleBadge(rule: SpecialRule): string {
                                         <span
                                             v-for="l in ac.type_links"
                                             :key="l.id"
-                                            class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                            class="rounded bg-secondary px-1 py-0.5 text-[10px] capitalize text-secondary-foreground"
                                             >{{ l.type }}</span
                                         >
                                         <span class="font-medium">{{ ac.name }}</span>
@@ -312,7 +312,7 @@ function ruleBadge(rule: SpecialRule): string {
                                 </div>
                                 <div
                                     v-if="ac.is_piercing || ac.is_accurate || ac.is_area || ac.usage_limit"
-                                    class="mt-1 flex flex-wrap gap-1 text-[9px]"
+                                    class="mt-1 flex flex-wrap gap-1 text-[10px]"
                                 >
                                     <span v-if="ac.is_piercing" class="rounded bg-amber-500/10 px-1 text-amber-700 dark:text-amber-400"
                                         >Piercing</span
@@ -329,7 +329,7 @@ function ruleBadge(rule: SpecialRule): string {
                                         <TosSuits v-if="t.suits" :suits="t.suits" />
                                         <TosMarginCost v-else-if="t.margin_cost != null" :cost="t.margin_cost" />
                                         <span class="font-medium">{{ t.name }}</span>
-                                        <span v-if="t.timing === 'immediately'" class="ml-1 text-[9px] italic text-muted-foreground"
+                                        <span v-if="t.timing === 'immediately'" class="ml-1 text-[10px] italic text-muted-foreground"
                                             >(Immediately)</span
                                         >
                                         <span v-if="t.body" class="text-muted-foreground"> — <TosText :text="t.body" /></span>

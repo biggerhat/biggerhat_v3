@@ -2,14 +2,16 @@
 interface Props {
     title: string;
     description?: string;
+    /** Heading level; the first heading on a page without a banner passes `h1`. */
+    as?: 'h1' | 'h2' | 'h3';
 }
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), { as: 'h3' });
 </script>
 
 <template>
     <header>
-        <h3 class="mb-0.5 text-base font-medium">{{ title }}</h3>
+        <component :is="as" class="mb-0.5 text-base font-medium">{{ title }}</component>
         <p v-if="description" class="text-sm text-muted-foreground">
             {{ description }}
         </p>

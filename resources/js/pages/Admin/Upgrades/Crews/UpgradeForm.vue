@@ -333,10 +333,7 @@ onMounted(() => {
 
                                 <!-- Tier-4 borrow exclusion (pg 32, 54) -->
                                 <div class="w-56 shrink-0">
-                                    <Select
-                                        :model-value="row.borrow_exclusion ?? ''"
-                                        @update:model-value="(v) => (row.borrow_exclusion = v || null)"
-                                    >
+                                    <Select :model-value="row.borrow_exclusion ?? ''" @update:model-value="(v) => (row.borrow_exclusion = v || null)">
                                         <SelectTrigger class="h-8 text-xs">
                                             <SelectValue placeholder="Eligible to borrow" />
                                         </SelectTrigger>
@@ -356,7 +353,12 @@ onMounted(() => {
                                 </div>
 
                                 <!-- Remove -->
-                                <button type="button" class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeRow(i)">
+                                <button
+                                    aria-label="Remove row"
+                                    type="button"
+                                    class="shrink-0 text-muted-foreground hover:text-destructive"
+                                    @click="removeRow(i)"
+                                >
                                     <X class="h-4 w-4" />
                                 </button>
                             </div>

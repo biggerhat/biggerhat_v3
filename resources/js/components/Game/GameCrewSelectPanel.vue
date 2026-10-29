@@ -377,7 +377,7 @@ const confirmCampaignCrew = () => {
                             v-for="inj in campaignLeader.injuries"
                             :key="`ldr-inj-${inj.id}`"
                             variant="destructive"
-                            class="shrink-0 px-1 py-0 text-[9px]"
+                            class="shrink-0 px-1 py-0 text-[10px]"
                         >
                             {{ inj.name }}
                         </Badge>
@@ -388,7 +388,7 @@ const confirmCampaignCrew = () => {
                             v-for="inj in campaignTotem.injuries"
                             :key="`ttm-inj-${inj.id}`"
                             variant="destructive"
-                            class="shrink-0 px-1 py-0 text-[9px]"
+                            class="shrink-0 px-1 py-0 text-[10px]"
                         >
                             {{ inj.name }}
                         </Badge>
@@ -431,11 +431,11 @@ const confirmCampaignCrew = () => {
                             <Badge
                                 v-if="m.is_ook"
                                 variant="outline"
-                                class="shrink-0 border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400"
+                                class="shrink-0 border-amber-500/50 px-1 py-0 text-[10px] text-amber-600 dark:text-amber-400"
                                 >OOK</Badge
                             >
-                            <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Peon</Badge>
-                            <Badge v-for="inj in m.injuries" :key="`inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">
+                            <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-[10px]">Peon</Badge>
+                            <Badge v-for="inj in m.injuries" :key="`inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[10px]">
                                 {{ inj.name }}
                             </Badge>
                             <!-- Only the ability a Lucky Miss result granted, not also its own
@@ -445,7 +445,7 @@ const confirmCampaignCrew = () => {
                                 <Badge
                                     v-for="lm in m.lucky_miss"
                                     :key="`lm-${lm}`"
-                                    class="shrink-0 bg-green-600 px-1 py-0 text-[9px] text-white hover:bg-green-600"
+                                    class="shrink-0 bg-green-600 px-1 py-0 text-[10px] text-white hover:bg-green-600"
                                 >
                                     {{ lm }}
                                 </Badge>
@@ -453,14 +453,14 @@ const confirmCampaignCrew = () => {
                             <Badge
                                 v-for="ab in m.gained_abilities"
                                 :key="`ab-${ab.id}`"
-                                class="shrink-0 bg-blue-600 px-1 py-0 text-[9px] text-white hover:bg-blue-600"
+                                class="shrink-0 bg-blue-600 px-1 py-0 text-[10px] text-white hover:bg-blue-600"
                             >
                                 {{ ab.name }}
                             </Badge>
                         </div>
                         <div class="ml-2 shrink-0 font-bold">
                             {{ m.effective_cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                            <span v-if="m.is_ook" class="ml-0.5 text-[9px] font-normal text-muted-foreground">({{ m.cost }}+1)</span>
+                            <span v-if="m.is_ook" class="ml-0.5 text-[10px] font-normal text-muted-foreground">({{ m.cost }}+1)</span>
                         </div>
                     </div>
                 </div>
@@ -476,7 +476,7 @@ const confirmCampaignCrew = () => {
                                 <Badge
                                     v-if="campaignOwnedEquipment.find((e) => e.id === slot.equipmentId)?.is_advanced"
                                     variant="outline"
-                                    class="ml-1 text-[9px]"
+                                    class="ml-1 text-[10px]"
                                     title="Has an advancement tied to it — Leader/Totem only"
                                 >
                                     Advanced
@@ -577,7 +577,7 @@ const confirmCampaignCrew = () => {
                                     >
                                         <div class="flex min-w-0 items-center gap-1.5">
                                             <span class="truncate font-medium">{{ member.display_name }}</span>
-                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
                                                 {{ categoryLabel(member.category) }}
                                             </Badge>
                                         </div>
@@ -585,7 +585,7 @@ const confirmCampaignCrew = () => {
                                             <template v-if="member.category === 'ook'">
                                                 {{ member.effective_cost }}
                                                 <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                                <span class="ml-0.5 text-[9px] font-normal text-red-300">({{ member.cost }}+1)</span>
+                                                <span class="ml-0.5 text-[10px] font-normal text-white/90">({{ member.cost }}+1)</span>
                                             </template>
                                             <template v-else>
                                                 {{ member.effective_cost }}
@@ -718,7 +718,7 @@ const confirmCampaignCrew = () => {
                                     >
                                         <div class="flex min-w-0 items-center gap-1.5">
                                             <span class="truncate font-medium">{{ member.display_name }}</span>
-                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
                                                 {{ categoryLabel(member.category) }}
                                             </Badge>
                                         </div>
@@ -726,7 +726,7 @@ const confirmCampaignCrew = () => {
                                             <template v-if="member.category === 'ook'">
                                                 {{ member.effective_cost }}
                                                 <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                                <span class="ml-0.5 text-[9px] font-normal text-red-300">({{ member.cost }}+1)</span>
+                                                <span class="ml-0.5 text-[10px] font-normal text-white/90">({{ member.cost }}+1)</span>
                                             </template>
                                             <template v-else>
                                                 {{ member.effective_cost }}

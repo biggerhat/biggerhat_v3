@@ -372,19 +372,19 @@ const topAllegiances = computed(() =>
 
             <Tabs v-model="activeTab">
                 <TabsList class="mb-4">
-                    <TabsTrigger value="collection">
+                    <TabsTrigger aria-label="Collection" value="collection">
                         <Library class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Collection</span>
                     </TabsTrigger>
-                    <TabsTrigger value="packages">
+                    <TabsTrigger aria-label="Packages" value="packages">
                         <Package class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Packages</span>
                     </TabsTrigger>
-                    <TabsTrigger value="allegiances">
+                    <TabsTrigger aria-label="Allegiances" value="allegiances">
                         <Grid2x2 class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Allegiances</span>
                     </TabsTrigger>
-                    <TabsTrigger value="stats">
+                    <TabsTrigger aria-label="Stats" value="stats">
                         <BarChart3 class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Stats</span>
                     </TabsTrigger>
@@ -397,6 +397,7 @@ const topAllegiances = computed(() =>
                             <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input v-model="filterText" placeholder="Search collection..." class="pl-9 pr-9" />
                             <button
+                                aria-label="Clear filter"
                                 v-if="filterText"
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                                 @click="filterText = ''"
@@ -507,7 +508,7 @@ const topAllegiances = computed(() =>
                                             <div class="truncate text-sm font-medium transition-colors hover:text-primary">
                                                 {{ item.unit_name }}
                                             </div>
-                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[9px]">Adjunct</Badge>
+                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[10px]">Adjunct</Badge>
                                         </div>
                                         <div v-if="item.sculpt_name !== item.unit_name" class="truncate text-xs text-muted-foreground">
                                             {{ item.sculpt_name }}
@@ -516,7 +517,7 @@ const topAllegiances = computed(() =>
                                     <div v-else class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5">
                                             <div class="truncate text-sm font-medium">{{ item.unit_name }}</div>
-                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[9px]">Adjunct</Badge>
+                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[10px]">Adjunct</Badge>
                                         </div>
                                         <div v-if="item.sculpt_name !== item.unit_name" class="truncate text-xs text-muted-foreground">
                                             {{ item.sculpt_name }}
@@ -597,6 +598,7 @@ const topAllegiances = computed(() =>
                                     </template>
                                     <div class="ml-1 flex shrink-0 items-center gap-1">
                                         <Button
+                                            aria-label="Decrease quantity"
                                             variant="ghost"
                                             size="icon"
                                             class="size-7"
@@ -607,6 +609,7 @@ const topAllegiances = computed(() =>
                                         </Button>
                                         <span class="w-6 text-center text-sm font-medium tabular-nums">{{ item.quantity }}</span>
                                         <Button
+                                            aria-label="Increase quantity"
                                             variant="ghost"
                                             size="icon"
                                             class="size-7"
@@ -617,6 +620,7 @@ const topAllegiances = computed(() =>
                                         </Button>
                                     </div>
                                     <Button
+                                        aria-label="Remove from collection"
                                         variant="ghost"
                                         size="icon"
                                         class="ml-auto size-7 text-destructive hover:text-destructive"
@@ -676,6 +680,7 @@ const topAllegiances = computed(() =>
                                         </Link>
                                     </div>
                                     <Button
+                                        aria-label="Remove from collection"
                                         v-if="is_owner"
                                         variant="ghost"
                                         size="icon"

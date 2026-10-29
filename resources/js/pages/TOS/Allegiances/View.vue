@@ -276,7 +276,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                     class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
                 >
                     <span class="capitalize">{{ allegiance.type }}</span>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>{{ statistics.total }} {{ statistics.total === 1 ? 'unit' : 'units' }}</span>
                     <Badge v-if="allegiance.is_syndicate" variant="outline" class="ml-2 text-[10px]">Syndicate</Badge>
                 </div>
@@ -318,11 +318,11 @@ const ruleChips = computed(() => props.statistics.by_rule);
                     </Tabs>
                     <Tabs v-if="showViewToggle" :model-value="filterParams.page_view" @update:model-value="(v) => handleViewChange(v as string)">
                         <TabsList>
-                            <TabsTrigger value="cards">
+                            <TabsTrigger aria-label="Cards" value="cards">
                                 <LayoutGrid class="h-4 w-4" />
                                 <span class="hidden sm:inline">Cards</span>
                             </TabsTrigger>
-                            <TabsTrigger value="table">
+                            <TabsTrigger aria-label="Table" value="table">
                                 <List class="h-4 w-4" />
                                 <span class="hidden sm:inline">Table</span>
                             </TabsTrigger>

@@ -87,7 +87,7 @@ const removeTournament = async (t: TournamentSummary) => {
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     Organize and track Gaining Grounds events
-                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[10px] font-bold text-amber-600 dark:text-amber-400"
                         >Beta</Badge
                     >
                 </div>

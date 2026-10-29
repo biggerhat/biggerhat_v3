@@ -143,7 +143,7 @@ const submit = () => {
                             <NumberField v-model="encounterSize" :min="10" :max="100" :step="isBonanza ? 1 : 5" :disabled="isBonanza">
                                 <NumberFieldContent>
                                     <NumberFieldDecrement />
-                                    <NumberFieldInput />
+                                    <NumberFieldInput aria-label="Encounter size (soulstones)" />
                                     <NumberFieldIncrement />
                                 </NumberFieldContent>
                             </NumberField>
@@ -173,7 +173,7 @@ const submit = () => {
                                 <p class="text-xs text-muted-foreground">Track both players yourself</p>
                             </div>
                         </div>
-                        <Switch v-model="isSolo" />
+                        <Switch v-model="isSolo" aria-label="Solo mode" />
                     </div>
 
                     <div class="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground">

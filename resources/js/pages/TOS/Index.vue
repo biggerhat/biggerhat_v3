@@ -158,7 +158,7 @@ const typePools = computed(() => [
                 >
                     <Swords class="size-10 text-primary sm:size-12" />
                     <div
-                        class="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-md"
+                        class="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-md"
                     >
                         β
                     </div>

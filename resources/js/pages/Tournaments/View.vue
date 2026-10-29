@@ -389,7 +389,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         </TabsTrigger>
                         <TabsTrigger v-if="tournament.rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
                             RSVPs
-                            <Badge variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{ tournament.rsvps.length }}</Badge>
+                            <Badge variant="secondary" class="ml-1 px-1 py-0 text-[10px]">{{ tournament.rsvps.length }}</Badge>
                         </TabsTrigger>
                         <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm">
                             <BarChart3 class="mr-1 size-3" /> Stats
@@ -462,12 +462,12 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             <div class="flex flex-col gap-1 p-2.5 sm:hidden">
                                 <div class="flex items-center gap-2 text-[10px] text-muted-foreground">
                                     <span v-if="game.table_number">Table {{ game.table_number }}</span>
-                                    <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-[9px]">BYE</Badge>
-                                    <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-[9px]">Forfeit</Badge>
+                                    <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-[10px]">BYE</Badge>
+                                    <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-[10px]">Forfeit</Badge>
                                     <Badge
                                         v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
                                         variant="outline"
-                                        class="ml-auto px-1 py-0 text-[9px]"
+                                        class="ml-auto px-1 py-0 text-[10px]"
                                         :class="
                                             game.tracker_game.status === 'in_progress'
                                                 ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
@@ -567,7 +567,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                 </div>
 
                                 <template v-if="game.is_bye">
-                                    <Badge variant="outline" class="shrink-0 text-[9px]">BYE</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-[10px]">BYE</Badge>
                                 </template>
                                 <template v-else>
                                     <div class="flex shrink-0 items-center gap-1 font-mono text-xs tabular-nums">
@@ -604,12 +604,12 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         />
                                     </div>
 
-                                    <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]">Forfeit</Badge>
+                                    <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[10px]">Forfeit</Badge>
 
                                     <Badge
                                         v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
                                         variant="outline"
-                                        class="shrink-0 px-1 py-0 text-[9px]"
+                                        class="shrink-0 px-1 py-0 text-[10px]"
                                         :class="
                                             game.tracker_game.status === 'in_progress'
                                                 ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'

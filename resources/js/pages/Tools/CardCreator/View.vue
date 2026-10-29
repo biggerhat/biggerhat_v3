@@ -186,7 +186,7 @@ const stationLabel = (station: string | null) => {
                             <div v-for="action in character.actions" :key="action.name" class="rounded border p-2 text-xs">
                                 <div class="flex items-center gap-1.5">
                                     <span class="font-medium">{{ action.name }}</span>
-                                    <Badge class="text-[8px]">{{ action.type }}</Badge>
+                                    <Badge class="text-[10px]">{{ action.type }}</Badge>
                                     <span v-if="action.stat" class="text-muted-foreground">Stat {{ action.stat }}</span>
                                     <span v-if="action.damage" class="text-muted-foreground">| {{ action.damage }}</span>
                                 </div>

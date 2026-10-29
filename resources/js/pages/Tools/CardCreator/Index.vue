@@ -212,8 +212,8 @@ const stationLabel = (station: string | null) => {
                             <div class="flex h-full items-center justify-center text-muted-foreground">
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white"
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
+                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[10px] text-white"
                                 >Campaign</Badge
                             >
                         </div>
@@ -284,8 +284,8 @@ const stationLabel = (station: string | null) => {
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
                                 <span class="text-[10px] font-medium uppercase tracking-wider opacity-40">Crew Card</span>
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white">
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
+                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-[10px] text-white">
                                 Campaign
                             </Badge>
                         </div>
@@ -349,7 +349,7 @@ const stationLabel = (station: string | null) => {
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
                                 <span class="text-[10px] font-medium uppercase tracking-wider opacity-40">Upgrade</span>
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
                         </div>
                         <CardContent class="p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">

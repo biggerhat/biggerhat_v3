@@ -110,12 +110,12 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                         </div>
                         <p v-if="c.title" class="truncate text-[11px] italic text-muted-foreground">{{ c.title }}</p>
                         <div class="mt-auto flex flex-wrap gap-1">
-                            <Badge v-if="c.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
+                            <Badge v-if="c.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[10px]">Neutral</Badge>
                             <Badge
                                 v-for="r in c.special_unit_rules.filter((r) => r.slug !== 'commander')"
                                 :key="r.id"
                                 variant="outline"
-                                class="px-1 py-0 text-[9px]"
+                                class="px-1 py-0 text-[10px]"
                                 >{{ r.name }}</Badge
                             >
                         </div>

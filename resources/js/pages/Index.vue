@@ -16,7 +16,7 @@ import { computed, ref } from 'vue';
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth?.user);
 
-defineProps<{
+const props = defineProps<{
     featured_character?: any;
     recent_crews?: any[];
     recent_articles?: any[];
@@ -27,6 +27,15 @@ defineProps<{
 
 // One fixed slot per Community Activity feed (Articles / Site News / Aethervox / Recent Crews).
 const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
+
+// The community feeds are each optional; size the grid to the ones that actually render so a
+// missing feed doesn't leave an empty column.
+const feedCount = computed(
+    () => [props.recent_articles, props.recent_news, props.recent_transmissions, props.recent_crews].filter((f) => f?.length).length,
+);
+const feedGridClass = computed(() =>
+    feedCount.value >= 4 ? 'lg:grid-cols-2 xl:grid-cols-4' : feedCount.value === 3 ? 'lg:grid-cols-3' : feedCount.value === 2 ? 'lg:grid-cols-2' : '',
+);
 </script>
 
 <template>
@@ -257,15 +266,15 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                         </div>
                         <div class="mx-auto mt-4 grid w-full max-w-xs grid-cols-3 gap-2 text-center">
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <HeadingEyebrow as="h4">Cost</HeadingEyebrow>
+                                <HeadingEyebrow as="h3">Cost</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.cost ?? '—' }}</div>
                             </div>
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <HeadingEyebrow as="h4">Health</HeadingEyebrow>
+                                <HeadingEyebrow as="h3">Health</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.health ?? '—' }}</div>
                             </div>
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <HeadingEyebrow as="h4">Defense</HeadingEyebrow>
+                                <HeadingEyebrow as="h3">Defense</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.defense ?? '—' }}</div>
                             </div>
                         </div>
@@ -295,7 +304,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                 <div class="mb-3 flex items-center justify-between px-1">
                     <HeadingEyebrow as="h2">From the Community</HeadingEyebrow>
                 </div>
-                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+                <div class="grid gap-4" :class="feedGridClass">
                     <!-- Articles -->
                     <div v-if="recent_articles?.length" class="animate-fade-in-up" :style="feedDelays[0]">
                         <div class="mb-2 flex items-center justify-between">

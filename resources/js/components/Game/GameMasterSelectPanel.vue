@@ -189,7 +189,7 @@ const confirmOpponentMasterSelection = () => {
                                     <Badge
                                         v-if="master.is_alternate_leader"
                                         variant="outline"
-                                        class="border-cyan-500/50 px-1 py-0 text-[9px] text-cyan-600 dark:text-cyan-400"
+                                        class="border-cyan-500/50 px-1 py-0 text-[10px] text-cyan-600 dark:text-cyan-400"
                                     >
                                         Alt Leader
                                     </Badge>
@@ -197,7 +197,7 @@ const confirmOpponentMasterSelection = () => {
                                     <Badge
                                         v-if="isBonanza && master.titles.length === 1 && master.titles[0].bonanza_cost !== undefined"
                                         variant="outline"
-                                        class="border-purple-500/50 px-1 py-0 text-[9px] text-purple-600 dark:text-purple-300"
+                                        class="border-purple-500/50 px-1 py-0 text-[10px] text-purple-600 dark:text-purple-300"
                                         >{{ master.titles[0].bonanza_cost }}ss</Badge
                                     >
                                 </div>

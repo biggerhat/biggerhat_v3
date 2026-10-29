@@ -123,10 +123,10 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
                             <Button variant="outline" size="sm" @click="toggle(job.uuid)">
                                 {{ expanded === job.uuid ? 'Hide trace' : 'Show trace' }}
                             </Button>
-                            <Button variant="outline" size="sm" @click="retry(job.uuid)">
+                            <Button aria-label="Retry job" variant="outline" size="sm" @click="retry(job.uuid)">
                                 <RefreshCw class="size-3.5" />
                             </Button>
-                            <Button variant="outline" size="sm" @click="destroy(job.uuid)">
+                            <Button aria-label="Delete failed job" variant="outline" size="sm" @click="destroy(job.uuid)">
                                 <Trash2 class="size-3.5" />
                             </Button>
                         </div>

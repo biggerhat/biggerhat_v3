@@ -257,7 +257,9 @@ onMounted(() => {
                             </SelectContent>
                         </Select>
                         <Input v-model="limit.parameter_value" placeholder="Value (slug / size / location)" />
-                        <Button type="button" variant="ghost" size="sm" @click="removeLimit(idx)"><Trash2 class="size-4" /></Button>
+                        <Button aria-label="Remove limit" type="button" variant="ghost" size="sm" @click="removeLimit(idx)"
+                            ><Trash2 class="size-4"
+                        /></Button>
                     </div>
                 </div>
             </CardContent>

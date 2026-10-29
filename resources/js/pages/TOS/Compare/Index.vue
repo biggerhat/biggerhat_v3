@@ -215,7 +215,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                                 </li>
                                 <li v-for="a in glorySide(u)?.abilities ?? []" :key="`g-${a.id}`" class="text-muted-foreground">
                                     <span class="font-medium text-foreground">{{ a.name }}</span>
-                                    <span class="ml-1 text-[9px] uppercase tracking-wider">(glory)</span>
+                                    <span class="ml-1 text-[10px] uppercase tracking-wider">(glory)</span>
                                     <span v-if="a.body" class="ml-1"><TosText :text="a.body" /></span>
                                 </li>
                             </ul>
@@ -243,7 +243,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                                 >
                                     <span
                                         ><span class="font-medium text-foreground">{{ ac.name }}</span>
-                                        <span class="text-[9px] uppercase tracking-wider">(glory)</span></span
+                                        <span class="text-[10px] uppercase tracking-wider">(glory)</span></span
                                     >
                                     <span class="text-[10px]">
                                         <template v-if="ac.av != null">AV {{ ac.av }}</template>

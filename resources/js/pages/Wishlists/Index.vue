@@ -110,6 +110,7 @@ function confirmDelete() {
                                 </div>
                             </Link>
                             <Button
+                                aria-label="Delete wishlist"
                                 variant="ghost"
                                 size="icon"
                                 class="size-7 shrink-0 text-destructive hover:text-destructive"

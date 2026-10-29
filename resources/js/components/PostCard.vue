@@ -59,7 +59,7 @@ const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en
                 </h2>
                 <p v-if="post.excerpt" class="mb-3 line-clamp-2 text-sm text-muted-foreground">{{ post.excerpt }}</p>
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Avatar size="sm" class="!h-5 !w-5 !text-[9px]">
+                    <Avatar size="sm" class="!h-5 !w-5 !text-[10px]">
                         <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
                     </Avatar>
                     <span class="font-medium text-foreground">{{ post.author.name }}</span>
@@ -90,7 +90,7 @@ const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en
                 </h3>
                 <p v-if="post.excerpt" class="mb-3 line-clamp-2 text-xs text-muted-foreground">{{ post.excerpt }}</p>
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Avatar size="sm" class="!h-5 !w-5 !text-[9px]">
+                    <Avatar size="sm" class="!h-5 !w-5 !text-[10px]">
                         <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
                     </Avatar>
                     <span>{{ post.author.name }}</span>

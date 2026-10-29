@@ -610,11 +610,12 @@ async function deleteCompany() {
                                 <Share2 class="size-3.5" />
                                 <span class="hidden sm:inline">{{ shareCopied ? 'Copied!' : 'Share' }}</span>
                             </Button>
-                            <Button variant="ghost" size="sm" class="h-8 gap-1 text-xs" title="Download PDF" @click="downloadPdf">
+                            <Button aria-label="PDF" variant="ghost" size="sm" class="h-8 gap-1 text-xs" title="Download PDF" @click="downloadPdf">
                                 <Printer class="size-3.5" />
                                 <span class="hidden sm:inline">PDF</span>
                             </Button>
                             <Button
+                                aria-label="Delete company"
                                 variant="ghost"
                                 size="sm"
                                 class="h-8 gap-1 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
@@ -708,7 +709,7 @@ async function deleteCompany() {
                                     />
                                 </Link>
                             </div>
-                            <p class="mt-1 text-[9px] italic text-muted-foreground">
+                            <p class="mt-1 text-[10px] italic text-muted-foreground">
                                 Standard effects only — “Primary Only” doesn’t apply as an Envoy.
                             </p>
                         </div>
@@ -891,11 +892,11 @@ async function deleteCompany() {
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="truncate font-medium">{{ a.name }}</span>
-                                    <Badge v-if="isAssetUnique(a)" variant="outline" class="px-1 py-0 text-[9px]">Unique</Badge>
+                                    <Badge v-if="isAssetUnique(a)" variant="outline" class="px-1 py-0 text-[10px]">Unique</Badge>
                                     <Badge
                                         v-if="a.already_attached"
                                         variant="outline"
-                                        class="border-amber-500/40 bg-amber-500/10 px-1 py-0 text-[9px] text-amber-700 dark:text-amber-400"
+                                        class="border-amber-500/40 bg-amber-500/10 px-1 py-0 text-[10px] text-amber-700 dark:text-amber-400"
                                         >In Company</Badge
                                     >
                                 </div>
@@ -903,7 +904,7 @@ async function deleteCompany() {
                                     <span
                                         v-for="loc in slotLocations(a)"
                                         :key="loc"
-                                        class="text-[9px] uppercase tracking-wider text-muted-foreground"
+                                        class="text-[10px] uppercase tracking-wider text-muted-foreground"
                                         >{{ loc }}</span
                                     >
                                 </div>

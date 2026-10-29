@@ -95,7 +95,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
     >
         <div
             :class="[
-                'relative flex h-[4.75in] w-[2.75in] origin-top-left flex-col overflow-hidden rounded-xl border bg-card text-[8px] shadow-sm',
+                'relative flex h-[4.75in] w-[2.75in] origin-top-left flex-col overflow-hidden rounded-xl border bg-card text-[10px] shadow-sm',
                 theme.border,
             ]"
             :style="mode === 'display' ? { transform: `scale(${DISPLAY_SCALE})` } : undefined"
@@ -113,7 +113,7 @@ const sideHasContent = (side: LootCardSide): boolean =>
                 <button
                     v-if="!hideToggle"
                     type="button"
-                    class="rounded border bg-background/70 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                    class="rounded border bg-background/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
                     :title="mirrored ? 'View both sides right-side up' : 'View as printed card (Side B rotated)'"
                     @click="mirrored = !mirrored"
                 >

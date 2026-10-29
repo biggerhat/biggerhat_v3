@@ -74,7 +74,14 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
         <div class="container mx-auto flex w-full max-w-full flex-col gap-12 overflow-x-hidden px-3 pb-12 pt-6 sm:px-4 lg:gap-16">
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-4 sm:pt-8 lg:pt-12">
-                <img src="/images/hat_side.webp" class="h-32 sm:h-40 md:h-48" alt="BiggerHat.net" fetchpriority="high" />
+                <img
+                    src="/images/hat_side_md.webp"
+                    width="732"
+                    height="384"
+                    class="h-32 w-auto sm:h-40 md:h-48"
+                    alt="BiggerHat.net"
+                    fetchpriority="high"
+                />
                 <h1 class="mt-4 text-balance text-center text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
                     Your Companion for Malifaux and The Other Side
                 </h1>

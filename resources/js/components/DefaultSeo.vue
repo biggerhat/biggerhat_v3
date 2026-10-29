@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -13,8 +14,9 @@ const DESCRIPTION =
     'BiggerHat is the comprehensive Malifaux database — characters, upgrades, keywords, lore, build tools, tournament tracker, and more. The fastest way to find anything Malifaux.';
 const SHORT_DESCRIPTION = 'The comprehensive Malifaux database — characters, upgrades, keywords, lore, and tools.';
 
-const canonical = computed(() => (typeof window === 'undefined' ? undefined : `${window.location.origin}${window.location.pathname}`));
-const image = computed(() => (typeof window === 'undefined' ? undefined : `${window.location.origin}/images/biggerhat-og.png`));
+const current = useCurrentUrl();
+const canonical = computed(() => (current.value ? `${current.value.origin}${current.value.pathname}` : undefined));
+const image = computed(() => (current.value ? `${current.value.origin}/images/biggerhat-og.png` : undefined));
 </script>
 
 <template>

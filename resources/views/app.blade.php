@@ -66,6 +66,13 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
         <link rel="manifest" href="/build/manifest.webmanifest">
+        {{-- Head tags rendered by the Inertia SSR service (page <Head>/<SeoHead> plus the layout's DefaultSeo). They come
+             first so crawlers see the page's own <title>; the controller-supplied/default tags below are only the
+             fallback for when SSR is off or failed, otherwise the document would carry two <title>s and the first
+             (generic) one would win. --}}
+        @inertiaHead
+
+        @if (empty($__inertiaSsrResponse))
         {{-- Per-page meta is supplied by controllers via
              `->withViewData(['page_meta' => $this->pageMeta(...)])` (see
              App\Http\Controllers\Concerns\BuildsPageMeta). Anything not
@@ -97,13 +104,13 @@
         <meta name="twitter:title" content="{{ $metaTitle }}" inertia="twitter:title">
         <meta name="twitter:description" content="{{ $metaDescription ?? $defaultShortDescription }}" inertia="twitter:description">
         <meta name="twitter:image" content="{{ $metaImage }}" inertia="twitter:image">
+        @endif
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
         @routes
         @vite(['resources/js/app.ts'])
-        @inertiaHead
     </head>
     <body class="font-sans antialiased">
         @inertia

@@ -35,6 +35,7 @@ import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
+    ArrowRight,
     CalendarDays,
     Check,
     ChevronDown,
@@ -1228,6 +1229,141 @@ const canFinalize = computed(() => {
     if (!latestRound.value) return false;
     return latestRound.value.status === 'completed';
 });
+// ─── Next step guidance ───
+// One obvious "what do I do now" for the organizer, derived from the tournament and its latest round,
+// plus a four-stage progress strip. Actions reuse the same handlers as the buttons deeper in the page.
+type StepStage = 'players' | 'pairing' | 'play' | 'results';
+interface NextStep {
+    stage: StepStage;
+    title: string;
+    detail: string;
+    actionLabel?: string;
+    action?: () => void;
+    disabled?: boolean;
+}
+
+const nextStep = computed<NextStep | null>(() => {
+    const t = props.tournament;
+    const round = latestRound.value;
+
+    if (t.status === 'completed') return null;
+    if (t.status === 'draft') {
+        return {
+            stage: 'players',
+            title: 'Set up your tournament',
+            detail: 'Add players or collect RSVPs, then open registration.',
+            actionLabel: statusTransitions.draft.label,
+            action: () => (confirmStatusDialog.value = true),
+        };
+    }
+    if (t.status === 'registration') {
+        return {
+            stage: 'players',
+            title: 'Registration is open',
+            detail: `${t.players.length} ${t.players.length === 1 ? 'player is' : 'players are'} in. Start the tournament when everyone has arrived.`,
+            actionLabel: statusTransitions.registration.label,
+            action: () => (confirmStatusDialog.value = true),
+        };
+    }
+    if (!round) {
+        return {
+            stage: 'pairing',
+            title: 'Add Round 1',
+            detail: 'Create the first round, set its scenario, then pair the players.',
+            actionLabel: 'Add Round 1',
+            action: createRound,
+        };
+    }
+    if (round.status === 'setup' && round.games.length === 0) {
+        const reason = pairBlockReason(round);
+        if (reason === null) {
+            return {
+                stage: 'pairing',
+                title: `Pair Round ${round.round_number}`,
+                detail: `The scenario is set. Generate Swiss pairings for ${activePlayers.value.length} players.`,
+                actionLabel: 'Auto-pair players',
+                action: () => generatePairings(round.id),
+                disabled: submitting.value,
+            };
+        }
+        return {
+            stage: 'pairing',
+            title: `Set up Round ${round.round_number}`,
+            detail: reason,
+            actionLabel: 'Set scenario',
+            action: () => {
+                activeTab.value = 'rounds';
+                if (expandedScenarioRoundId.value !== round.id) toggleScenarioEdit(round);
+            },
+        };
+    }
+    if (round.status === 'setup') {
+        return {
+            stage: 'pairing',
+            title: `Round ${round.round_number} is paired`,
+            detail: 'Check the pairings, then start the round to create the games.',
+            actionLabel: `Start Round ${round.round_number}`,
+            action: () => startRound(round.id),
+            disabled: submitting.value,
+        };
+    }
+    if (round.status === 'in_progress') {
+        const total = round.games.filter((g: any) => !g.is_bye).length;
+        const done = round.games.filter((g: any) => !g.is_bye && ['completed', 'agreed', 'forfeited'].includes(g.result)).length;
+        if (canEndRound(round)) {
+            return {
+                stage: 'play',
+                title: `Round ${round.round_number}: all scores are in`,
+                detail: 'Every game has a result. End the round to update standings.',
+                actionLabel: `End Round ${round.round_number}`,
+                action: () => endRound(round.id),
+                disabled: submitting.value,
+            };
+        }
+        return {
+            stage: 'play',
+            title: `Round ${round.round_number} is in progress`,
+            detail: `${done} of ${total} games reported. The round can end once every result is entered.`,
+            actionLabel: 'View games',
+            action: () => (activeTab.value = 'rounds'),
+        };
+    }
+    // Latest round completed
+    if (canFinalize.value) {
+        return {
+            stage: 'results',
+            title: 'All rounds are finished',
+            detail: 'Finalize the standings to complete the tournament.',
+            actionLabel: 'Finalize standings',
+            action: () => (confirmFinalizeDialog.value = true),
+        };
+    }
+    return {
+        stage: 'pairing',
+        title: `Round ${round.round_number} is complete`,
+        detail: `Add Round ${nextRoundNumber()} when you're ready.`,
+        actionLabel: `Add Round ${nextRoundNumber()}`,
+        action: createRound,
+    };
+});
+const nextRoundNumber = () => props.tournament.rounds.length + 1;
+
+const STEP_STAGES: { key: StepStage; label: string }[] = [
+    { key: 'players', label: 'Players' },
+    { key: 'pairing', label: 'Pairing' },
+    { key: 'play', label: 'Play' },
+    { key: 'results', label: 'Results' },
+];
+const stageState = (key: StepStage): 'done' | 'current' | 'upcoming' => {
+    const current = nextStep.value?.stage;
+    if (!current) return 'done';
+    return STEP_STAGES.findIndex((x) => x.key === key) < STEP_STAGES.findIndex((x) => x.key === current)
+        ? 'done'
+        : key === current
+          ? 'current'
+          : 'upcoming';
+};
+
 const formatDate = (d: string) => formatDateOnly(d, { month: 'long', day: 'numeric', year: 'numeric' });
 const toDateInput = (d: string) => (d ? d.split('T')[0] : '');
 const isEditable = computed(() => !isLocked.value);
@@ -1296,6 +1432,46 @@ const titlesForMaster = (masterName: string | null) => {
                     </Button>
                 </div>
             </div>
+
+            <!-- Next step: what to do now, and where we are in the tournament -->
+            <Card v-if="nextStep" class="mb-4 border-primary/30 bg-primary/5">
+                <CardContent class="space-y-3 p-4">
+                    <ol class="flex items-center gap-1 text-xs" aria-label="Tournament progress">
+                        <li
+                            v-for="(stage, i) in STEP_STAGES"
+                            :key="stage.key"
+                            class="flex items-center gap-1"
+                            :aria-current="stageState(stage.key) === 'current' ? 'step' : undefined"
+                        >
+                            <span
+                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium"
+                                :class="
+                                    stageState(stage.key) === 'current'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : stageState(stage.key) === 'done'
+                                          ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-400'
+                                          : 'bg-muted text-muted-foreground'
+                                "
+                            >
+                                <Check v-if="stageState(stage.key) === 'done'" class="size-3" />
+                                {{ stage.label }}
+                            </span>
+                            <span v-if="i < STEP_STAGES.length - 1" class="h-px w-3 bg-border sm:w-6" aria-hidden="true" />
+                        </li>
+                    </ol>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div class="text-sm font-semibold">{{ nextStep.title }}</div>
+                            <div class="text-xs text-muted-foreground sm:text-sm">{{ nextStep.detail }}</div>
+                        </div>
+                        <Button v-if="nextStep.action" class="shrink-0 gap-1.5" :disabled="nextStep.disabled" @click="nextStep.action">
+                            <Loader2 v-if="nextStep.disabled" class="size-4 animate-spin" />
+                            {{ nextStep.actionLabel }}
+                            <ArrowRight v-if="!nextStep.disabled" class="size-4" />
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
 
             <Tabs v-model="activeTab" default-value="standings">
                 <TabsList class="mb-4 flex w-full flex-wrap">

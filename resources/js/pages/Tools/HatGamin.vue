@@ -11,7 +11,6 @@ const inviteUrl = 'https://discord.com/api/oauth2/authorize?client_id=7965184135
 
 interface CommandInfo {
     name: string;
-    aliases?: string[];
     description: string;
     example?: string;
 }
@@ -23,14 +22,12 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
         commands: [
             {
                 name: '/mini',
-                aliases: ['!mini'],
                 description: 'Search for a character by name. Supports version filters: --alt, --special, --nightmare, --rotten, --promo',
                 example: '/mini Lady Justice',
             },
             { name: '/miniature', description: 'Search for a specific sculpt variant of a miniature', example: '/miniature Rasputina Alt' },
             {
                 name: '/keyword',
-                aliases: ['!keyword'],
                 description: 'Look up a keyword and see all associated characters with station breakdown',
                 example: '/keyword Redchapel',
             },
@@ -47,13 +44,11 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
         commands: [
             {
                 name: '/upgrade',
-                aliases: ['!upgrade'],
                 description: 'Search for character upgrades with card images',
                 example: '/upgrade Inhuman Reflexes',
             },
             {
                 name: '/crew',
-                aliases: ['!crew'],
                 description: 'Search for crew-level upgrades and see associated characters',
                 example: '/crew Seeker',
             },
@@ -74,10 +69,10 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
         title: 'Encounter & Game Mechanics',
         icon: Swords,
         commands: [
-            { name: '/scheme', aliases: ['!scheme'], description: 'Look up scheme cards with images', example: '/scheme Breakthrough' },
-            { name: '/strategy', aliases: ['!strategy'], description: 'Look up strategy cards with images', example: '/strategy Turf War' },
-            { name: '/marker', aliases: ['!marker'], description: 'Look up marker sizes and associated terrain traits', example: '/marker Scrap' },
-            { name: '/token', aliases: ['!token'], description: 'Look up token information and descriptions', example: '/token Focus' },
+            { name: '/scheme', description: 'Look up scheme cards with images', example: '/scheme Breakthrough' },
+            { name: '/strategy', description: 'Look up strategy cards with images', example: '/strategy Turf War' },
+            { name: '/marker', description: 'Look up marker sizes and associated terrain traits', example: '/marker Scrap' },
+            { name: '/token', description: 'Look up token information and descriptions', example: '/token Focus' },
             { name: '/terrain', description: 'Search for terrain traits and their effects', example: '/terrain Climbable' },
         ],
     },
@@ -87,7 +82,6 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
         commands: [
             {
                 name: '/package',
-                aliases: ['!package'],
                 description: 'Search for product boxes with contents, factions, and store links',
                 example: '/package Rasputina Core Box',
             },
@@ -110,7 +104,7 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
         commands: [
             { name: '/ping', description: 'Check bot latency and uptime' },
             { name: '/botstats', description: 'Show how many servers the bot is in' },
-            { name: '/help', aliases: ['!help'], description: 'Display all available commands' },
+            { name: '/help', description: 'Display all available commands' },
         ],
     },
 ];
@@ -152,7 +146,7 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                                 BiggerHat database with autocomplete search and card images.
                             </p>
                             <div class="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                                <Badge variant="secondary">22 Commands</Badge>
+                                <Badge variant="secondary">21 Commands</Badge>
                                 <Badge variant="secondary">Slash Commands</Badge>
                                 <Badge variant="secondary">Autocomplete</Badge>
                                 <Badge variant="secondary">Card Images</Badge>
@@ -193,11 +187,23 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                         <Zap class="mx-auto mb-2 size-6 text-primary" />
                         <div class="font-semibold">Fast & Cached</div>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            Results are cached for speed. Works with both slash commands and traditional ! prefix
+                            Results are cached for speed. Use slash commands, or just @mention Hat Gamin in chat
                         </p>
                     </CardContent>
                 </Card>
             </div>
+
+            <!-- Mention usage -->
+            <Card class="mb-6">
+                <CardContent class="p-4">
+                    <div class="flex items-center gap-2 font-semibold"><MessageSquare class="size-4 text-primary" /> Prefer typing in chat?</div>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        Every command below also works by mentioning Hat Gamin before the command name. The old <code>!</code> prefix is no longer
+                        supported.
+                    </p>
+                    <code class="mt-2 block text-xs text-muted-foreground/70">@Hat Gamin mini Lady Justice</code>
+                </CardContent>
+            </Card>
 
             <!-- Command reference -->
             <h2 class="mb-4 text-lg font-bold">Command Reference</h2>
@@ -213,9 +219,6 @@ const categories: { title: string; icon: any; commands: CommandInfo[] }[] = [
                         <div v-for="cmd in category.commands" :key="cmd.name" class="border-t px-4 py-3 sm:px-6">
                             <div class="flex flex-wrap items-center gap-2">
                                 <code class="rounded bg-primary/10 px-2 py-0.5 text-sm font-bold text-primary">{{ cmd.name }}</code>
-                                <Badge v-for="alias in cmd.aliases ?? []" :key="alias" variant="outline" class="font-mono text-[10px]">{{
-                                    alias
-                                }}</Badge>
                             </div>
                             <p class="mt-1 text-sm text-muted-foreground">{{ cmd.description }}</p>
                             <div v-if="cmd.example" class="mt-1.5">

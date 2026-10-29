@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ApiTokensAdminController;
 use App\Http\Controllers\Admin\BlogCategoryAdminController;
 use App\Http\Controllers\Admin\BlogPostAdminController;
 use App\Http\Controllers\Admin\BlueprintAdminController;
+use App\Http\Controllers\Admin\BotMonitorAdminController;
 use App\Http\Controllers\Admin\CacheAdminController;
 use App\Http\Controllers\Admin\Campaign\AdvancementAbilityAdminController;
 use App\Http\Controllers\Admin\Campaign\AdvancementActionAdminController;
@@ -119,6 +120,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
             Route::post('/{kind}/{id}/unpublish', 'unpublish')->name('unpublish');
             Route::post('/{kind}/{id}/delete', 'destroy')->name('delete');
         });
+
+        Route::get('/bot-monitor', [BotMonitorAdminController::class, 'index'])->name('bot_monitor.index');
 
         Route::controller(ImageHealthAdminController::class)->prefix('image-health')->name('image_health.')->group(function () {
             Route::get('/', 'index')->name('index');

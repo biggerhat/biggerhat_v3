@@ -4,6 +4,7 @@ import {
     AlertTriangle,
     ArrowUpCircle,
     BookOpen,
+    Bot,
     Clock,
     Coins,
     Eraser,
@@ -29,6 +30,7 @@ import {
     ShieldCheck,
     Swords,
     Telescope,
+    Trash2,
     Trophy,
     Users,
 } from 'lucide-vue-next';
@@ -42,6 +44,7 @@ const ICONS: Record<string, LucideIcon> = {
     AlertTriangle,
     ArrowUpCircle,
     BookOpen,
+    Bot,
     Clock,
     Coins,
     Eraser,
@@ -66,6 +69,7 @@ const ICONS: Record<string, LucideIcon> = {
     ShieldCheck,
     Swords,
     Telescope,
+    Trash2,
     Trophy,
     Users,
 };

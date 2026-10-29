@@ -42,6 +42,7 @@ import {
     Globe,
     Loader2,
     Lock,
+    MoreHorizontal,
     Pencil,
     Plus,
     Printer,
@@ -2149,9 +2150,10 @@ onUnmounted(() => {
                             <Card
                                 v-for="build in activeBuilds"
                                 :key="build.id"
-                                class="transition-colors"
+                                class="overflow-hidden transition-colors"
                                 :class="expandedBuildId === build.id ? 'shadow-md ring-1 ring-primary/50' : 'hover:bg-accent/30'"
                             >
+                                <div class="h-1 w-full" :class="factionBackground(build.faction)" aria-hidden="true" />
                                 <CardContent class="p-4">
                                     <div class="flex cursor-pointer items-start gap-3" @click="toggleBuildExpand(build)">
                                         <img
@@ -2171,6 +2173,16 @@ onUnmounted(() => {
                                                     <GameIcon type="soulstone" class-name="h-3 inline-block" />
                                                 </span>
                                                 <span>{{ (build.crew_data?.length ?? 0) + 1 }} models</span>
+                                                <span
+                                                    class="inline-flex items-center gap-1"
+                                                    :title="
+                                                        build.is_public ? 'Anyone with the link can view this crew' : 'Only you can see this crew'
+                                                    "
+                                                >
+                                                    <Globe v-if="build.is_public" class="size-3" />
+                                                    <Lock v-else class="size-3" />
+                                                    {{ build.is_public ? 'Public' : 'Private' }}
+                                                </span>
                                             </div>
                                             <div v-if="build.copied_from" class="mt-1 text-xs text-muted-foreground">
                                                 Copied from
@@ -2249,56 +2261,45 @@ onUnmounted(() => {
                                     </div>
 
                                     <Separator class="my-3" />
-                                    <div class="flex flex-wrap items-center gap-1">
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="loadBuild(build)">
-                                            <Pencil class="size-3" />
+                                    <div class="flex items-center gap-2">
+                                        <Button size="sm" variant="secondary" class="h-8 flex-1 gap-1.5" @click="loadBuild(build)">
+                                            <Pencil class="size-3.5" />
                                             Edit
                                         </Button>
                                         <Button
-                                            variant="ghost"
                                             size="sm"
-                                            class="h-7 gap-1 text-xs"
+                                            variant="outline"
+                                            class="h-8 gap-1.5"
                                             as="a"
                                             :href="route('tools.crew_builder.share', build.share_code)"
                                         >
-                                            <ExternalLink class="size-3" />
+                                            <ExternalLink class="size-3.5" />
                                             View
                                         </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            class="h-7 gap-1 text-xs"
-                                            :disabled="!build.is_public"
-                                            :title="build.is_public ? 'Copy share link' : 'Make public to share'"
-                                            @click="copyShareLinkForBuild(build)"
-                                        >
-                                            <Copy class="size-3" />
-                                            Share
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            class="h-7 gap-1 text-xs"
-                                            :title="build.is_public ? 'Public — click to make private' : 'Private — click to make public'"
-                                            @click="togglePublic(build)"
-                                        >
-                                            <Globe v-if="build.is_public" class="size-3" />
-                                            <Lock v-else class="size-3" />
-                                            {{ build.is_public ? 'Public' : 'Private' }}
-                                        </Button>
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="toggleArchive(build)">
-                                            <Archive class="size-3" />
-                                            Archive
-                                        </Button>
-                                        <Button
-                                            aria-label="Delete crew"
-                                            variant="ghost"
-                                            size="sm"
-                                            class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
-                                            @click="deleteTarget = build"
-                                        >
-                                            <Trash2 class="size-3" />
-                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger as-child>
+                                                <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${build.name}`">
+                                                    <MoreHorizontal class="size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem :disabled="!build.is_public" @click="copyShareLinkForBuild(build)">
+                                                    <Copy class="mr-2 size-4" />
+                                                    {{ build.is_public ? 'Copy share link' : 'Copy share link (make public first)' }}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem @click="togglePublic(build)">
+                                                    <Lock v-if="build.is_public" class="mr-2 size-4" />
+                                                    <Globe v-else class="mr-2 size-4" />
+                                                    {{ build.is_public ? 'Make private' : 'Make public' }}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem @click="toggleArchive(build)">
+                                                    <Archive class="mr-2 size-4" /> Archive
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem class="text-destructive focus:text-destructive" @click="deleteTarget = build">
+                                                    <Trash2 class="mr-2 size-4" /> Delete…
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -2314,6 +2315,7 @@ onUnmounted(() => {
                                 class="opacity-75 transition-colors hover:opacity-100"
                                 :class="expandedBuildId === build.id ? 'opacity-100 shadow-md ring-1 ring-primary/50' : 'hover:bg-accent/30'"
                             >
+                                <div class="h-1 w-full" :class="factionBackground(build.faction)" aria-hidden="true" />
                                 <CardContent class="p-4">
                                     <div class="flex cursor-pointer items-start gap-3" @click="toggleBuildExpand(build)">
                                         <img
@@ -2410,34 +2412,34 @@ onUnmounted(() => {
                                     </div>
 
                                     <Separator class="my-3" />
-                                    <div class="flex flex-wrap items-center gap-1">
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="loadBuild(build)">
-                                            <Pencil class="size-3" />
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            class="h-7 gap-1 text-xs"
-                                            as="a"
-                                            :href="route('tools.crew_builder.share', build.share_code)"
-                                        >
-                                            <ExternalLink class="size-3" />
-                                            View
-                                        </Button>
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="toggleArchive(build)">
-                                            <ArchiveRestore class="size-3" />
+                                    <div class="flex items-center gap-2">
+                                        <Button size="sm" variant="secondary" class="h-8 flex-1 gap-1.5" @click="toggleArchive(build)">
+                                            <ArchiveRestore class="size-3.5" />
                                             Restore
                                         </Button>
                                         <Button
-                                            aria-label="Delete crew"
-                                            variant="ghost"
                                             size="sm"
-                                            class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
-                                            @click="deleteTarget = build"
+                                            variant="outline"
+                                            class="h-8 gap-1.5"
+                                            as="a"
+                                            :href="route('tools.crew_builder.share', build.share_code)"
                                         >
-                                            <Trash2 class="size-3" />
+                                            <ExternalLink class="size-3.5" />
+                                            View
                                         </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger as-child>
+                                                <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${build.name}`">
+                                                    <MoreHorizontal class="size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem @click="loadBuild(build)"> <Pencil class="mr-2 size-4" /> Edit </DropdownMenuItem>
+                                                <DropdownMenuItem class="text-destructive focus:text-destructive" @click="deleteTarget = build">
+                                                    <Trash2 class="mr-2 size-4" /> Delete…
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </CardContent>
                             </Card>

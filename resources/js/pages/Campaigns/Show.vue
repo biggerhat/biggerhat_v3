@@ -4,15 +4,19 @@ import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCampaignChannel } from '@/composables/useCampaignChannel';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { MoreHorizontal } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 const confirmDialog = useConfirm();
+const inviteDialogOpen = ref(false);
 const toast = useToast();
 const page = usePage();
 const authUserId = computed(() => (page.props.auth as any)?.user?.id ?? null);
@@ -296,9 +300,6 @@ const deleteCampaign = async (id: number) => {
 
     <div class="container mx-auto max-w-5xl px-4 pb-12">
         <div class="mb-6 mt-4 flex flex-wrap items-center justify-end gap-2">
-            <Link v-if="is_organizer" :href="route('campaigns.settings', campaign.id)">
-                <Button variant="outline">Settings</Button>
-            </Link>
             <Button
                 v-if="is_organizer && campaign.status === 'planning'"
                 @click="startCampaign(campaign.id)"
@@ -330,15 +331,15 @@ const deleteCampaign = async (id: number) => {
                     <Button variant="outline">Log Game</Button>
                 </Link>
             </template>
-            <Button v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'" variant="outline" @click="qrDialogOpen = true">
-                Invite Link
-            </Button>
             <Button
                 v-if="!campaign.is_solo && campaign.status !== 'ended' && isMember && !myCrew"
                 variant="outline"
                 @click="joinAsPlayer(campaign.id)"
             >
                 Join as a Player
+            </Button>
+            <Button v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'" variant="outline" @click="inviteDialogOpen = true">
+                Invite players
             </Button>
             <Button
                 v-if="is_organizer && campaign.status === 'active' && campaign.current_week < campaign.length_weeks"
@@ -347,9 +348,28 @@ const deleteCampaign = async (id: number) => {
             >
                 Advance Week
             </Button>
-            <Button v-if="is_organizer && campaign.status === 'active'" variant="destructive" @click="endCampaign(campaign.id)">
-                End Campaign
-            </Button>
+            <!-- Rarely used and/or destructive organizer actions live in a menu so they can't be hit by accident. -->
+            <DropdownMenu v-if="is_organizer">
+                <DropdownMenuTrigger as-child>
+                    <Button variant="outline" size="icon" aria-label="More campaign actions">
+                        <MoreHorizontal class="size-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem as-child>
+                        <Link :href="route('campaigns.settings', campaign.id)">Campaign settings</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem v-if="!campaign.is_solo && campaign.status !== 'ended'" @click="qrDialogOpen = true"
+                        >Show invite link / QR</DropdownMenuItem
+                    >
+                    <template v-if="campaign.status === 'active'">
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem class="text-destructive focus:text-destructive" @click="endCampaign(campaign.id)"
+                            >End campaign…</DropdownMenuItem
+                        >
+                    </template>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
 
         <!-- Solo skips the Players panel and spans Crew full-width since the
@@ -360,7 +380,7 @@ const deleteCampaign = async (id: number) => {
         <div :class="campaign.is_solo ? '' : 'grid gap-4 md:grid-cols-3'">
             <Card v-if="!campaign.is_solo">
                 <CardHeader
-                    ><CardTitle>Players ({{ campaign.players.length }})</CardTitle></CardHeader
+                    ><CardTitle class="text-lg">Players ({{ campaign.players.length }})</CardTitle></CardHeader
                 >
                 <CardContent>
                     <ul class="space-y-2">
@@ -369,11 +389,19 @@ const deleteCampaign = async (id: number) => {
                             <Badge variant="outline" class="text-[10px] uppercase">{{ p.role }}</Badge>
                         </li>
                     </ul>
+                    <button
+                        v-if="is_organizer && campaign.invitations.length"
+                        type="button"
+                        class="mt-3 text-xs text-primary hover:underline"
+                        @click="inviteDialogOpen = true"
+                    >
+                        {{ campaign.invitations.length }} pending {{ campaign.invitations.length === 1 ? 'invitation' : 'invitations' }}
+                    </button>
                 </CardContent>
             </Card>
 
             <Card v-if="!campaign.is_solo">
-                <CardHeader><CardTitle>Setup Arsenal Sheet</CardTitle></CardHeader>
+                <CardHeader><CardTitle class="text-lg">My crew</CardTitle></CardHeader>
                 <CardContent>
                     <template v-if="myCrew">
                         <p class="mb-3 text-sm font-medium">{{ myCrew.name }}</p>
@@ -425,7 +453,7 @@ const deleteCampaign = async (id: number) => {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>
+                    <CardTitle class="text-lg">
                         <span v-if="campaign.is_solo">Your Crew</span>
                         <span v-else>Crews ({{ campaign.crews.length }})</span>
                     </CardTitle>
@@ -444,7 +472,8 @@ const deleteCampaign = async (id: number) => {
                                 <Link :href="route('campaigns.crews.arsenal.show', [campaign.id, c.share_code])">
                                     <Button size="sm" class="w-full">Arsenal Sheet</Button>
                                 </Link>
-                                <template v-if="campaign.is_solo || c.user?.id === authUserId">
+                                <!-- Multiplayer owners manage their crew in the "My crew" card; solo has no such card. -->
+                                <template v-if="campaign.is_solo">
                                     <Link
                                         v-if="campaign.status === 'planning'"
                                         :href="route('campaigns.crews.leader.edit', [campaign.id, c.share_code])"
@@ -489,7 +518,7 @@ const deleteCampaign = async (id: number) => {
 
         <Card v-if="!campaign.is_solo && active_multiplayer_games.length" class="mt-6">
             <CardHeader
-                ><CardTitle>Active Games ({{ active_multiplayer_games.length }})</CardTitle></CardHeader
+                ><CardTitle class="text-lg">Active Games ({{ active_multiplayer_games.length }})</CardTitle></CardHeader
             >
             <CardContent>
                 <ul class="space-y-2">
@@ -510,99 +539,108 @@ const deleteCampaign = async (id: number) => {
             </CardContent>
         </Card>
 
-        <Card v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'" class="mt-6">
-            <CardHeader><CardTitle>Invite a Player</CardTitle></CardHeader>
-            <CardContent>
-                <div v-if="invitePickedUsers.length" class="mb-3 flex flex-wrap gap-2">
-                    <span
-                        v-for="u in invitePickedUsers"
-                        :key="u.id"
-                        class="flex items-center gap-1.5 rounded-full border bg-accent py-1 pl-3 pr-1.5 text-xs"
-                    >
-                        {{ u.name }}
-                        <button
-                            type="button"
-                            class="rounded-full px-1 text-muted-foreground hover:text-foreground"
-                            @click="removeInvitePickedUser(u.id)"
-                        >
-                            &times;
-                        </button>
-                    </span>
-                </div>
-
-                <div v-if="invitableFriends.length" class="mb-3">
-                    <Label>Invite a friend</Label>
-                    <div class="mt-1 flex flex-wrap gap-2">
-                        <button
-                            v-for="f in invitableFriends"
-                            :key="f.id"
-                            type="button"
-                            class="rounded-full border px-3 py-1 text-xs hover:bg-accent"
-                            :class="{ 'border-primary bg-primary/10': isInvitePicked(f.id) }"
-                            @click="toggleInviteUser(f)"
-                        >
-                            {{ f.name }}
-                        </button>
-                    </div>
-                </div>
-                <div class="relative">
-                    <Label>Search existing players</Label>
-                    <Input v-model="inviteSearch" placeholder="Search by name…" />
-                    <ul v-if="inviteSearchResults.length" class="absolute z-10 mt-1 w-full space-y-1 rounded-md border bg-popover p-1 shadow-md">
-                        <li
-                            v-for="u in inviteSearchResults"
+        <Dialog v-if="is_organizer && !campaign.is_solo && campaign.status !== 'ended'" v-model:open="inviteDialogOpen">
+            <DialogContent class="max-h-[85vh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Invite players</DialogTitle>
+                    <DialogDescription>Invite friends or search for players, or share the campaign link.</DialogDescription>
+                </DialogHeader>
+                <div>
+                    <div v-if="invitePickedUsers.length" class="mb-3 flex flex-wrap gap-2">
+                        <span
+                            v-for="u in invitePickedUsers"
                             :key="u.id"
-                            class="cursor-pointer rounded px-2 py-1.5 text-sm hover:bg-accent"
-                            @click="toggleInviteUser(u)"
+                            class="flex items-center gap-1.5 rounded-full border bg-accent py-1 pl-3 pr-1.5 text-xs"
                         >
                             {{ u.name }}
-                        </li>
-                    </ul>
-                </div>
-                <p class="mt-1 text-xs text-muted-foreground">Select as many players as you like — they'll all be invited at once.</p>
-
-                <div class="mt-3 grid gap-3 md:grid-cols-3">
-                    <div>
-                        <Label>Or invite by email</Label>
-                        <Input v-model="inviteForm.email" placeholder="player@example.com" />
+                            <button
+                                type="button"
+                                class="rounded-full px-1 text-muted-foreground hover:text-foreground"
+                                @click="removeInvitePickedUser(u.id)"
+                            >
+                                &times;
+                            </button>
+                        </span>
                     </div>
-                    <div>
-                        <Label>Expires in (days)</Label>
-                        <Input type="number" v-model.number="inviteForm.expires_in_days" />
+
+                    <div v-if="invitableFriends.length" class="mb-3">
+                        <Label>Invite a friend</Label>
+                        <div class="mt-1 flex flex-wrap gap-2">
+                            <button
+                                v-for="f in invitableFriends"
+                                :key="f.id"
+                                type="button"
+                                class="rounded-full border px-3 py-1 text-xs hover:bg-accent"
+                                :class="{ 'border-primary bg-primary/10': isInvitePicked(f.id) }"
+                                @click="toggleInviteUser(f)"
+                            >
+                                {{ f.name }}
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex items-end">
-                        <Button
-                            class="w-full"
-                            @click="sendInvite(campaign.id)"
-                            :disabled="(!inviteForm.email && !invitePickedUsers.length) || invitePending"
-                        >
-                            {{ invitePending ? 'Sending…' : `Send Invitation${invitePickedUsers.length > 1 ? 's' : ''}` }}
-                        </Button>
+                    <div class="relative">
+                        <Label>Search existing players</Label>
+                        <Input v-model="inviteSearch" placeholder="Search by name…" />
+                        <ul v-if="inviteSearchResults.length" class="absolute z-10 mt-1 w-full space-y-1 rounded-md border bg-popover p-1 shadow-md">
+                            <li
+                                v-for="u in inviteSearchResults"
+                                :key="u.id"
+                                class="cursor-pointer rounded px-2 py-1.5 text-sm hover:bg-accent"
+                                @click="toggleInviteUser(u)"
+                            >
+                                {{ u.name }}
+                            </li>
+                        </ul>
+                    </div>
+                    <p class="mt-1 text-xs text-muted-foreground">Select as many players as you like — they'll all be invited at once.</p>
+
+                    <div class="mt-3 grid gap-3 md:grid-cols-3">
+                        <div>
+                            <Label>Or invite by email</Label>
+                            <Input v-model="inviteForm.email" placeholder="player@example.com" />
+                        </div>
+                        <div>
+                            <Label>Expires in (days)</Label>
+                            <Input type="number" v-model.number="inviteForm.expires_in_days" />
+                        </div>
+                        <div class="flex items-end">
+                            <Button
+                                class="w-full"
+                                @click="sendInvite(campaign.id)"
+                                :disabled="(!inviteForm.email && !invitePickedUsers.length) || invitePending"
+                            >
+                                {{ invitePending ? 'Sending…' : `Send Invitation${invitePickedUsers.length > 1 ? 's' : ''}` }}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <p class="mt-3 text-xs text-muted-foreground">
+                        Or share the
+                        <button type="button" class="text-primary hover:underline" @click="qrDialogOpen = true">invite link</button>
+                        — anyone with it can join directly.
+                        <button type="button" class="text-primary hover:underline" @click="regenerateJoinLink(campaign.id)">Regenerate it</button>
+                        if it's ever shared somewhere it shouldn't be.
+                    </p>
+
+                    <div v-if="campaign.invitations.length" class="mt-4">
+                        <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Invitations</p>
+                        <ul class="space-y-2">
+                            <li
+                                v-for="inv in campaign.invitations"
+                                :key="inv.id"
+                                class="flex items-center justify-between rounded-md border p-2 text-sm"
+                            >
+                                <span>{{ inv.user?.name ?? inv.user?.email ?? inv.email }}</span>
+                                <div class="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" @click="inviteQrTarget = inv">Link / QR</Button>
+                                    <Button variant="ghost" size="sm" @click="revokeInvite(campaign.id, inv.id)">Revoke</Button>
+                                </div>
+                            </li>
+                        </ul>
                     </div>
                 </div>
-
-                <p class="mt-3 text-xs text-muted-foreground">
-                    Or share the
-                    <button type="button" class="text-primary hover:underline" @click="qrDialogOpen = true">invite link</button>
-                    — anyone with it can join directly.
-                    <button type="button" class="text-primary hover:underline" @click="regenerateJoinLink(campaign.id)">Regenerate it</button>
-                    if it's ever shared somewhere it shouldn't be.
-                </p>
-
-                <div v-if="campaign.invitations.length" class="mt-4">
-                    <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Pending Invitations</p>
-                    <ul class="space-y-2">
-                        <li v-for="inv in campaign.invitations" :key="inv.id" class="flex items-center justify-between rounded-md border p-2 text-sm">
-                            <span>{{ inv.user?.name ?? inv.user?.email ?? inv.email }}</span>
-                            <div class="flex items-center gap-1">
-                                <Button variant="ghost" size="sm" @click="inviteQrTarget = inv">Link / QR</Button>
-                                <Button variant="ghost" size="sm" @click="revokeInvite(campaign.id, inv.id)">Revoke</Button>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-            </CardContent>
-        </Card>
+            </DialogContent>
+        </Dialog>
 
         <QRCodeDialog v-if="qrDialogOpen" v-model:open="qrDialogOpen" :url="route('campaigns.join', campaign.uuid)" title="Campaign Invite Link" />
 

@@ -2,10 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameRoleEnum;
 use App\Enums\RoleEnum;
+use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignPlayer;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Friendship;
@@ -20,6 +24,7 @@ use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
 use App\Models\User;
 use App\Models\Wishlist;
+use App\Notifications\Friend\FriendRequestReceived;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -59,6 +64,8 @@ class UiAuditSeeder extends Seeder
         $crews = $this->crews($member);
         $this->games($member, $opponent, $crews);
         $this->tournament($organizer, $member, $opponent);
+        $this->campaign($member, $opponent);
+        $this->notifications($member, $pending);
     }
 
     private function user(string $name, string $email, ?RoleEnum $role = null): User
@@ -157,5 +164,28 @@ class UiAuditSeeder extends Seeder
         TournamentRound::factory()->inProgress()->create(['tournament_id' => $tournament->id, 'round_number' => 1]);
         Tournament::factory()->inRegistration()->create(['creator_id' => $organizer->id, 'name' => 'Audit Spring Open']);
         unset($players);
+    }
+
+    private function campaign(User $member, User $opponent): void
+    {
+        if (Campaign::where('name', 'The Audit Campaign')->exists()) {
+            return;
+        }
+
+        $campaign = Campaign::factory()->active()->withOrganizerMembership()->create([
+            'name' => 'The Audit Campaign', 'organizer_user_id' => $member->id, 'length_weeks' => 8, 'current_week' => 2,
+        ]);
+        CampaignPlayer::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $opponent->id, 'role' => CampaignPlayerRoleEnum::Player]);
+        foreach ([$member, $opponent] as $user) {
+            CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $user->id, 'name' => "{$user->name}'s Crew", 'faction' => FactionEnum::Arcanists, 'scrip' => 12]);
+        }
+    }
+
+    private function notifications(User $member, User $pending): void
+    {
+        $friendship = Friendship::where('requester_id', $pending->id)->where('addressee_id', $member->id)->first();
+        if ($friendship && $member->notifications()->count() === 0) {
+            $member->notify(new FriendRequestReceived($friendship));
+        }
     }
 }

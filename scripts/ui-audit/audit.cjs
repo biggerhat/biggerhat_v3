@@ -11,6 +11,9 @@
  *   --pages    comma-separated paths; or --discover to also follow links found on the sidebar
  *              (admin) / listing pages (games, tournaments, crews)
  *   --viewports mobile,desktop   --theme light|dark
+ *   --proxy-assets  fetch /storage and /images/TOS files from PROD_ASSETS (default https://biggerhat.net) so pages
+ *              look real without downloading the catalog images (read-only GETs of public files)
+ *   --full     capture past the first screen (up to 3200px tall) instead of just the viewport
  *   --detail   also print the first elements behind each serious/critical axe violation
  */
 const fs = require('fs');
@@ -28,6 +31,9 @@ const THEME = arg('theme', 'light');
 const VIEWPORTS = String(arg('viewports', 'mobile,desktop')).split(',');
 const DISCOVER = arg('discover', false) === true;
 const DETAIL = arg('detail', false) === true;
+const FULL = arg('full', false) === true;
+const PROXY_ASSETS = arg('proxy-assets', false) === true;
+const PROD_ASSETS = process.env.PROD_ASSETS || 'https://biggerhat.net';
 const CREDS = {
     member: 'audit.member@example.test',
     organizer: 'audit.organizer@example.test',
@@ -48,6 +54,21 @@ async function newPage(browser, vp) {
     await page.setViewport(VP[vp]);
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: THEME }]);
     await page.setCookie({ name: 'cookie_consent', value: 'accepted', url: BASE }, { name: 'appearance', value: THEME, url: BASE });
+    await page.evaluateOnNewDocument((t) => { try { localStorage.setItem('appearance', t); } catch {} }, THEME);
+    if (PROXY_ASSETS) {
+        await page.setRequestInterception(true);
+        page.on('request', async (req) => {
+            const url = new URL(req.url());
+            if (!req.url().startsWith(BASE) || !/^\/(storage|images\/TOS)\//.test(url.pathname)) return req.continue();
+            try {
+                const res = await fetch(PROD_ASSETS + url.pathname + url.search);
+                if (!res.ok) return req.respond({ status: res.status, body: '' });
+                req.respond({ status: 200, contentType: res.headers.get('content-type') || 'image/jpeg', body: Buffer.from(await res.arrayBuffer()) });
+            } catch {
+                req.continue();
+            }
+        });
+    }
     return page;
 }
 
@@ -108,13 +129,18 @@ async function discover(page, pages) {
                     tiny,
                     axe: ax.violations.filter((v) => v.impact !== 'minor').map((v) => `${v.impact[0]}:${v.id}×${v.nodes.length}`),
                     nodes: detail
-                        ? ax.violations.filter((v) => ['critical', 'serious'].includes(v.impact) || v.id === 'heading-order').flatMap((v) => v.nodes.slice(0, 3).map((n) => `${v.id}: ${n.html.replace(/class="[^"]*"/g, '').replace(/\s+/g, ' ').slice(0, 200)} @ ${n.target.join(' ').slice(0, 80)}`))
+                        ? ax.violations.filter((v) => ['critical', 'serious'].includes(v.impact) || v.id === 'heading-order').flatMap((v) => v.nodes.slice(0, 3).map((n) => `${v.id}${n.any[0] && n.any[0].data && n.any[0].data.fgColor ? ' [' + n.any[0].data.fgColor + ' on ' + n.any[0].data.bgColor + ' = ' + n.any[0].data.contrastRatio + ' ' + n.any[0].data.fontSize + ']' : ''}: ${n.html.replace(/class="[^"]*"/g, '').replace(/\s+/g, ' ').slice(0, 200)} @ ${n.target.join(' ').slice(0, 80)}`))
                         : [],
                 };
             }, !!axeSrc, DETAIL);
             if (DETAIL) m.nodes.forEach((n) => console.log('      ' + n));
             const file = `${ROLE}__${vp}__${slug(p)}.png`;
-            await page.screenshot({ path: path.join(OUT, file), fullPage: false });
+            if (FULL) {
+                const h = await page.evaluate(() => document.documentElement.scrollHeight);
+                await page.screenshot({ path: path.join(OUT, file), clip: { x: 0, y: 0, width: VP[vp].width, height: Math.min(h, 3200) }, captureBeyondViewport: true });
+            } else {
+                await page.screenshot({ path: path.join(OUT, file), fullPage: false });
+            }
             const status = res && typeof res.status === 'function' ? res.status() : '?';
             rows.push({ vp, p, status, ...m, errors, bad: [...new Set(bad)].slice(0, 3), file });
             console.log(`${vp.padEnd(7)} ${String(status).padEnd(4)} ${p.padEnd(44)} h1=${m.h1} tiny=${m.tiny}${m.overflow ? ' H-OVERFLOW' : ''} ${m.axe.join(' ') || 'axe-clean'}${errors.length ? ' | JS ' + errors[0] : ''}${bad.length ? ' | ' + bad[0] : ''}`);

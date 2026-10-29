@@ -6,7 +6,7 @@ interface Props {
     as?: 'h1' | 'h2' | 'h3';
 }
 
-withDefaults(defineProps<Props>(), { as: 'h3' });
+withDefaults(defineProps<Props>(), { as: 'h2' });
 </script>
 
 <template>

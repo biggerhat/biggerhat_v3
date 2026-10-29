@@ -108,7 +108,7 @@ async function discover(page, pages) {
                     tiny,
                     axe: ax.violations.filter((v) => v.impact !== 'minor').map((v) => `${v.impact[0]}:${v.id}×${v.nodes.length}`),
                     nodes: detail
-                        ? ax.violations.filter((v) => ['critical', 'serious'].includes(v.impact)).flatMap((v) => v.nodes.slice(0, 3).map((n) => `${v.id}: ${n.html.replace(/class="[^"]*"/g, '').replace(/\s+/g, ' ').slice(0, 200)} @ ${n.target.join(' ').slice(0, 80)}`))
+                        ? ax.violations.filter((v) => ['critical', 'serious'].includes(v.impact) || v.id === 'heading-order').flatMap((v) => v.nodes.slice(0, 3).map((n) => `${v.id}: ${n.html.replace(/class="[^"]*"/g, '').replace(/\s+/g, ' ').slice(0, 200)} @ ${n.target.join(' ').slice(0, 80)}`))
                         : [],
                 };
             }, !!axeSrc, DETAIL);

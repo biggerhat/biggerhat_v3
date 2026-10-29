@@ -3647,8 +3647,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <Tabs v-model="mobileGameplayTab">
                         <TabsList :class="['grid w-full', isBonanza ? 'grid-cols-2' : 'grid-cols-3']">
                             <TabsTrigger value="scenario">Game</TabsTrigger>
-                            <TabsTrigger value="my-crew">{{ isObserver ? playerName(myPlayer) : 'My Crew' }}</TabsTrigger>
-                            <TabsTrigger v-if="!isBonanza" value="opponent">{{ playerName(opponent) }}</TabsTrigger>
+                            <TabsTrigger value="my-crew" class="min-w-0"
+                                ><span class="truncate">{{ isObserver ? playerName(myPlayer) : 'My Crew' }}</span></TabsTrigger
+                            >
+                            <TabsTrigger v-if="!isBonanza" value="opponent" class="min-w-0"
+                                ><span class="truncate">{{ playerName(opponent) }}</span></TabsTrigger
+                            >
                         </TabsList>
                     </Tabs>
                 </div>
@@ -4462,7 +4466,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </Transition>
                         <div class="mb-1 flex items-center justify-between">
                             <div class="flex items-center gap-1">
-                                <h3 class="text-sm font-semibold">{{ isObserver ? playerName(myPlayer) : 'Your Crew' }}</h3>
+                                <h2 class="text-sm font-semibold">{{ isObserver ? playerName(myPlayer) : 'Your Crew' }}</h2>
                                 <button
                                     class="rounded p-0.5 hover:bg-muted"
                                     :title="allMyCardsExpanded ? 'Collapse all cards' : 'Expand all cards'"
@@ -5113,7 +5117,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </Transition>
                         <div class="mb-1 flex items-center justify-between">
                             <div class="flex items-center gap-1">
-                                <h3 class="text-sm font-semibold">{{ playerName(opponent) }}</h3>
+                                <h2 class="text-sm font-semibold">{{ playerName(opponent) }}</h2>
                                 <button
                                     class="rounded p-0.5 hover:bg-muted"
                                     :title="allOpponentCardsExpanded ? 'Collapse all cards' : 'Expand all cards'"

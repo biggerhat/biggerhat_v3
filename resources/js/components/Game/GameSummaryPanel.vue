@@ -126,7 +126,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
     <!-- Starting Crews -->
     <div v-if="startingCrews && Object.keys(startingCrews).length" class="mb-4 grid gap-4 sm:grid-cols-2">
         <div v-for="player in game.players" :key="'start-crew-' + player.id">
-            <h3 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Starting Crew</h3>
+            <h2 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Starting Crew</h2>
             <div v-if="!startingCrews[player.slot]?.length" class="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
                 No crew tracked
             </div>
@@ -159,7 +159,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
     <!-- Scoring Breakdown -->
     <Card class="mb-4">
         <CardContent class="p-4">
-            <h3 class="mb-3 text-sm font-semibold">Scoring Breakdown</h3>
+            <h2 class="mb-3 text-sm font-semibold">Scoring Breakdown</h2>
             <div class="grid grid-cols-2 divide-x">
                 <div v-for="player in game.players" :key="'score-bk-' + player.id" class="space-y-2 px-3 first:pl-0 last:pr-0">
                     <div class="flex items-center gap-1.5 text-xs font-medium">
@@ -186,7 +186,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
     <!-- Scheme Timeline -->
     <Card class="mb-4">
         <CardContent class="p-4">
-            <h3 class="mb-3 text-sm font-semibold">Scheme Timeline</h3>
+            <h2 class="mb-3 text-sm font-semibold">Scheme Timeline</h2>
             <div class="grid grid-cols-2 divide-x">
                 <div v-for="player in game.players" :key="'scheme-tl-' + player.id" class="space-y-1.5 px-3 first:pl-0 last:pr-0">
                     <div class="flex items-center gap-1.5 text-xs font-medium">
@@ -260,7 +260,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
 
     <!-- Turn-by-turn breakdown with scheme info -->
     <div v-if="game.players[0]?.turns?.length" class="mb-4 space-y-2">
-        <h3 class="text-sm font-semibold">Turn-by-Turn Breakdown</h3>
+        <h2 class="text-sm font-semibold">Turn-by-Turn Breakdown</h2>
 
         <div v-for="turn in Math.max(...game.players.map((p: any) => p.turns?.length ?? 0))" :key="'detail-' + turn">
             <Card class="overflow-hidden">
@@ -448,7 +448,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
     <!-- Final crew states with crew upgrades -->
     <div class="mb-6 grid gap-4 sm:grid-cols-2">
         <div v-for="player in game.players" :key="'crew-' + player.id">
-            <h3 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Final Crew</h3>
+            <h2 class="mb-2 text-sm font-semibold">{{ playerName(player) }}'s Final Crew</h2>
             <div v-if="!player.crew_members?.length && player.faction" class="flex items-center gap-2 rounded-md border border-dashed p-3">
                 <FactionLogo :faction="player.faction" class-name="size-6" />
                 <div class="text-xs">

@@ -1619,7 +1619,7 @@ const titlesForMaster = (masterName: string | null) => {
                             <CardContent class="p-4">
                                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold sm:text-base">Round {{ round.round_number }}</h3>
+                                        <h2 class="text-sm font-semibold sm:text-base">Round {{ round.round_number }}</h2>
                                         <Badge
                                             :class="[
                                                 'border-0 text-[10px]',

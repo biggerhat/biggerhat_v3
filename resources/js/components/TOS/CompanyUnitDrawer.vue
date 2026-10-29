@@ -104,7 +104,7 @@ function pickSculpt(value: string) {
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">
                         <span class="inline-flex items-center gap-1.5">
-                            <Crown v-if="isCommander" class="size-4 text-amber-500" />
+                            <Crown v-if="isCommander" class="size-4 text-amber-700 dark:text-amber-400" />
                             <span>{{ unit.name }}</span>
                             <span v-if="unit.title" class="text-sm font-normal italic text-muted-foreground"> — {{ unit.title }} </span>
                         </span>
@@ -189,7 +189,7 @@ function pickSculpt(value: string) {
                             <Button
                                 v-if="!isCommander"
                                 variant="outline"
-                                class="gap-1.5 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                                class="gap-1.5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400"
                                 @click="emit('remove')"
                             >
                                 <UserMinus class="size-4" /> Remove

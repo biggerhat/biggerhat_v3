@@ -681,7 +681,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         <!-- Winner -->
                         <Card v-if="tournamentStats.winner" class="border-amber-500/30 bg-amber-500/5">
                             <CardContent class="flex items-center gap-3 p-4">
-                                <Trophy class="size-8 text-amber-500" />
+                                <Trophy class="size-8 text-amber-700 dark:text-amber-400" />
                                 <div>
                                     <div class="text-lg font-bold text-amber-700 dark:text-amber-400">{{ tournamentStats.winner.display_name }}</div>
                                     <div class="text-xs text-muted-foreground">

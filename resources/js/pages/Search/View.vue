@@ -1819,7 +1819,7 @@ onUnmounted(() => {
                         title="Copy search URL"
                         @click="copySearchUrl"
                     >
-                        <Check v-if="urlCopied" class="size-3.5 text-green-500" />
+                        <Check v-if="urlCopied" class="size-3.5 text-green-700 dark:text-green-400" />
                         <ClipboardCopy v-else class="size-3.5" />
                     </button>
                     <a

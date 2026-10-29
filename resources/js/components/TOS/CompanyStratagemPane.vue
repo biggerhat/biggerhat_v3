@@ -46,7 +46,7 @@ const isDisabled = (s: StratagemMin): boolean => deckFull.value || (s.deck_sourc
         <div class="mb-3 flex items-center justify-between gap-2">
             <HeadingEyebrow>Stratagem Deck</HeadingEyebrow>
             <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span :class="deckFull ? 'font-semibold text-emerald-600' : ''">{{ deck.length }} / {{ deckSize }}</span>
+                <span :class="deckFull ? 'font-semibold text-emerald-700 dark:text-emerald-400' : ''">{{ deck.length }} / {{ deckSize }}</span>
                 <span v-if="hasEnvoy">· {{ deckEnvoyCount }} / {{ maxEnvoy }} Envoy</span>
             </div>
         </div>
@@ -55,7 +55,12 @@ const isDisabled = (s: StratagemMin): boolean => deckFull.value || (s.deck_sourc
             <span v-for="s in deck" :key="s.id" class="inline-flex items-center gap-1 rounded border bg-muted/40 px-2 py-1 text-[11px]">
                 <span :class="envoyIds.has(s.id) ? 'text-sky-600 dark:text-sky-400' : ''">{{ s.name }}</span>
                 <span class="text-muted-foreground">({{ s.tactical_cost }})</span>
-                <button type="button" class="text-muted-foreground hover:text-rose-600" aria-label="Remove" @click="emit('remove', s)">
+                <button
+                    type="button"
+                    class="text-muted-foreground hover:text-rose-700 dark:text-rose-400"
+                    aria-label="Remove"
+                    @click="emit('remove', s)"
+                >
                     <X class="size-3" />
                 </button>
             </span>

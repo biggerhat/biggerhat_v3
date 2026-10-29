@@ -432,7 +432,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                             :title="!wishlist.is_public ? 'Make public to share' : 'Copy share link'"
                             @click="copyShareLink"
                         >
-                            <Check v-if="copied" class="size-3.5 text-green-500" />
+                            <Check v-if="copied" class="size-3.5 text-green-700 dark:text-green-400" />
                             <Copy v-else class="size-3.5" />
                             {{ copied ? 'Copied!' : 'Share' }}
                         </Button>

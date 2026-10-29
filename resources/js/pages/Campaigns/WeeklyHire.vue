@@ -155,7 +155,7 @@ const submit = () => {
                 <span class="text-sm text-muted-foreground">
                     {{ campaign.name }} • <strong class="text-foreground">{{ crew.name }}</strong> • mandatory: at least 1 hire
                 </span>
-                <p v-if="already_hired_this_week > 0" class="mt-1 text-xs text-amber-600">
+                <p v-if="already_hired_this_week > 0" class="mt-1 text-xs text-amber-700 dark:text-amber-400">
                     Already hired {{ already_hired_this_week }} model(s) this week — first-hire discount no longer applies.
                 </p>
             </div>

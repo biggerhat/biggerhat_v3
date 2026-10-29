@@ -83,7 +83,7 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
     <PageBanner title="Failed Jobs" class="mb-2">
         <template #logo>
             <div class="flex size-16 items-center justify-center md:size-20">
-                <AlertTriangle class="size-8 text-amber-500 md:size-10" />
+                <AlertTriangle class="size-8 text-amber-700 dark:text-amber-400 md:size-10" />
             </div>
         </template>
         <template #subtitle>

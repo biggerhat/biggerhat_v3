@@ -554,7 +554,7 @@ const blockTypeColor = (type: string, idx: number) => {
                             <CardContent class="p-4">
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold">Card Content</h3>
+                                        <h2 class="text-sm font-semibold">Card Content</h2>
                                         <Badge v-if="contentBlocks.length" variant="secondary" class="text-[10px]">{{ contentBlocks.length }}</Badge>
                                     </div>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
@@ -605,7 +605,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                class="h-7 border-amber-500/30 text-[11px] text-amber-600 dark:text-amber-400"
+                                                class="h-7 border-amber-500/30 text-[11px] text-amber-800 dark:text-amber-400"
                                                 @click="addActionBlock"
                                                 ><Plus class="mr-1 size-3" /> Action</Button
                                             >
@@ -1003,7 +1003,7 @@ const blockTypeColor = (type: string, idx: number) => {
                         <Card>
                             <CardContent class="p-4">
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
-                                    <h3 class="text-sm font-semibold">Notes</h3>
+                                    <h2 class="text-sm font-semibold">Notes</h2>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
@@ -1020,7 +1020,7 @@ const blockTypeColor = (type: string, idx: number) => {
                 <div class="lg:col-span-1">
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-sm font-semibold">Preview</h3>
+                            <h2 class="text-sm font-semibold">Preview</h2>
                             <div class="flex gap-2">
                                 <Button variant="outline" size="sm" class="text-xs" :disabled="exporting || !form.name" @click="exportImages">
                                     <Loader2 v-if="exporting" class="mr-1 size-3 animate-spin" />

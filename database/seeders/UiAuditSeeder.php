@@ -56,6 +56,7 @@ class UiAuditSeeder extends Seeder
         $this->user('Ada Admin', 'audit.admin@example.test', RoleEnum::SuperAdmin);
         $opponent = $this->user('Otto Opponent', 'audit.opponent@example.test');
         $pending = $this->user('Pia Pending', 'audit.pending@example.test');
+        $this->user('Fiona Fresh', 'audit.fresh@example.test'); // brand-new account: empty states
 
         Friendship::firstOrCreate(['requester_id' => $member->id, 'addressee_id' => $opponent->id], ['accepted_at' => now()]);
         Friendship::firstOrCreate(['requester_id' => $pending->id, 'addressee_id' => $member->id]);

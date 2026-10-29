@@ -618,7 +618,7 @@ async function deleteCompany() {
                                 aria-label="Delete company"
                                 variant="ghost"
                                 size="sm"
-                                class="h-8 gap-1 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                                class="h-8 gap-1 text-xs text-rose-700 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400"
                                 @click="deleteCompany"
                             >
                                 <Trash2 class="size-3.5" />
@@ -662,7 +662,7 @@ async function deleteCompany() {
                     <p
                         v-if="company.envoy_allegiance"
                         class="mt-1.5 text-[11px]"
-                        :class="envoy_scrip_spent > envoy_scrip_cap ? 'text-rose-600' : 'text-muted-foreground'"
+                        :class="envoy_scrip_spent > envoy_scrip_cap ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground'"
                     >
                         Envoy spend: {{ envoy_scrip_spent }} / {{ envoy_scrip_cap }} Scrip (50% cap)
                     </p>

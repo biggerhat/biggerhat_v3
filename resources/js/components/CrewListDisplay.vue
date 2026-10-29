@@ -105,7 +105,10 @@ watch(upgradeDrawerOpen, (val) => {
             ]"
             @click="openUpgradePreview(upgrade)"
         >
-            <Star class="size-3 shrink-0" :class="upgrade.is_active ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
+            <Star
+                class="size-3 shrink-0"
+                :class="upgrade.is_active ? 'fill-amber-500 text-amber-700 dark:text-amber-400' : 'text-muted-foreground'"
+            />
             <div class="min-w-0 flex-1">
                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                 <div class="text-[10px] text-muted-foreground">

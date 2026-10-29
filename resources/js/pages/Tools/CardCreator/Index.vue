@@ -239,7 +239,7 @@ const stationLabel = (station: string | null) => {
                                     aria-label="Copy share link"
                                     @click="copyCharacterShareLink(character)"
                                 >
-                                    <Check v-if="copiedId === 'char-' + character.id" class="size-3 text-green-500" />
+                                    <Check v-if="copiedId === 'char-' + character.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
                                 <Button
@@ -304,7 +304,7 @@ const stationLabel = (station: string | null) => {
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
                                 <Button variant="outline" size="sm" class="text-xs" aria-label="Copy share link" @click="copyUpgradeShareLink(card)">
-                                    <Check v-if="copiedId === 'upg-' + card.id" class="size-3 text-green-500" />
+                                    <Check v-if="copiedId === 'upg-' + card.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
                                 <Button
@@ -372,7 +372,7 @@ const stationLabel = (station: string | null) => {
                                     aria-label="Copy share link"
                                     @click="copyUpgradeShareLink(upgrade)"
                                 >
-                                    <Check v-if="copiedId === 'upg-' + upgrade.id" class="size-3 text-green-500" />
+                                    <Check v-if="copiedId === 'upg-' + upgrade.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
                                 <Button

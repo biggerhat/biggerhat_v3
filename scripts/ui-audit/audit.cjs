@@ -7,7 +7,7 @@
  *   CHROME=/path/to/chrome BASE=http://127.0.0.1:8765 node scripts/ui-audit/audit.cjs \
  *     --role member --pages /games,/collection --out /tmp/shots
  *
- *   --role     member | organizer | admin | guest   (default guest)
+ *   --role     member | organizer | admin | fresh | guest   (default guest)
  *   --pages    comma-separated paths; or --discover to also follow links found on the sidebar
  *              (admin) / listing pages (games, tournaments, crews)
  *   --viewports mobile,desktop   --theme light|dark
@@ -38,6 +38,7 @@ const CREDS = {
     member: 'audit.member@example.test',
     organizer: 'audit.organizer@example.test',
     admin: 'audit.admin@example.test',
+    fresh: 'audit.fresh@example.test',
 };
 const axePath = process.env.AXE || path.resolve('node_modules/axe-core/axe.min.js');
 const axeSrc = fs.existsSync(axePath) ? fs.readFileSync(axePath, 'utf8') : null;

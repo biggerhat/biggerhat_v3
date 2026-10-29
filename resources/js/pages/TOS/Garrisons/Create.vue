@@ -83,7 +83,7 @@ function submit() {
                     <div class="space-y-1.5">
                         <Label for="name">Garrison name</Label>
                         <Input id="name" v-model="form.name" type="text" required maxlength="120" placeholder="e.g. Burning Marsh Expedition" />
-                        <p v-if="form.errors.name" class="text-[11px] text-rose-600">{{ form.errors.name }}</p>
+                        <p v-if="form.errors.name" class="text-[11px] text-rose-700 dark:text-rose-400">{{ form.errors.name }}</p>
                     </div>
 
                     <!-- Step 2: Format -->
@@ -112,7 +112,7 @@ function submit() {
                                 <p class="mt-1 text-[11px] leading-snug text-muted-foreground">{{ f.description }}</p>
                             </button>
                         </div>
-                        <p v-if="form.errors.format" class="text-[11px] text-rose-600">{{ form.errors.format }}</p>
+                        <p v-if="form.errors.format" class="text-[11px] text-rose-700 dark:text-rose-400">{{ form.errors.format }}</p>
                     </div>
 
                     <!-- Step 3: Allegiance picker -->
@@ -199,7 +199,7 @@ function submit() {
                             </div>
                         </div>
 
-                        <p v-if="form.errors.allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.allegiance_id }}</p>
+                        <p v-if="form.errors.allegiance_id" class="text-[11px] text-rose-700 dark:text-rose-400">{{ form.errors.allegiance_id }}</p>
                     </div>
 
                     <!-- Step 4: Notes -->

@@ -271,7 +271,7 @@ const confirmOpponentMasterSelection = () => {
             <template v-else-if="!isSolo || opponentMasterStepDone">
                 <div class="py-4 text-center">
                     <Badge variant="secondary" class="text-sm">{{ myMasterName }}</Badge>
-                    <Check class="ml-2 inline size-5 text-green-500" />
+                    <Check class="ml-2 inline size-5 text-green-700 dark:text-green-400" />
                 </div>
             </template>
 
@@ -279,7 +279,7 @@ const confirmOpponentMasterSelection = () => {
             <template v-else-if="isSolo && masterStepDone && !opponentMasterStepDone">
                 <div class="mb-3">
                     <Badge variant="secondary" class="text-sm">{{ myMasterName }}</Badge>
-                    <Check class="ml-2 inline size-4 text-green-500" />
+                    <Check class="ml-2 inline size-4 text-green-700 dark:text-green-400" />
                 </div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <Card

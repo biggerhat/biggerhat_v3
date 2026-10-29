@@ -486,7 +486,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                class="gap-1.5 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                                class="gap-1.5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400"
                                 @click="deleteGarrison"
                             >
                                 <Trash2 class="size-3.5" /> Delete
@@ -600,7 +600,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
             <!-- ── Commanders ────────────────────────────────────────── -->
             <section v-if="showCommanders && commanderUnits.length">
                 <header v-if="activeTab === 'all'" class="mb-3 flex items-baseline gap-2">
-                    <Crown class="size-4 text-amber-500" aria-hidden="true" />
+                    <Crown class="size-4 text-amber-700 dark:text-amber-400" aria-hidden="true" />
                     <HeadingEyebrow as="h2">Commanders</HeadingEyebrow>
                     <Badge variant="secondary" class="text-[10px]"> {{ commanderUnits.length }} / {{ format.max_commanders }} </Badge>
                 </header>
@@ -635,7 +635,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                         <CardContent class="space-y-1 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ gu.unit.name }}</span>
-                                <Crown class="size-3.5 shrink-0 text-amber-500" />
+                                <Crown class="size-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                             </div>
                             <p v-if="gu.unit.title" class="truncate text-[11px] italic text-muted-foreground">{{ gu.unit.title }}</p>
                         </CardContent>
@@ -856,7 +856,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                         <div class="space-y-1.5">
                             <Label for="edit-name">Name</Label>
                             <Input id="edit-name" v-model="editForm.name" type="text" maxlength="120" required />
-                            <p v-if="editForm.errors.name" class="text-[11px] text-rose-600">{{ editForm.errors.name }}</p>
+                            <p v-if="editForm.errors.name" class="text-[11px] text-rose-700 dark:text-rose-400">{{ editForm.errors.name }}</p>
                         </div>
 
                         <div class="space-y-2">
@@ -878,7 +878,7 @@ const chooseSculpt = (gu: GarrisonUnit, sculptId: number | null) => {
                                     <p class="mt-0.5 text-[10px] leading-snug text-muted-foreground">{{ f.description }}</p>
                                 </button>
                             </div>
-                            <p v-if="editForm.errors.format" class="text-[11px] text-rose-600">{{ editForm.errors.format }}</p>
+                            <p v-if="editForm.errors.format" class="text-[11px] text-rose-700 dark:text-rose-400">{{ editForm.errors.format }}</p>
                             <p
                                 v-if="formatChanged"
                                 class="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-700 dark:text-amber-400"

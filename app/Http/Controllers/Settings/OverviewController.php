@@ -59,8 +59,9 @@ class OverviewController extends Controller
 
         $wishlistIds = Wishlist::where('user_id', $user->id)->pluck('id');
 
-        return Inertia::render('Settings/Overview', [
+        return Inertia::render('Hub/Index', [
             'active_games' => Game::forUser($user->id)->active()->count(),
+            'recent_games' => $this->recentGames($user),
             'collection' => [
                 'malifaux_miniatures' => (int) DB::table('user_miniatures')->where('user_id', $user->id)->sum('quantity'),
                 'malifaux_packages' => DB::table('user_packages')
@@ -118,12 +119,53 @@ class OverviewController extends Controller
             $publicCrews,
         );
 
+        $next = $this->achievements->nextMilestones(
+            $gameRecord['total_games'],
+            $gameRecord['wins'],
+            $collectionTotal,
+            $collectionBuilt,
+            $collectionPainted,
+            $tournamentRecord['played'],
+            $publicCrews,
+        );
+
         return [
             'badges' => $badges,
+            'next_badges' => $next,
             'total_games' => $gameRecord['total_games'],
             'wins' => $gameRecord['wins'],
             'tournaments_played' => $tournamentRecord['played'],
             'best_tournament_finish' => $tournamentRecord['best_finish'],
         ];
+    }
+
+    /**
+     * The few unfinished games to resume from the hub (newest activity first).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function recentGames(User $user): array
+    {
+        return Game::forUser($user->id)->active()
+            ->with(['players' => fn ($q) => $q->orderBy('slot'), 'players.user:id,name'])
+            ->latest('updated_at')
+            ->limit(3)
+            ->get()
+            ->map(function (Game $game) use ($user) {
+                $others = $game->players->where('user_id', '!=', $user->id);
+                $opponent = $others->map(fn ($p) => $p->user_id ? $p->user->name : $p->opponent_name)->filter()->first();
+
+                return [
+                    'uuid' => $game->uuid,
+                    'name' => $game->name,
+                    'encounter_size' => $game->encounter_size,
+                    'status' => $game->status->value,
+                    'current_turn' => $game->current_turn,
+                    'max_turns' => $game->max_turns,
+                    'is_solo' => (bool) $game->is_solo,
+                    'opponent' => $opponent,
+                ];
+            })
+            ->all();
     }
 }

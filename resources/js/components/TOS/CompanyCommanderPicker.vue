@@ -59,7 +59,7 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                 <div
                     class="relative mb-3 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 ring-1 ring-amber-500/30 sm:size-20"
                 >
-                    <Crown class="size-8 text-amber-500 sm:size-10" />
+                    <Crown class="size-8 text-amber-700 dark:text-amber-400 sm:size-10" />
                     <div
                         class="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-background ring-2 ring-amber-500/40"
                     >

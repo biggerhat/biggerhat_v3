@@ -535,7 +535,7 @@ onMounted(() => {
                             </div>
                             <div class="flex items-center gap-1">
                                 <span class="text-muted-foreground">OOK:</span>
-                                <span class="font-medium" :class="ookCount >= 2 ? 'text-amber-600 dark:text-amber-400' : ''">
+                                <span class="font-medium" :class="ookCount >= 2 ? 'text-amber-800 dark:text-amber-400' : ''">
                                     {{ ookCount }} / 2
                                 </span>
                             </div>

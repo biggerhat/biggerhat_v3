@@ -473,7 +473,11 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                     >
                         <Star
                             class="size-3.5 shrink-0"
-                            :class="player.crew_build?.crew_upgrade_id === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'"
+                            :class="
+                                player.crew_build?.crew_upgrade_id === upgrade.id
+                                    ? 'fill-amber-500 text-amber-700 dark:text-amber-400'
+                                    : 'text-muted-foreground'
+                            "
                         />
                         <span class="font-semibold">{{ upgrade.name }}</span>
                     </div>

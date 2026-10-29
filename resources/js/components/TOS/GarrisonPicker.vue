@@ -203,7 +203,11 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                 <div v-for="u in filteredUnits" :key="u.id" class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-1.5">
-                            <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
+                            <Crown
+                                v-if="isCommanderEligible(u)"
+                                class="size-3 shrink-0 text-amber-700 dark:text-amber-400"
+                                aria-label="Commander-eligible"
+                            />
                             <span class="truncate text-xs font-medium">{{ u.name }}</span>
                             <Badge v-if="u.restriction" variant="outline" class="px-1 py-0 text-[10px]">Neutral</Badge>
                         </div>

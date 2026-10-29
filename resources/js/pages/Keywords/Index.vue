@@ -166,7 +166,7 @@ function openMasterDrawer(master: any, event: Event) {
                                                 <CardTitle class="text-base">{{ keyword.name }}</CardTitle>
                                                 <span
                                                     v-if="keyword.has_master"
-                                                    class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500"
+                                                    class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400"
                                                 >
                                                     Master
                                                 </span>

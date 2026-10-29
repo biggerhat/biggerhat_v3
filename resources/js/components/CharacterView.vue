@@ -404,7 +404,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                                     class="cursor-pointer gap-1 transition-colors hover:bg-accent"
                                     @click="openUpgradeDrawer(upgrade)"
                                 >
-                                    <Star class="size-3 text-amber-500" />
+                                    <Star class="size-3 text-amber-700 dark:text-amber-400" />
                                     {{ upgrade.name }}
                                 </Badge>
                             </div>
@@ -522,7 +522,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             Download PDF
                         </Button>
                         <Button variant="outline" size="sm" class="w-full gap-1.5" @click="copyLink">
-                            <Check v-if="copied" class="size-4 text-green-500" />
+                            <Check v-if="copied" class="size-4 text-green-700 dark:text-green-400" />
                             <Copy v-else class="size-4" />
                             {{ copied ? 'Copied!' : 'Share Link' }}
                         </Button>
@@ -596,7 +596,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         Download PDF
                     </Button>
                     <Button variant="outline" size="sm" class="w-full gap-1.5" @click="copyLink">
-                        <Check v-if="copied" class="size-4 text-green-500" />
+                        <Check v-if="copied" class="size-4 text-green-700 dark:text-green-400" />
                         <Copy v-else class="size-4" />
                         {{ copied ? 'Copied!' : 'Share Link' }}
                     </Button>

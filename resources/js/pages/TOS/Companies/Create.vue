@@ -134,7 +134,7 @@ function submit() {
                     <div class="space-y-1.5">
                         <Label for="name">Company name</Label>
                         <Input id="name" v-model="form.name" type="text" required maxlength="120" placeholder="e.g. The Iron Vanguard" />
-                        <p v-if="form.errors.name" class="text-[11px] text-rose-600">{{ form.errors.name }}</p>
+                        <p v-if="form.errors.name" class="text-[11px] text-rose-700 dark:text-rose-400">{{ form.errors.name }}</p>
                     </div>
 
                     <!-- Optional: Build from Garrison -->
@@ -281,7 +281,7 @@ function submit() {
                             </div>
                         </div>
 
-                        <p v-if="form.errors.allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.allegiance_id }}</p>
+                        <p v-if="form.errors.allegiance_id" class="text-[11px] text-rose-700 dark:text-rose-400">{{ form.errors.allegiance_id }}</p>
                     </div>
 
                     <!-- Step 3: Format (game size) -->
@@ -320,7 +320,9 @@ function submit() {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
-                        <p v-if="form.errors.envoy_allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.envoy_allegiance_id }}</p>
+                        <p v-if="form.errors.envoy_allegiance_id" class="text-[11px] text-rose-700 dark:text-rose-400">
+                            {{ form.errors.envoy_allegiance_id }}
+                        </p>
                     </div>
 
                     <!-- Step 5: Notes -->

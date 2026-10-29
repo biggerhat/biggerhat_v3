@@ -142,13 +142,17 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                         <div
                             :class="['flex size-9 shrink-0 items-center justify-center overflow-hidden rounded ring-1 ring-border/60', accentTintBg]"
                         >
-                            <Crown v-if="isCommanderEligible(u)" class="size-4 text-amber-500" />
+                            <Crown v-if="isCommanderEligible(u)" class="size-4 text-amber-700 dark:text-amber-400" />
                             <AllegianceLogo v-else :allegiance="allegianceSlug" class-name="size-5 opacity-70" />
                         </div>
 
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1.5">
-                                <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
+                                <Crown
+                                    v-if="isCommanderEligible(u)"
+                                    class="size-3 shrink-0 text-amber-700 dark:text-amber-400"
+                                    aria-label="Commander-eligible"
+                                />
                                 <span class="truncate font-medium">{{ u.name }}</span>
                                 <Badge
                                     v-if="u.hire_category === 'envoy'"

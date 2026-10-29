@@ -189,4 +189,39 @@ class AchievementService
 
         return $badges;
     }
+
+    /**
+     * The next unearned milestone on each count-based track, closest-to-done first, so the UI can show
+     * "what to earn next" instead of only what has been earned.
+     *
+     * @return array<int, array{icon: string, label: string, description: string, current: int, target: int}>
+     */
+    public function nextMilestones(int $games, int $wins, int $collection, int $built, int $painted, int $tournaments, int $crews, int $limit = 3): array
+    {
+        // [current, icon, thresholds, [singular unit, plural unit]]
+        $tracks = [
+            [$games, 'swords', [1 => 'First Blood', 10 => 'Veteran', 50 => 'War Machine', 100 => 'Centurion'], ['game completed', 'games completed']],
+            [$wins, 'trophy', [1 => 'Victor', 10 => 'Champion', 25 => 'Conquerer'], ['victory', 'victories']],
+            [$collection, 'package', [1 => 'Collector', 10 => 'Growing Pile', 25 => 'Shelf Space', 50 => 'Hoarder', 100 => 'Warehouse', 200 => 'Dragon\'s Hoard'], ['miniature collected', 'miniatures collected']],
+            [$built, 'hammer', [1 => 'Builder', 10 => 'Assembler', 25 => 'Craftsman', 50 => 'Forgemaster', 100 => 'Assembly Line'], ['miniature assembled', 'miniatures assembled']],
+            [$painted, 'paintbrush', [1 => 'First Coat', 10 => 'Painter', 25 => 'Brush Warrior', 50 => 'Artist', 100 => 'Master Painter'], ['miniature painted', 'miniatures painted']],
+            [$tournaments, 'crown', [1 => 'Competitor', 5 => 'Regular'], ['tournament played', 'tournaments played']],
+            [$crews, 'share', [1 => 'Strategist', 5 => 'Theorist'], ['shared crew build', 'shared crew builds']],
+        ];
+
+        $next = [];
+        foreach ($tracks as [$current, $icon, $thresholds, $units]) {
+            foreach ($thresholds as $target => $label) {
+                if ($current < $target) {
+                    $next[] = ['icon' => $icon, 'label' => $label, 'description' => $target.' '.($target === 1 ? $units[0] : $units[1]), 'current' => $current, 'target' => $target];
+                    break;
+                }
+            }
+        }
+
+        // Closest to done first; ties keep track order.
+        usort($next, fn (array $a, array $b) => ($b['current'] / $b['target']) <=> ($a['current'] / $a['target']));
+
+        return array_slice($next, 0, $limit);
+    }
 }

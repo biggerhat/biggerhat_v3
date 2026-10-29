@@ -120,8 +120,8 @@ const regenerate = async () => {
             </span>
         </div>
 
-        <p v-if="finished && !errors.length" class="text-sm font-medium text-emerald-600">Done — all images regenerated.</p>
-        <ul v-if="errors.length" class="list-disc space-y-0.5 pl-5 text-xs text-rose-600">
+        <p v-if="finished && !errors.length" class="text-sm font-medium text-emerald-700 dark:text-emerald-400">Done — all images regenerated.</p>
+        <ul v-if="errors.length" class="list-disc space-y-0.5 pl-5 text-xs text-rose-700 dark:text-rose-400">
             <li v-for="(e, i) in errors" :key="i">{{ e }}</li>
         </ul>
 

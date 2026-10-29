@@ -255,7 +255,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
             <!-- Commanders -->
             <section v-if="commanderUnits.length">
                 <header class="mb-3 flex items-baseline gap-2">
-                    <Crown class="size-4 text-amber-500" aria-hidden="true" />
+                    <Crown class="size-4 text-amber-700 dark:text-amber-400" aria-hidden="true" />
                     <HeadingEyebrow as="h2">Commanders</HeadingEyebrow>
                     <Badge variant="secondary" class="text-[10px]"> {{ commanderUnits.length }} / {{ format.max_commanders }} </Badge>
                 </header>
@@ -273,7 +273,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                         <CardContent class="space-y-1 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ gu.unit.name }}</span>
-                                <Crown class="size-3.5 shrink-0 text-amber-500" />
+                                <Crown class="size-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                             </div>
                             <p v-if="gu.unit.title" class="truncate text-[11px] italic text-muted-foreground">{{ gu.unit.title }}</p>
                         </CardContent>

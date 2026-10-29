@@ -60,7 +60,7 @@ defineEmits<{
                 <template v-else-if="!opponentFactionStepDone">
                     <div class="mb-3 flex items-center gap-2">
                         <FactionLogo :faction="myFaction!" class-name="size-6" />
-                        <Check class="size-4 text-green-500" />
+                        <Check class="size-4 text-green-700 dark:text-green-400" />
                     </div>
                     <h2 class="mb-1 text-lg font-semibold">
                         Select Opponent's Faction
@@ -118,7 +118,7 @@ defineEmits<{
                 </template>
                 <div v-else class="flex items-center justify-center gap-2 py-4">
                     <FactionLogo :faction="myFaction!" class-name="size-12" />
-                    <Check class="size-5 text-green-500" />
+                    <Check class="size-5 text-green-700 dark:text-green-400" />
                 </div>
             </template>
         </CardContent>

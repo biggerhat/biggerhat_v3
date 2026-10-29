@@ -87,7 +87,7 @@ const filteredTokens = computed(() => {
                         :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
                         @click="emit('toggle', token.id, token.name)"
                     >
-                        <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-500" />
+                        <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-700 dark:text-green-400" />
                         <Plus v-else class="size-3 shrink-0 text-muted-foreground" />
                         {{ token.name }}
                     </button>
@@ -107,7 +107,7 @@ const filteredTokens = computed(() => {
                             :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
                             @click="emit('toggle', token.id, token.name)"
                         >
-                            <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-500" />
+                            <Check v-if="memberHasToken(token.id)" class="size-3 shrink-0 text-green-700 dark:text-green-400" />
                             <Plus v-else class="size-3 shrink-0 text-muted-foreground" />
                             {{ token.name }}
                         </button>

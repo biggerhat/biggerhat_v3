@@ -2600,7 +2600,7 @@ onUnmounted(() => {
                                                 class="cursor-pointer px-1.5 py-0.5 text-xs hover:bg-accent"
                                                 @click.stop="openUpgradePreview(upgrade)"
                                             >
-                                                <Star class="mr-0.5 size-2.5 text-amber-500" />
+                                                <Star class="mr-0.5 size-2.5 text-amber-700 dark:text-amber-400" />
                                                 {{ upgrade.name }}
                                             </Badge>
                                         </div>
@@ -3148,7 +3148,7 @@ onUnmounted(() => {
                                                         "
                                                     />
                                                 </button>
-                                                <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-500" />
+                                                <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-700 dark:text-amber-400" />
                                                 <div class="min-w-0 flex-1">
                                                     <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                                                     <div class="text-[10px] text-muted-foreground">
@@ -3712,11 +3712,13 @@ onUnmounted(() => {
                                                 <Star
                                                     class="size-3.5"
                                                     :class="
-                                                        activeCrewUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'
+                                                        activeCrewUpgradeId === upgrade.id
+                                                            ? 'fill-amber-500 text-amber-700 dark:text-amber-400'
+                                                            : 'text-muted-foreground'
                                                     "
                                                 />
                                             </button>
-                                            <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-500" />
+                                            <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-700 dark:text-amber-400" />
                                             <div class="min-w-0 flex-1">
                                                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
                                                 <div class="text-[10px] text-muted-foreground">

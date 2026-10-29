@@ -208,7 +208,7 @@ const formatDate = (dateStr: string) => {
                             :href="route('games.show', game.uuid)"
                             class="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all duration-200 ease-out hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
-                            <Trophy v-if="game.status === 'completed' && !game.is_tie" class="size-4 shrink-0 text-amber-500" />
+                            <Trophy v-if="game.status === 'completed' && !game.is_tie" class="size-4 shrink-0 text-amber-700 dark:text-amber-400" />
                             <Swords v-else class="size-4 shrink-0 text-muted-foreground" />
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2 text-sm">
@@ -249,7 +249,7 @@ const formatDate = (dateStr: string) => {
             <div v-if="observable_games.length">
                 <div class="my-6 border-t" />
                 <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
-                    <Eye class="size-4 text-amber-500" />
+                    <Eye class="size-4 text-amber-700 dark:text-amber-400" />
                     Public Games
                 </h2>
                 <p class="mb-3 text-xs text-muted-foreground">Games with spectating enabled from the last 24 hours</p>
@@ -270,7 +270,7 @@ const formatDate = (dateStr: string) => {
                                         <Badge v-if="game.status === 'completed'" variant="outline" class="border-muted-foreground/30 text-[10px]">
                                             <Trophy class="mr-1 size-2.5" /> Completed
                                         </Badge>
-                                        <Badge v-else variant="outline" class="border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">
+                                        <Badge v-else variant="outline" class="border-amber-500/50 text-[10px] text-amber-800 dark:text-amber-400">
                                             <Eye class="mr-1 size-2.5" /> Public
                                         </Badge>
                                     </div>

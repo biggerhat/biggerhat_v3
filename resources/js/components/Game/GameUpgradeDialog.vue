@@ -79,7 +79,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                         class="flex items-center justify-between rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-xs"
                     >
                         <div class="flex items-center gap-1.5">
-                            <ArrowUpCircle class="size-3 shrink-0 text-amber-500" />
+                            <ArrowUpCircle class="size-3 shrink-0 text-amber-700 dark:text-amber-400" />
                             <span class="font-medium">{{ upgrade.name }}</span>
                         </div>
                         <button
@@ -110,7 +110,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                         :disabled="!memberHasUpgrade(upgrade.id) && isAtLimit(upgrade.id, upgrade.plentiful)"
                         @click="emit('toggle', upgrade)"
                     >
-                        <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
+                        <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-700 dark:text-amber-400" />
                         <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
                         <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
                         <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[10px] text-muted-foreground">
@@ -145,7 +145,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                             :disabled="!memberHasUpgrade(upgrade.id) && isAtLimit(upgrade.id, upgrade.plentiful)"
                             @click="emit('toggle', upgrade)"
                         >
-                            <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-500" />
+                            <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-700 dark:text-amber-400" />
                             <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
                             <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
                             <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[10px] text-muted-foreground">

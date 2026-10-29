@@ -2972,7 +2972,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
             <!-- Observer banner -->
             <div v-if="isObserver" class="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">
-                <Eye class="size-4 text-amber-500" />
+                <Eye class="size-4 text-amber-700 dark:text-amber-400" />
                 <span class="font-medium text-amber-700 dark:text-amber-400">Spectating</span>
                 <span class="text-xs text-muted-foreground">You are watching this game in real time. All changes are read-only.</span>
             </div>
@@ -4093,7 +4093,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </template>
                                 <template v-else-if="myPlayer?.is_turn_complete">
                                     <div class="py-2 text-center text-xs text-muted-foreground">
-                                        <template v-if="isSolo"> <Check class="mr-1 inline size-3 text-green-500" /> Your turn submitted </template>
+                                        <template v-if="isSolo">
+                                            <Check class="mr-1 inline size-3 text-green-700 dark:text-green-400" /> Your turn submitted
+                                        </template>
                                         <template v-else> <Loader2 class="mr-1 inline size-3 animate-spin" /> Waiting for opponent... </template>
                                     </div>
                                 </template>
@@ -4105,7 +4107,9 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <div class="flex items-center justify-between">
                                             <div>
                                                 <span class="text-xs text-muted-foreground">Strategy VP</span>
-                                                <span v-if="!myStrategyBonusUsed && strategyPoints < 2" class="ml-1 text-[10px] text-amber-500"
+                                                <span
+                                                    v-if="!myStrategyBonusUsed && strategyPoints < 2"
+                                                    class="ml-1 text-[10px] text-amber-700 dark:text-amber-400"
                                                     >+1 bonus available</span
                                                 >
                                                 <span v-if="myStrategyBonusUsed" class="ml-1 text-[10px] text-muted-foreground">bonus used</span>
@@ -4321,7 +4325,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <UserRound class="size-3.5" /> Opponent — Turn {{ game.current_turn }}
                                         </div>
                                         <template v-if="opponent?.is_turn_complete">
-                                            <div class="py-2 text-center text-xs text-green-600">
+                                            <div class="py-2 text-center text-xs text-green-700 dark:text-green-400">
                                                 <Check class="mr-1 inline size-3" /> Opponent turn submitted
                                             </div>
                                         </template>
@@ -4331,7 +4335,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <span class="text-xs text-muted-foreground">Strategy VP</span>
                                                     <span
                                                         v-if="!opponentStrategyBonusUsed && opponentStrategyPoints < 2"
-                                                        class="ml-1 text-[10px] text-amber-500"
+                                                        class="ml-1 text-[10px] text-amber-700 dark:text-amber-400"
                                                         >+1 bonus available</span
                                                     >
                                                     <span v-if="opponentStrategyBonusUsed" class="ml-1 text-[10px] text-muted-foreground"
@@ -4420,7 +4424,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <Check class="mr-1 inline size-3" /> Both players ready — finalizing...
                                     </div>
                                     <div v-else-if="myPlayer?.is_game_complete" class="text-muted-foreground">
-                                        <Check class="mr-1 inline size-3 text-green-500" /> Waiting for opponent to confirm...
+                                        <Check class="mr-1 inline size-3 text-green-700 dark:text-green-400" /> Waiting for opponent to confirm...
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -5060,7 +5064,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <button
                                     :aria-label="`Revive ${member.display_name}`"
                                     v-if="!isObserver"
-                                    class="rounded p-0.5 text-green-600 hover:bg-green-500/20"
+                                    class="rounded p-0.5 text-green-700 hover:bg-green-500/20 dark:text-green-400"
                                     @click="reviveMember(member)"
                                 >
                                     <RotateCcw class="size-3.5" />
@@ -5124,7 +5128,10 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     aria-label="Toggle all cards"
                                     @click="toggleAllCards('opponent')"
                                 >
-                                    <Layers class="size-3.5" :class="allOpponentCardsExpanded ? 'text-amber-500' : 'text-muted-foreground'" />
+                                    <Layers
+                                        class="size-3.5"
+                                        :class="allOpponentCardsExpanded ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'"
+                                    />
                                 </button>
                                 <button
                                     class="hidden rounded p-0.5 hover:bg-muted lg:inline-flex"
@@ -5212,7 +5219,11 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div class="flex items-center gap-1.5">
                                     <Star
                                         class="size-3.5 shrink-0"
-                                        :class="opponentActiveUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'"
+                                        :class="
+                                            opponentActiveUpgradeId === upgrade.id
+                                                ? 'fill-amber-500 text-amber-700 dark:text-amber-400'
+                                                : 'text-muted-foreground'
+                                        "
                                     />
                                     <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
                                     <button
@@ -5693,7 +5704,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <button
                                     :aria-label="`Revive ${member.display_name}`"
                                     v-if="isSolo && !isObserver"
-                                    class="rounded p-0.5 text-green-600 hover:bg-green-500/20"
+                                    class="rounded p-0.5 text-green-700 hover:bg-green-500/20 dark:text-green-400"
                                     @click="reviveMember(member)"
                                 >
                                     <RotateCcw class="size-3.5" />

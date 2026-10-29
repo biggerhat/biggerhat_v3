@@ -297,7 +297,9 @@ const submit = () => {
                 <span class="text-sm text-muted-foreground">
                     {{ campaign.name }} • <strong class="text-foreground">{{ crew.name }}</strong> • 25 ss budget • unspent → scrip (max 3)
                 </span>
-                <p v-if="locked" class="mt-1 text-sm font-medium text-amber-600">Locked — the campaign is no longer in planning.</p>
+                <p v-if="locked" class="mt-1 text-sm font-medium text-amber-700 dark:text-amber-400">
+                    Locked — the campaign is no longer in planning.
+                </p>
             </div>
         </template>
         <template #actions>

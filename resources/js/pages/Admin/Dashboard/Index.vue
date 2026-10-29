@@ -177,7 +177,7 @@ const fetchedAgo = computed(() => {
                     <p class="text-sm text-muted-foreground">
                         From Google Analytics.
                         <span v-if="fetchedAgo">Updated {{ fetchedAgo }}.</span>
-                        <span class="ml-1 text-xs text-muted-foreground/80"
+                        <span class="ml-1 text-xs text-muted-foreground"
                             >GA4 itself can lag several hours, so very recent traffic may not be reflected.</span
                         >
                     </p>
@@ -189,7 +189,7 @@ const fetchedAgo = computed(() => {
             </div>
 
             <div v-if="analytics.error" class="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-                <AlertCircle class="mt-0.5 h-4 w-4 text-amber-500" />
+                <AlertCircle class="mt-0.5 h-4 w-4 text-amber-700 dark:text-amber-400" />
                 <div>
                     <p class="font-medium">Analytics unavailable</p>
                     <p class="text-muted-foreground">{{ analytics.error }}</p>

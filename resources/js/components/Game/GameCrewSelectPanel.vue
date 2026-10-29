@@ -619,12 +619,16 @@ const confirmCampaignCrew = () => {
                 <div v-else class="py-6 text-center text-sm text-muted-foreground">No saved crews for this faction yet.</div>
             </template>
             <template v-else-if="!isSolo || opponentCrewStepDone">
-                <div class="py-4 text-center text-sm text-muted-foreground"><Check class="inline size-5 text-green-500" /> Crew selected</div>
+                <div class="py-4 text-center text-sm text-muted-foreground">
+                    <Check class="inline size-5 text-green-700 dark:text-green-400" /> Crew selected
+                </div>
             </template>
 
             <!-- Solo: opponent crew (optional) -->
             <template v-else-if="isSolo && crewStepDone && !opponentCrewStepDone">
-                <div class="mb-3 text-center text-sm text-muted-foreground"><Check class="inline size-4 text-green-500" /> Your crew selected</div>
+                <div class="mb-3 text-center text-sm text-muted-foreground">
+                    <Check class="inline size-4 text-green-700 dark:text-green-400" /> Your crew selected
+                </div>
                 <p class="mb-3 text-xs text-muted-foreground">
                     Optionally select a saved crew for
                     <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong

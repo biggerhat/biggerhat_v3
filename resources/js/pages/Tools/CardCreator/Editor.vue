@@ -707,7 +707,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 </button>
                             </div>
                         </div>
-                        <p class="mt-1 text-[10px] text-muted-foreground/60">
+                        <p class="mt-1 text-[10px] text-muted-foreground">
                             Populates all fields from an official character. You can edit everything after cloning.
                         </p>
                     </div>
@@ -715,7 +715,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                     <!-- ═══ IDENTITY + ART ═══ -->
                     <Card>
                         <CardContent class="space-y-4 p-4">
-                            <h3 class="text-sm font-semibold">Identity</h3>
+                            <h2 class="text-sm font-semibold">Identity</h2>
                             <div class="grid gap-3 sm:grid-cols-2">
                                 <div>
                                     <label class="mb-1 block text-xs text-muted-foreground">Name *</label>
@@ -837,7 +837,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     </div>
                                     <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelected" />
                                 </label>
-                                <p class="mt-1 text-[10px] text-muted-foreground/60">
+                                <p class="mt-1 text-[10px] text-muted-foreground">
                                     Preview only — this image isn't saved with the card, so it won't be here after a refresh or on the public share
                                     link. Re-upload it each time you edit.
                                 </p>
@@ -848,7 +848,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                     <!-- ═══ STATS ═══ -->
                     <Card>
                         <CardContent class="space-y-3 p-4">
-                            <h3 class="text-sm font-semibold">Stats</h3>
+                            <h2 class="text-sm font-semibold">Stats</h2>
                             <!-- Row 1: Core -->
                             <div class="grid grid-cols-4 gap-2">
                                 <div>
@@ -913,7 +913,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                     <!-- ═══ DETAILS: Keywords, Chars, Crew Upgrades, Totems ═══ -->
                     <Card>
                         <CardContent class="space-y-4 p-4">
-                            <h3 class="text-sm font-semibold">Details</h3>
+                            <h2 class="text-sm font-semibold">Details</h2>
 
                             <!-- Keywords -->
                             <div>

@@ -1723,7 +1723,9 @@ const submitInjuries = () => {
                                         <SelectItem v-for="c in traitorTargetCrews" :key="c.id" :value="c.id.toString()">{{ c.name }}</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <span v-else class="text-[11px] text-amber-600">no other crew in this campaign — the model is just removed</span>
+                                <span v-else class="text-[11px] text-amber-700 dark:text-amber-400"
+                                    >no other crew in this campaign — the model is just removed</span
+                                >
                             </template>
                             <template v-else-if="f.is_red_joker && f.custom_character_id === null">
                                 <label class="flex items-center gap-1 text-[11px] text-muted-foreground">

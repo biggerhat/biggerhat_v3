@@ -242,7 +242,9 @@ const confirmPendingScheme = () => {
                     </div>
                 </div>
             </template>
-            <div v-else class="py-4 text-center text-sm text-muted-foreground"><Check class="inline size-5 text-green-500" /> Scheme selected</div>
+            <div v-else class="py-4 text-center text-sm text-muted-foreground">
+                <Check class="inline size-5 text-green-700 dark:text-green-400" /> Scheme selected
+            </div>
         </CardContent>
     </Card>
 

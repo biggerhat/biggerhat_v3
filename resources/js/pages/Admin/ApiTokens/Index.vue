@@ -108,7 +108,7 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
                 <div class="flex items-center gap-2">
                     <code class="flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">{{ new_token.plaintext }}</code>
                     <Button size="sm" variant="outline" @click="copyToken">
-                        <Check v-if="copied" class="size-3.5 text-green-500" />
+                        <Check v-if="copied" class="size-3.5 text-green-700 dark:text-green-400" />
                         <Copy v-else class="size-3.5" />
                         {{ copied ? 'Copied' : 'Copy' }}
                     </Button>

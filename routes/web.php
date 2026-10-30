@@ -429,8 +429,9 @@ Route::middleware('auth')->group(function () {
 Route::get('/tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
-    Route::get('/create', [TournamentController::class, 'create'])->name('create')->middleware('permission:create_tournaments');
-    Route::post('/', [TournamentController::class, 'store'])->name('store')->middleware('permission:create_tournaments');
+    Route::get('/create', [TournamentController::class, 'create'])->name('create');
+    // Open to any signed-in user; throttled so it can't be used to mass-create events.
+    Route::post('/', [TournamentController::class, 'store'])->name('store')->middleware('throttle:20,60');
     Route::get('/{tournament}', [TournamentController::class, 'manage'])->name('manage');
     Route::put('/{tournament}', [TournamentController::class, 'update'])->name('update');
     Route::delete('/{tournament}', [TournamentController::class, 'destroy'])->name('destroy');

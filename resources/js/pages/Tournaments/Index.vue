@@ -11,7 +11,7 @@ import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Info, Plus, Trophy } from 'lucide-vue-next';
+import { Plus, Trophy } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -43,7 +43,6 @@ const publicGroups = computed(() => grouped('public', props.public_tournaments))
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
-const canCreateTournaments = computed(() => (page.props.auth.permissions ?? []).includes('create_tournaments'));
 // Super-admins see a trash icon on every tournament card and can delete in
 // any state (creators are still gated to Draft on the controller side).
 const isSuperAdmin = computed(() => !!page.props.auth.is_super_admin);
@@ -98,30 +97,9 @@ const removeTournament = async (t: TournamentSummary) => {
         </PageBanner>
 
         <div class="container mx-auto sm:px-4">
-            <!-- TO opt-in notice — shown to users without create-tournament
-                 permission. Tracker access is gated while in beta; this points
-                 prospective TOs to the right channel for getting onboarded. -->
-            <div
-                v-if="!canCreateTournaments"
-                class="mb-6 flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm dark:bg-amber-500/10"
-            >
-                <Info class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                <div class="space-y-1">
-                    <p class="font-medium text-amber-900 dark:text-amber-200">Are you a Tournament Organizer?</p>
-                    <p class="text-muted-foreground">
-                        The Tournament Tracker is in beta and access is request-only while we polish it. If you'd like to run an event with it, reach
-                        out to an admin or
-                        <Link :href="route('feedback.show')" class="font-medium text-primary underline-offset-2 hover:underline">
-                            send us a note via the feedback page
-                        </Link>
-                        and we'll get you set up.
-                    </p>
-                </div>
-            </div>
-
             <!-- Create Tournament CTA -->
             <Link
-                v-if="canCreateTournaments"
+                v-if="isLoggedIn"
                 :href="route('tournaments.create')"
                 class="group mb-6 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
@@ -135,6 +113,24 @@ const removeTournament = async (t: TournamentSummary) => {
                         <div>
                             <p class="font-semibold">Create Tournament</p>
                             <p class="text-sm text-muted-foreground">Set up a new Gaining Grounds event</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </Link>
+
+            <Link
+                v-else
+                :href="route('login')"
+                class="group mb-6 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+                <Card :class="CARD_HOVER_PROMINENT">
+                    <CardContent class="flex items-center gap-4 p-5">
+                        <div class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <Trophy class="size-6" />
+                        </div>
+                        <div>
+                            <p class="font-semibold">Run your own tournament</p>
+                            <p class="text-sm text-muted-foreground">Log in or sign up to set up a Gaining Grounds event — it's free for everyone.</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -190,12 +186,10 @@ const removeTournament = async (t: TournamentSummary) => {
                 :icon="Trophy"
                 title="No tournaments yet"
                 :description="
-                    canCreateTournaments
-                        ? 'Create your first Gaining Grounds event to get started.'
-                        : 'Tournament creation is restricted. Ask an admin for the Tournament Organizer role.'
+                    isLoggedIn ? 'Create your first Gaining Grounds event to get started.' : 'Log in to create the first Gaining Grounds event.'
                 "
             >
-                <template v-if="canCreateTournaments" #action>
+                <template v-if="isLoggedIn" #action>
                     <Link :href="route('tournaments.create')">
                         <Button><Plus class="mr-2 size-4" /> Create Tournament</Button>
                     </Link>

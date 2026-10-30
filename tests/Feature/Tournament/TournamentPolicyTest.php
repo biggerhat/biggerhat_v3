@@ -7,17 +7,14 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
-    Permission::firstOrCreate(['name' => PermissionEnum::CreateTournaments->value, 'guard_name' => 'web']);
     Permission::firstOrCreate(['name' => PermissionEnum::ManageTournaments->value, 'guard_name' => 'web']);
 
-    $this->organizer = Role::firstOrCreate(['name' => 'tournament_organizer', 'guard_name' => 'web'])
-        ->givePermissionTo(PermissionEnum::CreateTournaments->value);
     $this->admin = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web'])
-        ->givePermissionTo([PermissionEnum::CreateTournaments->value, PermissionEnum::ManageTournaments->value]);
+        ->givePermissionTo([PermissionEnum::ManageTournaments->value]);
 });
 
 it('lets the creator manage their tournament', function () {
-    $creator = User::factory()->create()->assignRole('tournament_organizer');
+    $creator = User::factory()->create();
     $t = Tournament::factory()->create(['creator_id' => $creator->id]);
 
     expect($creator->can('manage', $t))->toBeTrue();
@@ -55,10 +52,59 @@ it('blocks a random user from managing a tournament', function () {
     expect($stranger->can('delete', $t))->toBeFalse();
 });
 
-it('only lets users with create_tournaments create new tournaments', function () {
-    $organizer = User::factory()->create()->assignRole('tournament_organizer');
-    $stranger = User::factory()->create();
+it('lets any signed-in user create tournaments', function () {
+    expect(User::factory()->create()->can('create', Tournament::class))->toBeTrue();
+});
 
-    expect($organizer->can('create', Tournament::class))->toBeTrue();
-    expect($stranger->can('create', Tournament::class))->toBeFalse();
+it('lets a regular user open the create form and store a tournament without any permission', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get(route('tournaments.create'))->assertOk();
+
+    $this->actingAs($user)->post(route('tournaments.store'), [
+        'name' => 'Open Door Open',
+        'event_date' => now()->addWeek()->toDateString(),
+        'encounter_size' => 50,
+        'encounter_type' => 'traditional',
+        'planned_rounds' => 3,
+        'season' => \App\Enums\PoolSeasonEnum::defaultSeason()->value,
+        'round_time_limit' => 135,
+        'bye_tp' => 3,
+        'bye_diff' => 4,
+        'bye_vp' => 6,
+        'tiebreaker_mode' => 'diff_vp',
+    ])->assertRedirect();
+
+    $t = Tournament::where('name', 'Open Door Open')->first();
+    expect($t)->not->toBeNull()
+        ->and($t->creator_id)->toBe($user->id)
+        ->and($user->can('manage', $t))->toBeTrue();
+});
+
+it('keeps the create form behind login', function () {
+    $this->get(route('tournaments.create'))->assertRedirect(route('login'));
+});
+
+it('keeps other people\'s draft tournaments out of the public list', function () {
+    $creator = User::factory()->create();
+    Tournament::factory()->create(['creator_id' => $creator->id, 'name' => 'Secret Draft', 'status' => 'draft']);
+    Tournament::factory()->create(['creator_id' => $creator->id, 'name' => 'Open Reg', 'status' => 'registration']);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('tournaments.index'))
+        ->assertInertia(fn ($page) => $page
+            ->has('public_tournaments', 1)
+            ->where('public_tournaments.0.name', 'Open Reg'));
+});
+
+it('removes the retired tournament_organizer role and create_tournaments permission', function () {
+    $role = Role::create(['name' => 'tournament_organizer', 'guard_name' => 'web']);
+    $perm = Permission::create(['name' => 'create_tournaments', 'guard_name' => 'web']);
+    $role->givePermissionTo($perm);
+    User::factory()->create()->assignRole($role);
+
+    (require database_path('migrations/2026_10_30_120000_remove_tournament_organizer_role.php'))->up();
+
+    expect(Role::where('name', 'tournament_organizer')->exists())->toBeFalse()
+        ->and(Permission::where('name', 'create_tournaments')->exists())->toBeFalse();
 });

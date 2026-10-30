@@ -49,7 +49,9 @@ class TournamentController extends Controller
                 ->get()
             : collect();
 
-        $publicTournaments = Tournament::when($userId, fn ($q) => $q->where('creator_id', '!=', $userId))
+        // Drafts stay private to their organizers (reachable by link for RSVPs) so open creation can't clutter the public list.
+        $publicTournaments = Tournament::where('status', '!=', TournamentStatusEnum::Draft->value)
+            ->when($userId, fn ($q) => $q->where('creator_id', '!=', $userId))
             ->with('creator:id,name')
             ->withCount('players')
             ->latest('event_date')

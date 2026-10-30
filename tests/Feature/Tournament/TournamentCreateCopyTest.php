@@ -1,17 +1,11 @@
 <?php
 
-use App\Enums\PermissionEnum;
 use App\Models\Tournament;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
-    Permission::firstOrCreate(['name' => PermissionEnum::CreateTournaments->value, 'guard_name' => 'web']);
-    Role::firstOrCreate(['name' => 'tournament_organizer', 'guard_name' => 'web'])
-        ->givePermissionTo(PermissionEnum::CreateTournaments->value);
-    $this->organizer = User::factory()->create()->assignRole('tournament_organizer');
+    $this->organizer = User::factory()->create();
 });
 
 it('prefills the create form from a tournament the user organizes', function () {

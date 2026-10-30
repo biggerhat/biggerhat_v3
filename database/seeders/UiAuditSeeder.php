@@ -47,12 +47,9 @@ class UiAuditSeeder extends Seeder
 
         $this->call([RoleSeeder::class, PermissionSeeder::class]);
         Role::findByName(RoleEnum::SuperAdmin->value)->syncPermissions(Permission::all());
-        Role::findByName(RoleEnum::TournamentOrganizer->value)->syncPermissions(
-            Permission::whereIn('name', ['create_tournaments', 'manage_tournaments'])->get(),
-        );
 
         $member = $this->user('Mara Member', 'audit.member@example.test');
-        $organizer = $this->user('Orla Organizer', 'audit.organizer@example.test', RoleEnum::TournamentOrganizer);
+        $organizer = $this->user('Orla Organizer', 'audit.organizer@example.test');
         $this->user('Ada Admin', 'audit.admin@example.test', RoleEnum::SuperAdmin);
         $opponent = $this->user('Otto Opponent', 'audit.opponent@example.test');
         $pending = $this->user('Pia Pending', 'audit.pending@example.test');

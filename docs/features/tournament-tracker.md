@@ -4,6 +4,12 @@ Run a Malifaux tournament: registration/RSVP, Swiss rounds + pairings, scoring,
 standings. Integrates with the [Game Tracker](game-tracker.md) — a tournament
 match can spawn/track a live Game.
 
+## Access
+Any signed-in user can create and run a tournament (creation is throttled to 20/hour). There is no `create_tournaments`
+permission or `tournament_organizer` role any more. Per-event control is the creator + `tournament_organizers` pivot
+(`TournamentPolicy::manage`); `manage_tournaments` stays a super-admin "manage any" permission. Draft events are hidden from
+the public list (they stay reachable by link for RSVPs).
+
 ## Routes (`routes/web.php`, `tournaments` prefix)
 - `Tournament\TournamentController` — index/show/create/store/update, organizer dashboard.
 - `Tournament\TournamentRoundController` — generate pairings, advance rounds.

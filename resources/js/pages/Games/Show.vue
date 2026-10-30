@@ -1083,7 +1083,8 @@ const gameplayColumnClass = (column: 'scenario' | 'my-crew' | 'opponent'): strin
     }
     // crew columns
     if (gameplayTab.value === column) return '';
-    if (gameplayTab.value === 'crews') return 'hidden md:block';
+    // Any non-scenario tab is the merged "Crews" view on tablet, so the other crew stays visible at md+.
+    if (gameplayTab.value !== 'scenario') return 'hidden md:block';
     return 'hidden xl:block';
 };
 
@@ -3279,7 +3280,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <Badge
                     v-if="game.is_observable && !GAME_FINISHED_STATUSES.includes(game.status)"
                     variant="outline"
-                    class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400"
+                    class="border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
                     >Public</Badge
                 >
                 <div v-if="canEditScenario" class="ml-auto flex items-center gap-1">
@@ -3655,32 +3656,33 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             >
                         </TabsList>
                     </Tabs>
-                    <!-- Score strip: keeps turn + VP visible while the Crew tabs are open (the full
-                         scoreboard lives on the Game tab). Tap to jump back there. -->
-                    <button
-                        v-if="mobileGameplayTab !== 'scenario'"
-                        type="button"
-                        class="sticky top-0 z-20 mt-2 flex w-full items-center justify-between gap-3 rounded-lg border bg-card/95 px-3 py-2 text-sm shadow-sm backdrop-blur"
-                        @click="mobileGameplayTab = 'scenario'"
-                    >
-                        <span class="font-semibold"
-                            >Turn {{ game.current_turn }}<span class="font-normal text-muted-foreground"> / {{ game.max_turns }}</span></span
-                        >
-                        <span class="flex min-w-0 items-center gap-3 tabular-nums">
-                            <span
-                                v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
-                                :key="'strip-' + player.id"
-                                class="flex min-w-0 items-baseline gap-1"
-                            >
-                                <span class="max-w-[6rem] truncate text-xs text-muted-foreground">{{
-                                    player.id === myPlayer?.id && !isObserver ? 'You' : playerName(player)
-                                }}</span>
-                                <span class="text-base font-bold">{{ player.total_points }}</span>
-                                <span class="text-2xs uppercase text-muted-foreground">VP</span>
-                            </span>
-                        </span>
-                    </button>
                 </div>
+
+                <!-- Score strip: keeps turn + VP visible while the Crew tabs are open (the full
+                 scoreboard lives on the Game tab). Tap to jump back there. -->
+                <button
+                    v-if="mobileGameplayTab !== 'scenario'"
+                    type="button"
+                    class="sticky top-0 z-20 mb-3 flex w-full items-center justify-between gap-3 rounded-lg border bg-card/95 px-3 py-2 text-sm shadow-sm backdrop-blur md:hidden"
+                    @click="mobileGameplayTab = 'scenario'"
+                >
+                    <span class="font-semibold"
+                        >Turn {{ game.current_turn }}<span class="font-normal text-muted-foreground"> / {{ game.max_turns }}</span></span
+                    >
+                    <span class="flex min-w-0 items-center gap-3 tabular-nums">
+                        <span
+                            v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
+                            :key="'strip-' + player.id"
+                            class="flex min-w-0 items-baseline gap-1"
+                        >
+                            <span class="max-w-[6rem] truncate text-xs text-muted-foreground">{{
+                                player.id === myPlayer?.id && !isObserver ? 'You' : playerName(player)
+                            }}</span>
+                            <span class="text-base font-bold">{{ player.total_points }}</span>
+                            <span class="text-2xs uppercase text-muted-foreground">VP</span>
+                        </span>
+                    </span>
+                </button>
 
                 <!-- Tablet: 2-tab switcher (game / both crews side-by-side).
                      Bonanza has only one crew, so the Crews tab is just the
@@ -3708,7 +3710,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         v-if="turnBanner"
                         class="mb-4 overflow-hidden rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-amber-500/20 py-3 text-center"
                     >
-                        <div class="text-lg font-bold text-amber-600 dark:text-amber-400">Turn {{ game.current_turn }} Started</div>
+                        <div class="text-lg font-bold text-amber-700 dark:text-amber-400">Turn {{ game.current_turn }} Started</div>
                     </div>
                 </Transition>
 
@@ -3720,7 +3722,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <div
                     class="grid grid-cols-1 gap-4"
                     :class="[
-                        gameplayTab === 'crews' && !isBonanza ? 'md:grid-cols-2' : '',
+                        gameplayTab !== 'scenario' && !isBonanza ? 'md:grid-cols-2' : '',
                         isBonanza
                             ? scenarioCollapsed
                                 ? 'xl:grid-cols-[auto_1fr]'
@@ -4103,7 +4105,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <Badge
                                                         v-else
                                                         variant="outline"
-                                                        class="border-amber-500/50 px-1 py-0 text-2xs text-amber-600 dark:text-amber-400"
+                                                        class="border-amber-500/50 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                                         >Held</Badge
                                                     >
                                                 </div>
@@ -4482,7 +4484,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             Cancel End Game
                                         </Button>
                                     </div>
-                                    <div v-else-if="opponent?.is_game_complete" class="text-amber-600 dark:text-amber-400">
+                                    <div v-else-if="opponent?.is_game_complete" class="text-amber-700 dark:text-amber-400">
                                         <span class="font-medium">{{ playerName(opponent) }}</span> wants to end the game.
                                         <div class="mt-2 flex gap-2">
                                             <Button variant="outline" size="sm" class="flex-1 text-xs" @click="completeDialogOpen = true">
@@ -4613,7 +4615,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <Badge
                                         v-if="myActiveUpgradeId === upgrade.id"
                                         variant="outline"
-                                        class="border-amber-500/50 px-1.5 py-0 text-2xs text-amber-600 dark:text-amber-400"
+                                        class="border-amber-500/50 px-1.5 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                         >Active</Badge
                                     >
                                     <button
@@ -4851,7 +4853,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                     </div>
                                     <!-- Line 3 (mobile): Stats + Health controls / Desktop: Stats + pips + controls on one row -->
-                                    <div class="mt-0.5 flex items-center gap-2 pl-8 sm:pl-6">
+                                    <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-8 sm:pl-6">
                                         <div
                                             v-if="member.defense || member.willpower || member.speed || member.size"
                                             class="flex gap-1.5 text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:text-xs"
@@ -4876,7 +4878,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             >
                                         </div>
                                         <!-- Desktop: health pips inline -->
-                                        <div class="hidden gap-0.5 sm:flex">
+                                        <div class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
                                             <button
                                                 v-for="pip in member.max_health"
                                                 :key="'hp-' + pip"
@@ -5285,7 +5287,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <Badge
                                         v-if="opponentActiveUpgradeId === upgrade.id"
                                         variant="outline"
-                                        class="border-amber-500/50 px-1.5 py-0 text-2xs text-amber-600 dark:text-amber-400"
+                                        class="border-amber-500/50 px-1.5 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                         >Active</Badge
                                     >
                                 </div>
@@ -5518,7 +5520,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             >
                                         </div>
                                         <!-- Desktop: health pips inline -->
-                                        <div class="hidden gap-0.5 sm:flex">
+                                        <div class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
                                             <button
                                                 v-for="pip in member.max_health"
                                                 :key="'ohp-' + pip"

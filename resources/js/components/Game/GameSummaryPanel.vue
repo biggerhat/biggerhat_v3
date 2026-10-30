@@ -72,7 +72,13 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
         <CardContent class="p-0">
             <div
                 class="px-4 py-3 text-center"
-                :class="game.status === GameStatus.Abandoned ? 'bg-muted' : game.is_tie ? 'bg-muted' : 'bg-amber-500/10'"
+                :class="
+                    game.status === GameStatus.Abandoned
+                        ? 'bg-muted'
+                        : game.is_tie || !(game.winner || (isSolo && game.winner_slot))
+                          ? 'bg-muted'
+                          : 'bg-amber-500/10'
+                "
             >
                 <div v-if="game.status === GameStatus.Abandoned" class="text-lg font-bold text-muted-foreground">Game Abandoned</div>
                 <div v-else-if="game.is_tie" class="text-lg font-bold">Draw!</div>
@@ -80,6 +86,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                 <div v-else-if="isSolo && game.winner_slot" class="text-lg font-bold text-amber-700 dark:text-amber-400">
                     {{ game.winner_slot === 1 ? playerName(myPlayer) : playerName(opponentPlayer) }} Wins!
                 </div>
+                <div v-else class="text-lg font-bold text-muted-foreground">Game complete</div>
             </div>
 
             <!-- Final scores side by side. Bonanza is single-column
@@ -100,7 +107,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                         class="mt-1 text-2xl font-bold"
                         :class="
                             (game.winner?.id === player.user?.id && game.winner) || (isSolo && game.winner_slot === player.slot)
-                                ? 'text-amber-600 dark:text-amber-400'
+                                ? 'text-amber-700 dark:text-amber-400'
                                 : ''
                         "
                     >
@@ -214,7 +221,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                         <Badge
                             v-else-if="turn.scheme_action === 'discarded'"
                             variant="outline"
-                            class="shrink-0 border-amber-500/50 px-1 py-0 text-2xs text-amber-600 dark:text-amber-400"
+                            class="shrink-0 border-amber-500/50 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                             >Discarded</Badge
                         >
                         <Badge v-else-if="turn.scheme_action === 'held'" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Held</Badge>
@@ -344,7 +351,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                 <Badge
                                     v-if="getTurnSchemeInfo(player, turn).action === 'discarded'"
                                     variant="outline"
-                                    class="ml-1 border-amber-500/50 px-1 py-0 text-2xs text-amber-600 dark:text-amber-400"
+                                    class="ml-1 border-amber-500/50 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                     >Discarded</Badge
                                 >
 

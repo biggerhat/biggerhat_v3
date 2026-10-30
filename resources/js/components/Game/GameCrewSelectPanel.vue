@@ -313,7 +313,7 @@ const confirmCampaignCrew = () => {
         <CardContent class="p-4 sm:p-6">
             <h2 class="mb-1 text-lg font-semibold">
                 {{ isSolo && crewStepDone ? "Opponent's Crew" : 'Select Your Crew' }}
-                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400"
+                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-2xs text-amber-700 dark:text-amber-400"
                     >Opponent</Badge
                 >
             </h2>
@@ -431,7 +431,7 @@ const confirmCampaignCrew = () => {
                             <Badge
                                 v-if="m.is_ook"
                                 variant="outline"
-                                class="shrink-0 border-amber-500/50 px-1 py-0 text-2xs text-amber-600 dark:text-amber-400"
+                                class="shrink-0 border-amber-500/50 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                 >OOK</Badge
                             >
                             <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Peon</Badge>
@@ -560,7 +560,7 @@ const confirmCampaignCrew = () => {
                                         OOK:
                                         <span
                                             class="font-medium text-foreground"
-                                            :class="crew.ook_count >= 2 ? 'text-amber-600 dark:text-amber-400' : ''"
+                                            :class="crew.ook_count >= 2 ? 'text-amber-700 dark:text-amber-400' : ''"
                                         >
                                             {{ crew.ook_count }}/2
                                         </span>
@@ -707,7 +707,7 @@ const confirmCampaignCrew = () => {
                                         OOK:
                                         <span
                                             class="font-medium text-foreground"
-                                            :class="crew.ook_count >= 2 ? 'text-amber-600 dark:text-amber-400' : ''"
+                                            :class="crew.ook_count >= 2 ? 'text-amber-700 dark:text-amber-400' : ''"
                                         >
                                             {{ crew.ook_count }}/2
                                         </span>

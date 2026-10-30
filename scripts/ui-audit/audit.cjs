@@ -46,6 +46,7 @@ const axeSrc = fs.existsSync(axePath) ? fs.readFileSync(axePath, 'utf8') : null;
 if (!axeSrc) console.warn('axe-core not found (npm i --no-save axe-core or set AXE); skipping accessibility checks');
 const VP = {
     mobile: { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
+    tablet: { width: 820, height: 1180, hasTouch: true },
     desktop: { width: 1440, height: 900 },
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

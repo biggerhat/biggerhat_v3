@@ -127,7 +127,7 @@ const confirmOpponentMasterSelection = () => {
                 <template v-else>
                     {{ isSolo && masterStepDone ? "Select Opponent's Master" : 'Select Your Master' }}
                 </template>
-                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400"
+                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-2xs text-amber-700 dark:text-amber-400"
                     >Opponent</Badge
                 >
             </h2>
@@ -241,7 +241,7 @@ const confirmOpponentMasterSelection = () => {
                             <div class="min-w-0 flex-1">
                                 <div class="text-2xs uppercase tracking-wider text-muted-foreground">Selected</div>
                                 <div class="truncate text-sm font-medium">{{ selectedMasterTitle ?? selectedMasterName }}</div>
-                                <div v-if="masterRequiresTitle && !selectedMasterTitle" class="text-2xs text-amber-600 dark:text-amber-400">
+                                <div v-if="masterRequiresTitle && !selectedMasterTitle" class="text-2xs text-amber-700 dark:text-amber-400">
                                     Pick a title to continue
                                 </div>
                             </div>

@@ -1460,11 +1460,11 @@ const titlesForMaster = (masterName: string | null) => {
         </PageBanner>
 
         <div class="container mx-auto sm:px-4">
-            <div class="mb-4 flex items-center justify-between">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <Button variant="ghost" class="gap-1.5 text-sm" @click="router.get(route('tournaments.index'))">
                     <ArrowLeft class="size-4" /> Back
                 </Button>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyPublicLink">
                         <Copy class="size-3" />
                         {{ linkCopied ? 'Copied!' : 'Share' }}
@@ -2400,10 +2400,13 @@ const titlesForMaster = (masterName: string | null) => {
                         <CardContent class="space-y-4 p-4">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-sm font-semibold">Tournament Details</h3>
-                                <Button v-if="isEditable" variant="outline" size="sm" class="h-7 gap-1 text-xs" @click="openSettingsEdit">
+                                <Button v-if="isEditable" variant="outline" size="sm" class="h-9 gap-1 text-xs" @click="openSettingsEdit">
                                     Edit
                                 </Button>
                             </div>
+                            <p v-if="!isEditable" class="-mt-2 text-xs text-muted-foreground">
+                                Details are locked once the tournament has started, so pairings and scores stay consistent.
+                            </p>
                             <div class="space-y-3 text-sm">
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Status</span>

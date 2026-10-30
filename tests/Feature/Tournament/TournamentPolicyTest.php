@@ -108,3 +108,28 @@ it('removes the retired tournament_organizer role and create_tournaments permiss
     expect(Role::where('name', 'tournament_organizer')->exists())->toBeFalse()
         ->and(Permission::where('name', 'create_tournaments')->exists())->toBeFalse();
 });
+
+it('caps unfinished tournaments per creator but not finished ones or super admins', function () {
+    $payload = fn (string $name) => [
+        'name' => $name,
+        'event_date' => now()->addWeek()->toDateString(),
+        'encounter_size' => 50,
+        'planned_rounds' => 3,
+        'season' => \App\Enums\PoolSeasonEnum::defaultSeason()->value,
+    ];
+    $user = User::factory()->create();
+    Tournament::factory()->count(5)->create(['creator_id' => $user->id, 'status' => 'draft']);
+
+    $this->actingAs($user)->post(route('tournaments.store'), $payload('One too many'))->assertSessionHasErrors('name');
+    expect(Tournament::where('name', 'One too many')->exists())->toBeFalse();
+
+    Tournament::where('creator_id', $user->id)->first()->update(['status' => 'completed']);
+    $this->actingAs($user)->post(route('tournaments.store'), $payload('Fits now'))->assertSessionHasNoErrors();
+    expect(Tournament::where('name', 'Fits now')->exists())->toBeTrue();
+
+    $admin = User::factory()->create();
+    \Spatie\Permission\Models\Role::findOrCreate('super_admin');
+    $admin->assignRole('super_admin');
+    Tournament::factory()->count(6)->create(['creator_id' => $admin->id, 'status' => 'draft']);
+    $this->actingAs($admin)->post(route('tournaments.store'), $payload('Admin event'))->assertSessionHasNoErrors();
+});

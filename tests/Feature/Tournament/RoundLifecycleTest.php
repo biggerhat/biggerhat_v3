@@ -229,7 +229,8 @@ it('notifies both linked players when the round is paired', function () {
         ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))
         ->assertOk();
 
-    Notification::assertSentTo($this->creator, TournamentRoundPaired::class);
+    Notification::assertSentTo($this->creator, TournamentRoundPaired::class, fn (TournamentRoundPaired $n) => $n->tableNumber === 1
+        && str_contains($n->toArray($this->creator)['message'], 'Table 1'));
     Notification::assertSentTo($opponent, TournamentRoundPaired::class);
 });
 

@@ -2,6 +2,7 @@
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
     ComboboxTrigger,
 } from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
@@ -49,6 +52,7 @@ import {
     Loader2,
     LogOut,
     MapPin,
+    MoreHorizontal,
     Pencil,
     Plus,
     QrCode,
@@ -59,7 +63,7 @@ import {
     Users,
     X,
 } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 interface TournamentPlayer {
     id: number;
@@ -114,6 +118,7 @@ interface TournamentRound {
     strategy: { id: number; name: string } | null;
     scheme_pool: number[] | null;
     status: string;
+    started_at: string | null;
     games: TournamentGame[];
 }
 
@@ -310,6 +315,7 @@ interface MetaOption {
     slug: string;
 }
 
+const toast = useToast();
 const newPlayerName = ref('');
 const newPlayerFaction = ref<string | null>(null);
 const newPlayerMeta = ref<MetaOption | null>(null);
@@ -406,20 +412,25 @@ const newPlayerMetaSearch = ref('');
 
 // Prefill from whatever the user has typed in the meta combobox — turns the
 // "type, don't see it, click +" flow into one click.
-const openNewMetaDialog = (seed?: string) => {
-    newMetaName.value = (seed ?? newPlayerMetaSearch.value ?? '').trim();
+// Which picker the freshly created meta should land in.
+const newMetaTarget = ref<'new' | 'edit'>('new');
+
+// The pickers must be closed before the dialog opens: a Combobox popper and a Dialog both trap focus,
+// and having both open at once makes them fight over it until the tab freezes.
+const newMetaPickerOpen = ref(false);
+const editMetaPickerOpen = ref(false);
+
+const openNewMetaDialog = (target: 'new' | 'edit' = 'new', seed?: string) => {
+    newMetaPickerOpen.value = false;
+    editMetaPickerOpen.value = false;
+    newMetaTarget.value = target;
+    newMetaName.value = (seed ?? (target === 'edit' ? editPlayerMetaSearch.value : newPlayerMetaSearch.value) ?? '').trim();
     newMetaError.value = null;
-    newMetaDialogOpen.value = true;
+    nextTick(() => (newMetaDialogOpen.value = true));
 };
 
-const submitNewMeta = async () => {
-    const name = newMetaName.value.trim();
-    if (!name) {
-        newMetaError.value = 'Meta name is required.';
-        return;
-    }
-    newMetaSubmitting.value = true;
-    newMetaError.value = null;
+// POST the name (find-or-create server side) and drop the result into the picker that asked for it.
+const createMeta = async (name: string, target: 'new' | 'edit'): Promise<string | null> => {
     try {
         const res = await fetch(route('metas.store'), {
             method: 'POST',
@@ -432,18 +443,43 @@ const submitNewMeta = async () => {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            newMetaError.value = err.error ?? err.message ?? 'Could not save meta — try a different name.';
-            return;
+            return err.error ?? err.message ?? 'Could not save meta — try a different name.';
         }
         const data = await res.json();
         await refreshMetas();
-        // Auto-select the freshly created/found meta.
-        newPlayerMeta.value = data.meta;
-        newMetaDialogOpen.value = false;
+        if (target === 'edit') editPlayerMeta.value = data.meta;
+        else newPlayerMeta.value = data.meta;
+        return null;
     } catch {
-        newMetaError.value = 'Network error. Please try again.';
-    } finally {
-        newMetaSubmitting.value = false;
+        return 'Network error. Please try again.';
+    }
+};
+
+const submitNewMeta = async () => {
+    const name = newMetaName.value.trim();
+    if (!name) {
+        newMetaError.value = 'Meta name is required.';
+        return;
+    }
+    newMetaSubmitting.value = true;
+    newMetaError.value = await createMeta(name, newMetaTarget.value);
+    newMetaSubmitting.value = false;
+    if (!newMetaError.value) newMetaDialogOpen.value = false;
+};
+
+// "Add "x"" row inside the picker: create it on the spot — opening a dialog on top of an open popper freezes the page.
+const quickAddMeta = async (target: 'new' | 'edit') => {
+    const name = (target === 'edit' ? editPlayerMetaSearch.value : newPlayerMetaSearch.value).trim();
+    if (!name) return;
+    const error = await createMeta(name, target);
+    if (target === 'edit') {
+        editPlayerMetaSearch.value = '';
+        editMetaPickerOpen.value = false;
+        if (error) editPlayerError.value = error;
+    } else {
+        newPlayerMetaSearch.value = '';
+        newMetaPickerOpen.value = false;
+        if (error) toast.error(error);
     }
 };
 
@@ -1208,6 +1244,24 @@ const activePlayers = computed(() => props.tournament.players.filter((p) => !p.i
 
 const latestRound = computed(() => (props.tournament.rounds.length > 0 ? props.tournament.rounds[props.tournament.rounds.length - 1] : null));
 
+// One-glance status for a pairing row: tracker progress, reported result, or waiting.
+const gameStatus = (game: any, round: any): { label: string; tone: string } => {
+    if (game.is_bye) return { label: 'Bye', tone: 'text-muted-foreground' };
+    if (game.is_forfeit) return { label: 'Forfeit', tone: 'border-destructive/50 text-destructive' };
+    if (game.result === 'completed' || game.result === 'agreed') {
+        return { label: 'Reported', tone: 'border-emerald-500/50 text-emerald-700 dark:text-emerald-300' };
+    }
+    if (game.tracker_game?.status === 'in_progress') {
+        return {
+            label: `Playing · T${game.tracker_game.current_turn ?? 1}/${game.tracker_game.max_turns ?? 5}`,
+            tone: 'border-amber-500/60 text-amber-700 dark:text-amber-300',
+        };
+    }
+    if (game.tracker_game?.status === 'abandoned') return { label: 'Tracker abandoned', tone: 'border-destructive/50 text-destructive' };
+    if (round.status === 'in_progress') return { label: 'Waiting for score', tone: 'text-muted-foreground' };
+    return { label: 'Not started', tone: 'text-muted-foreground' };
+};
+
 const roundAllScored = (round: TournamentRound): boolean => {
     if (!round.games.length) return false;
     return round.games.every((g: any) => g.result === 'completed' || g.result === 'agreed' || g.result === 'forfeited');
@@ -1577,7 +1631,7 @@ const titlesForMaster = (masterName: string | null) => {
                                 <div class="space-y-1">
                                     <Label class="text-xs">Meta <span class="text-muted-foreground">(optional)</span></Label>
                                     <div class="flex gap-1">
-                                        <Combobox v-model="newPlayerMeta" v-model:search-term="newPlayerMetaSearch" by="id" class="flex-1">
+                                        <Combobox v-model="newPlayerMeta" v-model:open="newMetaPickerOpen" by="id" class="flex-1">
                                             <ComboboxAnchor as-child>
                                                 <ComboboxTrigger as-child>
                                                     <Button variant="outline" class="h-9 w-full justify-between text-xs font-normal">
@@ -1588,6 +1642,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             </ComboboxAnchor>
                                             <ComboboxList class="max-h-72 overflow-y-auto">
                                                 <ComboboxInput
+                                                    v-model="newPlayerMetaSearch"
                                                     class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0"
                                                     placeholder="Search or type a new meta..."
                                                 />
@@ -1596,7 +1651,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                         v-if="newPlayerMetaSearch.trim()"
                                                         type="button"
                                                         class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-                                                        @click="openNewMetaDialog(newPlayerMetaSearch)"
+                                                        @click="quickAddMeta('new')"
                                                     >
                                                         <Plus class="size-3.5" /> Add "<span class="font-medium">{{
                                                             newPlayerMetaSearch.trim()
@@ -1631,7 +1686,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             size="sm"
                                             class="h-9 shrink-0 px-2"
                                             title="Add a new meta"
-                                            @click="openNewMetaDialog"
+                                            @click="openNewMetaDialog()"
                                         >
                                             <Plus class="size-3.5" />
                                         </Button>
@@ -1717,7 +1772,7 @@ const titlesForMaster = (masterName: string | null) => {
                                     <Badge
                                         v-if="player.meta || player.user?.meta"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/30 px-1 py-0 text-2xs text-white/80 sm:inline-flex"
+                                        class="shrink-0 border-white/40 px-1 py-0 text-2xs text-white/90"
                                         >{{ player.meta?.name || player.user?.meta?.name }}</Badge
                                     >
                                 </div>
@@ -1725,52 +1780,59 @@ const titlesForMaster = (masterName: string | null) => {
                                     vs: {{ playerOpponents[player.id].join(' · ') }}
                                 </div>
                             </div>
-                            <div class="flex shrink-0 items-center gap-0.5">
-                                <button
-                                    v-if="!player.user"
-                                    class="rounded p-1 hover:bg-white/20"
-                                    title="Link to BiggerHat account"
-                                    @click="openLinkUserDialog(player)"
+                            <div class="flex shrink-0 items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    class="h-8 gap-1 px-2 text-white hover:bg-white/20 hover:text-white"
+                                    :class="player.faction ? '' : 'text-foreground hover:bg-accent hover:text-foreground'"
+                                    @click="openEditPlayerDialog(player)"
                                 >
-                                    <Link2 class="size-3.5 text-white/50" />
-                                </button>
-                                <button
-                                    v-else
-                                    class="rounded p-1 hover:bg-white/20"
-                                    :title="`Linked to ${player.user.name} — click to unlink`"
-                                    @click="unlinkUserFromPlayer(player)"
-                                >
-                                    <Link2Off class="size-3.5 text-emerald-300" />
-                                </button>
-                                <button
-                                    v-if="tournament.status === 'active'"
-                                    class="rounded p-1 hover:bg-white/20"
-                                    :title="player.dropped_after_round !== null ? 'Undrop' : 'Drop'"
-                                    @click="toggleDrop(player)"
-                                >
-                                    <LogOut class="size-3.5" :class="player.dropped_after_round !== null ? 'text-amber-300' : 'text-white/50'" />
-                                </button>
-                                <button class="rounded p-1 hover:bg-white/20" title="Edit player" @click="openEditPlayerDialog(player)">
-                                    <Pencil class="size-3.5 text-white/50" />
-                                </button>
-                                <button class="rounded p-1 hover:bg-white/20" title="Toggle Ringer" @click="toggleRinger(player)">
-                                    <Star class="size-3.5" :class="player.is_ringer ? 'fill-amber-300 text-amber-300' : 'text-white/50'" />
-                                </button>
-                                <!--
-                                    Remove permanently deletes the player. Once the tournament has
-                                    started they may have games on record, so we hide the button
-                                    entirely and direct the TO to use Drop instead. This avoids the
-                                    cascade-delete-of-game-history footgun that previously made it
-                                    look like opponents' scores had changed.
-                                -->
-                                <button
-                                    v-if="tournament.status === 'draft' || tournament.status === 'registration'"
-                                    class="rounded p-1 hover:bg-white/20"
-                                    title="Remove"
-                                    @click="removePlayer(player.id)"
-                                >
-                                    <X class="size-3.5 text-white/50" />
-                                </button>
+                                    <Pencil class="size-3.5" /> <span class="hidden sm:inline">Edit</span>
+                                    <span class="sr-only sm:hidden">Edit {{ player.display_name }}</span>
+                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger as-child>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            class="size-8 text-white hover:bg-white/20 hover:text-white"
+                                            :class="player.faction ? '' : 'text-foreground hover:bg-accent hover:text-foreground'"
+                                            :aria-label="`More actions for ${player.display_name}`"
+                                        >
+                                            <MoreHorizontal class="size-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" class="w-52">
+                                        <DropdownMenuItem v-if="!player.user" @select="openLinkUserDialog(player)">
+                                            <Link2 class="mr-2 size-4" /> Link to a BiggerHat account…
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem v-else @select="unlinkUserFromPlayer(player)">
+                                            <Link2Off class="mr-2 size-4" /> Unlink {{ player.user.name }}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem v-if="tournament.status === 'active'" @select="toggleDrop(player)">
+                                            <LogOut class="mr-2 size-4" />
+                                            {{ player.dropped_after_round !== null ? 'Undo drop' : 'Drop from tournament' }}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem @select="toggleRinger(player)">
+                                            <Star class="mr-2 size-4" /> {{ player.is_ringer ? 'Remove ringer status' : 'Make ringer' }}
+                                        </DropdownMenuItem>
+                                        <!--
+                                            Remove permanently deletes the player. Once the tournament has
+                                            started they may have games on record, so we hide it entirely
+                                            and direct the TO to use Drop instead. This avoids the
+                                            cascade-delete-of-game-history footgun that previously made it
+                                            look like opponents' scores had changed.
+                                        -->
+                                        <DropdownMenuItem
+                                            v-if="tournament.status === 'draft' || tournament.status === 'registration'"
+                                            class="text-destructive focus:text-destructive"
+                                            @select="removePlayer(player.id)"
+                                        >
+                                            <X class="mr-2 size-4" /> Remove player
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </div>
                     </div>
@@ -1819,6 +1881,11 @@ const titlesForMaster = (masterName: string | null) => {
                                                         : 'Setup'
                                             }}
                                         </Badge>
+                                        <RoundClock
+                                            v-if="round.status === 'in_progress' && round.started_at"
+                                            :started-at="round.started_at"
+                                            :limit-minutes="tournament.round_time_limit"
+                                        />
                                         <span
                                             v-if="round.strategy"
                                             class="max-w-[110px] truncate text-xs text-muted-foreground sm:max-w-none"
@@ -1997,94 +2064,86 @@ const titlesForMaster = (masterName: string | null) => {
                                         class="rounded-md border px-2 py-2 text-sm sm:px-3"
                                         :class="game.result === 'completed' || game.result === 'forfeited' ? '' : 'border-dashed'"
                                     >
-                                        <div class="flex items-center justify-between gap-1">
-                                            <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                                                <span v-if="game.table_number" class="shrink-0 text-2xs text-muted-foreground"
-                                                    >T{{ game.table_number }}</span
+                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                            <div class="flex min-w-0 flex-1 items-center gap-2">
+                                                <span
+                                                    v-if="game.table_number"
+                                                    class="shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-muted-foreground"
+                                                    >Table {{ game.table_number }}</span
                                                 >
-                                                <FactionLogo
-                                                    v-if="game.player_one_faction || playerFaction(game.player_one_id)"
-                                                    :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
-                                                    class-name="size-3.5 shrink-0"
-                                                />
-                                                <span class="truncate text-xs font-medium sm:text-sm">{{ playerName(game.player_one_id) }}</span>
-                                                <template v-if="!game.is_bye">
-                                                    <span class="shrink-0 text-2xs text-muted-foreground">vs</span>
-                                                    <FactionLogo
-                                                        v-if="game.player_two_faction || playerFaction(game.player_two_id)"
-                                                        :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
-                                                        class-name="size-3.5 shrink-0"
-                                                    />
-                                                    <span class="truncate text-xs font-medium sm:text-sm">{{ playerName(game.player_two_id) }}</span>
-                                                </template>
-                                                <Badge v-if="game.is_bye" variant="outline" class="shrink-0 px-1 py-0 text-2xs">BYE</Badge>
-                                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-2xs"
-                                                    >Forfeit</Badge
-                                                >
-                                                <!-- Tracker state at a glance: amber in-progress, green done, red abandoned. -->
-                                                <Badge
-                                                    v-if="game.tracker_game && !game.is_bye"
-                                                    variant="outline"
-                                                    class="shrink-0 px-1 py-0 text-2xs"
-                                                    :class="
-                                                        game.tracker_game.status === 'in_progress'
-                                                            ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
-                                                            : game.tracker_game.status === 'completed'
-                                                              ? 'border-emerald-400 text-emerald-700 dark:border-emerald-500/70 dark:text-emerald-300'
-                                                              : game.tracker_game.status === 'abandoned'
-                                                                ? 'border-destructive/60 text-destructive'
-                                                                : 'text-muted-foreground'
-                                                    "
-                                                    :title="'Tracker: ' + game.tracker_game.status.replace('_', ' ')"
-                                                >
-                                                    <span v-if="game.tracker_game.status === 'in_progress'">
-                                                        T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
+                                                <div class="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-1.5">
+                                                    <span class="flex min-w-0 items-center gap-1.5">
+                                                        <FactionLogo
+                                                            v-if="game.player_one_faction || playerFaction(game.player_one_id)"
+                                                            :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
+                                                            class-name="size-4 shrink-0"
+                                                        />
+                                                        <span class="truncate font-medium">{{ playerName(game.player_one_id) }}</span>
                                                     </span>
-                                                    <span v-else-if="game.tracker_game.status === 'completed'">✓ Tracker</span>
-                                                    <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
-                                                    <span v-else>Tracker</span>
-                                                </Badge>
+                                                    <template v-if="!game.is_bye">
+                                                        <span class="hidden shrink-0 text-2xs text-muted-foreground sm:inline">vs</span>
+                                                        <span class="flex min-w-0 items-center gap-1.5">
+                                                            <FactionLogo
+                                                                v-if="game.player_two_faction || playerFaction(game.player_two_id)"
+                                                                :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
+                                                                class-name="size-4 shrink-0"
+                                                            />
+                                                            <span class="truncate font-medium">{{ playerName(game.player_two_id) }}</span>
+                                                        </span>
+                                                    </template>
+                                                </div>
                                             </div>
-                                            <div class="flex shrink-0 items-center gap-1 sm:gap-2">
-                                                <template v-if="game.result === 'completed' || game.result === 'forfeited'">
-                                                    <span class="text-xs font-bold sm:text-sm">{{ game.player_one_vp ?? '-' }}</span>
-                                                    <span class="text-2xs text-muted-foreground">-</span>
-                                                    <span class="text-xs font-bold sm:text-sm">{{ game.player_two_vp ?? '-' }}</span>
-                                                </template>
+
+                                            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                                <!-- One status chip per game: where is this match right now? -->
+                                                <span
+                                                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium"
+                                                    :class="gameStatus(game, round).tone"
+                                                    >{{ gameStatus(game, round).label }}</span
+                                                >
+                                                <span
+                                                    v-if="game.result === 'completed' || game.result === 'forfeited'"
+                                                    class="text-sm font-bold tabular-nums"
+                                                    >{{ game.player_one_vp ?? '-' }} – {{ game.player_two_vp ?? '-' }}</span
+                                                >
                                                 <Button
                                                     v-if="!game.is_bye && round.status === 'in_progress'"
-                                                    variant="ghost"
                                                     size="sm"
-                                                    class="h-7 px-1.5 text-2xs sm:px-2 sm:text-xs"
+                                                    :variant="game.result === 'pending' ? 'default' : 'outline'"
+                                                    class="h-8"
                                                     @click="openScoreEdit(game)"
                                                 >
-                                                    {{ game.result === 'pending' ? 'Score' : 'Edit' }}
+                                                    {{ game.result === 'pending' ? 'Enter score' : 'Edit score' }}
                                                 </Button>
-                                                <Button
-                                                    v-if="!game.is_bye && !game.is_forfeit && game.player_two && round.status === 'in_progress'"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="h-7 px-1.5 text-2xs text-destructive hover:text-destructive sm:px-2 sm:text-xs"
-                                                    @click="openForfeitDialog(game)"
-                                                >
-                                                    Forfeit
-                                                </Button>
-                                                <Button
-                                                    v-if="game.is_forfeit && round.status === 'in_progress'"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    class="h-7 px-1.5 text-2xs sm:px-2 sm:text-xs"
-                                                    @click="removeForfeit(game)"
-                                                >
-                                                    Undo
-                                                </Button>
+                                                <DropdownMenu v-if="round.status === 'in_progress' && !game.is_bye && game.player_two">
+                                                    <DropdownMenuTrigger as-child>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            class="size-8 text-muted-foreground"
+                                                            :aria-label="`More actions for table ${game.table_number ?? ''}`.trim()"
+                                                        >
+                                                            <MoreHorizontal class="size-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            v-if="!game.is_forfeit"
+                                                            class="text-destructive focus:text-destructive"
+                                                            @select="openForfeitDialog(game)"
+                                                        >
+                                                            Record a forfeit…
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem v-else @select="removeForfeit(game)">Undo forfeit</DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                                 <button
                                                     aria-label="Remove game"
                                                     v-if="round.status === 'setup'"
-                                                    class="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                                    class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                                     @click="removeGame(game.id)"
                                                 >
-                                                    <X class="size-3" />
+                                                    <X class="size-3.5" />
                                                 </button>
                                             </div>
                                         </div>
@@ -2791,7 +2850,7 @@ const titlesForMaster = (masterName: string | null) => {
                 <div class="space-y-1">
                     <Label class="text-xs">Meta <span class="text-muted-foreground">(optional)</span></Label>
                     <div class="flex gap-1">
-                        <Combobox v-model="editPlayerMeta" v-model:search-term="editPlayerMetaSearch" by="id" class="flex-1">
+                        <Combobox v-model="editPlayerMeta" v-model:open="editMetaPickerOpen" by="id" class="flex-1">
                             <ComboboxAnchor as-child>
                                 <ComboboxTrigger as-child>
                                     <Button variant="outline" class="h-9 w-full justify-between text-xs font-normal">
@@ -2800,13 +2859,23 @@ const titlesForMaster = (masterName: string | null) => {
                                     </Button>
                                 </ComboboxTrigger>
                             </ComboboxAnchor>
-                            <ComboboxList class="max-h-72 overflow-y-auto">
+                            <ComboboxList inline class="max-h-72 overflow-y-auto">
                                 <ComboboxInput
+                                    v-model="editPlayerMetaSearch"
                                     class="h-9 rounded-none border-0 border-b text-xs focus-visible:ring-0"
-                                    placeholder="Search metas..."
+                                    placeholder="Search or type a new meta..."
                                 />
                                 <ComboboxEmpty class="px-2 py-3 text-left">
-                                    <span class="text-xs text-muted-foreground">No matches.</span>
+                                    <button
+                                        v-if="editPlayerMetaSearch.trim()"
+                                        type="button"
+                                        class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                                        @click="quickAddMeta('edit')"
+                                    >
+                                        <Plus class="size-3.5" /> Add "<span class="font-medium">{{ editPlayerMetaSearch.trim() }}</span
+                                        >"
+                                    </button>
+                                    <span v-else class="text-xs text-muted-foreground">No matches.</span>
                                 </ComboboxEmpty>
                                 <ComboboxGroup v-if="tournamentMetas.length">
                                     <div class="px-2 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">

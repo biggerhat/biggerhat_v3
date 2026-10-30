@@ -10,31 +10,49 @@ import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncre
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Loader2, Settings2, Trophy } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Copy, Loader2, Settings2, Trophy } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
     seasons: { value: string; label: string }[];
     default_season: string;
     encounter_types: { value: string; label: string }[];
+    /** Settings copied from a previous event (`?copy=<uuid>`), or null for a blank form. */
+    template: {
+        name: string;
+        description: string | null;
+        location: string | null;
+        encounter_size: number;
+        encounter_type: string;
+        planned_rounds: number;
+        season: string;
+        round_time_limit: number;
+        bye_tp: number;
+        bye_diff: number;
+        bye_vp: number;
+        tiebreaker_mode: 'diff_vp' | 'sos';
+    } | null;
+    previous_events: { uuid: string; name: string; event_date: string }[];
 }>();
 
 // Bye-scoring defaults match Gaining Grounds (3 TP / +4 DIFF / 6 VP).
 const form = useForm({
-    name: '',
-    description: '',
+    name: props.template?.name ?? '',
+    description: props.template?.description ?? '',
     event_date: '',
-    location: '',
-    encounter_size: 50,
-    encounter_type: 'traditional',
-    planned_rounds: 3,
-    season: props.default_season,
-    round_time_limit: 135,
-    bye_tp: 3,
-    bye_diff: 4,
-    bye_vp: 6,
-    tiebreaker_mode: 'diff_vp' as 'diff_vp' | 'sos',
+    location: props.template?.location ?? '',
+    encounter_size: props.template?.encounter_size ?? 50,
+    encounter_type: props.template?.encounter_type ?? 'traditional',
+    planned_rounds: props.template?.planned_rounds ?? 3,
+    season: props.template?.season ?? props.default_season,
+    round_time_limit: props.template?.round_time_limit ?? 135,
+    bye_tp: props.template?.bye_tp ?? 3,
+    bye_diff: props.template?.bye_diff ?? 4,
+    bye_vp: props.template?.bye_vp ?? 6,
+    tiebreaker_mode: (props.template?.tiebreaker_mode ?? 'diff_vp') as 'diff_vp' | 'sos',
 });
+
+const copyFrom = (uuid: string) => router.get(route('tournaments.create'), uuid === '__none__' ? {} : { copy: uuid });
 
 const advancedOpen = ref(false);
 
@@ -81,6 +99,20 @@ const submit = () => {
             </Button>
 
             <form class="mx-auto max-w-lg" @submit.prevent="submit">
+                <div v-if="previous_events.length" class="mb-4 flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                    <Copy class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <div class="min-w-0 flex-1">
+                        <Label for="t-copy" class="text-sm font-medium">Start from a previous event</Label>
+                        <p class="text-xs text-muted-foreground">Copies the format, scoring and description. You set the date.</p>
+                    </div>
+                    <Select :model-value="template ? undefined : '__none__'" @update:model-value="(v) => copyFrom(String(v))">
+                        <SelectTrigger id="t-copy" class="h-9 w-44 text-xs"><SelectValue placeholder="Choose event…" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none__">Blank form</SelectItem>
+                            <SelectItem v-for="e in previous_events" :key="e.uuid" :value="e.uuid">{{ e.name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
                 <Card>
                     <CardContent class="space-y-8 p-6">
                         <!-- ─── Event Info ─── -->

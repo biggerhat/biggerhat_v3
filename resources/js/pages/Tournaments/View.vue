@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
+import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,8 +14,8 @@ import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, MapPin, Trophy, UserPlus } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { BarChart3, CalendarDays, MapPin, Printer, Trophy, UserPlus } from 'lucide-vue-next';
+import { computed, nextTick, ref } from 'vue';
 
 interface TournamentPlayer {
     id: number;
@@ -58,6 +60,7 @@ interface ViewRound {
     id: number;
     round_number: number;
     status: string;
+    started_at: string | null;
     deployment: { value: string; label: string; description: string; image_url: string | null } | null;
     strategy: { id: number; name: string; image_url: string | null } | null;
     schemes: { id: number; name: string; image_url: string | null; prerequisite: string | null; reveal: string | null; scoring: string | null }[];
@@ -156,6 +159,32 @@ const canRsvp = computed(
         !isRegistered.value,
 );
 const myPlayerId = computed(() => props.tournament.players.find((p) => p.user?.id === currentUserId.value)?.id ?? null);
+
+// The user's pairing in the newest round that isn't finished yet — the "where do I sit, who do I play" answer.
+const myMatch = computed(() => {
+    if (!myPlayerId.value) return null;
+    const newestFirst = [...props.rounds].sort((a, b) => b.round_number - a.round_number);
+    for (const round of newestFirst) {
+        if (round.status === 'completed') continue;
+        const game = round.games.find(isMyGame);
+        if (game) return { round, game };
+    }
+    return null;
+});
+
+// Print just this round's pairings: switch to its tab first so the right sheet is on screen.
+const printRound = async (roundNumber: number) => {
+    activeTab.value = `r${roundNumber}`;
+    await nextTick();
+    // Paper is white: drop dark mode for the print job, then put it back.
+    const root = document.documentElement;
+    const wasDark = root.classList.contains('dark');
+    if (wasDark) {
+        root.classList.remove('dark');
+        window.addEventListener('afterprint', () => root.classList.add('dark'), { once: true });
+    }
+    window.print();
+};
 
 const rsvping = ref(false);
 // Optional faction the user intends to play. Stays null when they don't pick
@@ -309,7 +338,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
             </template>
         </PageBanner>
 
-        <div class="container mx-auto pb-8 sm:px-4">
+        <div class="container mx-auto pb-8 sm:px-4" data-print-area>
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
 
             <!-- RSVP Banner (Draft and Registration phases) -->
@@ -366,19 +395,36 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <Button variant="ghost" size="sm" class="text-xs text-muted-foreground" @click="cancelRsvp">Cancel RSVP</Button>
                 </CardContent>
             </Card>
-            <!-- Registration confirmation -->
+            <!-- Registration confirmation: say what happens next instead of just "registered". -->
             <Card
-                v-else-if="isRegistered && (tournament.status === 'registration' || tournament.status === 'active')"
+                v-else-if="isRegistered && (tournament.status === 'registration' || (tournament.status === 'active' && !myMatch))"
                 class="mb-6 border-green-500/30 bg-green-500/5"
             >
-                <CardContent class="p-4 text-center text-sm text-green-700 dark:text-green-400"> You're registered for this tournament. </CardContent>
+                <CardContent class="p-4 text-sm">
+                    <div class="font-semibold text-green-700 dark:text-green-400">You're registered for this tournament.</div>
+                    <p class="mt-0.5 text-muted-foreground">
+                        {{
+                            tournament.status === 'registration'
+                                ? "When the organizer starts the tournament and pairs Round 1, you'll get a notification with your table and opponent."
+                                : "You're between rounds. You'll get a notification with your table as soon as the next round is paired."
+                        }}
+                    </p>
+                </CardContent>
             </Card>
+
+            <MyMatchCard
+                v-if="myMatch && myPlayerId && tournament.status === 'active'"
+                :round="myMatch.round"
+                :game="myMatch.game"
+                :my-player-id="myPlayerId"
+                :round-time-limit="tournament.round_time_limit"
+            />
 
             <!-- Main Tabs -->
             <Tabs v-model="activeTab">
                 <!-- Horizontal scroll on mobile instead of wrapping — keeps a single tidy row
                      even for tournaments with many rounds. Wraps normally on sm+. -->
-                <div class="-mx-2 mb-4 overflow-x-auto px-2 sm:mx-0 sm:overflow-visible sm:px-0">
+                <div class="-mx-2 mb-4 overflow-x-auto px-2 sm:mx-0 sm:overflow-visible sm:px-0" data-no-print>
                     <TabsList class="inline-flex w-max min-w-full flex-nowrap gap-1 sm:w-full sm:flex-wrap">
                         <TabsTrigger value="standings" class="text-xs sm:text-sm">
                             <Trophy class="mr-1 size-3" />
@@ -399,6 +445,17 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
                 <!-- Round Tabs -->
                 <TabsContent v-for="round in rounds" :key="'rc-' + round.id" :value="'r' + round.round_number">
+                    <div class="mb-3 flex flex-wrap items-center justify-end gap-2" data-no-print>
+                        <RoundClock
+                            v-if="round.status === 'in_progress' && round.started_at && myMatch?.round.round_number !== round.round_number"
+                            :started-at="round.started_at"
+                            :limit-minutes="tournament.round_time_limit"
+                        />
+                        <Button v-if="round.games.length" variant="outline" size="sm" class="h-8 gap-1.5" @click="printRound(round.round_number)">
+                            <Printer class="size-3.5" /> Print pairings
+                        </Button>
+                    </div>
+                    <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
                     <!-- Compact Scenario -->
                     <div v-if="round.deployment || round.strategy || round.schemes.length" class="mb-4 rounded-lg border bg-muted/30 p-3">
                         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">

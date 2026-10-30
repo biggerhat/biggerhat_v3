@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { factionBackground } from '@/composables/useFactionColor';
 import type { StandingEntry } from '@/types/tournament';
 import { Crown } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 /**
  * Tournament standings table — used identically by the public View page and
@@ -16,6 +17,15 @@ const props = defineProps<{
     /** Highlight a specific player_id (used by View to show "you" in the standings). */
     highlightPlayerId?: number | null;
 }>();
+
+// Joint ranks read as "T-1" so a fresh 0-0-0 field doesn't look like eight winners.
+const tiedRanks = computed(() => {
+    const counts = new Map<number, number>();
+    for (const e of props.standings) if (e.rank !== null) counts.set(e.rank, (counts.get(e.rank) ?? 0) + 1);
+    return new Set([...counts].filter(([, n]) => n > 1).map(([rank]) => rank));
+});
+const rankLabel = (rank: number | null) => (rank === null ? '-' : tiedRanks.value.has(rank) ? `T-${rank}` : String(rank));
+const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlightPlayerId;
 </script>
 
 <template>
@@ -51,10 +61,10 @@ const props = defineProps<{
                                 factionBackground(entry.faction),
                                 entry.faction ? 'text-white' : 'border-b last:border-0',
                                 entry.is_ringer ? 'opacity-50' : '',
-                                props.highlightPlayerId && entry.player_id === props.highlightPlayerId ? 'ring-2 ring-inset ring-primary/60' : '',
+                                isMe(entry.player_id) ? 'ring-2 ring-inset ring-primary/60' : '',
                             ]"
                         >
-                            <td class="px-2 py-2 font-bold tabular-nums sm:px-3">{{ entry.rank ?? '-' }}</td>
+                            <td class="px-2 py-2 font-bold tabular-nums sm:px-3">{{ rankLabel(entry.rank) }}</td>
                             <td class="px-2 py-2 sm:px-3">
                                 <div class="flex items-center gap-1.5">
                                     <FactionLogo
@@ -63,10 +73,16 @@ const props = defineProps<{
                                         class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
                                     />
                                     <Crown
-                                        v-if="entry.rank === 1 && !entry.is_ringer"
+                                        v-if="entry.rank === 1 && entry.rounds_played > 0 && !entry.is_ringer"
                                         class="size-3.5 shrink-0 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
                                     />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ entry.display_name }}</span>
+                                    <Badge
+                                        v-if="isMe(entry.player_id)"
+                                        variant="outline"
+                                        class="shrink-0 border-transparent bg-primary px-1.5 py-0 text-2xs font-semibold text-primary-foreground"
+                                        >You</Badge
+                                    >
                                     <Badge
                                         v-if="entry.is_ringer"
                                         variant="outline"

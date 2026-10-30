@@ -140,6 +140,7 @@ class TournamentController extends Controller
                 'id' => $round->id,
                 'round_number' => $round->round_number,
                 'status' => $roundStatus->value,
+                'started_at' => $round->started_at?->toIso8601String(),
                 'deployment' => $deployment,
                 'strategy' => $strategy,
                 'schemes' => $schemes,
@@ -202,7 +203,7 @@ class TournamentController extends Controller
         ]);
     }
 
-    public function create(): Response|ResponseFactory
+    public function create(Request $request): Response|ResponseFactory
     {
         $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
@@ -214,10 +215,46 @@ class TournamentController extends Controller
             'label' => $e->label(),
         ]);
 
+        $userId = (int) Auth::id();
+
+        // "Start from a previous event": prefill the format/scoring settings from one the user organizes.
+        $template = null;
+        $copyUuid = $request->query('copy');
+        if (is_string($copyUuid) && $copyUuid !== '') {
+            $source = Tournament::forOrganizer($userId)->where('uuid', $copyUuid)->first();
+            if ($source) {
+                /** @var PoolSeasonEnum $season */
+                $season = $source->season;
+                /** @var EncounterTypeEnum $encounterType */
+                $encounterType = $source->encounter_type;
+                /** @var \App\Enums\TournamentTiebreakerEnum $tiebreaker */
+                $tiebreaker = $source->tiebreaker_mode;
+                $template = [
+                    'name' => $source->name.' (copy)',
+                    'description' => $source->description,
+                    'location' => $source->location,
+                    'encounter_size' => $source->encounter_size,
+                    'encounter_type' => $encounterType->value,
+                    'planned_rounds' => $source->planned_rounds,
+                    'season' => $season->value,
+                    'round_time_limit' => $source->round_time_limit,
+                    'bye_tp' => $source->bye_tp,
+                    'bye_diff' => $source->bye_diff,
+                    'bye_vp' => $source->bye_vp,
+                    'tiebreaker_mode' => $tiebreaker->value,
+                ];
+            }
+        }
+
         return inertia('Tournaments/Create', [
             'seasons' => $seasons,
             'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_types' => $encounterTypes,
+            'template' => $template,
+            // Plain arrays: serializing a column-restricted Tournament trips the `season_label` accessor.
+            'previous_events' => Tournament::forOrganizer($userId)->latest('event_date')->limit(10)->get(['uuid', 'name', 'event_date'])
+                ->map(fn (Tournament $t) => ['uuid' => $t->uuid, 'name' => $t->name, 'event_date' => $t->getRawOriginal('event_date')])
+                ->values(),
         ]);
     }
 

@@ -15,7 +15,7 @@ use Illuminate\Notifications\Notification;
  */
 class TournamentRoundPaired extends Notification
 {
-    public function __construct(public Tournament $tournament, public TournamentRound $round, public string $opponentName) {}
+    public function __construct(public Tournament $tournament, public TournamentRound $round, public string $opponentName, public ?int $tableNumber = null) {}
 
     /** @return array<int, string> */
     public function via(object $notifiable): array
@@ -28,7 +28,7 @@ class TournamentRoundPaired extends Notification
     {
         return [
             'type' => 'tournament_round_paired',
-            'message' => "Round {$this->round->round_number} of \"{$this->tournament->name}\" is set — you're playing {$this->opponentName}.",
+            'message' => "Round {$this->round->round_number} of \"{$this->tournament->name}\" is set — ".($this->tableNumber ? "Table {$this->tableNumber}, " : '')."you're playing {$this->opponentName}.",
             'actor' => null,
             'action_url' => route('tournaments.view', $this->tournament),
         ];

@@ -85,3 +85,41 @@ it('excludes dropped players from active pairing', function () {
     $allIds = collect($pairings)->flatMap(fn ($p) => [$p['player_one_id'], $p['player_two_id']])->filter()->all();
     expect($allIds)->not->toContain($dropped->id);
 });
+
+it('avoids same-meta pairings in round 1 whenever a clash-free pairing exists', function () {
+    $metaA = \App\Models\Meta::factory()->create();
+    $metaB = \App\Models\Meta::factory()->create();
+    $metaC = \App\Models\Meta::factory()->create();
+
+    $t = Tournament::factory()->active()->create();
+    $players = collect([
+        TournamentPlayer::factory()->for($t)->create(['meta_id' => $metaA->id]),
+        TournamentPlayer::factory()->for($t)->create(['meta_id' => $metaA->id]),
+        TournamentPlayer::factory()->for($t)->create(['meta_id' => $metaB->id]),
+        TournamentPlayer::factory()->for($t)->create(['meta_id' => $metaC->id]),
+    ]);
+    $round = TournamentRound::factory()->for($t)->create(['round_number' => 1]);
+    $metaOf = $players->pluck('meta_id', 'id');
+
+    // Round 1 is shuffled, so run enough times to hit the orderings the greedy pass used to get wrong.
+    foreach (range(1, 60) as $_) {
+        $pairings = $this->service->generatePairings($t->fresh('players'), $round);
+
+        expect($pairings)->toHaveCount(2);
+        foreach ($pairings as $p) {
+            expect($metaOf[$p['player_one_id']])->not->toBe($metaOf[$p['player_two_id']]);
+        }
+    }
+});
+
+it('still pairs everyone when same-meta pairings are unavoidable', function () {
+    $meta = \App\Models\Meta::factory()->create();
+    $t = Tournament::factory()->active()->create();
+    TournamentPlayer::factory()->for($t)->count(4)->create(['meta_id' => $meta->id]);
+    $round = TournamentRound::factory()->for($t)->create(['round_number' => 1]);
+
+    $pairings = $this->service->generatePairings($t->fresh('players'), $round);
+
+    expect($pairings)->toHaveCount(2);
+    expect(collect($pairings)->flatMap(fn ($p) => [$p['player_one_id'], $p['player_two_id']])->unique())->toHaveCount(4);
+});

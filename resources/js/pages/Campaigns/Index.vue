@@ -98,7 +98,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
             <div class="mb-3 flex items-center gap-2">
                 <Mail class="h-5 w-5 text-primary" />
                 <HeadingEyebrow as="h2" class="text-lg text-foreground">Invitations</HeadingEyebrow>
-                <Badge variant="outline" class="text-[10px]">{{ pending_invitations.length }}</Badge>
+                <Badge variant="outline" class="text-2xs">{{ pending_invitations.length }}</Badge>
             </div>
             <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <Card v-for="inv in pending_invitations" :key="inv.token" class="border-primary/40">
@@ -118,7 +118,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
             <div class="mb-3 flex items-center gap-2">
                 <Sparkles class="h-5 w-5 text-primary" />
                 <HeadingEyebrow as="h2" class="text-lg text-foreground">Active</HeadingEyebrow>
-                <Badge variant="outline" class="text-[10px]">{{ activeCampaigns.length }}</Badge>
+                <Badge variant="outline" class="text-2xs">{{ activeCampaigns.length }}</Badge>
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Link v-for="c in activeCampaigns" :key="c.id" :href="route('campaigns.show', c.id)" class="group">
@@ -133,8 +133,8 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
                                     <p class="mt-0.5 truncate text-xs text-muted-foreground">Organizer: {{ c.organizer?.name ?? '—' }}</p>
                                 </div>
                                 <div class="flex flex-shrink-0 flex-col items-end gap-1">
-                                    <Badge :variant="statusVariant(c.status)" class="text-[10px] uppercase">{{ c.status }}</Badge>
-                                    <Badge v-if="c.is_solo" variant="outline" class="text-[10px] uppercase">Solo</Badge>
+                                    <Badge :variant="statusVariant(c.status)" class="text-2xs uppercase">{{ c.status }}</Badge>
+                                    <Badge v-if="c.is_solo" variant="outline" class="text-2xs uppercase">Solo</Badge>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 text-xs text-muted-foreground">
@@ -151,7 +151,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
             <div class="mb-3 flex items-center gap-2">
                 <Users class="h-5 w-5 text-muted-foreground" />
                 <HeadingEyebrow as="h2" class="text-lg">Planning</HeadingEyebrow>
-                <Badge variant="outline" class="text-[10px]">{{ planningCampaigns.length }}</Badge>
+                <Badge variant="outline" class="text-2xs">{{ planningCampaigns.length }}</Badge>
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Link v-for="c in planningCampaigns" :key="c.id" :href="route('campaigns.show', c.id)" class="group">
@@ -160,8 +160,8 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
                             <div class="flex items-start justify-between gap-2">
                                 <h3 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight">{{ c.name }}</h3>
                                 <div class="flex flex-shrink-0 flex-col items-end gap-1">
-                                    <Badge :variant="statusVariant(c.status)" class="text-[10px] uppercase">{{ c.status }}</Badge>
-                                    <Badge v-if="c.is_solo" variant="outline" class="text-[10px] uppercase">Solo</Badge>
+                                    <Badge :variant="statusVariant(c.status)" class="text-2xs uppercase">{{ c.status }}</Badge>
+                                    <Badge v-if="c.is_solo" variant="outline" class="text-2xs uppercase">Solo</Badge>
                                 </div>
                             </div>
                             <p class="text-xs text-muted-foreground">
@@ -177,7 +177,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
             <div class="mb-3 flex items-center gap-2">
                 <Trophy class="h-5 w-5 text-muted-foreground" />
                 <HeadingEyebrow as="h2" class="text-lg">Ended</HeadingEyebrow>
-                <Badge variant="outline" class="text-[10px]">{{ endedCampaigns.length }}</Badge>
+                <Badge variant="outline" class="text-2xs">{{ endedCampaigns.length }}</Badge>
             </div>
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Link v-for="c in endedCampaigns" :key="c.id" :href="route('campaigns.show', c.id)" class="group">
@@ -185,7 +185,7 @@ const endedCampaigns = computed(() => props.campaigns.filter((c) => c.status ===
                         <CardContent class="space-y-1 p-4 text-sm">
                             <div class="flex items-start justify-between gap-2">
                                 <span class="truncate font-medium">{{ c.name }}</span>
-                                <Badge variant="secondary" class="text-[10px] uppercase">ended</Badge>
+                                <Badge variant="secondary" class="text-2xs uppercase">ended</Badge>
                             </div>
                             <p class="text-xs text-muted-foreground">{{ c.organizer?.name ?? '—' }}</p>
                         </CardContent>

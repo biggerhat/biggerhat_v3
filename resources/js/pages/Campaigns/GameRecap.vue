@@ -148,7 +148,11 @@ const resultVariant = computed(() => {
         <Card class="mb-4">
             <CardHeader class="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>Story</CardTitle>
-                <button v-if="!editingStory" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" @click="editingStory = true">
+                <button
+                    v-if="!editingStory"
+                    class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    @click="editingStory = true"
+                >
                     <Pencil class="h-3 w-3" /> Edit
                 </button>
             </CardHeader>
@@ -176,7 +180,7 @@ const resultVariant = computed(() => {
                 <ul class="space-y-1 text-sm">
                     <li v-for="(inj, i) in injuries" :key="i" class="flex items-center justify-between gap-2">
                         <span>{{ inj.model_name }}</span>
-                        <Badge variant="destructive" class="text-[10px]">{{ inj.injury_name }}</Badge>
+                        <Badge variant="destructive" class="text-2xs">{{ inj.injury_name }}</Badge>
                     </li>
                 </ul>
             </CardContent>

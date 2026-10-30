@@ -209,11 +209,11 @@ const fetchedAgo = computed(() => {
                     <Card>
                         <CardHeader class="pb-2">
                             <CardTitle class="text-sm font-medium">Active users (7 days)</CardTitle>
-                            <CardDescription class="text-[10px]">Engaged users — matches GA4's "Users" tile</CardDescription>
+                            <CardDescription class="text-2xs">Engaged users — matches GA4's "Users" tile</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ analytics.summary?.visitors ?? 0 }}</div>
-                            <div v-if="analytics.summary?.totalUsers" class="text-[10px] text-muted-foreground">
+                            <div v-if="analytics.summary?.totalUsers" class="text-2xs text-muted-foreground">
                                 {{ analytics.summary.totalUsers }} total users
                             </div>
                         </CardContent>
@@ -221,7 +221,7 @@ const fetchedAgo = computed(() => {
                     <Card>
                         <CardHeader class="pb-2">
                             <CardTitle class="text-sm font-medium">Page views (7 days)</CardTitle>
-                            <CardDescription class="text-[10px]">{{ analytics.summary?.sessions ?? 0 }} sessions</CardDescription>
+                            <CardDescription class="text-2xs">{{ analytics.summary?.sessions ?? 0 }} sessions</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ analytics.summary?.pageViews ?? 0 }}</div>
@@ -236,7 +236,7 @@ const fetchedAgo = computed(() => {
                             Today so far: <span class="font-semibold text-foreground">{{ analytics.today.visitors }}</span> users ·
                             <span class="font-semibold text-foreground">{{ analytics.today.pageViews }}</span> page views
                         </div>
-                        <div class="text-[10px] text-muted-foreground">GA4 has up to a few hours of processing lag</div>
+                        <div class="text-2xs text-muted-foreground">GA4 has up to a few hours of processing lag</div>
                     </CardContent>
                 </Card>
 

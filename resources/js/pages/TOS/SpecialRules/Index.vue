@@ -102,7 +102,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                     <CardContent class="p-4">
                         <div class="mb-1 flex items-center justify-between gap-2">
                             <p class="text-sm font-semibold">{{ r.name }}</p>
-                            <Badge v-if="r.units_count" variant="outline" class="shrink-0 text-[10px] tabular-nums">
+                            <Badge v-if="r.units_count" variant="outline" class="shrink-0 text-2xs tabular-nums">
                                 {{ r.units_count }} {{ r.units_count === 1 ? 'unit' : 'units' }}
                             </Badge>
                         </div>

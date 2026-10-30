@@ -445,9 +445,7 @@ const visibleBadges = computed(() => (showAllBadges.value ? props.achievements?.
                                 >
                                     <div class="h-full rounded-full bg-primary" :style="{ width: `${(next.current / next.target) * 100}%` }" />
                                 </div>
-                                <div class="mt-1 text-right text-[11px] tabular-nums text-muted-foreground">
-                                    {{ next.current }} / {{ next.target }}
-                                </div>
+                                <div class="mt-1 text-right text-2xs tabular-nums text-muted-foreground">{{ next.current }} / {{ next.target }}</div>
                             </li>
                         </ul>
                     </div>

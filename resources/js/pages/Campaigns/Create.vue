@@ -84,7 +84,7 @@ const optionalRuleLabels: Record<string, { title: string; body: string }> = {
                 <div>
                     <Label for="length_weeks">Length (weeks)</Label>
                     <Input id="length_weeks" type="number" min="2" max="26" v-model.number="form.length_weeks" />
-                    <p class="text-[11px] text-muted-foreground">Rulebook recommends 4–12; runs longer or shorter on request.</p>
+                    <p class="text-2xs text-muted-foreground">Rulebook recommends 4–12; runs longer or shorter on request.</p>
                     <InputError :message="usePage().props.errors.length_weeks" />
                 </div>
 
@@ -100,7 +100,7 @@ const optionalRuleLabels: Record<string, { title: string; body: string }> = {
                             @click="form.is_solo = false"
                         >
                             <p class="text-sm font-semibold">Multiplayer</p>
-                            <p class="text-[11px] text-muted-foreground">
+                            <p class="text-2xs text-muted-foreground">
                                 Invite players, play games on the live tracker, run Aftermaths against opponents.
                             </p>
                         </button>
@@ -111,9 +111,7 @@ const optionalRuleLabels: Record<string, { title: string; body: string }> = {
                             @click="form.is_solo = true"
                         >
                             <p class="text-sm font-semibold">Solo</p>
-                            <p class="text-[11px] text-muted-foreground">
-                                Just track yourself. Log game results manually after offline / co-op play.
-                            </p>
+                            <p class="text-2xs text-muted-foreground">Just track yourself. Log game results manually after offline / co-op play.</p>
                         </button>
                     </div>
                 </div>

@@ -36,14 +36,14 @@ defineProps<{
                 <div
                     class="my-auto flex flex-wrap items-center gap-1.5 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
                 >
-                    <Badge class="bg-emerald-500/10 text-[10px] tabular-nums text-emerald-700 dark:text-emerald-400">
+                    <Badge class="bg-emerald-500/10 text-2xs tabular-nums text-emerald-700 dark:text-emerald-400">
                         {{ stratagem.tactical_cost }}T · Tactics Tokens
                     </Badge>
-                    <Badge v-if="stratagem.allegiance" variant="outline" class="text-[10px]">{{ stratagem.allegiance.name }}</Badge>
-                    <Badge v-else-if="stratagem.allegiance_type" variant="outline" class="text-[10px] capitalize"
+                    <Badge v-if="stratagem.allegiance" variant="outline" class="text-2xs">{{ stratagem.allegiance.name }}</Badge>
+                    <Badge v-else-if="stratagem.allegiance_type" variant="outline" class="text-2xs capitalize"
                         >Any {{ stratagem.allegiance_type }}</Badge
                     >
-                    <Badge v-else variant="outline" class="text-[10px]">Universal</Badge>
+                    <Badge v-else variant="outline" class="text-2xs">Universal</Badge>
                 </div>
             </template>
         </PageBanner>
@@ -63,7 +63,7 @@ defineProps<{
                     />
 
                     <CardContent class="space-y-4 px-0 pb-0">
-                        <p class="text-[11px] text-muted-foreground">
+                        <p class="text-2xs text-muted-foreground">
                             <template v-if="stratagem.allegiance">
                                 <Link :href="route('tos.allegiances.view', stratagem.allegiance.slug)" class="hover:text-foreground">{{
                                     stratagem.allegiance.name

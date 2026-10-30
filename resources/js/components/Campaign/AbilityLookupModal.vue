@@ -129,7 +129,7 @@ const attemptClose = async (nextOpen: boolean) => {
             <p class="text-xs text-muted-foreground">Borrowed from an in-keyword ally (pg 17), capped by that ally's own cost.</p>
 
             <div class="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" class="text-[10px]">{{ abilityCurrentCount + stagedCount }} / {{ abilityLimit }}</Badge>
+                <Badge variant="outline" class="text-2xs">{{ abilityCurrentCount + stagedCount }} / {{ abilityLimit }}</Badge>
                 <Input v-model="search" placeholder="Search by name…" class="min-w-48 flex-1" />
             </div>
 

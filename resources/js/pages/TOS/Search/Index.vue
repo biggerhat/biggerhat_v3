@@ -502,7 +502,7 @@ const exportUrl = computed(() => {
                             <TableBody>
                                 <TableRow v-for="r in results.data" :key="`${r.result_type}-${r.id}`">
                                     <TableCell
-                                        ><Badge variant="outline" class="text-[10px] capitalize">{{ r.result_type }}</Badge></TableCell
+                                        ><Badge variant="outline" class="text-2xs capitalize">{{ r.result_type }}</Badge></TableCell
                                     >
                                     <TableCell class="font-medium">
                                         <Link
@@ -563,7 +563,7 @@ const exportUrl = computed(() => {
                                 <CardContent class="space-y-1 p-4">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-sm font-semibold">{{ r.name }}</span>
-                                        <Badge variant="outline" class="text-[10px] capitalize">{{ r.result_type }}</Badge>
+                                        <Badge variant="outline" class="text-2xs capitalize">{{ r.result_type }}</Badge>
                                     </div>
                                     <p class="text-xs text-muted-foreground">{{ r.body ?? r.effect ?? '' }}</p>
                                 </CardContent>
@@ -596,24 +596,24 @@ const exportUrl = computed(() => {
                             <CardContent class="space-y-1.5 p-3">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="truncate text-sm font-semibold">{{ r.name }}</span>
-                                    <Badge variant="outline" class="shrink-0 text-[10px] capitalize">{{ r.result_type }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs capitalize">{{ r.result_type }}</Badge>
                                 </div>
-                                <p v-if="r.title" class="truncate text-[11px] italic text-muted-foreground">{{ r.title }}</p>
-                                <p class="text-[11px] tabular-nums text-muted-foreground">
+                                <p v-if="r.title" class="truncate text-2xs italic text-muted-foreground">{{ r.title }}</p>
+                                <p class="text-2xs tabular-nums text-muted-foreground">
                                     <template v-if="r.result_type === 'unit'">{{ r.scrip }} Scrip</template>
                                     <template v-else-if="r.result_type === 'asset'">{{ r.scrip_cost }} Scrip</template>
                                     <template v-else-if="r.result_type === 'stratagem'">{{ r.tactical_cost }} Tactics</template>
                                     <template v-else-if="r.result_type === 'allegiance_card' && r.allegiance">{{ r.allegiance.name }}</template>
                                 </p>
                                 <div v-if="r.special_unit_rules?.length" class="flex flex-wrap gap-1">
-                                    <Badge v-for="ru in r.special_unit_rules" :key="ru.id" variant="outline" class="text-[10px]">{{ ru.name }}</Badge>
+                                    <Badge v-for="ru in r.special_unit_rules" :key="ru.id" variant="outline" class="text-2xs">{{ ru.name }}</Badge>
                                 </div>
                                 <div class="pt-1">
                                     <Button
                                         v-if="r.result_type === 'unit' && r.sculpts && r.sculpts[0]"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.units.view', r.sculpts![0].slug))"
                                         >View Unit</Button
                                     >
@@ -621,7 +621,7 @@ const exportUrl = computed(() => {
                                         v-else-if="r.result_type === 'asset'"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.assets.view', r.slug))"
                                         >View Asset</Button
                                     >
@@ -629,7 +629,7 @@ const exportUrl = computed(() => {
                                         v-else-if="r.result_type === 'stratagem'"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.stratagems.view', r.slug))"
                                         >View Stratagem</Button
                                     >
@@ -637,7 +637,7 @@ const exportUrl = computed(() => {
                                         v-else-if="r.result_type === 'allegiance_card'"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.allegiance_cards.view', r.slug))"
                                         >View Card</Button
                                     >

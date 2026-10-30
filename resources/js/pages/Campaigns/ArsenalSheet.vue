@@ -1349,7 +1349,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
             <div class="flex flex-wrap gap-2">
                 <div class="flex items-center gap-2 rounded-md border bg-card px-4 py-2 shadow-sm">
                     <div>
-                        <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Scrip</p>
+                        <p class="text-2xs uppercase tracking-wider text-muted-foreground">Scrip</p>
                         <p class="text-2xl font-bold tabular-nums">{{ crew.scrip }}</p>
                     </div>
                     <Button
@@ -1364,7 +1364,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </Button>
                 </div>
                 <div class="rounded-md border bg-card px-4 py-2 shadow-sm">
-                    <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Campaign Rating</p>
+                    <p class="text-2xs uppercase tracking-wider text-muted-foreground">Campaign Rating</p>
                     <p
                         class="text-2xl font-bold tabular-nums"
                         :class="campaign_rating.value < 0 ? 'text-destructive' : campaign_rating.value > 0 ? 'text-primary' : ''"
@@ -1373,13 +1373,13 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </p>
                 </div>
                 <div class="rounded-md border bg-card px-4 py-2 shadow-sm">
-                    <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Arsenal</p>
+                    <p class="text-2xs uppercase tracking-wider text-muted-foreground">Arsenal</p>
                     <p class="text-2xl font-bold tabular-nums">
                         {{ totalArsenalSs }} <span class="text-xs font-normal text-muted-foreground">ss</span>
                     </p>
                 </div>
                 <div v-if="crew.total_wins > 0" class="rounded-md border bg-card px-4 py-2 shadow-sm">
-                    <p class="text-[10px] uppercase tracking-wider text-muted-foreground">Wins</p>
+                    <p class="text-2xs uppercase tracking-wider text-muted-foreground">Wins</p>
                     <p class="text-2xl font-bold tabular-nums">{{ crew.total_wins }}</p>
                 </div>
             </div>
@@ -1466,7 +1466,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                     v-for="inj in leader.injury_names"
                                     :key="`leader-i-${inj.id}`"
                                     variant="destructive"
-                                    class="cursor-pointer text-[10px]"
+                                    class="cursor-pointer text-2xs"
                                     role="button"
                                     tabindex="0"
                                     @click="viewInjury(inj)"
@@ -1483,7 +1483,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                     v-for="inj in leader.injury_names"
                                     :key="`leader-i-${inj.id}`"
                                     variant="destructive"
-                                    class="cursor-pointer text-[10px]"
+                                    class="cursor-pointer text-2xs"
                                     role="button"
                                     tabindex="0"
                                     @click="viewInjury(inj)"
@@ -1547,7 +1547,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                     v-for="inj in totem.injury_names"
                                     :key="`totem-i-${inj.id}`"
                                     variant="destructive"
-                                    class="cursor-pointer text-[10px]"
+                                    class="cursor-pointer text-2xs"
                                     role="button"
                                     tabindex="0"
                                     @click="viewInjury(inj)"
@@ -1564,7 +1564,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                     v-for="inj in totem.injury_names"
                                     :key="`totem-i-${inj.id}`"
                                     variant="destructive"
-                                    class="cursor-pointer text-[10px]"
+                                    class="cursor-pointer text-2xs"
                                     role="button"
                                     tabindex="0"
                                     @click="viewInjury(inj)"
@@ -1626,14 +1626,14 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                     <GameText :text="crew.crew_card_effect.body" />
                                 </p>
                                 <div v-if="crew.crew_card_effect.abilities.length" class="space-y-1">
-                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                                    <p class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
                                     <div v-for="ab in crew.crew_card_effect.abilities" :key="ab.id" class="text-xs">
                                         <span class="font-medium">{{ ab.name }}</span>
                                         <span v-if="ab.description" class="text-muted-foreground"> — <GameText :text="ab.description" /> </span>
                                     </div>
                                 </div>
                                 <div v-if="crew.crew_card_effect.actions.length" class="space-y-1">
-                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                                    <p class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
                                     <div v-for="ac in crew.crew_card_effect.actions" :key="ac.id" class="text-xs">
                                         <span class="font-medium">{{ ac.name }}</span>
                                         <span class="text-muted-foreground">
@@ -1657,7 +1657,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
 
                             <!-- Tier-4 borrowed effects (pg 32, 54) stack alongside the starter effect. -->
                             <div v-if="crew.crew_card_advancements.length" class="mt-3 space-y-3 border-t pt-3">
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Borrowed Effects (Tier 4)</p>
+                                <p class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Borrowed Effects (Tier 4)</p>
                                 <div v-for="adv in crew.crew_card_advancements" :key="adv.id" class="space-y-1">
                                     <p class="text-sm font-medium">{{ adv.effect?.name }}</p>
                                     <p v-if="adv.effect?.body" class="text-xs text-muted-foreground">
@@ -1673,7 +1673,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     <CardHeader class="flex-row items-start justify-between space-y-0">
                         <div>
                             <CardTitle>Leadership Experience</CardTitle>
-                            <p class="text-[10px] text-muted-foreground">
+                            <p class="text-2xs text-muted-foreground">
                                 XP track (pg 31) — fills from logged games via the Aftermath's Advance Leader step.
                                 <span v-if="xpTrack.length" class="font-medium">{{ xpFilled }} / {{ xpTrack.length }} earned.</span>
                             </p>
@@ -1696,7 +1696,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <div
                                 v-for="box in xpTrack"
                                 :key="box.index"
-                                class="relative flex aspect-square items-center justify-center rounded-sm border text-[10px]"
+                                class="relative flex aspect-square items-center justify-center rounded-sm border text-2xs"
                                 :class="box.filled ? 'border-primary bg-primary/70 text-primary-foreground' : 'bg-muted/30'"
                                 :title="box.tier ? `Tier ${box.tier} advancement` : undefined"
                             >
@@ -1708,12 +1708,12 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <!-- Advancement slots — one per earned (filled) numbered box. Owners
                              log what they took; everyone sees the result. -->
                         <div v-if="advancementSlots.length" class="mt-3 space-y-1.5">
-                            <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Advancements</p>
+                            <p class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Advancements</p>
                             <div v-for="slot in advancementSlots" :key="slot.position" class="rounded-md border p-2 text-xs">
                                 <!-- Logged — not individually removable (pg 31); use Respec above to
                                      undo the whole track at once. -->
                                 <div v-if="takenByPosition[slot.position]" class="flex items-center gap-2">
-                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
+                                    <Badge variant="outline" class="text-2xs">Tier {{ slot.tier }}</Badge>
                                     {{ advancementName(takenByPosition[slot.position]) }}
                                 </div>
                                 <!-- Owner picker for an empty slot -->
@@ -1722,7 +1722,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                     class="space-y-2"
                                 >
                                     <div class="flex flex-wrap items-center gap-1.5">
-                                        <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge>
+                                        <Badge variant="outline" class="text-2xs">Tier {{ slot.tier }}</Badge>
                                         <Select
                                             :model-value="drafts[slot.position].source_table"
                                             @update:model-value="
@@ -1782,7 +1782,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             ((selectedDraftRow(slot.position)?.tokens?.length ?? 0) > 0 ||
                                                 (selectedDraftRow(slot.position)?.markers?.length ?? 0) > 0)
                                         "
-                                        class="text-[11px] text-muted-foreground"
+                                        class="text-2xs text-muted-foreground"
                                     >
                                         Also grants:
                                         <template v-for="t in selectedDraftRow(slot.position)?.tokens ?? []" :key="'t' + t.id"
@@ -1798,7 +1798,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             Picked: {{ drafts[slot.position].free_choice_label }}
                                             <button
                                                 type="button"
-                                                class="ml-2 text-[10px] text-muted-foreground underline"
+                                                class="ml-2 text-2xs text-muted-foreground underline"
                                                 @click="
                                                     drafts[slot.position].free_choice_source_id = null;
                                                     drafts[slot.position].free_choice_source_character_id = null;
@@ -1836,7 +1836,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                         "
                                         class="rounded-md border border-primary/30 bg-primary/5 p-2"
                                     >
-                                        <Label class="text-[11px] font-medium">
+                                        <Label class="text-2xs font-medium">
                                             Choose a {{ requiredCrewCardChoiceType(slot.position) }} — listed on a crew card of a master sharing your
                                             keywords
                                         </Label>
@@ -1864,7 +1864,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                                 >
                                             </SelectContent>
                                         </Select>
-                                        <p v-if="crewCardChoiceOptionsFor(slot.position).length === 0" class="mt-1 text-[11px] text-muted-foreground">
+                                        <p v-if="crewCardChoiceOptionsFor(slot.position).length === 0" class="mt-1 text-2xs text-muted-foreground">
                                             No eligible {{ requiredCrewCardChoiceType(slot.position) }}s found for your keywords.
                                         </p>
                                     </div>
@@ -1909,7 +1909,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                         "
                                         class="flex flex-wrap items-center gap-2"
                                     >
-                                        <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                        <Label class="shrink-0 text-2xs text-muted-foreground">Affects:</Label>
                                         <Select
                                             :model-value="drafts[slot.position].target_type"
                                             @update:model-value="
@@ -1952,7 +1952,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                             </SelectContent>
                                         </Select>
                                         <template v-if="targetActionOptions(slot.position).length">
-                                            <Label class="shrink-0 text-[11px] text-muted-foreground">Action:</Label>
+                                            <Label class="shrink-0 text-2xs text-muted-foreground">Action:</Label>
                                             <Select
                                                 :model-value="
                                                     (drafts[slot.position].target_type === 'equipment'
@@ -1997,7 +1997,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                         "
                                         class="flex flex-wrap items-center gap-2"
                                     >
-                                        <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                        <Label class="shrink-0 text-2xs text-muted-foreground">Affects:</Label>
                                         <Select
                                             :model-value="
                                                 drafts[slot.position].target_type === 'equipment' ? 'leader' : drafts[slot.position].target_type
@@ -2046,12 +2046,12 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 </div>
                                 <!-- Owner picker locked — pg 31: resolve earlier earned boxes first -->
                                 <div v-else-if="view_mode.is_owner && drafts[slot.position]" class="text-muted-foreground">
-                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge> — resolve box
+                                    <Badge variant="outline" class="text-2xs">Tier {{ slot.tier }}</Badge> — resolve box
                                     {{ firstUnresolvedPosition }} first
                                 </div>
                                 <!-- Viewer, not yet chosen -->
                                 <div v-else class="text-muted-foreground">
-                                    <Badge variant="outline" class="text-[10px]">Tier {{ slot.tier }}</Badge> — not chosen yet
+                                    <Badge variant="outline" class="text-2xs">Tier {{ slot.tier }}</Badge> — not chosen yet
                                 </div>
                             </div>
                         </div>
@@ -2090,15 +2090,15 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 <p class="truncate font-medium">
                                     {{ model.label || model.character?.display_name || model.custom_character?.display_name || '—' }}
                                 </p>
-                                <p v-if="model.label" class="truncate text-[10px] text-muted-foreground">
+                                <p v-if="model.label" class="truncate text-2xs text-muted-foreground">
                                     {{ model.character?.display_name || model.custom_character?.display_name }}
                                 </p>
-                                <p class="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <p class="flex items-center gap-1 text-2xs text-muted-foreground">
                                     {{ model.character?.station || model.custom_character?.station }}
-                                    <Badge v-if="model.custom_character" variant="outline" class="text-[10px]">Custom</Badge>
+                                    <Badge v-if="model.custom_character" variant="outline" class="text-2xs">Custom</Badge>
                                 </p>
                             </div>
-                            <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">
+                            <Badge variant="outline" class="shrink-0 text-2xs tabular-nums">
                                 {{ model.character?.cost ?? model.custom_character?.cost ?? 0 }} ss
                             </Badge>
                         </div>
@@ -2114,13 +2114,13 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             "
                             class="mt-2 flex flex-wrap gap-1"
                         >
-                            <Badge v-if="model.acquired_via === 'doppelganger'" variant="secondary" class="text-[10px]">Doppelganger</Badge>
-                            <Badge v-if="model.acquired_via === 'traitor'" variant="secondary" class="text-[10px]">Defected</Badge>
+                            <Badge v-if="model.acquired_via === 'doppelganger'" variant="secondary" class="text-2xs">Doppelganger</Badge>
+                            <Badge v-if="model.acquired_via === 'traitor'" variant="secondary" class="text-2xs">Defected</Badge>
                             <Badge
                                 v-for="inj in model.injuries"
                                 :key="`i-${inj.id}`"
                                 variant="destructive"
-                                class="cursor-pointer text-[10px]"
+                                class="cursor-pointer text-2xs"
                                 role="button"
                                 tabindex="0"
                                 @click.stop="viewInjury(inj)"
@@ -2128,7 +2128,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             >
                                 {{ inj.name }}
                             </Badge>
-                            <Badge v-for="ch in model.gained_characteristics" :key="`c-${ch}`" variant="outline" class="text-[10px]">{{ ch }}</Badge>
+                            <Badge v-for="ch in model.gained_characteristics" :key="`c-${ch}`" variant="outline" class="text-2xs">{{ ch }}</Badge>
                             <!-- pg 36: only show the ability a Lucky Miss result grants, not
                                  also its own flavor name — the ability badge already implies
                                  the Lucky Miss happened. Fall back to the raw name only for a
@@ -2138,7 +2138,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 <Badge
                                     v-for="lm in model.lucky_miss"
                                     :key="`l-${lm}`"
-                                    class="bg-green-600 text-[10px] text-white hover:bg-green-600"
+                                    class="bg-green-600 text-2xs text-white hover:bg-green-600"
                                     title="Lucky Miss result"
                                 >
                                     {{ lm }}
@@ -2147,7 +2147,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <Badge
                                 v-for="ab in model.gained_abilities"
                                 :key="`a-${ab.id}`"
-                                class="cursor-pointer bg-blue-600 text-[10px] text-white hover:bg-blue-600"
+                                class="cursor-pointer bg-blue-600 text-2xs text-white hover:bg-blue-600"
                                 role="button"
                                 tabindex="0"
                                 title="Ability gained from a Lucky Miss result"
@@ -2163,7 +2163,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 v-for="up in model.upgrades"
                                 :key="`up-${up.type}-${up.id}`"
                                 variant="outline"
-                                class="border-purple-500/50 text-[10px] text-purple-600 dark:text-purple-400"
+                                class="border-purple-500/50 text-2xs text-purple-600 dark:text-purple-400"
                                 title="Crew Card upgrade"
                             >
                                 {{ up.name }}
@@ -2195,7 +2195,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     v-for="up in available_crew_upgrades"
                     :key="`avail-up-${up.type}-${up.id}`"
                     variant="outline"
-                    class="border-purple-500/50 text-[10px] text-purple-600 dark:text-purple-400"
+                    class="border-purple-500/50 text-2xs text-purple-600 dark:text-purple-400"
                 >
                     {{ up.name }}
                 </Badge>
@@ -2227,22 +2227,22 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <img v-if="eq.front_image" :src="'/storage/' + eq.front_image" :alt="eq.name" class="size-10 shrink-0 rounded object-cover" />
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-medium">{{ eq.name }}</p>
-                            <p class="text-[10px] capitalize text-muted-foreground">{{ eq.source }}</p>
+                            <p class="text-2xs capitalize text-muted-foreground">{{ eq.source }}</p>
                         </div>
                         <div class="flex shrink-0 flex-col items-end gap-1">
-                            <Badge v-if="eq.locked" variant="outline" class="text-[10px]" title="Advancement attached — must keep this equipment">
+                            <Badge v-if="eq.locked" variant="outline" class="text-2xs" title="Advancement attached — must keep this equipment">
                                 🔒 Locked
                             </Badge>
                             <Badge
                                 v-if="eq.excludes_from_cr"
                                 variant="outline"
-                                class="text-[10px]"
+                                class="text-2xs"
                                 title="This equipment never counts towards your campaign rating"
                             >
                                 Free (no CR)
                             </Badge>
-                            <Badge v-if="eq.br != null" variant="outline" class="text-[10px] tabular-nums">BR {{ eq.br }}</Badge>
-                            <Badge v-if="eq.cc != null" variant="outline" class="text-[10px] tabular-nums">{{ eq.cc }} cc</Badge>
+                            <Badge v-if="eq.br != null" variant="outline" class="text-2xs tabular-nums">BR {{ eq.br }}</Badge>
+                            <Badge v-if="eq.cc != null" variant="outline" class="text-2xs tabular-nums">{{ eq.cc }} cc</Badge>
                         </div>
                     </div>
                 </div>
@@ -2255,7 +2255,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         <Card class="mt-6">
             <CardHeader>
                 <CardTitle>Advancement Log</CardTitle>
-                <p class="text-[10px] text-muted-foreground">Earned via Aftermath Phase 4 (Advance Leader) or logged per box above.</p>
+                <p class="text-2xs text-muted-foreground">Earned via Aftermath Phase 4 (Advance Leader) or logged per box above.</p>
             </CardHeader>
             <CardContent>
                 <ul v-if="leader_advancements.length" class="space-y-1.5">
@@ -2265,12 +2265,12 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border p-2 text-sm"
                     >
                         <span class="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" class="text-[10px]">Box {{ a.position_in_xp_track + 1 }}</Badge>
+                            <Badge variant="outline" class="text-2xs">Box {{ a.position_in_xp_track + 1 }}</Badge>
                             <span class="text-muted-foreground">{{ SOURCE_TABLE_LABELS[a.source_table] ?? a.source_table.replace(/_/g, ' ') }}</span>
                             <span class="font-medium">{{ advancementChainLabel(a) }}</span>
-                            <span v-if="advancementContext(a)" class="text-[11px] text-muted-foreground">{{ advancementContext(a) }}</span>
+                            <span v-if="advancementContext(a)" class="text-2xs text-muted-foreground">{{ advancementContext(a) }}</span>
                         </span>
-                        <span v-if="a.acquired_at" class="text-[10px] text-muted-foreground">{{ new Date(a.acquired_at).toLocaleDateString() }}</span>
+                        <span v-if="a.acquired_at" class="text-2xs text-muted-foreground">{{ new Date(a.acquired_at).toLocaleDateString() }}</span>
                     </li>
                 </ul>
                 <EmptyState v-else compact title="No advancements yet" description="" />
@@ -2281,13 +2281,13 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         <Card class="mt-6">
             <CardHeader>
                 <CardTitle>Story Log</CardTitle>
-                <p class="text-[10px] text-muted-foreground">Optional notes written at the end of each logged game.</p>
+                <p class="text-2xs text-muted-foreground">Optional notes written at the end of each logged game.</p>
             </CardHeader>
             <CardContent>
                 <ul v-if="story_log.length" class="space-y-2">
                     <li v-for="entry in story_log" :key="entry.id" class="rounded-md border p-3 text-sm">
-                        <div class="mb-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-                            <Badge v-if="entry.week_number != null" variant="outline" class="text-[10px]">Week {{ entry.week_number }}</Badge>
+                        <div class="mb-1 flex items-center gap-2 text-2xs text-muted-foreground">
+                            <Badge v-if="entry.week_number != null" variant="outline" class="text-2xs">Week {{ entry.week_number }}</Badge>
                             <span>{{ new Date(entry.created_at).toLocaleDateString() }}</span>
                             <!-- Prefer the actual completed game's results (games.summary).
                                  A manually-logged game (solo, or a duel campaign game logged
@@ -2330,7 +2330,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             <p v-if="entry.story_entry" class="whitespace-pre-wrap">{{ entry.story_entry }}</p>
                             <p v-else class="italic text-muted-foreground">No story written for this game.</p>
                         </template>
-                        <p v-if="storyTallyParts(entry.tally).length" class="mt-1.5 text-[11px] text-muted-foreground">
+                        <p v-if="storyTallyParts(entry.tally).length" class="mt-1.5 text-2xs text-muted-foreground">
                             {{ storyTallyParts(entry.tally).join(' · ') }}
                         </p>
                     </li>
@@ -2355,12 +2355,12 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         class="mx-auto max-h-[40vh] max-w-full rounded-md border-2 object-contain"
                     />
                     <div class="flex flex-wrap gap-1.5">
-                        <Badge variant="outline" class="text-[10px] capitalize">{{ viewCard.equipment.source }}</Badge>
-                        <Badge v-if="viewCard.equipment.excludes_from_cr" variant="outline" class="text-[10px]">Free (no CR)</Badge>
-                        <Badge v-if="viewCard.equipment.br != null" variant="outline" class="text-[10px] tabular-nums"
+                        <Badge variant="outline" class="text-2xs capitalize">{{ viewCard.equipment.source }}</Badge>
+                        <Badge v-if="viewCard.equipment.excludes_from_cr" variant="outline" class="text-2xs">Free (no CR)</Badge>
+                        <Badge v-if="viewCard.equipment.br != null" variant="outline" class="text-2xs tabular-nums"
                             >BR {{ viewCard.equipment.br }}</Badge
                         >
-                        <Badge v-if="viewCard.equipment.cc != null" variant="outline" class="text-[10px] tabular-nums"
+                        <Badge v-if="viewCard.equipment.cc != null" variant="outline" class="text-2xs tabular-nums"
                             >{{ viewCard.equipment.cc }} cc</Badge
                         >
                     </div>
@@ -2374,15 +2374,15 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <p v-else class="text-xs text-muted-foreground">No rules text recorded for this equipment.</p>
                     </template>
                     <div v-if="viewCard.equipment.abilities.length" class="space-y-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
+                        <p class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Abilities</p>
                         <AbilityCard v-for="ab in viewCard.equipment.abilities" :key="`eqab-${ab.id}`" :ability="ab" :hide-footer="true" />
                     </div>
                     <div v-if="viewCard.equipment.actions.length" class="space-y-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+                        <p class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
                         <ActionCard v-for="ac in viewCard.equipment.actions" :key="`eqac-${ac.id}`" :action="ac" :hide-footer="true" />
                     </div>
                     <div v-if="viewCard.equipment.applied_effects.length" class="space-y-1 rounded border p-2">
-                        <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <p class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                             🔒 Leader Advancements attached to this equipment
                         </p>
                         <p v-for="(effect, i) in viewCard.equipment.applied_effects" :key="i" class="text-xs">+ {{ effect }}</p>
@@ -2447,9 +2447,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-1 truncate font-medium">
                                         {{ char.display_name }}
-                                        <Badge v-if="char.source_type === 'custom'" variant="outline" class="text-[10px]">Custom</Badge>
+                                        <Badge v-if="char.source_type === 'custom'" variant="outline" class="text-2xs">Custom</Badge>
                                     </div>
-                                    <div v-if="char.station" class="text-[10px] capitalize text-muted-foreground">{{ char.station }}</div>
+                                    <div v-if="char.station" class="text-2xs capitalize text-muted-foreground">{{ char.station }}</div>
                                 </div>
                             </button>
                         </template>
@@ -2467,9 +2467,9 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1 truncate font-medium">
                                 {{ addUnitSelected.display_name }}
-                                <Badge v-if="addUnitSelected.source_type === 'custom'" variant="outline" class="text-[10px]">Custom</Badge>
+                                <Badge v-if="addUnitSelected.source_type === 'custom'" variant="outline" class="text-2xs">Custom</Badge>
                             </div>
-                            <div v-if="addUnitSelected.station" class="text-[10px] capitalize text-muted-foreground">
+                            <div v-if="addUnitSelected.station" class="text-2xs capitalize text-muted-foreground">
                                 {{ addUnitSelected.station }}
                             </div>
                         </div>
@@ -2503,7 +2503,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             @click="submitAddEquipment(eq.id)"
                         >
                             <span class="min-w-0 flex-1 truncate font-medium">{{ eq.name }}</span>
-                            <Badge v-if="eq.br != null" variant="outline" class="shrink-0 text-[10px] tabular-nums">BR {{ eq.br }}</Badge>
+                            <Badge v-if="eq.br != null" variant="outline" class="shrink-0 text-2xs tabular-nums">BR {{ eq.br }}</Badge>
                         </button>
                     </template>
                     <div v-else class="py-3 text-center text-xs text-muted-foreground">No equipment found</div>
@@ -2595,7 +2595,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             v-for="inj in unitPreviewRow.injuries"
                             :key="`di-${inj.id}`"
                             variant="destructive"
-                            class="cursor-pointer text-[10px]"
+                            class="cursor-pointer text-2xs"
                             role="button"
                             tabindex="0"
                             @click="viewInjury(inj)"
@@ -2603,14 +2603,14 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         >
                             {{ inj.name }}
                         </Badge>
-                        <Badge v-for="ch in unitPreviewRow.gained_characteristics" :key="`dc-${ch}`" variant="outline" class="text-[10px]">{{
+                        <Badge v-for="ch in unitPreviewRow.gained_characteristics" :key="`dc-${ch}`" variant="outline" class="text-2xs">{{
                             ch
                         }}</Badge>
                         <Badge
                             v-for="up in unitPreviewRow.upgrades"
                             :key="`dup-${up.type}-${up.id}`"
                             variant="outline"
-                            class="border-purple-500/50 text-[10px] text-purple-600 dark:text-purple-400"
+                            class="border-purple-500/50 text-2xs text-purple-600 dark:text-purple-400"
                             title="Crew Card upgrade"
                         >
                             {{ up.name }}

@@ -332,18 +332,18 @@ const formatPrice = (cents: number | null) => {
                                                 <span class="ml-auto text-xs text-muted-foreground">{{ pkg.characters_count }} Characters</span>
                                             </div>
                                             <div v-if="isCollected(pkg.id) || isWishlisted(pkg.id)" class="mt-1.5 flex items-center gap-2">
-                                                <span v-if="isCollected(pkg.id)" class="flex items-center gap-1 text-[11px]" style="color: #059669">
+                                                <span v-if="isCollected(pkg.id)" class="flex items-center gap-1 text-2xs" style="color: #059669">
                                                     <BookMarked class="size-3" />
                                                     Collected
                                                 </span>
-                                                <span v-if="isWishlisted(pkg.id)" class="flex items-center gap-1 text-[11px]" style="color: #f43f5e">
+                                                <span v-if="isWishlisted(pkg.id)" class="flex items-center gap-1 text-2xs" style="color: #f43f5e">
                                                     <Heart class="size-3 fill-current" />
                                                     Wishlisted
                                                 </span>
                                             </div>
                                             <button
                                                 v-if="isLoggedIn && !isCollected(pkg.id)"
-                                                class="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                                                class="mt-1.5 flex items-center gap-1 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
                                                 :disabled="addingPackageIds.has(pkg.id)"
                                                 @click.prevent="addPackageToCollection(pkg.id)"
                                             >

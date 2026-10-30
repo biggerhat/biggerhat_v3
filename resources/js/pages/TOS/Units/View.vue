@@ -148,7 +148,7 @@ const sculptOptions = computed(() => props.unit.sculpts.map((s) => ({ id: s.id, 
                                     />
                                     <CardContent class="p-2 text-xs">
                                         <p class="font-medium">{{ s.name }}</p>
-                                        <p v-if="s.release_date" class="text-[10px] tabular-nums text-muted-foreground">{{ s.release_date }}</p>
+                                        <p v-if="s.release_date" class="text-2xs tabular-nums text-muted-foreground">{{ s.release_date }}</p>
                                     </CardContent>
                                 </Card>
                             </Link>

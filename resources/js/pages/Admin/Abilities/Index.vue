@@ -61,7 +61,7 @@ const columns: ColumnDef<Abilities>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const ability = row.original;
 

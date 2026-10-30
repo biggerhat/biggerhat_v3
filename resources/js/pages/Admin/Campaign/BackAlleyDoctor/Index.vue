@@ -48,12 +48,12 @@ const columns: ColumnDef<DoctorRow>[] = [
     {
         accessorKey: 'outcome_kind',
         header: sortableHeader('Outcome'),
-        cell: ({ row }) => h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => row.original.outcome_kind),
+        cell: ({ row }) => h(Badge, { variant: 'outline', class: 'text-2xs' }, () => row.original.outcome_kind),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {

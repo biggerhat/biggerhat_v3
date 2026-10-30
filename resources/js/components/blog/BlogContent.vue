@@ -109,7 +109,7 @@ const alignStyle = (node: Record<string, unknown>) => {
                                     class="px-2.5 py-2 text-left align-top sm:px-4 sm:py-3"
                                     :class="
                                         cell.type === 'tableHeader'
-                                            ? 'bg-muted/50 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs'
+                                            ? 'bg-muted/50 text-2xs font-semibold uppercase tracking-wide text-muted-foreground sm:text-xs'
                                             : ''
                                     "
                                 >

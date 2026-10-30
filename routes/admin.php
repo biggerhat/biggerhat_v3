@@ -405,6 +405,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
     Route::controller(FeedbackAdminController::class)->prefix('feedback')->name('feedback.')->group(function () {
         Route::get('/', 'index')->name('index')->middleware('permission:view_feedback');
         Route::post('/update/{feedback}', 'update')->name('update')->middleware('permission:manage_feedback');
+        Route::post('/bulk', 'bulk')->name('bulk')->middleware('permission:manage_feedback');
         Route::post('/delete/{feedback}', 'destroy')->name('delete')->middleware('permission:manage_feedback');
     });
 

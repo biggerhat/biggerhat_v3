@@ -29,19 +29,19 @@ withDefaults(
         <HeadingEyebrow v-if="label" as="h4" :class="['mb-2', active ? 'text-foreground' : '']"> {{ label }} </HeadingEyebrow>
         <div class="grid grid-cols-4 gap-2 text-center text-xs">
             <div>
-                <p class="text-[10px] uppercase text-muted-foreground">Sp</p>
+                <p class="text-2xs uppercase text-muted-foreground">Sp</p>
                 <p class="text-base font-semibold tabular-nums">{{ side.speed }}</p>
             </div>
             <div>
-                <p class="text-[10px] uppercase text-muted-foreground">Df</p>
+                <p class="text-2xs uppercase text-muted-foreground">Df</p>
                 <p class="text-base font-semibold tabular-nums">{{ side.defense }}</p>
             </div>
             <div>
-                <p class="text-[10px] uppercase text-muted-foreground">Wp</p>
+                <p class="text-2xs uppercase text-muted-foreground">Wp</p>
                 <p class="text-base font-semibold tabular-nums">{{ side.willpower }}</p>
             </div>
             <div>
-                <p class="text-[10px] uppercase text-muted-foreground">Ar</p>
+                <p class="text-2xs uppercase text-muted-foreground">Ar</p>
                 <p class="text-base font-semibold tabular-nums">{{ side.armor }}</p>
             </div>
         </div>

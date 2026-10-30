@@ -188,11 +188,11 @@ const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isA
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             <Badge variant="outline" :class="levelBadgeClass(a.level)">{{ a.level }}</Badge>
-                            <Badge variant="secondary" class="text-[10px]">{{ a.audience }}</Badge>
-                            <Badge v-if="isActiveNow(a)" class="border-green-500/40 bg-green-500/10 text-[10px] text-green-700 dark:text-green-400"
+                            <Badge variant="secondary" class="text-2xs">{{ a.audience }}</Badge>
+                            <Badge v-if="isActiveNow(a)" class="border-green-500/40 bg-green-500/10 text-2xs text-green-700 dark:text-green-400"
                                 >live</Badge
                             >
-                            <Badge v-else variant="outline" class="text-[10px] text-muted-foreground">scheduled / expired</Badge>
+                            <Badge v-else variant="outline" class="text-2xs text-muted-foreground">scheduled / expired</Badge>
                         </div>
                         <p class="mt-1 text-sm">{{ a.message }}</p>
                         <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">

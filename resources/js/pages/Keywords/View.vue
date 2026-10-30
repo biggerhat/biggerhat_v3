@@ -399,7 +399,7 @@ onMounted(() => {
                     </div>
                     <div v-if="statItems.length" class="flex items-center gap-3">
                         <div v-for="stat in statItems" :key="stat.label" class="text-center">
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{{ stat.label }}</div>
+                            <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{{ stat.label }}</div>
                             <div class="text-sm font-bold leading-tight">{{ stat.value }}</div>
                         </div>
                     </div>

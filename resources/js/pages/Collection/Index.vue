@@ -756,7 +756,7 @@ const topFactions = computed(() =>
                                             {{ pkg.name }}
                                         </Link>
                                         <div v-if="pkg.factions?.length" class="mt-1.5 flex flex-wrap gap-1">
-                                            <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-[10px]">
+                                            <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-2xs">
                                                 <img :src="f.logo" :alt="f.label" class="size-3" />
                                                 {{ f.label }}
                                             </Badge>
@@ -835,7 +835,7 @@ const topFactions = computed(() =>
                                 <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
                                 <Badge
                                     :variant="stat.percent === 100 ? 'default' : 'secondary'"
-                                    class="w-14 shrink-0 justify-center text-[10px] tabular-nums"
+                                    class="w-14 shrink-0 justify-center text-2xs tabular-nums"
                                 >
                                     {{ stat.percent }}%
                                 </Badge>
@@ -940,7 +940,7 @@ const topFactions = computed(() =>
                                         <span class="tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
                                         <Badge
                                             :variant="stat.percent === 100 ? 'default' : 'secondary'"
-                                            class="w-14 justify-center text-[10px] tabular-nums"
+                                            class="w-14 justify-center text-2xs tabular-nums"
                                         >
                                             {{ stat.percent }}%
                                         </Badge>

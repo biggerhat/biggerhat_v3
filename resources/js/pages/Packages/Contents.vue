@@ -678,7 +678,7 @@ const copyLink = async () => {
                                     v-if="isLoggedIn && !isCollected(box.id)"
                                     variant="outline"
                                     size="sm"
-                                    class="h-6 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                                    class="h-6 shrink-0 gap-1 px-2 text-2xs text-muted-foreground hover:text-foreground"
                                     :disabled="addingPackageIds.has(box.id)"
                                     @click.stop="addPackageToCollection(box.id)"
                                 >
@@ -691,7 +691,7 @@ const copyLink = async () => {
                                             :aria-label="isWishlisted(box.id) ? 'Wishlisted' : 'Add to wishlist'"
                                             variant="outline"
                                             size="sm"
-                                            class="h-6 shrink-0 gap-1 px-2 text-[11px]"
+                                            class="h-6 shrink-0 gap-1 px-2 text-2xs"
                                             :class="
                                                 isWishlisted(box.id)
                                                     ? 'border-rose-500/40 text-rose-600 dark:text-rose-400'
@@ -740,7 +740,7 @@ const copyLink = async () => {
                                     <Badge
                                         v-if="character.special_order"
                                         variant="outline"
-                                        class="absolute left-1 top-1 z-10 border-amber-500/50 bg-background text-[10px] text-amber-600 dark:text-amber-400"
+                                        class="absolute left-1 top-1 z-10 border-amber-500/50 bg-background text-2xs text-amber-600 dark:text-amber-400"
                                         title="Available for special order"
                                     >
                                         Special Order

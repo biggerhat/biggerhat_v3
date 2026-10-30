@@ -71,7 +71,7 @@ const columns: ColumnDef<any>[] = [
                         Badge,
                         {
                             variant: 'outline',
-                            class: 'ml-2 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400',
+                            class: 'ml-2 border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400',
                             title: 'Derived from the box-contents reference data — needs review',
                         },
                         () => 'Needs Review',
@@ -87,7 +87,7 @@ const columns: ColumnDef<any>[] = [
         cell: ({ row }) => {
             const gameSystem = row.getValue('game_system') as string;
             const label = gameSystem === 'both' ? 'Both' : gameSystem === 'tos' ? 'The Other Side' : 'Malifaux';
-            return h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => label);
+            return h(Badge, { variant: 'outline', class: 'text-2xs' }, () => label);
         },
     },
     {
@@ -95,7 +95,7 @@ const columns: ColumnDef<any>[] = [
         header: () => h('div', {}, 'Category'),
         cell: ({ row }) => {
             const label = row.getValue('category_label') as string | null;
-            return label ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => label) : h('div', { class: 'text-muted-foreground' }, '-');
+            return label ? h(Badge, { variant: 'outline', class: 'text-2xs' }, () => label) : h('div', { class: 'text-muted-foreground' }, '-');
         },
     },
     {
@@ -141,7 +141,7 @@ const columns: ColumnDef<any>[] = [
             return h(
                 'div',
                 { class: 'flex flex-wrap gap-1' },
-                keywords.map((k) => h(Badge, { key: k, variant: 'secondary', class: 'text-[10px]' }, () => k)),
+                keywords.map((k) => h(Badge, { key: k, variant: 'secondary', class: 'text-2xs' }, () => k)),
             );
         },
     },
@@ -149,7 +149,7 @@ const columns: ColumnDef<any>[] = [
         id: 'actions',
         enableHiding: false,
         enableSorting: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const pkg = row.original;
 

@@ -78,7 +78,7 @@ function slotLocations(asset: AssetMin): string[] {
     <Card class="overflow-hidden">
         <div class="flex items-center justify-between border-b px-3 py-2 sm:px-4">
             <HeadingEyebrow as="h2">Roster</HeadingEyebrow>
-            <Badge variant="secondary" class="px-1.5 py-0 text-[10px]">
+            <Badge variant="secondary" class="px-1.5 py-0 text-2xs">
                 {{ renderableUnits.length }} {{ renderableUnits.length === 1 ? 'unit' : 'units' }}
             </Badge>
         </div>
@@ -129,24 +129,24 @@ function slotLocations(asset: AssetMin): string[] {
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                             <span class="truncate text-sm font-semibold">{{ cu.unit.name }}</span>
-                            <span v-if="cu.unit.title" class="truncate text-[11px] italic text-muted-foreground">{{ cu.unit.title }}</span>
+                            <span v-if="cu.unit.title" class="truncate text-2xs italic text-muted-foreground">{{ cu.unit.title }}</span>
                         </div>
-                        <div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
+                        <div class="mt-0.5 flex flex-wrap items-center gap-1 text-2xs">
                             <span
                                 :class="cu.is_commander ? 'font-medium text-emerald-700 dark:text-emerald-400' : 'tabular-nums text-muted-foreground'"
                                 >{{ cu.is_commander ? '+' : '' }}{{ cu.unit.scrip }} Scrip</span
                             >
-                            <Badge v-if="cu.is_commander" class="bg-amber-500/10 px-1 py-0 text-[10px] text-amber-700 dark:text-amber-400"
+                            <Badge v-if="cu.is_commander" class="bg-amber-500/10 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                 >Commander</Badge
                             >
-                            <Badge v-if="cu.unit.restriction" variant="outline" class="px-1 py-0 text-[10px] capitalize"
+                            <Badge v-if="cu.unit.restriction" variant="outline" class="px-1 py-0 text-2xs capitalize"
                                 >Neutral · {{ cu.unit.restriction }}</Badge
                             >
                             <Badge
                                 v-for="r in cu.unit.special_unit_rules.filter((r) => r.slug !== 'commander')"
                                 :key="r.id"
                                 variant="outline"
-                                class="px-1 py-0 text-[10px]"
+                                class="px-1 py-0 text-2xs"
                                 >{{ r.name }}</Badge
                             >
                         </div>
@@ -173,22 +173,17 @@ function slotLocations(asset: AssetMin): string[] {
                 >
                     <Lock class="size-3 shrink-0 text-amber-600 dark:text-amber-400" />
                     <span class="text-xs font-medium">{{ childByParent.get(cu.unit.id)?.unit.name }}</span>
-                    <Badge class="bg-amber-500/10 px-1 py-0 text-[10px] text-amber-700 dark:text-amber-400">Combined Arms</Badge>
-                    <span class="text-[10px] italic text-muted-foreground">auto-attached</span>
+                    <Badge class="bg-amber-500/10 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400">Combined Arms</Badge>
+                    <span class="text-2xs italic text-muted-foreground">auto-attached</span>
                 </div>
 
                 <!-- Asset row -->
                 <div class="relative flex flex-wrap items-center gap-1 border-t bg-background/40 px-3 py-1.5">
-                    <Badge
-                        v-for="a in cu.assets"
-                        :key="a.id"
-                        variant="outline"
-                        class="gap-1 border-cyan-500/30 bg-cyan-500/5 px-1.5 py-0 text-[10px]"
-                    >
+                    <Badge v-for="a in cu.assets" :key="a.id" variant="outline" class="gap-1 border-cyan-500/30 bg-cyan-500/5 px-1.5 py-0 text-2xs">
                         <Package class="size-2.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
                         <span>{{ a.name }}</span>
                         <span class="tabular-nums text-muted-foreground">({{ a.scrip_cost }}s)</span>
-                        <span v-for="loc in slotLocations(a)" :key="loc" class="text-[10px] uppercase tracking-wider text-muted-foreground">{{
+                        <span v-for="loc in slotLocations(a)" :key="loc" class="text-2xs uppercase tracking-wider text-muted-foreground">{{
                             loc
                         }}</span>
                         <button
@@ -203,7 +198,7 @@ function slotLocations(asset: AssetMin): string[] {
                     <Button
                         variant="ghost"
                         size="sm"
-                        class="ml-auto h-6 gap-1 px-2 text-[11px] text-cyan-600 hover:bg-cyan-500/10 hover:text-cyan-700 dark:text-cyan-400"
+                        class="ml-auto h-6 gap-1 px-2 text-2xs text-cyan-600 hover:bg-cyan-500/10 hover:text-cyan-700 dark:text-cyan-400"
                         @click="emit('attach', cu)"
                     >
                         <Plus class="size-3" /> Asset

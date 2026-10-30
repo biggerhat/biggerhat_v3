@@ -98,7 +98,7 @@ const emit = defineEmits<{
                 />
                 <span>
                     <span class="font-medium">Units only</span>
-                    <span class="block text-[10px] text-muted-foreground"> Hide Assets, Stratagems, and Allegiance Cards from the results. </span>
+                    <span class="block text-2xs text-muted-foreground"> Hide Assets, Stratagems, and Allegiance Cards from the results. </span>
                 </span>
             </label>
             <div class="space-y-1">
@@ -307,14 +307,14 @@ const emit = defineEmits<{
             <ChevronDown class="h-4 w-4 transition-transform" :class="{ 'rotate-180': sectionsOpen.has }" />
         </CollapsibleTrigger>
         <CollapsibleContent class="space-y-2 px-1 pt-3">
-            <p class="text-[11px] text-muted-foreground">Quick presence checks — narrow the unit pool by structural traits.</p>
+            <p class="text-2xs text-muted-foreground">Quick presence checks — narrow the unit pool by structural traits.</p>
             <div class="flex flex-wrap gap-1.5">
                 <button
                     v-for="flag in hasFlags"
                     :key="flag"
                     type="button"
                     :class="[
-                        'rounded-md px-2 py-0.5 text-[11px] capitalize transition-colors',
+                        'rounded-md px-2 py-0.5 text-2xs capitalize transition-colors',
                         activeHasFlags.includes(flag) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent',
                     ]"
                     @click="emit('toggleHas', flag)"
@@ -323,7 +323,7 @@ const emit = defineEmits<{
                 </button>
             </div>
             <div v-if="activeHasFlags.length" class="flex flex-wrap gap-1 pt-1">
-                <Badge v-for="f in activeHasFlags" :key="f" variant="outline" class="text-[10px] capitalize">{{ f.replace('_', ' ') }}</Badge>
+                <Badge v-for="f in activeHasFlags" :key="f" variant="outline" class="text-2xs capitalize">{{ f.replace('_', ' ') }}</Badge>
             </div>
         </CollapsibleContent>
     </Collapsible>

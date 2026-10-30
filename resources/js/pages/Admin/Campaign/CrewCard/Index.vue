@@ -37,13 +37,13 @@ const columns: ColumnDef<CrewCardRow>[] = [
         cell: ({ row }) => {
             const badges = [];
             if (row.original.requires_token_choice) {
-                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-[10px]' }, () => 'Token'));
+                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-2xs' }, () => 'Token'));
             }
             if (row.original.requires_marker_choice) {
-                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-[10px]' }, () => 'Marker'));
+                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-2xs' }, () => 'Marker'));
             }
             if (row.original.requires_upgrade_type_choice) {
-                badges.push(h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => 'Upgrade Type'));
+                badges.push(h(Badge, { variant: 'outline', class: 'text-2xs' }, () => 'Upgrade Type'));
             }
             return h('div', {}, badges);
         },
@@ -51,7 +51,7 @@ const columns: ColumnDef<CrewCardRow>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {

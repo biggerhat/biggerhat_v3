@@ -532,7 +532,7 @@ async function deleteCompany() {
                                 <span class="mx-1 opacity-50">·</span>
                                 <span class="capitalize">{{ company.allegiance.type }}</span>
                             </p>
-                            <p v-if="company.format || company.envoy_allegiance" class="truncate text-[11px] text-muted-foreground">
+                            <p v-if="company.format || company.envoy_allegiance" class="truncate text-2xs text-muted-foreground">
                                 <span v-if="company.format">{{ garrisonFormatLabel[company.format] ?? company.format }}</span>
                                 <template v-if="company.envoy_allegiance">
                                     <span v-if="company.format" class="mx-1 opacity-50">·</span>
@@ -546,7 +546,7 @@ async function deleteCompany() {
                             </p>
                             <div
                                 v-if="company.garrison"
-                                class="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400"
+                                class="mt-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium text-emerald-700 dark:text-emerald-400"
                             >
                                 <Shield class="size-3" />
                                 <span>Building from</span>
@@ -574,7 +574,7 @@ async function deleteCompany() {
                             <button
                                 v-else-if="available_garrisons.length"
                                 type="button"
-                                class="mt-1 inline-flex items-center gap-1.5 rounded-full border border-dashed border-emerald-500/40 px-2 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-500/5 dark:text-emerald-400"
+                                class="mt-1 inline-flex items-center gap-1.5 rounded-full border border-dashed border-emerald-500/40 px-2 py-0.5 text-2xs font-medium text-emerald-700 hover:bg-emerald-500/5 dark:text-emerald-400"
                                 title="Restrict the hiring pool to a tournament Garrison"
                                 @click="openGarrisonPicker"
                             >
@@ -641,17 +641,17 @@ async function deleteCompany() {
                             <Badge
                                 v-if="overBudget"
                                 variant="outline"
-                                class="border-rose-500/40 bg-rose-500/10 text-[11px] text-rose-700 dark:text-rose-400"
+                                class="border-rose-500/40 bg-rose-500/10 text-2xs text-rose-700 dark:text-rose-400"
                             >
                                 <AlertTriangle class="mr-1 size-3" /> {{ -scrip_remaining }} over budget
                             </Badge>
                             <Badge
                                 v-else-if="scrip_budget > 0"
                                 variant="outline"
-                                class="border-emerald-500/40 bg-emerald-500/10 text-[11px] text-emerald-700 dark:text-emerald-400"
+                                class="border-emerald-500/40 bg-emerald-500/10 text-2xs text-emerald-700 dark:text-emerald-400"
                                 >{{ scrip_remaining }} remaining</Badge
                             >
-                            <Badge v-else variant="outline" class="text-[11px]">Step 1 — pick a Commander</Badge>
+                            <Badge v-else variant="outline" class="text-2xs">Step 1 — pick a Commander</Badge>
                         </div>
                     </div>
 
@@ -661,7 +661,7 @@ async function deleteCompany() {
 
                     <p
                         v-if="company.envoy_allegiance"
-                        class="mt-1.5 text-[11px]"
+                        class="mt-1.5 text-2xs"
                         :class="envoy_scrip_spent > envoy_scrip_cap ? 'text-rose-700 dark:text-rose-400' : 'text-muted-foreground'"
                     >
                         Envoy spend: {{ envoy_scrip_spent }} / {{ envoy_scrip_cap }} Scrip (50% cap)
@@ -709,7 +709,7 @@ async function deleteCompany() {
                                     />
                                 </Link>
                             </div>
-                            <p class="mt-1 text-[10px] italic text-muted-foreground">
+                            <p class="mt-1 text-2xs italic text-muted-foreground">
                                 Standard effects only — “Primary Only” doesn’t apply as an Envoy.
                             </p>
                         </div>
@@ -736,7 +736,7 @@ async function deleteCompany() {
                         <TabsTrigger value="build">Build</TabsTrigger>
                         <TabsTrigger value="stratagems">
                             Stratagems
-                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">{{ stratagemCount }} / {{ stratagem_deck_size }}</Badge>
+                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">{{ stratagemCount }} / {{ stratagem_deck_size }}</Badge>
                         </TabsTrigger>
                     </TabsList>
                     <TabsContent value="build" class="mt-3">
@@ -789,17 +789,17 @@ async function deleteCompany() {
                     <TabsList class="grid w-full grid-cols-3">
                         <TabsTrigger value="roster">
                             Roster
-                            <Badge v-if="renderableUnits.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                            <Badge v-if="renderableUnits.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">
                                 {{ renderableUnits.length }}
                             </Badge>
                         </TabsTrigger>
                         <TabsTrigger value="pool">
                             Hiring
-                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">{{ filterCounts.all }}</Badge>
+                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">{{ filterCounts.all }}</Badge>
                         </TabsTrigger>
                         <TabsTrigger value="stratagems">
                             Stratagems
-                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">{{ stratagemCount }}</Badge>
+                            <Badge variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">{{ stratagemCount }}</Badge>
                         </TabsTrigger>
                     </TabsList>
                     <TabsContent value="roster" class="mt-3">
@@ -892,11 +892,11 @@ async function deleteCompany() {
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-1.5">
                                     <span class="truncate font-medium">{{ a.name }}</span>
-                                    <Badge v-if="isAssetUnique(a)" variant="outline" class="px-1 py-0 text-[10px]">Unique</Badge>
+                                    <Badge v-if="isAssetUnique(a)" variant="outline" class="px-1 py-0 text-2xs">Unique</Badge>
                                     <Badge
                                         v-if="a.already_attached"
                                         variant="outline"
-                                        class="border-amber-500/40 bg-amber-500/10 px-1 py-0 text-[10px] text-amber-700 dark:text-amber-400"
+                                        class="border-amber-500/40 bg-amber-500/10 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                         >In Company</Badge
                                     >
                                 </div>
@@ -904,12 +904,12 @@ async function deleteCompany() {
                                     <span
                                         v-for="loc in slotLocations(a)"
                                         :key="loc"
-                                        class="text-[10px] uppercase tracking-wider text-muted-foreground"
+                                        class="text-2xs uppercase tracking-wider text-muted-foreground"
                                         >{{ loc }}</span
                                     >
                                 </div>
                             </div>
-                            <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ a.scrip_cost }}s</span>
+                            <span class="shrink-0 text-2xs tabular-nums text-muted-foreground">{{ a.scrip_cost }}s</span>
                             <Plus class="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
                         </button>
                     </div>
@@ -956,10 +956,10 @@ async function deleteCompany() {
                             <Shield class="size-4" />
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate text-[12px] font-semibold">{{ g.name }}</p>
-                            <p class="truncate text-[10px] text-muted-foreground">{{ garrisonFormatLabel[g.format] ?? g.format }}</p>
+                            <p class="truncate text-xs font-semibold">{{ g.name }}</p>
+                            <p class="truncate text-2xs text-muted-foreground">{{ garrisonFormatLabel[g.format] ?? g.format }}</p>
                         </div>
-                        <span v-if="company.garrison?.id === g.id" class="text-[10px] font-medium text-primary">current</span>
+                        <span v-if="company.garrison?.id === g.id" class="text-2xs font-medium text-primary">current</span>
                     </button>
                 </div>
                 <DialogFooter>

@@ -69,11 +69,10 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <div class="flex flex-wrap gap-1.5">
             <Button v-for="tab in tabs" :key="tab.key" size="sm" :variant="tab.key === kind ? 'default' : 'outline'" @click="switchTab(tab.key)">
                 {{ tab.label }}
-                <Badge variant="secondary" class="ml-1.5 text-[10px]">{{ tab.count }}</Badge>
+                <Badge variant="secondary" class="ml-1.5 text-2xs">{{ tab.count }}</Badge>
             </Button>
         </div>
 

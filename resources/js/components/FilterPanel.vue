@@ -50,7 +50,7 @@ function handleClear() {
                 <Button variant="outline" class="border-2 border-primary">
                     <SlidersHorizontal class="mr-2 h-4 w-4" />
                     Filters
-                    <Badge v-if="filterCount > 0" variant="default" class="ml-1 px-1.5 py-0 text-[10px] leading-4">
+                    <Badge v-if="filterCount > 0" variant="default" class="ml-1 px-1.5 py-0 text-2xs leading-4">
                         {{ filterCount }}
                     </Badge>
                 </Button>
@@ -89,7 +89,7 @@ function handleClear() {
                 <Badge
                     v-if="filterCount > 0"
                     variant="default"
-                    class="pointer-events-none absolute -right-2 -top-2 min-w-[18px] justify-center px-1.5 py-0 text-[10px] leading-4"
+                    class="pointer-events-none absolute -right-2 -top-2 min-w-[18px] justify-center px-1.5 py-0 text-2xs leading-4"
                     aria-hidden="true"
                 >
                     {{ filterCount }}

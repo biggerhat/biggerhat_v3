@@ -160,7 +160,7 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
                             <span>·</span>
                             <span>Last used {{ formatDate(token.last_used_at) }}</span>
                             <span v-if="token.abilities.length" class="ml-2 flex flex-wrap gap-1">
-                                <Badge v-for="ability in token.abilities" :key="ability" variant="secondary" class="text-[10px]">{{ ability }}</Badge>
+                                <Badge v-for="ability in token.abilities" :key="ability" variant="secondary" class="text-2xs">{{ ability }}</Badge>
                             </span>
                         </div>
                     </div>

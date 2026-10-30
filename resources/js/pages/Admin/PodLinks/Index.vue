@@ -60,7 +60,7 @@ const columns: ColumnDef<PodLink>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const link = row.original;
             return h(

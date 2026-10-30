@@ -83,7 +83,7 @@ onMounted(() => {
                 <div>
                     <Label for="effect_text">Effect Text</Label>
                     <Textarea id="effect_text" v-model="form.effect_text" rows="3" />
-                    <p class="text-[10px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                         Use rulebook tokens like <code>&#123;&#123;ram&#125;&#125;</code> or <code>&#123;&#123;signatureaction&#125;&#125;</code> —
                         rendered via GameText.
                     </p>
@@ -122,7 +122,7 @@ onMounted(() => {
                                 <SelectItem v-for="opt in triggers" :key="opt.value" :value="opt.value.toString()">{{ opt.name }}</SelectItem>
                             </SelectContent>
                         </Select>
-                        <p class="text-[10px] text-muted-foreground">Set only when this row grants an existing trigger from the game.</p>
+                        <p class="text-2xs text-muted-foreground">Set only when this row grants an existing trigger from the game.</p>
                     </div>
                 </div>
 
@@ -138,7 +138,7 @@ onMounted(() => {
                         <InputError :message="usePage().props.errors.skl_from_max" />
                     </div>
                     <div><Label>To</Label><Input type="number" v-model.number="form.skl_to" /></div>
-                    <p class="col-span-full text-[10px] text-muted-foreground">
+                    <p class="col-span-full text-2xs text-muted-foreground">
                         Leave "max" blank for a single required Skl (e.g. "Skl of 4"). Set it for a qualifying range (e.g. "Skl of 0 or 1" is min 0,
                         max 1).
                     </p>
@@ -158,7 +158,7 @@ onMounted(() => {
                         <span>Red Joker entry</span>
                     </label>
                 </div>
-                <p class="text-[10px] text-muted-foreground">
+                <p class="text-2xs text-muted-foreground">
                     Check <strong>one</strong> color for a card-specific entry (e.g. Tactical Mod's Red/Black-specific triggers). Check
                     <strong>both</strong> for an Any-Joker entry — either color qualifies (e.g. Attack Mod's Cruel Lessons/Consult the Bones).
                 </p>

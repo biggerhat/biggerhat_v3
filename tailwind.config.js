@@ -31,6 +31,9 @@ export default {
             padding: { DEFAULT: '0.5rem', sm: '1rem' },
         },
     	extend: {
+    		fontSize: {
+    			'2xs': ['0.6875rem', { lineHeight: '1rem' }],
+    		},
     		fontFamily: {
     			sans: [
     				'Instrument Sans',

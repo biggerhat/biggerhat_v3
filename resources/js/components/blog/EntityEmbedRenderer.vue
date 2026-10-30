@@ -238,12 +238,12 @@ onMounted(async () => {
                     <div class="min-w-0 flex-1">
                         <p class="text-sm font-semibold">{{ entityData.name ?? displayName }}</p>
                         <div class="mt-1 flex flex-wrap items-center gap-1">
-                            <Badge v-if="entityData.faction_label" variant="outline" class="text-[10px]">{{ entityData.faction_label }}</Badge>
-                            <Badge variant="secondary" class="text-[10px]">{{ entityData.encounter_size }}ss</Badge>
-                            <Badge variant="secondary" class="text-[10px]">Pool: {{ entityData.soulstone_pool }}ss</Badge>
-                            <Badge variant="secondary" class="text-[10px]">{{ entityData.member_count }} models</Badge>
+                            <Badge v-if="entityData.faction_label" variant="outline" class="text-2xs">{{ entityData.faction_label }}</Badge>
+                            <Badge variant="secondary" class="text-2xs">{{ entityData.encounter_size }}ss</Badge>
+                            <Badge variant="secondary" class="text-2xs">Pool: {{ entityData.soulstone_pool }}ss</Badge>
+                            <Badge variant="secondary" class="text-2xs">{{ entityData.member_count }} models</Badge>
                         </div>
-                        <div v-if="entityData.user_name" class="mt-1 text-[11px] text-muted-foreground">by {{ entityData.user_name }}</div>
+                        <div v-if="entityData.user_name" class="mt-1 text-2xs text-muted-foreground">by {{ entityData.user_name }}</div>
                     </div>
                     <Button v-if="entityData.link" size="sm" variant="outline" class="shrink-0" @click="navigateToEntity">View Crew</Button>
                 </div>

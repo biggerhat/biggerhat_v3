@@ -50,10 +50,10 @@ const columns: ColumnDef<EventRow>[] = [
         cell: ({ row }) => {
             const badges = [];
             if (row.original.requires_placement) {
-                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-[10px]' }, () => 'Placement'));
+                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-2xs' }, () => 'Placement'));
             }
             if (row.original.is_one_time) {
-                badges.push(h(Badge, { variant: 'destructive', class: 'text-[10px]' }, () => 'One-time'));
+                badges.push(h(Badge, { variant: 'destructive', class: 'text-2xs' }, () => 'One-time'));
             }
             return h('div', {}, badges);
         },
@@ -61,7 +61,7 @@ const columns: ColumnDef<EventRow>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {

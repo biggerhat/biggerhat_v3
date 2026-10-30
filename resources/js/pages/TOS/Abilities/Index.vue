@@ -92,8 +92,8 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         <TableRow v-for="a in abilities.data" :key="a.id" class="transition-colors hover:bg-muted/40">
                             <TableCell class="font-medium">{{ a.name }}</TableCell>
                             <TableCell class="text-xs">
-                                <Badge v-if="a.is_general" variant="outline" class="text-[10px]">General</Badge>
-                                <Badge v-else-if="a.allegiance" variant="outline" class="text-[10px]">{{ a.allegiance.name }}</Badge>
+                                <Badge v-if="a.is_general" variant="outline" class="text-2xs">General</Badge>
+                                <Badge v-else-if="a.allegiance" variant="outline" class="text-2xs">{{ a.allegiance.name }}</Badge>
                                 <span v-else class="text-muted-foreground">—</span>
                             </TableCell>
                             <TableCell class="text-right text-xs tabular-nums text-muted-foreground">
@@ -114,12 +114,12 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         <div class="mb-1.5 flex items-center justify-between gap-2">
                             <span class="text-sm font-semibold">{{ a.name }}</span>
                             <div class="flex items-center gap-1">
-                                <Badge v-if="a.is_general" variant="outline" class="text-[10px]">General</Badge>
-                                <Badge v-else-if="a.allegiance" variant="outline" class="text-[10px]">{{ a.allegiance.name }}</Badge>
+                                <Badge v-if="a.is_general" variant="outline" class="text-2xs">General</Badge>
+                                <Badge v-else-if="a.allegiance" variant="outline" class="text-2xs">{{ a.allegiance.name }}</Badge>
                             </div>
                         </div>
                         <p v-if="a.body" class="text-xs text-muted-foreground"><TosText :text="a.body" /></p>
-                        <p v-if="a.unit_sides_count" class="mt-2 text-[10px] tabular-nums text-muted-foreground">
+                        <p v-if="a.unit_sides_count" class="mt-2 text-2xs tabular-nums text-muted-foreground">
                             Used on {{ a.unit_sides_count }} {{ a.unit_sides_count === 1 ? 'unit side' : 'unit sides' }}
                         </p>
                     </CardContent>

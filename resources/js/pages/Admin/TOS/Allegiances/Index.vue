@@ -48,7 +48,7 @@ const columns: ColumnDef<Allegiance>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const a = row.original;
             return h(

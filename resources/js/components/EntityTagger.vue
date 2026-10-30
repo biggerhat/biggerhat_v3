@@ -103,7 +103,7 @@ const getEntityForKey = (key: string) => modelValue.value.find((e) => entityKey(
                         <TagsInputItemText class="flex items-center gap-1">
                             <span
                                 v-if="typeMeta[getEntityForKey(key)?.entityType ?? '']"
-                                class="mr-0.5 inline-flex rounded px-1 py-0.5 text-[10px] font-bold leading-none"
+                                class="mr-0.5 inline-flex rounded px-1 py-0.5 text-2xs font-bold leading-none"
                                 :class="typeMeta[getEntityForKey(key)?.entityType ?? '']?.badgeClass"
                             >
                                 {{ typeMeta[getEntityForKey(key)?.entityType ?? '']?.badge }}
@@ -149,7 +149,7 @@ const getEntityForKey = (key: string) => modelValue.value.find((e) => entityKey(
                             "
                         >
                             <span
-                                class="mr-1.5 inline-flex rounded px-1 py-0.5 text-[10px] font-bold leading-none"
+                                class="mr-1.5 inline-flex rounded px-1 py-0.5 text-2xs font-bold leading-none"
                                 :class="typeMeta[item.entityType]?.badgeClass"
                             >
                                 {{ typeMeta[item.entityType]?.badge }}

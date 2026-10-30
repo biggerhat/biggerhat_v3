@@ -132,10 +132,10 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         <div class="mb-1.5 flex items-center justify-between gap-2">
                             <span class="text-sm font-semibold">{{ a.name }}</span>
                             <div class="flex flex-wrap gap-1">
-                                <Badge v-for="l in a.type_links" :key="l.id" variant="outline" class="text-[10px] capitalize">{{ l.type }}</Badge>
+                                <Badge v-for="l in a.type_links" :key="l.id" variant="outline" class="text-2xs capitalize">{{ l.type }}</Badge>
                             </div>
                         </div>
-                        <p class="mb-1 text-[11px] text-muted-foreground">
+                        <p class="mb-1 text-2xs text-muted-foreground">
                             <template v-if="a.av != null"
                                 >{{ a.av }}<TosSuits v-if="a.av_suits" :suits="a.av_suits" /><template v-if="a.av_target">
                                     v {{ a.av_target }}</template
@@ -145,12 +145,10 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                             <template v-if="a.strength != null"> · Strength {{ a.strength }}</template>
                         </p>
                         <div v-if="a.is_piercing || a.is_accurate || a.is_area || a.usage_limit" class="mb-1 flex flex-wrap gap-1">
-                            <Badge v-if="a.is_piercing" class="bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400">Piercing</Badge>
-                            <Badge v-if="a.is_accurate" class="bg-sky-500/10 text-[10px] text-sky-700 dark:text-sky-400">Accurate</Badge>
-                            <Badge v-if="a.is_area" class="bg-rose-500/10 text-[10px] text-rose-700 dark:text-rose-400">Area</Badge>
-                            <Badge v-if="a.usage_limit" variant="outline" class="text-[10px] capitalize">{{
-                                a.usage_limit.replace(/_/g, ' ')
-                            }}</Badge>
+                            <Badge v-if="a.is_piercing" class="bg-amber-500/10 text-2xs text-amber-700 dark:text-amber-400">Piercing</Badge>
+                            <Badge v-if="a.is_accurate" class="bg-sky-500/10 text-2xs text-sky-700 dark:text-sky-400">Accurate</Badge>
+                            <Badge v-if="a.is_area" class="bg-rose-500/10 text-2xs text-rose-700 dark:text-rose-400">Area</Badge>
+                            <Badge v-if="a.usage_limit" variant="outline" class="text-2xs capitalize">{{ a.usage_limit.replace(/_/g, ' ') }}</Badge>
                         </div>
                         <p v-if="a.body" class="text-xs text-muted-foreground"><TosText :text="a.body" /></p>
                         <ul v-if="a.triggers.length" class="mt-2 space-y-1 border-l-2 border-border pl-2 text-xs">
@@ -158,11 +156,11 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                                 <TosSuits v-if="t.suits" :suits="t.suits" />
                                 <TosMarginCost v-else-if="t.margin_cost != null" :cost="t.margin_cost" />
                                 <span class="font-medium">{{ t.name }}</span>
-                                <span v-if="t.timing === 'immediately'" class="ml-1 text-[10px] italic text-muted-foreground">(Immediately)</span>
+                                <span v-if="t.timing === 'immediately'" class="ml-1 text-2xs italic text-muted-foreground">(Immediately)</span>
                                 <span v-if="t.body" class="text-muted-foreground"> — <TosText :text="t.body" /></span>
                             </li>
                         </ul>
-                        <p v-if="a.unit_sides_count" class="mt-2 text-[10px] tabular-nums text-muted-foreground">
+                        <p v-if="a.unit_sides_count" class="mt-2 text-2xs tabular-nums text-muted-foreground">
                             Used on {{ a.unit_sides_count }} {{ a.unit_sides_count === 1 ? 'unit side' : 'unit sides' }}
                         </p>
                     </CardContent>

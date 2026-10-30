@@ -148,10 +148,10 @@ const formatDate = (dateStr: string) => {
                             <Card :class="['h-full', CARD_HOVER_GROUP]">
                                 <CardContent class="flex h-full flex-col gap-2.5 p-4">
                                     <div class="flex items-center justify-between gap-2 pr-8">
-                                        <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
+                                        <Badge :class="['border-0 text-2xs', statusColor(game.status)]" variant="outline">
                                             {{ statusLabel(game.status, game.is_solo) }}
                                         </Badge>
-                                        <span class="text-[11px] tabular-nums text-muted-foreground">{{ formatDate(game.created_at) }}</span>
+                                        <span class="text-2xs tabular-nums text-muted-foreground">{{ formatDate(game.created_at) }}</span>
                                     </div>
                                     <div>
                                         <div class="flex flex-wrap items-center gap-2">
@@ -160,7 +160,7 @@ const formatDate = (dateStr: string) => {
                                             <Badge
                                                 v-if="game.format === 'bonanza_brawl'"
                                                 variant="outline"
-                                                class="border-purple-500/50 px-1.5 py-0 text-[10px] text-purple-700 dark:text-purple-300"
+                                                class="border-purple-500/50 px-1.5 py-0 text-2xs text-purple-700 dark:text-purple-300"
                                             >
                                                 Bonanza Brawl
                                             </Badge>
@@ -181,7 +181,7 @@ const formatDate = (dateStr: string) => {
                                         <span v-if="!game.is_solo && game.players.length < 2" class="text-xs italic text-muted-foreground"
                                             >Waiting for an opponent…</span
                                         >
-                                        <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[10px]">Solo</Badge>
+                                        <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-2xs">Solo</Badge>
                                     </div>
                                     <div class="mt-auto flex justify-end text-xs font-medium">
                                         <span class="inline-flex items-center gap-0.5"
@@ -221,16 +221,16 @@ const formatDate = (dateStr: string) => {
                                         <span :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{ playerLabel(player) }}</span>
                                         <span class="tabular-nums text-muted-foreground"> ({{ player.total_points }})</span>
                                     </span>
-                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[10px]">Solo</Badge>
+                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-2xs">Solo</Badge>
                                 </div>
-                                <div class="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+                                <div class="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
                                     <span class="tabular-nums">{{ game.encounter_size }}ss</span>
                                     <span v-if="game.format === 'bonanza_brawl'" class="text-purple-700 dark:text-purple-300">· Bonanza Brawl</span>
                                     <span v-if="game.strategy">· {{ game.strategy.name }}</span>
                                     <span v-if="game.completed_at">· {{ formatDate(game.completed_at) }}</span>
                                 </div>
                             </div>
-                            <Badge :class="['shrink-0 border-0 text-[10px]', statusColor(game.status)]" variant="outline">
+                            <Badge :class="['shrink-0 border-0 text-2xs', statusColor(game.status)]" variant="outline">
                                 {{ statusLabel(game.status, game.is_solo) }}
                             </Badge>
                         </Link>
@@ -263,13 +263,13 @@ const formatDate = (dateStr: string) => {
                         <Card :class="['h-full', CARD_HOVER]">
                             <CardContent class="flex h-full flex-col gap-2.5 p-4">
                                 <div class="flex items-center justify-between">
-                                    <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
+                                    <Badge :class="['border-0 text-2xs', statusColor(game.status)]" variant="outline">
                                         {{ statusLabel(game.status, game.is_solo) }}
                                     </Badge>
                                     <Badge
                                         v-if="game.status !== 'completed'"
                                         variant="outline"
-                                        class="border-amber-500/50 text-[10px] text-amber-800 dark:text-amber-400"
+                                        class="border-amber-500/50 text-2xs text-amber-800 dark:text-amber-400"
                                     >
                                         <Eye class="mr-1 size-2.5" /> Watch live
                                     </Badge>
@@ -281,7 +281,7 @@ const formatDate = (dateStr: string) => {
                                         <Badge
                                             v-if="game.format === 'bonanza_brawl'"
                                             variant="outline"
-                                            class="border-purple-500/50 px-1.5 py-0 text-[10px] text-purple-700 dark:text-purple-300"
+                                            class="border-purple-500/50 px-1.5 py-0 text-2xs text-purple-700 dark:text-purple-300"
                                         >
                                             Bonanza Brawl
                                         </Badge>
@@ -304,7 +304,7 @@ const formatDate = (dateStr: string) => {
                                             player.total_points
                                         }}</span>
                                     </div>
-                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[10px]">Solo</Badge>
+                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-2xs">Solo</Badge>
                                 </div>
                             </CardContent>
                         </Card>

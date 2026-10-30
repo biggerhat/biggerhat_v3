@@ -24,12 +24,12 @@ const columns: ColumnDef<Rule>[] = [
     {
         accessorKey: 'slug',
         header: sortableHeader('Slug'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] text-muted-foreground' }, row.getValue('slug')),
+        cell: ({ row }) => h('div', { class: 'text-2xs text-muted-foreground' }, row.getValue('slug')),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,

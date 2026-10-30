@@ -22,7 +22,7 @@ const columns: ColumnDef<Ability>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,

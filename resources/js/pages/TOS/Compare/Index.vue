@@ -134,7 +134,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                         @update:modelValue="pushUnit"
                     />
                 </div>
-                <span v-if="units.length" class="text-[11px] text-muted-foreground"> {{ units.length }} of {{ max_units }} selected </span>
+                <span v-if="units.length" class="text-2xs text-muted-foreground"> {{ units.length }} of {{ max_units }} selected </span>
                 <Button v-if="units.length" variant="ghost" size="sm" class="ml-auto text-xs" @click="clearAll">
                     <X class="size-3" /> Clear all
                 </Button>
@@ -176,7 +176,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <h3 class="truncate text-sm font-semibold">{{ u.name }}</h3>
-                                <p v-if="u.title" class="truncate text-[11px] italic text-muted-foreground">{{ u.title }}</p>
+                                <p v-if="u.title" class="truncate text-2xs italic text-muted-foreground">{{ u.title }}</p>
                             </div>
                             <button
                                 type="button"
@@ -188,7 +188,7 @@ function activeSculpt(u: Unit): Sculpt | null {
                             </button>
                         </div>
 
-                        <div class="flex flex-wrap gap-1 text-[10px]">
+                        <div class="flex flex-wrap gap-1 text-2xs">
                             <Badge
                                 v-if="u.special_unit_rules.some((r) => r.slug === 'commander')"
                                 class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
@@ -208,14 +208,14 @@ function activeSculpt(u: Unit): Sculpt | null {
 
                         <div v-if="standardSide(u)?.abilities.length || glorySide(u)?.abilities.length">
                             <HeadingEyebrow class="mb-1">Abilities</HeadingEyebrow>
-                            <ul class="space-y-1 text-[11px]">
+                            <ul class="space-y-1 text-2xs">
                                 <li v-for="a in standardSide(u)?.abilities ?? []" :key="`s-${a.id}`">
                                     <span class="font-medium">{{ a.name }}</span>
                                     <span v-if="a.body" class="ml-1 text-muted-foreground"><TosText :text="a.body" /></span>
                                 </li>
                                 <li v-for="a in glorySide(u)?.abilities ?? []" :key="`g-${a.id}`" class="text-muted-foreground">
                                     <span class="font-medium text-foreground">{{ a.name }}</span>
-                                    <span class="ml-1 text-[10px] uppercase tracking-wider">(glory)</span>
+                                    <span class="ml-1 text-2xs uppercase tracking-wider">(glory)</span>
                                     <span v-if="a.body" class="ml-1"><TosText :text="a.body" /></span>
                                 </li>
                             </ul>
@@ -223,14 +223,14 @@ function activeSculpt(u: Unit): Sculpt | null {
 
                         <div v-if="standardSide(u)?.actions.length || glorySide(u)?.actions.length">
                             <HeadingEyebrow class="mb-1">Actions</HeadingEyebrow>
-                            <ul class="space-y-1 text-[11px]">
+                            <ul class="space-y-1 text-2xs">
                                 <li
                                     v-for="ac in standardSide(u)?.actions ?? []"
                                     :key="`as-${ac.id}`"
                                     class="flex items-baseline justify-between gap-2"
                                 >
                                     <span class="font-medium">{{ ac.name }}</span>
-                                    <span class="text-[10px] text-muted-foreground">
+                                    <span class="text-2xs text-muted-foreground">
                                         <template v-if="ac.av != null">AV {{ ac.av }}</template>
                                         <template v-if="ac.range"> · {{ ac.range }}</template>
                                         <template v-if="ac.strength != null"> · Str {{ ac.strength }}</template>
@@ -243,9 +243,9 @@ function activeSculpt(u: Unit): Sculpt | null {
                                 >
                                     <span
                                         ><span class="font-medium text-foreground">{{ ac.name }}</span>
-                                        <span class="text-[10px] uppercase tracking-wider">(glory)</span></span
+                                        <span class="text-2xs uppercase tracking-wider">(glory)</span></span
                                     >
-                                    <span class="text-[10px]">
+                                    <span class="text-2xs">
                                         <template v-if="ac.av != null">AV {{ ac.av }}</template>
                                         <template v-if="ac.range"> · {{ ac.range }}</template>
                                         <template v-if="ac.strength != null"> · Str {{ ac.strength }}</template>

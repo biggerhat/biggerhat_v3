@@ -110,11 +110,11 @@ function pickSculpt(value: string) {
                         </span>
                     </DrawerTitle>
                     <div class="mt-1 flex flex-wrap items-center justify-center gap-1.5">
-                        <Badge class="bg-emerald-500/15 text-[10px] tabular-nums text-emerald-700 dark:text-emerald-400"
+                        <Badge class="bg-emerald-500/15 text-2xs tabular-nums text-emerald-700 dark:text-emerald-400"
                             >{{ isCommander ? `+${unit.scrip}` : unit.scrip }} Scrip</Badge
                         >
-                        <Badge v-if="unit.restriction" variant="outline" class="text-[10px] capitalize"> Neutral · {{ unit.restriction }} </Badge>
-                        <Badge v-for="r in unit.special_unit_rules" :key="r.id" variant="outline" class="text-[10px]">{{ r.name }}</Badge>
+                        <Badge v-if="unit.restriction" variant="outline" class="text-2xs capitalize"> Neutral · {{ unit.restriction }} </Badge>
+                        <Badge v-for="r in unit.special_unit_rules" :key="r.id" variant="outline" class="text-2xs">{{ r.name }}</Badge>
                     </div>
                 </DrawerHeader>
 
@@ -148,14 +148,14 @@ function pickSculpt(value: string) {
                         />
                         <p
                             v-if="activeSculpt && (activeSculpt.front_image || activeSculpt.back_image)"
-                            class="mt-2 text-center text-[10px] italic text-muted-foreground"
+                            class="mt-2 text-center text-2xs italic text-muted-foreground"
                         >
                             {{ activeSculpt.back_image ? 'Click the card to flip between Standard and Glory sides' : 'Standard side only' }}
                         </p>
                     </div>
 
                     <!-- Optional unit description -->
-                    <p v-if="unit.description" class="mt-3 line-clamp-3 text-center text-[11px] text-muted-foreground">
+                    <p v-if="unit.description" class="mt-3 line-clamp-3 text-center text-2xs text-muted-foreground">
                         <TosText :text="unit.description" />
                     </p>
                 </div>

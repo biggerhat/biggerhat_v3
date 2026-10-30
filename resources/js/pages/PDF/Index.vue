@@ -369,7 +369,7 @@ onMounted(() => {
                                                         <Badge
                                                             v-if="results[virtualRow.index].station"
                                                             variant="secondary"
-                                                            class="px-1 py-0 text-[10px] capitalize"
+                                                            class="px-1 py-0 text-2xs capitalize"
                                                         >
                                                             {{ results[virtualRow.index].station }}
                                                             <span v-if="results[virtualRow.index].count > 1">
@@ -596,7 +596,7 @@ onMounted(() => {
                                                 <div class="text-sm font-semibold">{{ card.display_name }}</div>
                                                 <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                                                     <span v-if="card.cost">{{ card.cost }}ss</span>
-                                                    <Badge v-if="card.station" variant="secondary" class="px-1 py-0 text-[10px] capitalize">
+                                                    <Badge v-if="card.station" variant="secondary" class="px-1 py-0 text-2xs capitalize">
                                                         {{ card.station }}
                                                     </Badge>
                                                 </div>

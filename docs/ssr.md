@@ -28,3 +28,22 @@ With SSR off, it prints `0`.
 
 Layouts, titles and head tags are resolved by `resources/js/lib/resolvePage.ts` for both entry points, so the
 server renders the same chrome the browser will.
+
+## Forge setup checklist
+
+Do these once on the production site, then SSR keeps working across deploys:
+
+1. **Deploy script** — replace `npm run build` with `npm run build:ssr`, and add this line after the
+   `php artisan migrate` step so the daemon picks up the new bundle:
+   ```bash
+   php artisan inertia:stop-ssr
+   ```
+2. **Daemon** — Forge → the site's *Daemons* → New Daemon:
+   - Command: `php artisan inertia:start-ssr`
+   - Directory: the site root (`/home/forge/<site>`)
+   - User: `forge`, Processes: `1`
+3. **Node** — the daemon needs Node on the server's `PATH` (Forge installs it for `npm run build`, so this is normally already true).
+4. **Verify** — after the next deploy: `curl -s https://biggerhat.net/privacy | grep -c '<h1'` prints `1`, and
+   `php artisan inertia:check-ssr` on the server reports a healthy server.
+
+Rolling back is just removing the daemon: pages fall back to client-side rendering on their own.

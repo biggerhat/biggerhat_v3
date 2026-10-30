@@ -250,7 +250,7 @@ onMounted(() => {
                         <ul v-if="selectedActions.length" class="mt-2 space-y-1 rounded-md border bg-muted/20 p-2 text-xs">
                             <li v-for="a in selectedActions" :key="a.id" class="flex items-center justify-between gap-2">
                                 <span class="font-medium">{{ a.name }}</span>
-                                <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <label class="flex shrink-0 items-center gap-1.5 text-2xs text-muted-foreground">
                                     <Checkbox
                                         :checked="form.signature_action_ids.includes(String(a.id))"
                                         @update:checked="() => toggleSignature(String(a.id))"

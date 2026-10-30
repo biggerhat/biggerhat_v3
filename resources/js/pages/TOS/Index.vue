@@ -158,7 +158,7 @@ const typePools = computed(() => [
                 >
                     <Swords class="size-10 text-primary sm:size-12" />
                     <div
-                        class="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-md"
+                        class="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full bg-amber-500 text-2xs font-bold text-white shadow-md"
                     >
                         β
                     </div>
@@ -190,7 +190,7 @@ const typePools = computed(() => [
                     </Link>
                 </div>
 
-                <div class="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground sm:gap-x-5 sm:text-xs">
+                <div class="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-2xs text-muted-foreground sm:gap-x-5 sm:text-xs">
                     <span
                         ><strong class="text-foreground">{{ stats.units }}</strong> units</span
                     >
@@ -249,7 +249,7 @@ const typePools = computed(() => [
             <section class="animate-fade-in-up" style="animation-delay: 100ms">
                 <div class="mb-3 flex items-center justify-between px-1">
                     <HeadingEyebrow as="h2">Allegiances</HeadingEyebrow>
-                    <Link :href="route('tos.allegiances.index')" class="text-[11px] text-muted-foreground hover:text-foreground">
+                    <Link :href="route('tos.allegiances.index')" class="text-2xs text-muted-foreground hover:text-foreground">
                         View all <ArrowRight class="ml-0.5 inline size-3" />
                     </Link>
                 </div>
@@ -272,7 +272,7 @@ const typePools = computed(() => [
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-semibold leading-tight">{{ a.name }}</p>
-                                    <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <div class="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
                                         <span class="capitalize">{{ a.type }}</span>
                                         <span class="opacity-50">·</span>
                                         <span class="tabular-nums">{{ a.unit_count ?? 0 }} units</span>
@@ -288,7 +288,7 @@ const typePools = computed(() => [
             <section v-if="syndicates.length" class="animate-fade-in-up" style="animation-delay: 140ms">
                 <div class="mb-3 flex items-center justify-between px-1">
                     <HeadingEyebrow as="h2">Syndicates</HeadingEyebrow>
-                    <span class="text-[11px] text-muted-foreground">Cross-allegiance groups within a type</span>
+                    <span class="text-2xs text-muted-foreground">Cross-allegiance groups within a type</span>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <Link
@@ -302,7 +302,7 @@ const typePools = computed(() => [
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-medium leading-tight">{{ s.name }}</p>
-                            <p class="text-[10px] capitalize text-muted-foreground">{{ s.type }} · {{ s.unit_count ?? 0 }} units</p>
+                            <p class="text-2xs capitalize text-muted-foreground">{{ s.type }} · {{ s.unit_count ?? 0 }} units</p>
                         </div>
                         <ArrowRight class="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                     </Link>
@@ -331,7 +331,7 @@ const typePools = computed(() => [
                             <div class="min-w-0">
                                 <div class="flex items-baseline justify-between gap-2">
                                     <h3 class="text-base font-semibold leading-tight">{{ tile.title }}</h3>
-                                    <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ tile.count }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs tabular-nums">{{ tile.count }}</Badge>
                                 </div>
                                 <p class="mt-1 text-xs text-muted-foreground">{{ tile.description }}</p>
                             </div>
@@ -358,7 +358,7 @@ const typePools = computed(() => [
                             <component :is="tile.icon" class="size-5" />
                         </div>
                         <span class="text-xs font-medium leading-tight">{{ tile.title }}</span>
-                        <span class="text-[10px] tabular-nums text-muted-foreground">{{ tile.count }}</span>
+                        <span class="text-2xs tabular-nums text-muted-foreground">{{ tile.count }}</span>
                     </Link>
                 </div>
             </section>

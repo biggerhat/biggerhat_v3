@@ -209,10 +209,10 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                                 aria-label="Commander-eligible"
                             />
                             <span class="truncate text-xs font-medium">{{ u.name }}</span>
-                            <Badge v-if="u.restriction" variant="outline" class="px-1 py-0 text-[10px]">Neutral</Badge>
+                            <Badge v-if="u.restriction" variant="outline" class="px-1 py-0 text-2xs">Neutral</Badge>
                         </div>
-                        <div v-if="u.title" class="truncate text-[10px] italic text-muted-foreground">{{ u.title }}</div>
-                        <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <div v-if="u.title" class="truncate text-2xs italic text-muted-foreground">{{ u.title }}</div>
+                        <div class="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
                             <span class="tabular-nums">{{ u.scrip }}s</span>
                             <span v-if="isUnitInPool(u)" class="text-amber-600 dark:text-amber-400">
                                 in pool: {{ sameNameCount(u.name) }}/{{ format.max_commanders }}
@@ -251,7 +251,7 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                 <div v-for="a in filteredAssets" :key="a.id" class="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5">
                     <div class="min-w-0 flex-1">
                         <span class="truncate text-xs font-medium">{{ a.name }}</span>
-                        <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <div class="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
                             <span class="tabular-nums">{{ a.scrip_cost }}s</span>
                             <span v-if="assetQuantity(a.id) > 0">in pool: ×{{ assetQuantity(a.id) }}</span>
                         </div>
@@ -277,9 +277,9 @@ const titleFor: Record<Exclude<PickerKind, null>, string> = {
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-1.5">
                             <span class="truncate text-xs font-medium">{{ s.name }}</span>
-                            <Badge variant="outline" class="px-1 py-0 text-[10px] tabular-nums">{{ s.tactical_cost }}T</Badge>
+                            <Badge variant="outline" class="px-1 py-0 text-2xs tabular-nums">{{ s.tactical_cost }}T</Badge>
                         </div>
-                        <p v-if="s.effect" class="line-clamp-2 text-[10px] text-muted-foreground">
+                        <p v-if="s.effect" class="line-clamp-2 text-2xs text-muted-foreground">
                             <TosText :text="s.effect" />
                         </p>
                     </div>

@@ -62,9 +62,9 @@ const clearOverride = (flag: Flag) => {
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-sm font-semibold">{{ flag.label }}</span>
-                            <code class="rounded bg-muted px-1.5 py-0.5 text-[11px]">{{ flag.name }}</code>
-                            <Badge v-if="flag.has_override" variant="outline" class="text-[10px]">override</Badge>
-                            <Badge v-else variant="secondary" class="text-[10px]">default ({{ flag.default ? 'on' : 'off' }})</Badge>
+                            <code class="rounded bg-muted px-1.5 py-0.5 text-2xs">{{ flag.name }}</code>
+                            <Badge v-if="flag.has_override" variant="outline" class="text-2xs">override</Badge>
+                            <Badge v-else variant="secondary" class="text-2xs">default ({{ flag.default ? 'on' : 'off' }})</Badge>
                         </div>
                         <p class="mt-1 text-xs text-muted-foreground">{{ flag.description }}</p>
                     </div>

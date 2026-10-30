@@ -48,7 +48,7 @@ const columns: ColumnDef<any>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const media = row.original;
             return h(

@@ -39,17 +39,17 @@ const columns: ColumnDef<LuckyMissRow>[] = [
     {
         id: 'ability',
         header: () => h('div', {}, 'Ability'),
-        cell: ({ row }) => (row.original.ability ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => row.original.ability!.name) : null),
+        cell: ({ row }) => (row.original.ability ? h(Badge, { variant: 'outline', class: 'text-2xs' }, () => row.original.ability!.name) : null),
     },
     {
         id: 'flags',
         header: () => h('div', {}, 'Flags'),
-        cell: ({ row }) => (row.original.is_doppelganger ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => 'Doppelganger') : null),
+        cell: ({ row }) => (row.original.is_doppelganger ? h(Badge, { variant: 'outline', class: 'text-2xs' }, () => 'Doppelganger') : null),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {

@@ -28,7 +28,7 @@ const columns: ColumnDef<Action>[] = [
     {
         id: 'types',
         header: () => h('div', {}, 'Types'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] capitalize' }, (row.original.type_links ?? []).map((l) => l.type).join(', ')),
+        cell: ({ row }) => h('div', { class: 'text-2xs capitalize' }, (row.original.type_links ?? []).map((l) => l.type).join(', ')),
     },
     {
         accessorKey: 'av',
@@ -36,22 +36,22 @@ const columns: ColumnDef<Action>[] = [
         cell: ({ row }) =>
             h(
                 'div',
-                { class: 'text-[11px]' },
+                { class: 'text-2xs' },
                 row.original.av != null
                     ? `${row.original.av}${row.original.av_suits ?? ''}${row.original.av_target ? ' v ' + row.original.av_target : ''}`
                     : '—',
             ),
     },
-    { accessorKey: 'range', header: () => h('div', {}, 'Range'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.range ?? '—') },
+    { accessorKey: 'range', header: () => h('div', {}, 'Range'), cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.range ?? '—') },
     {
         accessorKey: 'strength',
         header: sortableHeader('Strength'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] tabular-nums' }, row.original.strength ?? '—'),
+        cell: ({ row }) => h('div', { class: 'text-2xs tabular-nums' }, row.original.strength ?? '—'),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,

@@ -113,7 +113,7 @@ const revokeAllForUser = async (userId: number) => {
                             <span v-if="group.user" class="font-semibold">{{ group.user.name }}</span>
                             <span v-else class="font-semibold text-muted-foreground">Guest sessions</span>
                             <span v-if="group.user" class="ml-1 text-xs text-muted-foreground">{{ group.user.email }}</span>
-                            <Badge variant="secondary" class="ml-2 text-[10px]">{{ group.sessions.length }} active</Badge>
+                            <Badge variant="secondary" class="ml-2 text-2xs">{{ group.sessions.length }} active</Badge>
                         </div>
                         <Button v-if="group.user" variant="outline" size="sm" @click="revokeAllForUser(group.user.id)">
                             <LogOut class="mr-1.5 size-3.5" /> Revoke all
@@ -130,7 +130,7 @@ const revokeAllForUser = async (userId: number) => {
                                 <Globe class="size-3.5 shrink-0 text-muted-foreground" />
                                 <span class="truncate font-mono">{{ s.ip_address ?? '—' }}</span>
                                 <span class="truncate text-muted-foreground" :title="s.user_agent ?? ''">{{ shortenAgent(s.user_agent) }}</span>
-                                <Badge v-if="s.is_current" variant="outline" class="text-[10px]">you</Badge>
+                                <Badge v-if="s.is_current" variant="outline" class="text-2xs">you</Badge>
                             </div>
                             <span class="shrink-0 text-muted-foreground">{{ formatTime(s.last_activity_iso) }}</span>
                             <Button aria-label="Revoke session" variant="ghost" size="sm" @click="revokeSession(s)">

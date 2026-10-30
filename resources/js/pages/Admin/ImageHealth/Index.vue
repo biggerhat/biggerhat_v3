@@ -65,14 +65,13 @@ const grouped = computed(() => {
         </template>
         <template #subtitle>
             <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                Scans every image-bearing column across the schema and flags rows whose stored path doesn't resolve to a file on disk. Cached for
-                60 minutes after each scan.
+                Scans every image-bearing column across the schema and flags rows whose stored path doesn't resolve to a file on disk. Cached for 60
+                minutes after each scan.
             </div>
         </template>
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <Card>
             <CardContent class="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div v-if="report" class="text-sm">
@@ -115,8 +114,8 @@ const grouped = computed(() => {
                             :key="`${row.table}:${row.id}:${row.column}`"
                             class="flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
                         >
-                            <Badge variant="outline" class="text-[10px]">id #{{ row.id }}</Badge>
-                            <Badge variant="secondary" class="text-[10px]">{{ row.column }}</Badge>
+                            <Badge variant="outline" class="text-2xs">id #{{ row.id }}</Badge>
+                            <Badge variant="secondary" class="text-2xs">{{ row.column }}</Badge>
                             <code class="min-w-0 flex-1 truncate font-mono">{{ row.path }}</code>
                         </div>
                     </div>

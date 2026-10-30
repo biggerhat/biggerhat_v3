@@ -120,7 +120,7 @@ onMounted(() => {
                                     <SelectItem v-for="t in props.allegiance_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <p class="text-[11px] text-muted-foreground">
+                            <p class="text-2xs text-muted-foreground">
                                 Set only when an Allegiance lists both Earth and Malifaux on its card. Hybrid Allegiances pull Neutral hires and
                                 type-restricted Stratagems from both sides.
                             </p>
@@ -150,7 +150,7 @@ onMounted(() => {
                                 accept="image/*"
                                 @input="formInfo.logo_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
                             />
-                            <p class="text-[11px] text-muted-foreground">
+                            <p class="text-2xs text-muted-foreground">
                                 {{
                                     existingLogo
                                         ? 'Choose a new file to replace the current logo, or leave empty to keep it.'

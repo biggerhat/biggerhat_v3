@@ -272,7 +272,7 @@ const deleteCampaign = async (id: number) => {
 
     <!-- Campaign hub hero. Progress bar reflects week-to-week march. -->
     <div class="relative overflow-hidden border-b bg-gradient-to-r from-primary/15 via-primary/5 to-transparent">
-        <div class="container mx-auto max-w-5xl px-4 py-5">
+        <div class="container mx-auto px-4 py-5">
             <Link
                 :href="route('campaigns.index')"
                 class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
@@ -281,8 +281,8 @@ const deleteCampaign = async (id: number) => {
             </Link>
             <div class="mt-1 flex flex-wrap items-center gap-3">
                 <h1 class="text-3xl font-black tracking-tight">{{ campaign.name }}</h1>
-                <Badge :variant="statusVariant" class="text-[10px] uppercase">{{ campaign.status }}</Badge>
-                <Badge v-if="campaign.is_solo" variant="outline" class="text-[10px] uppercase">Solo</Badge>
+                <Badge :variant="statusVariant" class="text-2xs uppercase">{{ campaign.status }}</Badge>
+                <Badge v-if="campaign.is_solo" variant="outline" class="text-2xs uppercase">Solo</Badge>
             </div>
             <p class="mt-1 text-sm text-muted-foreground">
                 Week {{ campaign.current_week }} of {{ campaign.length_weeks }} • Organizer:
@@ -298,7 +298,7 @@ const deleteCampaign = async (id: number) => {
         </div>
     </div>
 
-    <div class="container mx-auto max-w-5xl px-4 pb-12">
+    <div class="container mx-auto px-4 pb-12">
         <div class="mb-6 mt-4 flex flex-wrap items-center justify-end gap-2">
             <Button
                 v-if="is_organizer && campaign.status === 'planning'"
@@ -313,7 +313,7 @@ const deleteCampaign = async (id: number) => {
                     <Link :href="route('games.show', active_solo_game.uuid)">
                         <Button
                             >Resume Game
-                            <Badge variant="secondary" class="ml-1.5 text-[10px]">{{ gameStatusLabel(active_solo_game.status) }}</Badge></Button
+                            <Badge variant="secondary" class="ml-1.5 text-2xs">{{ gameStatusLabel(active_solo_game.status) }}</Badge></Button
                         >
                     </Link>
                     <Button variant="outline" @click="playLive(campaign.id)">New Game</Button>
@@ -386,7 +386,7 @@ const deleteCampaign = async (id: number) => {
                     <ul class="space-y-2">
                         <li v-for="p in campaign.players" :key="p.id" class="flex items-center justify-between text-sm">
                             <span class="font-medium">{{ p.user?.name ?? '—' }}</span>
-                            <Badge variant="outline" class="text-[10px] uppercase">{{ p.role }}</Badge>
+                            <Badge variant="outline" class="text-2xs uppercase">{{ p.role }}</Badge>
                         </li>
                     </ul>
                     <button

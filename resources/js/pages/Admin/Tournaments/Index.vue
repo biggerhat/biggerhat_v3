@@ -87,8 +87,8 @@ const statusBadgeClass = (status: string | null) => {
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-sm font-semibold">{{ t.name }}</span>
                             <Badge variant="outline" :class="statusBadgeClass(t.status)">{{ t.status ?? '—' }}</Badge>
-                            <Badge variant="secondary" class="text-[10px]">{{ t.players_count }} players</Badge>
-                            <Badge variant="secondary" class="text-[10px]">{{ t.rounds_count }} rounds</Badge>
+                            <Badge variant="secondary" class="text-2xs">{{ t.players_count }} players</Badge>
+                            <Badge variant="secondary" class="text-2xs">{{ t.rounds_count }} rounds</Badge>
                         </div>
                         <div class="mt-0.5 text-xs text-muted-foreground">
                             <span v-if="t.event_date">{{ t.event_date }} · </span>

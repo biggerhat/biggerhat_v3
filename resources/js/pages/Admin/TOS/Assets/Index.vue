@@ -35,17 +35,17 @@ const columns: ColumnDef<Asset>[] = [
         id: 'allegiances',
         accessorFn: (r) => r.allegiances.map((a) => a.name).join(', '),
         header: () => h('div', {}, 'Allegiances'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] text-muted-foreground' }, row.original.allegiances.map((a) => a.name).join(', ')),
+        cell: ({ row }) => h('div', { class: 'text-2xs text-muted-foreground' }, row.original.allegiances.map((a) => a.name).join(', ')),
     },
     {
         id: 'limits',
         header: () => h('div', {}, 'Limits'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] capitalize' }, row.original.limits.map((l) => l.limit_type).join(', ')),
+        cell: ({ row }) => h('div', { class: 'text-2xs capitalize' }, row.original.limits.map((l) => l.limit_type).join(', ')),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,

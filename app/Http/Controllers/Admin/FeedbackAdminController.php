@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\FeedbackCategoryEnum;
 use App\Enums\FeedbackStatusEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\BulkFeedbackRequest;
 use App\Http\Requests\Admin\UpdateFeedbackRequest;
 use App\Models\Feedback;
+use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Response;
@@ -76,5 +78,22 @@ class FeedbackAdminController extends Controller
         $feedback->delete();
 
         return back()->withMessage('Feedback deleted.');
+    }
+
+    public function bulk(BulkFeedbackRequest $request): RedirectResponse
+    {
+        ['ids' => $ids, 'action' => $action] = $request->validated();
+        $query = Feedback::whereIn('id', $ids);
+
+        if ($action === 'delete') {
+            $count = $query->delete();
+            AdminAudit::log("Deleted {$count} feedback entries", null, ['ids' => $ids]);
+
+            return back()->withMessage("Deleted {$count} feedback ".($count === 1 ? 'entry' : 'entries').'.');
+        }
+
+        $count = $query->update(['status' => $action]);
+
+        return back()->withMessage("Marked {$count} ".($count === 1 ? 'entry' : 'entries')." as {$action}.");
     }
 }

@@ -150,7 +150,7 @@ const hasQuery = computed(() => (filterState.search ?? '').trim().length > 0);
     </template>
     <!-- When no query, show a quiet hint so the palette doesn't look empty
          beneath the Quick Actions. -->
-    <div v-else class="px-4 py-3 text-center text-[11px] text-muted-foreground">
+    <div v-else class="px-4 py-3 text-center text-2xs text-muted-foreground">
         Type to search the database — characters, keywords, factions, upgrades, miniatures, packages.
     </div>
 </template>

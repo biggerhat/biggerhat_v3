@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/composables/useConfirm';
 import AppSettingsLayout from '@/layouts/AppSettingsLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { BarChart3 } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 
 // File lives outside pages/Settings/, so app.ts would default it to the
@@ -19,15 +20,28 @@ defineOptions({ layout: AppSettingsLayout });
 interface UserMini {
     id: number;
     name: string;
+    slug?: string;
+}
+
+interface HeadToHead {
+    games: number;
+    wins: number;
+    losses: number;
+    ties: number;
 }
 
 defineProps<{
-    friends: { friendship_id: number; user: UserMini }[];
+    friends: { friendship_id: number; user: UserMini; record: HeadToHead }[];
     requests_received: { id: number; user: UserMini }[];
     requests_sent: { id: number; user: UserMini }[];
 }>();
 
 const confirmDialog = useConfirm();
+
+const recordLabel = (r: HeadToHead) =>
+    r.games === 0
+        ? 'No games together yet'
+        : `${r.games} ${r.games === 1 ? 'game' : 'games'} · ${r.wins}W ${r.losses}L${r.ties ? ` ${r.ties}T` : ''} for you`;
 
 // Search to add — mirrors the same pattern used for Campaign's "invite an
 // existing player" picker (both hit the shared users.search endpoint).
@@ -90,17 +104,13 @@ const unfriend = async (friendshipId: number, name: string) => {
 
     <div class="container mx-auto mt-6 max-w-3xl space-y-6 px-4 pb-12">
         <Card>
-            <CardHeader><CardTitle>Add a Friend</CardTitle></CardHeader>
+            <CardHeader><CardTitle class="text-lg">Add a Friend</CardTitle></CardHeader>
             <CardContent>
                 <div class="relative">
                     <Label>Search by name</Label>
                     <Input v-model="search" placeholder="Search players…" />
                     <ul v-if="results.length" class="absolute z-10 mt-1 w-full space-y-1 rounded-md border bg-popover p-1 shadow-md">
-                        <li
-                            v-for="u in results"
-                            :key="u.id"
-                            class="flex items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-accent"
-                        >
+                        <li v-for="u in results" :key="u.id" class="flex items-center justify-between rounded px-2 py-1.5 text-sm hover:bg-accent">
                             <span>{{ u.name }}</span>
                             <Button size="sm" @click="sendRequest(u.id)">Add</Button>
                         </li>
@@ -110,7 +120,7 @@ const unfriend = async (friendshipId: number, name: string) => {
         </Card>
 
         <Card v-if="requests_received.length">
-            <CardHeader><CardTitle>Friend Requests</CardTitle></CardHeader>
+            <CardHeader><CardTitle class="text-lg">Friend Requests</CardTitle></CardHeader>
             <CardContent class="space-y-2">
                 <div v-for="r in requests_received" :key="r.id" class="flex items-center justify-between rounded-md border p-2 text-sm">
                     <span class="font-medium">{{ r.user.name }}</span>
@@ -123,7 +133,7 @@ const unfriend = async (friendshipId: number, name: string) => {
         </Card>
 
         <Card v-if="requests_sent.length">
-            <CardHeader><CardTitle>Sent Requests</CardTitle></CardHeader>
+            <CardHeader><CardTitle class="text-lg">Sent Requests</CardTitle></CardHeader>
             <CardContent class="space-y-2">
                 <div v-for="r in requests_sent" :key="r.id" class="flex items-center justify-between rounded-md border p-2 text-sm">
                     <span>{{ r.user.name }}</span>
@@ -133,15 +143,33 @@ const unfriend = async (friendshipId: number, name: string) => {
         </Card>
 
         <Card>
-            <CardHeader><CardTitle>Your Friends</CardTitle></CardHeader>
+            <CardHeader><CardTitle class="text-lg">Your Friends</CardTitle></CardHeader>
             <CardContent>
                 <EmptyState v-if="friends.length === 0" compact title="No friends yet" description="Search above to add your first one." />
-                <div v-else class="space-y-2">
-                    <div v-for="f in friends" :key="f.friendship_id" class="flex items-center justify-between rounded-md border p-2 text-sm">
-                        <span class="font-medium">{{ f.user.name }}</span>
-                        <Button size="sm" variant="ghost" @click="unfriend(f.friendship_id, f.user.name)">Remove</Button>
-                    </div>
-                </div>
+                <ul v-else class="divide-y rounded-md border">
+                    <li v-for="f in friends" :key="f.friendship_id" class="flex flex-wrap items-center gap-3 p-3 text-sm">
+                        <span
+                            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground"
+                            aria-hidden="true"
+                            >{{ f.user.name.slice(0, 2).toUpperCase() }}</span
+                        >
+                        <div class="min-w-0 flex-1">
+                            <Link v-if="f.user.slug" :href="route('stats.show', f.user.slug)" class="font-medium hover:underline">{{
+                                f.user.name
+                            }}</Link>
+                            <span v-else class="font-medium">{{ f.user.name }}</span>
+                            <p class="text-xs text-muted-foreground">{{ recordLabel(f.record) }}</p>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <Button v-if="f.user.slug" as-child size="sm" variant="outline">
+                                <Link :href="route('stats.show', f.user.slug)"><BarChart3 class="mr-1.5 size-3.5" />Stats</Link>
+                            </Button>
+                            <Button size="sm" variant="ghost" class="text-muted-foreground" @click="unfriend(f.friendship_id, f.user.name)"
+                                >Remove</Button
+                            >
+                        </div>
+                    </li>
+                </ul>
             </CardContent>
         </Card>
     </div>

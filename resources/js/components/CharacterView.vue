@@ -297,35 +297,35 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         <!-- Stat block -->
                         <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                                     <GameIcon type="soulstone" class-name="inline text-xs" /> Cost
                                 </div>
                                 <div class="text-base font-bold">{{ character.cost }}</div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Health</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Health</div>
                                 <div class="text-base font-bold">{{ character.health }}</div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Speed</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Speed</div>
                                 <div class="text-base font-bold">{{ character.speed }}</div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Defense</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Defense</div>
                                 <div class="text-base font-bold">
                                     {{ character.defense
                                     }}<GameIcon v-if="character.defense_suit" :type="character.defense_suit" class-name="inline text-xs" />
                                 </div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Willpower</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Willpower</div>
                                 <div class="text-base font-bold">
                                     {{ character.willpower
                                     }}<GameIcon v-if="character.willpower_suit" :type="character.willpower_suit" class-name="inline text-xs" />
                                 </div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Base</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Base</div>
                                 <div class="text-base font-bold">{{ baseLabel }}</div>
                             </div>
                         </div>
@@ -663,7 +663,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                                 <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
                             </div>
                             <div v-if="lore.media?.length" class="ml-6 mt-1 flex flex-wrap gap-1">
-                                <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-[10px]">
+                                <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-2xs">
                                     {{ media.name }}
                                 </Badge>
                             </div>
@@ -789,7 +789,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <ExternalLink class="size-4 shrink-0 text-muted-foreground" />
                             <div class="min-w-0 flex-1">
                                 <div class="font-medium">{{ pod.name }}</div>
-                                <Badge variant="outline" class="mt-0.5 text-[10px]">{{
+                                <Badge variant="outline" class="mt-0.5 text-2xs">{{
                                     pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault'
                                 }}</Badge>
                             </div>
@@ -820,7 +820,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Summons</div>
+                                <div class="text-2xs text-muted-foreground">Summons</div>
                             </div>
                         </CardContent>
                     </Card>
@@ -841,7 +841,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Summoned by</div>
+                                <div class="text-2xs text-muted-foreground">Summoned by</div>
                             </div>
                         </CardContent>
                     </Card>
@@ -869,7 +869,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Replaces into</div>
+                                <div class="text-2xs text-muted-foreground">Replaces into</div>
                             </div>
                         </CardContent>
                     </Card>
@@ -890,7 +890,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Replaced by</div>
+                                <div class="text-2xs text-muted-foreground">Replaced by</div>
                             </div>
                         </CardContent>
                     </Card>

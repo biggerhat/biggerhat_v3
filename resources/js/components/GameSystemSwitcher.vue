@@ -32,7 +32,7 @@ function switchTo(target: 'malifaux' | 'tos') {
 
 <template>
     <div
-        class="inline-flex h-10 items-center rounded-md border border-input bg-background/60 p-0.5 text-xs font-medium sm:h-8 sm:text-[11px]"
+        class="inline-flex h-10 items-center rounded-md border border-input bg-background/60 p-0.5 text-xs font-medium sm:h-8 sm:text-2xs"
         role="group"
         aria-label="Game system"
         :title="

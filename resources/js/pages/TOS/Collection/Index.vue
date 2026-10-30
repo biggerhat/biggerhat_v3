@@ -508,7 +508,7 @@ const topAllegiances = computed(() =>
                                             <div class="truncate text-sm font-medium transition-colors hover:text-primary">
                                                 {{ item.unit_name }}
                                             </div>
-                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[10px]">Adjunct</Badge>
+                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-2xs">Adjunct</Badge>
                                         </div>
                                         <div v-if="item.sculpt_name !== item.unit_name" class="truncate text-xs text-muted-foreground">
                                             {{ item.sculpt_name }}
@@ -517,7 +517,7 @@ const topAllegiances = computed(() =>
                                     <div v-else class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5">
                                             <div class="truncate text-sm font-medium">{{ item.unit_name }}</div>
-                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-[10px]">Adjunct</Badge>
+                                            <Badge v-if="item.type === 'asset'" variant="outline" class="shrink-0 text-2xs">Adjunct</Badge>
                                         </div>
                                         <div v-if="item.sculpt_name !== item.unit_name" class="truncate text-xs text-muted-foreground">
                                             {{ item.sculpt_name }}
@@ -525,7 +525,7 @@ const topAllegiances = computed(() =>
                                     </div>
                                     <!-- Status icons (view-only, non-owner) -->
                                     <template v-if="!is_owner">
-                                        <div v-if="item.squad_size" class="flex shrink-0 items-center gap-2 text-[11px] tabular-nums">
+                                        <div v-if="item.squad_size" class="flex shrink-0 items-center gap-2 text-2xs tabular-nums">
                                             <span class="flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
                                                 <Hammer class="size-3" />{{ item.built_count }}/{{ item.squad_size }}
                                             </span>

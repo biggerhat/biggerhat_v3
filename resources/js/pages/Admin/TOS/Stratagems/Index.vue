@@ -33,14 +33,14 @@ const columns: ColumnDef<Stratagem>[] = [
         cell: ({ row }) =>
             h(
                 'div',
-                { class: 'text-[11px]' },
+                { class: 'text-2xs' },
                 row.original.allegiance?.name ?? (row.original.allegiance_type ? `Any ${row.original.allegiance_type}` : 'Universal'),
             ),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,

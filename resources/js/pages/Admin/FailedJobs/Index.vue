@@ -111,7 +111,7 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="truncate text-sm font-semibold">{{ job.job_name }}</span>
-                                <Badge variant="outline" class="text-[10px]">{{ job.connection }} · {{ job.queue }}</Badge>
+                                <Badge variant="outline" class="text-2xs">{{ job.connection }} · {{ job.queue }}</Badge>
                                 <span class="text-xs text-muted-foreground">{{ formatDate(job.failed_at) }}</span>
                             </div>
                             <p v-if="job.exception_summary.class" class="mt-1 truncate font-mono text-xs">
@@ -131,7 +131,7 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
                             </Button>
                         </div>
                     </div>
-                    <pre v-if="expanded === job.uuid" class="mt-3 max-h-96 overflow-auto rounded-md bg-muted/50 p-3 text-[11px] leading-relaxed">{{
+                    <pre v-if="expanded === job.uuid" class="mt-3 max-h-96 overflow-auto rounded-md bg-muted/50 p-3 text-2xs leading-relaxed">{{
                         job.exception
                     }}</pre>
                 </CardContent>

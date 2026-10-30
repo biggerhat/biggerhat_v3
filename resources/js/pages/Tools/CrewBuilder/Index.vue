@@ -2130,13 +2130,13 @@ onUnmounted(() => {
                     <TabsList>
                         <TabsTrigger value="active">
                             Active
-                            <Badge v-if="activeBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                            <Badge v-if="activeBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">
                                 {{ activeBuilds.length }}
                             </Badge>
                         </TabsTrigger>
                         <TabsTrigger value="archived">
                             Archived
-                            <Badge v-if="archivedBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                            <Badge v-if="archivedBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">
                                 {{ archivedBuilds.length }}
                             </Badge>
                         </TabsTrigger>
@@ -2247,7 +2247,7 @@ onUnmounted(() => {
                                                 >
                                                     <div class="flex min-w-0 items-center gap-1.5">
                                                         <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-2xs">
                                                             {{ buildCategoryLabel(member.category) }}
                                                         </Badge>
                                                     </div>
@@ -2398,7 +2398,7 @@ onUnmounted(() => {
                                                 >
                                                     <div class="flex min-w-0 items-center gap-1.5">
                                                         <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-2xs">
                                                             {{ buildCategoryLabel(member.category) }}
                                                         </Badge>
                                                     </div>
@@ -2535,7 +2535,7 @@ onUnmounted(() => {
                                             <Badge
                                                 v-if="info.isAlternateLeader"
                                                 variant="outline"
-                                                class="border-cyan-500/50 px-1 py-0 text-[10px] text-cyan-600 dark:text-cyan-400"
+                                                class="border-cyan-500/50 px-1 py-0 text-2xs text-cyan-600 dark:text-cyan-400"
                                             >
                                                 Alt. Leader
                                             </Badge>
@@ -2777,27 +2777,27 @@ onUnmounted(() => {
                         <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                                 <div class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Models</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
                                 </div>
                                 <div v-if="crewStats.avgCost != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
                                 </div>
                                 <div v-if="crewStats.avgHealth != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
                                 </div>
                                 <div v-if="crewStats.avgSpeed != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
                                 </div>
                                 <div v-if="crewStats.avgDefense != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
                                 </div>
                                 <div v-if="crewStats.avgWillpower != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                 </div>
                             </div>
@@ -2806,7 +2806,7 @@ onUnmounted(() => {
                             v-if="crewStats && Object.keys(crewStats.suitCounts).length"
                             class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2"
                         >
-                            <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
+                            <div class="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                                 <div
                                     v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter((s) => crewStats!.suitCounts[s])"
@@ -2824,7 +2824,7 @@ onUnmounted(() => {
                             <TabsList class="mb-3 grid w-full grid-cols-2">
                                 <TabsTrigger value="crew">
                                     Crew
-                                    <Badge v-if="crew.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                                    <Badge v-if="crew.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">
                                         {{ crew.length }}
                                     </Badge>
                                 </TabsTrigger>
@@ -2847,17 +2847,17 @@ onUnmounted(() => {
                                                 :key="f"
                                                 :variant="poolFilter === f ? 'default' : 'outline'"
                                                 size="sm"
-                                                class="h-6 gap-1 px-2 text-[11px]"
+                                                class="h-6 gap-1 px-2 text-2xs"
                                                 @click="poolFilter = f"
                                             >
                                                 {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
-                                                <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                                                <span class="text-2xs opacity-60">{{ poolFilterCounts[f] }}</span>
                                             </Button>
                                             <Button
                                                 v-if="ownedSet.size > 0"
                                                 :variant="ownedOnly ? 'default' : 'outline'"
                                                 size="sm"
-                                                class="h-6 gap-1 px-2 text-[11px]"
+                                                class="h-6 gap-1 px-2 text-2xs"
                                                 @click="ownedOnly = !ownedOnly"
                                             >
                                                 Owned
@@ -2867,7 +2867,7 @@ onUnmounted(() => {
                                                 v-if="augmentedPool.length > 0"
                                                 variant="ghost"
                                                 size="sm"
-                                                class="h-6 px-1.5 text-[11px]"
+                                                class="h-6 px-1.5 text-2xs"
                                                 @click="toggleExpandAllHire"
                                             >
                                                 <component :is="expandAllHire ? ChevronsDownUp : ChevronsUpDown" class="size-3.5" />
@@ -2875,13 +2875,13 @@ onUnmounted(() => {
                                             </Button>
                                         </div>
                                         <div class="mb-2 flex items-center gap-1">
-                                            <span class="text-[11px] text-muted-foreground">Sort:</span>
+                                            <span class="text-2xs text-muted-foreground">Sort:</span>
                                             <Button
                                                 v-for="s in ['station', 'name', 'cost'] as const"
                                                 :key="s"
                                                 :variant="poolSort === s ? 'default' : 'ghost'"
                                                 size="sm"
-                                                class="h-5 px-1.5 text-[10px]"
+                                                class="h-5 px-1.5 text-2xs"
                                                 @click="poolSort = s"
                                             >
                                                 {{ { station: 'Station', name: 'Name', cost: 'Cost' }[s] }}
@@ -2931,7 +2931,7 @@ onUnmounted(() => {
                                                                     <Badge
                                                                         v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
                                                                         variant="outline"
-                                                                        class="border-white/30 px-1 py-0 text-[10px] font-normal text-white/80"
+                                                                        class="border-white/30 px-1 py-0 text-2xs font-normal text-white/80"
                                                                     >
                                                                         {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
                                                                     </Badge>
@@ -2948,7 +2948,7 @@ onUnmounted(() => {
                                                                     </span>
                                                                     <Badge
                                                                         variant="secondary"
-                                                                        class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90"
+                                                                        class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90"
                                                                     >
                                                                         {{ augmentedPool[virtualRow.index].character.station }}
                                                                         <span v-if="augmentedPool[virtualRow.index].character.count > 1">
@@ -2959,19 +2959,19 @@ onUnmounted(() => {
                                                                     </Badge>
                                                                     <Badge
                                                                         :class="categoryColor(augmentedPool[virtualRow.index].category)"
-                                                                        class="px-1 py-0 text-[10px]"
+                                                                        class="px-1 py-0 text-2xs"
                                                                     >
                                                                         {{ categoryLabel(augmentedPool[virtualRow.index].category) }}
                                                                     </Badge>
                                                                     <Badge
                                                                         v-if="augmentedPool[virtualRow.index].henchman"
-                                                                        class="bg-amber-400/20 px-1 py-0 text-[10px] text-amber-200"
+                                                                        class="bg-amber-400/20 px-1 py-0 text-2xs text-amber-200"
                                                                     >
                                                                         Henchman
                                                                     </Badge>
                                                                     <Badge
                                                                         v-if="augmentedPool[virtualRow.index].unique"
-                                                                        class="bg-cyan-400/20 px-1 py-0 text-[10px] text-cyan-200"
+                                                                        class="bg-cyan-400/20 px-1 py-0 text-2xs text-cyan-200"
                                                                     >
                                                                         Unique
                                                                     </Badge>
@@ -2987,7 +2987,7 @@ onUnmounted(() => {
                                                             <div class="flex shrink-0 items-center gap-1">
                                                                 <span
                                                                     v-if="!augmentedPool[virtualRow.index].hireCheck.allowed"
-                                                                    class="text-[10px] text-white/50"
+                                                                    class="text-2xs text-white/50"
                                                                 >
                                                                     {{ augmentedPool[virtualRow.index].hireCheck.reason }}
                                                                 </span>
@@ -3065,9 +3065,9 @@ onUnmounted(() => {
                                                     class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
                                                 >
                                                     <div class="flex min-w-0 items-center gap-2">
-                                                        <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white">Custom</Badge>
+                                                        <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white">Custom</Badge>
                                                         <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
-                                                        <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                                        <span class="shrink-0 text-2xs text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
                                                     </div>
                                                     <Button
                                                         aria-label="Add custom card to crew"
@@ -3153,7 +3153,7 @@ onUnmounted(() => {
                                                 <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-700 dark:text-amber-400" />
                                                 <div class="min-w-0 flex-1">
                                                     <div class="text-xs font-semibold">{{ upgrade.name }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">
+                                                    <div class="text-2xs text-muted-foreground">
                                                         {{
                                                             activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
                                                                 ? 'Active Crew Card'
@@ -3211,7 +3211,7 @@ onUnmounted(() => {
                                                             }}</span>
                                                             <Badge
                                                                 v-if="member.isCustom"
-                                                                class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white"
+                                                                class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white"
                                                                 >Custom</Badge
                                                             >
                                                         </div>
@@ -3229,7 +3229,7 @@ onUnmounted(() => {
                                                                 >{{ member.effectiveCost
                                                                 }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
                                                             /></span>
-                                                            <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
+                                                            <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-2xs">
                                                                 {{ categoryLabel(member.hiringCategory) }}
                                                             </Badge>
                                                         </div>
@@ -3297,7 +3297,7 @@ onUnmounted(() => {
                                                             }
                                                         "
                                                     >
-                                                        <SelectTrigger class="h-6 border-white/20 bg-white/10 text-[11px] text-white">
+                                                        <SelectTrigger class="h-6 border-white/20 bg-white/10 text-2xs text-white">
                                                             <SelectValue placeholder="Select miniature..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -3347,17 +3347,17 @@ onUnmounted(() => {
                                             :key="f"
                                             :variant="poolFilter === f ? 'default' : 'outline'"
                                             size="sm"
-                                            class="h-6 gap-1 px-2 text-[11px]"
+                                            class="h-6 gap-1 px-2 text-2xs"
                                             @click="poolFilter = f"
                                         >
                                             {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
-                                            <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                                            <span class="text-2xs opacity-60">{{ poolFilterCounts[f] }}</span>
                                         </Button>
                                         <Button
                                             v-if="ownedSet.size > 0"
                                             :variant="ownedOnly ? 'default' : 'outline'"
                                             size="sm"
-                                            class="h-6 gap-1 px-2 text-[11px]"
+                                            class="h-6 gap-1 px-2 text-2xs"
                                             @click="ownedOnly = !ownedOnly"
                                         >
                                             Owned
@@ -3367,7 +3367,7 @@ onUnmounted(() => {
                                             v-if="augmentedPool.length > 0"
                                             variant="ghost"
                                             size="sm"
-                                            class="h-6 px-1.5 text-[11px]"
+                                            class="h-6 px-1.5 text-2xs"
                                             @click="toggleExpandAllHire"
                                         >
                                             <component :is="expandAllHire ? ChevronsDownUp : ChevronsUpDown" class="size-3.5" />
@@ -3375,13 +3375,13 @@ onUnmounted(() => {
                                         </Button>
                                     </div>
                                     <div class="mb-2 flex items-center gap-1">
-                                        <span class="text-[11px] text-muted-foreground">Sort:</span>
+                                        <span class="text-2xs text-muted-foreground">Sort:</span>
                                         <Button
                                             v-for="s in ['station', 'name', 'cost'] as const"
                                             :key="s"
                                             :variant="poolSort === s ? 'default' : 'ghost'"
                                             size="sm"
-                                            class="h-5 px-1.5 text-[10px]"
+                                            class="h-5 px-1.5 text-2xs"
                                             @click="poolSort = s"
                                         >
                                             {{ { station: 'Station', name: 'Name', cost: 'Cost' }[s] }}
@@ -3431,7 +3431,7 @@ onUnmounted(() => {
                                                                 <Badge
                                                                     v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
                                                                     variant="outline"
-                                                                    class="border-white/30 px-1 py-0 text-[10px] font-normal text-white/80"
+                                                                    class="border-white/30 px-1 py-0 text-2xs font-normal text-white/80"
                                                                 >
                                                                     {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
                                                                 </Badge>
@@ -3448,7 +3448,7 @@ onUnmounted(() => {
                                                                 </span>
                                                                 <Badge
                                                                     variant="secondary"
-                                                                    class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90"
+                                                                    class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90"
                                                                 >
                                                                     {{ augmentedPool[virtualRow.index].character.station }}
                                                                     <span v-if="augmentedPool[virtualRow.index].character.count > 1">
@@ -3459,19 +3459,19 @@ onUnmounted(() => {
                                                                 </Badge>
                                                                 <Badge
                                                                     :class="categoryColor(augmentedPool[virtualRow.index].category)"
-                                                                    class="px-1 py-0 text-[10px]"
+                                                                    class="px-1 py-0 text-2xs"
                                                                 >
                                                                     {{ categoryLabel(augmentedPool[virtualRow.index].category) }}
                                                                 </Badge>
                                                                 <Badge
                                                                     v-if="augmentedPool[virtualRow.index].henchman"
-                                                                    class="bg-amber-400/20 px-1 py-0 text-[10px] text-amber-200"
+                                                                    class="bg-amber-400/20 px-1 py-0 text-2xs text-amber-200"
                                                                 >
                                                                     Henchman
                                                                 </Badge>
                                                                 <Badge
                                                                     v-if="augmentedPool[virtualRow.index].unique"
-                                                                    class="bg-cyan-400/20 px-1 py-0 text-[10px] text-cyan-200"
+                                                                    class="bg-cyan-400/20 px-1 py-0 text-2xs text-cyan-200"
                                                                 >
                                                                     Unique
                                                                 </Badge>
@@ -3487,7 +3487,7 @@ onUnmounted(() => {
                                                         <div class="flex shrink-0 items-center gap-1">
                                                             <span
                                                                 v-if="!augmentedPool[virtualRow.index].hireCheck.allowed"
-                                                                class="text-[10px] text-white/50"
+                                                                class="text-2xs text-white/50"
                                                             >
                                                                 {{ augmentedPool[virtualRow.index].hireCheck.reason }}
                                                             </span>
@@ -3565,9 +3565,9 @@ onUnmounted(() => {
                                                 class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
                                             >
                                                 <div class="flex min-w-0 items-center gap-2">
-                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white">Custom</Badge>
+                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white">Custom</Badge>
                                                     <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
-                                                    <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                                    <span class="shrink-0 text-2xs text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
                                                 </div>
                                                 <Button
                                                     aria-label="Add custom card to crew"
@@ -3609,34 +3609,34 @@ onUnmounted(() => {
                                     <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
                                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-4">
                                             <div class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Models</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
                                             </div>
                                             <Separator orientation="vertical" class="hidden h-6 sm:block" />
                                             <div v-if="crewStats.avgCost != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
                                             </div>
                                             <div v-if="crewStats.avgHealth != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
                                             </div>
                                             <div v-if="crewStats.avgSpeed != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
                                             </div>
                                             <div v-if="crewStats.avgDefense != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
                                             </div>
                                             <div v-if="crewStats.avgWillpower != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                             </div>
                                         </div>
                                     </div>
                                     <div v-if="Object.keys(crewStats.suitCounts).length" class="mt-2 border-t border-border/30 pt-2">
-                                        <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
+                                        <div class="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
                                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                                             <div
                                                 v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter((s) => crewStats!.suitCounts[s])"
@@ -3723,7 +3723,7 @@ onUnmounted(() => {
                                             <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-700 dark:text-amber-400" />
                                             <div class="min-w-0 flex-1">
                                                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
-                                                <div class="text-[10px] text-muted-foreground">
+                                                <div class="text-2xs text-muted-foreground">
                                                     {{
                                                         activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade ? 'Active Crew Card' : 'Crew Card'
                                                     }}
@@ -3779,7 +3779,7 @@ onUnmounted(() => {
                                                         }}</span>
                                                         <Badge
                                                             v-if="member.isCustom"
-                                                            class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[10px] text-white"
+                                                            class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white"
                                                             >Custom</Badge
                                                         >
                                                     </div>
@@ -3797,7 +3797,7 @@ onUnmounted(() => {
                                                             >{{ member.effectiveCost
                                                             }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
                                                         /></span>
-                                                        <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
+                                                        <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-2xs">
                                                             {{ categoryLabel(member.hiringCategory) }}
                                                         </Badge>
                                                     </div>
@@ -3863,7 +3863,7 @@ onUnmounted(() => {
                                                         }
                                                     "
                                                 >
-                                                    <SelectTrigger class="h-6 border-white/20 bg-white/10 text-[11px] text-white">
+                                                    <SelectTrigger class="h-6 border-white/20 bg-white/10 text-2xs text-white">
                                                         <SelectValue placeholder="Select miniature..." />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -3919,7 +3919,7 @@ onUnmounted(() => {
                         </template>
                     </DrawerTitle>
                     <div v-if="editorStep === 'hiring'" class="mt-1 flex items-center justify-center gap-1.5">
-                        <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station }}</Badge>
+                        <Badge variant="secondary" class="text-2xs capitalize">{{ previewCharacter.station }}</Badge>
                         <Badge v-if="getHiringCategory(previewCharacter) === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
                             >{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                             <span class="font-normal opacity-70">({{ previewCharacter.cost }}+1)</span></Badge
@@ -3927,7 +3927,7 @@ onUnmounted(() => {
                         <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold"
                             >{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block"
                         /></Badge>
-                        <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-[10px]">
+                        <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-2xs">
                             {{ categoryLabel(getHiringCategory(previewCharacter)) }}
                         </Badge>
                     </div>
@@ -4009,7 +4009,7 @@ onUnmounted(() => {
                         </template>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
-                        <Badge variant="secondary" class="text-[10px] capitalize">{{ crewPreviewMember.character.station }}</Badge>
+                        <Badge variant="secondary" class="text-2xs capitalize">{{ crewPreviewMember.character.station }}</Badge>
                         <template v-if="crewPreviewMember.character.cost != null">
                             <Badge v-if="crewPreviewMember.hiringCategory === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
                                 >{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
@@ -4019,7 +4019,7 @@ onUnmounted(() => {
                                 >{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block"
                             /></Badge>
                         </template>
-                        <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
+                        <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-2xs">
                             {{ categoryLabel(crewPreviewMember.hiringCategory) }}
                         </Badge>
                     </div>

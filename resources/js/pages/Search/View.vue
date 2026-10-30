@@ -1887,7 +1887,7 @@ onUnmounted(() => {
                             @mousedown.prevent="selectNameSuggestion(item)"
                         >
                             <span class="truncate">{{ item.display_name ?? item.name }}</span>
-                            <Badge v-if="item.faction" variant="outline" class="ml-auto shrink-0 text-[10px]">{{ item.faction }}</Badge>
+                            <Badge v-if="item.faction" variant="outline" class="ml-auto shrink-0 text-2xs">{{ item.faction }}</Badge>
                         </button>
                     </div>
                     <!-- Syntax autocomplete dropdown -->
@@ -1911,7 +1911,7 @@ onUnmounted(() => {
                         class="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border bg-popover shadow-lg"
                     >
                         <div
-                            class="flex items-center justify-between border-b px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                            class="flex items-center justify-between border-b px-3 py-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
                         >
                             Recent searches
                             <button class="text-muted-foreground hover:text-foreground" @mousedown.prevent="clearHistory">Clear history</button>
@@ -2046,7 +2046,7 @@ onUnmounted(() => {
                             <Button variant="outline" size="sm" class="h-8 gap-1 text-xs" aria-label="Saved searches">
                                 <Bookmark class="h-3.5 w-3.5" />
                                 <span class="hidden sm:inline">Saved</span>
-                                <Badge variant="secondary" class="ml-1 px-1 py-0 text-[10px]">{{ props.saved_searches.length }}</Badge>
+                                <Badge variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{ props.saved_searches.length }}</Badge>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
@@ -2127,7 +2127,7 @@ onUnmounted(() => {
                                     <label class="text-sm font-medium">Keywords</label>
                                     <button
                                         v-if="selectedKeywords.length > 1"
-                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                         :class="keywordLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
                                         @click="keywordLogic = keywordLogic === 'and' ? 'or' : 'and'"
                                     >
@@ -2146,7 +2146,7 @@ onUnmounted(() => {
                                     <label class="text-sm font-medium">Characteristics</label>
                                     <button
                                         v-if="selectedCharacteristics.length > 1"
-                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                         :class="
                                             characteristicLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                         "
@@ -2170,7 +2170,7 @@ onUnmounted(() => {
                                     placeholder="Search rules text..."
                                     class="h-8 border-2 border-primary text-xs"
                                 />
-                                <p class="text-[10px] text-muted-foreground">
+                                <p class="text-2xs text-muted-foreground">
                                     Use <code class="rounded bg-muted px-1 font-mono">*</code> as a wildcard, e.g.
                                     <code class="rounded bg-muted px-1 font-mono">remove * token</code>.
                                 </p>
@@ -2183,7 +2183,7 @@ onUnmounted(() => {
                                 <Checkbox class="mt-0.5" :checked="excludeUpgrades" @update:checked="(v: boolean) => (excludeUpgrades = v)" />
                                 <span>
                                     <span class="font-medium">Characters only</span>
-                                    <span class="block text-[10px] text-muted-foreground"> Hide Upgrades and Crew Cards from the results. </span>
+                                    <span class="block text-2xs text-muted-foreground"> Hide Upgrades and Crew Cards from the results. </span>
                                 </span>
                             </label>
 
@@ -2202,7 +2202,7 @@ onUnmounted(() => {
                                                 excludedCharacteristics.length
                                             "
                                             variant="secondary"
-                                            class="px-1 py-0 text-[10px]"
+                                            class="px-1 py-0 text-2xs"
                                         >
                                             {{
                                                 excludedGameModes.length +
@@ -2263,9 +2263,7 @@ onUnmounted(() => {
                                 >
                                     Stats
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
-                                            statsFilterCount
-                                        }}</Badge>
+                                        <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{ statsFilterCount }}</Badge>
                                         <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': sectionsOpen.advancedStats }" />
                                     </div>
                                 </CollapsibleTrigger>
@@ -2339,7 +2337,7 @@ onUnmounted(() => {
                                 >
                                     Actions
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                        <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                             actionsFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2354,7 +2352,7 @@ onUnmounted(() => {
                                             <label class="text-sm font-medium">Name</label>
                                             <button
                                                 v-if="selectedActions.length > 1"
-                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                 :class="
                                                     actionLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                                 "
@@ -2513,7 +2511,7 @@ onUnmounted(() => {
                                 >
                                     Abilities
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                        <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                             abilitiesFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2528,7 +2526,7 @@ onUnmounted(() => {
                                             <label class="text-sm font-medium">Name</label>
                                             <button
                                                 v-if="selectedAbilities.length > 1"
-                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                 :class="
                                                     abilityLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                                 "
@@ -2586,7 +2584,7 @@ onUnmounted(() => {
                                 >
                                     Triggers
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                        <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                             triggersFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2601,7 +2599,7 @@ onUnmounted(() => {
                                             <label class="text-sm font-medium">Trigger</label>
                                             <button
                                                 v-if="selectedTriggers.length > 1"
-                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                 :class="
                                                     triggerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                                 "
@@ -2640,9 +2638,7 @@ onUnmounted(() => {
                                 >
                                     Tokens
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
-                                            tokensFilterCount
-                                        }}</Badge>
+                                        <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{ tokensFilterCount }}</Badge>
                                         <ChevronDown
                                             class="h-3.5 w-3.5 transition-transform"
                                             :class="{ 'rotate-180': sectionsOpen.advancedTokens }"
@@ -2655,7 +2651,7 @@ onUnmounted(() => {
                                             <label class="text-sm font-medium">Token</label>
                                             <button
                                                 v-if="selectedTokens.length > 1"
-                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                 :class="
                                                     tokenLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                                 "
@@ -2676,7 +2672,7 @@ onUnmounted(() => {
                                 >
                                     Markers
                                     <div class="flex items-center gap-1.5">
-                                        <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                        <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                             markersFilterCount
                                         }}</Badge>
                                         <ChevronDown
@@ -2691,7 +2687,7 @@ onUnmounted(() => {
                                             <label class="text-sm font-medium">Marker</label>
                                             <button
                                                 v-if="selectedMarkers.length > 1"
-                                                class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                 :class="
                                                     markerLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                                 "
@@ -2765,7 +2761,7 @@ onUnmounted(() => {
                         <X class="h-3 w-3" />
                     </button>
                 </Badge>
-                <Button v-if="activeFilters.length > 1" variant="ghost" size="sm" class="h-6 px-2 text-[10px]" @click="clear"> Clear all </Button>
+                <Button v-if="activeFilters.length > 1" variant="ghost" size="sm" class="h-6 px-2 text-2xs" @click="clear"> Clear all </Button>
             </div>
         </div>
 
@@ -2803,7 +2799,7 @@ onUnmounted(() => {
                                     <label class="text-xs font-medium text-muted-foreground">Keywords</label>
                                     <button
                                         v-if="selectedKeywords.length > 1"
-                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                         :class="keywordLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
                                         @click="keywordLogic = keywordLogic === 'and' ? 'or' : 'and'"
                                     >
@@ -2822,7 +2818,7 @@ onUnmounted(() => {
                                     <label class="text-xs font-medium text-muted-foreground">Characteristics</label>
                                     <button
                                         v-if="selectedCharacteristics.length > 1"
-                                        class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                        class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                         :class="
                                             characteristicLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                         "
@@ -2841,7 +2837,7 @@ onUnmounted(() => {
                             <div class="space-y-1">
                                 <label class="text-xs font-medium text-muted-foreground">Rules Text</label>
                                 <Input v-model="filterParams.description" type="text" placeholder="Search rules text..." class="h-8 text-xs" />
-                                <p class="text-[10px] text-muted-foreground">
+                                <p class="text-2xs text-muted-foreground">
                                     Use <code class="rounded bg-muted px-1 font-mono">*</code> as a wildcard, e.g.
                                     <code class="rounded bg-muted px-1 font-mono">remove * token</code>.
                                 </p>
@@ -2855,7 +2851,7 @@ onUnmounted(() => {
                                 <Checkbox class="mt-0.5" :checked="excludeUpgrades" @update:checked="(v: boolean) => (excludeUpgrades = v)" />
                                 <span>
                                     <span class="font-medium">Characters only</span>
-                                    <span class="block text-[10px] text-muted-foreground"> Hide Upgrades and Crew Cards from the results. </span>
+                                    <span class="block text-2xs text-muted-foreground"> Hide Upgrades and Crew Cards from the results. </span>
                                 </span>
                             </label>
                         </div>
@@ -2875,7 +2871,7 @@ onUnmounted(() => {
                                             excludedCharacteristics.length
                                         "
                                         variant="secondary"
-                                        class="px-1 py-0 text-[10px]"
+                                        class="px-1 py-0 text-2xs"
                                     >
                                         {{
                                             excludedGameModes.length +
@@ -2942,7 +2938,7 @@ onUnmounted(() => {
                                     >
                                         Stats
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                            <Badge v-if="statsFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                                 statsFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3001,7 +2997,7 @@ onUnmounted(() => {
                                     >
                                         Actions
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                            <Badge v-if="actionsFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                                 actionsFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3016,7 +3012,7 @@ onUnmounted(() => {
                                                 <label class="text-xs font-medium text-muted-foreground">Name</label>
                                                 <button
                                                     v-if="selectedActions.length > 1"
-                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                     :class="
                                                         actionLogic === 'and'
                                                             ? 'bg-primary text-primary-foreground'
@@ -3162,7 +3158,7 @@ onUnmounted(() => {
                                     >
                                         Abilities
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                            <Badge v-if="abilitiesFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                                 abilitiesFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3177,7 +3173,7 @@ onUnmounted(() => {
                                                 <label class="text-xs font-medium text-muted-foreground">Name</label>
                                                 <button
                                                     v-if="selectedAbilities.length > 1"
-                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                     :class="
                                                         abilityLogic === 'and'
                                                             ? 'bg-primary text-primary-foreground'
@@ -3230,7 +3226,7 @@ onUnmounted(() => {
                                     >
                                         Triggers
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                            <Badge v-if="triggersFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                                 triggersFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3245,7 +3241,7 @@ onUnmounted(() => {
                                                 <label class="text-xs font-medium text-muted-foreground">Trigger</label>
                                                 <button
                                                     v-if="selectedTriggers.length > 1"
-                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                     :class="
                                                         triggerLogic === 'and'
                                                             ? 'bg-primary text-primary-foreground'
@@ -3284,7 +3280,7 @@ onUnmounted(() => {
                                     >
                                         Tokens
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                            <Badge v-if="tokensFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                                 tokensFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3299,7 +3295,7 @@ onUnmounted(() => {
                                                 <label class="text-xs font-medium text-muted-foreground">Token</label>
                                                 <button
                                                     v-if="selectedTokens.length > 1"
-                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                     :class="
                                                         tokenLogic === 'and' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                                     "
@@ -3323,7 +3319,7 @@ onUnmounted(() => {
                                     >
                                         Markers
                                         <div class="flex items-center gap-1.5">
-                                            <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-[10px]">{{
+                                            <Badge v-if="markersFilterCount" variant="secondary" class="px-1 py-0 text-2xs">{{
                                                 markersFilterCount
                                             }}</Badge>
                                             <ChevronDown
@@ -3338,7 +3334,7 @@ onUnmounted(() => {
                                                 <label class="text-xs font-medium text-muted-foreground">Marker</label>
                                                 <button
                                                     v-if="selectedMarkers.length > 1"
-                                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                                                    class="rounded px-1.5 py-0.5 text-2xs font-semibold"
                                                     :class="
                                                         markerLogic === 'and'
                                                             ? 'bg-primary text-primary-foreground'
@@ -3520,14 +3516,14 @@ onUnmounted(() => {
                                         <div class="mt-1 flex flex-wrap gap-1">
                                             <button
                                                 v-if="item.faction"
-                                                class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                                                class="rounded-full bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
                                                 @click="applyFactionFilter(item.faction)"
                                             >
                                                 {{ lookupName(props.factions, item.faction) }}
                                             </button>
                                             <button
                                                 v-if="item.station"
-                                                class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                                                class="rounded-full bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
                                                 @click="applyStationFilter(item.station)"
                                             >
                                                 {{ lookupName(props.stations, item.station) }}

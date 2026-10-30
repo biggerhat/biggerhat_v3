@@ -184,7 +184,7 @@ onMounted(() => {
                         accept="image/*"
                         @input="formInfo.image_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
                     />
-                    <p class="text-[11px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                         {{ existingImage ? 'Choose a new file to replace, or leave empty to keep.' : 'PNG / JPG up to 30 MB.' }}
                     </p>
                     <InputError :message="usePage().props.errors.image_path" />
@@ -204,7 +204,7 @@ onMounted(() => {
                         accept="image/*"
                         @input="formInfo.back_image_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
                     />
-                    <p class="text-[11px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                         {{
                             existingBackImage
                                 ? 'Choose a new file to replace, or leave empty to keep.'

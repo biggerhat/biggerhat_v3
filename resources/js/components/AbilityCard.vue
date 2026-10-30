@@ -73,7 +73,7 @@ const showUpgradeIcon = computed(() => (props.ability.characters_count ?? 0) ===
                     <span class="text-muted-foreground">{{ ability.characters_count }} characters</span>
                 </template>
                 <template v-else-if="ability.upgrades?.length">
-                    <Badge v-for="upgrade in ability.upgrades" :key="upgrade.slug" variant="secondary" class="text-[10px]">
+                    <Badge v-for="upgrade in ability.upgrades" :key="upgrade.slug" variant="secondary" class="text-2xs">
                         {{ upgrade.name }}
                     </Badge>
                 </template>

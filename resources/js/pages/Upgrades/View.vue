@@ -294,7 +294,7 @@ const hasRelatedContent = computed(
                                 >
                                     <ExternalLink class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="min-w-0 flex-1 font-medium">{{ pod.name }}</span>
-                                    <Badge variant="outline" class="shrink-0 text-[10px]">{{
+                                    <Badge variant="outline" class="shrink-0 text-2xs">{{
                                         pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault'
                                     }}</Badge>
                                 </a>

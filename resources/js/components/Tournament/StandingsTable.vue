@@ -24,7 +24,7 @@ const props = defineProps<{
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b bg-muted/40 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <tr class="border-b bg-muted/40 text-left text-2xs uppercase tracking-wider text-muted-foreground">
                             <th class="px-2 py-2.5 font-semibold sm:px-3">#</th>
                             <th class="px-2 py-2.5 font-semibold sm:px-3">Player</th>
                             <th class="px-1 py-2.5 text-center font-semibold sm:px-3">TP</th>
@@ -70,13 +70,13 @@ const props = defineProps<{
                                     <Badge
                                         v-if="entry.is_ringer"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[10px] text-white/80 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-2xs text-white/80 sm:inline-flex"
                                         >Ringer</Badge
                                     >
                                     <Badge
                                         v-if="entry.is_dropped"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[10px] text-white/60 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-2xs text-white/60 sm:inline-flex"
                                         >Dropped</Badge
                                     >
                                 </div>

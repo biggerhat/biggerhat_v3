@@ -33,7 +33,7 @@ const columns: ColumnDef<Keywords>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const keyword = row.original;
 

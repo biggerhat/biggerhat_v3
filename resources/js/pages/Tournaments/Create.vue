@@ -214,7 +214,7 @@ const submit = () => {
                                             <SelectItem value="sos">TP → Strength of Schedule → DIFF → VP</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <p class="text-[11px] text-muted-foreground">
+                                    <p class="text-2xs text-muted-foreground">
                                         SoS = sum of your opponents' tournament points. Either way, SoS is shown on standings.
                                     </p>
                                     <InputError :message="form.errors.tiebreaker_mode" />
@@ -222,11 +222,11 @@ const submit = () => {
 
                                 <div class="space-y-2 rounded-md border border-dashed p-3">
                                     <Label class="text-xs uppercase tracking-wide text-muted-foreground">
-                                        Bye Scoring <span class="ml-1 text-[10px] normal-case opacity-60">(awarded to whoever sits out)</span>
+                                        Bye Scoring <span class="ml-1 text-2xs normal-case opacity-60">(awarded to whoever sits out)</span>
                                     </Label>
                                     <div class="grid gap-2 sm:grid-cols-3">
                                         <div class="space-y-1">
-                                            <Label class="text-[10px]">TP</Label>
+                                            <Label class="text-2xs">TP</Label>
                                             <NumberField v-model="form.bye_tp" :min="0" :max="5">
                                                 <NumberFieldContent
                                                     ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
@@ -234,7 +234,7 @@ const submit = () => {
                                             </NumberField>
                                         </div>
                                         <div class="space-y-1">
-                                            <Label class="text-[10px]">Differential</Label>
+                                            <Label class="text-2xs">Differential</Label>
                                             <NumberField v-model="form.bye_diff" :min="0" :max="20">
                                                 <NumberFieldContent
                                                     ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
@@ -242,7 +242,7 @@ const submit = () => {
                                             </NumberField>
                                         </div>
                                         <div class="space-y-1">
-                                            <Label class="text-[10px]">VP</Label>
+                                            <Label class="text-2xs">VP</Label>
                                             <NumberField v-model="form.bye_vp" :min="0" :max="20">
                                                 <NumberFieldContent
                                                     ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement

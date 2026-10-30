@@ -24,13 +24,13 @@ const columns: ColumnDef<Trigger>[] = [
         id: 'actions_list',
         accessorFn: (r) => r.actions.map((a) => a.name).join(', '),
         header: () => h('div', {}, 'Attached to'),
-        cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.actions.length ? row.original.actions.map((a) => a.name).join(', ') : '—'),
+        cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.actions.length ? row.original.actions.map((a) => a.name).join(', ') : '—'),
     },
-    { accessorKey: 'suits', header: () => h('div', {}, 'Suits'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.suits ?? '—') },
+    { accessorKey: 'suits', header: () => h('div', {}, 'Suits'), cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.suits ?? '—') },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,

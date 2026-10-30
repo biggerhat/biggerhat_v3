@@ -168,11 +168,11 @@ const { delays } = useStaggeredEntry(crewCount);
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-medium group-hover:text-primary">{{ crew.name }}</p>
                                     <div class="mt-1 flex flex-wrap items-center gap-1">
-                                        <Badge variant="outline" class="text-[10px]">{{ crew.faction_label }}</Badge>
-                                        <Badge v-if="crew.master_name" variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
-                                        <Badge variant="secondary" class="text-[10px]">{{ crew.encounter_size }}ss</Badge>
+                                        <Badge variant="outline" class="text-2xs">{{ crew.faction_label }}</Badge>
+                                        <Badge v-if="crew.master_name" variant="secondary" class="text-2xs">{{ crew.master_name }}</Badge>
+                                        <Badge variant="secondary" class="text-2xs">{{ crew.encounter_size }}ss</Badge>
                                     </div>
-                                    <div class="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                                    <div class="mt-1 flex items-center gap-1 text-2xs text-muted-foreground">
                                         <span>{{ crew.user_name }}</span>
                                         <span>&middot;</span>
                                         <span>{{ crew.created_at }}</span>

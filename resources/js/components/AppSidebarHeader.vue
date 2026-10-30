@@ -207,7 +207,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
                 <span class="sr-only sm:hidden">Search</span>
                 <span class="hidden flex-1 text-left sm:inline">{{ isAdminPage ? 'Jump to…' : 'Search database…' }}</span>
                 <kbd
-                    class="ml-auto hidden h-5 items-center rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex"
+                    class="ml-auto hidden h-5 items-center rounded border border-border/60 bg-muted px-1.5 font-mono text-2xs font-medium text-muted-foreground sm:inline-flex"
                 >
                     {{ isMac ? '⌘' : 'Ctrl' }} K
                 </kbd>

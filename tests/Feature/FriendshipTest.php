@@ -134,3 +134,27 @@ it('index lists friends and pending requests, sent and received, separately', fu
             ->where('requests_sent.0.user.id', $outgoingAddressee->id)
         );
 });
+
+it('shows head-to-head records against friends on the friends page', function () {
+    $me = friendUser();
+    $friend = friendUser();
+    $stranger = friendUser();
+    Friendship::factory()->accepted()->create(['requester_id' => $me->id, 'addressee_id' => $friend->id]);
+
+    foreach ([$me->id, $me->id, $friend->id] as $winnerId) {
+        $game = \App\Models\Game::factory()->completed()->create(['winner_id' => $winnerId]);
+        \App\Models\GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $me->id, 'slot' => 1]);
+        \App\Models\GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $friend->id, 'slot' => 2]);
+    }
+    // A game against a non-friend must not count.
+    $other = \App\Models\Game::factory()->completed()->create(['winner_id' => $me->id]);
+    \App\Models\GamePlayer::factory()->create(['game_id' => $other->id, 'user_id' => $me->id, 'slot' => 1]);
+    \App\Models\GamePlayer::factory()->create(['game_id' => $other->id, 'user_id' => $stranger->id, 'slot' => 2]);
+
+    $this->actingAs($me)
+        ->get(route('friends.index'))
+        ->assertInertia(fn ($page) => $page
+            ->has('friends', 1)
+            ->where('friends.0.user.slug', $friend->slug)
+            ->where('friends.0.record', ['games' => 3, 'wins' => 2, 'losses' => 1, 'ties' => 0]));
+});

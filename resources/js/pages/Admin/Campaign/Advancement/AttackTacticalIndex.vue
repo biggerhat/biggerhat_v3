@@ -90,14 +90,14 @@ const columns: ColumnDef<AdvancementRow>[] = [
         cell: ({ row }) => {
             const triggerId = row.original.trigger_id;
             return triggerId
-                ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => `#${triggerId}`)
+                ? h(Badge, { variant: 'outline', class: 'text-2xs' }, () => `#${triggerId}`)
                 : h('span', { class: 'text-xs text-muted-foreground' }, 'bespoke');
         },
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {

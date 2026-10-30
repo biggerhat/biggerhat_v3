@@ -52,14 +52,14 @@ const columns: ColumnDef<AdvancementAbilityRow>[] = [
         cell: ({ row }) => {
             const ability = row.original.ability;
             return ability
-                ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => ability.name)
+                ? h(Badge, { variant: 'outline', class: 'text-2xs' }, () => ability.name)
                 : h('span', { class: 'text-xs text-muted-foreground' }, 'bespoke');
         },
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {

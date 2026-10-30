@@ -242,25 +242,25 @@ function openMasterDrawer(master: any, event: Event) {
                                             <div v-if="keyword.stats" class="grid grid-cols-3 gap-1 text-center text-xs sm:grid-cols-5">
                                                 <div v-if="keyword.stats.avg_cost != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_cost }}</div>
-                                                    <div class="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
+                                                    <div class="flex items-center justify-center gap-0.5 text-2xs text-muted-foreground">
                                                         <GameIcon type="soulstone" class-name="h-2.5" />
                                                     </div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_health != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_health }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">HP</div>
+                                                    <div class="text-2xs text-muted-foreground">HP</div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_speed != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_speed }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">SPD</div>
+                                                    <div class="text-2xs text-muted-foreground">SPD</div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_defense != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_defense }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">DEF</div>
+                                                    <div class="text-2xs text-muted-foreground">DEF</div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_willpower != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_willpower }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">WP</div>
+                                                    <div class="text-2xs text-muted-foreground">WP</div>
                                                 </div>
                                             </div>
                                         </CardContent>

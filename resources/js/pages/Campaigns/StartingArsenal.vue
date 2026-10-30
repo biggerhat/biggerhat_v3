@@ -339,22 +339,22 @@ const submit = () => {
                             :key="f"
                             :variant="poolFilter === f ? 'default' : 'outline'"
                             size="sm"
-                            class="h-6 gap-1 px-2 text-[11px]"
+                            class="h-6 gap-1 px-2 text-2xs"
                             @click="poolFilter = f"
                         >
                             {{ { keyword: 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
-                            <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                            <span class="text-2xs opacity-60">{{ poolFilterCounts[f] }}</span>
                         </Button>
-                        <span class="ml-auto text-[11px] text-muted-foreground">{{ filteredHireable.length }} shown</span>
+                        <span class="ml-auto text-2xs text-muted-foreground">{{ filteredHireable.length }} shown</span>
                     </div>
                     <div class="flex items-center gap-1">
-                        <span class="text-[11px] text-muted-foreground">Sort:</span>
+                        <span class="text-2xs text-muted-foreground">Sort:</span>
                         <Button
                             v-for="s in ['category', 'name', 'cost'] as const"
                             :key="s"
                             :variant="poolSort === s ? 'default' : 'ghost'"
                             size="sm"
-                            class="h-5 px-1.5 text-[10px]"
+                            class="h-5 px-1.5 text-2xs"
                             @click="poolSort = s"
                         >
                             {{ { category: 'KW→OOK', name: 'Name', cost: 'Cost' }[s] }}
@@ -377,11 +377,11 @@ const submit = () => {
                                             {{ effectiveCost(c) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                             <span v-if="getCategory(c) === 'ook'" class="ml-0.5 text-xs font-normal text-red-300">(+1 OOK)</span>
                                         </span>
-                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
+                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90">
                                             {{ c.station ?? 'enforcer' }}
                                         </Badge>
-                                        <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-[10px] text-blue-200"> Versatile </Badge>
-                                        <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200">
+                                        <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-2xs text-blue-200"> Versatile </Badge>
+                                        <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-2xs text-red-200">
                                             OOK
                                         </Badge>
                                         <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white/50 sm:inline">
@@ -390,10 +390,10 @@ const submit = () => {
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
-                                    <span v-if="hiredCountInSession(c.id) > 0" class="text-[10px] text-white/70">
+                                    <span v-if="hiredCountInSession(c.id) > 0" class="text-2xs text-white/70">
                                         ×{{ hiredCountInSession(c.id) }}
                                     </span>
-                                    <span v-if="!locked && effectiveCost(c) > remainingBudget" class="text-[10px] text-white/50">Over budget</span>
+                                    <span v-if="!locked && effectiveCost(c) > remainingBudget" class="text-2xs text-white/50">Over budget</span>
                                     <Button
                                         aria-label="Hire"
                                         variant="ghost"
@@ -427,7 +427,7 @@ const submit = () => {
                                 <Input v-model="h.label" placeholder="Label (e.g. 'Zombie A')" class="mt-1 h-7 text-xs" :disabled="locked" />
                             </div>
                             <div class="flex items-center gap-2">
-                                <Badge variant="outline" class="text-[10px] tabular-nums">{{ h.cost }} ss</Badge>
+                                <Badge variant="outline" class="text-2xs tabular-nums">{{ h.cost }} ss</Badge>
                                 <Button aria-label="Remove hire" variant="ghost" size="sm" :disabled="locked" @click="removeHire(idx)">×</Button>
                             </div>
                         </li>
@@ -456,7 +456,7 @@ const submit = () => {
                         >
                             <p class="font-medium">{{ e.name }}</p>
                             <p v-if="e.body" class="text-xs text-muted-foreground">{{ e.body }}</p>
-                            <div v-if="e.abilities.length || e.actions.length" class="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+                            <div v-if="e.abilities.length || e.actions.length" class="mt-1 space-y-0.5 text-2xs text-muted-foreground">
                                 <p v-if="e.abilities.length">
                                     <span class="font-semibold">Abilities:</span>
                                     {{ e.abilities.map((a) => a.name).join(', ') }}
@@ -504,7 +504,7 @@ const submit = () => {
                         placeholder="Crew card name (leave blank to skip)"
                         class="mt-1 h-9 text-sm"
                     />
-                    <p class="mt-1 text-[11px] text-muted-foreground">Saved as a crew upgrade you can view and print in the Card Creator.</p>
+                    <p class="mt-1 text-2xs text-muted-foreground">Saved as a crew upgrade you can view and print in the Card Creator.</p>
                 </div>
 
                 <!-- Constrained pick for crew cards that require a token/marker/upgrade (pg 17). -->
@@ -529,7 +529,7 @@ const submit = () => {
                             <SelectItem v-for="opt in choiceOptions" :key="opt.id" :value="opt.id.toString()">{{ opt.name }}</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p v-if="choiceOptions.length === 0" class="mt-1 text-[11px] text-muted-foreground">
+                    <p v-if="choiceOptions.length === 0" class="mt-1 text-2xs text-muted-foreground">
                         No eligible {{ requiredChoiceType }}s found for your keywords.
                     </p>
                 </div>
@@ -569,13 +569,13 @@ const submit = () => {
                         </span>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
-                        <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station ?? 'enforcer' }}</Badge>
-                        <Badge v-if="isVersatile(previewCharacter)" class="bg-blue-500/20 px-1.5 py-0 text-[10px] text-blue-600 dark:text-blue-400">
+                        <Badge variant="secondary" class="text-2xs capitalize">{{ previewCharacter.station ?? 'enforcer' }}</Badge>
+                        <Badge v-if="isVersatile(previewCharacter)" class="bg-blue-500/20 px-1.5 py-0 text-2xs text-blue-600 dark:text-blue-400">
                             Versatile
                         </Badge>
                         <Badge
                             v-else-if="getCategory(previewCharacter) === 'ook'"
-                            class="bg-red-500/20 px-1.5 py-0 text-[10px] text-red-600 dark:text-red-400"
+                            class="bg-red-500/20 px-1.5 py-0 text-2xs text-red-600 dark:text-red-400"
                         >
                             OOK
                         </Badge>

@@ -58,12 +58,12 @@ const columns: ColumnDef<TotemRow>[] = [
         id: 'flags',
         header: () => h('div', {}, 'Flags'),
         cell: ({ row }) =>
-            row.original.campaign_totem_special_replace ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => 'Special Replace') : null,
+            row.original.campaign_totem_special_replace ? h(Badge, { variant: 'outline', class: 'text-2xs' }, () => 'Special Replace') : null,
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {

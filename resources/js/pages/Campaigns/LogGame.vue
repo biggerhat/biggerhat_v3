@@ -114,14 +114,14 @@ const submit = () => {
                     <div>
                         <Label for="vp_opponent">Opponent VP</Label>
                         <Input id="vp_opponent" type="number" min="0" max="20" v-model.number="form.vp_opponent" />
-                        <p class="text-[11px] text-muted-foreground">0 if you played against the game itself.</p>
+                        <p class="text-2xs text-muted-foreground">0 if you played against the game itself.</p>
                     </div>
                 </div>
 
                 <div>
                     <Label for="schemes_completed">Schemes Completed (0–3)</Label>
                     <Input id="schemes_completed" type="number" min="0" max="3" v-model.number="form.schemes_completed" />
-                    <p class="text-[11px] text-muted-foreground">Drives your Aftermath hand size.</p>
+                    <p class="text-2xs text-muted-foreground">Drives your Aftermath hand size.</p>
                 </div>
 
                 <div class="space-y-2 rounded-md border p-3">

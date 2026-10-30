@@ -578,7 +578,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div class="flex items-center gap-2">
                                         <span class="truncate text-sm font-medium transition-colors hover:text-primary">{{ item.name }}</span>
                                         <span
-                                            class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium capitalize"
+                                            class="shrink-0 rounded px-1.5 py-0.5 text-2xs font-medium capitalize"
                                             :class="typeBadgeClass[item.type]"
                                         >
                                             {{ item.type.replace('_', ' ') }}
@@ -668,7 +668,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                 <Link :href="route('packages.view', pkg.slug)" class="min-w-0 flex-1">
                                     <div class="truncate text-sm font-medium transition-colors hover:text-primary">{{ pkg.name }}</div>
                                     <div v-if="pkg.factions?.length" class="flex flex-wrap gap-1">
-                                        <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-[10px]">
+                                        <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-2xs">
                                             <img :src="f.logo" :alt="f.label" class="size-3" />
                                             {{ f.label }}
                                         </Badge>

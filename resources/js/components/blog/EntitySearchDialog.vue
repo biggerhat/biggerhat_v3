@@ -149,7 +149,7 @@ const handleSelect = (entity: EntityResult) => {
                         class="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                         @click="handleSelect(entity)"
                     >
-                        <Badge :class="['border-0 text-[10px]', typeBadgeClass[entity.entityType] ?? '']" variant="outline">
+                        <Badge :class="['border-0 text-2xs', typeBadgeClass[entity.entityType] ?? '']" variant="outline">
                             {{ entity.entityType.slice(0, 3).toUpperCase() }}
                         </Badge>
                         <span>{{ entity.displayName }}</span>

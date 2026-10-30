@@ -127,7 +127,7 @@ const submit = () => {
                                     <p class="font-medium">{{ o.name }}</p>
                                     <p class="text-xs text-muted-foreground">{{ o.user?.name }} • {{ o.faction ?? '—' }}</p>
                                 </div>
-                                <Badge variant="outline" class="text-[10px] tabular-nums">{{ o.scrip }} scrip</Badge>
+                                <Badge variant="outline" class="text-2xs tabular-nums">{{ o.scrip }} scrip</Badge>
                             </div>
                         </button>
                     </li>

@@ -229,16 +229,16 @@ const toggleSort = (column: string) => {
                             </td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">{{ game.creator?.name ?? '—' }}</td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">
-                                <Badge v-if="game.is_solo" variant="outline" class="text-[10px]">Solo</Badge>
+                                <Badge v-if="game.is_solo" variant="outline" class="text-2xs">Solo</Badge>
                                 <span v-else>{{ game.players.map((p) => p.name).join(', ') || '—' }}</span>
                             </td>
                             <td class="px-3 py-2">
-                                <Badge variant="outline" class="text-[10px]">{{ game.status_label }}</Badge>
+                                <Badge variant="outline" class="text-2xs">{{ game.status_label }}</Badge>
                             </td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">{{ game.format_label }}</td>
                             <td class="px-3 py-2 text-xs tabular-nums text-muted-foreground">{{ game.current_turn }}/{{ game.max_turns }}</td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">
-                                <Badge v-if="game.is_tie" variant="outline" class="text-[10px]">Tie</Badge>
+                                <Badge v-if="game.is_tie" variant="outline" class="text-2xs">Tie</Badge>
                                 <span v-else>{{ game.winner?.name ?? '—' }}</span>
                             </td>
                             <td class="px-3 py-2 text-xs text-muted-foreground" :title="game.updated_at_iso">{{ game.updated_at }}</td>

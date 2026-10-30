@@ -139,7 +139,7 @@ const tiles = computed(() => [
                         />
                     </div>
                 </div>
-                <div class="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                <div class="mt-1 flex justify-between text-2xs text-muted-foreground">
                     <span>{{ formatHour(hourly[0].hour) }}</span>
                     <span>{{ formatHour(hourly[hourly.length - 1].hour) }}</span>
                 </div>
@@ -174,7 +174,7 @@ const tiles = computed(() => [
                         <li v-for="(e, i) in recent_errors" :key="i" class="text-xs">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="text-muted-foreground">{{ formatDate(e.at) }}</span>
-                                <Badge v-if="e.command" variant="outline" class="font-mono text-[10px]">{{ e.command }}</Badge>
+                                <Badge v-if="e.command" variant="outline" class="font-mono text-2xs">{{ e.command }}</Badge>
                             </div>
                             <p class="mt-0.5 break-words font-mono text-red-700 dark:text-red-400">{{ e.message }}</p>
                         </li>

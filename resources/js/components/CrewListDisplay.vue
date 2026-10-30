@@ -111,7 +111,7 @@ watch(upgradeDrawerOpen, (val) => {
             />
             <div class="min-w-0 flex-1">
                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
-                <div class="text-[10px] text-muted-foreground">
+                <div class="text-2xs text-muted-foreground">
                     {{ upgrade.is_active ? 'Active Crew Card' : 'Crew Card · inactive' }}
                 </div>
             </div>
@@ -153,7 +153,7 @@ watch(upgradeDrawerOpen, (val) => {
                         <span v-else class="flex items-center text-sm font-bold text-white">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                         </span>
-                        <Badge :class="categoryColor(member.category)" class="px-1 py-0 text-[10px]">
+                        <Badge :class="categoryColor(member.category)" class="px-1 py-0 text-2xs">
                             {{ categoryLabel(member.category) }}
                         </Badge>
                     </div>

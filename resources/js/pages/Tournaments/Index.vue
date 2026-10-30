@@ -87,9 +87,7 @@ const removeTournament = async (t: TournamentSummary) => {
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     Organize and track Gaining Grounds events
-                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-[10px] font-bold text-amber-600 dark:text-amber-400"
-                        >Beta</Badge
-                    >
+                    <Badge class="border-amber-500/60 bg-amber-500/10 px-1.5 py-0 text-2xs font-bold text-amber-600 dark:text-amber-400">Beta</Badge>
                 </div>
             </template>
         </PageBanner>
@@ -150,11 +148,9 @@ const removeTournament = async (t: TournamentSummary) => {
                         <Card :class="['h-full', CARD_HOVER]">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
-                                    <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
-                                        statusLabel(t.status)
-                                    }}</Badge>
+                                    <Badge :class="['border-0 text-2xs', statusColor(t.status)]" variant="outline">{{ statusLabel(t.status) }}</Badge>
                                     <div class="flex items-center gap-2">
-                                        <span class="text-[11px] tabular-nums text-muted-foreground"
+                                        <span class="text-2xs tabular-nums text-muted-foreground"
                                             >{{ t.encounter_size }}ss
                                             {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
                                         >
@@ -174,7 +170,7 @@ const removeTournament = async (t: TournamentSummary) => {
                                     <Trophy class="size-4 text-muted-foreground" />
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
-                                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                <div class="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-muted-foreground">
                                     <span class="flex items-center gap-1 tabular-nums"
                                         ><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span
                                     >
@@ -201,11 +197,9 @@ const removeTournament = async (t: TournamentSummary) => {
                         <Card :class="['h-full', CARD_HOVER]">
                             <CardContent class="p-4">
                                 <div class="mb-2 flex items-center justify-between">
-                                    <Badge :class="['border-0 text-[10px]', statusColor(t.status)]" variant="outline">{{
-                                        statusLabel(t.status)
-                                    }}</Badge>
+                                    <Badge :class="['border-0 text-2xs', statusColor(t.status)]" variant="outline">{{ statusLabel(t.status) }}</Badge>
                                     <div class="flex items-center gap-2">
-                                        <span class="text-[11px] tabular-nums text-muted-foreground"
+                                        <span class="text-2xs tabular-nums text-muted-foreground"
                                             >{{ t.encounter_size }}ss
                                             {{ t.encounter_type === 'traditional' ? '' : t.encounter_type?.replace('_', ' ') }}</span
                                         >
@@ -225,7 +219,7 @@ const removeTournament = async (t: TournamentSummary) => {
                                     <Trophy class="size-4 text-muted-foreground" />
                                     <span class="text-sm font-medium">{{ t.name }}</span>
                                 </div>
-                                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                <div class="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-muted-foreground">
                                     <span class="flex items-center gap-1 tabular-nums"
                                         ><CalendarDays class="size-3" /> {{ formatDateOnly(t.event_date) }}</span
                                     >

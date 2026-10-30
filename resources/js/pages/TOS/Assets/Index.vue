@@ -172,24 +172,24 @@ const addToCollection = (assetId: number) => {
                         <CardContent class="space-y-1.5 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ a.name }}</span>
-                                <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ a.scrip_cost }}</span>
+                                <span class="shrink-0 text-2xs tabular-nums text-muted-foreground">{{ a.scrip_cost }}</span>
                             </div>
                             <div class="flex flex-wrap gap-1">
-                                <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-[10px] capitalize">{{ limitLabel(l) }}</Badge>
+                                <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-2xs capitalize">{{ limitLabel(l) }}</Badge>
                             </div>
-                            <p v-if="a.allegiances.length" class="truncate text-[10px] text-muted-foreground">
+                            <p v-if="a.allegiances.length" class="truncate text-2xs text-muted-foreground">
                                 {{ a.allegiances.map((x) => x.name).join(', ') }}
                             </p>
 
                             <!-- Adjunct-limit Assets are physical swap-in models — count as Units for collection purposes -->
                             <template v-if="isAdjunct(a)">
-                                <div v-if="inCollection(a.id)" class="flex items-center gap-1 pt-0.5 text-[11px]" style="color: #059669">
+                                <div v-if="inCollection(a.id)" class="flex items-center gap-1 pt-0.5 text-2xs" style="color: #059669">
                                     <BookMarked class="size-3" />
                                     Collected
                                 </div>
                                 <button
                                     v-else-if="isAuthenticated"
-                                    class="flex items-center gap-1 pt-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                                    class="flex items-center gap-1 pt-0.5 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
                                     :disabled="addingToCollectionId === a.id"
                                     @click.stop.prevent="addToCollection(a.id)"
                                 >

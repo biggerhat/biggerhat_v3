@@ -100,7 +100,7 @@ const columns: ColumnDef<any>[] = [
         id: 'actions',
         enableHiding: false,
         enableSorting: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const blueprint = row.original;
             return h(

@@ -285,7 +285,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
         <PageBanner :title="tournament.name" class="mb-2">
             <template #subtitle>
                 <div class="my-auto flex flex-wrap items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm">
-                    <Badge variant="outline" class="text-[10px]">{{
+                    <Badge variant="outline" class="text-2xs">{{
                         tournament.status === 'completed'
                             ? 'Completed'
                             : tournament.status === 'active'
@@ -389,7 +389,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         </TabsTrigger>
                         <TabsTrigger v-if="tournament.rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
                             RSVPs
-                            <Badge variant="secondary" class="ml-1 px-1 py-0 text-[10px]">{{ tournament.rsvps.length }}</Badge>
+                            <Badge variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{ tournament.rsvps.length }}</Badge>
                         </TabsTrigger>
                         <TabsTrigger v-if="isCompleted" value="stats" class="text-xs sm:text-sm">
                             <BarChart3 class="mr-1 size-3" /> Stats
@@ -460,14 +460,14 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         >
                             <!-- Mobile layout: stacked -->
                             <div class="flex flex-col gap-1 p-2.5 sm:hidden">
-                                <div class="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <div class="flex items-center gap-2 text-2xs text-muted-foreground">
                                     <span v-if="game.table_number">Table {{ game.table_number }}</span>
-                                    <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-[10px]">BYE</Badge>
-                                    <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-[10px]">Forfeit</Badge>
+                                    <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-2xs">BYE</Badge>
+                                    <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-2xs">Forfeit</Badge>
                                     <Badge
                                         v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
                                         variant="outline"
-                                        class="ml-auto px-1 py-0 text-[10px]"
+                                        class="ml-auto px-1 py-0 text-2xs"
                                         :class="
                                             game.tracker_game.status === 'in_progress'
                                                 ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
@@ -495,7 +495,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         <div class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">
                                             {{ playerName(game.player_one_id) }}
                                         </div>
-                                        <div v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground">
+                                        <div v-if="game.player_one_master" class="truncate text-2xs text-muted-foreground">
                                             {{ game.player_one_title || game.player_one_master }}
                                         </div>
                                     </div>
@@ -522,7 +522,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         <div class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">
                                             {{ playerName(game.player_two_id) }}
                                         </div>
-                                        <div v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground">
+                                        <div v-if="game.player_two_master" class="truncate text-2xs text-muted-foreground">
                                             {{ game.player_two_title || game.player_two_master }}
                                         </div>
                                     </div>
@@ -550,7 +550,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
                             <!-- Desktop layout: single row -->
                             <div class="hidden items-center gap-2 px-2 py-1.5 sm:flex">
-                                <span v-if="game.table_number" class="shrink-0 text-[10px] text-muted-foreground">T{{ game.table_number }}</span>
+                                <span v-if="game.table_number" class="shrink-0 text-2xs text-muted-foreground">T{{ game.table_number }}</span>
 
                                 <div class="flex min-w-0 flex-1 items-center gap-1.5">
                                     <FactionLogo
@@ -561,13 +561,13 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{
                                         playerName(game.player_one_id)
                                     }}</span>
-                                    <span v-if="game.player_one_master" class="truncate text-[10px] text-muted-foreground"
+                                    <span v-if="game.player_one_master" class="truncate text-2xs text-muted-foreground"
                                         >· {{ game.player_one_title || game.player_one_master }}</span
                                     >
                                 </div>
 
                                 <template v-if="game.is_bye">
-                                    <Badge variant="outline" class="shrink-0 text-[10px]">BYE</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs">BYE</Badge>
                                 </template>
                                 <template v-else>
                                     <div class="flex shrink-0 items-center gap-1 font-mono text-xs tabular-nums">
@@ -591,7 +591,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     </div>
 
                                     <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
-                                        <span v-if="game.player_two_master" class="truncate text-[10px] text-muted-foreground"
+                                        <span v-if="game.player_two_master" class="truncate text-2xs text-muted-foreground"
                                             >{{ game.player_two_title || game.player_two_master }} ·</span
                                         >
                                         <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{
@@ -604,12 +604,12 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         />
                                     </div>
 
-                                    <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[10px]">Forfeit</Badge>
+                                    <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-2xs">Forfeit</Badge>
 
                                     <Badge
                                         v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
                                         variant="outline"
-                                        class="shrink-0 px-1 py-0 text-[10px]"
+                                        class="shrink-0 px-1 py-0 text-2xs"
                                         :class="
                                             game.tracker_game.status === 'in_progress'
                                                 ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
@@ -630,7 +630,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         :href="route('games.observe', game.tracker_game.uuid)"
                                         target="_blank"
                                         rel="noopener"
-                                        class="shrink-0 text-[10px] font-medium text-primary hover:underline"
+                                        class="shrink-0 text-2xs font-medium text-primary hover:underline"
                                     >
                                         View
                                     </a>
@@ -697,13 +697,13 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             <Card>
                                 <CardContent class="p-4">
-                                    <div class="text-[10px] uppercase text-muted-foreground">Total Games</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Total Games</div>
                                     <div class="text-2xl font-bold">{{ tournamentStats.totalGames }}</div>
                                 </CardContent>
                             </Card>
                             <Card v-if="tournamentStats.topFaction">
                                 <CardContent class="p-4">
-                                    <div class="text-[10px] uppercase text-muted-foreground">Most Played Faction</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Most Played Faction</div>
                                     <div class="mt-1 flex items-center gap-1.5">
                                         <FactionLogo :faction="tournamentStats.topFaction[0]" class-name="size-5" />
                                         <span class="text-sm font-medium capitalize">{{ tournamentStats.topFaction[0]?.replace('_', ' ') }}</span>
@@ -713,7 +713,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             </Card>
                             <Card v-if="tournamentStats.topMaster">
                                 <CardContent class="p-4">
-                                    <div class="text-[10px] uppercase text-muted-foreground">Most Picked Master</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Most Picked Master</div>
                                     <div class="mt-1 text-sm font-medium">
                                         {{ tournamentStats.topMaster[0] }}
                                         <span class="text-xs text-muted-foreground">({{ tournamentStats.topMaster[1] }}x)</span>
@@ -722,7 +722,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             </Card>
                             <Card v-if="tournamentStats.topVp && tournamentStats.topVp.player_id !== tournamentStats.winner?.player_id">
                                 <CardContent class="p-4">
-                                    <div class="text-[10px] uppercase text-muted-foreground">Top VP</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Top VP</div>
                                     <div class="mt-1 text-sm font-medium">
                                         {{ tournamentStats.topVp.display_name }}
                                         <span class="text-xs text-muted-foreground">({{ tournamentStats.topVp.total_vp }} VP)</span>
@@ -731,7 +731,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             </Card>
                             <Card v-if="tournamentStats.topDiff && tournamentStats.topDiff.player_id !== tournamentStats.winner?.player_id">
                                 <CardContent class="p-4">
-                                    <div class="text-[10px] uppercase text-muted-foreground">Top Differential</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Top Differential</div>
                                     <div class="mt-1 text-sm font-medium">
                                         {{ tournamentStats.topDiff.display_name }}
                                         <span class="text-xs text-muted-foreground">(+{{ tournamentStats.topDiff.total_diff }})</span>
@@ -740,15 +740,15 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             </Card>
                             <Card v-if="tournamentStats.spoon">
                                 <CardContent class="p-4">
-                                    <div class="text-[10px] uppercase text-muted-foreground">Wooden Spoon</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Wooden Spoon</div>
                                     <div class="mt-1 text-sm font-medium">{{ tournamentStats.spoon.display_name }}</div>
                                 </CardContent>
                             </Card>
                             <Card v-if="scheme_stats?.most_scored">
                                 <CardContent class="p-4">
-                                    <div class="text-[10px] uppercase text-muted-foreground">Most Scored Scheme</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Most Scored Scheme</div>
                                     <div class="mt-1 text-sm font-medium">{{ scheme_stats.most_scored.name }}</div>
-                                    <div class="text-[10px] text-muted-foreground">
+                                    <div class="text-2xs text-muted-foreground">
                                         {{ scheme_stats.most_scored.total_points }} VP across {{ scheme_stats.most_scored.scoring_turns }} turns
                                     </div>
                                 </CardContent>
@@ -758,7 +758,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         <!-- Best in Faction -->
                         <Card v-if="Object.keys(tournamentStats.bestInFaction).length">
                             <CardContent class="p-4">
-                                <div class="mb-3 text-[10px] font-semibold uppercase text-muted-foreground">Best in Faction</div>
+                                <div class="mb-3 text-2xs font-semibold uppercase text-muted-foreground">Best in Faction</div>
                                 <div class="grid gap-2 sm:grid-cols-2">
                                     <div
                                         v-for="(entry, faction) in tournamentStats.bestInFaction"
@@ -768,7 +768,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         <FactionLogo :faction="String(faction)" class-name="size-5 shrink-0" />
                                         <div class="min-w-0 flex-1">
                                             <div class="truncate font-medium">{{ entry.display_name }}</div>
-                                            <div class="text-[10px] text-muted-foreground">{{ entry.total_tp }} TP · {{ entry.total_vp }} VP</div>
+                                            <div class="text-2xs text-muted-foreground">{{ entry.total_tp }} TP · {{ entry.total_vp }} VP</div>
                                         </div>
                                     </div>
                                 </div>

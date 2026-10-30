@@ -111,16 +111,14 @@ function setRule(slug: string | null) {
         <div class="container mx-auto sm:px-4">
             <!-- Special-rule filter chips — segmented control aligned with the rest of TOS -->
             <div class="mb-2 flex flex-wrap items-center gap-1">
-                <span class="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Rule:</span>
-                <Button :variant="!filterParams.rule ? 'default' : 'outline'" size="sm" class="h-6 px-2 text-[11px]" @click="setRule(null)"
-                    >All</Button
-                >
+                <span class="mr-1 text-2xs uppercase tracking-wider text-muted-foreground">Rule:</span>
+                <Button :variant="!filterParams.rule ? 'default' : 'outline'" size="sm" class="h-6 px-2 text-2xs" @click="setRule(null)">All</Button>
                 <Button
                     v-for="r in special_rules"
                     :key="r.value"
                     :variant="filterParams.rule === r.value ? 'default' : 'outline'"
                     size="sm"
-                    class="h-6 px-2 text-[11px]"
+                    class="h-6 px-2 text-2xs"
                     @click="setRule(r.value)"
                     >{{ r.name }}</Button
                 >
@@ -129,12 +127,12 @@ function setRule(slug: string | null) {
                  the allegiance list is longer than the rule list. Full AND/OR/exclude
                  allegiance filtering lives on Advanced Search for users who need it. -->
             <div class="mb-4 flex flex-wrap items-center gap-1">
-                <span class="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Allegiance:</span>
+                <span class="mr-1 text-2xs uppercase tracking-wider text-muted-foreground">Allegiance:</span>
                 <ClearableSelect
                     v-model="filterParams.allegiance"
                     :options="allegiances"
                     placeholder="All allegiances"
-                    trigger-class="h-6 w-48 text-[11px]"
+                    trigger-class="h-6 w-48 text-2xs"
                     @update:model-value="filter"
                 />
             </div>

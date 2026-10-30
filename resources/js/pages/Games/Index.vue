@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CARD_HOVER, CARD_HOVER_GROUP, CARD_HOVER_PROMINENT } from '@/lib/cardHover';
+import { CARD_HOVER, CARD_HOVER_GROUP } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
+import { BarChart3, ChevronRight, Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface GamePlayer {
@@ -87,6 +87,23 @@ const statusColor = (status: string): string =>
         abandoned: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     })[status] ?? '';
 
+const meId = computed(() => page.props.auth.user?.id ?? null);
+const playerLabel = (p: GamePlayer) => p.user?.name ?? p.opponent_name ?? 'Opponent';
+
+/** What to call a game: its name, else who it's against, so cards in a list are distinguishable. */
+const gameTitle = (g: Game): string => {
+    if (g.name) return g.name;
+    if (g.is_solo) return 'Solo game';
+    const mine = g.players.some((p) => p.user?.id === meId.value);
+    if (mine) {
+        const others = g.players.filter((p) => p.user?.id !== meId.value).map(playerLabel);
+        return others.length ? `vs ${others.join(' & ')}` : 'Open game';
+    }
+    return g.players.map(playerLabel).join(' vs ') || 'Open game';
+};
+
+const showScores = (g: Game) => g.status === 'in_progress' || g.status === 'completed';
+
 const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
@@ -106,43 +123,22 @@ const formatDate = (dateStr: string) => {
                     Track your Malifaux games in real time
                 </div>
             </template>
+            <template v-if="isLoggedIn" #actions>
+                <div class="my-auto flex flex-wrap gap-2 px-2 pb-2 md:pb-0 md:pr-4">
+                    <Button as-child size="sm" variant="outline">
+                        <Link :href="route('stats.my')"><BarChart3 class="mr-1.5 size-4" /> My stats</Link>
+                    </Button>
+                    <Button as-child size="sm">
+                        <Link :href="route('games.create')"><Plus class="mr-1.5 size-4" /> New game</Link>
+                    </Button>
+                </div>
+            </template>
         </PageBanner>
 
-        <div class="container mx-auto sm:px-4">
-            <!-- My Stats link -->
-            <div v-if="isLoggedIn" class="mb-4 flex justify-end">
-                <Link :href="route('stats.my')">
-                    <Button variant="outline" size="sm" class="gap-1.5 text-xs">
-                        <BarChart3 class="size-3.5" />
-                        My Stats
-                    </Button>
-                </Link>
-            </div>
-
-            <!-- Create Game CTA -->
-            <Link
-                v-if="isLoggedIn"
-                :href="route('games.create')"
-                class="group mb-6 block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-                <Card :class="CARD_HOVER_PROMINENT">
-                    <CardContent class="flex items-center gap-4 p-5">
-                        <div
-                            class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
-                        >
-                            <Plus class="size-6" />
-                        </div>
-                        <div>
-                            <p class="font-semibold">Create New Game</p>
-                            <p class="text-sm text-muted-foreground">Set up a new encounter and invite an opponent</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </Link>
-
+        <div class="container mx-auto">
             <!-- Active Games -->
-            <div v-if="isLoggedIn && active_games.length" class="mb-8">
-                <h2 class="mb-3 text-lg font-semibold">Active Games</h2>
+            <section v-if="isLoggedIn && active_games.length" class="mb-8" aria-labelledby="games-active">
+                <h2 id="games-active" class="mb-3 text-lg font-semibold">Active games</h2>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <div v-for="game in active_games" :key="game.id" class="group relative">
                         <Link
@@ -150,105 +146,111 @@ const formatDate = (dateStr: string) => {
                             class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                             <Card :class="['h-full', CARD_HOVER_GROUP]">
-                                <CardContent class="p-4">
-                                    <div class="mb-2 flex items-center justify-between">
-                                        <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
+                                <CardContent class="flex h-full flex-col gap-2.5 p-4">
+                                    <div class="flex items-center justify-between gap-2 pr-8">
+                                        <Badge :class="['border-0 text-2xs', statusColor(game.status)]" variant="outline">
                                             {{ statusLabel(game.status, game.is_solo) }}
                                         </Badge>
-                                        <span class="text-[11px] tabular-nums text-muted-foreground">{{ formatDate(game.created_at) }}</span>
+                                        <span class="text-2xs tabular-nums text-muted-foreground">{{ formatDate(game.created_at) }}</span>
                                     </div>
-                                    <div class="mb-2 flex items-center gap-2">
-                                        <Swords class="size-4 text-muted-foreground" />
-                                        <span class="text-sm font-medium">{{ game.name || game.encounter_size + 'ss' }}</span>
-                                        <Badge
-                                            v-if="game.format === 'bonanza_brawl'"
-                                            variant="outline"
-                                            class="border-purple-500/50 px-1.5 py-0 text-[9px] text-purple-600 dark:text-purple-300"
-                                        >
-                                            Bonanza Brawl
-                                        </Badge>
-                                        <span v-if="game.strategy" class="text-xs text-muted-foreground">{{ game.strategy.name }}</span>
-                                    </div>
-                                    <div v-if="game.status === 'in_progress'" class="mb-2 text-xs tabular-nums text-muted-foreground">
-                                        Turn {{ game.current_turn }}
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div v-for="player in game.players" :key="player.id" class="flex items-center gap-1.5">
-                                            <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
-                                            <span class="text-xs">{{ player.user?.name ?? player.opponent_name ?? 'Opponent' }}</span>
-                                            <Badge v-if="player.role" variant="outline" class="px-1 py-0 text-[9px] capitalize">
-                                                {{ player.role }}
+                                    <div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <Swords class="size-4 shrink-0 text-muted-foreground" />
+                                            <span class="text-base font-semibold leading-tight">{{ gameTitle(game) }}</span>
+                                            <Badge
+                                                v-if="game.format === 'bonanza_brawl'"
+                                                variant="outline"
+                                                class="border-purple-500/50 px-1.5 py-0 text-2xs text-purple-700 dark:text-purple-300"
+                                            >
+                                                Bonanza Brawl
                                             </Badge>
                                         </div>
+                                        <div class="mt-0.5 text-xs text-muted-foreground">
+                                            {{ game.encounter_size }}ss<template v-if="game.strategy"> · {{ game.strategy.name }}</template
+                                            ><template v-if="game.status === 'in_progress'"> · Turn {{ game.current_turn }}</template>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                        <div v-for="player in game.players" :key="player.id" class="flex items-center gap-1.5">
+                                            <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
+                                            <span class="text-xs">{{ playerLabel(player) }}</span>
+                                            <span v-if="showScores(game)" class="text-xs font-bold tabular-nums text-muted-foreground">{{
+                                                player.total_points
+                                            }}</span>
+                                        </div>
                                         <span v-if="!game.is_solo && game.players.length < 2" class="text-xs italic text-muted-foreground"
-                                            >Waiting for opponent...</span
+                                            >Waiting for an opponent…</span
                                         >
-                                        <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
+                                        <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-2xs">Solo</Badge>
+                                    </div>
+                                    <div class="mt-auto flex justify-end text-xs font-medium">
+                                        <span class="inline-flex items-center gap-0.5"
+                                            >{{ game.status === 'in_progress' ? 'Resume' : 'Continue setup' }} <ChevronRight class="size-3.5"
+                                        /></span>
                                     </div>
                                 </CardContent>
                             </Card>
                         </Link>
                         <button
-                            class="absolute bottom-3 right-3 rounded-md p-1 text-destructive/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Delete game"
+                            class="absolute right-2 top-2 rounded-md p-1.5 text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
                             @click.prevent="confirmDelete(game)"
                         >
-                            <Trash2 class="size-3.5" />
+                            <Trash2 class="size-4" />
                         </button>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Recent Games -->
-            <div v-if="isLoggedIn && recent_games.length">
-                <h2 class="mb-3 text-lg font-semibold">Recent Games</h2>
-                <div class="space-y-2">
-                    <div v-for="game in recent_games" :key="game.id" class="group relative">
+            <section v-if="isLoggedIn && recent_games.length" aria-labelledby="games-recent">
+                <h2 id="games-recent" class="mb-3 text-lg font-semibold">Recent games</h2>
+                <ul class="space-y-2">
+                    <li v-for="game in recent_games" :key="game.id" class="flex items-center gap-1">
                         <Link
                             :href="route('games.show', game.uuid)"
-                            class="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all duration-200 ease-out hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            class="flex min-w-0 flex-1 items-center gap-3 rounded-lg border px-3 py-2.5 transition-all duration-200 ease-out hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
-                            <Trophy v-if="game.status === 'completed' && !game.is_tie" class="size-4 shrink-0 text-amber-500" />
+                            <Trophy v-if="game.status === 'completed' && !game.is_tie" class="size-4 shrink-0 text-amber-700 dark:text-amber-400" />
                             <Swords v-else class="size-4 shrink-0 text-muted-foreground" />
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2 text-sm">
+                                <div class="flex flex-wrap items-center gap-x-2 text-sm">
+                                    <span v-if="game.name" class="font-semibold">{{ game.name }}</span>
                                     <span v-for="(player, idx) in game.players" :key="player.id">
                                         <span v-if="idx > 0" class="text-muted-foreground"> vs </span>
-                                        <span :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{
-                                            player.user?.name ?? player.opponent_name ?? 'Opponent'
-                                        }}</span>
-                                        <span class="tabular-nums text-muted-foreground">({{ player.total_points }})</span>
+                                        <span :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{ playerLabel(player) }}</span>
+                                        <span class="tabular-nums text-muted-foreground"> ({{ player.total_points }})</span>
                                     </span>
-                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
+                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-2xs">Solo</Badge>
                                 </div>
-                                <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                <div class="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
                                     <span class="tabular-nums">{{ game.encounter_size }}ss</span>
-                                    <span v-if="game.format === 'bonanza_brawl'" class="text-purple-600 dark:text-purple-300"
-                                        >&middot; Bonanza Brawl</span
-                                    >
-                                    <span v-if="game.strategy">&middot; {{ game.strategy.name }}</span>
-                                    <span v-if="game.completed_at">&middot; {{ formatDate(game.completed_at) }}</span>
+                                    <span v-if="game.format === 'bonanza_brawl'" class="text-purple-700 dark:text-purple-300">· Bonanza Brawl</span>
+                                    <span v-if="game.strategy">· {{ game.strategy.name }}</span>
+                                    <span v-if="game.completed_at">· {{ formatDate(game.completed_at) }}</span>
                                 </div>
                             </div>
-                            <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
+                            <Badge :class="['shrink-0 border-0 text-2xs', statusColor(game.status)]" variant="outline">
                                 {{ statusLabel(game.status, game.is_solo) }}
                             </Badge>
                         </Link>
                         <button
-                            class="absolute bottom-2 right-2 rounded-md p-1 text-destructive/60 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Delete game"
+                            class="shrink-0 rounded-md p-2 text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
                             @click="confirmDelete(game)"
                         >
-                            <Trash2 class="size-3.5" />
+                            <Trash2 class="size-4" />
                         </button>
-                    </div>
-                </div>
-            </div>
+                    </li>
+                </ul>
+            </section>
 
             <!-- Observable Games -->
-            <div v-if="observable_games.length">
+            <section v-if="observable_games.length" aria-labelledby="games-public">
                 <div class="my-6 border-t" />
-                <h2 class="mb-1 flex items-center gap-2 text-lg font-semibold">
-                    <Eye class="size-4 text-amber-500" />
-                    Public Games
+                <h2 id="games-public" class="mb-1 flex items-center gap-2 text-lg font-semibold">
+                    <Eye class="size-4 text-amber-700 dark:text-amber-400" />
+                    Public games
                 </h2>
                 <p class="mb-3 text-xs text-muted-foreground">Games with spectating enabled from the last 24 hours</p>
                 <div class="grid gap-3 sm:grid-cols-2">
@@ -259,60 +261,56 @@ const formatDate = (dateStr: string) => {
                         class="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                         <Card :class="['h-full', CARD_HOVER]">
-                            <CardContent class="p-4">
-                                <div class="mb-2 flex items-center justify-between">
-                                    <Badge :class="['border-0 text-[10px]', statusColor(game.status)]" variant="outline">
+                            <CardContent class="flex h-full flex-col gap-2.5 p-4">
+                                <div class="flex items-center justify-between">
+                                    <Badge :class="['border-0 text-2xs', statusColor(game.status)]" variant="outline">
                                         {{ statusLabel(game.status, game.is_solo) }}
                                     </Badge>
-                                    <div class="flex items-center gap-1.5">
-                                        <Badge v-if="game.status === 'completed'" variant="outline" class="border-muted-foreground/30 text-[9px]">
-                                            <Trophy class="mr-1 size-2.5" /> Completed
-                                        </Badge>
-                                        <Badge v-else variant="outline" class="border-amber-500/50 text-[9px] text-amber-600 dark:text-amber-400">
-                                            <Eye class="mr-1 size-2.5" /> Public
+                                    <Badge
+                                        v-if="game.status !== 'completed'"
+                                        variant="outline"
+                                        class="border-amber-500/50 text-2xs text-amber-800 dark:text-amber-400"
+                                    >
+                                        <Eye class="mr-1 size-2.5" /> Watch live
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <Swords class="size-4 shrink-0 text-muted-foreground" />
+                                        <span class="text-sm font-semibold">{{ gameTitle(game) }}</span>
+                                        <Badge
+                                            v-if="game.format === 'bonanza_brawl'"
+                                            variant="outline"
+                                            class="border-purple-500/50 px-1.5 py-0 text-2xs text-purple-700 dark:text-purple-300"
+                                        >
+                                            Bonanza Brawl
                                         </Badge>
                                     </div>
+                                    <div class="mt-0.5 text-xs text-muted-foreground">
+                                        {{ game.encounter_size }}ss<template v-if="game.strategy"> · {{ game.strategy.name }}</template
+                                        ><template v-if="game.status === 'in_progress'"> · Turn {{ game.current_turn }}</template>
+                                    </div>
                                 </div>
-                                <div class="mb-2 flex items-center gap-2">
-                                    <Swords class="size-4 text-muted-foreground" />
-                                    <span class="text-sm font-medium">{{ game.name || game.encounter_size + 'ss' }}</span>
-                                    <Badge
-                                        v-if="game.format === 'bonanza_brawl'"
-                                        variant="outline"
-                                        class="border-purple-500/50 px-1.5 py-0 text-[9px] text-purple-600 dark:text-purple-300"
-                                    >
-                                        Bonanza Brawl
-                                    </Badge>
-                                    <span v-if="game.strategy" class="text-xs text-muted-foreground">{{ game.strategy.name }}</span>
-                                </div>
-                                <div v-if="game.status === 'in_progress'" class="mb-2 text-xs tabular-nums text-muted-foreground">
-                                    Turn {{ game.current_turn }}
-                                </div>
-                                <div
-                                    v-if="game.status === 'completed' && game.winner"
-                                    class="mb-2 text-xs font-medium text-amber-700 dark:text-amber-400"
-                                >
+                                <div v-if="game.status === 'completed' && game.winner" class="text-xs font-medium text-amber-700 dark:text-amber-400">
                                     {{ game.winner.name }} wins!
                                 </div>
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
                                     <div v-for="player in game.players" :key="player.id" class="flex items-center gap-1.5">
                                         <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
                                         <span class="text-xs" :class="game.winner?.id === player.user?.id ? 'font-bold' : ''">{{
-                                            player.user?.name ?? player.opponent_name ?? 'Opponent'
+                                            playerLabel(player)
                                         }}</span>
-                                        <span
-                                            v-if="game.status === 'in_progress' || game.status === 'completed'"
-                                            class="text-xs font-bold tabular-nums text-muted-foreground"
-                                            >({{ player.total_points }})</span
-                                        >
+                                        <span v-if="showScores(game)" class="text-xs font-bold tabular-nums text-muted-foreground">{{
+                                            player.total_points
+                                        }}</span>
                                     </div>
-                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-[9px]">Solo</Badge>
+                                    <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-2xs">Solo</Badge>
                                 </div>
                             </CardContent>
                         </Card>
                     </Link>
                 </div>
-            </div>
+            </section>
 
             <!-- Empty state -->
             <EmptyState

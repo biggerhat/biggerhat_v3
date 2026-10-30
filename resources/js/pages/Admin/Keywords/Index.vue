@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -11,19 +12,19 @@ import { h, ref, watch } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
 const columns: ColumnDef<Keywords>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Keyword'),
+        header: sortableHeader('Keyword'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
         },
     },
     {
         accessorKey: 'game_mode_type',
-        header: () => h('div', {}, 'Game Mode'),
+        header: sortableHeader('Game Mode'),
         cell: ({ row }) => {
             return h('div', { class: 'capitalize' }, row.getValue('game_mode_type') ?? 'standard');
         },
@@ -32,7 +33,7 @@ const columns: ColumnDef<Keywords>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const keyword = row.original;
 
@@ -64,7 +65,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
@@ -88,7 +91,7 @@ watch(gameModeFilter, (val) => {
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-2">
                 <Input

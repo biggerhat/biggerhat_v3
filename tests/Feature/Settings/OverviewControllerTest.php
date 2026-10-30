@@ -27,7 +27,7 @@ it('renders the overview with zeroed counts for a fresh user', function () {
     $this->actingAs($user)
         ->get(route('overview'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('Settings/Overview')
+        ->assertInertia(fn ($p) => $p->component('Hub/Index')
             ->where('active_games', 0)
             ->where('collection.malifaux_miniatures', 0)
             ->where('collection.malifaux_packages', 0)
@@ -94,7 +94,7 @@ it('renders correct counts once the user has activity', function () {
     $this->actingAs($user)
         ->get(route('overview'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('Settings/Overview')
+        ->assertInertia(fn ($p) => $p->component('Hub/Index')
             ->where('active_games', 1)
             ->where('wishlists.count', 1)
             ->where('wishlists.items', 1)
@@ -150,7 +150,7 @@ it('lists upcoming tournaments the user has RSVP\'d for, excluding past and comp
     $this->actingAs($user)
         ->get(route('overview'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('Settings/Overview')
+        ->assertInertia(fn ($p) => $p->component('Hub/Index')
             ->has('upcoming_tournaments', 1)
             ->where('upcoming_tournaments.0.name', 'Upcoming RSVP Tournament')
             ->where('upcoming_tournaments.0.uuid', $upcoming->uuid)
@@ -170,7 +170,7 @@ it('resolves the deferred achievements payload', function () {
         ->withHeaders([
             'X-Inertia' => 'true',
             'X-Inertia-Version' => $version,
-            'X-Inertia-Partial-Component' => 'Settings/Overview',
+            'X-Inertia-Partial-Component' => 'Hub/Index',
             'X-Inertia-Partial-Data' => 'achievements',
         ])
         ->get(route('overview'));
@@ -180,4 +180,72 @@ it('resolves the deferred achievements payload', function () {
     expect($payload['props']['achievements']['total_games'])->toBe(1)
         ->and($payload['props']['achievements']['wins'])->toBe(1)
         ->and($payload['props']['achievements']['badges'])->not->toBeEmpty();
+});
+
+it('lists the games to resume, newest activity first, with the opponent', function () {
+    $user = User::factory()->create();
+    $opponent = User::factory()->create(['name' => 'Otto Opponent']);
+
+    $game = Game::factory()->inProgress()->create(['name' => 'League Round 3']);
+    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1]);
+    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $opponent->id, 'slot' => 2]);
+
+    // Finished games and games the user isn't in never show up.
+    $done = Game::factory()->completed()->create();
+    GamePlayer::factory()->create(['game_id' => $done->id, 'user_id' => $user->id, 'slot' => 1]);
+    Game::factory()->inProgress()->create();
+
+    $this->actingAs($user)
+        ->get(route('overview'))
+        ->assertInertia(fn ($p) => $p->has('recent_games', 1)
+            ->where('recent_games.0.uuid', $game->uuid)
+            ->where('recent_games.0.name', 'League Round 3')
+            ->where('recent_games.0.opponent', 'Otto Opponent')
+            ->where('recent_games.0.status', 'in_progress')
+        );
+});
+
+it('caps the resume list at three games', function () {
+    $user = User::factory()->create();
+    foreach (range(1, 5) as $i) {
+        $game = Game::factory()->inProgress()->create();
+        GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1]);
+    }
+
+    $this->actingAs($user)->get(route('overview'))->assertInertia(fn ($p) => $p->has('recent_games', 3));
+});
+
+it('computes the next milestone on each track, closest to done first', function () {
+    $next = app(App\Services\AchievementService::class)->nextMilestones(
+        games: 8, wins: 0, collection: 12, built: 3, painted: 0, tournaments: 0, crews: 0,
+    );
+
+    expect($next)->toHaveCount(3)
+        ->and($next[0])->toMatchArray(['label' => 'Veteran', 'current' => 8, 'target' => 10])
+        // 12/25 beats 3/10 (0.48 vs 0.30) and the zero-progress tracks.
+        ->and($next[1])->toMatchArray(['label' => 'Shelf Space', 'current' => 12, 'target' => 25])
+        ->and($next[2])->toMatchArray(['label' => 'Assembler', 'current' => 3, 'target' => 10]);
+});
+
+it('stops suggesting a track once its last milestone is earned', function () {
+    $labels = collect(app(App\Services\AchievementService::class)->nextMilestones(
+        games: 500, wins: 500, collection: 500, built: 500, painted: 500, tournaments: 9, crews: 9, limit: 10,
+    ))->pluck('label');
+
+    expect($labels->all())->toBe([]);
+});
+
+it('sends /settings to the account pages and keeps the hub at /hub', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get('/settings')->assertRedirect('/settings/profile');
+    $this->actingAs($user)->get('/hub')->assertOk();
+    expect(route('overview', absolute: false))->toBe('/hub');
+});
+
+it('uses singular units when a milestone is a single item', function () {
+    $next = app(App\Services\AchievementService::class)->nextMilestones(games: 0, wins: 0, collection: 0, built: 0, painted: 0, tournaments: 0, crews: 0, limit: 10);
+
+    expect(collect($next)->firstWhere('label', 'First Blood')['description'])->toBe('1 game completed')
+        ->and(collect($next)->firstWhere('label', 'Victor')['description'])->toBe('1 victory');
 });

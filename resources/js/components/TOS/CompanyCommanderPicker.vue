@@ -59,7 +59,7 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                 <div
                     class="relative mb-3 flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 ring-1 ring-amber-500/30 sm:size-20"
                 >
-                    <Crown class="size-8 text-amber-500 sm:size-10" />
+                    <Crown class="size-8 text-amber-700 dark:text-amber-400 sm:size-10" />
                     <div
                         class="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-background ring-2 ring-amber-500/40"
                     >
@@ -104,18 +104,18 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                     <div class="flex flex-1 flex-col gap-1.5 p-3">
                         <div class="flex items-baseline justify-between gap-2">
                             <span class="truncate text-sm font-semibold">{{ c.name }}</span>
-                            <Badge class="shrink-0 bg-emerald-500/15 px-1.5 py-0 text-[10px] tabular-nums text-emerald-700 dark:text-emerald-400">
+                            <Badge class="shrink-0 bg-emerald-500/15 px-1.5 py-0 text-2xs tabular-nums text-emerald-700 dark:text-emerald-400">
                                 +{{ c.scrip }}s
                             </Badge>
                         </div>
-                        <p v-if="c.title" class="truncate text-[11px] italic text-muted-foreground">{{ c.title }}</p>
+                        <p v-if="c.title" class="truncate text-2xs italic text-muted-foreground">{{ c.title }}</p>
                         <div class="mt-auto flex flex-wrap gap-1">
-                            <Badge v-if="c.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
+                            <Badge v-if="c.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-2xs">Neutral</Badge>
                             <Badge
                                 v-for="r in c.special_unit_rules.filter((r) => r.slug !== 'commander')"
                                 :key="r.id"
                                 variant="outline"
-                                class="px-1 py-0 text-[9px]"
+                                class="px-1 py-0 text-2xs"
                                 >{{ r.name }}</Badge
                             >
                         </div>

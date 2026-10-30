@@ -128,7 +128,14 @@ const addLink = async () => {
             <!-- Undo / Redo -->
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" :disabled="!editor.can().undo()" @click="editor.chain().focus().undo().run()">
+                    <Button
+                        aria-label="Undo"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="!editor.can().undo()"
+                        @click="editor.chain().focus().undo().run()"
+                    >
                         <Undo2 class="h-4 w-4" />
                     </Button>
                 </TooltipTrigger>
@@ -136,7 +143,14 @@ const addLink = async () => {
             </Tooltip>
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" :disabled="!editor.can().redo()" @click="editor.chain().focus().redo().run()">
+                    <Button
+                        aria-label="Redo"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="!editor.can().redo()"
+                        @click="editor.chain().focus().redo().run()"
+                    >
                         <Redo2 class="h-4 w-4" />
                     </Button>
                 </TooltipTrigger>
@@ -149,6 +163,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Bold"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('bold') }"
@@ -162,6 +177,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Italic"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('italic') }"
@@ -175,6 +191,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Underline"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('underline') }"
@@ -188,6 +205,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Strikethrough"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('strike') }"
@@ -201,6 +219,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Highlight"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('highlight') }"
@@ -214,6 +233,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Inline code"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('code') }"
@@ -226,7 +246,13 @@ const addLink = async () => {
             </Tooltip>
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" @click="editor.chain().focus().unsetAllMarks().run()">
+                    <Button
+                        aria-label="Clear formatting"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        @click="editor.chain().focus().unsetAllMarks().run()"
+                    >
                         <RemoveFormatting class="h-4 w-4" />
                     </Button>
                 </TooltipTrigger>
@@ -239,6 +265,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Heading 1"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('heading', { level: 1 }) }"
@@ -252,6 +279,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Heading 2"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('heading', { level: 2 }) }"
@@ -265,6 +293,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Heading 3"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('heading', { level: 3 }) }"
@@ -282,6 +311,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Align left"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive({ textAlign: 'left' }) }"
@@ -295,6 +325,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Align center"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive({ textAlign: 'center' }) }"
@@ -308,6 +339,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Align right"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive({ textAlign: 'right' }) }"
@@ -321,6 +353,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Justify"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive({ textAlign: 'justify' }) }"
@@ -338,6 +371,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Bullet list"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('bulletList') }"
@@ -351,6 +385,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Numbered list"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('orderedList') }"
@@ -364,6 +399,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Quote"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('blockquote') }"
@@ -377,6 +413,7 @@ const addLink = async () => {
             <Tooltip>
                 <TooltipTrigger as-child>
                     <Button
+                        aria-label="Code block"
                         variant="ghost"
                         size="sm"
                         :class="{ 'bg-muted': editor.isActive('codeBlock') }"
@@ -389,7 +426,13 @@ const addLink = async () => {
             </Tooltip>
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" @click="editor.chain().focus().setHorizontalRule().run()">
+                    <Button
+                        aria-label="Horizontal rule"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        @click="editor.chain().focus().setHorizontalRule().run()"
+                    >
                         <Minus class="h-4 w-4" />
                     </Button>
                 </TooltipTrigger>
@@ -401,7 +444,7 @@ const addLink = async () => {
                 <Tooltip>
                     <TooltipTrigger as-child>
                         <DropdownMenuTrigger as-child>
-                            <Button type="button" variant="ghost" size="sm" :class="{ 'bg-muted': editor.isActive('table') }">
+                            <Button aria-label="Table" type="button" variant="ghost" size="sm" :class="{ 'bg-muted': editor.isActive('table') }">
                                 <Table class="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
@@ -438,7 +481,14 @@ const addLink = async () => {
             <!-- Link & Image -->
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" :class="{ 'bg-muted': editor.isActive('link') }" @click="addLink">
+                    <Button
+                        aria-label="Link"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :class="{ 'bg-muted': editor.isActive('link') }"
+                        @click="addLink"
+                    >
                         <Link class="h-4 w-4" />
                     </Button>
                 </TooltipTrigger>
@@ -446,7 +496,7 @@ const addLink = async () => {
             </Tooltip>
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" @click="addImage">
+                    <Button aria-label="Image" type="button" variant="ghost" size="sm" @click="addImage">
                         <Image class="h-4 w-4" />
                     </Button>
                 </TooltipTrigger>
@@ -458,7 +508,7 @@ const addLink = async () => {
             <!-- Entity Reference -->
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" class="gap-1" @click="emit('openEntitySearch')">
+                    <Button aria-label="Link Entity" type="button" variant="ghost" size="sm" class="gap-1" @click="emit('openEntitySearch')">
                         <AtSign class="h-4 w-4" />
                         <span class="hidden text-xs sm:inline">Link Entity</span>
                     </Button>
@@ -469,7 +519,7 @@ const addLink = async () => {
             <!-- Entity Embed -->
             <Tooltip>
                 <TooltipTrigger as-child>
-                    <Button type="button" variant="ghost" size="sm" class="gap-1" @click="emit('openEntityEmbedSearch')">
+                    <Button aria-label="Embed Entity" type="button" variant="ghost" size="sm" class="gap-1" @click="emit('openEntityEmbedSearch')">
                         <SquareCode class="h-4 w-4" />
                         <span class="hidden text-xs sm:inline">Embed Entity</span>
                     </Button>
@@ -482,7 +532,7 @@ const addLink = async () => {
                 <Tooltip>
                     <TooltipTrigger as-child>
                         <DropdownMenuTrigger as-child>
-                            <Button type="button" variant="ghost" size="sm" class="gap-1">
+                            <Button aria-label="Game Icons" type="button" variant="ghost" size="sm" class="gap-1">
                                 <Smile class="h-4 w-4" />
                                 <span class="hidden text-xs sm:inline">Game Icons</span>
                             </Button>

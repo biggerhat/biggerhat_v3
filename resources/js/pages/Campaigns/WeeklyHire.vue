@@ -115,7 +115,10 @@ const remaining = computed(() => props.crew.scrip - totalScripCost.value);
 // What it would cost to hire this model next, given the current running hires
 // list — mirrors StartingArsenal's per-row "Over budget" affordability check.
 const costIfAddedNow = (c: CharRow): number =>
-    scripCostFor({ character_id: c.id, label: null, display_name: c.display_name, base_cost: c.cost ?? 0, out_of_keyword: isOutOfKeyword(c) }, hires.value.length);
+    scripCostFor(
+        { character_id: c.id, label: null, display_name: c.display_name, base_cost: c.cost ?? 0, out_of_keyword: isOutOfKeyword(c) },
+        hires.value.length,
+    );
 
 const canAfford = (c: CharRow): boolean => costIfAddedNow(c) <= remaining.value;
 
@@ -152,7 +155,7 @@ const submit = () => {
                 <span class="text-sm text-muted-foreground">
                     {{ campaign.name }} • <strong class="text-foreground">{{ crew.name }}</strong> • mandatory: at least 1 hire
                 </span>
-                <p v-if="already_hired_this_week > 0" class="mt-1 text-xs text-amber-600">
+                <p v-if="already_hired_this_week > 0" class="mt-1 text-xs text-amber-700 dark:text-amber-400">
                     Already hired {{ already_hired_this_week }} model(s) this week — first-hire discount no longer applies.
                 </p>
             </div>
@@ -192,11 +195,11 @@ const submit = () => {
                             :key="f"
                             :variant="poolFilter === f ? 'default' : 'outline'"
                             size="sm"
-                            class="h-6 gap-1 px-2 text-[11px]"
+                            class="h-6 gap-1 px-2 text-2xs"
                             @click="poolFilter = f"
                         >
                             {{ { keyword: 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
-                            <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                            <span class="text-2xs opacity-60">{{ poolFilterCounts[f] }}</span>
                         </Button>
                     </div>
                 </CardHeader>
@@ -216,18 +219,19 @@ const submit = () => {
                                             {{ c.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                                             <span v-if="isOutOfKeyword(c)" class="ml-0.5 text-xs font-normal text-red-300">+1</span>
                                         </span>
-                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90">
+                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90">
                                             {{ c.station }}
                                         </Badge>
-                                        <Badge v-if="isOutOfKeyword(c)" class="bg-red-400/30 px-1 py-0 text-[10px] text-red-200"> OOK </Badge>
+                                        <Badge v-if="isOutOfKeyword(c)" class="bg-red-400/30 px-1 py-0 text-2xs text-red-200"> OOK </Badge>
                                         <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white/50 sm:inline">
                                             {{ c.keywords.map((k) => k.name).join(', ') }}
                                         </span>
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
-                                    <span v-if="!locked && !canAfford(c)" class="text-[10px] text-white/50">Over budget</span>
+                                    <span v-if="!locked && !canAfford(c)" class="text-2xs text-white/50">Over budget</span>
                                     <Button
+                                        aria-label="Hire"
                                         variant="ghost"
                                         size="icon"
                                         class="size-7 text-white hover:bg-white/10 hover:text-white"
@@ -259,8 +263,8 @@ const submit = () => {
                                 <Input v-model="h.label" placeholder="Label (e.g. 'Zombie A')" class="mt-1 h-7 text-xs" :disabled="locked" />
                             </div>
                             <div class="flex items-center gap-2">
-                                <Badge variant="outline" class="text-[10px] tabular-nums"> {{ scripCostFor(h, idx) }} scrip </Badge>
-                                <Button variant="ghost" size="sm" :disabled="locked" @click="removeHire(idx)">×</Button>
+                                <Badge variant="outline" class="text-2xs tabular-nums"> {{ scripCostFor(h, idx) }} scrip </Badge>
+                                <Button aria-label="Remove hire" variant="ghost" size="sm" :disabled="locked" @click="removeHire(idx)">×</Button>
                             </div>
                         </li>
                     </ul>

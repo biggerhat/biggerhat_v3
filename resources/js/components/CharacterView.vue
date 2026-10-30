@@ -16,7 +16,6 @@ import { Separator } from '@/components/ui/separator';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { useFactionColor } from '@/composables/useFactionColor';
-import { isMobileDevice } from '@/composables/useMobileDevice';
 import { useToast } from '@/composables/useToast';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
@@ -270,9 +269,9 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     <CardHeader class="pb-3">
                         <div class="flex items-center gap-2.5">
                             <FactionLogo :faction="character.faction" class-name="size-8 shrink-0" />
-                            <CardTitle class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
+                            <CardTitle as="h1" class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
                             <AdminEditLink
-                                :href="route('admin.characters.edit', character.slug ?? character.id)"
+                                :href="() => route('admin.characters.edit', character.slug ?? character.id)"
                                 permission="edit_character"
                                 label="Edit character in admin"
                             />
@@ -298,35 +297,35 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         <!-- Stat block -->
                         <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                                     <GameIcon type="soulstone" class-name="inline text-xs" /> Cost
                                 </div>
                                 <div class="text-base font-bold">{{ character.cost }}</div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Health</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Health</div>
                                 <div class="text-base font-bold">{{ character.health }}</div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Speed</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Speed</div>
                                 <div class="text-base font-bold">{{ character.speed }}</div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Defense</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Defense</div>
                                 <div class="text-base font-bold">
                                     {{ character.defense
                                     }}<GameIcon v-if="character.defense_suit" :type="character.defense_suit" class-name="inline text-xs" />
                                 </div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Willpower</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Willpower</div>
                                 <div class="text-base font-bold">
                                     {{ character.willpower
                                     }}<GameIcon v-if="character.willpower_suit" :type="character.willpower_suit" class-name="inline text-xs" />
                                 </div>
                             </div>
                             <div class="rounded-lg border bg-muted/40 px-2 py-1.5 text-center">
-                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Base</div>
+                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Base</div>
                                 <div class="text-base font-bold">{{ baseLabel }}</div>
                             </div>
                         </div>
@@ -405,7 +404,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                                     class="cursor-pointer gap-1 transition-colors hover:bg-accent"
                                     @click="openUpgradeDrawer(upgrade)"
                                 >
-                                    <Star class="size-3 text-amber-500" />
+                                    <Star class="size-3 text-amber-700 dark:text-amber-400" />
                                     {{ upgrade.name }}
                                 </Badge>
                             </div>
@@ -454,7 +453,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     <CardContent class="space-y-2 p-4">
                         <HeadingEyebrow>Sculpt</HeadingEyebrow>
                         <Select :model-value="String(miniature.id)" @update:model-value="navigateToSculpt">
-                            <SelectTrigger class="w-full">
+                            <SelectTrigger class="w-full" aria-label="Sculpt">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -523,7 +522,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             Download PDF
                         </Button>
                         <Button variant="outline" size="sm" class="w-full gap-1.5" @click="copyLink">
-                            <Check v-if="copied" class="size-4 text-green-500" />
+                            <Check v-if="copied" class="size-4 text-green-700 dark:text-green-400" />
                             <Copy v-else class="size-4" />
                             {{ copied ? 'Copied!' : 'Share Link' }}
                         </Button>
@@ -551,12 +550,13 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
             <!-- Image section -->
             <div class="order-1 lg:col-span-2">
-                <!-- Mobile: flip card -->
-                <div v-if="isMobileDevice()" class="mx-auto max-w-xs">
+                <!-- Narrow screens (decided by width, not user agent, so small windows and tablets get it too):
+                     flip card, since a combined front/back image is unreadable at this size -->
+                <div class="mx-auto max-w-xs lg:hidden">
                     <CharacterCardView :miniature="miniature" :show-link="false" />
                 </div>
-                <!-- Desktop: combination image or front/back side by side -->
-                <div v-else-if="miniature.combination_image" class="overflow-hidden rounded-xl shadow-lg">
+                <!-- lg and up: combination image or front/back side by side -->
+                <div v-if="miniature.combination_image" class="hidden overflow-hidden rounded-xl shadow-lg lg:block">
                     <img
                         :src="`/storage/${miniature.combination_image}`"
                         :alt="miniature.display_name"
@@ -565,7 +565,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         class="w-full"
                     />
                 </div>
-                <div v-else-if="miniature.front_image && miniature.back_image" class="grid grid-cols-2 gap-2 sm:gap-4">
+                <div v-else-if="miniature.front_image && miniature.back_image" class="hidden grid-cols-2 gap-2 sm:gap-4 lg:grid">
                     <div class="overflow-hidden rounded-xl shadow-lg">
                         <img
                             :src="`/storage/${miniature.front_image}`"
@@ -585,7 +585,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         />
                     </div>
                 </div>
-                <div v-else class="mx-auto max-w-sm">
+                <div v-else class="mx-auto hidden max-w-sm lg:block">
                     <CharacterCardView :miniature="miniature" :show-link="false" />
                 </div>
 
@@ -596,7 +596,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                         Download PDF
                     </Button>
                     <Button variant="outline" size="sm" class="w-full gap-1.5" @click="copyLink">
-                        <Check v-if="copied" class="size-4 text-green-500" />
+                        <Check v-if="copied" class="size-4 text-green-700 dark:text-green-400" />
                         <Copy v-else class="size-4" />
                         {{ copied ? 'Copied!' : 'Share Link' }}
                     </Button>
@@ -663,7 +663,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                                 <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
                             </div>
                             <div v-if="lore.media?.length" class="ml-6 mt-1 flex flex-wrap gap-1">
-                                <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-[10px]">
+                                <Badge v-for="media in lore.media" :key="media.id" variant="outline" class="text-2xs">
                                     {{ media.name }}
                                 </Badge>
                             </div>
@@ -789,7 +789,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <ExternalLink class="size-4 shrink-0 text-muted-foreground" />
                             <div class="min-w-0 flex-1">
                                 <div class="font-medium">{{ pod.name }}</div>
-                                <Badge variant="outline" class="mt-0.5 text-[10px]">{{
+                                <Badge variant="outline" class="mt-0.5 text-2xs">{{
                                     pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault'
                                 }}</Badge>
                             </div>
@@ -820,7 +820,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Summons</div>
+                                <div class="text-2xs text-muted-foreground">Summons</div>
                             </div>
                         </CardContent>
                     </Card>
@@ -841,7 +841,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Summoned by</div>
+                                <div class="text-2xs text-muted-foreground">Summoned by</div>
                             </div>
                         </CardContent>
                     </Card>
@@ -869,7 +869,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Replaces into</div>
+                                <div class="text-2xs text-muted-foreground">Replaces into</div>
                             </div>
                         </CardContent>
                     </Card>
@@ -890,7 +890,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                             <FactionLogo v-if="linked.faction" :faction="linked.faction" class-name="size-5 shrink-0" />
                             <div class="min-w-0">
                                 <span class="text-xs font-medium leading-tight sm:text-sm">{{ linked.display_name }}</span>
-                                <div class="text-[10px] text-muted-foreground">Replaced by</div>
+                                <div class="text-2xs text-muted-foreground">Replaced by</div>
                             </div>
                         </CardContent>
                     </Card>

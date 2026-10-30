@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DefaultSeo from '@/components/DefaultSeo.vue';
 import AppLayout from '@/layouts/app/AppSidebarLayout.vue';
 import type { BreadcrumbItemType } from '@/types';
 import { Link } from '@inertiajs/vue3';
@@ -17,11 +18,12 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbs">
+        <DefaultSeo />
         <div class="flex-1">
             <slot />
         </div>
         <footer class="p-toolbar p-component mt-6 !block !rounded-none !border-b-0 !border-l-0 !border-r-0 border-t border-dashed py-3">
-            <div class="container mx-auto sm:px-4">
+            <div class="container mx-auto px-0 sm:px-4">
                 <div class="my-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-2 text-xs lg:px-0">
                     <a href="https://discord.gg/veGzyuTvGW" target="_blank" class="inline-flex items-center gap-1 hover:underline">
                         Join Our Discord

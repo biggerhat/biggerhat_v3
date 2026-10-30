@@ -346,11 +346,11 @@ const exportUrl = computed(() => {
                     class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
                 >
                     <span>{{ result_breakdown.units }} units</span>
-                    <span class="text-muted-foreground/50">·</span>
+                    <span class="text-muted-foreground">·</span>
                     <span>{{ result_breakdown.assets }} assets</span>
-                    <span class="text-muted-foreground/50">·</span>
+                    <span class="text-muted-foreground">·</span>
                     <span>{{ result_breakdown.stratagems }} stratagems</span>
-                    <span class="text-muted-foreground/50">·</span>
+                    <span class="text-muted-foreground">·</span>
                     <span>{{ result_breakdown.allegiance_cards }} cards</span>
                 </div>
             </template>
@@ -359,9 +359,11 @@ const exportUrl = computed(() => {
         <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 sm:px-4">
             <Tabs :model-value="filterParams.page_view ?? 'cards'" @update:model-value="(v) => handleViewChange(v as string)">
                 <TabsList>
-                    <TabsTrigger value="cards"><LayoutGrid class="h-4 w-4" /><span class="hidden sm:inline">Cards</span></TabsTrigger>
-                    <TabsTrigger value="table"><List class="h-4 w-4" /><span class="hidden sm:inline">Table</span></TabsTrigger>
-                    <TabsTrigger value="full"><BookOpen class="h-4 w-4" /><span class="hidden sm:inline">Full</span></TabsTrigger>
+                    <TabsTrigger aria-label="Cards" value="cards"
+                        ><LayoutGrid class="h-4 w-4" /><span class="hidden sm:inline">Cards</span></TabsTrigger
+                    >
+                    <TabsTrigger aria-label="Table" value="table"><List class="h-4 w-4" /><span class="hidden sm:inline">Table</span></TabsTrigger>
+                    <TabsTrigger aria-label="Full" value="full"><BookOpen class="h-4 w-4" /><span class="hidden sm:inline">Full</span></TabsTrigger>
                 </TabsList>
             </Tabs>
             <div class="flex items-center gap-2">
@@ -369,6 +371,7 @@ const exportUrl = computed(() => {
                     {{ activeFilterCount }} {{ activeFilterCount === 1 ? 'filter' : 'filters' }}
                 </Badge>
                 <Button
+                    aria-label="Export CSV"
                     v-if="hasActiveSearch"
                     variant="outline"
                     size="sm"
@@ -380,7 +383,14 @@ const exportUrl = computed(() => {
                 >
                     <Download class="size-3" /><span class="hidden sm:inline">Export CSV</span>
                 </Button>
-                <Button v-if="isLoggedIn && hasActiveSearch" variant="outline" size="sm" class="h-7 gap-1 text-xs" @click="saveOpen = true">
+                <Button
+                    aria-label="Save"
+                    v-if="isLoggedIn && hasActiveSearch"
+                    variant="outline"
+                    size="sm"
+                    class="h-7 gap-1 text-xs"
+                    @click="saveOpen = true"
+                >
                     <Bookmark class="size-3" /><span class="hidden sm:inline">Save</span>
                 </Button>
                 <DropdownMenu v-if="isLoggedIn && saved_searches.length">
@@ -392,7 +402,12 @@ const exportUrl = computed(() => {
                     <DropdownMenuContent align="end" class="w-72">
                         <DropdownMenuItem v-for="s in saved_searches" :key="s.id" class="flex items-center justify-between gap-2">
                             <button type="button" class="flex-1 text-left" @click="loadSavedSearch(s)">{{ s.name }}</button>
-                            <button type="button" class="text-muted-foreground hover:text-rose-600" @click="deleteSavedSearch(s)">
+                            <button
+                                aria-label="Delete saved search"
+                                type="button"
+                                class="text-muted-foreground hover:text-rose-600"
+                                @click="deleteSavedSearch(s)"
+                            >
                                 <Trash2 class="size-3" />
                             </button>
                         </DropdownMenuItem>
@@ -487,7 +502,7 @@ const exportUrl = computed(() => {
                             <TableBody>
                                 <TableRow v-for="r in results.data" :key="`${r.result_type}-${r.id}`">
                                     <TableCell
-                                        ><Badge variant="outline" class="text-[10px] capitalize">{{ r.result_type }}</Badge></TableCell
+                                        ><Badge variant="outline" class="text-2xs capitalize">{{ r.result_type }}</Badge></TableCell
                                     >
                                     <TableCell class="font-medium">
                                         <Link
@@ -548,7 +563,7 @@ const exportUrl = computed(() => {
                                 <CardContent class="space-y-1 p-4">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-sm font-semibold">{{ r.name }}</span>
-                                        <Badge variant="outline" class="text-[10px] capitalize">{{ r.result_type }}</Badge>
+                                        <Badge variant="outline" class="text-2xs capitalize">{{ r.result_type }}</Badge>
                                     </div>
                                     <p class="text-xs text-muted-foreground">{{ r.body ?? r.effect ?? '' }}</p>
                                 </CardContent>
@@ -573,32 +588,32 @@ const exportUrl = computed(() => {
                                 :single-side="!r.sculpts[0]?.back_image"
                             />
                             <div v-else class="flex aspect-[5/7] items-center justify-center bg-muted">
-                                <Package v-if="r.result_type === 'asset'" class="size-12 text-muted-foreground/50" />
-                                <Newspaper v-else-if="r.result_type === 'stratagem'" class="size-12 text-muted-foreground/50" />
-                                <ScrollText v-else-if="r.result_type === 'allegiance_card'" class="size-12 text-muted-foreground/50" />
-                                <Sparkles v-else class="size-12 text-muted-foreground/50" />
+                                <Package v-if="r.result_type === 'asset'" class="size-12 text-muted-foreground" />
+                                <Newspaper v-else-if="r.result_type === 'stratagem'" class="size-12 text-muted-foreground" />
+                                <ScrollText v-else-if="r.result_type === 'allegiance_card'" class="size-12 text-muted-foreground" />
+                                <Sparkles v-else class="size-12 text-muted-foreground" />
                             </div>
                             <CardContent class="space-y-1.5 p-3">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="truncate text-sm font-semibold">{{ r.name }}</span>
-                                    <Badge variant="outline" class="shrink-0 text-[10px] capitalize">{{ r.result_type }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs capitalize">{{ r.result_type }}</Badge>
                                 </div>
-                                <p v-if="r.title" class="truncate text-[11px] italic text-muted-foreground">{{ r.title }}</p>
-                                <p class="text-[11px] tabular-nums text-muted-foreground">
+                                <p v-if="r.title" class="truncate text-2xs italic text-muted-foreground">{{ r.title }}</p>
+                                <p class="text-2xs tabular-nums text-muted-foreground">
                                     <template v-if="r.result_type === 'unit'">{{ r.scrip }} Scrip</template>
                                     <template v-else-if="r.result_type === 'asset'">{{ r.scrip_cost }} Scrip</template>
                                     <template v-else-if="r.result_type === 'stratagem'">{{ r.tactical_cost }} Tactics</template>
                                     <template v-else-if="r.result_type === 'allegiance_card' && r.allegiance">{{ r.allegiance.name }}</template>
                                 </p>
                                 <div v-if="r.special_unit_rules?.length" class="flex flex-wrap gap-1">
-                                    <Badge v-for="ru in r.special_unit_rules" :key="ru.id" variant="outline" class="text-[10px]">{{ ru.name }}</Badge>
+                                    <Badge v-for="ru in r.special_unit_rules" :key="ru.id" variant="outline" class="text-2xs">{{ ru.name }}</Badge>
                                 </div>
                                 <div class="pt-1">
                                     <Button
                                         v-if="r.result_type === 'unit' && r.sculpts && r.sculpts[0]"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.units.view', r.sculpts![0].slug))"
                                         >View Unit</Button
                                     >
@@ -606,7 +621,7 @@ const exportUrl = computed(() => {
                                         v-else-if="r.result_type === 'asset'"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.assets.view', r.slug))"
                                         >View Asset</Button
                                     >
@@ -614,7 +629,7 @@ const exportUrl = computed(() => {
                                         v-else-if="r.result_type === 'stratagem'"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.stratagems.view', r.slug))"
                                         >View Stratagem</Button
                                     >
@@ -622,7 +637,7 @@ const exportUrl = computed(() => {
                                         v-else-if="r.result_type === 'allegiance_card'"
                                         size="sm"
                                         variant="link"
-                                        class="h-6 px-0 text-[11px]"
+                                        class="h-6 px-0 text-2xs"
                                         @click="router.get(route('tos.allegiance_cards.view', r.slug))"
                                         >View Card</Button
                                     >

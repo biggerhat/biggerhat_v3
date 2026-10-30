@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface AdvancementActionRow {
@@ -43,11 +44,11 @@ const columns: ColumnDef<AdvancementActionRow>[] = [
     },
     {
         accessorKey: 'talent_name',
-        header: () => h('div', {}, 'Talent Name'),
+        header: sortableHeader('Talent Name'),
         cell: ({ row }) =>
             h('div', { class: 'flex items-center gap-1.5' }, [
                 h('span', { class: 'font-medium' }, row.getValue('talent_name')),
-                row.original.is_signature ? h(Badge, { variant: 'secondary', class: 'text-[10px]' }, () => 'Signature') : null,
+                row.original.is_signature ? h(Badge, { variant: 'secondary', class: 'text-2xs' }, () => 'Signature') : null,
             ]),
     },
     {
@@ -56,14 +57,14 @@ const columns: ColumnDef<AdvancementActionRow>[] = [
         cell: ({ row }) => {
             const action = row.original.action;
             return action
-                ? h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => action.name)
+                ? h(Badge, { variant: 'outline', class: 'text-2xs' }, () => action.name)
                 : h('span', { class: 'text-xs text-muted-foreground' }, 'bespoke');
         },
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {
@@ -89,7 +90,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: globalSearchFilter,
     onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),
@@ -103,7 +106,7 @@ const table = useVueTable({
 
 <template>
     <Head title="Campaign — Action Advancement — Admin" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Action Advancements</h1>

@@ -38,16 +38,15 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <div class="space-y-2">
             <Card v-for="(task, idx) in tasks" :key="idx">
                 <CardContent class="space-y-1 p-3">
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-semibold">{{ task.description }}</span>
-                        <Badge variant="outline" class="font-mono text-[10px]">{{ task.expression }}</Badge>
-                        <Badge variant="secondary" class="text-[10px]">{{ task.timezone }}</Badge>
+                        <Badge variant="outline" class="font-mono text-2xs">{{ task.expression }}</Badge>
+                        <Badge variant="secondary" class="text-2xs">{{ task.timezone }}</Badge>
                     </div>
-                    <code class="block truncate font-mono text-[11px] text-muted-foreground">{{ task.command }}</code>
+                    <code class="block truncate font-mono text-2xs text-muted-foreground">{{ task.command }}</code>
                     <div class="text-xs text-muted-foreground">Next run: {{ formatDate(task.next_run) }}</div>
                 </CardContent>
             </Card>

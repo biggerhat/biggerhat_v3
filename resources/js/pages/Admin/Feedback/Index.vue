@@ -3,12 +3,14 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Archive, BugPlay, CircleHelp, ExternalLink, Eye, Lightbulb, Loader2, Mail, Shield, Trash2, User } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface FeedbackEntry {
     id: number;
@@ -127,6 +129,36 @@ const confirmDelete = () => {
     );
 };
 
+// Bulk selection — ids of entries on the current page. Cleared whenever the page's entries change.
+const confirm = useConfirm();
+const selected = ref<number[]>([]);
+const allSelected = computed(() => props.entries.data.length > 0 && selected.value.length === props.entries.data.length);
+const toggleAll = (checked: boolean | 'indeterminate') => {
+    selected.value = checked === true ? props.entries.data.map((e) => e.id) : [];
+};
+const toggleOne = (id: number, checked: boolean | 'indeterminate') => {
+    selected.value = checked === true ? [...selected.value, id] : selected.value.filter((i) => i !== id);
+};
+watch(
+    () => props.entries.data.map((e) => e.id).join(','),
+    () => (selected.value = []),
+);
+
+const bulk = async (action: 'read' | 'new' | 'archived' | 'delete') => {
+    if (!selected.value.length) return;
+    if (action === 'delete') {
+        const n = selected.value.length;
+        const ok = await confirm({
+            title: 'Delete feedback',
+            message: `Delete ${n} selected ${n === 1 ? 'entry' : 'entries'}? This can't be undone.`,
+            confirmLabel: 'Delete',
+            destructive: true,
+        });
+        if (!ok) return;
+    }
+    router.post(route('admin.feedback.bulk'), { ids: selected.value, action }, { preserveScroll: true, onSuccess: () => (selected.value = []) });
+};
+
 const activeStatus = computed(() => props.filters.status ?? 'all');
 const activeCategory = computed(() => props.filters.category ?? 'all');
 
@@ -191,7 +223,7 @@ const setCategoryFilter = (value: string) => {
                     @click="setStatusFilter(s.value)"
                 >
                     {{ s.label }}
-                    <Badge variant="outline" class="border-transparent bg-background/60 px-1 py-0 text-[10px] tabular-nums">
+                    <Badge variant="outline" class="border-transparent bg-background/60 px-1 py-0 text-2xs tabular-nums">
                         {{ counts[s.value as 'new' | 'read' | 'archived'] ?? 0 }}
                     </Badge>
                 </button>
@@ -216,20 +248,46 @@ const setCategoryFilter = (value: string) => {
                 </CardContent>
             </Card>
 
+            <!-- Bulk toolbar -->
+            <div v-else class="mb-3 flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-3 py-2">
+                <label class="flex items-center gap-2 text-sm">
+                    <Checkbox :checked="allSelected" aria-label="Select all entries on this page" @update:checked="toggleAll" />
+                    <span>{{ selected.length ? `${selected.length} selected` : 'Select all' }}</span>
+                </label>
+                <template v-if="selected.length">
+                    <Button size="sm" variant="outline" class="h-7 text-xs" @click="bulk('read')">Mark read</Button>
+                    <Button size="sm" variant="outline" class="h-7 text-xs" @click="bulk('new')">Reopen</Button>
+                    <Button size="sm" variant="outline" class="h-7 text-xs" @click="bulk('archived')">Archive</Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        class="ml-auto h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        @click="bulk('delete')"
+                    >
+                        <Trash2 class="mr-1 size-3" /> Delete
+                    </Button>
+                </template>
+            </div>
+
             <!-- Feedback cards -->
-            <div v-else class="space-y-3">
+            <div v-if="entries.data.length" class="space-y-3">
                 <Card v-for="entry in entries.data" :key="entry.id">
                     <CardContent class="p-4">
                         <!-- Header row -->
                         <div class="mb-3 flex flex-wrap items-center gap-2">
-                            <Badge :class="['border text-[10px] uppercase tracking-wide', statusTone[entry.status]]" variant="outline">
+                            <Checkbox
+                                :checked="selected.includes(entry.id)"
+                                :aria-label="`Select feedback from ${formatDate(entry.created_at)}`"
+                                @update:checked="(c) => toggleOne(entry.id, c)"
+                            />
+                            <Badge :class="['border text-2xs uppercase tracking-wide', statusTone[entry.status]]" variant="outline">
                                 {{ entry.status }}
                             </Badge>
-                            <Badge :class="['flex items-center gap-1 border-0 text-[10px]', categoryTone[entry.category]]" variant="outline">
+                            <Badge :class="['flex items-center gap-1 border-0 text-2xs', categoryTone[entry.category]]" variant="outline">
                                 <component :is="categoryIcon[entry.category] ?? CircleHelp" class="size-3" />
                                 {{ entry.category }}
                             </Badge>
-                            <span class="ml-auto text-[11px] tabular-nums text-muted-foreground">{{ formatDate(entry.created_at) }}</span>
+                            <span class="ml-auto text-2xs tabular-nums text-muted-foreground">{{ formatDate(entry.created_at) }}</span>
                         </div>
 
                         <!-- Subject + body -->
@@ -237,7 +295,7 @@ const setCategoryFilter = (value: string) => {
                         <p class="whitespace-pre-wrap text-sm leading-relaxed">{{ entry.message }}</p>
 
                         <!-- Attribution + context -->
-                        <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                        <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-2xs text-muted-foreground">
                             <span v-if="entry.user" class="inline-flex items-center gap-1">
                                 <User class="size-3" />
                                 <Link :href="route('admin.users.edit', entry.user.id)" class="hover:underline">{{ entry.user.name }}</Link>
@@ -260,18 +318,18 @@ const setCategoryFilter = (value: string) => {
                             >
                                 <ExternalLink class="size-3" /> Submitted from
                             </a>
-                            <span v-if="entry.submitter_ip" class="font-mono text-[10px]">{{ entry.submitter_ip }}</span>
+                            <span v-if="entry.submitter_ip" class="font-mono text-2xs">{{ entry.submitter_ip }}</span>
                         </div>
 
                         <!-- Admin notes (inline editor) -->
                         <div class="mt-3 rounded-md border border-dashed bg-muted/30 p-3">
                             <div class="mb-1 flex items-center justify-between">
-                                <span class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Admin notes (private)</span>
+                                <span class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Admin notes (private)</span>
                                 <Button
                                     v-if="!(entry.id in editingNotes)"
                                     variant="ghost"
                                     size="sm"
-                                    class="h-6 px-2 text-[10px]"
+                                    class="h-6 px-2 text-2xs"
                                     @click="startEditingNotes(entry)"
                                 >
                                     {{ entry.admin_notes ? 'Edit' : 'Add note' }}
@@ -285,8 +343,8 @@ const setCategoryFilter = (value: string) => {
                                     placeholder="Notes only you and other admins see"
                                 />
                                 <div class="mt-2 flex gap-2">
-                                    <Button size="sm" class="h-7 text-[11px]" @click="saveNotes(entry)">Save</Button>
-                                    <Button variant="ghost" size="sm" class="h-7 text-[11px]" @click="cancelEditingNotes(entry.id)">Cancel</Button>
+                                    <Button size="sm" class="h-7 text-2xs" @click="saveNotes(entry)">Save</Button>
+                                    <Button variant="ghost" size="sm" class="h-7 text-2xs" @click="cancelEditingNotes(entry.id)">Cancel</Button>
                                 </div>
                             </template>
                             <p v-else-if="entry.admin_notes" class="whitespace-pre-wrap text-xs text-muted-foreground">{{ entry.admin_notes }}</p>
@@ -299,7 +357,7 @@ const setCategoryFilter = (value: string) => {
                                 v-if="entry.status !== 'read'"
                                 size="sm"
                                 variant="outline"
-                                class="h-7 gap-1 text-[11px]"
+                                class="h-7 gap-1 text-2xs"
                                 @click="applyStatus(entry, 'read')"
                             >
                                 <Eye class="size-3" /> Mark read
@@ -308,7 +366,7 @@ const setCategoryFilter = (value: string) => {
                                 v-if="entry.status !== 'new'"
                                 size="sm"
                                 variant="outline"
-                                class="h-7 gap-1 text-[11px]"
+                                class="h-7 gap-1 text-2xs"
                                 @click="applyStatus(entry, 'new')"
                             >
                                 Reopen
@@ -317,7 +375,7 @@ const setCategoryFilter = (value: string) => {
                                 v-if="entry.status !== 'archived'"
                                 size="sm"
                                 variant="outline"
-                                class="h-7 gap-1 text-[11px]"
+                                class="h-7 gap-1 text-2xs"
                                 @click="applyStatus(entry, 'archived')"
                             >
                                 <Archive class="size-3" /> Archive
@@ -325,7 +383,7 @@ const setCategoryFilter = (value: string) => {
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                class="ml-auto h-7 gap-1 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                class="ml-auto h-7 gap-1 text-2xs text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 @click="askDelete(entry)"
                             >
                                 <Trash2 class="size-3" /> Delete

@@ -21,6 +21,9 @@ file locations, models/enums, conventions, and gotchas (saves re-discovery):
 - [lore-linking.md](docs/features/lore-linking.md) — Lore ↔ Characters/TOS Units pivots
 - [aethervox-channels.md](docs/features/aethervox-channels.md) — "Across the Aethervox" channels/transmissions
 
+Other docs: [ssr.md](docs/ssr.md) — what Inertia SSR needs on the server and what has broken it;
+[ui-audit.md](docs/ui-audit.md) — local harness for browsing logged-in screens and running accessibility/layout checks.
+
 Shared gotchas: SSR is enabled (tests don't catch SSR-path 500s); the
 `M4E-Symbols` font + `GameText.tagToIconType` is the canonical game-text
 token→icon map; TOS images + the Bonanza deck PDF are cached.

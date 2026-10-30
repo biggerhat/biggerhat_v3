@@ -98,29 +98,28 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <div class="grid gap-3 sm:grid-cols-4">
             <Card
                 ><CardContent class="p-3"
-                    ><div class="text-[10px] uppercase text-muted-foreground">Public Characters</div>
+                    ><div class="text-2xs uppercase text-muted-foreground">Public Characters</div>
                     <div class="text-xl font-bold">{{ counts.public_characters }}</div></CardContent
                 ></Card
             >
             <Card
                 ><CardContent class="p-3"
-                    ><div class="text-[10px] uppercase text-muted-foreground">Public Upgrades</div>
+                    ><div class="text-2xs uppercase text-muted-foreground">Public Upgrades</div>
                     <div class="text-xl font-bold">{{ counts.public_upgrades }}</div></CardContent
                 ></Card
             >
             <Card
                 ><CardContent class="p-3"
-                    ><div class="text-[10px] uppercase text-muted-foreground">Total Characters</div>
+                    ><div class="text-2xs uppercase text-muted-foreground">Total Characters</div>
                     <div class="text-xl font-bold">{{ counts.total_characters }}</div></CardContent
                 ></Card
             >
             <Card
                 ><CardContent class="p-3"
-                    ><div class="text-[10px] uppercase text-muted-foreground">Total Upgrades</div>
+                    ><div class="text-2xs uppercase text-muted-foreground">Total Upgrades</div>
                     <div class="text-xl font-bold">{{ counts.total_upgrades }}</div></CardContent
                 ></Card
             >
@@ -163,10 +162,10 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             <a :href="card.share_url" target="_blank" rel="noopener" class="text-sm font-semibold hover:underline">{{ card.name }}</a>
-                            <Badge variant="outline" class="text-[10px]">{{ card.kind }}</Badge>
-                            <Badge v-if="card.faction" variant="secondary" class="text-[10px]">{{ card.faction }}</Badge>
-                            <Badge v-if="card.domain" variant="secondary" class="text-[10px]">{{ card.domain }}</Badge>
-                            <Badge v-if="!card.is_public" variant="outline" class="text-[10px] text-muted-foreground">private</Badge>
+                            <Badge variant="outline" class="text-2xs">{{ card.kind }}</Badge>
+                            <Badge v-if="card.faction" variant="secondary" class="text-2xs">{{ card.faction }}</Badge>
+                            <Badge v-if="card.domain" variant="secondary" class="text-2xs">{{ card.domain }}</Badge>
+                            <Badge v-if="!card.is_public" variant="outline" class="text-2xs text-muted-foreground">private</Badge>
                         </div>
                         <div class="mt-0.5 text-xs text-muted-foreground">
                             <span v-if="card.user">by {{ card.user.name }}</span>
@@ -175,7 +174,7 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(und
                         </div>
                     </div>
                     <div class="flex shrink-0 gap-1.5">
-                        <Button variant="outline" size="sm" as-child>
+                        <Button aria-label="Preview card" variant="outline" size="sm" as-child>
                             <a :href="card.share_url" target="_blank" rel="noopener"><Eye class="size-3.5" /></a>
                         </Button>
                         <Button v-if="card.is_public" variant="outline" size="sm" @click="unpublish(card)" title="Force unpublish">

@@ -255,7 +255,7 @@ const togglePackageCollection = () => {
                                         class-name="h-8 w-8 shrink-0 mt-0.5"
                                     />
                                     <div>
-                                        <CardTitle class="text-xl leading-tight lg:text-2xl">{{ package.name }}</CardTitle>
+                                        <CardTitle as="h1" class="text-xl leading-tight lg:text-2xl">{{ package.name }}</CardTitle>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -377,12 +377,16 @@ const togglePackageCollection = () => {
                                     <Badge
                                         v-if="character.special_order"
                                         variant="outline"
-                                        class="ml-auto shrink-0 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
+                                        class="ml-auto shrink-0 border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400"
                                         title="Available for special order"
                                     >
                                         Special Order
                                     </Badge>
-                                    <Badge v-if="character.quantity > 1" variant="secondary" :class="[character.special_order ? '' : 'ml-auto', 'text-xs']">
+                                    <Badge
+                                        v-if="character.quantity > 1"
+                                        variant="secondary"
+                                        :class="[character.special_order ? '' : 'ml-auto', 'text-xs']"
+                                    >
                                         x{{ character.quantity }}
                                     </Badge>
                                 </CardContent>

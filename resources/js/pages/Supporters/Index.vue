@@ -61,7 +61,7 @@ const supporterCount = computed(() => props.supporters.length);
                                     Supporter since {{ supporter.supporter_since }}
                                 </p>
                             </div>
-                            <Heart class="size-4 shrink-0 fill-rose-500/20 text-rose-500" />
+                            <Heart class="size-4 shrink-0 fill-rose-500/20 text-rose-700 dark:text-rose-400" />
                         </CardContent>
                     </Card>
                 </div>

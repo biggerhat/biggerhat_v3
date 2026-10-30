@@ -57,7 +57,7 @@ const typeLabel = computed(() => {
 <template>
     <NodeViewWrapper as="div" :class="['my-2', selected ? 'rounded-lg ring-2 ring-primary' : '']">
         <div class="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
-            <Badge :class="['shrink-0 border-0 text-[10px]', typeColor]" variant="outline">{{ typeLabel }}</Badge>
+            <Badge :class="['shrink-0 border-0 text-2xs', typeColor]" variant="outline">{{ typeLabel }}</Badge>
             <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ node.attrs.displayName }}</span>
         </div>
     </NodeViewWrapper>

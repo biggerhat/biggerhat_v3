@@ -107,7 +107,7 @@ const hasRelatedContent = computed(
                                         :alt="upgrade.faction_label ?? ''"
                                         class="h-8 w-8 shrink-0"
                                     />
-                                    <CardTitle class="text-xl leading-tight lg:text-2xl">{{ upgrade.name }}</CardTitle>
+                                    <CardTitle as="h1" class="text-xl leading-tight lg:text-2xl">{{ upgrade.name }}</CardTitle>
                                 </div>
                             </CardHeader>
                             <CardContent class="space-y-4">
@@ -294,7 +294,7 @@ const hasRelatedContent = computed(
                                 >
                                     <ExternalLink class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="min-w-0 flex-1 font-medium">{{ pod.name }}</span>
-                                    <Badge variant="outline" class="shrink-0 text-[10px]">{{
+                                    <Badge variant="outline" class="shrink-0 text-2xs">{{
                                         pod.source === 'forgefire' ? 'ForgeFire' : 'Wargame Vault'
                                     }}</Badge>
                                 </a>

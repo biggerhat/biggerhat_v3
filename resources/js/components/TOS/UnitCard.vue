@@ -206,27 +206,27 @@ function ruleBadge(rule: SpecialRule): string {
                     :placeholder-icon="Swords"
                     :single-side="!sculpt?.back_image"
                 />
-                <div class="flex items-center justify-between text-[10px] text-muted-foreground">
+                <div class="flex items-center justify-between text-2xs text-muted-foreground">
                     <span class="capitalize tabular-nums">{{ flipped ? 'Glory side' : 'Standard side' }}</span>
-                    <Button v-if="sculpt?.back_image" variant="ghost" size="sm" class="h-6 gap-1 px-2 text-[10px]" @click="flipped = !flipped">
+                    <Button v-if="sculpt?.back_image" variant="ghost" size="sm" class="h-6 gap-1 px-2 text-2xs" @click="flipped = !flipped">
                         <RefreshCw class="size-3" /> Flip
                     </Button>
                 </div>
 
                 <div v-if="showCollection" class="space-y-1">
                     <div v-if="inCollection || onWishlist" class="flex items-center gap-2">
-                        <span v-if="inCollection" class="flex items-center gap-1 text-[11px]" style="color: #059669">
+                        <span v-if="inCollection" class="flex items-center gap-1 text-2xs" style="color: #059669">
                             <BookMarked class="size-3" />
                             Collected
                         </span>
-                        <span v-if="onWishlist" class="flex items-center gap-1 text-[11px]" style="color: #f43f5e">
+                        <span v-if="onWishlist" class="flex items-center gap-1 text-2xs" style="color: #f43f5e">
                             <Heart class="size-3 fill-current" />
                             Wishlisted
                         </span>
                     </div>
                     <button
                         v-if="isAuthenticated && !inCollection && sculpt"
-                        class="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                        class="flex items-center gap-1 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
                         :disabled="addingToCollection"
                         @click.prevent="addToCollection"
                     >
@@ -260,8 +260,8 @@ function ruleBadge(rule: SpecialRule): string {
                         </div>
                     </div>
                     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        <Badge v-for="a in unit.allegiances" :key="a.id" variant="outline" class="text-[10px]">{{ a.name }}</Badge>
-                        <Badge v-for="r in unit.special_unit_rules" :key="r.id" class="bg-secondary text-[10px] text-secondary-foreground">
+                        <Badge v-for="a in unit.allegiances" :key="a.id" variant="outline" class="text-2xs">{{ a.name }}</Badge>
+                        <Badge v-for="r in unit.special_unit_rules" :key="r.id" class="bg-secondary text-2xs text-secondary-foreground">
                             {{ ruleBadge(r) }}
                         </Badge>
                     </div>
@@ -295,12 +295,12 @@ function ruleBadge(rule: SpecialRule): string {
                                         <span
                                             v-for="l in ac.type_links"
                                             :key="l.id"
-                                            class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                            class="rounded bg-secondary px-1 py-0.5 text-2xs capitalize text-secondary-foreground"
                                             >{{ l.type }}</span
                                         >
                                         <span class="font-medium">{{ ac.name }}</span>
                                     </div>
-                                    <span class="text-[10px] text-muted-foreground">
+                                    <span class="text-2xs text-muted-foreground">
                                         <template v-if="ac.av != null">
                                             {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
                                                 v {{ ac.av_target }}</template
@@ -312,7 +312,7 @@ function ruleBadge(rule: SpecialRule): string {
                                 </div>
                                 <div
                                     v-if="ac.is_piercing || ac.is_accurate || ac.is_area || ac.usage_limit"
-                                    class="mt-1 flex flex-wrap gap-1 text-[9px]"
+                                    class="mt-1 flex flex-wrap gap-1 text-2xs"
                                 >
                                     <span v-if="ac.is_piercing" class="rounded bg-amber-500/10 px-1 text-amber-700 dark:text-amber-400"
                                         >Piercing</span
@@ -329,7 +329,7 @@ function ruleBadge(rule: SpecialRule): string {
                                         <TosSuits v-if="t.suits" :suits="t.suits" />
                                         <TosMarginCost v-else-if="t.margin_cost != null" :cost="t.margin_cost" />
                                         <span class="font-medium">{{ t.name }}</span>
-                                        <span v-if="t.timing === 'immediately'" class="ml-1 text-[9px] italic text-muted-foreground"
+                                        <span v-if="t.timing === 'immediately'" class="ml-1 text-2xs italic text-muted-foreground"
                                             >(Immediately)</span
                                         >
                                         <span v-if="t.body" class="text-muted-foreground"> — <TosText :text="t.body" /></span>

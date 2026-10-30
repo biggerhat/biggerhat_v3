@@ -123,7 +123,6 @@ const deleteCard = async (card: LootCardRow) => {
     </PageBanner>
 
     <div class="container mx-auto space-y-4 p-4 lg:p-6">
-
         <!-- Print deck PDF — server-rendered (headless Chrome), cached, refreshed on every card edit. -->
         <Card>
             <CardContent class="flex flex-wrap items-center justify-between gap-3 p-3">
@@ -132,10 +131,10 @@ const deleteCard = async (card: LootCardRow) => {
                     <div class="min-w-0">
                         <p class="text-sm font-semibold">Print Deck PDF</p>
                         <p class="text-xs text-muted-foreground">
-                            <span v-if="pdfStatus === 'generating'" class="inline-flex items-center gap-1 text-amber-600">
+                            <span v-if="pdfStatus === 'generating'" class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
                                 <Loader2 class="size-3 animate-spin" /> Generating…
                             </span>
-                            <span v-else-if="pdfStatus === 'failed'" class="text-rose-600">{{ pdfError }}</span>
+                            <span v-else-if="pdfStatus === 'failed'" class="text-rose-700 dark:text-rose-400">{{ pdfError }}</span>
                             <span v-else>Last generated: {{ pdfGeneratedLabel }}</span>
                         </p>
                     </div>

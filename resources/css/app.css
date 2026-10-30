@@ -55,10 +55,10 @@ html {
         --secondary: 0 0% 96.1%;
         --secondary-foreground: 0 0% 9%;
         --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
+        --muted-foreground: 0 0% 40%;
         --accent: 0 0% 96.1%;
         --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
+        --destructive: 0 72% 50%;
         --destructive-foreground: 0 0% 98%;
         --border: 0 0% 89.8%;
         --input: 0 0% 89.8%;
@@ -225,7 +225,7 @@ html {
         --popover: var(--theme-h) 12% 99%;
         --popover-foreground: 0 0% 3.9%;
         --muted: var(--theme-h) 28% 93%;
-        --muted-foreground: 0 0% 45.1%;
+        --muted-foreground: 0 0% 40%;
         --secondary: var(--theme-h) 28% 93%;
         --secondary-foreground: 0 0% 9%;
         --accent: var(--theme-h) 28% 93%;
@@ -374,4 +374,18 @@ html {
 
 .page-fade-leave-active {
     animation: page-fade-out 0.15s ease-in;
+}
+
+/*
+ * White text on the lighter faction colours fails WCAG AA (Outcasts 2.2:1, Abyssinia 2.9:1,
+ * Explorer's Society 3.6:1, Resurrectionists 3.9:1). Wherever one of them is used as a solid
+ * background, flip any white text on or inside it to near-black (6:1 or better on all four).
+ * Higher specificity than .text-white, so no call site needs to change.
+ */
+:is(.bg-outcasts, .bg-abyssinia, .bg-explorerssociety, .bg-resurrectionists) {
+    color: #111827;
+}
+:is(.bg-outcasts, .bg-abyssinia, .bg-explorerssociety, .bg-resurrectionists):is(.text-white, [class*='text-white/']),
+:is(.bg-outcasts, .bg-abyssinia, .bg-explorerssociety, .bg-resurrectionists) :is(.text-white, [class*='text-white/']) {
+    color: #111827;
 }

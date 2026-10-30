@@ -325,7 +325,7 @@ const submit = async () => {
                             <SelectItem v-for="opt in archetype_enum" :key="opt.value" :value="opt.value">{{ opt.name }}</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p v-if="archetype" class="mt-1 text-[11px] text-muted-foreground">
+                    <p v-if="archetype" class="mt-1 text-2xs text-muted-foreground">
                         Df {{ archetype.df }} • Wp {{ archetype.wp }} • Sp {{ archetype.sp }} • HP {{ archetype.health }}
                         <br />
                         Attack: {{ archetype.attack_actions_count }} (≤ cost {{ archetype.attack_action_cost_cap }})
@@ -353,7 +353,7 @@ const submit = async () => {
                             <SelectItem v-for="e in equipment_catalog" :key="e.id" :value="e.id.toString()">{{ e.name }}</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p class="mt-1 text-[11px] text-muted-foreground">Doesn't count toward Campaign Rating (pg 17).</p>
+                    <p class="mt-1 text-2xs text-muted-foreground">Doesn't count toward Campaign Rating (pg 17).</p>
                     <InputError :message="usePage().props.errors.lucky_upstart_equipment_id" />
                 </div>
                 <div>
@@ -436,10 +436,10 @@ const submit = async () => {
             <CardContent class="space-y-4">
                 <div class="flex flex-wrap items-center gap-2">
                     <Button variant="outline" :disabled="!form.keyword_1_id" @click="actionModalOpen = true">Browse Actions</Button>
-                    <Badge variant="outline" class="shrink-0 text-[10px]">
+                    <Badge variant="outline" class="shrink-0 text-2xs">
                         Attack {{ currentCategoryCount('attack') }} / {{ currentCategoryLimit('attack') }}
                     </Badge>
-                    <Badge variant="outline" class="shrink-0 text-[10px]">
+                    <Badge variant="outline" class="shrink-0 text-2xs">
                         Tactical {{ currentCategoryCount('tactical') }} / {{ currentCategoryLimit('tactical') }}
                     </Badge>
                 </div>
@@ -451,12 +451,12 @@ const submit = async () => {
                             <div class="flex items-center justify-between gap-2">
                                 <div class="flex min-w-0 flex-1 items-center gap-2">
                                     <Input v-model="a.name" class="h-7 flex-1 text-sm" />
-                                    <Badge variant="outline" class="shrink-0 text-[10px]">cost {{ a.stone_cost }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs">cost {{ a.stone_cost }}</Badge>
                                 </div>
                                 <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
                             </div>
                             <!-- Heavy Hitter keeps one trigger — pick which when the source has several. -->
-                            <div v-if="(a.available_triggers?.length ?? 0) > 1" class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <div v-if="(a.available_triggers?.length ?? 0) > 1" class="flex items-center gap-2 text-2xs text-muted-foreground">
                                 <span>Trigger:</span>
                                 <Select
                                     :model-value="a.triggers[0]?.source_id?.toString() ?? '__none__'"
@@ -476,7 +476,7 @@ const submit = async () => {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <p v-else-if="a.triggers.length" class="text-[11px] text-muted-foreground">Trigger: {{ a.triggers[0].name }}</p>
+                            <p v-else-if="a.triggers.length" class="text-2xs text-muted-foreground">Trigger: {{ a.triggers[0].name }}</p>
                             <InputError :message="(usePage().props.errors as Record<string, string>)[`actions.${idx}.source_character_id`]" />
                         </div>
                     </div>
@@ -489,7 +489,7 @@ const submit = async () => {
                             <div class="flex items-center justify-between gap-2">
                                 <div class="flex min-w-0 flex-1 items-center gap-2">
                                     <Input v-model="a.name" class="h-7 flex-1 text-sm" />
-                                    <Badge variant="outline" class="shrink-0 text-[10px]">cost {{ a.stone_cost }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs">cost {{ a.stone_cost }}</Badge>
                                 </div>
                                 <Button variant="ghost" size="sm" @click="removeAction(idx)">Remove</Button>
                             </div>
@@ -505,7 +505,7 @@ const submit = async () => {
             <CardHeader>
                 <CardTitle class="flex items-center gap-1.5">
                     3. Abilities
-                    <Badge variant="outline" class="text-[10px]">{{ form.abilities.length }} / {{ archetype?.abilities_count ?? 0 }}</Badge>
+                    <Badge variant="outline" class="text-2xs">{{ form.abilities.length }} / {{ archetype?.abilities_count ?? 0 }}</Badge>
                 </CardTitle>
             </CardHeader>
             <CardContent class="space-y-4">

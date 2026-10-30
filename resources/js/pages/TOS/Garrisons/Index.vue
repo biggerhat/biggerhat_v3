@@ -99,24 +99,24 @@ function relativeTime(iso: string): string {
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-semibold leading-tight">{{ g.name }}</p>
-                                    <p class="truncate text-[11px] text-muted-foreground">{{ g.allegiance.name }}</p>
+                                    <p class="truncate text-2xs text-muted-foreground">{{ g.allegiance.name }}</p>
                                 </div>
                             </div>
                             <div class="mt-3 flex flex-wrap items-center gap-1.5">
-                                <Badge variant="outline" class="text-[10px]">{{ formatLabel[g.format] }}</Badge>
-                                <Badge variant="outline" class="text-[10px]">
+                                <Badge variant="outline" class="text-2xs">{{ formatLabel[g.format] }}</Badge>
+                                <Badge variant="outline" class="text-2xs">
                                     {{ g.garrison_units.length }} {{ g.garrison_units.length === 1 ? 'unit' : 'units' }}
                                 </Badge>
                                 <Badge
                                     v-if="g.garrison_units.some((u) => u.is_commander)"
-                                    class="gap-1 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400"
+                                    class="gap-1 bg-amber-500/10 text-2xs text-amber-700 dark:text-amber-400"
                                 >
                                     <Crown class="size-2.5" />
                                     {{ g.garrison_units.filter((u) => u.is_commander).length }}
                                 </Badge>
-                                <Badge v-if="g.is_public" class="bg-emerald-500/10 text-[10px] text-emerald-700 dark:text-emerald-400">Public</Badge>
+                                <Badge v-if="g.is_public" class="bg-emerald-500/10 text-2xs text-emerald-700 dark:text-emerald-400">Public</Badge>
                             </div>
-                            <div class="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+                            <div class="mt-2 flex items-center justify-between text-2xs text-muted-foreground">
                                 <span>Updated {{ relativeTime(g.updated_at) }}</span>
                                 <ArrowRight class="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
                             </div>

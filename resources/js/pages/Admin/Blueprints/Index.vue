@@ -100,7 +100,7 @@ const columns: ColumnDef<any>[] = [
         id: 'actions',
         enableHiding: false,
         enableSorting: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const blueprint = row.original;
             return h(
@@ -162,7 +162,7 @@ const table = useVueTable({
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-4">
                 <Input

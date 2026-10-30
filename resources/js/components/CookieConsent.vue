@@ -25,10 +25,10 @@ const { hasDecided, acceptConsent, declineConsent } = useCookieConsent();
             aria-label="Cookie consent"
             class="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 shadow-lg backdrop-blur-sm"
         >
-            <div class="container mx-auto flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4">
+            <div class="container mx-auto flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:py-4">
                 <div class="flex items-start gap-3 sm:flex-1">
-                    <Cookie class="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
-                    <p class="text-sm text-muted-foreground">
+                    <Cookie class="mt-0.5 hidden size-5 shrink-0 text-primary sm:block" aria-hidden="true" />
+                    <p class="text-xs leading-snug text-muted-foreground sm:text-sm">
                         We use cookies to keep you signed in and remember your preferences. Google Analytics helps us understand how the site is used
                         — turn it on?
                         <Link :href="route('privacy')" class="ml-1 font-medium text-foreground underline-offset-2 hover:underline"

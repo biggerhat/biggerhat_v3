@@ -200,14 +200,14 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             <!-- Search trigger: a pill with the shortcut hint, standard palette UX. -->
             <button
                 type="button"
-                aria-label="Open search (⌘K)"
-                class="group inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background/60 px-3 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-w-[200px] sm:justify-start"
+                class="group inline-flex h-10 items-center gap-2 rounded-md border border-input bg-background/60 px-3 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-9 sm:min-w-[200px] sm:justify-start"
                 @click="openDialog"
             >
-                <Search class="size-4 shrink-0" />
+                <Search class="size-4 shrink-0" aria-hidden="true" />
+                <span class="sr-only sm:hidden">Search</span>
                 <span class="hidden flex-1 text-left sm:inline">{{ isAdminPage ? 'Jump to…' : 'Search database…' }}</span>
                 <kbd
-                    class="ml-auto hidden h-5 items-center rounded border border-border/60 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex"
+                    class="ml-auto hidden h-5 items-center rounded border border-border/60 bg-muted px-1.5 font-mono text-2xs font-medium text-muted-foreground sm:inline-flex"
                 >
                     {{ isMac ? '⌘' : 'Ctrl' }} K
                 </kbd>
@@ -215,7 +215,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             <button
                 type="button"
                 aria-label="Open a random character"
-                class="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                class="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:size-9"
                 @click="router.get(route('characters.random'))"
             >
                 <Dice6 class="size-4" />

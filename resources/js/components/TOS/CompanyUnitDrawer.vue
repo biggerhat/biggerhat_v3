@@ -104,17 +104,17 @@ function pickSculpt(value: string) {
                 <DrawerHeader class="pb-2">
                     <DrawerTitle class="text-center">
                         <span class="inline-flex items-center gap-1.5">
-                            <Crown v-if="isCommander" class="size-4 text-amber-500" />
+                            <Crown v-if="isCommander" class="size-4 text-amber-700 dark:text-amber-400" />
                             <span>{{ unit.name }}</span>
                             <span v-if="unit.title" class="text-sm font-normal italic text-muted-foreground"> — {{ unit.title }} </span>
                         </span>
                     </DrawerTitle>
                     <div class="mt-1 flex flex-wrap items-center justify-center gap-1.5">
-                        <Badge class="bg-emerald-500/15 text-[10px] tabular-nums text-emerald-700 dark:text-emerald-400"
+                        <Badge class="bg-emerald-500/15 text-2xs tabular-nums text-emerald-700 dark:text-emerald-400"
                             >{{ isCommander ? `+${unit.scrip}` : unit.scrip }} Scrip</Badge
                         >
-                        <Badge v-if="unit.restriction" variant="outline" class="text-[10px] capitalize"> Neutral · {{ unit.restriction }} </Badge>
-                        <Badge v-for="r in unit.special_unit_rules" :key="r.id" variant="outline" class="text-[10px]">{{ r.name }}</Badge>
+                        <Badge v-if="unit.restriction" variant="outline" class="text-2xs capitalize"> Neutral · {{ unit.restriction }} </Badge>
+                        <Badge v-for="r in unit.special_unit_rules" :key="r.id" variant="outline" class="text-2xs">{{ r.name }}</Badge>
                     </div>
                 </DrawerHeader>
 
@@ -148,14 +148,14 @@ function pickSculpt(value: string) {
                         />
                         <p
                             v-if="activeSculpt && (activeSculpt.front_image || activeSculpt.back_image)"
-                            class="mt-2 text-center text-[10px] italic text-muted-foreground"
+                            class="mt-2 text-center text-2xs italic text-muted-foreground"
                         >
                             {{ activeSculpt.back_image ? 'Click the card to flip between Standard and Glory sides' : 'Standard side only' }}
                         </p>
                     </div>
 
                     <!-- Optional unit description -->
-                    <p v-if="unit.description" class="mt-3 line-clamp-3 text-center text-[11px] text-muted-foreground">
+                    <p v-if="unit.description" class="mt-3 line-clamp-3 text-center text-2xs text-muted-foreground">
                         <TosText :text="unit.description" />
                     </p>
                 </div>
@@ -189,7 +189,7 @@ function pickSculpt(value: string) {
                             <Button
                                 v-if="!isCommander"
                                 variant="outline"
-                                class="gap-1.5 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700"
+                                class="gap-1.5 text-rose-700 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400"
                                 @click="emit('remove')"
                             >
                                 <UserMinus class="size-4" /> Remove

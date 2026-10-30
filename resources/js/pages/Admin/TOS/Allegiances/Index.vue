@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { h, ref, watch } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
 interface Allegiance {
     id: number;
@@ -26,18 +27,18 @@ interface Allegiance {
 const columns: ColumnDef<Allegiance>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Name'),
+        header: sortableHeader('Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
     },
     {
         accessorKey: 'type',
-        header: () => h('div', {}, 'Type'),
+        header: sortableHeader('Type'),
         cell: ({ row }) => h('div', { class: 'capitalize' }, row.getValue('type')),
         filterFn: 'equalsString',
     },
     {
         accessorKey: 'is_syndicate',
-        header: () => h('div', {}, 'Syndicate'),
+        header: sortableHeader('Syndicate'),
         cell: ({ row }) => h('div', {}, row.getValue('is_syndicate') ? 'Yes' : 'No'),
         filterFn: (row, columnId, value) => {
             if (value === 'all') return true;
@@ -47,7 +48,7 @@ const columns: ColumnDef<Allegiance>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const a = row.original;
             return h(
@@ -79,7 +80,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
@@ -106,7 +109,7 @@ watch(syndicateFilter, (val) => {
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-2">
                 <Input

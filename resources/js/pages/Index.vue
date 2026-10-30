@@ -16,7 +16,7 @@ import { computed, ref } from 'vue';
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth?.user);
 
-defineProps<{
+const props = defineProps<{
     featured_character?: any;
     recent_crews?: any[];
     recent_articles?: any[];
@@ -27,6 +27,15 @@ defineProps<{
 
 // One fixed slot per Community Activity feed (Articles / Site News / Aethervox / Recent Crews).
 const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
+
+// The community feeds are each optional; size the grid to the ones that actually render so a
+// missing feed doesn't leave an empty column.
+const feedCount = computed(
+    () => [props.recent_articles, props.recent_news, props.recent_transmissions, props.recent_crews].filter((f) => f?.length).length,
+);
+const feedGridClass = computed(() =>
+    feedCount.value >= 4 ? 'lg:grid-cols-2 xl:grid-cols-4' : feedCount.value === 3 ? 'lg:grid-cols-3' : feedCount.value === 2 ? 'lg:grid-cols-2' : '',
+);
 </script>
 
 <template>
@@ -74,7 +83,14 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
         <div class="container mx-auto flex w-full max-w-full flex-col gap-12 overflow-x-hidden px-3 pb-12 pt-6 sm:px-4 lg:gap-16">
             <!-- ═══ Hero ═══ -->
             <div class="animate-fade-in-up flex flex-col items-center pt-4 sm:pt-8 lg:pt-12">
-                <img src="/images/hat_side.webp" class="h-32 sm:h-40 md:h-48" alt="BiggerHat.net" fetchpriority="high" />
+                <img
+                    src="/images/hat_side_md.webp"
+                    width="732"
+                    height="384"
+                    class="h-32 w-auto sm:h-40 md:h-48"
+                    alt="BiggerHat.net"
+                    fetchpriority="high"
+                />
                 <h1 class="mt-4 text-balance text-center text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
                     Your Companion for Malifaux and The Other Side
                 </h1>
@@ -95,7 +111,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                         </Button>
                     </Link>
                 </div>
-                <div class="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground sm:gap-x-5 sm:text-xs">
+                <div class="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-2xs text-muted-foreground sm:gap-x-5 sm:text-xs">
                     <span
                         ><strong class="text-foreground">{{ stats.characters }}</strong> characters</span
                     >
@@ -169,7 +185,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 </div>
                                 <div
                                     v-else
-                                    class="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400"
+                                    class="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-2xs font-semibold text-emerald-700 dark:text-emerald-400"
                                 >
                                     <Lock class="size-3" />
                                     Sign in to get started
@@ -204,7 +220,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 </div>
                                 <div
                                     v-else
-                                    class="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400"
+                                    class="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-2xs font-semibold text-amber-700 dark:text-amber-400"
                                 >
                                     <Lock class="size-3" />
                                     Sign in to get started
@@ -230,7 +246,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                     <!-- Info -->
                     <div class="min-w-0 text-center">
                         <div
-                            class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary"
+                            class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-2xs font-semibold uppercase tracking-wider text-primary"
                         >
                             <Sparkles class="size-3" />
                             Featured Character
@@ -238,27 +254,27 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                         <h2 class="break-words text-xl font-bold sm:text-2xl">{{ featured_character.display_name }}</h2>
                         <p v-if="featured_character.title" class="break-words text-sm text-muted-foreground">{{ featured_character.title }}</p>
                         <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-                            <Badge variant="outline" class="text-[10px] capitalize">{{
+                            <Badge variant="outline" class="text-2xs capitalize">{{
                                 featured_character.faction_label || featured_character.faction
                             }}</Badge>
-                            <Badge v-if="featured_character.station" variant="secondary" class="text-[10px] capitalize">{{
+                            <Badge v-if="featured_character.station" variant="secondary" class="text-2xs capitalize">{{
                                 featured_character.station
                             }}</Badge>
-                            <Badge v-for="kw in (featured_character.keywords ?? []).slice(0, 3)" :key="kw.id" variant="outline" class="text-[10px]">{{
+                            <Badge v-for="kw in (featured_character.keywords ?? []).slice(0, 3)" :key="kw.id" variant="outline" class="text-2xs">{{
                                 kw.name
                             }}</Badge>
                         </div>
                         <div class="mx-auto mt-4 grid w-full max-w-xs grid-cols-3 gap-2 text-center">
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <HeadingEyebrow as="h4">Cost</HeadingEyebrow>
+                                <HeadingEyebrow as="h3">Cost</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.cost ?? '—' }}</div>
                             </div>
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <HeadingEyebrow as="h4">Health</HeadingEyebrow>
+                                <HeadingEyebrow as="h3">Health</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.health ?? '—' }}</div>
                             </div>
                             <div class="rounded-md bg-muted px-2 py-2">
-                                <HeadingEyebrow as="h4">Defense</HeadingEyebrow>
+                                <HeadingEyebrow as="h3">Defense</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.defense ?? '—' }}</div>
                             </div>
                         </div>
@@ -288,7 +304,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                 <div class="mb-3 flex items-center justify-between px-1">
                     <HeadingEyebrow as="h2">From the Community</HeadingEyebrow>
                 </div>
-                <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+                <div class="grid gap-4" :class="feedGridClass">
                     <!-- Articles -->
                     <div v-if="recent_articles?.length" class="animate-fade-in-up" :style="feedDelays[0]">
                         <div class="mb-2 flex items-center justify-between">
@@ -296,7 +312,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <Newspaper class="size-4 text-muted-foreground" />
                                 Latest Articles
                             </h3>
-                            <Link :href="route('blog.index')" class="text-[11px] text-primary hover:underline">All</Link>
+                            <Link :href="route('blog.index')" class="text-2xs text-primary hover:underline">All</Link>
                         </div>
                         <div class="space-y-1.5">
                             <Link
@@ -306,7 +322,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 class="group block overflow-hidden rounded-lg border px-3 py-2 transition-all hover:border-primary/30 hover:bg-muted/50"
                             >
                                 <p class="line-clamp-2 break-words text-sm font-medium leading-snug group-hover:text-primary">{{ article.title }}</p>
-                                <div class="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <div class="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
                                     <span v-if="article.category">{{ article.category }}</span>
                                     <span v-if="article.category">·</span>
                                     <span>{{ article.published_at }}</span>
@@ -322,9 +338,9 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <Megaphone class="size-4 text-muted-foreground" />
                                 Site News
                             </h3>
-                            <Link :href="route('news.index')" class="text-[11px] text-primary hover:underline">All</Link>
+                            <Link :href="route('news.index')" class="text-2xs text-primary hover:underline">All</Link>
                         </div>
-                        <Badge class="mb-2 text-[10px] uppercase tracking-wide">Official</Badge>
+                        <Badge class="mb-2 text-2xs uppercase tracking-wide">Official</Badge>
                         <div class="space-y-1.5">
                             <Link
                                 v-for="item in recent_news"
@@ -334,7 +350,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                             >
                                 <span class="absolute inset-y-2 left-1.5 w-0.5 rounded-full bg-primary/50" />
                                 <p class="line-clamp-2 break-words text-sm font-medium leading-snug group-hover:text-primary">{{ item.title }}</p>
-                                <div class="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <div class="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
                                     <span v-if="item.category">{{ item.category }}</span>
                                     <span v-if="item.category">·</span>
                                     <span>{{ item.published_at }}</span>
@@ -350,7 +366,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <Radio class="size-4 text-muted-foreground" />
                                 Aethervox
                             </h3>
-                            <Link :href="route('channels.index')" class="text-[11px] text-primary hover:underline">All</Link>
+                            <Link :href="route('channels.index')" class="text-2xs text-primary hover:underline">All</Link>
                         </div>
                         <div class="space-y-1.5">
                             <Link
@@ -370,7 +386,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <Radio v-else class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                                 <div class="min-w-0 flex-1 overflow-hidden">
                                     <p class="line-clamp-2 break-words text-sm font-medium leading-snug group-hover:text-primary">{{ t.title }}</p>
-                                    <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                    <div class="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
                                         <span class="truncate">{{ t.channel_name }}</span>
                                         <span>·</span>
                                         <span class="shrink-0">{{ t.release_date }}</span>
@@ -387,7 +403,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <Users class="size-4 text-muted-foreground" />
                                 Recent Crews
                             </h3>
-                            <Link :href="route('tools.crew_builder.index')" class="text-[11px] text-primary hover:underline">All</Link>
+                            <Link :href="route('tools.crew_builder.index')" class="text-2xs text-primary hover:underline">All</Link>
                         </div>
                         <div class="space-y-1.5">
                             <Link
@@ -400,7 +416,7 @@ const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
                                 <FactionLogo :faction="crew.faction" class-name="size-6 shrink-0 mt-0.5" />
                                 <div class="min-w-0 flex-1 overflow-hidden">
                                     <p class="truncate text-sm font-medium leading-snug group-hover:text-primary">{{ crew.name }}</p>
-                                    <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[10px] text-muted-foreground">
+                                    <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-2xs text-muted-foreground">
                                         <span class="truncate">{{ crew.master_name || crew.faction_label }}</span>
                                         <span>·</span>
                                         <span class="shrink-0">{{ crew.encounter_size }}ss</span>

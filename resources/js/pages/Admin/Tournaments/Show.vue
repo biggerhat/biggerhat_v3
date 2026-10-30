@@ -165,8 +165,8 @@ const deleteTournament = async () => {
                 <div class="grid gap-1.5 sm:grid-cols-2">
                     <div v-for="p in tournament.players" :key="p.id" class="flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs">
                         <span class="truncate font-medium">{{ p.display_name }}</span>
-                        <Badge v-if="p.is_disqualified" variant="destructive" class="text-[9px]">DQ</Badge>
-                        <Badge v-else-if="p.dropped_after_round" variant="outline" class="text-[9px]">dropped R{{ p.dropped_after_round }}</Badge>
+                        <Badge v-if="p.is_disqualified" variant="destructive" class="text-2xs">DQ</Badge>
+                        <Badge v-else-if="p.dropped_after_round" variant="outline" class="text-2xs">dropped R{{ p.dropped_after_round }}</Badge>
                     </div>
                 </div>
                 <p class="text-xs text-muted-foreground">

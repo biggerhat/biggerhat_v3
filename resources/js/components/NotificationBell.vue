@@ -3,6 +3,8 @@ import EmptyState from '@/components/EmptyState.vue';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useNotifications } from '@/composables/useNotifications';
+import { notificationIcon } from '@/lib/notificationMeta';
+import { relativeTime } from '@/lib/relativeTime';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Bell } from 'lucide-vue-next';
@@ -66,14 +68,15 @@ const markAllRead = async () => {
         <DropdownMenuTrigger as-child>
             <button
                 type="button"
-                aria-label="Notifications"
-                class="relative inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                :aria-label="unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'"
+                class="relative inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:size-9"
             >
                 <Bell class="size-4" />
                 <Badge
                     v-if="unreadCount > 0"
                     variant="destructive"
-                    class="absolute -right-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] leading-none"
+                    aria-hidden="true"
+                    class="absolute -right-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-2xs leading-none"
                 >
                     {{ unreadCount > 9 ? '9+' : unreadCount }}
                 </Badge>
@@ -82,12 +85,7 @@ const markAllRead = async () => {
         <DropdownMenuContent class="w-80" align="end" :side-offset="4">
             <div class="flex items-center justify-between px-2 py-1.5">
                 <span class="text-sm font-medium">Notifications</span>
-                <button
-                    v-if="unreadCount > 0"
-                    type="button"
-                    class="text-xs text-primary hover:underline"
-                    @click.stop="markAllRead"
-                >
+                <button v-if="unreadCount > 0" type="button" class="text-xs text-primary hover:underline" @click.stop="markAllRead">
                     Mark all read
                 </button>
             </div>
@@ -96,11 +94,16 @@ const markAllRead = async () => {
                 <DropdownMenuItem
                     v-for="n in notifications"
                     :key="n.id"
-                    :class="['flex flex-col items-start gap-0.5 whitespace-normal py-2', !n.read_at ? 'bg-accent/50' : '']"
+                    :class="['flex items-start gap-2 whitespace-normal py-2', !n.read_at ? 'bg-accent/50' : '']"
                     @select.prevent="openNotification(n)"
                 >
-                    <span class="text-sm">{{ n.message }}</span>
-                    <span class="text-xs text-muted-foreground">{{ new Date(n.created_at).toLocaleString() }}</span>
+                    <component :is="notificationIcon(n.type)" class="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm">{{ n.message }}</span>
+                        <span class="block text-xs text-muted-foreground" :title="new Date(n.created_at).toLocaleString()">{{
+                            relativeTime(n.created_at)
+                        }}</span>
+                    </span>
                 </DropdownMenuItem>
             </div>
             <Link

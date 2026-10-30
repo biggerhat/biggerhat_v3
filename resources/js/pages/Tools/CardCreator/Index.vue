@@ -212,8 +212,8 @@ const stationLabel = (station: string | null) => {
                             <div class="flex h-full items-center justify-center text-muted-foreground">
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white"
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
+                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[10px] text-white"
                                 >Campaign</Badge
                             >
                         </div>
@@ -239,7 +239,7 @@ const stationLabel = (station: string | null) => {
                                     aria-label="Copy share link"
                                     @click="copyCharacterShareLink(character)"
                                 >
-                                    <Check v-if="copiedId === 'char-' + character.id" class="size-3 text-green-500" />
+                                    <Check v-if="copiedId === 'char-' + character.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
                                 <Button
@@ -284,8 +284,8 @@ const stationLabel = (station: string | null) => {
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
                                 <span class="text-[10px] font-medium uppercase tracking-wider opacity-40">Crew Card</span>
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-[9px] text-white">
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
+                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-[10px] text-white">
                                 Campaign
                             </Badge>
                         </div>
@@ -304,7 +304,7 @@ const stationLabel = (station: string | null) => {
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
                                 <Button variant="outline" size="sm" class="text-xs" aria-label="Copy share link" @click="copyUpgradeShareLink(card)">
-                                    <Check v-if="copiedId === 'upg-' + card.id" class="size-3 text-green-500" />
+                                    <Check v-if="copiedId === 'upg-' + card.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
                                 <Button
@@ -349,7 +349,7 @@ const stationLabel = (station: string | null) => {
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
                                 <span class="text-[10px] font-medium uppercase tracking-wider opacity-40">Upgrade</span>
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[9px] text-white">Custom</Badge>
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
                         </div>
                         <CardContent class="p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">
@@ -372,7 +372,7 @@ const stationLabel = (station: string | null) => {
                                     aria-label="Copy share link"
                                     @click="copyUpgradeShareLink(upgrade)"
                                 >
-                                    <Check v-if="copiedId === 'upg-' + upgrade.id" class="size-3 text-green-500" />
+                                    <Check v-if="copiedId === 'upg-' + upgrade.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
                                 <Button

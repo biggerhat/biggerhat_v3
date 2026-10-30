@@ -112,7 +112,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                             <TosSuits v-if="t.suits" :suits="t.suits" />
                             <TosMarginCost v-else-if="t.margin_cost != null" :cost="t.margin_cost" />
                         </div>
-                        <p v-if="t.actions.length" class="text-[11px] text-muted-foreground">
+                        <p v-if="t.actions.length" class="text-2xs text-muted-foreground">
                             on {{ t.actions.map((a) => a.name).join(', ') }}
                             <span v-if="t.timing === 'immediately'" class="ml-1 italic">(Immediately)</span>
                         </p>

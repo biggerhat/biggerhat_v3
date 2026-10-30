@@ -9,6 +9,7 @@ import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
+import { factionForeground } from '@/composables/useFactionColor';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { valueUpdater } from '@/lib/utils';
@@ -165,7 +166,7 @@ function openMasterDrawer(master: any, event: Event) {
                                                 <CardTitle class="text-base">{{ keyword.name }}</CardTitle>
                                                 <span
                                                     v-if="keyword.has_master"
-                                                    class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500"
+                                                    class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400"
                                                 >
                                                     Master
                                                 </span>
@@ -178,12 +179,13 @@ function openMasterDrawer(master: any, event: Event) {
                                                     v-for="f in keyword.factions"
                                                     :key="f.value"
                                                     variant="outline"
-                                                    class="gap-1.5 border-transparent py-1 pl-1.5 pr-2 font-normal text-white"
-                                                    :style="{ backgroundColor: `hsl(var(--${f.value.replace(/_/g, '')}) / 0.85)` }"
+                                                    class="gap-1.5 border-transparent py-1 pl-1.5 pr-2 font-normal"
+                                                    :class="factionForeground(f.value)"
+                                                    :style="{ backgroundColor: `hsl(var(--${f.value.replace(/_/g, '')}))` }"
                                                 >
                                                     <FactionLogo :faction="f.value" class-name="size-3.5" />
                                                     <span>{{ f.label }}</span>
-                                                    <span class="text-white/70">{{ f.percent }}%</span>
+                                                    <span class="font-semibold">{{ f.percent }}%</span>
                                                 </Badge>
                                             </div>
                                             <!-- Masters + their crew upgrades -->
@@ -196,8 +198,9 @@ function openMasterDrawer(master: any, event: Event) {
                                                     <Badge
                                                         v-if="master.miniature"
                                                         variant="outline"
-                                                        class="cursor-pointer border-transparent py-1 font-medium text-white hover:opacity-80"
-                                                        :style="{ backgroundColor: `hsl(var(--${master.faction.replace(/_/g, '')}) / 0.85)` }"
+                                                        class="cursor-pointer border-transparent py-1 font-medium hover:opacity-80"
+                                                        :class="factionForeground(master.faction)"
+                                                        :style="{ backgroundColor: `hsl(var(--${master.faction.replace(/_/g, '')}))` }"
                                                         @click.prevent.stop="openMasterDrawer(master, $event)"
                                                     >
                                                         {{ master.name }}
@@ -239,25 +242,25 @@ function openMasterDrawer(master: any, event: Event) {
                                             <div v-if="keyword.stats" class="grid grid-cols-3 gap-1 text-center text-xs sm:grid-cols-5">
                                                 <div v-if="keyword.stats.avg_cost != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_cost }}</div>
-                                                    <div class="flex items-center justify-center gap-0.5 text-[10px] text-muted-foreground">
+                                                    <div class="flex items-center justify-center gap-0.5 text-2xs text-muted-foreground">
                                                         <GameIcon type="soulstone" class-name="h-2.5" />
                                                     </div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_health != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_health }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">HP</div>
+                                                    <div class="text-2xs text-muted-foreground">HP</div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_speed != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_speed }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">SPD</div>
+                                                    <div class="text-2xs text-muted-foreground">SPD</div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_defense != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_defense }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">DEF</div>
+                                                    <div class="text-2xs text-muted-foreground">DEF</div>
                                                 </div>
                                                 <div v-if="keyword.stats.avg_willpower != null" class="rounded bg-muted/50 px-1 py-0.5">
                                                     <div class="font-medium text-foreground">{{ keyword.stats.avg_willpower }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">WP</div>
+                                                    <div class="text-2xs text-muted-foreground">WP</div>
                                                 </div>
                                             </div>
                                         </CardContent>

@@ -131,13 +131,13 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ c.name }}</span>
                                 <div class="flex shrink-0 gap-1">
-                                    <Badge variant="outline" class="text-[10px] capitalize">{{ c.type }}</Badge>
-                                    <Badge v-if="c.secondary_type" variant="outline" class="text-[10px] capitalize">{{ c.secondary_type }}</Badge>
+                                    <Badge variant="outline" class="text-2xs capitalize">{{ c.type }}</Badge>
+                                    <Badge v-if="c.secondary_type" variant="outline" class="text-2xs capitalize">{{ c.secondary_type }}</Badge>
                                 </div>
                             </div>
-                            <p class="truncate text-[10px] text-muted-foreground">{{ c.allegiance.name }}</p>
+                            <p class="truncate text-2xs text-muted-foreground">{{ c.allegiance.name }}</p>
                             <p v-if="c.body" class="line-clamp-2 text-xs text-muted-foreground"><TosText :text="c.body" /></p>
-                            <p v-if="c.abilities.length" class="text-[10px] tabular-nums text-muted-foreground">
+                            <p v-if="c.abilities.length" class="text-2xs tabular-nums text-muted-foreground">
                                 {{ c.abilities.length }} {{ c.abilities.length === 1 ? 'ability' : 'abilities' }}
                             </p>
                         </CardContent>

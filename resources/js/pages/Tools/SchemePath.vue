@@ -217,7 +217,7 @@ onMounted(() => {
                                             :class="path.length >= n ? 'bg-primary' : 'bg-muted'"
                                         />
                                     </div>
-                                    <p class="mt-1.5 text-[11px] text-muted-foreground">{{ path.length }} of {{ TURNS }} turns picked</p>
+                                    <p class="mt-1.5 text-2xs text-muted-foreground">{{ path.length }} of {{ TURNS }} turns picked</p>
                                 </div>
 
                                 <div class="flex flex-col gap-2">
@@ -261,7 +261,7 @@ onMounted(() => {
                                 :title="`Revise Turn ${idx + 1}`"
                                 @click="truncateToTurn(idx + 1)"
                             >
-                                <span class="rounded bg-primary/15 px-1 py-0 text-[10px] font-bold uppercase text-primary">T{{ idx + 1 }}</span>
+                                <span class="rounded bg-primary/15 px-1 py-0 text-2xs font-bold uppercase text-primary">T{{ idx + 1 }}</span>
                                 <GameIcon
                                     v-if="suitFor(scheme.selector)"
                                     :type="suitFor(scheme.selector)!.icon"
@@ -276,7 +276,7 @@ onMounted(() => {
                     <!-- Next-turn picker -->
                     <section v-if="!isComplete">
                         <div class="mb-3 flex items-baseline gap-2">
-                            <span class="rounded bg-primary/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary"
+                            <span class="rounded bg-primary/15 px-2 py-0.5 text-2xs font-bold uppercase tracking-wider text-primary"
                                 >Turn {{ currentTurn }}</span
                             >
                             <h2 class="text-base font-semibold">
@@ -297,16 +297,22 @@ onMounted(() => {
                         />
 
                         <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                            <button
+                            <div
                                 v-for="(scheme, idx) in candidatesForNextTurn"
                                 :key="scheme.id"
-                                type="button"
                                 class="animate-fade-in-up group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left opacity-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:ring-1"
                                 :class="suitFor(scheme.selector)?.ring ?? 'hover:ring-primary/50'"
                                 :style="candidateDelays[idx]"
-                                :title="scheme.name"
-                                @click="pickScheme(scheme)"
                             >
+                                <!-- The pick action is an overlay button (a sibling of the "Details" link below)
+                                     rather than the card itself, because a link can't live inside a button. -->
+                                <button
+                                    type="button"
+                                    class="absolute inset-0 z-[5] rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                    :aria-label="`Pick ${scheme.name}`"
+                                    :title="scheme.name"
+                                    @click="pickScheme(scheme)"
+                                />
                                 <img
                                     v-if="scheme.image_url"
                                     :src="scheme.image_url"
@@ -335,7 +341,7 @@ onMounted(() => {
                                 >
                                     <div class="min-w-0 flex-1 truncate font-semibold">
                                         <span
-                                            class="rounded bg-primary/80 px-1 py-0 text-[10px] font-bold uppercase tracking-wider text-primary-foreground"
+                                            class="rounded bg-primary/80 px-1 py-0 text-2xs font-bold uppercase tracking-wider text-primary-foreground"
                                             >T{{ currentTurn }}</span
                                         >
                                         <span class="ml-1.5">{{ scheme.name }}</span>
@@ -343,7 +349,7 @@ onMounted(() => {
                                     <Badge
                                         v-if="scheme.selector"
                                         variant="outline"
-                                        class="inline-flex shrink-0 items-center gap-1 border-white/30 bg-black/50 px-1.5 py-0 text-[10px] text-white"
+                                        class="inline-flex shrink-0 items-center gap-1 border-white/30 bg-black/50 px-1.5 py-0 text-2xs text-white"
                                     >
                                         <GameIcon
                                             v-if="suitFor(scheme.selector)"
@@ -358,12 +364,12 @@ onMounted(() => {
                                      so the image stays clean by default. -->
                                 <Link
                                     :href="route('schemes.view', scheme.slug)"
-                                    class="absolute right-2 top-2 z-10 inline-flex items-center gap-0.5 rounded-md border border-white/30 bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-black/80 group-hover:opacity-100"
+                                    class="absolute right-2 top-2 z-10 inline-flex items-center gap-0.5 rounded-md border border-white/30 bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-black/80 group-hover:opacity-100"
                                     @click.stop
                                 >
                                     Details
                                 </Link>
-                            </button>
+                            </div>
                         </div>
                     </section>
 
@@ -404,7 +410,7 @@ onMounted(() => {
                                 >
                                     <div class="min-w-0 flex-1 truncate font-semibold">
                                         <span
-                                            class="rounded bg-primary/80 px-1 py-0 text-[10px] font-bold uppercase tracking-wider text-primary-foreground"
+                                            class="rounded bg-primary/80 px-1 py-0 text-2xs font-bold uppercase tracking-wider text-primary-foreground"
                                             >T{{ idx + 1 }}</span
                                         >
                                         <span class="ml-1.5">{{ scheme.name }}</span>
@@ -412,7 +418,7 @@ onMounted(() => {
                                     <Badge
                                         v-if="scheme.selector"
                                         variant="outline"
-                                        class="inline-flex shrink-0 items-center gap-1 border-white/30 bg-black/50 px-1.5 py-0 text-[10px] text-white"
+                                        class="inline-flex shrink-0 items-center gap-1 border-white/30 bg-black/50 px-1.5 py-0 text-2xs text-white"
                                     >
                                         <GameIcon
                                             v-if="suitFor(scheme.selector)"

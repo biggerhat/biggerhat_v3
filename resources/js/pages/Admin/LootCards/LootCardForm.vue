@@ -336,7 +336,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                         <div v-if="!isJoker" class="space-y-1.5">
                             <Label for="value">Value</Label>
                             <Input id="value" v-model.number="newValue" type="number" min="1" max="13" placeholder="1-13" />
-                            <p class="text-[11px] text-muted-foreground">
+                            <p class="text-2xs text-muted-foreground">
                                 Printed face is derived automatically:
                                 <span class="font-mono">{{ derivedValueLabel || '—' }}</span>
                             </p>
@@ -359,11 +359,11 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                     <!-- Suit/value on edit: read-only display (immutable to preserve deck identity). -->
                     <div v-else class="flex flex-wrap gap-3">
                         <div class="flex flex-col gap-1">
-                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground">Suit</span>
+                            <span class="text-2xs uppercase tracking-wider text-muted-foreground">Suit</span>
                             <Badge variant="outline" class="capitalize">{{ card!.suit }}</Badge>
                         </div>
                         <div class="flex flex-col gap-1">
-                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground">Value</span>
+                            <span class="text-2xs uppercase tracking-wider text-muted-foreground">Value</span>
                             <Badge variant="outline" class="font-mono tabular-nums">{{ card!.value_label }}</Badge>
                         </div>
                     </div>
@@ -426,7 +426,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                             <ul v-if="sideAActionRows.length" class="space-y-1 rounded-md border bg-muted/20 p-2 text-xs">
                                 <li v-for="row in sideAActionRows" :key="`a-${row.slug}`" class="flex items-center justify-between gap-2">
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
-                                    <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <label class="flex shrink-0 items-center gap-1.5 text-2xs text-muted-foreground">
                                         <Checkbox :checked="row.is_signature_action" @update:checked="toggleSignature(sideAActionRows, row.slug)" />
                                         Signature
                                     </label>
@@ -472,7 +472,7 @@ const actionLabelFor = (slug: string) => actionOptions.value.find((o) => o.value
                             <ul v-if="sideBActionRows.length" class="space-y-1 rounded-md border bg-muted/20 p-2 text-xs">
                                 <li v-for="row in sideBActionRows" :key="`b-${row.slug}`" class="flex items-center justify-between gap-2">
                                     <span class="font-medium">{{ actionLabelFor(row.slug) }}</span>
-                                    <label class="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <label class="flex shrink-0 items-center gap-1.5 text-2xs text-muted-foreground">
                                         <Checkbox :checked="row.is_signature_action" @update:checked="toggleSignature(sideBActionRows, row.slug)" />
                                         Signature
                                     </label>

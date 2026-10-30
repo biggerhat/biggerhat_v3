@@ -165,16 +165,16 @@ const winRateColor = (rate: number) => {
                 <Card v-if="profile.favorite_faction">
                     <CardContent class="p-4 text-center">
                         <FactionLogo :faction="profile.favorite_faction" class-name="mx-auto mb-1 size-8" />
-                        <div class="text-[10px] uppercase text-muted-foreground">Favorite Faction</div>
+                        <div class="text-2xs uppercase text-muted-foreground">Favorite Faction</div>
                         <div class="text-sm font-bold capitalize">{{ profile.favorite_faction.replace('_', ' ') }}</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent class="p-4 text-center">
                         <Package class="mx-auto mb-1 size-6 text-muted-foreground" />
-                        <div class="text-[10px] uppercase text-muted-foreground">Collection</div>
+                        <div class="text-2xs uppercase text-muted-foreground">Collection</div>
                         <div class="text-sm font-bold">{{ profile.collection.total }} models</div>
-                        <div v-if="profile.collection.total > 0" class="mt-1 flex justify-center gap-2 text-[10px] text-muted-foreground">
+                        <div v-if="profile.collection.total > 0" class="mt-1 flex justify-center gap-2 text-2xs text-muted-foreground">
                             <span>{{ profile.collection.built }} built</span>
                             <span>{{ profile.collection.painted }} painted</span>
                         </div>
@@ -183,9 +183,9 @@ const winRateColor = (rate: number) => {
                 <Card>
                     <CardContent class="p-4 text-center">
                         <Crown class="mx-auto mb-1 size-6 text-muted-foreground" />
-                        <div class="text-[10px] uppercase text-muted-foreground">Tournaments</div>
+                        <div class="text-2xs uppercase text-muted-foreground">Tournaments</div>
                         <div class="text-sm font-bold">{{ profile.tournaments_played }}</div>
-                        <div v-if="profile.best_tournament_finish" class="mt-1 text-[10px] text-muted-foreground">
+                        <div v-if="profile.best_tournament_finish" class="mt-1 text-2xs text-muted-foreground">
                             Best:
                             {{
                                 profile.best_tournament_finish === 1
@@ -202,7 +202,7 @@ const winRateColor = (rate: number) => {
                 <Card>
                     <CardContent class="p-4 text-center">
                         <Share2 class="mx-auto mb-1 size-6 text-muted-foreground" />
-                        <div class="text-[10px] uppercase text-muted-foreground">Shared Crews</div>
+                        <div class="text-2xs uppercase text-muted-foreground">Shared Crews</div>
                         <div class="text-sm font-bold">{{ profile.public_crews }}</div>
                     </CardContent>
                 </Card>
@@ -241,7 +241,7 @@ const winRateColor = (rate: number) => {
                         <CardContent class="p-4 text-center">
                             <div class="text-3xl font-bold tabular-nums">{{ stats.total_games }}</div>
                             <div class="text-xs text-muted-foreground">Games Played</div>
-                            <div class="mt-1 text-[10px] tabular-nums text-muted-foreground">
+                            <div class="mt-1 text-2xs tabular-nums text-muted-foreground">
                                 {{ stats.duel_games }} duel · {{ stats.solo_games }} solo
                             </div>
                         </CardContent>
@@ -250,7 +250,7 @@ const winRateColor = (rate: number) => {
                         <CardContent class="p-4 text-center">
                             <div class="text-3xl font-bold tabular-nums" :class="winRateColor(stats.win_rate)">{{ stats.win_rate }}%</div>
                             <div class="text-xs text-muted-foreground">Win Rate</div>
-                            <div class="mt-1 text-[10px] tabular-nums text-muted-foreground">
+                            <div class="mt-1 text-2xs tabular-nums text-muted-foreground">
                                 {{ stats.wins }}W · {{ stats.losses }}L · {{ stats.ties }}T
                             </div>
                         </CardContent>
@@ -259,7 +259,7 @@ const winRateColor = (rate: number) => {
                         <CardContent class="p-4 text-center">
                             <div class="text-3xl font-bold tabular-nums">{{ stats.avg_vp }}</div>
                             <div class="text-xs text-muted-foreground">Avg VP / Game</div>
-                            <div class="mt-1 text-[10px] tabular-nums text-muted-foreground">{{ stats.total_vp }} total VP</div>
+                            <div class="mt-1 text-2xs tabular-nums text-muted-foreground">{{ stats.total_vp }} total VP</div>
                         </CardContent>
                     </Card>
                     <Card>
@@ -289,11 +289,11 @@ const winRateColor = (rate: number) => {
                                     <FactionLogo :faction="f.faction" class-name="size-5 shrink-0" />
                                     <div class="min-w-0 flex-1">
                                         <div class="font-medium capitalize">{{ f.faction?.replace('_', ' ') }}</div>
-                                        <div class="text-[10px] text-muted-foreground">{{ f.games }} games · {{ f.avg_vp }} avg VP</div>
+                                        <div class="text-2xs text-muted-foreground">{{ f.games }} games · {{ f.avg_vp }} avg VP</div>
                                     </div>
                                     <div class="text-right">
                                         <div class="font-bold" :class="winRateColor(f.win_rate)">{{ f.win_rate }}%</div>
-                                        <div class="text-[10px] text-muted-foreground">{{ f.wins }}W {{ f.losses }}L {{ f.ties }}T</div>
+                                        <div class="text-2xs text-muted-foreground">{{ f.wins }}W {{ f.losses }}L {{ f.ties }}T</div>
                                     </div>
                                 </div>
                             </div>
@@ -313,11 +313,11 @@ const winRateColor = (rate: number) => {
                                     <FactionLogo :faction="m.faction" class-name="size-4 shrink-0" />
                                     <div class="min-w-0 flex-1">
                                         <div class="truncate font-medium">{{ m.master_name }}</div>
-                                        <div class="text-[10px] text-muted-foreground">{{ m.games }} games · {{ m.avg_vp }} avg VP</div>
+                                        <div class="text-2xs text-muted-foreground">{{ m.games }} games · {{ m.avg_vp }} avg VP</div>
                                     </div>
                                     <div class="text-right">
                                         <div class="font-bold" :class="winRateColor(m.win_rate)">{{ m.win_rate }}%</div>
-                                        <div class="text-[10px] text-muted-foreground">{{ m.wins }}W {{ m.losses }}L</div>
+                                        <div class="text-2xs text-muted-foreground">{{ m.wins }}W {{ m.losses }}L</div>
                                     </div>
                                 </div>
                             </div>
@@ -361,19 +361,17 @@ const winRateColor = (rate: number) => {
                             <table class="w-full border-collapse text-xs">
                                 <thead>
                                     <tr class="border-b">
-                                        <th class="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        <th class="px-2 py-1.5 text-left text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                             Your Keyword
                                         </th>
-                                        <th class="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                            vs
-                                        </th>
-                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        <th class="px-2 py-1.5 text-left text-2xs font-semibold uppercase tracking-wide text-muted-foreground">vs</th>
+                                        <th class="px-2 py-1.5 text-center text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                             Games
                                         </th>
-                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        <th class="px-2 py-1.5 text-center text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                             Record
                                         </th>
-                                        <th class="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        <th class="px-2 py-1.5 text-center text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                             Win %
                                         </th>
                                     </tr>
@@ -418,16 +416,16 @@ const winRateColor = (rate: number) => {
                                 <FactionLogo v-if="g.faction" :faction="g.faction" class-name="size-5 shrink-0" />
                                 <div class="min-w-0 flex-1">
                                     <div class="truncate font-medium">{{ g.master_name || 'Unknown Master' }}</div>
-                                    <div class="text-[10px] text-muted-foreground">
+                                    <div class="text-2xs text-muted-foreground">
                                         {{ g.encounter_size }}ss · {{ g.strategy || 'No strategy' }}
-                                        <Badge v-if="g.is_solo" variant="outline" class="ml-1 px-1 py-0 text-[8px]">Solo</Badge>
+                                        <Badge v-if="g.is_solo" variant="outline" class="ml-1 px-1 py-0 text-2xs">Solo</Badge>
                                     </div>
                                 </div>
                                 <div class="text-right">
                                     <div class="font-bold" :class="resultColor(g.result)">
                                         {{ g.result === 'win' ? 'Win' : g.result === 'loss' ? 'Loss' : 'Tie' }}
                                     </div>
-                                    <div class="text-[10px] text-muted-foreground">{{ g.total_points }} VP · {{ g.completed_at }}</div>
+                                    <div class="text-2xs text-muted-foreground">{{ g.total_points }} VP · {{ g.completed_at }}</div>
                                 </div>
                             </Link>
                         </div>

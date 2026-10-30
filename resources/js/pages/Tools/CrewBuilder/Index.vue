@@ -42,6 +42,7 @@ import {
     Globe,
     Loader2,
     Lock,
+    MoreHorizontal,
     Pencil,
     Plus,
     Printer,
@@ -2129,13 +2130,13 @@ onUnmounted(() => {
                     <TabsList>
                         <TabsTrigger value="active">
                             Active
-                            <Badge v-if="activeBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                            <Badge v-if="activeBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">
                                 {{ activeBuilds.length }}
                             </Badge>
                         </TabsTrigger>
                         <TabsTrigger value="archived">
                             Archived
-                            <Badge v-if="archivedBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                            <Badge v-if="archivedBuilds.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">
                                 {{ archivedBuilds.length }}
                             </Badge>
                         </TabsTrigger>
@@ -2149,9 +2150,10 @@ onUnmounted(() => {
                             <Card
                                 v-for="build in activeBuilds"
                                 :key="build.id"
-                                class="transition-colors"
+                                class="overflow-hidden transition-colors"
                                 :class="expandedBuildId === build.id ? 'shadow-md ring-1 ring-primary/50' : 'hover:bg-accent/30'"
                             >
+                                <div class="h-1 w-full" :class="factionBackground(build.faction)" aria-hidden="true" />
                                 <CardContent class="p-4">
                                     <div class="flex cursor-pointer items-start gap-3" @click="toggleBuildExpand(build)">
                                         <img
@@ -2171,6 +2173,16 @@ onUnmounted(() => {
                                                     <GameIcon type="soulstone" class-name="h-3 inline-block" />
                                                 </span>
                                                 <span>{{ (build.crew_data?.length ?? 0) + 1 }} models</span>
+                                                <span
+                                                    class="inline-flex items-center gap-1"
+                                                    :title="
+                                                        build.is_public ? 'Anyone with the link can view this crew' : 'Only you can see this crew'
+                                                    "
+                                                >
+                                                    <Globe v-if="build.is_public" class="size-3" />
+                                                    <Lock v-else class="size-3" />
+                                                    {{ build.is_public ? 'Public' : 'Private' }}
+                                                </span>
                                             </div>
                                             <div v-if="build.copied_from" class="mt-1 text-xs text-muted-foreground">
                                                 Copied from
@@ -2235,7 +2247,7 @@ onUnmounted(() => {
                                                 >
                                                     <div class="flex min-w-0 items-center gap-1.5">
                                                         <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-2xs">
                                                             {{ buildCategoryLabel(member.category) }}
                                                         </Badge>
                                                     </div>
@@ -2249,55 +2261,45 @@ onUnmounted(() => {
                                     </div>
 
                                     <Separator class="my-3" />
-                                    <div class="flex flex-wrap items-center gap-1">
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="loadBuild(build)">
-                                            <Pencil class="size-3" />
+                                    <div class="flex items-center gap-2">
+                                        <Button size="sm" variant="secondary" class="h-8 flex-1 gap-1.5" @click="loadBuild(build)">
+                                            <Pencil class="size-3.5" />
                                             Edit
                                         </Button>
                                         <Button
-                                            variant="ghost"
                                             size="sm"
-                                            class="h-7 gap-1 text-xs"
+                                            variant="outline"
+                                            class="h-8 gap-1.5"
                                             as="a"
                                             :href="route('tools.crew_builder.share', build.share_code)"
                                         >
-                                            <ExternalLink class="size-3" />
+                                            <ExternalLink class="size-3.5" />
                                             View
                                         </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            class="h-7 gap-1 text-xs"
-                                            :disabled="!build.is_public"
-                                            :title="build.is_public ? 'Copy share link' : 'Make public to share'"
-                                            @click="copyShareLinkForBuild(build)"
-                                        >
-                                            <Copy class="size-3" />
-                                            Share
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            class="h-7 gap-1 text-xs"
-                                            :title="build.is_public ? 'Public — click to make private' : 'Private — click to make public'"
-                                            @click="togglePublic(build)"
-                                        >
-                                            <Globe v-if="build.is_public" class="size-3" />
-                                            <Lock v-else class="size-3" />
-                                            {{ build.is_public ? 'Public' : 'Private' }}
-                                        </Button>
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="toggleArchive(build)">
-                                            <Archive class="size-3" />
-                                            Archive
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
-                                            @click="deleteTarget = build"
-                                        >
-                                            <Trash2 class="size-3" />
-                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger as-child>
+                                                <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${build.name}`">
+                                                    <MoreHorizontal class="size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem :disabled="!build.is_public" @click="copyShareLinkForBuild(build)">
+                                                    <Copy class="mr-2 size-4" />
+                                                    {{ build.is_public ? 'Copy share link' : 'Copy share link (make public first)' }}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem @click="togglePublic(build)">
+                                                    <Lock v-if="build.is_public" class="mr-2 size-4" />
+                                                    <Globe v-else class="mr-2 size-4" />
+                                                    {{ build.is_public ? 'Make private' : 'Make public' }}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem @click="toggleArchive(build)">
+                                                    <Archive class="mr-2 size-4" /> Archive
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem class="text-destructive focus:text-destructive" @click="deleteTarget = build">
+                                                    <Trash2 class="mr-2 size-4" /> Delete…
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -2313,6 +2315,7 @@ onUnmounted(() => {
                                 class="opacity-75 transition-colors hover:opacity-100"
                                 :class="expandedBuildId === build.id ? 'opacity-100 shadow-md ring-1 ring-primary/50' : 'hover:bg-accent/30'"
                             >
+                                <div class="h-1 w-full" :class="factionBackground(build.faction)" aria-hidden="true" />
                                 <CardContent class="p-4">
                                     <div class="flex cursor-pointer items-start gap-3" @click="toggleBuildExpand(build)">
                                         <img
@@ -2395,7 +2398,7 @@ onUnmounted(() => {
                                                 >
                                                     <div class="flex min-w-0 items-center gap-1.5">
                                                         <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-[9px]">
+                                                        <Badge :class="buildCategoryColor(member.category)" class="shrink-0 px-1 py-0 text-2xs">
                                                             {{ buildCategoryLabel(member.category) }}
                                                         </Badge>
                                                     </div>
@@ -2409,33 +2412,34 @@ onUnmounted(() => {
                                     </div>
 
                                     <Separator class="my-3" />
-                                    <div class="flex flex-wrap items-center gap-1">
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="loadBuild(build)">
-                                            <Pencil class="size-3" />
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            class="h-7 gap-1 text-xs"
-                                            as="a"
-                                            :href="route('tools.crew_builder.share', build.share_code)"
-                                        >
-                                            <ExternalLink class="size-3" />
-                                            View
-                                        </Button>
-                                        <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="toggleArchive(build)">
-                                            <ArchiveRestore class="size-3" />
+                                    <div class="flex items-center gap-2">
+                                        <Button size="sm" variant="secondary" class="h-8 flex-1 gap-1.5" @click="toggleArchive(build)">
+                                            <ArchiveRestore class="size-3.5" />
                                             Restore
                                         </Button>
                                         <Button
-                                            variant="ghost"
                                             size="sm"
-                                            class="ml-auto h-7 gap-1 text-xs text-destructive hover:text-destructive"
-                                            @click="deleteTarget = build"
+                                            variant="outline"
+                                            class="h-8 gap-1.5"
+                                            as="a"
+                                            :href="route('tools.crew_builder.share', build.share_code)"
                                         >
-                                            <Trash2 class="size-3" />
+                                            <ExternalLink class="size-3.5" />
+                                            View
                                         </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger as-child>
+                                                <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${build.name}`">
+                                                    <MoreHorizontal class="size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem @click="loadBuild(build)"> <Pencil class="mr-2 size-4" /> Edit </DropdownMenuItem>
+                                                <DropdownMenuItem class="text-destructive focus:text-destructive" @click="deleteTarget = build">
+                                                    <Trash2 class="mr-2 size-4" /> Delete…
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -2531,7 +2535,7 @@ onUnmounted(() => {
                                             <Badge
                                                 v-if="info.isAlternateLeader"
                                                 variant="outline"
-                                                class="border-cyan-500/50 px-1 py-0 text-[9px] text-cyan-600 dark:text-cyan-400"
+                                                class="border-cyan-500/50 px-1 py-0 text-2xs text-cyan-600 dark:text-cyan-400"
                                             >
                                                 Alt. Leader
                                             </Badge>
@@ -2598,7 +2602,7 @@ onUnmounted(() => {
                                                 class="cursor-pointer px-1.5 py-0.5 text-xs hover:bg-accent"
                                                 @click.stop="openUpgradePreview(upgrade)"
                                             >
-                                                <Star class="mr-0.5 size-2.5 text-amber-500" />
+                                                <Star class="mr-0.5 size-2.5 text-amber-700 dark:text-amber-400" />
                                                 {{ upgrade.name }}
                                             </Badge>
                                         </div>
@@ -2622,7 +2626,7 @@ onUnmounted(() => {
                         <CardContent class="p-3 sm:p-4">
                             <!-- Row 1: Back, faction logo, crew name, encounter size -->
                             <div class="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" class="size-8 shrink-0" @click="goBack">
+                                <Button aria-label="Go back" variant="ghost" size="icon" class="size-8 shrink-0" @click="goBack">
                                     <ArrowLeft class="size-4" />
                                 </Button>
                                 <img
@@ -2773,27 +2777,27 @@ onUnmounted(() => {
                         <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                                 <div class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Models</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
                                 </div>
                                 <div v-if="crewStats.avgCost != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
                                 </div>
                                 <div v-if="crewStats.avgHealth != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
                                 </div>
                                 <div v-if="crewStats.avgSpeed != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
                                 </div>
                                 <div v-if="crewStats.avgDefense != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
                                 </div>
                                 <div v-if="crewStats.avgWillpower != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                 </div>
                             </div>
@@ -2802,7 +2806,7 @@ onUnmounted(() => {
                             v-if="crewStats && Object.keys(crewStats.suitCounts).length"
                             class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2"
                         >
-                            <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
+                            <div class="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                                 <div
                                     v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter((s) => crewStats!.suitCounts[s])"
@@ -2820,7 +2824,7 @@ onUnmounted(() => {
                             <TabsList class="mb-3 grid w-full grid-cols-2">
                                 <TabsTrigger value="crew">
                                     Crew
-                                    <Badge v-if="crew.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-[10px]">
+                                    <Badge v-if="crew.length" variant="secondary" class="ml-1.5 px-1.5 py-0 text-2xs">
                                         {{ crew.length }}
                                     </Badge>
                                 </TabsTrigger>
@@ -2843,17 +2847,17 @@ onUnmounted(() => {
                                                 :key="f"
                                                 :variant="poolFilter === f ? 'default' : 'outline'"
                                                 size="sm"
-                                                class="h-6 gap-1 px-2 text-[11px]"
+                                                class="h-6 gap-1 px-2 text-2xs"
                                                 @click="poolFilter = f"
                                             >
                                                 {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
-                                                <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                                                <span class="text-2xs opacity-60">{{ poolFilterCounts[f] }}</span>
                                             </Button>
                                             <Button
                                                 v-if="ownedSet.size > 0"
                                                 :variant="ownedOnly ? 'default' : 'outline'"
                                                 size="sm"
-                                                class="h-6 gap-1 px-2 text-[11px]"
+                                                class="h-6 gap-1 px-2 text-2xs"
                                                 @click="ownedOnly = !ownedOnly"
                                             >
                                                 Owned
@@ -2863,7 +2867,7 @@ onUnmounted(() => {
                                                 v-if="augmentedPool.length > 0"
                                                 variant="ghost"
                                                 size="sm"
-                                                class="h-6 px-1.5 text-[11px]"
+                                                class="h-6 px-1.5 text-2xs"
                                                 @click="toggleExpandAllHire"
                                             >
                                                 <component :is="expandAllHire ? ChevronsDownUp : ChevronsUpDown" class="size-3.5" />
@@ -2871,13 +2875,13 @@ onUnmounted(() => {
                                             </Button>
                                         </div>
                                         <div class="mb-2 flex items-center gap-1">
-                                            <span class="text-[11px] text-muted-foreground">Sort:</span>
+                                            <span class="text-2xs text-muted-foreground">Sort:</span>
                                             <Button
                                                 v-for="s in ['station', 'name', 'cost'] as const"
                                                 :key="s"
                                                 :variant="poolSort === s ? 'default' : 'ghost'"
                                                 size="sm"
-                                                class="h-5 px-1.5 text-[10px]"
+                                                class="h-5 px-1.5 text-2xs"
                                                 @click="poolSort = s"
                                             >
                                                 {{ { station: 'Station', name: 'Name', cost: 'Cost' }[s] }}
@@ -2927,7 +2931,7 @@ onUnmounted(() => {
                                                                     <Badge
                                                                         v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
                                                                         variant="outline"
-                                                                        class="border-white/30 px-1 py-0 text-[9px] font-normal text-white/80"
+                                                                        class="border-white/30 px-1 py-0 text-2xs font-normal text-white/80"
                                                                     >
                                                                         {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
                                                                     </Badge>
@@ -2944,7 +2948,7 @@ onUnmounted(() => {
                                                                     </span>
                                                                     <Badge
                                                                         variant="secondary"
-                                                                        class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90"
+                                                                        class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90"
                                                                     >
                                                                         {{ augmentedPool[virtualRow.index].character.station }}
                                                                         <span v-if="augmentedPool[virtualRow.index].character.count > 1">
@@ -2955,19 +2959,19 @@ onUnmounted(() => {
                                                                     </Badge>
                                                                     <Badge
                                                                         :class="categoryColor(augmentedPool[virtualRow.index].category)"
-                                                                        class="px-1 py-0 text-[10px]"
+                                                                        class="px-1 py-0 text-2xs"
                                                                     >
                                                                         {{ categoryLabel(augmentedPool[virtualRow.index].category) }}
                                                                     </Badge>
                                                                     <Badge
                                                                         v-if="augmentedPool[virtualRow.index].henchman"
-                                                                        class="bg-amber-400/20 px-1 py-0 text-[10px] text-amber-200"
+                                                                        class="bg-amber-400/20 px-1 py-0 text-2xs text-amber-200"
                                                                     >
                                                                         Henchman
                                                                     </Badge>
                                                                     <Badge
                                                                         v-if="augmentedPool[virtualRow.index].unique"
-                                                                        class="bg-cyan-400/20 px-1 py-0 text-[10px] text-cyan-200"
+                                                                        class="bg-cyan-400/20 px-1 py-0 text-2xs text-cyan-200"
                                                                     >
                                                                         Unique
                                                                     </Badge>
@@ -2983,7 +2987,7 @@ onUnmounted(() => {
                                                             <div class="flex shrink-0 items-center gap-1">
                                                                 <span
                                                                     v-if="!augmentedPool[virtualRow.index].hireCheck.allowed"
-                                                                    class="text-[10px] text-white/50"
+                                                                    class="text-2xs text-white/50"
                                                                 >
                                                                     {{ augmentedPool[virtualRow.index].hireCheck.reason }}
                                                                 </span>
@@ -3008,6 +3012,7 @@ onUnmounted(() => {
                                                                     />
                                                                 </Button>
                                                                 <Button
+                                                                    aria-label="Add to crew"
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     class="size-7 text-white hover:bg-white/10 hover:text-white"
@@ -3060,11 +3065,17 @@ onUnmounted(() => {
                                                     class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
                                                 >
                                                     <div class="flex min-w-0 items-center gap-2">
-                                                        <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                        <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white">Custom</Badge>
                                                         <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
-                                                        <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                                        <span class="shrink-0 text-2xs text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
                                                     </div>
-                                                    <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                    <Button
+                                                        aria-label="Add custom card to crew"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        class="size-7"
+                                                        @click="addCustomToCrew(cc)"
+                                                    >
                                                         <UserPlus class="size-4" />
                                                     </Button>
                                                 </div>
@@ -3139,10 +3150,10 @@ onUnmounted(() => {
                                                         "
                                                     />
                                                 </button>
-                                                <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-500" />
+                                                <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-700 dark:text-amber-400" />
                                                 <div class="min-w-0 flex-1">
                                                     <div class="text-xs font-semibold">{{ upgrade.name }}</div>
-                                                    <div class="text-[10px] text-muted-foreground">
+                                                    <div class="text-2xs text-muted-foreground">
                                                         {{
                                                             activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade
                                                                 ? 'Active Crew Card'
@@ -3200,7 +3211,7 @@ onUnmounted(() => {
                                                             }}</span>
                                                             <Badge
                                                                 v-if="member.isCustom"
-                                                                class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white"
+                                                                class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white"
                                                                 >Custom</Badge
                                                             >
                                                         </div>
@@ -3218,7 +3229,7 @@ onUnmounted(() => {
                                                                 >{{ member.effectiveCost
                                                                 }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
                                                             /></span>
-                                                            <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
+                                                            <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-2xs">
                                                                 {{ categoryLabel(member.hiringCategory) }}
                                                             </Badge>
                                                         </div>
@@ -3237,6 +3248,7 @@ onUnmounted(() => {
                                                             />
                                                         </Button>
                                                         <Button
+                                                            aria-label="Remove from crew"
                                                             v-if="
                                                                 member.hiringCategory !== 'leader' &&
                                                                 member.hiringCategory !== 'totem' &&
@@ -3285,7 +3297,7 @@ onUnmounted(() => {
                                                             }
                                                         "
                                                     >
-                                                        <SelectTrigger class="h-6 border-white/20 bg-white/10 text-[11px] text-white">
+                                                        <SelectTrigger class="h-6 border-white/20 bg-white/10 text-2xs text-white">
                                                             <SelectValue placeholder="Select miniature..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -3335,17 +3347,17 @@ onUnmounted(() => {
                                             :key="f"
                                             :variant="poolFilter === f ? 'default' : 'outline'"
                                             size="sm"
-                                            class="h-6 gap-1 px-2 text-[11px]"
+                                            class="h-6 gap-1 px-2 text-2xs"
                                             @click="poolFilter = f"
                                         >
                                             {{ { 'in-keyword': 'Keyword', versatile: 'Versatile', ook: 'OOK', all: 'All' }[f] }}
-                                            <span class="text-[10px] opacity-60">{{ poolFilterCounts[f] }}</span>
+                                            <span class="text-2xs opacity-60">{{ poolFilterCounts[f] }}</span>
                                         </Button>
                                         <Button
                                             v-if="ownedSet.size > 0"
                                             :variant="ownedOnly ? 'default' : 'outline'"
                                             size="sm"
-                                            class="h-6 gap-1 px-2 text-[11px]"
+                                            class="h-6 gap-1 px-2 text-2xs"
                                             @click="ownedOnly = !ownedOnly"
                                         >
                                             Owned
@@ -3355,7 +3367,7 @@ onUnmounted(() => {
                                             v-if="augmentedPool.length > 0"
                                             variant="ghost"
                                             size="sm"
-                                            class="h-6 px-1.5 text-[11px]"
+                                            class="h-6 px-1.5 text-2xs"
                                             @click="toggleExpandAllHire"
                                         >
                                             <component :is="expandAllHire ? ChevronsDownUp : ChevronsUpDown" class="size-3.5" />
@@ -3363,13 +3375,13 @@ onUnmounted(() => {
                                         </Button>
                                     </div>
                                     <div class="mb-2 flex items-center gap-1">
-                                        <span class="text-[11px] text-muted-foreground">Sort:</span>
+                                        <span class="text-2xs text-muted-foreground">Sort:</span>
                                         <Button
                                             v-for="s in ['station', 'name', 'cost'] as const"
                                             :key="s"
                                             :variant="poolSort === s ? 'default' : 'ghost'"
                                             size="sm"
-                                            class="h-5 px-1.5 text-[10px]"
+                                            class="h-5 px-1.5 text-2xs"
                                             @click="poolSort = s"
                                         >
                                             {{ { station: 'Station', name: 'Name', cost: 'Cost' }[s] }}
@@ -3419,7 +3431,7 @@ onUnmounted(() => {
                                                                 <Badge
                                                                     v-if="augmentedPool[virtualRow.index].character.miniatures?.length > 1"
                                                                     variant="outline"
-                                                                    class="border-white/30 px-1 py-0 text-[9px] font-normal text-white/80"
+                                                                    class="border-white/30 px-1 py-0 text-2xs font-normal text-white/80"
                                                                 >
                                                                     {{ augmentedPool[virtualRow.index].character.miniatures.length }} sculpts
                                                                 </Badge>
@@ -3436,7 +3448,7 @@ onUnmounted(() => {
                                                                 </span>
                                                                 <Badge
                                                                     variant="secondary"
-                                                                    class="bg-white/15 px-1 py-0 text-[10px] capitalize text-white/90"
+                                                                    class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90"
                                                                 >
                                                                     {{ augmentedPool[virtualRow.index].character.station }}
                                                                     <span v-if="augmentedPool[virtualRow.index].character.count > 1">
@@ -3447,19 +3459,19 @@ onUnmounted(() => {
                                                                 </Badge>
                                                                 <Badge
                                                                     :class="categoryColor(augmentedPool[virtualRow.index].category)"
-                                                                    class="px-1 py-0 text-[10px]"
+                                                                    class="px-1 py-0 text-2xs"
                                                                 >
                                                                     {{ categoryLabel(augmentedPool[virtualRow.index].category) }}
                                                                 </Badge>
                                                                 <Badge
                                                                     v-if="augmentedPool[virtualRow.index].henchman"
-                                                                    class="bg-amber-400/20 px-1 py-0 text-[10px] text-amber-200"
+                                                                    class="bg-amber-400/20 px-1 py-0 text-2xs text-amber-200"
                                                                 >
                                                                     Henchman
                                                                 </Badge>
                                                                 <Badge
                                                                     v-if="augmentedPool[virtualRow.index].unique"
-                                                                    class="bg-cyan-400/20 px-1 py-0 text-[10px] text-cyan-200"
+                                                                    class="bg-cyan-400/20 px-1 py-0 text-2xs text-cyan-200"
                                                                 >
                                                                     Unique
                                                                 </Badge>
@@ -3475,7 +3487,7 @@ onUnmounted(() => {
                                                         <div class="flex shrink-0 items-center gap-1">
                                                             <span
                                                                 v-if="!augmentedPool[virtualRow.index].hireCheck.allowed"
-                                                                class="text-[10px] text-white/50"
+                                                                class="text-2xs text-white/50"
                                                             >
                                                                 {{ augmentedPool[virtualRow.index].hireCheck.reason }}
                                                             </span>
@@ -3500,6 +3512,7 @@ onUnmounted(() => {
                                                                 />
                                                             </Button>
                                                             <Button
+                                                                aria-label="Add to crew"
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 class="size-7 text-white hover:bg-white/10 hover:text-white"
@@ -3552,11 +3565,17 @@ onUnmounted(() => {
                                                 class="flex items-center justify-between rounded-md bg-purple-500/10 px-2 py-1.5"
                                             >
                                                 <div class="flex min-w-0 items-center gap-2">
-                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white">Custom</Badge>
+                                                    <Badge class="shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white">Custom</Badge>
                                                     <span class="truncate text-xs font-medium">{{ cc.display_name }}</span>
-                                                    <span class="shrink-0 text-[10px] text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
+                                                    <span class="shrink-0 text-2xs text-muted-foreground">{{ cc.cost ?? 0 }}ss</span>
                                                 </div>
-                                                <Button variant="ghost" size="icon" class="size-7" @click="addCustomToCrew(cc)">
+                                                <Button
+                                                    aria-label="Add custom card to crew"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="size-7"
+                                                    @click="addCustomToCrew(cc)"
+                                                >
                                                     <UserPlus class="size-4" />
                                                 </Button>
                                             </div>
@@ -3590,34 +3609,34 @@ onUnmounted(() => {
                                     <div v-if="crewStats" class="mb-3 rounded-md border border-border/50 bg-accent/30 p-2">
                                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-4">
                                             <div class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Models</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
                                             </div>
                                             <Separator orientation="vertical" class="hidden h-6 sm:block" />
                                             <div v-if="crewStats.avgCost != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
                                             </div>
                                             <div v-if="crewStats.avgHealth != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
                                             </div>
                                             <div v-if="crewStats.avgSpeed != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
                                             </div>
                                             <div v-if="crewStats.avgDefense != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
                                             </div>
                                             <div v-if="crewStats.avgWillpower != null" class="text-center">
-                                                <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                                <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                                 <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                             </div>
                                         </div>
                                     </div>
                                     <div v-if="Object.keys(crewStats.suitCounts).length" class="mt-2 border-t border-border/30 pt-2">
-                                        <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
+                                        <div class="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">Trigger Counts</div>
                                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                                             <div
                                                 v-for="suit in ['crow', 'mask', 'ram', 'tome', 'soulstone'].filter((s) => crewStats!.suitCounts[s])"
@@ -3695,14 +3714,16 @@ onUnmounted(() => {
                                                 <Star
                                                     class="size-3.5"
                                                     :class="
-                                                        activeCrewUpgradeId === upgrade.id ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'
+                                                        activeCrewUpgradeId === upgrade.id
+                                                            ? 'fill-amber-500 text-amber-700 dark:text-amber-400'
+                                                            : 'text-muted-foreground'
                                                     "
                                                 />
                                             </button>
-                                            <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-500" />
+                                            <Star v-else class="size-3.5 shrink-0 fill-amber-500 text-amber-700 dark:text-amber-400" />
                                             <div class="min-w-0 flex-1">
                                                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
-                                                <div class="text-[10px] text-muted-foreground">
+                                                <div class="text-2xs text-muted-foreground">
                                                     {{
                                                         activeCrewUpgradeId === upgrade.id || hasSingleCrewUpgrade ? 'Active Crew Card' : 'Crew Card'
                                                     }}
@@ -3758,7 +3779,7 @@ onUnmounted(() => {
                                                         }}</span>
                                                         <Badge
                                                             v-if="member.isCustom"
-                                                            class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-[8px] text-white"
+                                                            class="ml-1 shrink-0 bg-purple-600 px-1 py-0 text-2xs text-white"
                                                             >Custom</Badge
                                                         >
                                                     </div>
@@ -3776,7 +3797,7 @@ onUnmounted(() => {
                                                             >{{ member.effectiveCost
                                                             }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block"
                                                         /></span>
-                                                        <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-[10px]">
+                                                        <Badge :class="categoryColor(member.hiringCategory)" class="px-1 py-0 text-2xs">
                                                             {{ categoryLabel(member.hiringCategory) }}
                                                         </Badge>
                                                     </div>
@@ -3795,6 +3816,7 @@ onUnmounted(() => {
                                                         />
                                                     </Button>
                                                     <Button
+                                                        aria-label="Remove from crew"
                                                         v-if="
                                                             member.hiringCategory !== 'leader' &&
                                                             member.hiringCategory !== 'totem' &&
@@ -3841,7 +3863,7 @@ onUnmounted(() => {
                                                         }
                                                     "
                                                 >
-                                                    <SelectTrigger class="h-6 border-white/20 bg-white/10 text-[11px] text-white">
+                                                    <SelectTrigger class="h-6 border-white/20 bg-white/10 text-2xs text-white">
                                                         <SelectValue placeholder="Select miniature..." />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -3897,7 +3919,7 @@ onUnmounted(() => {
                         </template>
                     </DrawerTitle>
                     <div v-if="editorStep === 'hiring'" class="mt-1 flex items-center justify-center gap-1.5">
-                        <Badge variant="secondary" class="text-[10px] capitalize">{{ previewCharacter.station }}</Badge>
+                        <Badge variant="secondary" class="text-2xs capitalize">{{ previewCharacter.station }}</Badge>
                         <Badge v-if="getHiringCategory(previewCharacter) === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
                             >{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                             <span class="font-normal opacity-70">({{ previewCharacter.cost }}+1)</span></Badge
@@ -3905,7 +3927,7 @@ onUnmounted(() => {
                         <Badge v-else variant="secondary" class="gap-0.5 text-xs font-bold"
                             >{{ getEffectiveCost(previewCharacter) }}<GameIcon type="soulstone" class-name="h-3 inline-block"
                         /></Badge>
-                        <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-[10px]">
+                        <Badge :class="categoryColorTheme(getHiringCategory(previewCharacter))" class="px-1.5 py-0 text-2xs">
                             {{ categoryLabel(getHiringCategory(previewCharacter)) }}
                         </Badge>
                     </div>
@@ -3987,7 +4009,7 @@ onUnmounted(() => {
                         </template>
                     </DrawerTitle>
                     <div class="mt-1 flex items-center justify-center gap-1.5">
-                        <Badge variant="secondary" class="text-[10px] capitalize">{{ crewPreviewMember.character.station }}</Badge>
+                        <Badge variant="secondary" class="text-2xs capitalize">{{ crewPreviewMember.character.station }}</Badge>
                         <template v-if="crewPreviewMember.character.cost != null">
                             <Badge v-if="crewPreviewMember.hiringCategory === 'ook'" variant="secondary" class="gap-0.5 text-xs font-bold"
                                 >{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
@@ -3997,7 +4019,7 @@ onUnmounted(() => {
                                 >{{ crewPreviewMember.effectiveCost }}<GameIcon type="soulstone" class-name="h-3 inline-block"
                             /></Badge>
                         </template>
-                        <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-[10px]">
+                        <Badge :class="categoryColorTheme(crewPreviewMember.hiringCategory)" class="px-1.5 py-0 text-2xs">
                             {{ categoryLabel(crewPreviewMember.hiringCategory) }}
                         </Badge>
                     </div>

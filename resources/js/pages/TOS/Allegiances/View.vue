@@ -276,9 +276,9 @@ const ruleChips = computed(() => props.statistics.by_rule);
                     class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
                 >
                     <span class="capitalize">{{ allegiance.type }}</span>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>{{ statistics.total }} {{ statistics.total === 1 ? 'unit' : 'units' }}</span>
-                    <Badge v-if="allegiance.is_syndicate" variant="outline" class="ml-2 text-[10px]">Syndicate</Badge>
+                    <Badge v-if="allegiance.is_syndicate" variant="outline" class="ml-2 text-2xs">Syndicate</Badge>
                 </div>
             </template>
         </PageBanner>
@@ -294,11 +294,11 @@ const ruleChips = computed(() => props.statistics.by_rule);
                     </div>
                     <div v-if="statistics.average_scrip != null" class="flex items-center gap-3">
                         <div class="text-center">
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Scrip</div>
+                            <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Scrip</div>
                             <div class="text-sm font-bold tabular-nums leading-tight">{{ statistics.average_scrip }}</div>
                         </div>
                         <div class="text-center">
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Total Scrip</div>
+                            <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Total Scrip</div>
                             <div class="text-sm font-bold tabular-nums leading-tight">{{ statistics.total_scrip }}</div>
                         </div>
                     </div>
@@ -318,11 +318,11 @@ const ruleChips = computed(() => props.statistics.by_rule);
                     </Tabs>
                     <Tabs v-if="showViewToggle" :model-value="filterParams.page_view" @update:model-value="(v) => handleViewChange(v as string)">
                         <TabsList>
-                            <TabsTrigger value="cards">
+                            <TabsTrigger aria-label="Cards" value="cards">
                                 <LayoutGrid class="h-4 w-4" />
                                 <span class="hidden sm:inline">Cards</span>
                             </TabsTrigger>
-                            <TabsTrigger value="table">
+                            <TabsTrigger aria-label="Table" value="table">
                                 <List class="h-4 w-4" />
                                 <span class="hidden sm:inline">Table</span>
                             </TabsTrigger>
@@ -460,7 +460,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <Swords class="size-4 text-muted-foreground" aria-hidden="true" />
                                 <HeadingEyebrow as="h2">Units</HeadingEyebrow>
-                                <Badge variant="secondary" class="text-[10px]">{{ units.length }}</Badge>
+                                <Badge variant="secondary" class="text-2xs">{{ units.length }}</Badge>
                             </header>
                             <div v-if="filterParams.page_view === 'table' && units.length" class="overflow-auto rounded-md border">
                                 <Table>
@@ -516,7 +516,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <Package class="size-4 text-muted-foreground" aria-hidden="true" />
                                 <HeadingEyebrow as="h2">Assets</HeadingEyebrow>
-                                <Badge variant="secondary" class="text-[10px]">{{ assets.length }}</Badge>
+                                <Badge variant="secondary" class="text-2xs">{{ assets.length }}</Badge>
                             </header>
                             <div v-if="assets.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                                 <Link
@@ -538,10 +538,10 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                         <CardContent class="space-y-1.5 p-3">
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="truncate text-sm font-semibold">{{ a.name }}</span>
-                                                <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ a.scrip_cost }}</span>
+                                                <span class="shrink-0 text-2xs tabular-nums text-muted-foreground">{{ a.scrip_cost }}</span>
                                             </div>
                                             <div v-if="a.limits.length" class="flex flex-wrap gap-1">
-                                                <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-[10px] capitalize">{{
+                                                <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-2xs capitalize">{{
                                                     limitLabel(l)
                                                 }}</Badge>
                                             </div>
@@ -563,7 +563,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <Newspaper class="size-4 text-muted-foreground" aria-hidden="true" />
                                 <HeadingEyebrow as="h2">Stratagems</HeadingEyebrow>
-                                <Badge variant="secondary" class="text-[10px]">{{ stratagems.length }}</Badge>
+                                <Badge variant="secondary" class="text-2xs">{{ stratagems.length }}</Badge>
                             </header>
                             <div v-if="stratagems.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                                 <Link
@@ -585,9 +585,9 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                         <CardContent class="space-y-1.5 p-3">
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="truncate text-sm font-semibold">{{ s.name }}</span>
-                                                <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ s.tactical_cost }}T</Badge>
+                                                <Badge variant="outline" class="shrink-0 text-2xs tabular-nums">{{ s.tactical_cost }}T</Badge>
                                             </div>
-                                            <p class="truncate text-[10px] capitalize text-muted-foreground">{{ stratagemScopeLabel(s) }}</p>
+                                            <p class="truncate text-2xs capitalize text-muted-foreground">{{ stratagemScopeLabel(s) }}</p>
                                             <p v-if="s.effect" class="line-clamp-2 text-xs text-muted-foreground"><TosText :text="s.effect" /></p>
                                         </CardContent>
                                     </Card>
@@ -607,7 +607,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                             <header v-if="filterParams.resource_type === 'all'" class="mb-3 flex items-baseline gap-2">
                                 <ScrollText class="size-4 text-muted-foreground" aria-hidden="true" />
                                 <HeadingEyebrow as="h2">Allegiance Cards</HeadingEyebrow>
-                                <Badge variant="secondary" class="text-[10px]">{{ allegiance_cards.length }}</Badge>
+                                <Badge variant="secondary" class="text-2xs">{{ allegiance_cards.length }}</Badge>
                             </header>
                             <div v-if="allegiance_cards.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                                 <Link
@@ -628,7 +628,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                         />
                                         <CardContent class="space-y-1.5 p-3">
                                             <span class="block truncate text-sm font-semibold">{{ c.name }}</span>
-                                            <p v-if="c.allegiance" class="truncate text-[10px] text-muted-foreground">{{ c.allegiance.name }}</p>
+                                            <p v-if="c.allegiance" class="truncate text-2xs text-muted-foreground">{{ c.allegiance.name }}</p>
                                         </CardContent>
                                     </Card>
                                 </Link>

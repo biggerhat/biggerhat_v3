@@ -91,14 +91,13 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
         </template>
         <template #subtitle>
             <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                Sanctum personal access tokens. Mint a token for a service account (e.g. the Hat Gamin bot). The plaintext shown after creation is
-                the only time it's visible — copy it then.
+                Sanctum personal access tokens. Mint a token for a service account (e.g. the Hat Gamin bot). The plaintext shown after creation is the
+                only time it's visible — copy it then.
             </div>
         </template>
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <!-- Just-created token banner -->
         <Card v-if="new_token" class="border-green-500/40 bg-green-500/5">
             <CardContent class="space-y-2 p-4">
@@ -109,7 +108,7 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
                 <div class="flex items-center gap-2">
                     <code class="flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">{{ new_token.plaintext }}</code>
                     <Button size="sm" variant="outline" @click="copyToken">
-                        <Check v-if="copied" class="size-3.5 text-green-500" />
+                        <Check v-if="copied" class="size-3.5 text-green-700 dark:text-green-400" />
                         <Copy v-else class="size-3.5" />
                         {{ copied ? 'Copied' : 'Copy' }}
                     </Button>
@@ -161,11 +160,11 @@ const formatDate = (s: string | null) => (s ? new Date(s).toLocaleString(undefin
                             <span>·</span>
                             <span>Last used {{ formatDate(token.last_used_at) }}</span>
                             <span v-if="token.abilities.length" class="ml-2 flex flex-wrap gap-1">
-                                <Badge v-for="ability in token.abilities" :key="ability" variant="secondary" class="text-[10px]">{{ ability }}</Badge>
+                                <Badge v-for="ability in token.abilities" :key="ability" variant="secondary" class="text-2xs">{{ ability }}</Badge>
                             </span>
                         </div>
                     </div>
-                    <Button variant="outline" size="sm" @click="revoke(token)">
+                    <Button aria-label="Revoke token" variant="outline" size="sm" @click="revoke(token)">
                         <Trash2 class="size-3.5" />
                     </Button>
                 </CardContent>

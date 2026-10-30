@@ -50,7 +50,7 @@ function handleClear() {
                 <Button variant="outline" class="border-2 border-primary">
                     <SlidersHorizontal class="mr-2 h-4 w-4" />
                     Filters
-                    <Badge v-if="filterCount > 0" variant="default" class="ml-1 px-1.5 py-0 text-[10px] leading-4">
+                    <Badge v-if="filterCount > 0" variant="default" class="ml-1 px-1.5 py-0 text-2xs leading-4">
                         {{ filterCount }}
                     </Badge>
                 </Button>
@@ -76,20 +76,25 @@ function handleClear() {
 
     <div v-else>
         <Drawer>
-            <DrawerTrigger as-child>
-                <div class="relative">
-                    <Button variant="outline" class="border-2 border-primary">
+            <div class="relative">
+                <DrawerTrigger as-child>
+                    <Button
+                        variant="outline"
+                        class="border-2 border-primary"
+                        :aria-label="filterCount > 0 ? `Filters (${filterCount} active)` : 'Filters'"
+                    >
                         <SlidersHorizontal class="h-4 w-4" />
                     </Button>
-                    <Badge
-                        v-if="filterCount > 0"
-                        variant="default"
-                        class="absolute -right-2 -top-2 min-w-[18px] justify-center px-1.5 py-0 text-[10px] leading-4"
-                    >
-                        {{ filterCount }}
-                    </Badge>
-                </div>
-            </DrawerTrigger>
+                </DrawerTrigger>
+                <Badge
+                    v-if="filterCount > 0"
+                    variant="default"
+                    class="pointer-events-none absolute -right-2 -top-2 min-w-[18px] justify-center px-1.5 py-0 text-2xs leading-4"
+                    aria-hidden="true"
+                >
+                    {{ filterCount }}
+                </Badge>
+            </div>
             <DrawerContent>
                 <div class="mx-auto w-full max-w-sm">
                     <DrawerHeader>
@@ -100,7 +105,7 @@ function handleClear() {
                     </div>
                     <DrawerFooter>
                         <DrawerClose as-child>
-                            <button ref="drawerCloseRef" class="hidden" />
+                            <button ref="drawerCloseRef" class="hidden" tabindex="-1" aria-hidden="true" />
                         </DrawerClose>
                         <div class="flex justify-center gap-2">
                             <Button @click="handleFilter">Search</Button>

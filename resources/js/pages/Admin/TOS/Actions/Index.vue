@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface Action {
@@ -27,30 +28,30 @@ const columns: ColumnDef<Action>[] = [
     {
         id: 'types',
         header: () => h('div', {}, 'Types'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] capitalize' }, (row.original.type_links ?? []).map((l) => l.type).join(', ')),
+        cell: ({ row }) => h('div', { class: 'text-2xs capitalize' }, (row.original.type_links ?? []).map((l) => l.type).join(', ')),
     },
     {
         accessorKey: 'av',
-        header: () => h('div', {}, 'AV'),
+        header: sortableHeader('AV'),
         cell: ({ row }) =>
             h(
                 'div',
-                { class: 'text-[11px]' },
+                { class: 'text-2xs' },
                 row.original.av != null
                     ? `${row.original.av}${row.original.av_suits ?? ''}${row.original.av_target ? ' v ' + row.original.av_target : ''}`
                     : '—',
             ),
     },
-    { accessorKey: 'range', header: () => h('div', {}, 'Range'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.range ?? '—') },
+    { accessorKey: 'range', header: () => h('div', {}, 'Range'), cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.range ?? '—') },
     {
         accessorKey: 'strength',
-        header: () => h('div', {}, 'Strength'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] tabular-nums' }, row.original.strength ?? '—'),
+        header: sortableHeader('Strength'),
+        cell: ({ row }) => h('div', { class: 'text-2xs tabular-nums' }, row.original.strength ?? '—'),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,
@@ -71,7 +72,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
@@ -91,7 +94,7 @@ const table = useVueTable({
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"

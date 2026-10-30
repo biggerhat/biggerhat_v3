@@ -218,7 +218,7 @@ onMounted(() => {
 
 <template>
     <Head title="Upgrade Form" />
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <Card>
             <CardHeader>
                 <CardTitle>Upgrade</CardTitle>
@@ -474,7 +474,7 @@ onMounted(() => {
                                         <SelectItem value="injury">Injury</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <p class="text-[11px] text-muted-foreground">
+                                <p class="text-2xs text-muted-foreground">
                                     Equipment = barter / loot pool. Injury = applied to a model during the Aftermath Doctor/Determine-Injury phases.
                                 </p>
                             </div>
@@ -485,7 +485,7 @@ onMounted(() => {
                                     <div class="flex flex-col space-y-1.5">
                                         <Label for="campaign_br">BR (1–13)</Label>
                                         <Input id="campaign_br" type="number" min="1" max="13" v-model.number="formInfo.campaign_br" />
-                                        <p class="text-[11px] text-muted-foreground">Barter flip threshold. Leave blank for Always-Available.</p>
+                                        <p class="text-2xs text-muted-foreground">Barter flip threshold. Leave blank for Always-Available.</p>
                                     </div>
                                     <div class="flex flex-col space-y-1.5">
                                         <Label for="campaign_cc">Scrip Cost (CC)</Label>
@@ -576,7 +576,7 @@ onMounted(() => {
                                             max="13"
                                             v-model.number="formInfo.campaign_flip_value"
                                         />
-                                        <p class="text-[11px] text-muted-foreground">Leave blank for joker entries.</p>
+                                        <p class="text-2xs text-muted-foreground">Leave blank for joker entries.</p>
                                     </div>
                                     <div class="flex flex-col space-y-1.5">
                                         <Label for="campaign_suit_pool">Suit Pool</Label>

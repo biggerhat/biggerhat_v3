@@ -83,13 +83,13 @@ function submit() {
                     <div class="space-y-1.5">
                         <Label for="name">Garrison name</Label>
                         <Input id="name" v-model="form.name" type="text" required maxlength="120" placeholder="e.g. Burning Marsh Expedition" />
-                        <p v-if="form.errors.name" class="text-[11px] text-rose-600">{{ form.errors.name }}</p>
+                        <p v-if="form.errors.name" class="text-2xs text-rose-700 dark:text-rose-400">{{ form.errors.name }}</p>
                     </div>
 
                     <!-- Step 2: Format -->
                     <div class="space-y-2">
                         <Label>Format</Label>
-                        <p class="text-[11px] text-muted-foreground">
+                        <p class="text-2xs text-muted-foreground">
                             Drives the validation profile — commander cap, scrip ceiling, stratagem count, envoy slot. Editable later.
                         </p>
                         <div class="grid gap-2 sm:grid-cols-2">
@@ -109,10 +109,10 @@ function submit() {
                                     <p class="font-semibold">{{ f.name }}</p>
                                     <Check v-if="form.format === f.value" class="size-4 shrink-0 text-primary" />
                                 </div>
-                                <p class="mt-1 text-[11px] leading-snug text-muted-foreground">{{ f.description }}</p>
+                                <p class="mt-1 text-2xs leading-snug text-muted-foreground">{{ f.description }}</p>
                             </button>
                         </div>
-                        <p v-if="form.errors.format" class="text-[11px] text-rose-600">{{ form.errors.format }}</p>
+                        <p v-if="form.errors.format" class="text-2xs text-rose-700 dark:text-rose-400">{{ form.errors.format }}</p>
                     </div>
 
                     <!-- Step 3: Allegiance picker -->
@@ -120,7 +120,7 @@ function submit() {
                         <div class="flex items-end justify-between">
                             <div>
                                 <Label>Allegiance</Label>
-                                <p class="mt-0.5 text-[11px] text-muted-foreground">
+                                <p class="mt-0.5 text-2xs text-muted-foreground">
                                     Locked once chosen — your Garrison hires only from this Allegiance's pool plus its matching Neutral pool.
                                 </p>
                             </div>
@@ -131,7 +131,7 @@ function submit() {
                                     type="button"
                                     :variant="typeFilter === t ? 'default' : 'outline'"
                                     size="sm"
-                                    class="h-6 px-2 text-[11px] capitalize"
+                                    class="h-6 px-2 text-2xs capitalize"
                                     @click="typeFilter = t"
                                     >{{ t === 'all' ? 'All' : t }}</Button
                                 >
@@ -160,7 +160,7 @@ function submit() {
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="truncate font-semibold">{{ a.name }}</p>
-                                        <p class="text-[10px] capitalize text-muted-foreground">{{ a.type }}</p>
+                                        <p class="text-2xs capitalize text-muted-foreground">{{ a.type }}</p>
                                     </div>
                                     <Check v-if="form.allegiance_id === a.id" class="size-4 shrink-0 text-primary" />
                                 </button>
@@ -190,16 +190,16 @@ function submit() {
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5">
                                             <p class="truncate font-semibold">{{ a.name }}</p>
-                                            <Badge variant="outline" class="px-1 py-0 text-[9px]">Syndicate</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Syndicate</Badge>
                                         </div>
-                                        <p class="text-[10px] capitalize text-muted-foreground">{{ a.type }}</p>
+                                        <p class="text-2xs capitalize text-muted-foreground">{{ a.type }}</p>
                                     </div>
                                     <Check v-if="form.allegiance_id === a.id" class="size-4 shrink-0 text-primary" />
                                 </button>
                             </div>
                         </div>
 
-                        <p v-if="form.errors.allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.allegiance_id }}</p>
+                        <p v-if="form.errors.allegiance_id" class="text-2xs text-rose-700 dark:text-rose-400">{{ form.errors.allegiance_id }}</p>
                     </div>
 
                     <!-- Step 4: Notes -->

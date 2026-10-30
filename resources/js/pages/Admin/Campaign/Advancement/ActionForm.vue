@@ -106,7 +106,7 @@ onMounted(() => {
                             <SelectItem v-for="opt in actions" :key="opt.value" :value="opt.value.toString()">{{ opt.name }}</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p class="text-[10px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                         Set when this row grants an action that already exists on some model's card — the stat block below is ignored.
                     </p>
                 </div>

@@ -242,18 +242,20 @@ const confirmPendingScheme = () => {
                     </div>
                 </div>
             </template>
-            <div v-else class="py-4 text-center text-sm text-muted-foreground"><Check class="inline size-5 text-green-500" /> Scheme selected</div>
+            <div v-else class="py-4 text-center text-sm text-muted-foreground">
+                <Check class="inline size-5 text-green-700 dark:text-green-400" /> Scheme selected
+            </div>
         </CardContent>
     </Card>
 
     <!-- Crew lists visible during scheme select -->
     <div class="mb-6 grid gap-4 sm:grid-cols-2">
         <div v-for="player in game.players" :key="'scheme-crew-' + player.id">
-            <h3 class="mb-2 text-sm font-semibold">
+            <h2 class="mb-2 text-sm font-semibold">
                 <FactionLogo v-if="player.faction" :faction="player.faction" class-name="mr-1 inline size-4" />
                 {{ player.user?.name ?? player.opponent_name ?? 'Opponent' }}
                 <span v-if="player.master_name" class="ml-1 text-xs font-normal text-muted-foreground">— {{ player.master_name }}</span>
-            </h3>
+            </h2>
             <div v-if="player.crew_members?.length" class="space-y-0.5">
                 <div
                     v-for="member in player.crew_members"
@@ -271,7 +273,7 @@ const confirmPendingScheme = () => {
                         <Badge
                             v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'"
                             :class="categoryColor(member.hiring_category)"
-                            class="shrink-0 px-1 py-0 text-[9px]"
+                            class="shrink-0 px-1 py-0 text-[10px]"
                         >
                             {{ categoryLabel(member.hiring_category) }}
                         </Badge>

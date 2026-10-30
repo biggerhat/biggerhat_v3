@@ -137,6 +137,7 @@ const toggleSort = (column: string) => {
                     <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input v-model="searchText" placeholder="Search name, creator, or player..." class="pl-9 pr-9" />
                     <button
+                        aria-label="Clear search"
                         v-if="searchText"
                         class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         @click="clearSearch"
@@ -228,16 +229,16 @@ const toggleSort = (column: string) => {
                             </td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">{{ game.creator?.name ?? '—' }}</td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">
-                                <Badge v-if="game.is_solo" variant="outline" class="text-[10px]">Solo</Badge>
+                                <Badge v-if="game.is_solo" variant="outline" class="text-2xs">Solo</Badge>
                                 <span v-else>{{ game.players.map((p) => p.name).join(', ') || '—' }}</span>
                             </td>
                             <td class="px-3 py-2">
-                                <Badge variant="outline" class="text-[10px]">{{ game.status_label }}</Badge>
+                                <Badge variant="outline" class="text-2xs">{{ game.status_label }}</Badge>
                             </td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">{{ game.format_label }}</td>
                             <td class="px-3 py-2 text-xs tabular-nums text-muted-foreground">{{ game.current_turn }}/{{ game.max_turns }}</td>
                             <td class="px-3 py-2 text-xs text-muted-foreground">
-                                <Badge v-if="game.is_tie" variant="outline" class="text-[10px]">Tie</Badge>
+                                <Badge v-if="game.is_tie" variant="outline" class="text-2xs">Tie</Badge>
                                 <span v-else>{{ game.winner?.name ?? '—' }}</span>
                             </td>
                             <td class="px-3 py-2 text-xs text-muted-foreground" :title="game.updated_at_iso">{{ game.updated_at }}</td>

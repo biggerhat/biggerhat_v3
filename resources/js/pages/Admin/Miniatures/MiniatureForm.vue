@@ -69,13 +69,13 @@ onMounted(() => {
                     <div class="grid w-full items-center gap-4">
                         <div class="flex flex-col space-y-1.5">
                             <Label for="name">Name (Optional)</Label>
-                            <span class="text-xs text-red-600">Leave Blank If Normal Sculpt Or No Alternate Name</span>
+                            <span class="text-xs text-red-700 dark:text-red-400">Leave Blank If Normal Sculpt Or No Alternate Name</span>
                             <Input id="name" v-model="formInfo.name" autofocus placeholder="Miniature Name" />
                             <InputError :message="usePage().props.errors.name" />
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <Label for="title">Title (Optional)</Label>
-                            <span class="text-xs text-red-600">Leave Blank If Normal Sculpt Or No Alternate Title</span>
+                            <span class="text-xs text-red-700 dark:text-red-400">Leave Blank If Normal Sculpt Or No Alternate Title</span>
                             <Input id="title" v-model="formInfo.title" autofocus placeholder="Miniature Title" />
                             <InputError :message="usePage().props.errors.title" />
                         </div>

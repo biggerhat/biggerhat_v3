@@ -97,31 +97,31 @@ const addToCollection = () => {
                 <span class="truncate text-sm font-semibold">{{ unit.name }}</span>
                 <span
                     v-if="unit.special_unit_rules.some((r) => r.slug === 'commander')"
-                    class="shrink-0 text-[11px] font-medium tabular-nums text-emerald-700 dark:text-emerald-400"
+                    class="shrink-0 text-2xs font-medium tabular-nums text-emerald-700 dark:text-emerald-400"
                     title="Provides starting Scrip budget"
                     >+{{ unit.scrip }}</span
                 >
-                <span v-else class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ unit.scrip }}</span>
+                <span v-else class="shrink-0 text-2xs tabular-nums text-muted-foreground">{{ unit.scrip }}</span>
             </div>
-            <p v-if="unit.title" class="truncate text-[11px] italic text-muted-foreground">{{ unit.title }}</p>
+            <p v-if="unit.title" class="truncate text-2xs italic text-muted-foreground">{{ unit.title }}</p>
             <div v-if="unit.restriction || unit.special_unit_rules.length" class="flex flex-wrap gap-1">
-                <Badge v-if="unit.restriction" variant="outline" class="text-[10px] capitalize">Neutral</Badge>
-                <Badge v-for="r in unit.special_unit_rules" :key="r.id" variant="outline" class="text-[10px]">{{ r.name }}</Badge>
+                <Badge v-if="unit.restriction" variant="outline" class="text-2xs capitalize">Neutral</Badge>
+                <Badge v-for="r in unit.special_unit_rules" :key="r.id" variant="outline" class="text-2xs">{{ r.name }}</Badge>
             </div>
 
             <div v-if="inCollection || onWishlist" class="flex items-center gap-2 pt-0.5">
-                <span v-if="inCollection" class="flex items-center gap-1 text-[11px]" style="color: #059669">
+                <span v-if="inCollection" class="flex items-center gap-1 text-2xs" style="color: #059669">
                     <BookMarked class="size-3" />
                     Collected
                 </span>
-                <span v-if="onWishlist" class="flex items-center gap-1 text-[11px]" style="color: #f43f5e">
+                <span v-if="onWishlist" class="flex items-center gap-1 text-2xs" style="color: #f43f5e">
                     <Heart class="size-3 fill-current" />
                     Wishlisted
                 </span>
             </div>
             <button
                 v-if="isAuthenticated && !inCollection && primarySculpt"
-                class="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
+                class="flex items-center gap-1 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait disabled:opacity-50"
                 :disabled="addingToCollection"
                 @click.prevent="addToCollection"
             >
@@ -130,7 +130,7 @@ const addToCollection = () => {
             </button>
 
             <div v-if="primarySculpt" class="pt-1">
-                <Button size="sm" variant="link" class="h-6 px-0 text-[11px]" @click="router.get(route('tos.units.view', primarySculpt.slug))">
+                <Button size="sm" variant="link" class="h-6 px-0 text-2xs" @click="router.get(route('tos.units.view', primarySculpt.slug))">
                     View Unit Page
                 </Button>
             </div>

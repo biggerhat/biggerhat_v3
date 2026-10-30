@@ -35,6 +35,7 @@ import type { SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
+    ArrowRight,
     CalendarDays,
     Check,
     ChevronDown,
@@ -1228,6 +1229,141 @@ const canFinalize = computed(() => {
     if (!latestRound.value) return false;
     return latestRound.value.status === 'completed';
 });
+// ─── Next step guidance ───
+// One obvious "what do I do now" for the organizer, derived from the tournament and its latest round,
+// plus a four-stage progress strip. Actions reuse the same handlers as the buttons deeper in the page.
+type StepStage = 'players' | 'pairing' | 'play' | 'results';
+interface NextStep {
+    stage: StepStage;
+    title: string;
+    detail: string;
+    actionLabel?: string;
+    action?: () => void;
+    disabled?: boolean;
+}
+
+const nextStep = computed<NextStep | null>(() => {
+    const t = props.tournament;
+    const round = latestRound.value;
+
+    if (t.status === 'completed') return null;
+    if (t.status === 'draft') {
+        return {
+            stage: 'players',
+            title: 'Set up your tournament',
+            detail: 'Add players or collect RSVPs, then open registration.',
+            actionLabel: statusTransitions.draft.label,
+            action: () => (confirmStatusDialog.value = true),
+        };
+    }
+    if (t.status === 'registration') {
+        return {
+            stage: 'players',
+            title: 'Registration is open',
+            detail: `${t.players.length} ${t.players.length === 1 ? 'player is' : 'players are'} in. Start the tournament when everyone has arrived.`,
+            actionLabel: statusTransitions.registration.label,
+            action: () => (confirmStatusDialog.value = true),
+        };
+    }
+    if (!round) {
+        return {
+            stage: 'pairing',
+            title: 'Add Round 1',
+            detail: 'Create the first round, set its scenario, then pair the players.',
+            actionLabel: 'Add Round 1',
+            action: createRound,
+        };
+    }
+    if (round.status === 'setup' && round.games.length === 0) {
+        const reason = pairBlockReason(round);
+        if (reason === null) {
+            return {
+                stage: 'pairing',
+                title: `Pair Round ${round.round_number}`,
+                detail: `The scenario is set. Generate Swiss pairings for ${activePlayers.value.length} players.`,
+                actionLabel: 'Auto-pair players',
+                action: () => generatePairings(round.id),
+                disabled: submitting.value,
+            };
+        }
+        return {
+            stage: 'pairing',
+            title: `Set up Round ${round.round_number}`,
+            detail: reason,
+            actionLabel: 'Set scenario',
+            action: () => {
+                activeTab.value = 'rounds';
+                if (expandedScenarioRoundId.value !== round.id) toggleScenarioEdit(round);
+            },
+        };
+    }
+    if (round.status === 'setup') {
+        return {
+            stage: 'pairing',
+            title: `Round ${round.round_number} is paired`,
+            detail: 'Check the pairings, then start the round to create the games.',
+            actionLabel: `Start Round ${round.round_number}`,
+            action: () => startRound(round.id),
+            disabled: submitting.value,
+        };
+    }
+    if (round.status === 'in_progress') {
+        const total = round.games.filter((g: any) => !g.is_bye).length;
+        const done = round.games.filter((g: any) => !g.is_bye && ['completed', 'agreed', 'forfeited'].includes(g.result)).length;
+        if (canEndRound(round)) {
+            return {
+                stage: 'play',
+                title: `Round ${round.round_number}: all scores are in`,
+                detail: 'Every game has a result. End the round to update standings.',
+                actionLabel: `End Round ${round.round_number}`,
+                action: () => endRound(round.id),
+                disabled: submitting.value,
+            };
+        }
+        return {
+            stage: 'play',
+            title: `Round ${round.round_number} is in progress`,
+            detail: `${done} of ${total} games reported. The round can end once every result is entered.`,
+            actionLabel: 'View games',
+            action: () => (activeTab.value = 'rounds'),
+        };
+    }
+    // Latest round completed
+    if (canFinalize.value) {
+        return {
+            stage: 'results',
+            title: 'All rounds are finished',
+            detail: 'Finalize the standings to complete the tournament.',
+            actionLabel: 'Finalize standings',
+            action: () => (confirmFinalizeDialog.value = true),
+        };
+    }
+    return {
+        stage: 'pairing',
+        title: `Round ${round.round_number} is complete`,
+        detail: `Add Round ${nextRoundNumber()} when you're ready.`,
+        actionLabel: `Add Round ${nextRoundNumber()}`,
+        action: createRound,
+    };
+});
+const nextRoundNumber = () => props.tournament.rounds.length + 1;
+
+const STEP_STAGES: { key: StepStage; label: string }[] = [
+    { key: 'players', label: 'Players' },
+    { key: 'pairing', label: 'Pairing' },
+    { key: 'play', label: 'Play' },
+    { key: 'results', label: 'Results' },
+];
+const stageState = (key: StepStage): 'done' | 'current' | 'upcoming' => {
+    const current = nextStep.value?.stage;
+    if (!current) return 'done';
+    return STEP_STAGES.findIndex((x) => x.key === key) < STEP_STAGES.findIndex((x) => x.key === current)
+        ? 'done'
+        : key === current
+          ? 'current'
+          : 'upcoming';
+};
+
 const formatDate = (d: string) => formatDateOnly(d, { month: 'long', day: 'numeric', year: 'numeric' });
 const toDateInput = (d: string) => (d ? d.split('T')[0] : '');
 const isEditable = computed(() => !isLocked.value);
@@ -1256,7 +1392,7 @@ const titlesForMaster = (masterName: string | null) => {
         <PageBanner :title="tournament.name" class="mb-2">
             <template #subtitle>
                 <div class="my-auto flex flex-wrap items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm">
-                    <Badge :class="['border-0 text-[10px]', statusColor(tournament.status)]" variant="outline">{{
+                    <Badge :class="['border-0 text-2xs', statusColor(tournament.status)]" variant="outline">{{
                         statusLabel(tournament.status)
                     }}</Badge>
                     <span class="flex items-center gap-1"><CalendarDays class="size-3" /> {{ formatDate(tournament.event_date) }}</span>
@@ -1279,7 +1415,7 @@ const titlesForMaster = (masterName: string | null) => {
                         <Copy class="size-3" />
                         {{ linkCopied ? 'Copied!' : 'Share' }}
                     </Button>
-                    <Button variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
+                    <Button aria-label="Show QR code" variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
                         <QrCode class="size-3" />
                     </Button>
                     <Button
@@ -1297,24 +1433,64 @@ const titlesForMaster = (masterName: string | null) => {
                 </div>
             </div>
 
+            <!-- Next step: what to do now, and where we are in the tournament -->
+            <Card v-if="nextStep" class="mb-4 border-primary/30 bg-primary/5">
+                <CardContent class="space-y-3 p-4">
+                    <ol class="flex items-center gap-1 text-xs" aria-label="Tournament progress">
+                        <li
+                            v-for="(stage, i) in STEP_STAGES"
+                            :key="stage.key"
+                            class="flex items-center gap-1"
+                            :aria-current="stageState(stage.key) === 'current' ? 'step' : undefined"
+                        >
+                            <span
+                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium"
+                                :class="
+                                    stageState(stage.key) === 'current'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : stageState(stage.key) === 'done'
+                                          ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-400'
+                                          : 'bg-muted text-muted-foreground'
+                                "
+                            >
+                                <Check v-if="stageState(stage.key) === 'done'" class="size-3" />
+                                {{ stage.label }}
+                            </span>
+                            <span v-if="i < STEP_STAGES.length - 1" class="h-px w-3 bg-border sm:w-6" aria-hidden="true" />
+                        </li>
+                    </ol>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div class="text-sm font-semibold">{{ nextStep.title }}</div>
+                            <div class="text-xs text-muted-foreground sm:text-sm">{{ nextStep.detail }}</div>
+                        </div>
+                        <Button v-if="nextStep.action" class="shrink-0 gap-1.5" :disabled="nextStep.disabled" @click="nextStep.action">
+                            <Loader2 v-if="nextStep.disabled" class="size-4 animate-spin" />
+                            {{ nextStep.actionLabel }}
+                            <ArrowRight v-if="!nextStep.disabled" class="size-4" />
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Tabs v-model="activeTab" default-value="standings">
                 <TabsList class="mb-4 flex w-full flex-wrap">
                     <TabsTrigger value="standings" class="gap-1 text-xs sm:text-sm">Standings</TabsTrigger>
                     <TabsTrigger value="players" class="gap-1 text-xs sm:text-sm">
                         Players
-                        <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                        <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.players.length
                         }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger v-if="tournament.status === 'draft' || tournament.rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
                         RSVPs
-                        <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                        <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.rsvps.length
                         }}</Badge>
                     </TabsTrigger>
                     <TabsTrigger value="rounds" class="gap-1 text-xs sm:text-sm">
                         Rounds
-                        <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-[9px]">{{
+                        <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.rounds.length
                         }}</Badge>
                     </TabsTrigger>
@@ -1355,7 +1531,7 @@ const titlesForMaster = (masterName: string | null) => {
                                 <div class="flex min-w-0 items-center gap-2">
                                     <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
-                                    <span v-if="rsvp.faction" class="text-[10px] text-muted-foreground sm:text-xs">{{
+                                    <span v-if="rsvp.faction" class="text-2xs text-muted-foreground sm:text-xs">{{
                                         factions[rsvp.faction]?.name ?? rsvp.faction
                                     }}</span>
                                 </div>
@@ -1366,7 +1542,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         "
                                         variant="outline"
                                         size="sm"
-                                        class="h-6 gap-1 px-2 text-[10px]"
+                                        class="h-6 gap-1 px-2 text-2xs"
                                         @click="openRsvpPlayerDialog(rsvp)"
                                     >
                                         <Plus class="size-2.5" /> Register
@@ -1374,7 +1550,7 @@ const titlesForMaster = (masterName: string | null) => {
                                     <Badge
                                         v-else-if="tournament.players.some((p: any) => p.user?.id === rsvp.user_id)"
                                         variant="outline"
-                                        class="px-1 py-0 text-[9px]"
+                                        class="px-1 py-0 text-2xs"
                                         >Registered</Badge
                                     >
                                 </div>
@@ -1430,7 +1606,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                     <span v-else class="text-xs text-muted-foreground">Type to search or add a meta.</span>
                                                 </ComboboxEmpty>
                                                 <ComboboxGroup v-if="tournamentMetas.length">
-                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                    <div class="px-2 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                                         In this tournament
                                                     </div>
                                                     <ComboboxItem v-for="m in tournamentMetas" :key="'t-' + m.id" :value="m">
@@ -1440,7 +1616,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </ComboboxGroup>
                                                 <ComboboxSeparator v-if="tournamentMetas.length && otherMetas.length" />
                                                 <ComboboxGroup v-if="otherMetas.length">
-                                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                    <div class="px-2 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                                         All metas
                                                     </div>
                                                     <ComboboxItem v-for="m in otherMetas" :key="'o-' + m.id" :value="m">
@@ -1528,24 +1704,24 @@ const titlesForMaster = (masterName: string | null) => {
                                     <Badge
                                         v-if="player.is_ringer"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-2xs text-white/80 sm:inline-flex"
                                         >Ringer</Badge
                                     >
                                     <Star v-if="player.is_ringer" class="size-3 shrink-0 fill-amber-300 text-amber-300 sm:hidden" />
-                                    <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-[9px] text-white">DQ</Badge>
+                                    <Badge v-if="player.is_disqualified" class="shrink-0 bg-red-900/60 px-1 py-0 text-2xs text-white">DQ</Badge>
                                     <Badge
                                         v-if="player.dropped_after_round !== null"
-                                        class="shrink-0 bg-amber-700/80 px-1 py-0 text-[9px] font-semibold uppercase tracking-wide text-white"
+                                        class="shrink-0 bg-amber-700/80 px-1 py-0 text-2xs font-semibold uppercase tracking-wide text-white"
                                         >Dropped after R{{ player.dropped_after_round }}</Badge
                                     >
                                     <Badge
                                         v-if="player.meta || player.user?.meta"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/30 px-1 py-0 text-[9px] text-white/80 sm:inline-flex"
+                                        class="hidden shrink-0 border-white/30 px-1 py-0 text-2xs text-white/80 sm:inline-flex"
                                         >{{ player.meta?.name || player.user?.meta?.name }}</Badge
                                     >
                                 </div>
-                                <div v-if="playerOpponents[player.id]?.length" class="mt-0.5 pl-5 text-[9px] opacity-70">
+                                <div v-if="playerOpponents[player.id]?.length" class="mt-0.5 pl-5 text-2xs opacity-70">
                                     vs: {{ playerOpponents[player.id].join(' · ') }}
                                 </div>
                             </div>
@@ -1619,10 +1795,10 @@ const titlesForMaster = (masterName: string | null) => {
                             <CardContent class="p-4">
                                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold sm:text-base">Round {{ round.round_number }}</h3>
+                                        <h2 class="text-sm font-semibold sm:text-base">Round {{ round.round_number }}</h2>
                                         <Badge
                                             :class="[
-                                                'border-0 text-[10px]',
+                                                'border-0 text-2xs',
                                                 round.status === 'completed'
                                                     ? 'bg-muted text-muted-foreground'
                                                     : round.status === 'in_progress'
@@ -1659,7 +1835,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         </button>
                                     </div>
                                     <div class="flex items-center gap-1">
-                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px] sm:text-xs" @click="toggleScenarioEdit(round)">
+                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-2xs sm:text-xs" @click="toggleScenarioEdit(round)">
                                             {{
                                                 expandedScenarioRoundId === round.id
                                                     ? 'Hide Scenario'
@@ -1672,7 +1848,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             v-if="round.status === 'setup'"
                                             variant="outline"
                                             size="sm"
-                                            class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                            class="h-7 gap-1 px-2 text-2xs sm:text-xs"
                                             :disabled="submitting || !canAutoPair(round)"
                                             :title="
                                                 pairBlockReason(round) ??
@@ -1688,7 +1864,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         <Button
                                             v-if="canStartRound(round)"
                                             size="sm"
-                                            class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                            class="h-7 gap-1 px-2 text-2xs sm:text-xs"
                                             :disabled="submitting"
                                             @click="startRound(round.id)"
                                         >
@@ -1698,7 +1874,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         <Button
                                             v-if="round.status === 'in_progress'"
                                             size="sm"
-                                            class="h-7 gap-1 px-2 text-[11px] sm:text-xs"
+                                            class="h-7 gap-1 px-2 text-2xs sm:text-xs"
                                             :class="canEndRound(round) ? '' : 'opacity-50'"
                                             :disabled="submitting || !canEndRound(round)"
                                             :title="!canEndRound(round) ? 'All scores must be entered before ending the round' : ''"
@@ -1714,7 +1890,7 @@ const titlesForMaster = (masterName: string | null) => {
                                 <div v-if="expandedScenarioRoundId === round.id" class="mb-3 space-y-2 rounded-md border border-dashed p-3">
                                     <div class="flex items-center justify-between">
                                         <span class="text-xs font-medium text-muted-foreground">Scenario</span>
-                                        <Button variant="outline" size="sm" class="h-6 gap-1 px-2 text-[10px]" @click="randomizeInDialog">
+                                        <Button variant="outline" size="sm" class="h-6 gap-1 px-2 text-2xs" @click="randomizeInDialog">
                                             <Dices class="size-3" /> Random
                                         </Button>
                                     </div>
@@ -1729,6 +1905,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </SelectContent>
                                             </Select>
                                             <button
+                                                aria-label="View deployment"
                                                 v-if="editDeployment"
                                                 class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                                                 @click="viewDeployment(editDeployment)"
@@ -1748,6 +1925,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </SelectContent>
                                             </Select>
                                             <button
+                                                aria-label="View strategy"
                                                 v-if="editStrategy"
                                                 class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                                                 @click="viewStrategy(editStrategy)"
@@ -1770,6 +1948,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </SelectContent>
                                             </Select>
                                             <button
+                                                aria-label="View scheme"
                                                 v-if="editSchemePool[idx]"
                                                 class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                                                 @click="viewScheme(editSchemePool[idx])"
@@ -1778,7 +1957,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             </button>
                                         </div>
                                     </div>
-                                    <div class="flex items-center justify-between text-[11px]">
+                                    <div class="flex items-center justify-between text-2xs">
                                         <span class="text-muted-foreground">
                                             <span v-if="scenarioSaveState === 'saving'" class="inline-flex items-center gap-1"
                                                 ><Loader2 class="size-3 animate-spin" /> Saving…</span
@@ -1790,7 +1969,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             >
                                             <span v-else>Auto-saves as you change fields.</span>
                                         </span>
-                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-[11px]" @click="expandedScenarioRoundId = null"
+                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-2xs" @click="expandedScenarioRoundId = null"
                                             >Done</Button
                                         >
                                     </div>
@@ -1798,7 +1977,7 @@ const titlesForMaster = (masterName: string | null) => {
                                 <!-- Scenario summary (when not editing) -->
                                 <div
                                     v-else-if="round.strategy || round.deployment"
-                                    class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground"
+                                    class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-muted-foreground"
                                 >
                                     <span v-if="round.deployment">{{ deploymentByValue[round.deployment]?.label }}</span>
                                     <span v-if="round.strategy">{{ round.strategy.name }}</span>
@@ -1820,7 +1999,7 @@ const titlesForMaster = (masterName: string | null) => {
                                     >
                                         <div class="flex items-center justify-between gap-1">
                                             <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                                                <span v-if="game.table_number" class="shrink-0 text-[10px] text-muted-foreground"
+                                                <span v-if="game.table_number" class="shrink-0 text-2xs text-muted-foreground"
                                                     >T{{ game.table_number }}</span
                                                 >
                                                 <FactionLogo
@@ -1830,7 +2009,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 />
                                                 <span class="truncate text-xs font-medium sm:text-sm">{{ playerName(game.player_one_id) }}</span>
                                                 <template v-if="!game.is_bye">
-                                                    <span class="shrink-0 text-[10px] text-muted-foreground">vs</span>
+                                                    <span class="shrink-0 text-2xs text-muted-foreground">vs</span>
                                                     <FactionLogo
                                                         v-if="game.player_two_faction || playerFaction(game.player_two_id)"
                                                         :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
@@ -1838,15 +2017,15 @@ const titlesForMaster = (masterName: string | null) => {
                                                     />
                                                     <span class="truncate text-xs font-medium sm:text-sm">{{ playerName(game.player_two_id) }}</span>
                                                 </template>
-                                                <Badge v-if="game.is_bye" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">BYE</Badge>
-                                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-[9px]"
+                                                <Badge v-if="game.is_bye" variant="outline" class="shrink-0 px-1 py-0 text-2xs">BYE</Badge>
+                                                <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-2xs"
                                                     >Forfeit</Badge
                                                 >
                                                 <!-- Tracker state at a glance: amber in-progress, green done, red abandoned. -->
                                                 <Badge
                                                     v-if="game.tracker_game && !game.is_bye"
                                                     variant="outline"
-                                                    class="shrink-0 px-1 py-0 text-[9px]"
+                                                    class="shrink-0 px-1 py-0 text-2xs"
                                                     :class="
                                                         game.tracker_game.status === 'in_progress'
                                                             ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
@@ -1869,14 +2048,14 @@ const titlesForMaster = (masterName: string | null) => {
                                             <div class="flex shrink-0 items-center gap-1 sm:gap-2">
                                                 <template v-if="game.result === 'completed' || game.result === 'forfeited'">
                                                     <span class="text-xs font-bold sm:text-sm">{{ game.player_one_vp ?? '-' }}</span>
-                                                    <span class="text-[10px] text-muted-foreground">-</span>
+                                                    <span class="text-2xs text-muted-foreground">-</span>
                                                     <span class="text-xs font-bold sm:text-sm">{{ game.player_two_vp ?? '-' }}</span>
                                                 </template>
                                                 <Button
                                                     v-if="!game.is_bye && round.status === 'in_progress'"
                                                     variant="ghost"
                                                     size="sm"
-                                                    class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs"
+                                                    class="h-7 px-1.5 text-2xs sm:px-2 sm:text-xs"
                                                     @click="openScoreEdit(game)"
                                                 >
                                                     {{ game.result === 'pending' ? 'Score' : 'Edit' }}
@@ -1885,7 +2064,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                     v-if="!game.is_bye && !game.is_forfeit && game.player_two && round.status === 'in_progress'"
                                                     variant="ghost"
                                                     size="sm"
-                                                    class="h-7 px-1.5 text-[11px] text-destructive hover:text-destructive sm:px-2 sm:text-xs"
+                                                    class="h-7 px-1.5 text-2xs text-destructive hover:text-destructive sm:px-2 sm:text-xs"
                                                     @click="openForfeitDialog(game)"
                                                 >
                                                     Forfeit
@@ -1894,12 +2073,13 @@ const titlesForMaster = (masterName: string | null) => {
                                                     v-if="game.is_forfeit && round.status === 'in_progress'"
                                                     variant="ghost"
                                                     size="sm"
-                                                    class="h-7 px-1.5 text-[11px] sm:px-2 sm:text-xs"
+                                                    class="h-7 px-1.5 text-2xs sm:px-2 sm:text-xs"
                                                     @click="removeForfeit(game)"
                                                 >
                                                     Undo
                                                 </Button>
                                                 <button
+                                                    aria-label="Remove game"
                                                     v-if="round.status === 'setup'"
                                                     class="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                                     @click="removeGame(game.id)"
@@ -1927,14 +2107,14 @@ const titlesForMaster = (masterName: string | null) => {
                                 >
                                     <div class="mb-2 flex items-center justify-between gap-2">
                                         <span class="text-xs font-medium text-muted-foreground">Manual Pairing</span>
-                                        <span v-if="pairBlockReason(round)" class="text-[10px] italic text-amber-600 dark:text-amber-400">{{
+                                        <span v-if="pairBlockReason(round)" class="text-2xs italic text-amber-600 dark:text-amber-400">{{
                                             pairBlockReason(round)
                                         }}</span>
                                     </div>
                                     <fieldset :disabled="!canAutoPair(round)" :class="!canAutoPair(round) ? 'cursor-not-allowed opacity-50' : ''">
                                         <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                                             <div class="space-y-1">
-                                                <Label class="text-[10px]">Player 1</Label>
+                                                <Label class="text-2xs">Player 1</Label>
                                                 <Select v-model="getManualPair(round.id).p1">
                                                     <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select player..." /></SelectTrigger>
                                                     <SelectContent>
@@ -1945,7 +2125,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </Select>
                                             </div>
                                             <div class="space-y-1">
-                                                <Label class="text-[10px]">Player 2 <span class="text-muted-foreground">(empty = bye)</span></Label>
+                                                <Label class="text-2xs">Player 2 <span class="text-muted-foreground">(empty = bye)</span></Label>
                                                 <Select v-model="getManualPair(round.id).p2">
                                                     <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="BYE" /></SelectTrigger>
                                                     <SelectContent>
@@ -1972,7 +2152,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             </Button>
                                         </div>
                                     </fieldset>
-                                    <div v-if="unpairedPlayers(round.id).length" class="mt-2 text-[10px] text-muted-foreground">
+                                    <div v-if="unpairedPlayers(round.id).length" class="mt-2 text-2xs text-muted-foreground">
                                         {{ unpairedPlayers(round.id).length }} unpaired:
                                         {{
                                             unpairedPlayers(round.id)
@@ -2109,11 +2289,11 @@ const titlesForMaster = (masterName: string | null) => {
                                 <CollapsibleContent class="space-y-3 pt-3">
                                     <div class="space-y-2 rounded-md border border-dashed p-3">
                                         <Label class="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Bye Scoring <span class="ml-1 text-[10px] normal-case opacity-60">(awarded to whoever sits out)</span>
+                                            Bye Scoring <span class="ml-1 text-2xs normal-case opacity-60">(awarded to whoever sits out)</span>
                                         </Label>
                                         <div class="grid gap-2 sm:grid-cols-3">
                                             <div class="space-y-1">
-                                                <Label class="text-[10px]">TP</Label>
+                                                <Label class="text-2xs">TP</Label>
                                                 <NumberField v-model="editByeTp" :min="0" :max="5">
                                                     <NumberFieldContent
                                                         ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
@@ -2121,7 +2301,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </NumberField>
                                             </div>
                                             <div class="space-y-1">
-                                                <Label class="text-[10px]">Differential</Label>
+                                                <Label class="text-2xs">Differential</Label>
                                                 <NumberField v-model="editByeDiff" :min="0" :max="20">
                                                     <NumberFieldContent
                                                         ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
@@ -2129,7 +2309,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 </NumberField>
                                             </div>
                                             <div class="space-y-1">
-                                                <Label class="text-[10px]">VP</Label>
+                                                <Label class="text-2xs">VP</Label>
                                                 <NumberField v-model="editByeVp" :min="0" :max="20">
                                                     <NumberFieldContent
                                                         ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
@@ -2138,7 +2318,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             </div>
                                         </div>
                                     </div>
-                                    <p class="text-[11px] text-muted-foreground">
+                                    <p class="text-2xs text-muted-foreground">
                                         Tiebreaker mode toggle lives on the Standings tab so you can flip it any time, even mid-tournament.
                                     </p>
                                 </CollapsibleContent>
@@ -2168,7 +2348,7 @@ const titlesForMaster = (masterName: string | null) => {
                             <div class="space-y-3 text-sm">
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Status</span>
-                                    <Badge :class="['border-0 text-[10px]', statusColor(tournament.status)]" variant="outline">{{
+                                    <Badge :class="['border-0 text-2xs', statusColor(tournament.status)]" variant="outline">{{
                                         statusLabel(tournament.status)
                                     }}</Badge>
                                 </div>
@@ -2224,7 +2404,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         <div class="flex items-center gap-2">
                                             <Shield class="size-3.5 text-muted-foreground" />
                                             <span>{{ org.name }}</span>
-                                            <Badge v-if="org.id === tournament.creator_id" variant="outline" class="px-1 py-0 text-[9px]"
+                                            <Badge v-if="org.id === tournament.creator_id" variant="outline" class="px-1 py-0 text-2xs"
                                                 >Creator</Badge
                                             >
                                         </div>
@@ -2287,7 +2467,7 @@ const titlesForMaster = (masterName: string | null) => {
                             <template v-else-if="trackerAbandoned">Tracker game was abandoned</template>
                             <template v-else>Tracker linked ({{ editingGame.tracker_game.status.replace('_', ' ') }})</template>
                         </div>
-                        <div class="text-[11px] opacity-90">
+                        <div class="text-2xs opacity-90">
                             <template v-if="trackerInProgress">
                                 Scores below are the live tracker totals. Saving here locks this tournament record even if the tracker hasn't been
                                 marked complete.
@@ -2304,14 +2484,14 @@ const titlesForMaster = (masterName: string | null) => {
                             :href="route('games.show', editingGame.tracker_game.uuid)"
                             target="_blank"
                             rel="noopener"
-                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-center text-[10px] font-medium"
+                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-center text-2xs font-medium"
                         >
                             Open tracker
                         </a>
                         <button
                             v-if="trackerInProgress"
                             type="button"
-                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-[10px] font-medium"
+                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-2xs font-medium"
                             :disabled="completingTracker"
                             @click="completeTrackerGame"
                         >
@@ -2324,7 +2504,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_one_id) }}</div>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Master</Label>
+                            <Label class="text-2xs">Master</Label>
                             <Select v-model="editP1Master">
                                 <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select master..." /></SelectTrigger>
                                 <SelectContent>
@@ -2333,7 +2513,7 @@ const titlesForMaster = (masterName: string | null) => {
                             </Select>
                         </div>
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Title</Label>
+                            <Label class="text-2xs">Title</Label>
                             <Select v-model="editP1Title" :disabled="!editP1Master">
                                 <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Title..." /></SelectTrigger>
                                 <SelectContent>
@@ -2346,7 +2526,7 @@ const titlesForMaster = (masterName: string | null) => {
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
+                            <Label class="text-2xs">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
                             <Input
                                 v-model.number="editP1StrategyVp"
                                 type="number"
@@ -2357,7 +2537,7 @@ const titlesForMaster = (masterName: string | null) => {
                             />
                         </div>
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
+                            <Label class="text-2xs">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
                             <Input
                                 v-model.number="editP1SchemeVp"
                                 type="number"
@@ -2371,7 +2551,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <div class="text-right text-xs text-muted-foreground">
                         Total: <span class="font-bold text-foreground">{{ editP1Vp }}</span> VP
                     </div>
-                    <label class="flex items-center gap-2 pt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                    <label class="flex items-center gap-2 pt-1 text-2xs text-amber-700 dark:text-amber-400">
                         <input v-model="editDropP1" type="checkbox" class="size-3.5" />
                         Drop {{ playerName(editingGame.player_one_id) }} after this round
                     </label>
@@ -2382,7 +2562,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_two_id) }}</div>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Master</Label>
+                            <Label class="text-2xs">Master</Label>
                             <Select v-model="editP2Master">
                                 <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select master..." /></SelectTrigger>
                                 <SelectContent>
@@ -2391,7 +2571,7 @@ const titlesForMaster = (masterName: string | null) => {
                             </Select>
                         </div>
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Title</Label>
+                            <Label class="text-2xs">Title</Label>
                             <Select v-model="editP2Title" :disabled="!editP2Master">
                                 <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Title..." /></SelectTrigger>
                                 <SelectContent>
@@ -2404,7 +2584,7 @@ const titlesForMaster = (masterName: string | null) => {
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
+                            <Label class="text-2xs">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
                             <Input
                                 v-model.number="editP2StrategyVp"
                                 type="number"
@@ -2415,7 +2595,7 @@ const titlesForMaster = (masterName: string | null) => {
                             />
                         </div>
                         <div class="space-y-1">
-                            <Label class="text-[10px]">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
+                            <Label class="text-2xs">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
                             <Input
                                 v-model.number="editP2SchemeVp"
                                 type="number"
@@ -2429,7 +2609,7 @@ const titlesForMaster = (masterName: string | null) => {
                     <div class="text-right text-xs text-muted-foreground">
                         Total: <span class="font-bold text-foreground">{{ editP2Vp }}</span> VP
                     </div>
-                    <label v-if="editingGame.player_two_id" class="flex items-center gap-2 pt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                    <label v-if="editingGame.player_two_id" class="flex items-center gap-2 pt-1 text-2xs text-amber-700 dark:text-amber-400">
                         <input v-model="editDropP2" type="checkbox" class="size-3.5" />
                         Drop {{ playerName(editingGame.player_two_id) }} after this round
                     </label>
@@ -2629,7 +2809,7 @@ const titlesForMaster = (masterName: string | null) => {
                                     <span class="text-xs text-muted-foreground">No matches.</span>
                                 </ComboboxEmpty>
                                 <ComboboxGroup v-if="tournamentMetas.length">
-                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    <div class="px-2 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                         In this tournament
                                     </div>
                                     <ComboboxItem v-for="m in tournamentMetas" :key="'et-' + m.id" :value="m">
@@ -2639,7 +2819,7 @@ const titlesForMaster = (masterName: string | null) => {
                                 </ComboboxGroup>
                                 <ComboboxSeparator v-if="tournamentMetas.length && otherMetas.length" />
                                 <ComboboxGroup v-if="otherMetas.length">
-                                    <div class="px-2 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">All metas</div>
+                                    <div class="px-2 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">All metas</div>
                                     <ComboboxItem v-for="m in otherMetas" :key="'eo-' + m.id" :value="m">
                                         {{ m.name }}
                                         <Check v-if="editPlayerMeta?.id === m.id" class="ml-auto size-3.5" />

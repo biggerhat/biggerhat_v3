@@ -181,9 +181,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                     <Link :href="route('tos.allegiances.view', garrison.allegiance.slug)" class="hover:text-foreground hover:underline">{{
                         garrison.allegiance.name
                     }}</Link>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>{{ format.label }}</span>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>by {{ garrison.user.name }}</span>
                 </div>
             </template>
@@ -192,7 +192,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
         <div class="container mx-auto space-y-3 px-3 sm:px-4">
             <!-- Public-share banner -->
             <div
-                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-2xs font-medium text-emerald-700 dark:text-emerald-400"
             >
                 <Globe class="size-3" />
                 Shared Garrison &middot; read-only
@@ -205,7 +205,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                     <div>
                         <HeadingEyebrow>Format</HeadingEyebrow>
                         <p class="text-sm font-semibold">{{ format.label }}</p>
-                        <p class="mt-1 text-[11px] text-muted-foreground">{{ format.description }}</p>
+                        <p class="mt-1 text-2xs text-muted-foreground">{{ format.description }}</p>
                     </div>
 
                     <div>
@@ -232,7 +232,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                         <p class="text-sm font-semibold text-rose-700 dark:text-rose-400">
                             {{ violations.length }} rule {{ violations.length === 1 ? 'violation' : 'violations' }}
                         </p>
-                        <ul class="mt-1 space-y-0.5 text-[12px] text-rose-700/90 dark:text-rose-400/90">
+                        <ul class="mt-1 space-y-0.5 text-xs text-rose-700/90 dark:text-rose-400/90">
                             <li v-for="(v, i) in violations" :key="i">• {{ v }}</li>
                         </ul>
                     </div>
@@ -255,9 +255,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
             <!-- Commanders -->
             <section v-if="commanderUnits.length">
                 <header class="mb-3 flex items-baseline gap-2">
-                    <Crown class="size-4 text-amber-500" aria-hidden="true" />
+                    <Crown class="size-4 text-amber-700 dark:text-amber-400" aria-hidden="true" />
                     <HeadingEyebrow as="h2">Commanders</HeadingEyebrow>
-                    <Badge variant="secondary" class="text-[10px]"> {{ commanderUnits.length }} / {{ format.max_commanders }} </Badge>
+                    <Badge variant="secondary" class="text-2xs"> {{ commanderUnits.length }} / {{ format.max_commanders }} </Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Card v-for="gu in commanderUnits" :key="gu.id" class="h-full overflow-hidden border-amber-500/30">
@@ -273,9 +273,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                         <CardContent class="space-y-1 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ gu.unit.name }}</span>
-                                <Crown class="size-3.5 shrink-0 text-amber-500" />
+                                <Crown class="size-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                             </div>
-                            <p v-if="gu.unit.title" class="truncate text-[11px] italic text-muted-foreground">{{ gu.unit.title }}</p>
+                            <p v-if="gu.unit.title" class="truncate text-2xs italic text-muted-foreground">{{ gu.unit.title }}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -286,7 +286,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 <header class="mb-3 flex items-baseline gap-2">
                     <Swords class="size-4 text-muted-foreground" aria-hidden="true" />
                     <HeadingEyebrow as="h2">Units</HeadingEyebrow>
-                    <Badge variant="secondary" class="text-[10px]">{{ minionUnits.length }}</Badge>
+                    <Badge variant="secondary" class="text-2xs">{{ minionUnits.length }}</Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Card v-for="gu in minionUnits" :key="gu.id" class="h-full overflow-hidden">
@@ -302,12 +302,12 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                         <CardContent class="space-y-1 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ gu.unit.name }}</span>
-                                <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ gu.unit.scrip }}s</span>
+                                <span class="shrink-0 text-2xs tabular-nums text-muted-foreground">{{ gu.unit.scrip }}s</span>
                             </div>
-                            <p v-if="gu.unit.title" class="truncate text-[11px] italic text-muted-foreground">{{ gu.unit.title }}</p>
+                            <p v-if="gu.unit.title" class="truncate text-2xs italic text-muted-foreground">{{ gu.unit.title }}</p>
                             <div class="flex flex-wrap gap-1">
-                                <Badge v-if="gu.unit.restriction" variant="outline" class="text-[10px] capitalize">Neutral</Badge>
-                                <Badge v-for="r in gu.unit.special_unit_rules" :key="r.id" variant="outline" class="text-[10px]">{{ r.name }}</Badge>
+                                <Badge v-if="gu.unit.restriction" variant="outline" class="text-2xs capitalize">Neutral</Badge>
+                                <Badge v-for="r in gu.unit.special_unit_rules" :key="r.id" variant="outline" class="text-2xs">{{ r.name }}</Badge>
                             </div>
                         </CardContent>
                     </Card>
@@ -319,7 +319,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 <header class="mb-3 flex items-baseline gap-2">
                     <Package class="size-4 text-muted-foreground" aria-hidden="true" />
                     <HeadingEyebrow as="h2">Assets</HeadingEyebrow>
-                    <Badge variant="secondary" class="text-[10px]">
+                    <Badge variant="secondary" class="text-2xs">
                         {{ garrison.assets.reduce((n, a) => n + a.pivot.quantity, 0) }}
                     </Badge>
                 </header>
@@ -341,15 +341,13 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                             <CardContent class="space-y-1 p-3">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="truncate text-sm font-semibold">{{ a.name }}</span>
-                                    <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">×{{ a.pivot.quantity }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs tabular-nums">×{{ a.pivot.quantity }}</Badge>
                                 </div>
-                                <p class="text-[10px] tabular-nums text-muted-foreground">
+                                <p class="text-2xs tabular-nums text-muted-foreground">
                                     {{ a.scrip_cost }}s each &middot; {{ a.scrip_cost * a.pivot.quantity }}s total
                                 </p>
                                 <div v-if="a.limits.length" class="flex flex-wrap gap-1">
-                                    <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-[10px] capitalize">{{
-                                        limitLabel(l)
-                                    }}</Badge>
+                                    <Badge v-for="l in a.limits" :key="l.id" variant="outline" class="text-2xs capitalize">{{ limitLabel(l) }}</Badge>
                                 </div>
                             </CardContent>
                         </Card>
@@ -362,7 +360,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 <header class="mb-3 flex items-baseline gap-2">
                     <Newspaper class="size-4 text-muted-foreground" aria-hidden="true" />
                     <HeadingEyebrow as="h2">Stratagems</HeadingEyebrow>
-                    <Badge variant="secondary" class="text-[10px]"> {{ garrison.stratagems.length }} / {{ format.stratagem_count }} </Badge>
+                    <Badge variant="secondary" class="text-2xs"> {{ garrison.stratagems.length }} / {{ format.stratagem_count }} </Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Link
@@ -382,9 +380,9 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                             <CardContent class="space-y-1 p-3">
                                 <div class="flex items-center justify-between gap-2">
                                     <span class="truncate text-sm font-semibold">{{ s.name }}</span>
-                                    <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ s.tactical_cost }}T</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs tabular-nums">{{ s.tactical_cost }}T</Badge>
                                 </div>
-                                <p class="truncate text-[10px] capitalize text-muted-foreground">{{ stratagemScopeLabel(s) }}</p>
+                                <p class="truncate text-2xs capitalize text-muted-foreground">{{ stratagemScopeLabel(s) }}</p>
                                 <p v-if="s.effect" class="line-clamp-2 text-xs text-muted-foreground">
                                     <TosText :text="s.effect" />
                                 </p>
@@ -399,7 +397,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                 <header class="mb-3 flex items-baseline gap-2">
                     <ScrollText class="size-4 text-muted-foreground" aria-hidden="true" />
                     <HeadingEyebrow as="h2">Envoys</HeadingEyebrow>
-                    <Badge variant="secondary" class="text-[10px]"> {{ garrison.envoys.length }} / {{ format.envoy_count }} </Badge>
+                    <Badge variant="secondary" class="text-2xs"> {{ garrison.envoys.length }} / {{ format.envoy_count }} </Badge>
                 </header>
                 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                     <Link
@@ -418,7 +416,7 @@ function activeSculpt(gu: GarrisonUnit): Sculpt | null {
                             />
                             <CardContent class="space-y-1 p-3">
                                 <span class="block truncate text-sm font-semibold">{{ c.name }}</span>
-                                <p v-if="c.allegiance" class="truncate text-[10px] text-muted-foreground">{{ c.allegiance.name }}</p>
+                                <p v-if="c.allegiance" class="truncate text-2xs text-muted-foreground">{{ c.allegiance.name }}</p>
                             </CardContent>
                         </Card>
                     </Link>

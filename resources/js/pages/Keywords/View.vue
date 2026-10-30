@@ -278,19 +278,19 @@ onMounted(() => {
         <div class="container mx-auto mb-2 flex flex-wrap items-center justify-between gap-2 sm:px-4">
             <Tabs :model-value="filterParams.page_view" @update:model-value="handleViewChange">
                 <TabsList>
-                    <TabsTrigger value="images">
+                    <TabsTrigger aria-label="Cards" value="images">
                         <LayoutGrid class="h-4 w-4" />
                         <span class="hidden sm:inline">Cards</span>
                     </TabsTrigger>
-                    <TabsTrigger value="table">
+                    <TabsTrigger aria-label="Table" value="table">
                         <List class="h-4 w-4" />
                         <span class="hidden sm:inline">Table</span>
                     </TabsTrigger>
-                    <TabsTrigger value="full">
+                    <TabsTrigger aria-label="Full" value="full">
                         <BookOpen class="h-4 w-4" />
                         <span class="hidden sm:inline">Full</span>
                     </TabsTrigger>
-                    <TabsTrigger value="keyword_breakdown">
+                    <TabsTrigger aria-label="Keywords" value="keyword_breakdown">
                         <Grid2x2 class="h-4 w-4" />
                         <span class="hidden sm:inline">Keywords</span>
                     </TabsTrigger>
@@ -399,7 +399,7 @@ onMounted(() => {
                     </div>
                     <div v-if="statItems.length" class="flex items-center gap-3">
                         <div v-for="stat in statItems" :key="stat.label" class="text-center">
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{{ stat.label }}</div>
+                            <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{{ stat.label }}</div>
                             <div class="text-sm font-bold leading-tight">{{ stat.value }}</div>
                         </div>
                     </div>

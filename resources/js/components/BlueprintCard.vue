@@ -72,7 +72,7 @@ const formatVersion = (version: string) => {
         <!-- Body -->
         <div class="flex-1 px-3 py-2.5">
             <div class="flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline" class="text-[10px] capitalize">{{ formatVersion(blueprint.sculpt_version) }}</Badge>
+                <Badge variant="outline" class="text-2xs capitalize">{{ formatVersion(blueprint.sculpt_version) }}</Badge>
             </div>
         </div>
 

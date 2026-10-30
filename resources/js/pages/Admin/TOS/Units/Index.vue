@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref, watch } from 'vue';
 
 interface SpecialRule {
@@ -33,19 +34,19 @@ interface Unit {
 const columns: ColumnDef<Unit>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Name'),
+        header: sortableHeader('Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
     },
     {
         accessorKey: 'scrip',
-        header: () => h('div', {}, 'Scrip'),
+        header: sortableHeader('Scrip'),
         cell: ({ row }) => h('div', { class: 'tabular-nums' }, row.getValue('scrip')),
     },
     {
         id: 'rules',
         accessorFn: (row) => row.special_unit_rules.map((r) => r.slug).join(','),
         header: () => h('div', {}, 'Special Rules'),
-        cell: ({ row }) => h('div', { class: 'flex flex-wrap gap-1 text-[11px]' }, row.original.special_unit_rules.map((r) => r.name).join(', ')),
+        cell: ({ row }) => h('div', { class: 'flex flex-wrap gap-1 text-2xs' }, row.original.special_unit_rules.map((r) => r.name).join(', ')),
         filterFn: (row, columnId, value) => {
             if (value === 'all') return true;
             return row.original.special_unit_rules.some((r) => r.slug === value);
@@ -55,17 +56,17 @@ const columns: ColumnDef<Unit>[] = [
         id: 'allegiances',
         accessorFn: (row) => row.allegiances.map((a) => a.name).join(', '),
         header: () => h('div', {}, 'Allegiances'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] text-muted-foreground' }, row.original.allegiances.map((a) => a.name).join(', ')),
+        cell: ({ row }) => h('div', { class: 'text-2xs text-muted-foreground' }, row.original.allegiances.map((a) => a.name).join(', ')),
     },
     {
         id: 'sides',
         header: () => h('div', {}, 'Sides'),
-        cell: ({ row }) => h('div', { class: 'text-[11px] text-muted-foreground' }, `${row.original.sides.length}/2`),
+        cell: ({ row }) => h('div', { class: 'text-2xs text-muted-foreground' }, `${row.original.sides.length}/2`),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const u = row.original;
             return h(
@@ -97,7 +98,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
@@ -119,7 +122,7 @@ watch(ruleFilter, (val) => {
             <Button class="my-auto mr-2" @click="router.get(route('admin.tos.units.create'))">Create Unit</Button>
         </template>
     </PageBanner>
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <div class="flex items-center gap-2">
                 <Input

@@ -121,9 +121,9 @@ const addToCollection = () => {
                 <div
                     class="my-auto flex flex-wrap items-center gap-1.5 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
                 >
-                    <Badge class="bg-cyan-500/10 text-[10px] tabular-nums text-cyan-700 dark:text-cyan-400"> {{ asset.scrip_cost }} Scrip </Badge>
-                    <Badge v-if="asset.disable_count != null" variant="outline" class="text-[10px]">Disable {{ asset.disable_count }}</Badge>
-                    <Badge v-if="asset.scrap_count != null" variant="outline" class="text-[10px]">Scrap {{ asset.scrap_count }}</Badge>
+                    <Badge class="bg-cyan-500/10 text-2xs tabular-nums text-cyan-700 dark:text-cyan-400"> {{ asset.scrip_cost }} Scrip </Badge>
+                    <Badge v-if="asset.disable_count != null" variant="outline" class="text-2xs">Disable {{ asset.disable_count }}</Badge>
+                    <Badge v-if="asset.scrap_count != null" variant="outline" class="text-2xs">Scrap {{ asset.scrap_count }}</Badge>
                 </div>
             </template>
         </PageBanner>
@@ -151,7 +151,7 @@ const addToCollection = () => {
                             >
                                 <Ban class="size-10 opacity-40" />
                                 <span class="text-sm font-bold uppercase tracking-wider">Disabled</span>
-                                <span class="px-4 text-center text-[10px] opacity-70">Backside art coming soon</span>
+                                <span class="px-4 text-center text-2xs opacity-70">Backside art coming soon</span>
                             </div>
                         </template>
                     </FlipCard>
@@ -165,7 +165,7 @@ const addToCollection = () => {
 
                     <CardContent class="space-y-4 px-0 pb-0">
                         <div class="flex flex-wrap gap-1">
-                            <Badge v-for="a in asset.allegiances" :key="a.id" variant="outline" class="text-[10px]">{{ a.name }}</Badge>
+                            <Badge v-for="a in asset.allegiances" :key="a.id" variant="outline" class="text-2xs">{{ a.name }}</Badge>
                         </div>
 
                         <!-- Adjunct-limit Assets are physical swap-in models — count as Units for collection purposes -->
@@ -215,12 +215,12 @@ const addToCollection = () => {
                                             <span
                                                 v-for="l in ac.type_links"
                                                 :key="l.id"
-                                                class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                class="rounded bg-secondary px-1 py-0.5 text-2xs capitalize text-secondary-foreground"
                                                 >{{ l.type }}</span
                                             >
                                             <span class="font-medium">{{ ac.name }}</span>
                                         </div>
-                                        <span class="text-[10px] text-muted-foreground">
+                                        <span class="text-2xs text-muted-foreground">
                                             <template v-if="ac.av != null">
                                                 {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
                                                     v {{ ac.av_target }}</template
@@ -242,7 +242,7 @@ const addToCollection = () => {
             <section v-if="compatible_units.length">
                 <div class="mb-2 flex items-center justify-between">
                     <HeadingEyebrow as="h2">Compatible Units</HeadingEyebrow>
-                    <span class="text-[11px] text-muted-foreground">
+                    <span class="text-2xs text-muted-foreground">
                         {{ compatible_units.length }} {{ compatible_units.length === 1 ? 'unit' : 'units' }}
                     </span>
                 </div>
@@ -265,7 +265,7 @@ const addToCollection = () => {
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-medium leading-tight group-hover:text-primary">{{ u.name }}</p>
-                            <p class="truncate text-[10px] text-muted-foreground">
+                            <p class="truncate text-2xs text-muted-foreground">
                                 <span v-if="u.title" class="italic">{{ u.title }}</span>
                                 <span v-else class="tabular-nums">{{ u.scrip }}s</span>
                             </p>

@@ -76,7 +76,7 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
     <Card class="overflow-hidden lg:sticky lg:top-2">
         <div class="flex items-center justify-between border-b px-3 py-2 sm:px-4">
             <HeadingEyebrow as="h2">Hiring Pool</HeadingEyebrow>
-            <Badge variant="secondary" class="px-1.5 py-0 text-[10px]">{{ pool.length }} shown</Badge>
+            <Badge variant="secondary" class="px-1.5 py-0 text-2xs">{{ pool.length }} shown</Badge>
         </div>
         <CardContent class="space-y-2 p-2 sm:p-3">
             <!-- Search -->
@@ -89,6 +89,7 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                     @update:model-value="emit('update:filterText', String($event))"
                 />
                 <button
+                    aria-label="Clear filter"
                     v-if="filterText"
                     type="button"
                     class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -105,23 +106,23 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                     :key="f.key"
                     :variant="poolFilter === f.key ? 'default' : 'outline'"
                     size="sm"
-                    class="h-6 gap-1 px-2 text-[11px]"
+                    class="h-6 gap-1 px-2 text-2xs"
                     @click="emit('update:poolFilter', f.key)"
                 >
                     {{ f.label }}
-                    <span class="text-[10px] opacity-60">{{ counts[f.key] }}</span>
+                    <span class="text-2xs opacity-60">{{ counts[f.key] }}</span>
                 </Button>
             </div>
 
             <!-- Sort -->
             <div class="flex items-center gap-1">
-                <span class="text-[11px] text-muted-foreground">Sort:</span>
+                <span class="text-2xs text-muted-foreground">Sort:</span>
                 <Button
                     v-for="s in sorts"
                     :key="s.key"
                     :variant="poolSort === s.key ? 'default' : 'ghost'"
                     size="sm"
-                    class="h-5 px-1.5 text-[10px]"
+                    class="h-5 px-1.5 text-2xs"
                     @click="emit('update:poolSort', s.key)"
                     >{{ s.label }}</Button
                 >
@@ -141,25 +142,29 @@ const accentTintBg = computed(() => (props.allegianceColorSlug ? `bg-${props.all
                         <div
                             :class="['flex size-9 shrink-0 items-center justify-center overflow-hidden rounded ring-1 ring-border/60', accentTintBg]"
                         >
-                            <Crown v-if="isCommanderEligible(u)" class="size-4 text-amber-500" />
+                            <Crown v-if="isCommanderEligible(u)" class="size-4 text-amber-700 dark:text-amber-400" />
                             <AllegianceLogo v-else :allegiance="allegianceSlug" class-name="size-5 opacity-70" />
                         </div>
 
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1.5">
-                                <Crown v-if="isCommanderEligible(u)" class="size-3 shrink-0 text-amber-500" aria-label="Commander-eligible" />
+                                <Crown
+                                    v-if="isCommanderEligible(u)"
+                                    class="size-3 shrink-0 text-amber-700 dark:text-amber-400"
+                                    aria-label="Commander-eligible"
+                                />
                                 <span class="truncate font-medium">{{ u.name }}</span>
                                 <Badge
                                     v-if="u.hire_category === 'envoy'"
                                     variant="outline"
-                                    class="border-sky-500/40 px-1 py-0 text-[9px] text-sky-600 dark:text-sky-400"
+                                    class="border-sky-500/40 px-1 py-0 text-2xs text-sky-600 dark:text-sky-400"
                                     >Envoy</Badge
                                 >
-                                <Badge v-else-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-[9px]">Neutral</Badge>
+                                <Badge v-else-if="u.hire_category === 'neutral'" variant="outline" class="px-1 py-0 text-2xs">Neutral</Badge>
                             </div>
-                            <div v-if="u.title" class="truncate text-[10px] italic text-muted-foreground">{{ u.title }}</div>
+                            <div v-if="u.title" class="truncate text-2xs italic text-muted-foreground">{{ u.title }}</div>
                         </div>
-                        <span class="shrink-0 text-[11px] tabular-nums text-muted-foreground">{{ u.scrip }}s</span>
+                        <span class="shrink-0 text-2xs tabular-nums text-muted-foreground">{{ u.scrip }}s</span>
 
                         <div class="flex shrink-0 items-center gap-0.5">
                             <Button

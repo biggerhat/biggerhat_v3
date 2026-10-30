@@ -139,7 +139,7 @@ onMounted(() => {
                                 <SelectItem v-for="t in allegiance_types" :key="t.value" :value="t.value">{{ t.name }}</SelectItem>
                             </SelectContent>
                         </Select>
-                        <p class="text-[11px] text-muted-foreground">
+                        <p class="text-2xs text-muted-foreground">
                             Set only when an Allegiance Card lists both Earth and Malifaux on its face. Hybrid cards apply to Allegiances of either
                             type.
                         </p>
@@ -188,7 +188,7 @@ onMounted(() => {
                 <!-- Primary tier -->
                 <section class="rounded-md border-l-4 border-amber-500/70 bg-amber-500/5 p-3">
                     <HeadingEyebrow class="mb-2 text-amber-700 dark:text-amber-400">Primary Tier</HeadingEyebrow>
-                    <p class="mb-2 text-[11px] text-muted-foreground">Leave empty when the card has no Primary side.</p>
+                    <p class="mb-2 text-2xs text-muted-foreground">Leave empty when the card has no Primary side.</p>
                     <div class="space-y-3">
                         <div>
                             <Label for="primary_body">Primary Body</Label>
@@ -238,7 +238,7 @@ onMounted(() => {
                         accept="image/*"
                         @input="formInfo.image_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
                     />
-                    <p class="text-[11px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                         {{ existingImage ? 'Choose a new file to replace, or leave empty to keep.' : 'PNG / JPG up to 30 MB.' }}
                     </p>
                     <InputError :message="usePage().props.errors.image_path" />

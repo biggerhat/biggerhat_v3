@@ -50,7 +50,7 @@ defineProps<{
                     <div :class="strategy.image_url ? 'order-1 lg:order-2' : 'order-1 max-w-2xl lg:col-span-3'">
                         <Card>
                             <CardHeader class="pb-3">
-                                <CardTitle class="text-xl leading-tight lg:text-2xl">{{ strategy.name }}</CardTitle>
+                                <CardTitle as="h1" class="text-xl leading-tight lg:text-2xl">{{ strategy.name }}</CardTitle>
                                 <div class="flex flex-wrap gap-2">
                                     <Badge variant="secondary">{{ strategy.season_label }}</Badge>
                                     <Badge v-if="strategy.suit" variant="outline" class="gap-1">

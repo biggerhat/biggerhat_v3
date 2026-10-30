@@ -64,7 +64,7 @@ const onSearchInput = () => {
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <Input v-model="search" class="max-w-sm" placeholder="Search Transmissions" @input="onSearchInput" />
             <div>Total {{ transmissions.total }}</div>

@@ -224,11 +224,11 @@ onMounted(() => {
         <div class="container mx-auto mt-6 sm:px-4 lg:px-6">
             <Tabs v-model="activeTab" default-value="characters">
                 <TabsList class="w-full md:w-auto">
-                    <TabsTrigger value="characters" class="flex-1 gap-1.5 md:flex-none">
+                    <TabsTrigger aria-label="Characters" value="characters" class="flex-1 gap-1.5 md:flex-none">
                         <UserPlus class="size-4" />
                         <span class="hidden sm:inline">Characters</span>
                     </TabsTrigger>
-                    <TabsTrigger value="upgrades" class="flex-1 gap-1.5 md:flex-none">
+                    <TabsTrigger aria-label="Upgrades" value="upgrades" class="flex-1 gap-1.5 md:flex-none">
                         <ArrowUpFromLine class="size-4" />
                         <span class="hidden sm:inline">Upgrades</span>
                     </TabsTrigger>
@@ -238,6 +238,7 @@ onMounted(() => {
                 <!-- Shared faction filter -->
                 <div v-show="activeTab !== 'list'" class="mt-3 flex flex-wrap items-center gap-1.5">
                     <button
+                        :aria-label="faction.name"
                         v-for="faction in factions"
                         :key="faction.slug"
                         @click="filterFaction(faction.slug)"
@@ -262,6 +263,7 @@ onMounted(() => {
                         <span class="hidden md:inline">{{ faction.name }}</span>
                     </button>
                     <button
+                        aria-label="Clear faction"
                         v-if="selectedFaction"
                         @click="selectedFaction = null"
                         class="ml-0.5 rounded-full p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -367,7 +369,7 @@ onMounted(() => {
                                                         <Badge
                                                             v-if="results[virtualRow.index].station"
                                                             variant="secondary"
-                                                            class="px-1 py-0 text-[10px] capitalize"
+                                                            class="px-1 py-0 text-2xs capitalize"
                                                         >
                                                             {{ results[virtualRow.index].station }}
                                                             <span v-if="results[virtualRow.index].count > 1">
@@ -382,7 +384,13 @@ onMounted(() => {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="add(results[virtualRow.index])">
+                                                <Button
+                                                    aria-label="Add to list"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="size-7 shrink-0"
+                                                    @click="add(results[virtualRow.index])"
+                                                >
                                                     <SquarePlus class="size-4" />
                                                 </Button>
                                             </div>
@@ -414,7 +422,13 @@ onMounted(() => {
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="addUpgrade(upgrade)">
+                                                        <Button
+                                                            aria-label="Add upgrade"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            class="size-7 shrink-0"
+                                                            @click="addUpgrade(upgrade)"
+                                                        >
                                                             <SquarePlus class="size-4" />
                                                         </Button>
                                                     </div>
@@ -493,6 +507,7 @@ onMounted(() => {
                                                     </div>
                                                 </div>
                                                 <Button
+                                                    aria-label="Add upgrade"
                                                     variant="ghost"
                                                     size="icon"
                                                     class="size-7 shrink-0"
@@ -520,7 +535,7 @@ onMounted(() => {
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon" class="size-8">
+                                            <Button aria-label="More actions" variant="ghost" size="icon" class="size-8">
                                                 <EllipsisVertical class="size-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -581,12 +596,18 @@ onMounted(() => {
                                                 <div class="text-sm font-semibold">{{ card.display_name }}</div>
                                                 <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                                                     <span v-if="card.cost">{{ card.cost }}ss</span>
-                                                    <Badge v-if="card.station" variant="secondary" class="px-1 py-0 text-[10px] capitalize">
+                                                    <Badge v-if="card.station" variant="secondary" class="px-1 py-0 text-2xs capitalize">
                                                         {{ card.station }}
                                                     </Badge>
                                                 </div>
                                             </div>
-                                            <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="remove(index)">
+                                            <Button
+                                                aria-label="Remove from list"
+                                                variant="ghost"
+                                                size="icon"
+                                                class="size-7 shrink-0"
+                                                @click="remove(index)"
+                                            >
                                                 <SquareMinus class="size-4 text-destructive" />
                                             </Button>
                                         </div>
@@ -613,7 +634,13 @@ onMounted(() => {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="remove(index)">
+                                                <Button
+                                                    aria-label="Remove from list"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    class="size-7 shrink-0"
+                                                    @click="remove(index)"
+                                                >
                                                     <SquareMinus class="size-4 text-destructive" />
                                                 </Button>
                                             </div>

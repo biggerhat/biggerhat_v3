@@ -125,7 +125,6 @@ const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isA
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <Card>
             <CardContent class="space-y-3 p-4">
                 <div class="text-sm font-semibold">New announcement</div>
@@ -189,11 +188,11 @@ const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isA
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             <Badge variant="outline" :class="levelBadgeClass(a.level)">{{ a.level }}</Badge>
-                            <Badge variant="secondary" class="text-[10px]">{{ a.audience }}</Badge>
-                            <Badge v-if="isActiveNow(a)" class="border-green-500/40 bg-green-500/10 text-[10px] text-green-700 dark:text-green-400"
+                            <Badge variant="secondary" class="text-2xs">{{ a.audience }}</Badge>
+                            <Badge v-if="isActiveNow(a)" class="border-green-500/40 bg-green-500/10 text-2xs text-green-700 dark:text-green-400"
                                 >live</Badge
                             >
-                            <Badge v-else variant="outline" class="text-[10px] text-muted-foreground">scheduled / expired</Badge>
+                            <Badge v-else variant="outline" class="text-2xs text-muted-foreground">scheduled / expired</Badge>
                         </div>
                         <p class="mt-1 text-sm">{{ a.message }}</p>
                         <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -203,7 +202,7 @@ const sorted = computed(() => [...props.announcements].sort((a, b) => Number(isA
                             <span v-if="a.created_by">by {{ a.created_by.name }}</span>
                         </div>
                     </div>
-                    <Button variant="outline" size="sm" @click="remove(a)">
+                    <Button aria-label="Delete announcement" variant="outline" size="sm" @click="remove(a)">
                         <Trash2 class="size-3.5" />
                     </Button>
                 </CardContent>

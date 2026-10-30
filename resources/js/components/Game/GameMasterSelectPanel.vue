@@ -189,7 +189,7 @@ const confirmOpponentMasterSelection = () => {
                                     <Badge
                                         v-if="master.is_alternate_leader"
                                         variant="outline"
-                                        class="border-cyan-500/50 px-1 py-0 text-[9px] text-cyan-600 dark:text-cyan-400"
+                                        class="border-cyan-500/50 px-1 py-0 text-[10px] text-cyan-600 dark:text-cyan-400"
                                     >
                                         Alt Leader
                                     </Badge>
@@ -197,7 +197,7 @@ const confirmOpponentMasterSelection = () => {
                                     <Badge
                                         v-if="isBonanza && master.titles.length === 1 && master.titles[0].bonanza_cost !== undefined"
                                         variant="outline"
-                                        class="border-purple-500/50 px-1 py-0 text-[9px] text-purple-600 dark:text-purple-300"
+                                        class="border-purple-500/50 px-1 py-0 text-[10px] text-purple-600 dark:text-purple-300"
                                         >{{ master.titles[0].bonanza_cost }}ss</Badge
                                     >
                                 </div>
@@ -271,7 +271,7 @@ const confirmOpponentMasterSelection = () => {
             <template v-else-if="!isSolo || opponentMasterStepDone">
                 <div class="py-4 text-center">
                     <Badge variant="secondary" class="text-sm">{{ myMasterName }}</Badge>
-                    <Check class="ml-2 inline size-5 text-green-500" />
+                    <Check class="ml-2 inline size-5 text-green-700 dark:text-green-400" />
                 </div>
             </template>
 
@@ -279,7 +279,7 @@ const confirmOpponentMasterSelection = () => {
             <template v-else-if="isSolo && masterStepDone && !opponentMasterStepDone">
                 <div class="mb-3">
                     <Badge variant="secondary" class="text-sm">{{ myMasterName }}</Badge>
-                    <Check class="ml-2 inline size-4 text-green-500" />
+                    <Check class="ml-2 inline size-4 text-green-700 dark:text-green-400" />
                 </div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <Card

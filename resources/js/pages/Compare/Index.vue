@@ -208,7 +208,6 @@ onMounted(() => {
         fetchCharacters(initial.split(',').filter(Boolean).slice(0, 4));
     }
 });
-
 </script>
 
 <template>
@@ -253,7 +252,7 @@ onMounted(() => {
                         >
                             <img v-if="item.front_image" :src="item.front_image" :alt="item.display_name" class="size-8 rounded object-cover" />
                             <span class="flex-1 truncate font-medium">{{ item.display_name }}</span>
-                            <Badge v-if="item.faction" variant="outline" class="shrink-0 text-[10px]">{{ item.faction.replace('_', ' ') }}</Badge>
+                            <Badge v-if="item.faction" variant="outline" class="shrink-0 text-2xs">{{ item.faction.replace('_', ' ') }}</Badge>
                         </button>
                     </div>
                 </div>
@@ -345,8 +344,8 @@ onMounted(() => {
                                     </Link>
                                 </div>
                                 <div class="mt-1 flex flex-wrap gap-1">
-                                    <Badge v-if="char.station" variant="outline" class="text-[10px] capitalize">{{ char.station }}</Badge>
-                                    <Badge v-if="char.base" variant="secondary" class="text-[10px]">{{ char.base }}mm</Badge>
+                                    <Badge v-if="char.station" variant="outline" class="text-2xs capitalize">{{ char.station }}</Badge>
+                                    <Badge v-if="char.base" variant="secondary" class="text-2xs">{{ char.base }}mm</Badge>
                                 </div>
                             </CardContent>
                         </Card>
@@ -356,7 +355,7 @@ onMounted(() => {
                             <CardContent class="p-3">
                                 <div class="grid grid-cols-3 gap-2 text-center">
                                     <div v-for="stat in statFields" :key="stat.key">
-                                        <div class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{{ stat.label }}</div>
+                                        <div class="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{{ stat.label }}</div>
                                         <div class="text-lg font-bold" :class="statClass(stat.key, (char as any)[stat.key])">
                                             <template v-if="(char as any)[stat.key] != null">
                                                 {{ (char as any)[stat.key] }}{{ stat.suffix ?? '' }}
@@ -417,7 +416,7 @@ onMounted(() => {
                                 </div>
                                 <!-- Trigger suit breakdown -->
                                 <div v-if="char.actions.some((a: any) => a.triggers?.length)" class="mt-2 border-t pt-2">
-                                    <div class="mb-1 text-[10px] text-muted-foreground">Trigger Suits</div>
+                                    <div class="mb-1 text-2xs text-muted-foreground">Trigger Suits</div>
                                     <div class="flex flex-wrap gap-1.5">
                                         <template v-for="suit in ['ram', 'crow', 'tome', 'mask']" :key="suit">
                                             <span
@@ -450,7 +449,7 @@ onMounted(() => {
                             <CardContent class="p-3">
                                 <HeadingEyebrow class="mb-1.5">Keywords</HeadingEyebrow>
                                 <div class="flex flex-wrap gap-1">
-                                    <Badge v-for="kw in char.keywords" :key="kw.slug" variant="secondary" class="text-[10px]">{{ kw.name }}</Badge>
+                                    <Badge v-for="kw in char.keywords" :key="kw.slug" variant="secondary" class="text-2xs">{{ kw.name }}</Badge>
                                 </div>
                             </CardContent>
                         </Card>
@@ -460,9 +459,7 @@ onMounted(() => {
                             <CardContent class="p-3">
                                 <HeadingEyebrow class="mb-1.5">Characteristics</HeadingEyebrow>
                                 <div class="flex flex-wrap gap-1">
-                                    <Badge v-for="ch in char.characteristics" :key="ch" variant="outline" class="text-[10px] capitalize">{{
-                                        ch
-                                    }}</Badge>
+                                    <Badge v-for="ch in char.characteristics" :key="ch" variant="outline" class="text-2xs capitalize">{{ ch }}</Badge>
                                 </div>
                             </CardContent>
                         </Card>

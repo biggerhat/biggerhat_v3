@@ -135,7 +135,7 @@ onMounted(() => {
                             Universal
                         </button>
                     </div>
-                    <p class="mt-1 text-[11px] text-muted-foreground">
+                    <p class="mt-1 text-2xs text-muted-foreground">
                         A Stratagem keys to a specific Allegiance, OR to an Allegiance Type (available to any Allegiance of that type), OR is
                         Universal — never both (rulebook p. 13).
                     </p>
@@ -185,7 +185,7 @@ onMounted(() => {
                         accept="image/*"
                         @input="formInfo.image_path = ($event.target as HTMLInputElement).files?.[0] ?? null"
                     />
-                    <p class="text-[11px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                         {{ existingImage ? 'Choose a new file to replace, or leave empty to keep.' : 'PNG / JPG up to 30 MB.' }}
                     </p>
                     <InputError :message="usePage().props.errors.image_path" />

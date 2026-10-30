@@ -119,7 +119,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>{{ transmission ? 'Edit' : 'New' }} Transmission</CardTitle>
+                <CardTitle as="h1">{{ transmission ? 'Edit' : 'New' }} Transmission</CardTitle>
                 <CardDescription>{{ channel.name }}</CardDescription>
             </CardHeader>
             <CardContent>

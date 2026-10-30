@@ -33,7 +33,7 @@ const columns: ColumnDef<Sculpt>[] = [
             const src = resolveImage(row.original.combination_image ?? row.original.front_image);
             return src
                 ? h('img', { src, alt: row.original.name, class: 'h-12 w-auto rounded border object-cover' })
-                : h('div', { class: 'text-[11px] text-muted-foreground' }, '—');
+                : h('div', { class: 'text-2xs text-muted-foreground' }, '—');
         },
     },
     { accessorKey: 'name', header: () => h('div', {}, 'Name'), cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')) },
@@ -41,12 +41,12 @@ const columns: ColumnDef<Sculpt>[] = [
         id: 'unit',
         accessorFn: (r) => r.unit?.name ?? '',
         header: () => h('div', {}, 'Unit'),
-        cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.unit?.name ?? '—'),
+        cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.unit?.name ?? '—'),
     },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,
@@ -69,6 +69,7 @@ const table = useVueTable({
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     onGlobalFilterChange: (u) => valueUpdater(u, globalFilter),
     getFilteredRowModel: getFilteredRowModel(),
@@ -98,7 +99,7 @@ const table = useVueTable({
             <Button class="my-auto mr-2" @click="router.get(route('admin.tos.sculpts.create'))">Create Sculpt</Button>
         </template>
     </PageBanner>
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"

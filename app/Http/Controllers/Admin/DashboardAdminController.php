@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\FeedbackStatusEnum;
 use App\Http\Controllers\Controller;
+use App\Models\BotHeartbeat;
 use App\Models\Feedback;
 use App\Models\User;
 use App\Support\AdminNav;
@@ -43,7 +44,8 @@ class DashboardAdminController extends Controller
 
         return inertia('Admin/Dashboard/Index', [
             'groups' => $groups,
-            'stats' => $this->stats($user),
+            'stats' => $stats = $this->stats($user),
+            'attention' => $this->attention($user, $stats),
             'analytics' => $user->hasRole('super_admin') ? $this->analytics() : null,
         ]);
     }
@@ -82,6 +84,56 @@ class DashboardAdminController extends Controller
         }
 
         return $result;
+    }
+
+    /**
+     * Things an admin should act on, most urgent first. Empty means all clear.
+     *
+     * @param  array{pending_feedback: int|null, failed_jobs: int|null}  $stats
+     * @return array<int, array{key: string, level: 'critical'|'warning'|'info', title: string, detail: string, href: string, action: string}>
+     */
+    private function attention(User $user, array $stats): array
+    {
+        $items = [];
+
+        if ($user->hasRole('super_admin')) {
+            $last = BotHeartbeat::query()->latest('reported_at')->first();
+            $minutes = max(1, (int) config('services.bot.offline_after_minutes', 3));
+            if ($last && $last->reported_at->lt(now()->subMinutes($minutes))) {
+                $items[] = [
+                    'key' => 'bot_offline',
+                    'level' => 'critical',
+                    'title' => 'Discord bot is offline',
+                    'detail' => 'Last heartbeat '.$last->reported_at->diffForHumans().'.',
+                    'href' => route('admin.bot_monitor.index'),
+                    'action' => 'Open Bot Monitor',
+                ];
+            }
+        }
+
+        if (($stats['failed_jobs'] ?? 0) > 0) {
+            $items[] = [
+                'key' => 'failed_jobs',
+                'level' => 'warning',
+                'title' => $stats['failed_jobs'].' failed queue '.($stats['failed_jobs'] === 1 ? 'job' : 'jobs'),
+                'detail' => 'Review the errors, then retry or delete them.',
+                'href' => route('admin.failed_jobs.index'),
+                'action' => 'Review jobs',
+            ];
+        }
+
+        if (($stats['pending_feedback'] ?? 0) > 0) {
+            $items[] = [
+                'key' => 'pending_feedback',
+                'level' => 'info',
+                'title' => $stats['pending_feedback'].' new feedback '.($stats['pending_feedback'] === 1 ? 'entry' : 'entries'),
+                'detail' => 'Waiting for a first look.',
+                'href' => route('admin.feedback.index', ['status' => 'new']),
+                'action' => 'Review feedback',
+            ];
+        }
+
+        return $items;
     }
 
     /**

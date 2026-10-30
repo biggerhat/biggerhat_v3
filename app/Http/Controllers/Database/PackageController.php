@@ -132,7 +132,7 @@ class PackageController extends Controller
                         'back_image' => $c->standardMiniatures->first()->back_image,
                         'character_id' => $c->id,
                     ] : null,
-                ])->sortBy('display_name')->values(),
+                ])->sortBy('display_name')->values()->all(),
             ]);
 
         return inertia('Packages/Contents', [

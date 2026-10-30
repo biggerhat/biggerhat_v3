@@ -24,13 +24,13 @@ const columns: ColumnDef<AllegianceCard>[] = [
         id: 'allegiance',
         accessorFn: (r) => r.allegiance.name,
         header: () => h('div', {}, 'Allegiance'),
-        cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.allegiance.name),
+        cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.allegiance.name),
     },
     { accessorKey: 'type', header: () => h('div', {}, 'Type'), cell: ({ row }) => h('div', { class: 'capitalize' }, row.getValue('type')) },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,
@@ -52,6 +52,7 @@ const table = useVueTable({
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
@@ -71,7 +72,7 @@ const table = useVueTable({
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"

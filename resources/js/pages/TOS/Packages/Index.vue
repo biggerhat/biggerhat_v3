@@ -94,9 +94,9 @@ const formatPrice = (cents: number | null) => {
 
         <div class="container mx-auto sm:px-4">
             <div v-if="allegiances.length" class="mb-4 flex flex-wrap items-center gap-1">
-                <span class="mr-1 text-[11px] uppercase tracking-wider text-muted-foreground">Allegiance:</span>
+                <span class="mr-1 text-2xs uppercase tracking-wider text-muted-foreground">Allegiance:</span>
                 <button
-                    class="rounded-full border px-2 py-0.5 text-[11px] transition-colors"
+                    class="rounded-full border px-2 py-0.5 text-2xs transition-colors"
                     :class="!filterParams.allegiance ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
                     @click="setAllegiance(null)"
                 >
@@ -105,7 +105,7 @@ const formatPrice = (cents: number | null) => {
                 <button
                     v-for="a in allegiances"
                     :key="a.slug"
-                    class="rounded-full border px-2 py-0.5 text-[11px] transition-colors"
+                    class="rounded-full border px-2 py-0.5 text-2xs transition-colors"
                     :class="filterParams.allegiance === a.slug ? 'border-primary bg-primary/10' : 'border-transparent hover:bg-muted'"
                     @click="setAllegiance(a.slug)"
                 >

@@ -76,10 +76,10 @@ const printPage = () => window.print();
     </div>
 
     <!-- Printable content -->
-    <div class="mx-auto max-w-4xl p-4 text-[11px] leading-snug text-black print:p-0 print:text-[9px]">
+    <div class="mx-auto max-w-4xl p-4 text-[11px] leading-snug text-black print:p-0 print:text-[10px]">
         <div class="mb-3 flex items-center justify-between border-b border-black/20 pb-2">
             <div class="text-lg font-bold print:text-sm">{{ crew.name }}</div>
-            <div class="text-right text-xs text-black/60 print:text-[8px]">{{ crew.faction.replace('_', ' ') }} &middot; biggerhat.net</div>
+            <div class="text-right text-xs text-black/60 print:text-[10px]">{{ crew.faction.replace('_', ' ') }} &middot; biggerhat.net</div>
         </div>
 
         <!-- Leader / Totem stat blocks -->
@@ -91,11 +91,11 @@ const printPage = () => window.print();
             >
                 <div class="mb-1 flex items-baseline justify-between">
                     <span class="text-sm font-bold print:text-[10px]">{{ block.name }}</span>
-                    <span v-if="block.characteristics.length" class="text-[9px] text-black/60 print:text-[7px]">{{
+                    <span v-if="block.characteristics.length" class="text-[10px] text-black/60 print:text-[7px]">{{
                         block.characteristics.join(', ')
                     }}</span>
                 </div>
-                <div class="mb-1.5 flex gap-3 text-[10px] font-medium print:text-[8px]">
+                <div class="mb-1.5 flex gap-3 text-[10px] font-medium print:text-[10px]">
                     <span>Df {{ block.defense }}</span>
                     <span>Wp {{ block.willpower }}</span>
                     <span>Spd {{ block.speed }}</span>
@@ -109,10 +109,12 @@ const printPage = () => window.print();
                             <GameIcon v-if="ab.suits" :type="ab.suits" class-name="inline-block h-2.5" />
                             {{ ab.name }}
                         </span>
-                        <span v-if="ab.defensive_ability_type" class="text-[9px] text-black/60 print:text-[7px]">
+                        <span v-if="ab.defensive_ability_type" class="text-[10px] text-black/60 print:text-[7px]">
                             ({{ ab.defensive_ability_type }})</span
                         >
-                        <span v-if="ab.description" class="text-black/70"> - <GameText :text="ab.description" icon-class="h-2.5 inline-block align-text-bottom" /></span>
+                        <span v-if="ab.description" class="text-black/70">
+                            - <GameText :text="ab.description" icon-class="h-2.5 inline-block align-text-bottom"
+                        /></span>
                     </div>
                 </div>
 
@@ -134,7 +136,9 @@ const printPage = () => window.print();
                             <div v-for="t in action.triggers" :key="t.name">
                                 <GameIcon v-if="t.suits" :type="t.suits" class-name="inline-block h-2.5" />
                                 <span class="font-semibold">{{ t.name }}</span>
-                                <span v-if="t.description" class="text-black/70"> - <GameText :text="t.description" icon-class="h-2.5 inline-block align-text-bottom" /></span>
+                                <span v-if="t.description" class="text-black/70">
+                                    - <GameText :text="t.description" icon-class="h-2.5 inline-block align-text-bottom"
+                                /></span>
                             </div>
                         </div>
                     </div>
@@ -144,7 +148,7 @@ const printPage = () => window.print();
 
         <!-- Arsenal roster -->
         <div v-if="models.length" class="mb-3">
-            <p class="mb-1 text-[10px] font-bold uppercase tracking-wide print:text-[8px]">Arsenal ({{ models.length }})</p>
+            <p class="mb-1 text-[10px] font-bold uppercase tracking-wide print:text-[10px]">Arsenal ({{ models.length }})</p>
             <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3 print:grid-cols-4">
                 <div v-for="(m, i) in models" :key="`${m.name}-${i}`" class="flex justify-between border-b border-dotted border-black/20">
                     <span>{{ m.name }}</span>
@@ -155,7 +159,7 @@ const printPage = () => window.print();
 
         <!-- Equipment locker -->
         <div v-if="equipment.length">
-            <p class="mb-1 text-[10px] font-bold uppercase tracking-wide print:text-[8px]">Equipment ({{ equipment.length }})</p>
+            <p class="mb-1 text-[10px] font-bold uppercase tracking-wide print:text-[10px]">Equipment ({{ equipment.length }})</p>
             <div class="space-y-0.5">
                 <div v-for="(e, i) in equipment" :key="`${e.name}-${i}`" class="border-b border-dotted border-black/20 pb-0.5">
                     <div class="flex justify-between font-semibold">

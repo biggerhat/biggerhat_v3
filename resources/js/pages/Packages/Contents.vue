@@ -77,8 +77,7 @@ const wishlistPackageIds = computed(() => {
 const isWishlisted = (pkgId: number) => wishlistPackageIds.value.has(pkgId);
 
 const wishlists = computed(() => page.props.auth?.wishlists ?? []);
-const isOnWishlist = (wishlistId: number, packageId: number) =>
-    (page.props.auth?.wishlist_items?.[wishlistId]?.packages ?? []).includes(packageId);
+const isOnWishlist = (wishlistId: number, packageId: number) => (page.props.auth?.wishlist_items?.[wishlistId]?.packages ?? []).includes(packageId);
 
 // Mirrors AddToWishlist.vue's addToWishlist — optimistic update against the
 // same shared `wishlist_items` bucket shape, via router.post rather than raw
@@ -372,11 +371,9 @@ const syncUrl = () => {
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
 };
 
-watch(
-    [debouncedSearch, activeFactions, activeCategory, activeKeyword, standardOnly, missingCharactersOnly, collectionFilter, sortBy],
-    syncUrl,
-    { deep: true },
-);
+watch([debouncedSearch, activeFactions, activeCategory, activeKeyword, standardOnly, missingCharactersOnly, collectionFilter, sortBy], syncUrl, {
+    deep: true,
+});
 
 onMounted(() => {
     const params = new URLSearchParams(window.location.search);
@@ -439,17 +436,19 @@ const copyLink = async () => {
     <div>
         <PageBanner title="Box Contents">
             <template #subtitle>
-                <div class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+                <div
+                    class="my-auto flex flex-wrap items-center gap-x-1 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground"
+                >
                     <span>{{ filteredBoxes.length }} of {{ props.packages.length }} boxes</span>
                     <template v-if="totalMsrpCents > 0">
-                        <span class="text-muted-foreground/50">&middot;</span>
+                        <span class="text-muted-foreground">&middot;</span>
                         <span class="font-medium">{{ formatMsrp(totalMsrpCents) }} total MSRP</span>
                     </template>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>{{ uniqueCharacterCount }} characters</span>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>{{ uniqueKeywordCount }} keywords</span>
-                    <span class="text-muted-foreground/50">&middot;</span>
+                    <span class="text-muted-foreground">&middot;</span>
                     <span>{{ uniqueFactionCount }} factions</span>
                 </div>
             </template>
@@ -460,7 +459,12 @@ const copyLink = async () => {
                 <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input v-model="search" type="text" placeholder="Search box or model name..." class="border-2 border-primary pl-10 pr-10" />
                 <Loader2 v-if="isPending" class="absolute right-9 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                <button v-if="search" class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" @click="clearSearch">
+                <button
+                    aria-label="Clear search"
+                    v-if="search"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    @click="clearSearch"
+                >
                     <X class="h-4 w-4" />
                 </button>
             </div>
@@ -510,7 +514,7 @@ const copyLink = async () => {
                 </label>
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                        <Button variant="outline" size="sm" class="h-8 gap-1 text-xs">
+                        <Button aria-label="Presets" variant="outline" size="sm" class="h-8 gap-1 text-xs">
                             <Sparkles class="h-3.5 w-3.5" />
                             <span class="hidden sm:inline">Presets</span>
                         </Button>
@@ -524,11 +528,7 @@ const copyLink = async () => {
                 <button v-if="hasActiveFilters" class="text-xs text-muted-foreground underline hover:text-foreground" @click="clearAllFilters">
                     Clear filters
                 </button>
-                <button
-                    v-if="hasActiveFilters"
-                    class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                    @click="copyLink"
-                >
+                <button v-if="hasActiveFilters" class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" @click="copyLink">
                     <Check v-if="linkCopied" class="h-3 w-3" />
                     <Link2 v-else class="h-3 w-3" />
                     {{ linkCopied ? 'Copied!' : 'Copy link to this view' }}
@@ -591,11 +591,7 @@ const copyLink = async () => {
                 <button v-if="hasActiveFilters" class="text-xs text-muted-foreground underline hover:text-foreground" @click="clearAllFilters">
                     Clear filters
                 </button>
-                <button
-                    v-if="hasActiveFilters"
-                    class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                    @click="copyLink"
-                >
+                <button v-if="hasActiveFilters" class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" @click="copyLink">
                     <Check v-if="linkCopied" class="h-3 w-3" />
                     <Link2 v-else class="h-3 w-3" />
                     {{ linkCopied ? 'Copied!' : 'Copy' }}
@@ -678,10 +674,11 @@ const copyLink = async () => {
                                     <span class="hidden sm:inline">Collected</span>
                                 </span>
                                 <Button
+                                    aria-label="Add to Collection"
                                     v-if="isLoggedIn && !isCollected(box.id)"
                                     variant="outline"
                                     size="sm"
-                                    class="h-6 shrink-0 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                                    class="h-6 shrink-0 gap-1 px-2 text-2xs text-muted-foreground hover:text-foreground"
                                     :disabled="addingPackageIds.has(box.id)"
                                     @click.stop="addPackageToCollection(box.id)"
                                 >
@@ -691,9 +688,10 @@ const copyLink = async () => {
                                 <DropdownMenu v-if="isLoggedIn">
                                     <DropdownMenuTrigger as-child>
                                         <Button
+                                            :aria-label="isWishlisted(box.id) ? 'Wishlisted' : 'Add to wishlist'"
                                             variant="outline"
                                             size="sm"
-                                            class="h-6 shrink-0 gap-1 px-2 text-[11px]"
+                                            class="h-6 shrink-0 gap-1 px-2 text-2xs"
                                             :class="
                                                 isWishlisted(box.id)
                                                     ? 'border-rose-500/40 text-rose-600 dark:text-rose-400'
@@ -707,11 +705,7 @@ const copyLink = async () => {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="start" @click.stop>
                                         <template v-if="wishlists.length">
-                                            <DropdownMenuItem
-                                                v-for="wl in wishlists"
-                                                :key="wl.id"
-                                                @click="addPackageToWishlist(wl.id, box.id)"
-                                            >
+                                            <DropdownMenuItem v-for="wl in wishlists" :key="wl.id" @click="addPackageToWishlist(wl.id, box.id)">
                                                 <Check v-if="isOnWishlist(wl.id, box.id)" class="mr-2 size-3.5" />
                                                 {{ wl.name }}
                                             </DropdownMenuItem>
@@ -746,7 +740,7 @@ const copyLink = async () => {
                                     <Badge
                                         v-if="character.special_order"
                                         variant="outline"
-                                        class="absolute left-1 top-1 z-10 border-amber-500/50 bg-background text-[10px] text-amber-600 dark:text-amber-400"
+                                        class="absolute left-1 top-1 z-10 border-amber-500/50 bg-background text-2xs text-amber-600 dark:text-amber-400"
                                         title="Available for special order"
                                     >
                                         Special Order
@@ -756,9 +750,15 @@ const copyLink = async () => {
                                         :miniature="character.standard_miniature"
                                         :character-slug="character.slug"
                                     />
-                                    <div v-else class="flex h-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed p-4 text-center">
+                                    <div
+                                        v-else
+                                        class="flex h-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed p-4 text-center"
+                                    >
                                         <FactionLogo :faction="character.faction" class-name="h-6 w-6" />
-                                        <Link :href="route('characters.view', { character: character.slug, miniature: 1, slug: 'view' })" class="text-sm text-primary hover:underline">
+                                        <Link
+                                            :href="route('characters.view', { character: character.slug, miniature: 1, slug: 'view' })"
+                                            class="text-sm text-primary hover:underline"
+                                        >
                                             {{ character.display_name }}
                                         </Link>
                                     </div>

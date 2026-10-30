@@ -100,16 +100,19 @@ watch(upgradeDrawerOpen, (val) => {
             :key="idx"
             class="flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors"
             :class="[
-                upgrade.is_active ? 'border-amber-500/50 bg-amber-500/10' : 'border-border/50 bg-accent/30 opacity-60',
+                upgrade.is_active ? 'border-amber-500/50 bg-amber-500/10' : 'border-border/50 bg-accent/30',
                 upgrade.front_image ? 'cursor-pointer hover:bg-accent' : '',
             ]"
             @click="openUpgradePreview(upgrade)"
         >
-            <Star class="size-3 shrink-0" :class="upgrade.is_active ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'" />
+            <Star
+                class="size-3 shrink-0"
+                :class="upgrade.is_active ? 'fill-amber-500 text-amber-700 dark:text-amber-400' : 'text-muted-foreground'"
+            />
             <div class="min-w-0 flex-1">
                 <div class="text-xs font-semibold">{{ upgrade.name }}</div>
-                <div class="text-[10px] text-muted-foreground">
-                    {{ upgrade.is_active ? 'Active Crew Card' : 'Crew Card' }}
+                <div class="text-2xs text-muted-foreground">
+                    {{ upgrade.is_active ? 'Active Crew Card' : 'Crew Card · inactive' }}
                 </div>
             </div>
         </div>
@@ -142,15 +145,15 @@ watch(upgradeDrawerOpen, (val) => {
                         </TooltipProvider>
                         <span class="truncate">{{ member.display_name }}</span>
                     </div>
-                    <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-white/70">
+                    <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-white/90">
                         <span v-if="member.category === 'ook'" class="flex items-center text-sm font-bold text-white">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                            <span class="text-xs font-normal text-red-300">({{ member.cost - 1 }}+1)</span>
+                            <span class="text-xs font-normal text-white/90">({{ member.cost - 1 }}+1)</span>
                         </span>
                         <span v-else class="flex items-center text-sm font-bold text-white">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                         </span>
-                        <Badge :class="categoryColor(member.category)" class="px-1 py-0 text-[10px]">
+                        <Badge :class="categoryColor(member.category)" class="px-1 py-0 text-2xs">
                             {{ categoryLabel(member.category) }}
                         </Badge>
                     </div>
@@ -192,7 +195,7 @@ watch(upgradeDrawerOpen, (val) => {
                         />
                         <button
                             @click.stop="openMemberFullscreen('front')"
-                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/90 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
                             title="View fullscreen"
                         >
                             <Maximize2 class="size-3.5" />
@@ -208,7 +211,7 @@ watch(upgradeDrawerOpen, (val) => {
                         />
                         <button
                             @click.stop="openMemberFullscreen('back')"
-                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/70 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+                            class="absolute bottom-3 right-2 rounded-full bg-black/40 p-1.5 text-white/90 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
                             title="View fullscreen"
                         >
                             <Maximize2 class="size-3.5" />

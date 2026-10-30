@@ -311,7 +311,7 @@ defineExpose({ rootRef });
             class="flex items-center justify-center gap-1.5 border-t border-neutral-200 px-3 py-1.5"
             :style="{ background: `hsl(var(${factionVar}) / 0.08)` }"
         >
-            <span class="mr-1 text-[9px] font-semibold uppercase tracking-wider text-neutral-400">Hp</span>
+            <span class="mr-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Hp</span>
             <span v-for="n in health" :key="'print-hp-' + n" class="size-2.5 shrink-0 rounded-full border-2 border-red-500" />
         </div>
 

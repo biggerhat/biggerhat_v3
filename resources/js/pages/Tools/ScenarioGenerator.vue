@@ -254,7 +254,7 @@ onMounted(() => {
                             <Dices class="mr-2 size-4" />
                             {{ showResults ? 'Re-roll' : 'Generate' }}
                         </Button>
-                        <Button v-if="showResults" variant="outline" @click="copyShareLink">
+                        <Button aria-label="Copy share link" v-if="showResults" variant="outline" @click="copyShareLink">
                             <Check v-if="copied" class="size-4" />
                             <Share2 v-else class="size-4" />
                         </Button>
@@ -267,7 +267,7 @@ onMounted(() => {
                     />
 
                     <div v-else-if="!showResults" class="flex flex-col items-center justify-center py-10 text-center sm:py-16">
-                        <Dices class="mb-4 size-12 text-muted-foreground/50" />
+                        <Dices class="mb-4 size-12 text-muted-foreground" />
                         <p class="text-lg font-medium text-muted-foreground">Press Generate to create a random scenario</p>
                     </div>
 
@@ -277,6 +277,7 @@ onMounted(() => {
                             <div class="mb-4 flex items-center gap-2">
                                 <h2 class="text-lg font-semibold">Deployment</h2>
                                 <button
+                                    aria-label="Edit deployment"
                                     class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                                     @click="editingDeployment = !editingDeployment"
                                 >
@@ -322,6 +323,7 @@ onMounted(() => {
                             <div class="mb-4 flex items-center gap-2">
                                 <h2 class="text-lg font-semibold">Strategy</h2>
                                 <button
+                                    aria-label="Edit strategy"
                                     class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                                     @click="editingStrategy = !editingStrategy"
                                 >
@@ -372,6 +374,7 @@ onMounted(() => {
                             <div class="mb-4 flex items-center gap-2">
                                 <h2 class="text-lg font-semibold">Schemes</h2>
                                 <button
+                                    aria-label="Edit schemes"
                                     class="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                                     @click="editingSchemes = !editingSchemes"
                                 >

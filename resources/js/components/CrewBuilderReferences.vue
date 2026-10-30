@@ -188,27 +188,27 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
 
         <Tabs v-else v-model="activeTab" class="w-full">
             <TabsList class="mb-2 grid w-full grid-cols-4">
-                <TabsTrigger value="characters" class="gap-1">
+                <TabsTrigger value="characters" class="gap-1" aria-label="Characters">
                     <Users class="size-3.5" />
-                    <Badge v-if="references?.characters.length" variant="secondary" class="px-1 py-0 text-[9px]">
+                    <Badge v-if="references?.characters.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.characters.length }}
                     </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="upgrades" class="gap-1">
+                <TabsTrigger value="upgrades" class="gap-1" aria-label="Upgrades">
                     <ArrowUpCircle class="size-3.5" />
-                    <Badge v-if="references?.upgrades.length" variant="secondary" class="px-1 py-0 text-[9px]">
+                    <Badge v-if="references?.upgrades.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.upgrades.length }}
                     </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="markers" class="gap-1">
+                <TabsTrigger value="markers" class="gap-1" aria-label="Markers">
                     <MapPin class="size-3.5" />
-                    <Badge v-if="references?.markers.length" variant="secondary" class="px-1 py-0 text-[9px]">
+                    <Badge v-if="references?.markers.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.markers.length }}
                     </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="tokens" class="gap-1">
+                <TabsTrigger value="tokens" class="gap-1" aria-label="Tokens">
                     <Puzzle class="size-3.5" />
-                    <Badge v-if="references?.tokens.length" variant="secondary" class="px-1 py-0 text-[9px]">
+                    <Badge v-if="references?.tokens.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.tokens.length }}
                     </Badge>
                 </TabsTrigger>
@@ -248,7 +248,7 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         @click="openUpgrade(upgrade)"
                     >
                         <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ upgrade.name }}</span>
-                        <Badge v-if="upgrade.type" variant="outline" class="shrink-0 px-1 py-0 text-[9px]">{{ upgrade.type }}</Badge>
+                        <Badge v-if="upgrade.type" variant="outline" class="shrink-0 px-1 py-0 text-2xs">{{ upgrade.type }}</Badge>
                     </button>
                 </div>
                 <Button
@@ -272,7 +272,7 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         @click="openTextDrawer(marker.name, 'Marker', marker.description, marker.base ? marker.base + 'mm base' : undefined)"
                     >
                         <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ marker.name }}</span>
-                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Marker</Badge>
+                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-2xs">Marker</Badge>
                     </button>
                 </div>
                 <Button
@@ -299,12 +299,12 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                             @click="openTextDrawer(token.name, 'Token', token.description)"
                         >
                             <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ token.name }}</span>
-                            <Badge variant="outline" class="shrink-0 px-1 py-0 text-[9px]">Token</Badge>
+                            <Badge variant="outline" class="shrink-0 px-1 py-0 text-2xs">Token</Badge>
                         </button>
                         <button
                             v-if="enableQuickAdd"
                             type="button"
-                            class="shrink-0 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                            class="shrink-0 rounded border px-1.5 py-0.5 text-2xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                             title="Add to models"
                             @click.stop="emit('quick-add-token', token)"
                         >
@@ -451,14 +451,14 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                             <div class="truncate text-xs font-medium">{{ itemDisplayName(item) }}</div>
                             <div
                                 v-if="addDialogType === 'characters'"
-                                class="flex items-center gap-1.5 text-[10px]"
-                                :class="item.faction ? 'text-white/70' : 'text-muted-foreground'"
+                                class="flex items-center gap-1.5 text-2xs"
+                                :class="item.faction ? 'text-white/90' : 'text-muted-foreground'"
                             >
                                 <span v-if="item.station" class="capitalize">{{ item.station }}</span>
                                 <span v-if="item.miniatures?.length > 1">&middot; {{ item.miniatures.length }} sculpts</span>
                             </div>
                         </div>
-                        <Badge v-if="existingIds.has(item.id)" variant="outline" class="shrink-0 border-white/30 px-1 py-0 text-[9px]">Added</Badge>
+                        <Badge v-if="existingIds.has(item.id)" variant="outline" class="shrink-0 border-white/30 px-1 py-0 text-2xs">Added</Badge>
                     </button>
                 </template>
                 <div v-else-if="addSearch.length >= 2" class="py-3 text-center text-xs text-muted-foreground">No results found</div>

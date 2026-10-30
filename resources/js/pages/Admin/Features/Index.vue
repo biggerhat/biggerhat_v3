@@ -48,7 +48,6 @@ const clearOverride = (flag: Flag) => {
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <div
             v-if="storage_ready === false"
             class="rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-2 text-xs text-amber-900 dark:text-amber-200"
@@ -63,14 +62,14 @@ const clearOverride = (flag: Flag) => {
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-sm font-semibold">{{ flag.label }}</span>
-                            <code class="rounded bg-muted px-1.5 py-0.5 text-[11px]">{{ flag.name }}</code>
-                            <Badge v-if="flag.has_override" variant="outline" class="text-[10px]">override</Badge>
-                            <Badge v-else variant="secondary" class="text-[10px]">default ({{ flag.default ? 'on' : 'off' }})</Badge>
+                            <code class="rounded bg-muted px-1.5 py-0.5 text-2xs">{{ flag.name }}</code>
+                            <Badge v-if="flag.has_override" variant="outline" class="text-2xs">override</Badge>
+                            <Badge v-else variant="secondary" class="text-2xs">default ({{ flag.default ? 'on' : 'off' }})</Badge>
                         </div>
                         <p class="mt-1 text-xs text-muted-foreground">{{ flag.description }}</p>
                     </div>
                     <div class="flex shrink-0 items-center gap-3">
-                        <Switch :model-value="flag.active" @update:model-value="apply(flag, $event)" />
+                        <Switch :model-value="flag.active" :aria-label="flag.label" @update:model-value="apply(flag, $event)" />
                         <Button v-if="flag.has_override" variant="ghost" size="sm" @click="clearOverride(flag)">Clear override</Button>
                     </div>
                 </CardContent>

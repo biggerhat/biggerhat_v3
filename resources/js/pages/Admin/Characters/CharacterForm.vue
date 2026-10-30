@@ -644,7 +644,11 @@ onMounted(() => {
                                             @update:model-value="(v: any) => (rod.health = v === '' || v === null ? null : Number(v))"
                                         />
                                     </div>
-                                    <button class="rounded p-0.5 text-muted-foreground hover:text-destructive" @click="removeRod(rod.slug)">
+                                    <button
+                                        aria-label="Remove rod"
+                                        class="rounded p-0.5 text-muted-foreground hover:text-destructive"
+                                        @click="removeRod(rod.slug)"
+                                    >
                                         <X class="size-3.5" />
                                     </button>
                                 </div>

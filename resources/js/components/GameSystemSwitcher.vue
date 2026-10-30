@@ -32,7 +32,7 @@ function switchTo(target: 'malifaux' | 'tos') {
 
 <template>
     <div
-        class="inline-flex h-8 items-center rounded-md border border-input bg-background/60 p-0.5 text-[11px] font-medium"
+        class="inline-flex h-10 items-center rounded-md border border-input bg-background/60 p-0.5 text-xs font-medium sm:h-8 sm:text-2xs"
         role="group"
         aria-label="Game system"
         :title="
@@ -43,9 +43,9 @@ function switchTo(target: 'malifaux' | 'tos') {
     >
         <button
             type="button"
-            class="inline-flex h-7 items-center rounded transition-colors"
+            class="inline-flex h-9 items-center rounded transition-colors sm:h-7"
             :class="[
-                props.compact ? 'px-1.5' : 'px-2',
+                props.compact ? 'px-3' : 'px-2',
                 current === 'malifaux' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             ]"
             :aria-pressed="current === 'malifaux'"
@@ -55,9 +55,9 @@ function switchTo(target: 'malifaux' | 'tos') {
         </button>
         <button
             type="button"
-            class="inline-flex h-7 items-center rounded transition-colors"
+            class="inline-flex h-9 items-center rounded transition-colors sm:h-7"
             :class="[
-                props.compact ? 'px-1.5' : 'px-2',
+                props.compact ? 'px-3' : 'px-2',
                 current === 'tos' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             ]"
             :aria-pressed="current === 'tos'"

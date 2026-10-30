@@ -194,7 +194,7 @@ const cardsBySuit = computed(() => {
                 <div v-for="(group, suit) in cardsBySuit" :key="suit" class="space-y-2">
                     <h2 class="flex items-center gap-2 text-sm font-semibold">
                         <span
-                            class="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider"
+                            class="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-2xs font-medium uppercase tracking-wider"
                             :class="suitMeta[suit]?.tone ?? 'border-border bg-muted text-muted-foreground'"
                             >{{ suitMeta[suit]?.label ?? suit }}</span
                         >

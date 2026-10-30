@@ -32,11 +32,11 @@ const copyJoinLink = async () => {
             <div class="flex items-center gap-2">
                 <Input :model-value="joinUrl" readonly class="text-xs" />
                 <Button variant="outline" size="sm" class="shrink-0 gap-1.5" @click="copyJoinLink">
-                    <Check v-if="linkCopied" class="size-4 text-green-500" />
+                    <Check v-if="linkCopied" class="size-4 text-green-700 dark:text-green-400" />
                     <Copy v-else class="size-4" />
                     {{ linkCopied ? 'Copied' : 'Copy' }}
                 </Button>
-                <Button variant="outline" size="sm" class="shrink-0" @click="$emit('open-qr', joinUrl, 'Join Game')">
+                <Button aria-label="Show join QR code" variant="outline" size="sm" class="shrink-0" @click="$emit('open-qr', joinUrl, 'Join Game')">
                     <QrCode class="size-4" />
                 </Button>
             </div>

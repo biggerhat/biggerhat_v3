@@ -136,6 +136,18 @@ const clearFilters = () => {
     filterStatus.value = null;
 };
 
+// Progress across the whole collection (models, not quantities), for the summary card and status chips.
+const builtCount = computed(() => props.collection.filter((i) => i.is_built).length);
+const paintedCount = computed(() => props.collection.filter((i) => i.is_painted).length);
+const pct = (n: number) => (props.collection.length ? Math.round((n / props.collection.length) * 100) : 0);
+
+const statusChips = computed(() => [
+    { value: null, label: 'All', count: props.collection.length },
+    { value: 'unbuilt', label: 'Unbuilt', count: props.collection.length - builtCount.value },
+    { value: 'unpainted', label: 'Unpainted', count: props.collection.length - paintedCount.value },
+    { value: 'painted', label: 'Painted', count: paintedCount.value },
+]);
+
 // Filtered collection
 const filteredCollection = computed(() => {
     let items = props.collection;
@@ -371,7 +383,7 @@ const topFactions = computed(() =>
                             :title="!is_public ? 'Make public to share' : 'Copy share link'"
                             @click="copyShareLink"
                         >
-                            <Check v-if="copied" class="size-3.5 text-green-500" />
+                            <Check v-if="copied" class="size-3.5 text-green-700 dark:text-green-400" />
                             <Copy v-else class="size-3.5" />
                             {{ copied ? 'Copied!' : 'Share' }}
                         </Button>
@@ -381,57 +393,88 @@ const topFactions = computed(() =>
         </PageBanner>
 
         <div class="container mx-auto mt-6 sm:px-4 lg:px-6" :class="{ 'pb-24': is_owner && selectMode && selectedIds.size > 0 }">
-            <!-- Overview stats -->
-            <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Card class="overflow-hidden">
-                    <CardContent class="p-4 text-center">
-                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.owned_characters }}</div>
-                        <div class="mt-0.5 text-xs text-muted-foreground">Characters ({{ totals.percent }}%)</div>
-                        <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <!-- Overview: one summary card instead of four tiles -->
+            <Card class="mb-6">
+                <CardContent class="grid gap-5 p-4 sm:p-5 lg:grid-cols-[1.2fr_1fr_1fr]">
+                    <div>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-3xl font-bold tracking-tight">{{ totals.owned_characters }}</span>
+                            <span class="text-sm text-muted-foreground">of {{ totals.characters }} characters ({{ totals.percent }}%)</span>
+                        </div>
+                        <div
+                            class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
+                            role="progressbar"
+                            :aria-valuenow="totals.owned_characters"
+                            :aria-valuemin="0"
+                            :aria-valuemax="totals.characters"
+                            aria-label="Characters collected"
+                        >
                             <div class="h-full rounded-full bg-primary transition-all duration-500" :style="{ width: `${totals.percent}%` }" />
                         </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent class="p-4 text-center">
-                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.owned_miniatures }}</div>
-                        <div class="mt-0.5 text-xs text-muted-foreground">Total Miniatures</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent class="p-4 text-center">
-                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.owned_packages }}</div>
-                        <div class="mt-0.5 text-xs text-muted-foreground">Packages</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent class="p-4 text-center">
-                        <div class="text-2xl font-bold tracking-tight sm:text-3xl">{{ totals.characters }}</div>
-                        <div class="mt-0.5 text-xs text-muted-foreground">Total Available</div>
-                    </CardContent>
-                </Card>
-            </div>
+                        <div class="mt-2 text-xs text-muted-foreground">
+                            {{ totals.owned_miniatures }} {{ totals.owned_miniatures === 1 ? 'miniature' : 'miniatures' }} ·
+                            {{ totals.owned_packages }} {{ totals.owned_packages === 1 ? 'package' : 'packages' }}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="inline-flex items-center gap-1.5 font-medium"
+                                ><Hammer class="size-4 text-amber-700 dark:text-amber-400" /> Built</span
+                            >
+                            <span class="tabular-nums text-muted-foreground">{{ builtCount }} / {{ collection.length }}</span>
+                        </div>
+                        <div
+                            class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
+                            role="progressbar"
+                            :aria-valuenow="builtCount"
+                            :aria-valuemin="0"
+                            :aria-valuemax="collection.length"
+                            aria-label="Models built"
+                        >
+                            <div class="h-full rounded-full bg-amber-600 transition-all duration-500" :style="{ width: `${pct(builtCount)}%` }" />
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="inline-flex items-center gap-1.5 font-medium"
+                                ><Paintbrush class="size-4 text-violet-700 dark:text-violet-400" /> Painted</span
+                            >
+                            <span class="tabular-nums text-muted-foreground">{{ paintedCount }} / {{ collection.length }}</span>
+                        </div>
+                        <div
+                            class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
+                            role="progressbar"
+                            :aria-valuenow="paintedCount"
+                            :aria-valuemin="0"
+                            :aria-valuemax="collection.length"
+                            aria-label="Models painted"
+                        >
+                            <div class="h-full rounded-full bg-violet-600 transition-all duration-500" :style="{ width: `${pct(paintedCount)}%` }" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             <!-- Tabs -->
             <Tabs v-model="activeTab">
                 <TabsList class="mb-4">
-                    <TabsTrigger value="collection">
+                    <TabsTrigger aria-label="Collection" value="collection">
                         <Library class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Collection</span>
                     </TabsTrigger>
-                    <TabsTrigger value="packages">
+                    <TabsTrigger aria-label="Packages" value="packages">
                         <Package class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Packages</span>
                     </TabsTrigger>
-                    <TabsTrigger value="factions">
+                    <TabsTrigger aria-label="Factions" value="factions">
                         <Grid2x2 class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Factions</span>
                     </TabsTrigger>
-                    <TabsTrigger value="keywords">
+                    <TabsTrigger aria-label="Keywords" value="keywords">
                         <BookOpen class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Keywords</span>
                     </TabsTrigger>
-                    <TabsTrigger value="stats">
+                    <TabsTrigger aria-label="Stats" value="stats">
                         <BarChart3 class="mr-1.5 size-4" />
                         <span class="hidden sm:inline">Stats</span>
                     </TabsTrigger>
@@ -439,12 +482,31 @@ const topFactions = computed(() =>
 
                 <!-- Collection Tab -->
                 <TabsContent value="collection">
+                    <!-- One-click status filters (the Status select below still covers Built) -->
+                    <div class="mb-3 flex flex-wrap gap-2" role="group" aria-label="Filter by build and paint status">
+                        <button
+                            v-for="chip in statusChips"
+                            :key="chip.label"
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            :class="filterStatus === chip.value ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent'"
+                            :aria-pressed="filterStatus === chip.value"
+                            @click="filterStatus = chip.value"
+                        >
+                            {{ chip.label }}
+                            <span class="tabular-nums" :class="filterStatus === chip.value ? 'opacity-80' : 'text-muted-foreground'">{{
+                                chip.count
+                            }}</span>
+                        </button>
+                    </div>
+
                     <!-- Filters -->
                     <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                         <div class="relative min-w-0 flex-1">
                             <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input v-model="filterText" placeholder="Search collection..." class="pl-9 pr-9" />
                             <button
+                                aria-label="Clear filter"
                                 v-if="filterText"
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                                 @click="filterText = ''"
@@ -520,11 +582,11 @@ const topFactions = computed(() =>
                         :description="is_owner ? 'Add miniatures from character or package pages to get started.' : ''"
                     />
 
-                    <div v-else class="space-y-2">
+                    <div v-else class="xl:columns-2 xl:gap-2">
                         <div
                             v-for="(group, index) in groupedByCharacter"
                             :key="group.character_slug"
-                            class="animate-fade-in-up rounded-lg border bg-card opacity-0 transition-all duration-200 hover:shadow-md"
+                            class="animate-fade-in-up mb-2 break-inside-avoid rounded-lg border bg-card opacity-0 transition-all duration-200 hover:shadow-md"
                             :style="delays[index]"
                         >
                             <div
@@ -611,6 +673,7 @@ const topFactions = computed(() =>
                                     </Button>
                                     <div class="ml-1 flex shrink-0 items-center gap-1">
                                         <Button
+                                            aria-label="Decrease quantity"
                                             variant="ghost"
                                             size="icon"
                                             class="size-7"
@@ -621,6 +684,7 @@ const topFactions = computed(() =>
                                         </Button>
                                         <span class="w-6 text-center text-sm font-medium tabular-nums">{{ item.quantity }}</span>
                                         <Button
+                                            aria-label="Increase quantity"
                                             variant="ghost"
                                             size="icon"
                                             class="size-7"
@@ -631,6 +695,7 @@ const topFactions = computed(() =>
                                         </Button>
                                     </div>
                                     <Button
+                                        aria-label="Remove from collection"
                                         variant="ghost"
                                         size="icon"
                                         class="ml-auto size-7 text-destructive hover:text-destructive"
@@ -691,13 +756,14 @@ const topFactions = computed(() =>
                                             {{ pkg.name }}
                                         </Link>
                                         <div v-if="pkg.factions?.length" class="mt-1.5 flex flex-wrap gap-1">
-                                            <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-[10px]">
+                                            <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-2xs">
                                                 <img :src="f.logo" :alt="f.label" class="size-3" />
                                                 {{ f.label }}
                                             </Badge>
                                         </div>
                                     </div>
                                     <Button
+                                        aria-label="Remove from collection"
                                         v-if="is_owner"
                                         variant="ghost"
                                         size="icon"
@@ -769,7 +835,7 @@ const topFactions = computed(() =>
                                 <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
                                 <Badge
                                     :variant="stat.percent === 100 ? 'default' : 'secondary'"
-                                    class="w-14 shrink-0 justify-center text-[10px] tabular-nums"
+                                    class="w-14 shrink-0 justify-center text-2xs tabular-nums"
                                 >
                                     {{ stat.percent }}%
                                 </Badge>
@@ -874,7 +940,7 @@ const topFactions = computed(() =>
                                         <span class="tabular-nums text-muted-foreground">{{ stat.owned }}/{{ stat.total }}</span>
                                         <Badge
                                             :variant="stat.percent === 100 ? 'default' : 'secondary'"
-                                            class="w-14 justify-center text-[10px] tabular-nums"
+                                            class="w-14 justify-center text-2xs tabular-nums"
                                         >
                                             {{ stat.percent }}%
                                         </Badge>

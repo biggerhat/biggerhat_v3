@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface EventRow {
@@ -35,7 +36,7 @@ const globalSearchFilter: FilterFn<EventRow> = (row, _columnId, filterValue) => 
 const columns: ColumnDef<EventRow>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Name'),
+        header: sortableHeader('Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
     },
     {
@@ -49,10 +50,10 @@ const columns: ColumnDef<EventRow>[] = [
         cell: ({ row }) => {
             const badges = [];
             if (row.original.requires_placement) {
-                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-[10px]' }, () => 'Placement'));
+                badges.push(h(Badge, { variant: 'outline', class: 'mr-1 text-2xs' }, () => 'Placement'));
             }
             if (row.original.is_one_time) {
-                badges.push(h(Badge, { variant: 'destructive', class: 'text-[10px]' }, () => 'One-time'));
+                badges.push(h(Badge, { variant: 'destructive', class: 'text-2xs' }, () => 'One-time'));
             }
             return h('div', {}, badges);
         },
@@ -60,7 +61,7 @@ const columns: ColumnDef<EventRow>[] = [
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const item = row.original;
             return h(AdminActions, {
@@ -84,7 +85,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: globalSearchFilter,
     onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),
@@ -110,7 +113,7 @@ const table = useVueTable({
         </template>
     </PageBanner>
 
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-2">
             <Input class="max-w-sm" placeholder="Filter by name..." :model-value="globalFilter" @update:model-value="table.setGlobalFilter($event)" />
             <div class="text-sm text-muted-foreground">Total {{ table.getFilteredRowModel().rows.length }}</div>

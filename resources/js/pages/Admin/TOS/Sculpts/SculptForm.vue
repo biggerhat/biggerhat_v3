@@ -79,7 +79,7 @@ onMounted(() => {
                         <InputError :message="usePage().props.errors.unit_id" />
                     </div>
                     <div>
-                        <Label for="name">Name <span class="ml-1 text-[10px] font-normal text-muted-foreground">(optional)</span></Label>
+                        <Label for="name">Name <span class="ml-1 text-2xs font-normal text-muted-foreground">(optional)</span></Label>
                         <Input id="name" v-model="formInfo.name" placeholder="Leave blank to inherit the unit's name" />
                         <InputError :message="usePage().props.errors.name" />
                     </div>
@@ -100,7 +100,7 @@ onMounted(() => {
                             accept=".jpeg,.jpg"
                             @input="formInfo.front_image = ($event.target as HTMLInputElement).files?.[0] ?? null"
                         />
-                        <p class="text-[11px] text-muted-foreground">JPG only. Up to 30 MB.</p>
+                        <p class="text-2xs text-muted-foreground">JPG only. Up to 30 MB.</p>
                         <InputError :message="usePage().props.errors.front_image" />
                     </div>
                     <div class="space-y-1.5">
@@ -117,7 +117,7 @@ onMounted(() => {
                             accept=".jpeg,.jpg"
                             @input="formInfo.back_image = ($event.target as HTMLInputElement).files?.[0] ?? null"
                         />
-                        <p class="text-[11px] text-muted-foreground">JPG only. Up to 30 MB.</p>
+                        <p class="text-2xs text-muted-foreground">JPG only. Up to 30 MB.</p>
                         <InputError :message="usePage().props.errors.back_image" />
                     </div>
                 </div>
@@ -125,7 +125,7 @@ onMounted(() => {
                 <div v-if="existingCombo" class="space-y-1.5">
                     <Label>Generated Combo</Label>
                     <img :src="existingCombo" :alt="formInfo.name || 'Combo image'" class="h-48 w-auto rounded border object-cover" />
-                    <p class="text-[11px] text-muted-foreground">Auto-generated from the front + back images above. Re-generated on image changes.</p>
+                    <p class="text-2xs text-muted-foreground">Auto-generated from the front + back images above. Re-generated on image changes.</p>
                 </div>
 
                 <div class="grid gap-3 md:grid-cols-3">

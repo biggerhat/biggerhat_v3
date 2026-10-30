@@ -152,14 +152,22 @@ onMounted(() => {
                     <Label>Linked Actions</Label>
                     <div class="mt-1 space-y-1">
                         <EmptyState v-if="selectedActions.length === 0" compact title="No actions linked yet" description="" />
-                        <div v-for="(action, idx) in selectedActions" :key="action.id + '-' + idx" class="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                        <div
+                            v-for="(action, idx) in selectedActions"
+                            :key="action.id + '-' + idx"
+                            class="flex items-center gap-2 rounded-md border px-2 py-1.5"
+                        >
                             <span class="flex-1 truncate text-sm font-medium">{{ action.name }}</span>
-                            <Badge v-if="action.type" variant="secondary" class="shrink-0 px-1 py-0 text-[10px]">{{ action.type }}</Badge>
+                            <Badge v-if="action.type" variant="secondary" class="shrink-0 px-1 py-0 text-2xs">{{ action.type }}</Badge>
                             <label class="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                                 <Checkbox :checked="action.is_signature" @update:checked="(v: boolean) => (action.is_signature = v)" />
                                 Signature
                             </label>
-                            <button class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeAction(idx)">
+                            <button
+                                aria-label="Remove action"
+                                class="shrink-0 text-muted-foreground hover:text-destructive"
+                                @click="removeAction(idx)"
+                            >
                                 <X class="size-3.5" />
                             </button>
                         </div>
@@ -178,7 +186,7 @@ onMounted(() => {
                                 @click="addAction(opt)"
                             >
                                 <span class="flex-1 truncate">{{ opt.name }}</span>
-                                <Badge v-if="opt.type" variant="secondary" class="shrink-0 px-1 py-0 text-[10px]">{{ opt.type }}</Badge>
+                                <Badge v-if="opt.type" variant="secondary" class="shrink-0 px-1 py-0 text-2xs">{{ opt.type }}</Badge>
                             </button>
                             <p v-if="filteredActionOptions.length === 0" class="px-2 py-1.5 text-xs text-muted-foreground">No matches.</p>
                         </div>
@@ -191,9 +199,17 @@ onMounted(() => {
                     <Label>Linked Abilities</Label>
                     <div class="mt-1 space-y-1">
                         <EmptyState v-if="selectedAbilities.length === 0" compact title="No abilities linked yet" description="" />
-                        <div v-for="(ability, idx) in selectedAbilities" :key="ability.id + '-' + idx" class="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                        <div
+                            v-for="(ability, idx) in selectedAbilities"
+                            :key="ability.id + '-' + idx"
+                            class="flex items-center gap-2 rounded-md border px-2 py-1.5"
+                        >
                             <span class="flex-1 truncate text-sm font-medium">{{ ability.name }}</span>
-                            <button class="shrink-0 text-muted-foreground hover:text-destructive" @click="removeAbility(idx)">
+                            <button
+                                aria-label="Remove ability"
+                                class="shrink-0 text-muted-foreground hover:text-destructive"
+                                @click="removeAbility(idx)"
+                            >
                                 <X class="size-3.5" />
                             </button>
                         </div>

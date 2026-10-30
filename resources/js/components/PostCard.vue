@@ -51,7 +51,7 @@ const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en
             </div>
             <div class="flex flex-col justify-center p-5 md:col-span-2 md:p-6">
                 <div class="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge v-if="post.category" variant="secondary" class="text-[10px]">{{ post.category.name }}</Badge>
+                    <Badge v-if="post.category" variant="secondary" class="text-2xs">{{ post.category.name }}</Badge>
                     <span class="text-xs text-muted-foreground">{{ formatDate(post.published_at) }}</span>
                 </div>
                 <h2 class="mb-2 line-clamp-3 text-xl font-bold leading-tight group-hover:text-primary md:text-2xl">
@@ -59,7 +59,7 @@ const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en
                 </h2>
                 <p v-if="post.excerpt" class="mb-3 line-clamp-2 text-sm text-muted-foreground">{{ post.excerpt }}</p>
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Avatar size="sm" class="!h-5 !w-5 !text-[9px]">
+                    <Avatar size="sm" class="!h-5 !w-5 !text-2xs">
                         <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
                     </Avatar>
                     <span class="font-medium text-foreground">{{ post.author.name }}</span>
@@ -82,15 +82,15 @@ const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en
             </div>
             <CardContent class="p-4">
                 <div class="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge v-if="post.category" variant="secondary" class="text-[10px]">{{ post.category.name }}</Badge>
-                    <span class="text-[11px] text-muted-foreground">{{ formatDate(post.published_at) }}</span>
+                    <Badge v-if="post.category" variant="secondary" class="text-2xs">{{ post.category.name }}</Badge>
+                    <span class="text-2xs text-muted-foreground">{{ formatDate(post.published_at) }}</span>
                 </div>
                 <h3 class="mb-1.5 line-clamp-2 text-sm font-bold leading-tight group-hover:text-primary sm:text-base">
                     {{ post.title }}
                 </h3>
                 <p v-if="post.excerpt" class="mb-3 line-clamp-2 text-xs text-muted-foreground">{{ post.excerpt }}</p>
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Avatar size="sm" class="!h-5 !w-5 !text-[9px]">
+                    <Avatar size="sm" class="!h-5 !w-5 !text-2xs">
                         <AvatarFallback>{{ getInitials(post.author.name) }}</AvatarFallback>
                     </Avatar>
                     <span>{{ post.author.name }}</span>

@@ -60,17 +60,17 @@ const printPage = () => window.print();
     </div>
 
     <!-- Printable content -->
-    <div class="mx-auto max-w-4xl p-4 text-[11px] leading-snug print:p-0 print:text-[9px]">
+    <div class="mx-auto max-w-4xl p-4 text-[11px] leading-snug print:p-0 print:text-[10px]">
         <!-- Crew header -->
         <div class="mb-3 flex items-center justify-between border-b pb-2">
             <div>
-                <div class="text-lg font-bold print:text-sm">{{ crew.name }}</div>
-                <div class="text-xs text-muted-foreground print:text-[8px]">
+                <h1 class="text-lg font-bold print:text-sm">{{ crew.name }}</h1>
+                <div class="text-xs text-muted-foreground print:text-[10px]">
                     {{ crew.master }} &middot; {{ crew.faction.replace('_', ' ') }} &middot; {{ crew.encounter_size }}ss &middot; Pool:
                     {{ crew.soulstone_pool }}ss
                 </div>
             </div>
-            <div class="text-right text-xs text-muted-foreground print:text-[8px]">{{ members.length }} models &middot; biggerhat.net</div>
+            <div class="text-right text-xs text-muted-foreground print:text-[10px]">{{ members.length }} models &middot; biggerhat.net</div>
         </div>
 
         <!-- Model cards in 2-column grid -->
@@ -83,11 +83,11 @@ const printPage = () => window.print();
                 <!-- Name + stats header -->
                 <div class="mb-1 flex items-baseline justify-between">
                     <span class="text-sm font-bold print:text-[10px]">{{ member.display_name }}</span>
-                    <span v-if="member.cost" class="text-[10px] font-medium text-muted-foreground print:text-[8px]">{{ member.cost }}ss</span>
+                    <span v-if="member.cost" class="text-[10px] font-medium text-muted-foreground print:text-[10px]">{{ member.cost }}ss</span>
                 </div>
 
                 <!-- Stat line -->
-                <div class="mb-1.5 flex gap-3 text-[10px] font-medium print:text-[8px]">
+                <div class="mb-1.5 flex gap-3 text-[10px] font-medium print:text-[10px]">
                     <span
                         >Df {{ member.defense
                         }}<template v-if="member.defense_suit"><GameIcon :type="member.defense_suit" class-name="inline-block h-2.5" /></template
@@ -102,7 +102,7 @@ const printPage = () => window.print();
                 </div>
 
                 <!-- Keywords -->
-                <div v-if="member.keywords.length" class="mb-1 text-[9px] text-muted-foreground print:text-[7px]">
+                <div v-if="member.keywords.length" class="mb-1 text-[10px] text-muted-foreground print:text-[7px]">
                     <span class="font-semibold">KW:</span> {{ member.keywords.join(', ') }}
                 </div>
 
@@ -113,7 +113,7 @@ const printPage = () => window.print();
                             <GameIcon v-if="ab.suits" :type="ab.suits" class-name="inline-block h-2.5" />
                             {{ ab.name }}
                         </span>
-                        <span v-if="ab.defensive_ability_type" class="text-[9px] text-muted-foreground print:text-[7px]">
+                        <span v-if="ab.defensive_ability_type" class="text-[10px] text-muted-foreground print:text-[7px]">
                             ({{ ab.defensive_ability_type }})</span
                         >
                         <span v-if="ab.description" class="text-muted-foreground">

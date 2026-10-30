@@ -432,7 +432,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                             :title="!wishlist.is_public ? 'Make public to share' : 'Copy share link'"
                             @click="copyShareLink"
                         >
-                            <Check v-if="copied" class="size-3.5 text-green-500" />
+                            <Check v-if="copied" class="size-3.5 text-green-700 dark:text-green-400" />
                             <Copy v-else class="size-3.5" />
                             {{ copied ? 'Copied!' : 'Share' }}
                         </Button>
@@ -527,6 +527,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                         <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input v-model="filterText" placeholder="Filter items..." class="pl-9 pr-9" />
                         <button
+                            aria-label="Clear filter"
                             v-if="filterText"
                             class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                             @click="filterText = ''"
@@ -577,7 +578,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div class="flex items-center gap-2">
                                         <span class="truncate text-sm font-medium transition-colors hover:text-primary">{{ item.name }}</span>
                                         <span
-                                            class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium capitalize"
+                                            class="shrink-0 rounded px-1.5 py-0.5 text-2xs font-medium capitalize"
                                             :class="typeBadgeClass[item.type]"
                                         >
                                             {{ item.type.replace('_', ' ') }}
@@ -595,6 +596,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     </div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -633,6 +635,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     </div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -665,13 +668,14 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                 <Link :href="route('packages.view', pkg.slug)" class="min-w-0 flex-1">
                                     <div class="truncate text-sm font-medium transition-colors hover:text-primary">{{ pkg.name }}</div>
                                     <div v-if="pkg.factions?.length" class="flex flex-wrap gap-1">
-                                        <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-[10px]">
+                                        <Badge v-for="f in pkg.factions" :key="f.value" variant="secondary" class="gap-1 text-2xs">
                                             <img :src="f.logo" :alt="f.label" class="size-3" />
                                             {{ f.label }}
                                         </Badge>
                                     </div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -706,6 +710,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div v-if="mini.character_name" class="text-xs text-muted-foreground">{{ mini.character_name }}</div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -741,6 +746,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div v-if="unit.allegiance" class="text-xs text-muted-foreground">{{ unit.allegiance }}</div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"
@@ -775,6 +781,7 @@ function unitSculptHref(sculpt: UnitSculptItem): string {
                                     <div class="text-xs text-muted-foreground">{{ sculpt.unit_name }}</div>
                                 </Link>
                                 <Button
+                                    aria-label="Remove from wishlist"
                                     v-if="is_owner"
                                     variant="ghost"
                                     size="icon"

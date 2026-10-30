@@ -127,6 +127,7 @@ const { delays } = useStaggeredEntry(crewCount);
                     <Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input v-model="searchText" placeholder="Search crews..." class="pl-9 pr-9" />
                     <button
+                        aria-label="Clear search"
                         v-if="searchText"
                         class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                         @click="searchText = ''"
@@ -135,7 +136,7 @@ const { delays } = useStaggeredEntry(crewCount);
                     </button>
                 </div>
                 <Select :model-value="selectedFaction" @update:model-value="filterByFaction($event as string)">
-                    <SelectTrigger class="w-full sm:w-48">
+                    <SelectTrigger class="w-full sm:w-48" aria-label="Filter by faction">
                         <SelectValue placeholder="All Factions" />
                     </SelectTrigger>
                     <SelectContent>
@@ -167,11 +168,11 @@ const { delays } = useStaggeredEntry(crewCount);
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-medium group-hover:text-primary">{{ crew.name }}</p>
                                     <div class="mt-1 flex flex-wrap items-center gap-1">
-                                        <Badge variant="outline" class="text-[10px]">{{ crew.faction_label }}</Badge>
-                                        <Badge v-if="crew.master_name" variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
-                                        <Badge variant="secondary" class="text-[10px]">{{ crew.encounter_size }}ss</Badge>
+                                        <Badge variant="outline" class="text-2xs">{{ crew.faction_label }}</Badge>
+                                        <Badge v-if="crew.master_name" variant="secondary" class="text-2xs">{{ crew.master_name }}</Badge>
+                                        <Badge variant="secondary" class="text-2xs">{{ crew.encounter_size }}ss</Badge>
                                     </div>
-                                    <div class="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                                    <div class="mt-1 flex items-center gap-1 text-2xs text-muted-foreground">
                                         <span>{{ crew.user_name }}</span>
                                         <span>&middot;</span>
                                         <span>{{ crew.created_at }}</span>

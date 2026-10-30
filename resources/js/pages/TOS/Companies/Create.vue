@@ -134,7 +134,7 @@ function submit() {
                     <div class="space-y-1.5">
                         <Label for="name">Company name</Label>
                         <Input id="name" v-model="form.name" type="text" required maxlength="120" placeholder="e.g. The Iron Vanguard" />
-                        <p v-if="form.errors.name" class="text-[11px] text-rose-600">{{ form.errors.name }}</p>
+                        <p v-if="form.errors.name" class="text-2xs text-rose-700 dark:text-rose-400">{{ form.errors.name }}</p>
                     </div>
 
                     <!-- Optional: Build from Garrison -->
@@ -143,9 +143,9 @@ function submit() {
                             <div>
                                 <Label class="flex items-center gap-1.5"
                                     ><Shield class="size-3.5" /> Build from Garrison
-                                    <span class="text-[11px] font-normal text-muted-foreground">(optional)</span></Label
+                                    <span class="text-2xs font-normal text-muted-foreground">(optional)</span></Label
                                 >
-                                <p class="mt-0.5 text-[11px] text-muted-foreground">
+                                <p class="mt-0.5 text-2xs text-muted-foreground">
                                     Restricts the hiring pool to a tournament Garrison you've declared. Allegiance locks to match.
                                 </p>
                             </div>
@@ -154,7 +154,7 @@ function submit() {
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                class="h-6 px-2 text-[11px]"
+                                class="h-6 px-2 text-2xs"
                                 @click="selectGarrison(null)"
                                 >Clear</Button
                             >
@@ -182,8 +182,8 @@ function submit() {
                                     <AllegianceLogo :allegiance="g.allegiance.slug" class-name="size-5" />
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <p class="truncate text-[12px] font-semibold">{{ g.name }}</p>
-                                    <p class="truncate text-[10px] text-muted-foreground">{{ g.allegiance.name }}</p>
+                                    <p class="truncate text-xs font-semibold">{{ g.name }}</p>
+                                    <p class="truncate text-2xs text-muted-foreground">{{ g.allegiance.name }}</p>
                                 </div>
                                 <Check v-if="form.garrison_id === g.id" class="size-4 shrink-0 text-primary" />
                             </button>
@@ -195,7 +195,7 @@ function submit() {
                         <div class="flex items-end justify-between">
                             <div>
                                 <Label>Allegiance</Label>
-                                <p class="mt-0.5 text-[11px] text-muted-foreground">
+                                <p class="mt-0.5 text-2xs text-muted-foreground">
                                     <span v-if="linkedGarrison"
                                         >Locked to <strong>{{ linkedGarrison.allegiance.name }}</strong> by your Garrison.</span
                                     >
@@ -209,7 +209,7 @@ function submit() {
                                     type="button"
                                     :variant="typeFilter === t ? 'default' : 'outline'"
                                     size="sm"
-                                    class="h-6 px-2 text-[11px] capitalize"
+                                    class="h-6 px-2 text-2xs capitalize"
                                     @click="typeFilter = t"
                                     >{{ t === 'all' ? 'All' : t }}</Button
                                 >
@@ -240,7 +240,7 @@ function submit() {
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <p class="truncate font-semibold">{{ a.name }}</p>
-                                        <p class="text-[10px] capitalize text-muted-foreground">{{ a.type }}</p>
+                                        <p class="text-2xs capitalize text-muted-foreground">{{ a.type }}</p>
                                     </div>
                                     <Check v-if="form.allegiance_id === a.id" class="size-4 shrink-0 text-primary" />
                                 </button>
@@ -272,22 +272,22 @@ function submit() {
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5">
                                             <p class="truncate font-semibold">{{ a.name }}</p>
-                                            <Badge variant="outline" class="px-1 py-0 text-[9px]">Syndicate</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Syndicate</Badge>
                                         </div>
-                                        <p class="text-[10px] capitalize text-muted-foreground">{{ a.type }}</p>
+                                        <p class="text-2xs capitalize text-muted-foreground">{{ a.type }}</p>
                                     </div>
                                     <Check v-if="form.allegiance_id === a.id" class="size-4 shrink-0 text-primary" />
                                 </button>
                             </div>
                         </div>
 
-                        <p v-if="form.errors.allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.allegiance_id }}</p>
+                        <p v-if="form.errors.allegiance_id" class="text-2xs text-rose-700 dark:text-rose-400">{{ form.errors.allegiance_id }}</p>
                     </div>
 
                     <!-- Step 3: Format (game size) -->
                     <div class="space-y-1.5">
                         <Label>Format <span class="text-muted-foreground">(optional)</span></Label>
-                        <p class="text-[11px] text-muted-foreground">
+                        <p class="text-2xs text-muted-foreground">
                             <span v-if="linkedGarrison">Inherited from your Garrison.</span>
                             <span v-else>Game size — sets the Commander limit and any Scrip bonus.</span>
                         </p>
@@ -300,13 +300,13 @@ function submit() {
                                 <SelectItem v-for="f in formats" :key="f.value" :value="f.value">{{ f.label }}</SelectItem>
                             </SelectContent>
                         </Select>
-                        <p v-if="selectedFormat" class="text-[11px] text-muted-foreground">{{ selectedFormat.description }}</p>
+                        <p v-if="selectedFormat" class="text-2xs text-muted-foreground">{{ selectedFormat.description }}</p>
                     </div>
 
                     <!-- Step 4: Envoy (second Allegiance) -->
                     <div class="space-y-1.5">
                         <Label>Envoy <span class="text-muted-foreground">(optional)</span></Label>
-                        <p class="text-[11px] text-muted-foreground">
+                        <p class="text-2xs text-muted-foreground">
                             A second Allegiance — its Squad units &amp; Assets become hireable (Standard card effects only).
                         </p>
                         <Select v-model="envoySelection">
@@ -320,7 +320,9 @@ function submit() {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
-                        <p v-if="form.errors.envoy_allegiance_id" class="text-[11px] text-rose-600">{{ form.errors.envoy_allegiance_id }}</p>
+                        <p v-if="form.errors.envoy_allegiance_id" class="text-2xs text-rose-700 dark:text-rose-400">
+                            {{ form.errors.envoy_allegiance_id }}
+                        </p>
                     </div>
 
                     <!-- Step 5: Notes -->

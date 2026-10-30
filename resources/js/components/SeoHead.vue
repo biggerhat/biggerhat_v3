@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -34,20 +35,22 @@ const fullTitle = computed(() => {
     return props.title.includes(base) ? props.title : `${props.title} - ${base}`;
 });
 
+const current = useCurrentUrl();
+
 const absoluteUrl = (path: string | null | undefined): string | null => {
     if (!path) return null;
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    if (typeof window === 'undefined') return path;
-    if (path.startsWith('/')) return `${window.location.origin}${path}`;
+    const origin = current.value?.origin;
+    if (!origin) return path;
+    if (path.startsWith('/')) return `${origin}${path}`;
     // Disk-relative storage path (e.g. "characters/foo.png").
-    return `${window.location.origin}/storage/${path}`;
+    return `${origin}/storage/${path}`;
 };
 
 const canonicalUrl = computed(() => {
     if (props.canonical) return props.canonical;
-    if (typeof window === 'undefined') return undefined;
     // Strip query/hash so canonical points at the canonical URL only.
-    return `${window.location.origin}${window.location.pathname}`;
+    return current.value ? `${current.value.origin}${current.value.pathname}` : undefined;
 });
 
 // Always emit an og:image. Without a fallback, a client-side navigation

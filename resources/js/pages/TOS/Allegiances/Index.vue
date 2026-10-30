@@ -98,7 +98,7 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                             </TableCell>
                             <TableCell class="font-medium">
                                 <Link :href="route('tos.allegiances.view', a.slug)" class="hover:underline">{{ a.name }}</Link>
-                                <Badge v-if="a.is_syndicate" variant="outline" class="ml-2 text-[10px]">Syndicate</Badge>
+                                <Badge v-if="a.is_syndicate" variant="outline" class="ml-2 text-2xs">Syndicate</Badge>
                             </TableCell>
                             <TableCell class="text-xs capitalize">{{ a.type }}</TableCell>
                             <TableCell class="line-clamp-2 max-w-md text-xs text-muted-foreground">
@@ -127,9 +127,9 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-start justify-between gap-2">
                                         <span class="text-base font-semibold leading-tight">{{ a.name }}</span>
-                                        <Badge v-if="a.is_syndicate" variant="outline" class="shrink-0 text-[10px]">Syndicate</Badge>
+                                        <Badge v-if="a.is_syndicate" variant="outline" class="shrink-0 text-2xs">Syndicate</Badge>
                                     </div>
-                                    <p class="mt-0.5 text-[11px] capitalize text-muted-foreground">{{ a.type }}</p>
+                                    <p class="mt-0.5 text-2xs capitalize text-muted-foreground">{{ a.type }}</p>
                                 </div>
                             </div>
                             <p v-if="a.description" class="line-clamp-3 text-xs text-muted-foreground"><TosText :text="a.description" /></p>

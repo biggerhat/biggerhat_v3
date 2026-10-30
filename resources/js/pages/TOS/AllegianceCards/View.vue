@@ -85,8 +85,8 @@ defineProps<{
                     <Link :href="route('tos.allegiances.view', card.allegiance.slug)" class="hover:text-foreground">
                         {{ card.allegiance.name }}
                     </Link>
-                    <Badge variant="outline" class="text-[10px] capitalize">{{ card.type }}</Badge>
-                    <Badge v-if="card.secondary_type" variant="outline" class="text-[10px] capitalize">{{ card.secondary_type }}</Badge>
+                    <Badge variant="outline" class="text-2xs capitalize">{{ card.type }}</Badge>
+                    <Badge v-if="card.secondary_type" variant="outline" class="text-2xs capitalize">{{ card.secondary_type }}</Badge>
                 </div>
             </template>
         </PageBanner>
@@ -131,12 +131,12 @@ defineProps<{
                                                 <span
                                                     v-for="l in ac.type_links"
                                                     :key="l.id"
-                                                    class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                    class="rounded bg-secondary px-1 py-0.5 text-2xs capitalize text-secondary-foreground"
                                                     >{{ l.type }}</span
                                                 >
                                                 <span class="font-medium">{{ ac.name }}</span>
                                             </div>
-                                            <span class="text-[10px] text-muted-foreground">
+                                            <span class="text-2xs text-muted-foreground">
                                                 <template v-if="ac.av != null">
                                                     {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
                                                         v {{ ac.av_target }}</template
@@ -202,12 +202,12 @@ defineProps<{
                                                 <span
                                                     v-for="l in ac.type_links"
                                                     :key="l.id"
-                                                    class="rounded bg-secondary px-1 py-0.5 text-[9px] capitalize text-secondary-foreground"
+                                                    class="rounded bg-secondary px-1 py-0.5 text-2xs capitalize text-secondary-foreground"
                                                     >{{ l.type }}</span
                                                 >
                                                 <span class="font-medium">{{ ac.name }}</span>
                                             </div>
-                                            <span class="text-[10px] text-muted-foreground">
+                                            <span class="text-2xs text-muted-foreground">
                                                 <template v-if="ac.av != null">
                                                     {{ ac.av }}<TosSuits v-if="ac.av_suits" :suits="ac.av_suits" /><template v-if="ac.av_target">
                                                         v {{ ac.av_target }}</template
@@ -250,7 +250,7 @@ defineProps<{
             <section v-if="related_units.length">
                 <div class="mb-2 flex items-center justify-between">
                     <HeadingEyebrow as="h2">Units in {{ card.allegiance.name }}</HeadingEyebrow>
-                    <span class="text-[11px] text-muted-foreground">
+                    <span class="text-2xs text-muted-foreground">
                         {{ related_units.length }} {{ related_units.length === 1 ? 'unit' : 'units' }}
                     </span>
                 </div>
@@ -273,7 +273,7 @@ defineProps<{
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-medium leading-tight group-hover:text-primary">{{ u.name }}</p>
-                            <p class="truncate text-[10px] text-muted-foreground">
+                            <p class="truncate text-2xs text-muted-foreground">
                                 <span v-if="u.title" class="italic">{{ u.title }}</span>
                                 <span v-else class="tabular-nums">{{ u.scrip }}s</span>
                             </p>

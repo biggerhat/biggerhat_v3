@@ -5,6 +5,8 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppSettingsLayout from '@/layouts/AppSettingsLayout.vue';
+import { notificationIcon } from '@/lib/notificationMeta';
+import { relativeTime } from '@/lib/relativeTime';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 
@@ -60,7 +62,9 @@ const markAllRead = async () => {
 
     <PageBanner title="Notifications" class="mb-2">
         <template #actions>
-            <Button v-if="notifications.data.some((n) => !n.read_at)" variant="outline" @click="markAllRead">Mark all read</Button>
+            <Button v-if="notifications.data.some((n) => !n.read_at)" variant="outline" class="my-auto mr-2" @click="markAllRead"
+                >Mark all read</Button
+            >
         </template>
     </PageBanner>
 
@@ -69,14 +73,30 @@ const markAllRead = async () => {
             <CardContent class="p-0">
                 <EmptyState v-if="props.notifications.data.length === 0" compact title="No notifications yet" description="" />
                 <ul v-else class="divide-y">
-                    <li
-                        v-for="n in props.notifications.data"
-                        :key="n.id"
-                        :class="['cursor-pointer p-3 text-sm hover:bg-accent', !n.read_at ? 'bg-accent/40' : '']"
-                        @click="openNotification(n)"
-                    >
-                        <p>{{ n.message }}</p>
-                        <p class="mt-0.5 text-xs text-muted-foreground">{{ new Date(n.created_at).toLocaleString() }}</p>
+                    <li v-for="n in props.notifications.data" :key="n.id">
+                        <button
+                            type="button"
+                            :class="[
+                                'flex w-full items-start gap-3 p-3 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
+                                !n.read_at ? 'bg-accent/40' : '',
+                            ]"
+                            @click="openNotification(n)"
+                        >
+                            <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                <component :is="notificationIcon(n.type)" class="size-4" aria-hidden="true" />
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span :class="['block', !n.read_at ? 'font-medium' : '']">{{ n.message }}</span>
+                                <time
+                                    :datetime="n.created_at"
+                                    :title="new Date(n.created_at).toLocaleString()"
+                                    class="mt-0.5 block text-xs text-muted-foreground"
+                                >
+                                    {{ relativeTime(n.created_at) }}
+                                </time>
+                            </span>
+                            <span v-if="!n.read_at" class="mt-2 size-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
+                        </button>
                     </li>
                 </ul>
             </CardContent>

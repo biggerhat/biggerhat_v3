@@ -921,7 +921,6 @@ const submitInjuries = () => {
         story_entry: storyEntry.value || null,
     } as Record<string, unknown>);
 };
-
 </script>
 
 <template>
@@ -929,16 +928,13 @@ const submitInjuries = () => {
     <div class="container mx-auto mt-6 max-w-5xl px-4 pb-16">
         <div class="mb-6 flex items-start justify-between">
             <div>
-                <Link
-                    :href="arsenalShowHref"
-                    class="text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                >
+                <Link :href="arsenalShowHref" class="text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground">
                     ← {{ aftermath.crew.name }}
                 </Link>
                 <h1 class="mt-1 text-3xl font-black tracking-tight">Aftermath</h1>
                 <p class="mt-1 text-sm text-muted-foreground">
                     {{ aftermath.campaign_game.campaign.name }} • Week {{ aftermath.campaign_game.campaign.current_week }}
-                    <Badge :variant="aftermath.status === 'locked' ? 'secondary' : 'default'" class="ml-1 text-[10px] uppercase">{{
+                    <Badge :variant="aftermath.status === 'locked' ? 'secondary' : 'default'" class="ml-1 text-2xs uppercase">{{
                         aftermath.status
                     }}</Badge>
                 </p>
@@ -967,7 +963,7 @@ const submitInjuries = () => {
                             <span v-else>{{ p.n }}</span>
                         </div>
                         <p
-                            class="mt-1.5 hidden text-center text-[10px] uppercase tracking-wider sm:block"
+                            class="mt-1.5 hidden text-center text-2xs uppercase tracking-wider sm:block"
                             :class="phaseStatus(p.n) === 'current' ? 'font-semibold text-foreground' : 'text-muted-foreground'"
                         >
                             {{ p.name }}
@@ -1018,7 +1014,7 @@ const submitInjuries = () => {
                     Draw <span class="font-semibold">{{ aftermath.hand_drawn.size }}</span> card(s) from your fate deck. Keep them in hand to cheat
                     flips throughout the Aftermath — barter, the doctor, and determining injuries.
                 </p>
-                <p class="mt-2 text-[10px] text-muted-foreground">Your fate deck does not reshuffle until the Aftermath ends (pg 21).</p>
+                <p class="mt-2 text-2xs text-muted-foreground">Your fate deck does not reshuffle until the Aftermath ends (pg 21).</p>
             </CardContent>
         </Card>
 
@@ -1075,18 +1071,18 @@ const submitInjuries = () => {
                             <div class="flex items-center justify-between gap-2">
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-medium">{{ item.name }}</p>
-                                    <p class="text-[10px] text-muted-foreground">
+                                    <p class="text-2xs text-muted-foreground">
                                         BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }} • CC {{ item.cc }}
                                     </p>
                                 </div>
                                 <Button size="sm" variant="outline" :disabled="!is_owner" @click="addBarterItem(item.id)">Add</Button>
                             </div>
-                            <p v-if="item.body" class="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                            <p v-if="item.body" class="mt-1 text-2xs leading-relaxed text-muted-foreground">
                                 <GameText :text="item.body" />
                             </p>
                         </li>
                     </ul>
-                    <p v-else-if="barterSearch.trim()" class="mt-1 text-[11px] text-muted-foreground">No equipment matches that name.</p>
+                    <p v-else-if="barterSearch.trim()" class="mt-1 text-2xs text-muted-foreground">No equipment matches that name.</p>
                 </div>
 
                 <div v-if="purchasedItems.length" class="rounded-md border p-3">
@@ -1099,7 +1095,7 @@ const submitInjuries = () => {
                         >
                             <div class="min-w-0 flex-1">
                                 <p class="truncate font-medium">{{ item.name }}</p>
-                                <p class="text-[10px] text-muted-foreground">CC {{ item.cc }}</p>
+                                <p class="text-2xs text-muted-foreground">CC {{ item.cc }}</p>
                             </div>
                             <Button size="sm" variant="ghost" :disabled="!is_owner" @click="removeBarterItem(item.id)">Remove</Button>
                         </li>
@@ -1108,7 +1104,7 @@ const submitInjuries = () => {
 
                 <span class="text-sm">
                     Total:
-                    <Badge variant="outline" class="text-[10px] tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
+                    <Badge variant="outline" class="text-2xs tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
                 </span>
                 <div class="flex items-center justify-between">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
@@ -1183,14 +1179,14 @@ const submitInjuries = () => {
                         <div
                             v-for="(box, i) in xpTrackPreview"
                             :key="i"
-                            class="relative flex aspect-square items-center justify-center rounded-sm border text-[8px]"
+                            class="relative flex aspect-square items-center justify-center rounded-sm border text-2xs"
                             :class="boxClasses(box)"
                             :title="box.tier ? `Tier ${box.tier}` : 'no tier'"
                         >
                             <span v-if="box.tier" class="font-bold">{{ box.tier }}</span>
                         </div>
                     </div>
-                    <p class="mt-2 text-[10px] text-muted-foreground">
+                    <p class="mt-2 text-2xs text-muted-foreground">
                         Boxes auto-fill from your XP total. Numbered boxes trigger an advancement at that tier.
                     </p>
                 </fieldset>
@@ -1227,7 +1223,9 @@ const submitInjuries = () => {
                             <Select
                                 :model-value="
                                     advDrafts[adv.position_in_xp_track].catalog_id !== null
-                                        ? (selectedDraftRow(adv.position_in_xp_track) ? rowIdentity(selectedDraftRow(adv.position_in_xp_track)!) : '__none__')
+                                        ? selectedDraftRow(adv.position_in_xp_track)
+                                            ? rowIdentity(selectedDraftRow(adv.position_in_xp_track)!)
+                                            : '__none__'
                                         : '__none__'
                                 "
                                 @update:model-value="
@@ -1258,8 +1256,11 @@ const submitInjuries = () => {
                             </Select>
                             <!-- Crew Card: qualifying restriction text carried over from the original card (pg 32, 54) -->
                             <p
-                                v-if="advDrafts[adv.position_in_xp_track].source_table === 'crew_card' && selectedDraftRow(adv.position_in_xp_track)?.qualifier"
-                                class="text-[11px] font-medium italic text-muted-foreground"
+                                v-if="
+                                    advDrafts[adv.position_in_xp_track].source_table === 'crew_card' &&
+                                    selectedDraftRow(adv.position_in_xp_track)?.qualifier
+                                "
+                                class="text-2xs font-medium italic text-muted-foreground"
                             >
                                 {{ selectedDraftRow(adv.position_in_xp_track)!.qualifier }}
                             </p>
@@ -1269,7 +1270,7 @@ const submitInjuries = () => {
                                     Picked: {{ advDrafts[adv.position_in_xp_track].free_choice_label }}
                                     <button
                                         type="button"
-                                        class="ml-2 text-[10px] text-muted-foreground underline"
+                                        class="ml-2 text-2xs text-muted-foreground underline"
                                         @click="
                                             advDrafts[adv.position_in_xp_track].free_choice_source_id = null;
                                             advDrafts[adv.position_in_xp_track].free_choice_source_character_id = null;
@@ -1307,11 +1308,11 @@ const submitInjuries = () => {
                                 class="grid grid-cols-3 gap-2"
                             >
                                 <div>
-                                    <Label class="text-[11px] text-muted-foreground">Totem name</Label>
+                                    <Label class="text-2xs text-muted-foreground">Totem name</Label>
                                     <Input v-model="advDrafts[adv.position_in_xp_track].totem_name" placeholder="e.g. Rat King" class="h-8 text-xs" />
                                 </div>
                                 <div>
-                                    <Label class="text-[11px] text-muted-foreground">Size (stat)</Label>
+                                    <Label class="text-2xs text-muted-foreground">Size (stat)</Label>
                                     <Input
                                         type="number"
                                         min="1"
@@ -1322,7 +1323,7 @@ const submitInjuries = () => {
                                     />
                                 </div>
                                 <div>
-                                    <Label class="text-[11px] text-muted-foreground">Base</Label>
+                                    <Label class="text-2xs text-muted-foreground">Base</Label>
                                     <Select v-model="advDrafts[adv.position_in_xp_track].totem_base">
                                         <SelectTrigger class="h-8 w-full text-xs text-foreground">
                                             <SelectValue placeholder="— pick —" />
@@ -1344,7 +1345,7 @@ const submitInjuries = () => {
                                 "
                                 class="rounded-md border border-primary/30 bg-primary/5 p-2"
                             >
-                                <Label class="text-[11px] font-medium">
+                                <Label class="text-2xs font-medium">
                                     Choose a {{ requiredCrewCardChoiceType(adv.position_in_xp_track) }} — listed on a crew card of a master sharing
                                     your keywords
                                 </Label>
@@ -1374,10 +1375,7 @@ const submitInjuries = () => {
                                         >
                                     </SelectContent>
                                 </Select>
-                                <p
-                                    v-if="crewCardChoiceOptionsFor(adv.position_in_xp_track).length === 0"
-                                    class="mt-1 text-[11px] text-muted-foreground"
-                                >
+                                <p v-if="crewCardChoiceOptionsFor(adv.position_in_xp_track).length === 0" class="mt-1 text-2xs text-muted-foreground">
                                     No eligible {{ requiredCrewCardChoiceType(adv.position_in_xp_track) }}s found for your keywords.
                                 </p>
                             </div>
@@ -1391,7 +1389,7 @@ const submitInjuries = () => {
                                 class="space-y-2"
                             >
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                    <Label class="shrink-0 text-2xs text-muted-foreground">Affects:</Label>
                                     <Select
                                         :model-value="advDrafts[adv.position_in_xp_track].target_type"
                                         @update:model-value="
@@ -1435,7 +1433,7 @@ const submitInjuries = () => {
                                     </Select>
                                 </div>
                                 <div v-if="targetActionOptions(adv.position_in_xp_track).length">
-                                    <Label class="text-[11px] text-muted-foreground">Add trigger to action</Label>
+                                    <Label class="text-2xs text-muted-foreground">Add trigger to action</Label>
                                     <Select
                                         :model-value="
                                             (advDrafts[adv.position_in_xp_track].target_type === 'equipment'
@@ -1480,7 +1478,7 @@ const submitInjuries = () => {
                                 "
                                 class="flex flex-wrap items-center gap-2"
                             >
-                                <Label class="shrink-0 text-[11px] text-muted-foreground">Affects:</Label>
+                                <Label class="shrink-0 text-2xs text-muted-foreground">Affects:</Label>
                                 <Select
                                     :model-value="
                                         advDrafts[adv.position_in_xp_track].target_type === 'equipment'
@@ -1571,7 +1569,7 @@ const submitInjuries = () => {
                     >
                         <span>
                             <strong>{{ inj.display_name }}</strong>
-                            <span v-if="inj.label" class="ml-1 text-[10px] text-muted-foreground">({{ inj.label }})</span>
+                            <span v-if="inj.label" class="ml-1 text-2xs text-muted-foreground">({{ inj.label }})</span>
                             — {{ inj.injury_name }}
                         </span>
                         <Button size="sm" variant="outline" :disabled="!is_owner" @click="addDoctorAttempt(inj.pivot_id)"> Attempt </Button>
@@ -1612,22 +1610,19 @@ const submitInjuries = () => {
                             </Select>
                             <!-- Red Joker → Lucky Miss table (or Doppelganger). -->
                             <template v-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip' && !isCustomCharDoctorAttempt(att)">
-                                <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <label class="flex items-center gap-1 text-2xs text-muted-foreground">
                                     <Checkbox :checked="att.lucky_miss_is_joker" @update:checked="(v: boolean) => (att.lucky_miss_is_joker = v)" />
                                     Joker (Doppelganger)
                                 </label>
                                 <template v-if="!att.lucky_miss_is_joker">
-                                    <span class="text-[11px] text-muted-foreground">Lucky Miss flip</span>
+                                    <span class="text-2xs text-muted-foreground">Lucky Miss flip</span>
                                     <Input type="number" min="1" max="13" v-model.number="att.lucky_miss_flip_value" class="h-8 w-16" />
                                 </template>
                             </template>
-                            <span
-                                v-else-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'"
-                                class="text-[11px] text-muted-foreground"
-                            >
+                            <span v-else-if="doctorOutcome(att.result_id) === 'lucky_miss_reflip'" class="text-2xs text-muted-foreground">
                                 Close Call — survives with no injury.
                             </span>
-                            <Button variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
+                            <Button aria-label="Remove doctor attempt" variant="ghost" size="sm" @click="removeDoctorAttempt(idx)">×</Button>
                         </li>
                     </ul>
                 </div>
@@ -1669,8 +1664,8 @@ const submitInjuries = () => {
                     >
                         <span>
                             {{ m.display_name || m.character?.display_name || '—' }}
-                            <span v-if="m.label" class="ml-1 text-[10px] text-muted-foreground">({{ m.label }})</span>
-                            <Badge v-if="m.tracker_killed" variant="destructive" class="ml-1.5 text-[9px]">Killed</Badge>
+                            <span v-if="m.label" class="ml-1 text-2xs text-muted-foreground">({{ m.label }})</span>
+                            <Badge v-if="m.tracker_killed" variant="destructive" class="ml-1.5 text-2xs">Killed</Badge>
                         </span>
                         <Button size="sm" variant="outline" :disabled="!is_owner" @click="addInjuryFlip(m)">Add injury</Button>
                     </li>
@@ -1681,7 +1676,7 @@ const submitInjuries = () => {
                     <ul class="space-y-2">
                         <li v-for="(f, idx) in injuryFlips" :key="idx" class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="flex-1 truncate font-medium">{{ modelDisplayName(f) }}</span>
-                            <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <label class="flex items-center gap-1 text-2xs text-muted-foreground">
                                 <Checkbox
                                     :checked="f.is_red_joker"
                                     @update:checked="
@@ -1693,7 +1688,7 @@ const submitInjuries = () => {
                                 />
                                 Red Joker
                             </label>
-                            <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <label class="flex items-center gap-1 text-2xs text-muted-foreground">
                                 <Checkbox
                                     :checked="f.is_black_joker"
                                     @update:checked="
@@ -1712,7 +1707,7 @@ const submitInjuries = () => {
                                 Black Joker (Traitor)
                             </label>
                             <template v-if="f.is_black_joker">
-                                <span class="text-[11px] text-muted-foreground">Defects to</span>
+                                <span class="text-2xs text-muted-foreground">Defects to</span>
                                 <Select
                                     v-if="traitorTargetCrews.length"
                                     :model-value="f.traitor_target_crew_id?.toString() ?? undefined"
@@ -1725,22 +1720,24 @@ const submitInjuries = () => {
                                         <SelectItem v-for="c in traitorTargetCrews" :key="c.id" :value="c.id.toString()">{{ c.name }}</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <span v-else class="text-[11px] text-amber-600">no other crew in this campaign — the model is just removed</span>
+                                <span v-else class="text-2xs text-amber-700 dark:text-amber-400"
+                                    >no other crew in this campaign — the model is just removed</span
+                                >
                             </template>
                             <template v-else-if="f.is_red_joker && f.custom_character_id === null">
-                                <label class="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <label class="flex items-center gap-1 text-2xs text-muted-foreground">
                                     <Checkbox :checked="f.lucky_miss_is_joker" @update:checked="(v: boolean) => (f.lucky_miss_is_joker = v)" />
                                     Joker (Doppelganger)
                                 </label>
                                 <template v-if="!f.lucky_miss_is_joker">
-                                    <span class="text-[11px] text-muted-foreground">Lucky Miss flip</span>
+                                    <span class="text-2xs text-muted-foreground">Lucky Miss flip</span>
                                     <Input type="number" min="1" max="13" v-model.number="f.lucky_miss_flip_value" class="h-8 w-16" />
                                 </template>
                             </template>
                             <template v-else-if="f.is_red_joker">
                                 <!-- Doppelganger doesn't apply to a one-of-a-kind Leader/Totem — a
                                      red joker here is a plain reprieve, not a Lucky Miss table flip. -->
-                                <span class="text-[11px] text-muted-foreground">Close Call — survives with no injury.</span>
+                                <span class="text-2xs text-muted-foreground">Close Call — survives with no injury.</span>
                             </template>
                             <template v-else>
                                 <Select
@@ -1756,7 +1753,7 @@ const submitInjuries = () => {
                                     </SelectContent>
                                 </Select>
                             </template>
-                            <Button variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>
+                            <Button aria-label="Remove injury flip" variant="ghost" size="sm" @click="removeInjuryFlip(idx)">×</Button>
                         </li>
                     </ul>
                 </div>

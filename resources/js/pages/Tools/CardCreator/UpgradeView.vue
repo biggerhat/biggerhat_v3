@@ -106,7 +106,7 @@ const blockTypeLabel = (type: string) => {
                             <div v-for="(block, idx) in upgrade.content_blocks" :key="idx" class="rounded border p-2 text-xs">
                                 <div v-if="block.type === 'text'" class="italic text-muted-foreground">{{ block.text }}</div>
                                 <div v-else>
-                                    <Badge variant="outline" class="mb-1 text-[8px]">{{ blockTypeLabel(block.type) }}</Badge>
+                                    <Badge variant="outline" class="mb-1 text-[10px]">{{ blockTypeLabel(block.type) }}</Badge>
                                     <div class="font-medium">{{ block.data?.name }}</div>
                                     <div v-if="block.data?.description" class="mt-0.5 text-muted-foreground">{{ block.data.description }}</div>
                                 </div>

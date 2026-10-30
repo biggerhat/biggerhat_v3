@@ -83,7 +83,7 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
     <PageBanner title="Failed Jobs" class="mb-2">
         <template #logo>
             <div class="flex size-16 items-center justify-center md:size-20">
-                <AlertTriangle class="size-8 text-amber-500 md:size-10" />
+                <AlertTriangle class="size-8 text-amber-700 dark:text-amber-400 md:size-10" />
             </div>
         </template>
         <template #subtitle>
@@ -111,7 +111,7 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="truncate text-sm font-semibold">{{ job.job_name }}</span>
-                                <Badge variant="outline" class="text-[10px]">{{ job.connection }} · {{ job.queue }}</Badge>
+                                <Badge variant="outline" class="text-2xs">{{ job.connection }} · {{ job.queue }}</Badge>
                                 <span class="text-xs text-muted-foreground">{{ formatDate(job.failed_at) }}</span>
                             </div>
                             <p v-if="job.exception_summary.class" class="mt-1 truncate font-mono text-xs">
@@ -123,15 +123,15 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
                             <Button variant="outline" size="sm" @click="toggle(job.uuid)">
                                 {{ expanded === job.uuid ? 'Hide trace' : 'Show trace' }}
                             </Button>
-                            <Button variant="outline" size="sm" @click="retry(job.uuid)">
+                            <Button aria-label="Retry job" variant="outline" size="sm" @click="retry(job.uuid)">
                                 <RefreshCw class="size-3.5" />
                             </Button>
-                            <Button variant="outline" size="sm" @click="destroy(job.uuid)">
+                            <Button aria-label="Delete failed job" variant="outline" size="sm" @click="destroy(job.uuid)">
                                 <Trash2 class="size-3.5" />
                             </Button>
                         </div>
                     </div>
-                    <pre v-if="expanded === job.uuid" class="mt-3 max-h-96 overflow-auto rounded-md bg-muted/50 p-3 text-[11px] leading-relaxed">{{
+                    <pre v-if="expanded === job.uuid" class="mt-3 max-h-96 overflow-auto rounded-md bg-muted/50 p-3 text-2xs leading-relaxed">{{
                         job.exception
                     }}</pre>
                 </CardContent>

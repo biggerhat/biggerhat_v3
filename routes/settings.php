@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::middleware('auth')->group(function () {
-    Route::get('settings', [OverviewController::class, 'index'])->name('overview');
+    // My Hub is the logged-in home; /settings now just leads to the account pages.
+    Route::get('hub', [OverviewController::class, 'index'])->name('overview');
+    Route::redirect('settings', '/settings/profile');
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');

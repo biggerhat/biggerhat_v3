@@ -8,7 +8,7 @@ withDefaults(
         as?: 'h2' | 'h3' | 'h4';
         class?: HTMLAttributes['class'];
     }>(),
-    { as: 'h3' },
+    { as: 'h2' },
 );
 </script>
 

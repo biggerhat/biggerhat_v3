@@ -25,7 +25,15 @@ export default {
         'bg-courtoftwo',
     ],
     theme: {
+        // One page gutter for every `container`: 8px on phones, 16px from sm up. Pages that set
+        // their own px-* still win (utilities load after components).
+        container: {
+            padding: { DEFAULT: '0.5rem', sm: '1rem' },
+        },
     	extend: {
+    		fontSize: {
+    			'2xs': ['0.6875rem', { lineHeight: '1rem' }],
+    		},
     		fontFamily: {
     			sans: [
     				'Instrument Sans',

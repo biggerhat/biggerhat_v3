@@ -24,13 +24,13 @@ const columns: ColumnDef<Trigger>[] = [
         id: 'actions_list',
         accessorFn: (r) => r.actions.map((a) => a.name).join(', '),
         header: () => h('div', {}, 'Attached to'),
-        cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.actions.length ? row.original.actions.map((a) => a.name).join(', ') : '—'),
+        cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.actions.length ? row.original.actions.map((a) => a.name).join(', ') : '—'),
     },
-    { accessorKey: 'suits', header: () => h('div', {}, 'Suits'), cell: ({ row }) => h('div', { class: 'text-[11px]' }, row.original.suits ?? '—') },
+    { accessorKey: 'suits', header: () => h('div', {}, 'Suits'), cell: ({ row }) => h('div', { class: 'text-2xs' }, row.original.suits ?? '—') },
     {
         id: 'actions',
         enableHiding: false,
-        header: () => h('div', {}, 'Actions'),
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) =>
             h(AdminActions, {
                 name: row.original.name,
@@ -52,6 +52,7 @@ const table = useVueTable({
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {
@@ -69,7 +70,7 @@ const table = useVueTable({
             <Button class="my-auto mr-2" @click="router.get(route('admin.tos.triggers.create'))">Create Trigger</Button>
         </template>
     </PageBanner>
-    <div class="container mx-auto mt-6 h-full px-2">
+    <div class="container mx-auto mt-6 h-full">
         <div class="flex items-center justify-between py-4">
             <Input
                 class="max-w-sm"

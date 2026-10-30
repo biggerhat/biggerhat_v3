@@ -238,6 +238,26 @@ it('gates feedback management by permission and updates status', function () {
     expect(Feedback::find($feedback->id))->toBeNull();
 });
 
+it('bulk-updates and bulk-deletes feedback behind the manage permission', function () {
+    $entries = collect(range(1, 3))->map(fn ($i) => Feedback::create(['category' => 'general', 'message' => "Entry {$i}", 'status' => FeedbackStatusEnum::New->value]));
+    $ids = $entries->pluck('id')->all();
+
+    $this->actingAs($this->staff)->post(route('admin.feedback.bulk'), ['ids' => $ids, 'action' => 'read'])->assertForbidden();
+
+    $manager = User::factory()->create();
+    $manager->givePermissionTo([PermissionEnum::ViewFeedback->value, PermissionEnum::ManageFeedback->value]);
+
+    $this->actingAs($manager)->post(route('admin.feedback.bulk'), ['ids' => [$ids[0], $ids[1]], 'action' => 'archived'])->assertRedirect();
+    expect(Feedback::whereIn('id', [$ids[0], $ids[1]])->pluck('status')->unique()->all())->toEqual([FeedbackStatusEnum::Archived])
+        ->and($entries[2]->fresh()->status)->toBe(FeedbackStatusEnum::New);
+
+    $this->actingAs($manager)->post(route('admin.feedback.bulk'), ['ids' => $ids, 'action' => 'bogus'])->assertSessionHasErrors('action');
+    $this->actingAs($manager)->post(route('admin.feedback.bulk'), ['ids' => [], 'action' => 'read'])->assertSessionHasErrors('ids');
+
+    $this->actingAs($manager)->post(route('admin.feedback.bulk'), ['ids' => [$ids[0], $ids[2]], 'action' => 'delete'])->assertRedirect();
+    expect(Feedback::pluck('id')->all())->toEqual([$ids[1]]);
+});
+
 // ─── Tournament override ─────────────────────────────────────────────────
 
 it('forces a tournament status with an audited reason and rejects unknown statuses', function () {

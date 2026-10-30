@@ -1,12 +1,9 @@
 import '../css/app.css';
 import './echo';
 
-import AppAdminLayout from '@/layouts/AppAdminLayout.vue';
-import AppLayout from '@/layouts/AppLayout.vue';
-import AppSettingsLayout from '@/layouts/AppSettingsLayout.vue';
+import { pageTitle, resolvePage } from '@/lib/resolvePage';
 import { createInertiaApp, Head, Link, router } from '@inertiajs/vue3';
-import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { createApp, h, type DefineComponent } from 'vue';
+import { createApp, h } from 'vue';
 
 import { ZiggyVue } from 'ziggy-js';
 import { initializeAccent, initializeTheme } from './composables/useAppearance';
@@ -24,26 +21,9 @@ declare module 'vite/client' {
     }
 }
 
-const appName = import.meta.env.VITE_APP_NAME || 'BiggerHat';
-
 createInertiaApp({
-    title: (title) => {
-        if (!title) {
-            return appName;
-        }
-
-        return `${title} - ${appName}`;
-    },
-    resolve: async (name) => {
-        const page = await resolvePageComponent(`./pages/${name}.vue`, import.meta.glob<DefineComponent>('./pages/**/*.vue'));
-        // `|| (...)` would clobber a page's explicit `layout: null` (falsy,
-        // same as unset) — only fall back when the page never set it at all,
-        // so a headless-capture-style page can genuinely opt out of chrome.
-        if (page.default.layout === undefined) {
-            page.default.layout = name.startsWith('Admin/') ? AppAdminLayout : name.startsWith('Settings/') ? AppSettingsLayout : AppLayout;
-        }
-        return page;
-    },
+    title: pageTitle,
+    resolve: resolvePage,
     setup({ el, App, props, plugin }) {
         createApp({ render: () => h(App, props) })
             .use(plugin)

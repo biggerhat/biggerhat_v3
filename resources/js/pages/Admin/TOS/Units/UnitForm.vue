@@ -252,7 +252,7 @@ onMounted(() => {
                     <div>
                         <Label for="glory_tactics">Tactics (Glory)</Label>
                         <Input id="glory_tactics" v-model="formInfo.glory_tactics" placeholder="Leave blank if same as Standard" />
-                        <p class="mt-1 text-[11px] text-muted-foreground">Only fill this in when the Glory side prints a different Tactics value.</p>
+                        <p class="mt-1 text-2xs text-muted-foreground">Only fill this in when the Glory side prints a different Tactics value.</p>
                     </div>
                     <div class="md:col-span-2">
                         <Label for="description">Description</Label>
@@ -287,7 +287,7 @@ onMounted(() => {
                                 <SelectItem v-for="r in restrictions" :key="r.value" :value="String(r.value)">{{ r.name }}</SelectItem>
                             </SelectContent>
                         </Select>
-                        <p class="mt-1 text-[10px] text-muted-foreground">
+                        <p class="mt-1 text-2xs text-muted-foreground">
                             Set when the unit is hireable by any Allegiance of that type (Neutral pool).
                         </p>
                         <InputError :message="usePage().props.errors.restriction" />
@@ -299,19 +299,19 @@ onMounted(() => {
                         <HeadingEyebrow class="mb-2">{{ side.side }} side</HeadingEyebrow>
                         <div class="grid grid-cols-4 gap-2">
                             <div>
-                                <Label class="text-[10px]">Sp</Label>
+                                <Label class="text-2xs">Sp</Label>
                                 <Input v-model.number="side.speed" type="number" />
                             </div>
                             <div>
-                                <Label class="text-[10px]">Df</Label>
+                                <Label class="text-2xs">Df</Label>
                                 <Input v-model.number="side.defense" type="number" />
                             </div>
                             <div>
-                                <Label class="text-[10px]">Wp</Label>
+                                <Label class="text-2xs">Wp</Label>
                                 <Input v-model.number="side.willpower" type="number" />
                             </div>
                             <div>
-                                <Label class="text-[10px]">Ar</Label>
+                                <Label class="text-2xs">Ar</Label>
                                 <Input v-model.number="side.armor" type="number" />
                             </div>
                         </div>
@@ -359,52 +359,54 @@ onMounted(() => {
                                     "
                                 />
                             </div>
-                            <Button type="button" variant="ghost" size="sm" @click="removeRule(idx)"><Trash2 class="size-4" /></Button>
+                            <Button aria-label="Remove rule" type="button" variant="ghost" size="sm" @click="removeRule(idx)"
+                                ><Trash2 class="size-4"
+                            /></Button>
                         </div>
 
                         <template v-if="ruleSlugFor(rule) === 'fireteam'">
                             <div class="mt-3 grid gap-2 md:grid-cols-3">
                                 <div>
-                                    <Label class="text-[10px]">Base (mm)</Label>
+                                    <Label class="text-2xs">Base (mm)</Label>
                                     <Input v-model.number="rule.params.base_mm" type="number" min="0" placeholder="30" />
                                 </div>
                                 <div>
-                                    <Label class="text-[10px]">Models per team</Label>
+                                    <Label class="text-2xs">Models per team</Label>
                                     <Input v-model.number="rule.params.models_per_team" type="number" min="1" placeholder="3" />
                                 </div>
                                 <div>
-                                    <Label class="text-[10px]">Model size (mm)</Label>
+                                    <Label class="text-2xs">Model size (mm)</Label>
                                     <Input v-model.number="rule.params.model_size_mm" type="number" min="0" placeholder="30" />
                                 </div>
                             </div>
                         </template>
                         <template v-else-if="ruleSlugFor(rule) === 'squad'">
                             <div class="mt-3">
-                                <Label class="text-[10px]">Fireteam count</Label>
+                                <Label class="text-2xs">Fireteam count</Label>
                                 <Input v-model.number="rule.params.fireteam_count" type="number" min="1" class="max-w-[200px]" placeholder="4" />
                             </div>
                         </template>
                         <template v-else-if="ruleSlugFor(rule) === 'reserves'">
                             <div class="mt-3">
-                                <Label class="text-[10px]">Reserves X</Label>
+                                <Label class="text-2xs">Reserves X</Label>
                                 <Input v-model.number="rule.params.x" type="number" min="0" class="max-w-[200px]" placeholder="1" />
                             </div>
                         </template>
                         <template v-else-if="ruleSlugFor(rule) === 'combined_arms'">
                             <div class="mt-3">
-                                <Label class="text-[10px]">Combined Arms child unit</Label>
+                                <Label class="text-2xs">Combined Arms child unit</Label>
                                 <SearchableSelect
                                     v-model="formInfo.combined_arms_child_id"
                                     placeholder="Search units…"
                                     :options="units"
                                     option-value="id"
                                 />
-                                <p class="mt-1 text-[10px] text-muted-foreground">
+                                <p class="mt-1 text-2xs text-muted-foreground">
                                     The embedded child card that activates with this unit. Stored on the unit itself, not this pivot.
                                 </p>
                             </div>
                         </template>
-                        <p v-else-if="ruleSlugFor(rule)" class="mt-3 text-[11px] text-muted-foreground">No parameters required.</p>
+                        <p v-else-if="ruleSlugFor(rule)" class="mt-3 text-2xs text-muted-foreground">No parameters required.</p>
                     </div>
                 </div>
             </CardContent>

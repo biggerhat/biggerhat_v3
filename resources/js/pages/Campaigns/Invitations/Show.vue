@@ -25,7 +25,7 @@ const accept = () => router.post(route('campaigns.invitations.accept', props.inv
     <div class="container mx-auto mt-6 max-w-xl px-4 pb-12">
         <Card>
             <CardHeader>
-                <CardTitle>You're invited to a Campaign</CardTitle>
+                <CardTitle as="h1">You're invited to a Campaign</CardTitle>
             </CardHeader>
             <CardContent class="space-y-3 text-sm">
                 <div>

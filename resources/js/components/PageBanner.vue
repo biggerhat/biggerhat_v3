@@ -13,7 +13,7 @@ const props = defineProps<Props>();
 
 <template>
     <div :class="cn('mb-4 flex w-full bg-secondary', props.class, accentColor ? `border-b-4 ${accentColor}` : '')">
-        <div class="container mx-auto items-center">
+        <div class="container mx-auto items-center px-0 sm:px-2">
             <div class="flex flex-wrap items-center justify-between gap-y-1">
                 <div class="flex w-full py-2 sm:w-auto md:py-4">
                     <slot name="logo" />

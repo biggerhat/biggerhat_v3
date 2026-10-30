@@ -157,11 +157,11 @@ const backImageUrl = computed(() =>
             </button>
         </div>
         <div v-if="props.showCollection && (inCollection || onWishlist)" class="mt-1 flex items-center justify-center gap-2">
-            <span v-if="inCollection" class="flex items-center gap-1 text-[11px]" style="color: #059669">
+            <span v-if="inCollection" class="flex items-center gap-1 text-2xs" style="color: #059669">
                 <BookMarked class="size-3" />
                 Collected
             </span>
-            <span v-if="onWishlist" class="flex items-center gap-1 text-[11px]" style="color: #f43f5e">
+            <span v-if="onWishlist" class="flex items-center gap-1 text-2xs" style="color: #f43f5e">
                 <Heart class="size-3 fill-current" />
                 Wishlisted
             </span>
@@ -170,7 +170,7 @@ const backImageUrl = computed(() =>
             <Button
                 variant="outline"
                 size="sm"
-                class="h-6 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                class="h-6 gap-1 text-2xs text-muted-foreground hover:text-foreground"
                 :disabled="addingToCollection"
                 @click="addToCollection"
             >

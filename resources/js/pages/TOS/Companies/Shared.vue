@@ -139,7 +139,7 @@ const noop = () => {};
         <div class="container mx-auto space-y-3 px-3 pt-4 sm:px-4">
             <!-- Public-share banner -->
             <div
-                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+                class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-2xs font-medium text-emerald-700 dark:text-emerald-400"
             >
                 <Globe class="size-3" />
                 Shared Company · read-only
@@ -182,13 +182,13 @@ const noop = () => {};
                             <Badge
                                 v-if="overBudget"
                                 variant="outline"
-                                class="border-rose-500/40 bg-rose-500/10 text-[11px] text-rose-700 dark:text-rose-400"
+                                class="border-rose-500/40 bg-rose-500/10 text-2xs text-rose-700 dark:text-rose-400"
                                 >{{ -scrip_remaining }} over budget</Badge
                             >
                             <Badge
                                 v-else
                                 variant="outline"
-                                class="border-emerald-500/40 bg-emerald-500/10 text-[11px] text-emerald-700 dark:text-emerald-400"
+                                class="border-emerald-500/40 bg-emerald-500/10 text-2xs text-emerald-700 dark:text-emerald-400"
                                 >{{ scrip_remaining }} remaining</Badge
                             >
                         </div>

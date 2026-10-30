@@ -509,7 +509,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             "
                                         >
                                             {{ t.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -535,7 +535,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             "
                                         >
                                             {{ l.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -554,7 +554,7 @@ const blockTypeColor = (type: string, idx: number) => {
                             <CardContent class="p-4">
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold">Card Content</h3>
+                                        <h2 class="text-sm font-semibold">Card Content</h2>
                                         <Badge v-if="contentBlocks.length" variant="secondary" class="text-[10px]">{{ contentBlocks.length }}</Badge>
                                     </div>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
@@ -605,7 +605,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                class="h-7 border-amber-500/30 text-[11px] text-amber-600 dark:text-amber-400"
+                                                class="h-7 border-amber-500/30 text-[11px] text-amber-800 dark:text-amber-400"
                                                 @click="addActionBlock"
                                                 ><Plus class="mr-1 size-3" /> Action</Button
                                             >
@@ -629,6 +629,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                 <div class="flex items-center gap-2">
                                                     <div class="flex flex-col">
                                                         <button
+                                                            aria-label="Move block up"
                                                             class="text-muted-foreground hover:text-foreground disabled:opacity-30"
                                                             :disabled="idx === 0"
                                                             @click="moveBlockUp(idx)"
@@ -636,6 +637,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                             <ChevronDown class="size-3 rotate-180" />
                                                         </button>
                                                         <button
+                                                            aria-label="Move block down"
                                                             class="text-muted-foreground hover:text-foreground disabled:opacity-30"
                                                             :disabled="idx === contentBlocks.length - 1"
                                                             @click="moveBlockDown(idx)"
@@ -643,10 +645,14 @@ const blockTypeColor = (type: string, idx: number) => {
                                                             <ChevronDown class="size-3" />
                                                         </button>
                                                     </div>
-                                                    <Badge variant="outline" class="text-[9px]">{{ blockTypeLabel(block.type) }}</Badge>
-                                                    <span v-if="block.data?.source_id" class="text-[9px] text-muted-foreground">(Official)</span>
+                                                    <Badge variant="outline" class="text-[10px]">{{ blockTypeLabel(block.type) }}</Badge>
+                                                    <span v-if="block.data?.source_id" class="text-[10px] text-muted-foreground">(Official)</span>
                                                 </div>
-                                                <button class="text-muted-foreground hover:text-destructive" @click="removeBlock(idx)">
+                                                <button
+                                                    aria-label="Remove block"
+                                                    class="text-muted-foreground hover:text-destructive"
+                                                    @click="removeBlock(idx)"
+                                                >
                                                     <Trash2 class="size-3.5" />
                                                 </button>
                                             </div>
@@ -711,7 +717,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         placeholder="Action name"
                                                         class="h-7 flex-1 text-sm font-medium"
                                                     />
-                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[8px]"
+                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[10px]"
                                                         >Official</Badge
                                                     >
                                                 </div>
@@ -838,7 +844,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         @click="pickToken(r)"
                                                     >
                                                         <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[8px]">Official</Badge>
+                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[10px]">Official</Badge>
                                                     </button>
                                                 </div>
                                             </div>
@@ -851,7 +857,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                     <template v-if="token.source_id">
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium">{{ token.name }}</span>
-                                                            <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
+                                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
                                                         </div>
                                                         <div v-if="token.description" class="text-xs text-muted-foreground">
                                                             {{ token.description }}
@@ -872,7 +878,11 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         <IconTokenPalette class="mt-1" />
                                                     </template>
                                                 </div>
-                                                <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeToken(tIdx)">
+                                                <button
+                                                    aria-label="Remove token"
+                                                    class="mt-1 text-muted-foreground hover:text-destructive"
+                                                    @click="removeToken(tIdx)"
+                                                >
                                                     <Trash2 class="size-3.5" />
                                                 </button>
                                             </div>
@@ -903,7 +913,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         @click="pickMarker(r)"
                                                     >
                                                         <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[8px]">Official</Badge>
+                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[10px]">Official</Badge>
                                                     </button>
                                                 </div>
                                             </div>
@@ -916,7 +926,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                     <template v-if="marker.source_id">
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium">{{ marker.name }}</span>
-                                                            <Badge variant="outline" class="px-1 py-0 text-[8px]">Official</Badge>
+                                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
                                                         </div>
                                                         <div v-if="marker.description" class="text-xs text-muted-foreground">
                                                             {{ marker.description }}
@@ -933,7 +943,11 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         <IconTokenPalette class="mt-1" />
                                                     </template>
                                                 </div>
-                                                <button class="mt-1 text-muted-foreground hover:text-destructive" @click="removeMarker(mIdx)">
+                                                <button
+                                                    aria-label="Remove marker"
+                                                    class="mt-1 text-muted-foreground hover:text-destructive"
+                                                    @click="removeMarker(mIdx)"
+                                                >
                                                     <Trash2 class="size-3.5" />
                                                 </button>
                                             </div>
@@ -953,17 +967,14 @@ const blockTypeColor = (type: string, idx: number) => {
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold">Back — Tokens & Markers</h3>
-                                        <Badge
-                                            v-if="props.crew_computed_tokens_markers?.length"
-                                            variant="secondary"
-                                            class="text-[10px]"
-                                            >{{ props.crew_computed_tokens_markers.length }}</Badge
-                                        >
+                                        <Badge v-if="props.crew_computed_tokens_markers?.length" variant="secondary" class="text-[10px]">{{
+                                            props.crew_computed_tokens_markers.length
+                                        }}</Badge>
                                     </div>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
-                                    <p class="mt-3 mb-2 text-xs text-muted-foreground">
+                                    <p class="mb-2 mt-3 text-xs text-muted-foreground">
                                         Automatically calculated from your crew's current arsenal — shown here for reference, not editable.
                                     </p>
                                     <div v-if="!props.crew_computed_tokens_markers?.length" class="text-xs text-muted-foreground">
@@ -976,7 +987,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                     >
                                         <div class="flex items-center gap-2">
                                             <span class="text-xs font-medium">{{ item.name }}</span>
-                                            <Badge variant="outline" class="px-1 py-0 text-[8px]">{{
+                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">{{
                                                 item.type === 'token' ? 'Token' : 'Marker'
                                             }}</Badge>
                                         </div>
@@ -992,7 +1003,7 @@ const blockTypeColor = (type: string, idx: number) => {
                         <Card>
                             <CardContent class="p-4">
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
-                                    <h3 class="text-sm font-semibold">Notes</h3>
+                                    <h2 class="text-sm font-semibold">Notes</h2>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
@@ -1009,7 +1020,7 @@ const blockTypeColor = (type: string, idx: number) => {
                 <div class="lg:col-span-1">
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-sm font-semibold">Preview</h3>
+                            <h2 class="text-sm font-semibold">Preview</h2>
                             <div class="flex gap-2">
                                 <Button variant="outline" size="sm" class="text-xs" :disabled="exporting || !form.name" @click="exportImages">
                                     <Loader2 v-if="exporting" class="mr-1 size-3 animate-spin" />

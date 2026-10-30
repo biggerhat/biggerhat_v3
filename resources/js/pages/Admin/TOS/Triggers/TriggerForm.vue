@@ -83,7 +83,7 @@ onMounted(() => {
                 <div>
                     <Label for="action_ids"
                         >Actions
-                        <span class="ml-1 text-[10px] font-normal text-muted-foreground"
+                        <span class="ml-1 text-2xs font-normal text-muted-foreground"
                             >(optional — leave empty to save unattached, or pick one or more)</span
                         ></Label
                     >
@@ -134,7 +134,7 @@ onMounted(() => {
                             None
                         </button>
                     </div>
-                    <p class="mt-1 text-[11px] text-muted-foreground">
+                    <p class="mt-1 text-2xs text-muted-foreground">
                         A Trigger is either suit-driven (e.g. <span class="font-mono">R</span>) or margin-driven (numeric margin cost), never both.
                     </p>
                 </div>

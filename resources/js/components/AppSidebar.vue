@@ -143,17 +143,17 @@ onMounted(() => {
             <div class="px-2 pb-1 sm:hidden">
                 <GameSystemSwitcher />
             </div>
-            <div class="px-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div class="px-2 pb-1 text-2xs uppercase tracking-wider text-muted-foreground">
                 {{ isTos ? 'The Other Side' : 'Malifaux' }}
             </div>
         </SidebarHeader>
 
         <SidebarContent>
             <template v-if="isTos">
-                <NavMain :items="tosNavItems" />
+                <NavMain :items="tosNavItems" storage-key="tos" />
             </template>
             <template v-else>
-                <NavMain :items="mainNavItems" />
+                <NavMain :items="mainNavItems" storage-key="main" />
             </template>
         </SidebarContent>
 

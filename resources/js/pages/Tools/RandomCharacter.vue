@@ -146,10 +146,10 @@ const clearAll = () => {
                                 @click="toggleFaction(f.value)"
                             >
                                 <FactionLogo :faction="f.value" class-name="size-10 sm:size-12" />
-                                <span class="text-center text-[10px] font-medium sm:text-xs">{{ f.name }}</span>
+                                <span class="text-center text-2xs font-medium sm:text-xs">{{ f.name }}</span>
                             </button>
                         </div>
-                        <p v-if="selectedFactions.size === 0" class="text-[11px] text-muted-foreground">Empty = any faction.</p>
+                        <p v-if="selectedFactions.size === 0" class="text-2xs text-muted-foreground">Empty = any faction.</p>
                     </div>
 
                     <!-- Keyword / Characteristic / Cost -->
@@ -169,7 +169,7 @@ const clearAll = () => {
                                 <span class="text-xs text-muted-foreground">to</span>
                                 <Input v-model="costMax" type="number" min="0" max="20" placeholder="Max" class="h-9 max-w-[120px]" />
                             </div>
-                            <p class="text-[11px] text-muted-foreground">Leave both blank for any cost.</p>
+                            <p class="text-2xs text-muted-foreground">Leave both blank for any cost.</p>
                         </div>
                     </div>
 

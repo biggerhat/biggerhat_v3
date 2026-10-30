@@ -112,7 +112,7 @@ const charLimit = 5000;
                                 <Label for="fb-message">Message</Label>
                                 <span
                                     :class="[
-                                        'text-[11px] tabular-nums',
+                                        'text-2xs tabular-nums',
                                         form.message.trim().length > 0 && form.message.trim().length < 10
                                             ? 'text-amber-600 dark:text-amber-400'
                                             : 'text-muted-foreground',
@@ -130,7 +130,7 @@ const charLimit = 5000;
                             />
                             <p
                                 v-if="form.message.trim().length > 0 && form.message.trim().length < 10"
-                                class="text-[11px] text-amber-600 dark:text-amber-400"
+                                class="text-2xs text-amber-600 dark:text-amber-400"
                             >
                                 A few more characters — minimum 10.
                             </p>

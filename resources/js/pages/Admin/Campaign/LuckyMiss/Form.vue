@@ -69,7 +69,7 @@ onMounted(() => {
                             <SelectItem v-for="opt in abilities" :key="opt.value" :value="opt.value.toString()">{{ opt.name }}</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p class="text-[10px] text-muted-foreground">
+                    <p class="text-2xs text-muted-foreground">
                         Set when this result grants a real ability to the affected unit — applied permanently, Campaign-only.
                     </p>
                     <InputError :message="usePage().props.errors.ability_id" />

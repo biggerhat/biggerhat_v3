@@ -58,7 +58,7 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
             >
                 <div class="flex items-center gap-2">
                     <span>Resources</span>
-                    <Badge variant="secondary" class="px-1.5 py-0 text-[10px]">{{ totalCount }}</Badge>
+                    <Badge variant="secondary" class="px-1.5 py-0 text-2xs">{{ totalCount }}</Badge>
                 </div>
                 <ChevronDown class="size-4 text-muted-foreground transition-transform" :class="{ 'rotate-180': open }" />
             </CollapsibleTrigger>
@@ -80,7 +80,7 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
                                 >
                                     <div class="min-w-0 flex-1">
                                         <div class="font-medium leading-tight">{{ article.title }}</div>
-                                        <div class="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <div class="mt-0.5 flex items-center gap-1 text-2xs text-muted-foreground">
                                             <span v-if="article.category">{{ article.category.name }}</span>
                                             <span v-if="article.category && article.published_at">&middot;</span>
                                             <span v-if="article.published_at">{{ formatDate(article.published_at) }}</span>
@@ -113,7 +113,7 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
                                     />
                                     <div class="min-w-0 flex-1">
                                         <div class="font-medium leading-tight">{{ t.title }}</div>
-                                        <div class="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <div class="mt-0.5 flex items-center gap-1 text-2xs text-muted-foreground">
                                             <span v-if="t.channel">{{ t.channel.name }}</span>
                                             <span v-if="t.channel && t.release_date">&middot;</span>
                                             <span v-if="t.release_date">{{ formatDate(t.release_date) }}</span>
@@ -141,7 +141,7 @@ const sourceLabel = (source: string) => (source === 'forgefire' ? 'ForgeFire' : 
                                     <div class="min-w-0 flex-1">
                                         <div class="font-medium leading-tight">{{ pod.name }}</div>
                                     </div>
-                                    <Badge variant="outline" class="shrink-0 text-[9px]">{{ sourceLabel(pod.source) }}</Badge>
+                                    <Badge variant="outline" class="shrink-0 text-2xs">{{ sourceLabel(pod.source) }}</Badge>
                                     <ExternalLink class="size-3 shrink-0 text-muted-foreground" />
                                 </a>
                             </div>

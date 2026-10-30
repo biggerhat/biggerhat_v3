@@ -451,7 +451,14 @@ onMounted(() => {
         <div :class="embed ? '' : 'container mx-auto mt-6 sm:px-4 lg:px-6'">
             <!-- Back button (not in embed mode) -->
             <div v-if="!embed" class="mb-4 flex items-center gap-2">
-                <Button variant="outline" size="sm" class="shrink-0 gap-1.5" as="a" :href="route('tools.crew_builder.index')">
+                <Button
+                    :aria-label="isAuthenticated ? 'My Builds' : 'Build a Crew'"
+                    variant="outline"
+                    size="sm"
+                    class="shrink-0 gap-1.5"
+                    as="a"
+                    :href="route('tools.crew_builder.index')"
+                >
                     <ArrowLeft class="size-4" />
                     <span class="hidden sm:inline">{{ isAuthenticated ? 'My Builds' : 'Build a Crew' }}</span>
                 </Button>
@@ -528,7 +535,7 @@ onMounted(() => {
                             </div>
                             <div class="flex items-center gap-1">
                                 <span class="text-muted-foreground">OOK:</span>
-                                <span class="font-medium" :class="ookCount >= 2 ? 'text-amber-600 dark:text-amber-400' : ''">
+                                <span class="font-medium" :class="ookCount >= 2 ? 'text-amber-800 dark:text-amber-400' : ''">
                                     {{ ookCount }} / 2
                                 </span>
                             </div>
@@ -538,28 +545,28 @@ onMounted(() => {
                         <div v-if="crewStats" class="mb-4 rounded-md border border-border/50 bg-accent/30 p-2">
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-4">
                                 <div class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Models</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Models</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.models }}</div>
                                 </div>
                                 <Separator orientation="vertical" class="hidden h-6 sm:block" />
                                 <div v-if="crewStats.avgCost != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Cost</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgCost }}</div>
                                 </div>
                                 <div v-if="crewStats.avgHealth != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg HP</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgHealth }}</div>
                                 </div>
                                 <div v-if="crewStats.avgSpeed != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Spd</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgSpeed }}</div>
                                 </div>
                                 <div v-if="crewStats.avgDefense != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Def</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgDefense }}</div>
                                 </div>
                                 <div v-if="crewStats.avgWillpower != null" class="text-center">
-                                    <div class="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
+                                    <div class="text-2xs font-medium uppercase tracking-wide text-muted-foreground">Avg Wp</div>
                                     <div class="text-sm font-bold leading-tight">{{ crewStats.avgWillpower }}</div>
                                 </div>
                                 <template v-if="Object.keys(crewStats.suitCounts).length">

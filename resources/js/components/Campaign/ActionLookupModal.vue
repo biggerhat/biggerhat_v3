@@ -182,7 +182,7 @@ const attemptClose = async (nextOpen: boolean) => {
                         Tactical
                     </button>
                 </div>
-                <Badge variant="outline" class="text-[10px]">
+                <Badge variant="outline" class="text-2xs">
                     {{ currentCountForTab(activeTab) + stagedCountForTab(activeTab) }} / {{ limitForTab(activeTab) }}
                 </Badge>
                 <Input v-model="search" placeholder="Search by name…" class="min-w-48 flex-1" />
@@ -198,10 +198,7 @@ const attemptClose = async (nextOpen: boolean) => {
                     :key="a.source_id ?? a.name"
                     type="button"
                     class="relative block w-full rounded-lg text-left ring-2 ring-transparent transition-colors"
-                    :class="[
-                        isStaged(a) ? 'ring-primary' : '',
-                        !isStaged(a) && isAtLimit(activeTab) ? 'pointer-events-none opacity-40' : '',
-                    ]"
+                    :class="[isStaged(a) ? 'ring-primary' : '', !isStaged(a) && isAtLimit(activeTab) ? 'pointer-events-none opacity-40' : '']"
                     @click="toggleStage(a)"
                 >
                     <ActionCard :action="{ ...a, action_type: a.type }" :hide-footer="!a.source_character_name">

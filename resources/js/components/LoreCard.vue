@@ -74,7 +74,7 @@ const formatType = (type: string) => {
                                 <ExternalLink class="inline h-3 w-3" />
                             </a>
                             <span v-else class="text-xs text-muted-foreground">{{ media.name }}</span>
-                            <Badge v-if="media.type" variant="outline" class="text-[10px] capitalize">
+                            <Badge v-if="media.type" variant="outline" class="text-2xs capitalize">
                                 {{ formatType(media.type) }}
                             </Badge>
                         </div>
@@ -111,7 +111,7 @@ const formatType = (type: string) => {
                     <SheetDescription v-if="mediaList.length" class="space-y-0.5 text-sm text-muted-foreground">
                         <div v-for="media in mediaList" :key="media.name" class="flex items-center gap-1">
                             {{ media.name }}
-                            <Badge v-if="media.type" variant="outline" class="ml-1 text-[10px] capitalize">
+                            <Badge v-if="media.type" variant="outline" class="ml-1 text-2xs capitalize">
                                 {{ formatType(media.type) }}
                             </Badge>
                         </div>

@@ -241,16 +241,13 @@ onBeforeUnmount(() => {
                         <CardTitle>{{ props.postType === 'news' ? 'Site News' : 'Article' }}</CardTitle>
                         <CardDescription>{{ props.postType === 'news' ? 'Create and Edit Site News' : 'Create and Edit Articles' }}</CardDescription>
                     </div>
-                    <Badge
-                        v-if="autosaveStatus === 'saved'"
-                        variant="outline"
-                        class="border-green-500/50 text-[10px] text-green-600 dark:text-green-400"
+                    <Badge v-if="autosaveStatus === 'saved'" variant="outline" class="border-green-500/50 text-2xs text-green-600 dark:text-green-400"
                         >Draft saved</Badge
                     >
                     <Badge
                         v-else-if="autosaveStatus === 'restored'"
                         variant="outline"
-                        class="border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
+                        class="border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400"
                         >Draft restored</Badge
                     >
                 </div>

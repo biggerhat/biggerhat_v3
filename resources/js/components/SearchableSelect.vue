@@ -68,7 +68,7 @@ watch(open, (isOpen) => {
                         class="h-full flex-1 border-0 bg-transparent px-2 text-xs shadow-none outline-none ring-0 placeholder:text-muted-foreground focus-visible:ring-0"
                         :placeholder="selectedLabel || props.placeholder"
                     />
-                    <button class="px-2 text-muted-foreground" tabindex="-1" @click.stop="open = !open">
+                    <button aria-label="Show options" class="px-2 text-muted-foreground" tabindex="-1" @click.stop="open = !open">
                         <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="open ? 'rotate-180' : ''" />
                     </button>
                 </ComboboxAnchor>
@@ -94,6 +94,7 @@ watch(open, (isOpen) => {
             </Combobox>
         </div>
         <button
+            aria-label="Clear selection"
             class="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
             :class="modelValue ? 'visible' : 'invisible'"
             @click.stop="clear"

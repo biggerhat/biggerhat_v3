@@ -125,9 +125,9 @@ const { filterParams, activeFilterCount, filter, clear, handleNameKeydown, clear
                         <CardContent class="space-y-1.5 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="truncate text-sm font-semibold">{{ s.name }}</span>
-                                <Badge variant="outline" class="shrink-0 text-[10px] tabular-nums">{{ s.tactical_cost }}T</Badge>
+                                <Badge variant="outline" class="shrink-0 text-2xs tabular-nums">{{ s.tactical_cost }}T</Badge>
                             </div>
-                            <p class="truncate text-[10px] capitalize text-muted-foreground">
+                            <p class="truncate text-2xs capitalize text-muted-foreground">
                                 <template v-if="s.allegiance">{{ s.allegiance.name }}</template>
                                 <template v-else-if="s.allegiance_type">Any {{ s.allegiance_type }} allegiance</template>
                                 <template v-else>Universal</template>

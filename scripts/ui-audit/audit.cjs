@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- standalone CommonJS script, not part of the app bundle */
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports -- standalone CommonJS script, not part of the app bundle */
 /*
  * Logged-in (or guest) UI audit: signs in through the real login form, visits pages at phone and
  * desktop widths, runs axe-core and a few layout checks, and writes screenshots. Local use only —

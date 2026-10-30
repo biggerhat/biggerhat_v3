@@ -69,6 +69,7 @@ const table = useVueTable({
     },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     onGlobalFilterChange: (u) => valueUpdater(u, globalFilter),
     getFilteredRowModel: getFilteredRowModel(),

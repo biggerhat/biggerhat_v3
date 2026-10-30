@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { AlertCircle, AlertTriangle, MessageSquareText, RefreshCw } from 'lucide-vue-next';
+import { AlertCircle, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface GroupItem {
@@ -43,6 +43,7 @@ interface Analytics {
 const props = defineProps<{
     groups: Group[];
     stats: { pending_feedback: number | null; failed_jobs: number | null };
+    attention: { key: string; level: 'critical' | 'warning' | 'info'; title: string; detail: string; href: string; action: string }[];
     analytics: Analytics | null;
 }>();
 
@@ -119,35 +120,42 @@ const fetchedAgo = computed(() => {
     </PageBanner>
 
     <div class="container mx-auto space-y-6 px-4 py-6 lg:px-8 xl:px-12">
-        <!-- Inbox / quick stats -->
-        <div v-if="stats.pending_feedback !== null || stats.failed_jobs !== null" class="grid gap-4 md:grid-cols-3">
-            <Card v-if="stats.pending_feedback !== null">
-                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle class="text-sm font-medium">Pending Feedback</CardTitle>
-                    <MessageSquareText class="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <Link :href="route('admin.feedback.index', { status: 'new' })" class="block">
-                        <div class="text-2xl font-bold">{{ stats.pending_feedback }}</div>
-                        <p class="text-xs text-muted-foreground">Click to review new entries</p>
-                    </Link>
-                </CardContent>
-            </Card>
-            <Card v-if="stats.failed_jobs !== null">
-                <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle class="text-sm font-medium">Failed Jobs</CardTitle>
-                    <AlertTriangle class="h-4 w-4" :class="stats.failed_jobs > 0 ? 'text-destructive' : 'text-muted-foreground'" />
-                </CardHeader>
-                <CardContent>
-                    <Link :href="route('admin.failed_jobs.index')" class="block">
-                        <div class="text-2xl font-bold" :class="stats.failed_jobs > 0 ? 'text-destructive' : ''">{{ stats.failed_jobs }}</div>
-                        <p class="text-xs text-muted-foreground">
-                            {{ stats.failed_jobs > 0 ? 'Review and retry failed queue jobs' : 'Queue is healthy' }}
-                        </p>
-                    </Link>
-                </CardContent>
-            </Card>
-        </div>
+        <!-- Needs attention -->
+        <Card :class="attention.length ? 'border-amber-500/40' : ''">
+            <CardHeader class="pb-3">
+                <CardTitle class="flex items-center gap-2 text-lg">
+                    <component
+                        :is="attention.length ? AlertTriangle : CheckCircle2"
+                        class="size-5"
+                        :class="attention.length ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'"
+                    />
+                    {{ attention.length ? 'Needs attention' : 'All clear' }}
+                </CardTitle>
+                <CardDescription v-if="!attention.length">No failed jobs, new feedback, or bot outages right now.</CardDescription>
+            </CardHeader>
+            <CardContent v-if="attention.length" class="pt-0">
+                <ul class="divide-y">
+                    <li v-for="item in attention" :key="item.key" class="flex flex-wrap items-center gap-3 py-3">
+                        <span
+                            class="size-2.5 shrink-0 rounded-full"
+                            :class="{
+                                'bg-destructive': item.level === 'critical',
+                                'bg-amber-500': item.level === 'warning',
+                                'bg-sky-500': item.level === 'info',
+                            }"
+                            aria-hidden="true"
+                        />
+                        <div class="min-w-0 flex-1">
+                            <p class="font-medium">{{ item.title }}</p>
+                            <p class="text-sm text-muted-foreground">{{ item.detail }}</p>
+                        </div>
+                        <Button as-child size="sm" :variant="item.level === 'critical' ? 'default' : 'outline'">
+                            <Link :href="item.href">{{ item.action }}</Link>
+                        </Button>
+                    </li>
+                </ul>
+            </CardContent>
+        </Card>
 
         <!-- Group tiles -->
         <div class="grid gap-4 md:grid-cols-2">

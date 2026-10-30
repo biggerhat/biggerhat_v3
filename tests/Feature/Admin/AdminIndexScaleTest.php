@@ -4,6 +4,7 @@ use App\Enums\ContentTypeEnum;
 use App\Enums\PermissionEnum;
 use App\Enums\RoleEnum;
 use App\Enums\TransmissionTypeEnum;
+use App\Models\BotHeartbeat;
 use App\Models\Channel;
 use App\Models\Transmission;
 use App\Models\User;
@@ -142,4 +143,19 @@ it('sends the full route table to admins but trims admin routes for guests', fun
     $admin = $this->actingAs($this->superAdmin)->get(route('index'));
     $adminRoutes = array_keys($admin->viewData('page')['props']['ziggy']['routes']);
     expect(collect($adminRoutes)->contains(fn ($n) => str_starts_with($n, 'admin.')))->toBeTrue();
+});
+
+it('lists failed jobs and an offline bot under needs attention', function () {
+    DB::table('failed_jobs')->insert([
+        'uuid' => 'dash-2', 'connection' => 'database', 'queue' => 'default',
+        'payload' => '{}', 'exception' => 'x', 'failed_at' => now(),
+    ]);
+    BotHeartbeat::factory()->create(['reported_at' => now()->subHour()]);
+
+    $this->actingAs($this->superAdmin)
+        ->get(route('admin.dashboard'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('attention', 2)
+            ->where('attention.0.key', 'bot_offline')
+            ->where('attention.1.key', 'failed_jobs'));
 });

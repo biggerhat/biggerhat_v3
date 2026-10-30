@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface BlogPost {
@@ -45,12 +46,12 @@ const statusVariant = (status: string) => {
 const columns: ColumnDef<BlogPost>[] = [
     {
         accessorKey: 'title',
-        header: () => h('div', {}, 'Title'),
+        header: sortableHeader('Title'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('title')),
     },
     {
         accessorKey: 'category',
-        header: () => h('div', {}, 'Category'),
+        header: sortableHeader('Category'),
         cell: ({ row }) => {
             const cat = row.original.category;
             return h('div', {}, cat?.name ?? '—');
@@ -58,7 +59,7 @@ const columns: ColumnDef<BlogPost>[] = [
     },
     {
         accessorKey: 'status',
-        header: () => h('div', {}, 'Status'),
+        header: sortableHeader('Status'),
         cell: ({ row }) => {
             const status = row.getValue('status') as string;
             return h(Badge, { variant: statusVariant(status) }, () => status);
@@ -66,12 +67,12 @@ const columns: ColumnDef<BlogPost>[] = [
     },
     {
         accessorKey: 'author',
-        header: () => h('div', {}, 'Author'),
+        header: sortableHeader('Author'),
         cell: ({ row }) => h('div', {}, row.original.author?.name ?? '—'),
     },
     {
         accessorKey: 'created_at',
-        header: () => h('div', {}, 'Date'),
+        header: sortableHeader('Date'),
         cell: ({ row }) => {
             const date = row.original.published_at ?? row.original.created_at;
             return h('div', {}, new Date(date).toLocaleDateString());
@@ -107,7 +108,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {

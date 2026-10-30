@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { h, ref, watch } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const search = (filterValue as string).toLowerCase();
@@ -23,35 +24,35 @@ const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
 const columns: ColumnDef<Characteristics>[] = [
     {
         accessorKey: 'id',
-        header: () => h('div', {}, 'ID'),
+        header: sortableHeader('ID'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('id'));
         },
     },
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Action'),
+        header: sortableHeader('Action'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
         },
     },
     {
         accessorKey: 'type',
-        header: () => h('div', {}, 'Type'),
+        header: sortableHeader('Type'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('type'));
         },
     },
     {
         accessorKey: 'is_signature',
-        header: () => h('div', {}, 'Signature'),
+        header: sortableHeader('Signature'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('is_signature') ? 'Yes' : 'No');
         },
     },
     {
         accessorKey: 'game_mode_type',
-        header: () => h('div', {}, 'Game Mode'),
+        header: sortableHeader('Game Mode'),
         cell: ({ row }) => {
             return h('div', { class: 'capitalize' }, row.getValue('game_mode_type') ?? 'standard');
         },
@@ -59,7 +60,7 @@ const columns: ColumnDef<Characteristics>[] = [
     },
     {
         accessorKey: 'internal_notes',
-        header: () => h('div', {}, 'Internal Notes'),
+        header: sortableHeader('Internal Notes'),
         cell: ({ row }) => {
             const notes = row.getValue('internal_notes') as string | null;
             return h('div', { class: 'text-xs text-muted-foreground max-w-xs truncate' }, notes ?? '');
@@ -101,7 +102,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: globalSearchFilter,
     onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),

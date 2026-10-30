@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface DoctorRow {
@@ -36,7 +37,7 @@ const globalSearchFilter: FilterFn<DoctorRow> = (row, _columnId, filterValue) =>
 const columns: ColumnDef<DoctorRow>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Name'),
+        header: sortableHeader('Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
     },
     {
@@ -46,7 +47,7 @@ const columns: ColumnDef<DoctorRow>[] = [
     },
     {
         accessorKey: 'outcome_kind',
-        header: () => h('div', {}, 'Outcome'),
+        header: sortableHeader('Outcome'),
         cell: ({ row }) => h(Badge, { variant: 'outline', class: 'text-[10px]' }, () => row.original.outcome_kind),
     },
     {
@@ -76,7 +77,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: globalSearchFilter,
     onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),

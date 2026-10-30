@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -10,48 +11,48 @@ import { h, ref } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { Ban, Check } from 'lucide-vue-next';
 
 const columns: ColumnDef<Miniatures>[] = [
     {
         accessorKey: 'id',
-        header: () => h('div', {}, 'ID'),
+        header: sortableHeader('ID'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('id'));
         },
     },
     {
         accessorKey: 'display_name',
-        header: () => h('div', {}, 'Miniature'),
+        header: sortableHeader('Miniature'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('display_name'));
         },
     },
     {
         accessorKey: 'character_name',
-        header: () => h('div', {}, 'Character'),
+        header: sortableHeader('Character'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('character_name'));
         },
     },
     {
         accessorKey: 'front_image',
-        header: () => h('div', {}, 'Front Image'),
+        header: sortableHeader('Front Image'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('front_image') ? h(Check) : h(Ban));
         },
     },
     {
         accessorKey: 'back_image',
-        header: () => h('div', {}, 'Back Image'),
+        header: sortableHeader('Back Image'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('back_image') ? h(Check) : h(Ban));
         },
     },
     {
         accessorKey: 'version',
-        header: () => h('div', {}, 'Version'),
+        header: sortableHeader('Version'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('version'));
         },
@@ -90,7 +91,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {

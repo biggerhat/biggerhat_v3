@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -11,19 +12,19 @@ import { h, ref, watch } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
 const columns: ColumnDef<Keywords>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Keyword'),
+        header: sortableHeader('Keyword'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
         },
     },
     {
         accessorKey: 'game_mode_type',
-        header: () => h('div', {}, 'Game Mode'),
+        header: sortableHeader('Game Mode'),
         cell: ({ row }) => {
             return h('div', { class: 'capitalize' }, row.getValue('game_mode_type') ?? 'standard');
         },
@@ -64,7 +65,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { h, ref } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
 interface Channel {
     id: number;
@@ -25,14 +26,14 @@ interface Channel {
 const columns: ColumnDef<Channel>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Channel'),
+        header: sortableHeader('Channel'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
         },
     },
     {
         accessorKey: 'transmissions_count',
-        header: () => h('div', {}, 'Transmissions'),
+        header: sortableHeader('Transmissions'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('transmissions_count'));
         },
@@ -79,7 +80,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {

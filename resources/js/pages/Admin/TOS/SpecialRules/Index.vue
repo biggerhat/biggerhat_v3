@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface Rule {
@@ -22,7 +23,7 @@ const columns: ColumnDef<Rule>[] = [
     { accessorKey: 'name', header: () => h('div', {}, 'Name'), cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')) },
     {
         accessorKey: 'slug',
-        header: () => h('div', {}, 'Slug'),
+        header: sortableHeader('Slug'),
         cell: ({ row }) => h('div', { class: 'text-[11px] text-muted-foreground' }, row.getValue('slug')),
     },
     {
@@ -49,7 +50,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {

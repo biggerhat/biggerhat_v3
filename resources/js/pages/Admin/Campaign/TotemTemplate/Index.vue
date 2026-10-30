@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, FilterFn } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface TotemRow {
@@ -36,12 +37,12 @@ const globalSearchFilter: FilterFn<TotemRow> = (row, _columnId, filterValue) => 
 const columns: ColumnDef<TotemRow>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Name'),
+        header: sortableHeader('Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
     },
     {
         accessorKey: 'faction',
-        header: () => h('div', {}, 'Faction'),
+        header: sortableHeader('Faction'),
         cell: ({ row }) => h('div', { class: 'capitalize' }, row.getValue('faction')),
     },
     {
@@ -86,7 +87,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: globalSearchFilter,
     onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),

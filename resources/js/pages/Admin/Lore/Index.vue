@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { h, ref } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
 const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     const search = (filterValue as string).toLowerCase();
@@ -22,12 +23,12 @@ const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
 const columns: ColumnDef<any>[] = [
     {
         accessorKey: 'id',
-        header: () => h('div', {}, 'ID'),
+        header: sortableHeader('ID'),
         cell: ({ row }) => h('div', {}, row.getValue('id')),
     },
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Story Name'),
+        header: sortableHeader('Story Name'),
         cell: ({ row }) => h('div', {}, row.getValue('name')),
     },
     {
@@ -93,7 +94,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: globalSearchFilter,
     onGlobalFilterChange: (updaterOrValue) => valueUpdater(updaterOrValue, globalFilter),

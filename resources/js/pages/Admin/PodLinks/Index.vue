@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { h, ref } from 'vue';
 
 interface PodLink {
@@ -33,12 +34,12 @@ const sourceBadgeClass = (source: string) => {
 const columns: ColumnDef<PodLink>[] = [
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Name'),
+        header: sortableHeader('Name'),
         cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')),
     },
     {
         accessorKey: 'source',
-        header: () => h('div', {}, 'Source'),
+        header: sortableHeader('Source'),
         cell: ({ row }) => {
             const source = row.getValue('source') as string;
             return h(Badge, { class: ['border-0 text-xs', sourceBadgeClass(source)], variant: 'outline' }, () => sourceLabel(source));
@@ -46,7 +47,7 @@ const columns: ColumnDef<PodLink>[] = [
     },
     {
         accessorKey: 'url',
-        header: () => h('div', {}, 'URL'),
+        header: sortableHeader('URL'),
         cell: ({ row }) => {
             const url = row.getValue('url') as string;
             return h(
@@ -89,7 +90,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sortableHeader } from '@/lib/adminTable';
 import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
@@ -11,40 +12,40 @@ import { h, ref, watch } from 'vue';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
 const columns: ColumnDef<Abilities>[] = [
     {
         accessorKey: 'id',
-        header: () => h('div', {}, 'ID'),
+        header: sortableHeader('ID'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('id'));
         },
     },
     {
         accessorKey: 'name',
-        header: () => h('div', {}, 'Ability'),
+        header: sortableHeader('Ability'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('name'));
         },
     },
     {
         accessorKey: 'suits',
-        header: () => h('div', {}, 'Suits'),
+        header: sortableHeader('Suits'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('suits') ?? '-');
         },
     },
     {
         accessorKey: 'defensive_ability_type',
-        header: () => h('div', {}, 'Defensive Type'),
+        header: sortableHeader('Defensive Type'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('defensive_ability_type') ?? '-');
         },
     },
     {
         accessorKey: 'game_mode_type',
-        header: () => h('div', {}, 'Game Mode'),
+        header: sortableHeader('Game Mode'),
         cell: ({ row }) => {
             return h('div', { class: 'capitalize' }, row.getValue('game_mode_type') ?? 'standard');
         },
@@ -52,7 +53,7 @@ const columns: ColumnDef<Abilities>[] = [
     },
     {
         accessorKey: 'costs_stone',
-        header: () => h('div', {}, 'Costs Stone'),
+        header: sortableHeader('Costs Stone'),
         cell: ({ row }) => {
             return h('div', {}, row.getValue('costs_stone') ? 'Yes' : 'No');
         },
@@ -92,7 +93,9 @@ const table = useVueTable({
         return columns;
     },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
     onColumnFiltersChange: (updaterOrValue) => valueUpdater(updaterOrValue, columnFilters),
     getFilteredRowModel: getFilteredRowModel(),
     state: {

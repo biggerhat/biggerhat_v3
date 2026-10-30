@@ -176,14 +176,14 @@ const confirmPendingScheme = () => {
                     <div class="mb-2 text-sm font-medium">{{ pendingScheme.name }} — Setup</div>
 
                     <!-- Prerequisite hint -->
-                    <div v-if="pendingScheme.prerequisite" class="mb-3 text-[11px] italic text-muted-foreground">
+                    <div v-if="pendingScheme.prerequisite" class="mb-3 text-2xs italic text-muted-foreground">
                         {{ pendingScheme.prerequisite }}
                     </div>
 
                     <div v-if="pendingSchemeReqs.length" class="mb-3 space-y-2">
                         <!-- Model selection -->
                         <div v-if="pendingModelReq">
-                            <Label class="text-[10px] uppercase text-muted-foreground">{{ pendingModelLabel }}</Label>
+                            <Label class="text-2xs uppercase text-muted-foreground">{{ pendingModelLabel }}</Label>
                             <Select
                                 v-if="pendingModelOptions.length"
                                 :model-value="pendingSchemeModel || '__none__'"
@@ -204,7 +204,7 @@ const confirmPendingScheme = () => {
 
                         <!-- Marker selection -->
                         <div v-if="pendingHasMarkerReq">
-                            <Label class="text-[10px] uppercase text-muted-foreground">Target Marker</Label>
+                            <Label class="text-2xs uppercase text-muted-foreground">Target Marker</Label>
                             <Select
                                 :model-value="pendingSchemeMarker || '__none__'"
                                 @update:model-value="(v) => (pendingSchemeMarker = v === '__none__' ? '' : (v as string))"
@@ -221,7 +221,7 @@ const confirmPendingScheme = () => {
 
                         <!-- Terrain note -->
                         <div v-if="pendingHasTerrainReq">
-                            <Label class="text-[10px] uppercase text-muted-foreground">Terrain Note</Label>
+                            <Label class="text-2xs uppercase text-muted-foreground">Terrain Note</Label>
                             <Input
                                 v-model="pendingSchemeTerrainNote"
                                 type="text"
@@ -273,7 +273,7 @@ const confirmPendingScheme = () => {
                         <Badge
                             v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'"
                             :class="categoryColor(member.hiring_category)"
-                            class="shrink-0 px-1 py-0 text-[10px]"
+                            class="shrink-0 px-1 py-0 text-2xs"
                         >
                             {{ categoryLabel(member.hiring_category) }}
                         </Badge>

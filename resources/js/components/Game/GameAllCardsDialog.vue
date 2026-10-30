@@ -72,11 +72,11 @@ const badgeClass = (tone?: 'amber' | 'red' | 'muted' | 'primary') => {
                         <div class="flex items-center justify-between gap-2">
                             <div class="min-w-0">
                                 <div class="truncate text-sm font-semibold">{{ entry.title }}</div>
-                                <div v-if="entry.subtitle" class="truncate text-[11px] italic text-muted-foreground">{{ entry.subtitle }}</div>
+                                <div v-if="entry.subtitle" class="truncate text-2xs italic text-muted-foreground">{{ entry.subtitle }}</div>
                             </div>
                             <span
                                 v-if="entry.badge"
-                                class="shrink-0 rounded border px-1.5 py-0 text-[10px] font-medium uppercase tracking-wider"
+                                class="shrink-0 rounded border px-1.5 py-0 text-2xs font-medium uppercase tracking-wider"
                                 :class="badgeClass(entry.badgeTone)"
                                 >{{ entry.badge }}</span
                             >

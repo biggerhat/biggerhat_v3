@@ -72,7 +72,7 @@ const emit = defineEmits<{
                         />
                         <div class="min-w-0 flex-1">
                             <div class="truncate font-medium">{{ char.display_name }}</div>
-                            <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
+                            <div v-if="char.type" class="text-2xs text-muted-foreground">{{ char.type }}</div>
                         </div>
                     </button>
                 </div>

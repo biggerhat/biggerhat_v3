@@ -66,7 +66,7 @@ const emit = defineEmits<{
                             </div>
                         </div>
                         <div
-                            class="px-2 py-1.5 text-center text-[11px] font-medium leading-tight"
+                            class="px-2 py-1.5 text-center text-2xs font-medium leading-tight"
                             :class="String(mini.id) === String(selectedId) ? 'bg-primary/10 text-foreground' : 'bg-muted/40 text-muted-foreground'"
                         >
                             {{ mini.display_name }}

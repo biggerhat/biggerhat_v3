@@ -47,7 +47,7 @@ defineEmits<{
                             @click="selectedFaction = key as string"
                         >
                             <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
-                            <span class="text-center text-[10px] font-medium sm:text-xs">{{ faction.name }}</span>
+                            <span class="text-center text-2xs font-medium sm:text-xs">{{ faction.name }}</span>
                         </button>
                     </div>
                     <div v-if="selectedFaction" class="mt-4 flex justify-center">
@@ -64,7 +64,7 @@ defineEmits<{
                     </div>
                     <h2 class="mb-1 text-lg font-semibold">
                         Select Opponent's Faction
-                        <Badge variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Opponent</Badge>
+                        <Badge variant="outline" class="ml-1 border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400">Opponent</Badge>
                     </h2>
                     <p class="mb-4 text-xs text-muted-foreground">Choose the faction for your opponent.</p>
                     <div class="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-8">
@@ -76,7 +76,7 @@ defineEmits<{
                             @click="selectedOpponentFaction = key as string"
                         >
                             <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
-                            <span class="text-center text-[10px] font-medium sm:text-xs">{{ faction.name }}</span>
+                            <span class="text-center text-2xs font-medium sm:text-xs">{{ faction.name }}</span>
                         </button>
                     </div>
                     <div v-if="selectedOpponentFaction" class="mt-4 flex justify-center">
@@ -106,7 +106,7 @@ defineEmits<{
                             @click="selectedFaction = key as string"
                         >
                             <img :src="faction.logo" :alt="faction.name" class="size-10 sm:size-12" />
-                            <span class="text-center text-[10px] font-medium sm:text-xs">{{ faction.name }}</span>
+                            <span class="text-center text-2xs font-medium sm:text-xs">{{ faction.name }}</span>
                         </button>
                     </div>
                     <div v-if="selectedFaction" class="mt-4 flex justify-center">

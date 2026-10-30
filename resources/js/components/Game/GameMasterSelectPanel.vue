@@ -127,7 +127,7 @@ const confirmOpponentMasterSelection = () => {
                 <template v-else>
                     {{ isSolo && masterStepDone ? "Select Opponent's Master" : 'Select Your Master' }}
                 </template>
-                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
+                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400"
                     >Opponent</Badge
                 >
             </h2>
@@ -152,7 +152,7 @@ const confirmOpponentMasterSelection = () => {
                         <Search class="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                         <Input v-model="masterSearchQuery" placeholder="Search by name or title…" class="h-9 pl-7 text-sm" />
                     </div>
-                    <div class="mt-1 text-[11px] text-muted-foreground">
+                    <div class="mt-1 text-2xs text-muted-foreground">
                         {{ filteredMasters.length }} of {{ availableMasters.length }}
                         {{ availableMasters.length === 1 ? 'master' : 'masters' }}
                     </div>
@@ -189,7 +189,7 @@ const confirmOpponentMasterSelection = () => {
                                     <Badge
                                         v-if="master.is_alternate_leader"
                                         variant="outline"
-                                        class="border-cyan-500/50 px-1 py-0 text-[10px] text-cyan-600 dark:text-cyan-400"
+                                        class="border-cyan-500/50 px-1 py-0 text-2xs text-cyan-600 dark:text-cyan-400"
                                     >
                                         Alt Leader
                                     </Badge>
@@ -197,11 +197,11 @@ const confirmOpponentMasterSelection = () => {
                                     <Badge
                                         v-if="isBonanza && master.titles.length === 1 && master.titles[0].bonanza_cost !== undefined"
                                         variant="outline"
-                                        class="border-purple-500/50 px-1 py-0 text-[10px] text-purple-600 dark:text-purple-300"
+                                        class="border-purple-500/50 px-1 py-0 text-2xs text-purple-600 dark:text-purple-300"
                                         >{{ master.titles[0].bonanza_cost }}ss</Badge
                                     >
                                 </div>
-                                <div v-if="!isBonanza && master.titles.length > 1" class="mt-0.5 text-[10px] text-muted-foreground">
+                                <div v-if="!isBonanza && master.titles.length > 1" class="mt-0.5 text-2xs text-muted-foreground">
                                     {{ master.titles.length }} titles — choose during crew select
                                 </div>
                                 <div v-else-if="isBonanza && master.titles.length > 1" class="mt-1 flex flex-wrap gap-1">
@@ -209,7 +209,7 @@ const confirmOpponentMasterSelection = () => {
                                         v-for="t in master.titles"
                                         :key="t.id"
                                         type="button"
-                                        class="rounded border px-1.5 py-0.5 text-[10px] transition-colors"
+                                        class="rounded border px-1.5 py-0.5 text-2xs transition-colors"
                                         :class="
                                             selectedMasterName === master.name && selectedMasterTitle === (t.display_name ?? master.name)
                                                 ? 'border-primary bg-primary text-primary-foreground'
@@ -239,9 +239,9 @@ const confirmOpponentMasterSelection = () => {
                     >
                         <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
                             <div class="min-w-0 flex-1">
-                                <div class="text-[10px] uppercase tracking-wider text-muted-foreground">Selected</div>
+                                <div class="text-2xs uppercase tracking-wider text-muted-foreground">Selected</div>
                                 <div class="truncate text-sm font-medium">{{ selectedMasterTitle ?? selectedMasterName }}</div>
-                                <div v-if="masterRequiresTitle && !selectedMasterTitle" class="text-[11px] text-amber-600 dark:text-amber-400">
+                                <div v-if="masterRequiresTitle && !selectedMasterTitle" class="text-2xs text-amber-600 dark:text-amber-400">
                                     Pick a title to continue
                                 </div>
                             </div>

@@ -113,7 +113,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                         <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-700 dark:text-amber-400" />
                         <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
                         <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
-                        <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[10px] text-muted-foreground">
+                        <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-2xs text-muted-foreground">
                             {{ usageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}
                         </span>
                     </button>
@@ -148,7 +148,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                             <Check v-if="memberHasUpgrade(upgrade.id)" class="size-3 shrink-0 text-amber-700 dark:text-amber-400" />
                             <ArrowUpCircle v-else class="size-3 shrink-0 text-muted-foreground" />
                             <span class="min-w-0 flex-1 truncate text-xs">{{ upgrade.name }}</span>
-                            <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-[10px] text-muted-foreground">
+                            <span v-if="(upgrade.plentiful ?? 1) > 1" class="shrink-0 text-2xs text-muted-foreground">
                                 {{ usageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}
                             </span>
                         </button>

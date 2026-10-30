@@ -332,7 +332,7 @@ const handleVisualPick = (miniatureId: number) => {
                     <!-- Misc notes — visible to both players, editable by the owner. -->
                     <div class="space-y-3 px-4 pt-2">
                         <div class="space-y-1">
-                            <Label class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</Label>
+                            <Label class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</Label>
                             <Textarea
                                 v-model="memberNotes"
                                 :placeholder="canEditNotes ? 'Anything to remember about this model…' : 'No notes'"
@@ -361,7 +361,7 @@ const handleVisualPick = (miniatureId: number) => {
                              rules text) via the same GameAttachedUpgradeDrawer preview
                              the main crew list uses. -->
                         <div v-if="(member.attached_upgrades ?? []).length" class="space-y-1">
-                            <div class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Attached Upgrades</div>
+                            <div class="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Attached Upgrades</div>
                             <div class="flex flex-wrap gap-1">
                                 <span
                                     v-for="upgrade in member.attached_upgrades ?? []"

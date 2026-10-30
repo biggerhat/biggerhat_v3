@@ -313,7 +313,7 @@ const confirmCampaignCrew = () => {
         <CardContent class="p-4 sm:p-6">
             <h2 class="mb-1 text-lg font-semibold">
                 {{ isSolo && crewStepDone ? "Opponent's Crew" : 'Select Your Crew' }}
-                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400"
+                <Badge v-if="isOpponentSetupPhase" variant="outline" class="ml-1 border-amber-500/50 text-2xs text-amber-600 dark:text-amber-400"
                     >Opponent</Badge
                 >
             </h2>
@@ -333,9 +333,9 @@ const confirmCampaignCrew = () => {
                         <Link :href="newCrewUrl" class="text-primary underline">create a new one</Link>.
                     </p>
                     <div v-if="masterTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
-                        <span class="text-[11px] text-muted-foreground">Filter:</span>
+                        <span class="text-2xs text-muted-foreground">Filter:</span>
                         <button
-                            class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                            class="rounded-md border px-2 py-0.5 text-2xs transition-colors"
                             :class="!filterTitleId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
                             @click="filterTitleId = null"
                         >
@@ -344,7 +344,7 @@ const confirmCampaignCrew = () => {
                         <button
                             v-for="title in masterTitleOptions"
                             :key="title.id"
-                            class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                            class="rounded-md border px-2 py-0.5 text-2xs transition-colors"
                             :class="filterTitleId === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
                             @click="filterTitleId = title.id"
                         >
@@ -360,7 +360,7 @@ const confirmCampaignCrew = () => {
                     <span class="text-xs font-medium" :class="campaignOverBudget ? 'text-destructive' : 'text-foreground'">
                         {{ campaignTotalCost }} / {{ game.encounter_size }}ss
                         <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                        <span v-if="campaignOverBudget" class="ml-1 text-[10px]">Over budget</span>
+                        <span v-if="campaignOverBudget" class="ml-1 text-2xs">Over budget</span>
                     </span>
                     <Button :disabled="submitting || campaignOverBudget" size="sm" @click="confirmCampaignCrew">
                         <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
@@ -377,7 +377,7 @@ const confirmCampaignCrew = () => {
                             v-for="inj in campaignLeader.injuries"
                             :key="`ldr-inj-${inj.id}`"
                             variant="destructive"
-                            class="shrink-0 px-1 py-0 text-[10px]"
+                            class="shrink-0 px-1 py-0 text-2xs"
                         >
                             {{ inj.name }}
                         </Badge>
@@ -388,7 +388,7 @@ const confirmCampaignCrew = () => {
                             v-for="inj in campaignTotem.injuries"
                             :key="`ttm-inj-${inj.id}`"
                             variant="destructive"
-                            class="shrink-0 px-1 py-0 text-[10px]"
+                            class="shrink-0 px-1 py-0 text-2xs"
                         >
                             {{ inj.name }}
                         </Badge>
@@ -424,18 +424,18 @@ const confirmCampaignCrew = () => {
                                  the primary label with the actual unit name in parens, same
                                  convention as the Arsenal Sheet's stacked nickname/name display. -->
                             <span class="truncate font-medium">{{ m.label || m.name }}</span>
-                            <span v-if="m.label" class="shrink-0 text-[10px] text-muted-foreground">({{ m.name }})</span>
-                            <span v-if="campaignArsenalCopyLabel[m.id]" class="shrink-0 text-[10px] text-muted-foreground"
+                            <span v-if="m.label" class="shrink-0 text-2xs text-muted-foreground">({{ m.name }})</span>
+                            <span v-if="campaignArsenalCopyLabel[m.id]" class="shrink-0 text-2xs text-muted-foreground"
                                 >({{ campaignArsenalCopyLabel[m.id] }})</span
                             >
                             <Badge
                                 v-if="m.is_ook"
                                 variant="outline"
-                                class="shrink-0 border-amber-500/50 px-1 py-0 text-[10px] text-amber-600 dark:text-amber-400"
+                                class="shrink-0 border-amber-500/50 px-1 py-0 text-2xs text-amber-600 dark:text-amber-400"
                                 >OOK</Badge
                             >
-                            <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-[10px]">Peon</Badge>
-                            <Badge v-for="inj in m.injuries" :key="`inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-[10px]">
+                            <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Peon</Badge>
+                            <Badge v-for="inj in m.injuries" :key="`inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-2xs">
                                 {{ inj.name }}
                             </Badge>
                             <!-- Only the ability a Lucky Miss result granted, not also its own
@@ -445,7 +445,7 @@ const confirmCampaignCrew = () => {
                                 <Badge
                                     v-for="lm in m.lucky_miss"
                                     :key="`lm-${lm}`"
-                                    class="shrink-0 bg-green-600 px-1 py-0 text-[10px] text-white hover:bg-green-600"
+                                    class="shrink-0 bg-green-600 px-1 py-0 text-2xs text-white hover:bg-green-600"
                                 >
                                     {{ lm }}
                                 </Badge>
@@ -453,14 +453,14 @@ const confirmCampaignCrew = () => {
                             <Badge
                                 v-for="ab in m.gained_abilities"
                                 :key="`ab-${ab.id}`"
-                                class="shrink-0 bg-blue-600 px-1 py-0 text-[10px] text-white hover:bg-blue-600"
+                                class="shrink-0 bg-blue-600 px-1 py-0 text-2xs text-white hover:bg-blue-600"
                             >
                                 {{ ab.name }}
                             </Badge>
                         </div>
                         <div class="ml-2 shrink-0 font-bold">
                             {{ m.effective_cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                            <span v-if="m.is_ook" class="ml-0.5 text-[10px] font-normal text-muted-foreground">({{ m.cost }}+1)</span>
+                            <span v-if="m.is_ook" class="ml-0.5 text-2xs font-normal text-muted-foreground">({{ m.cost }}+1)</span>
                         </div>
                     </div>
                 </div>
@@ -476,7 +476,7 @@ const confirmCampaignCrew = () => {
                                 <Badge
                                     v-if="campaignOwnedEquipment.find((e) => e.id === slot.equipmentId)?.is_advanced"
                                     variant="outline"
-                                    class="ml-1 text-[10px]"
+                                    class="ml-1 text-2xs"
                                     title="Has an advancement tied to it — Leader/Totem only"
                                 >
                                     Advanced
@@ -530,9 +530,9 @@ const confirmCampaignCrew = () => {
                                 <div class="min-w-0 flex-1">
                                     <p class="break-words text-sm font-medium leading-tight">{{ crew.name }}</p>
                                     <div class="mt-1 flex flex-wrap items-center gap-1">
-                                        <Badge v-if="crew.master_name" variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
-                                        <Badge variant="secondary" class="text-[10px]">{{ crew.encounter_size }}ss</Badge>
-                                        <Badge v-if="crew.is_over_budget" variant="destructive" class="text-[10px]">Over Budget</Badge>
+                                        <Badge v-if="crew.master_name" variant="secondary" class="text-2xs">{{ crew.master_name }}</Badge>
+                                        <Badge variant="secondary" class="text-2xs">{{ crew.encounter_size }}ss</Badge>
+                                        <Badge v-if="crew.is_over_budget" variant="destructive" class="text-2xs">Over Budget</Badge>
                                     </div>
                                 </div>
                                 <ChevronDown
@@ -577,7 +577,7 @@ const confirmCampaignCrew = () => {
                                     >
                                         <div class="flex min-w-0 items-center gap-1.5">
                                             <span class="truncate font-medium">{{ member.display_name }}</span>
-                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
+                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-2xs">
                                                 {{ categoryLabel(member.category) }}
                                             </Badge>
                                         </div>
@@ -585,7 +585,7 @@ const confirmCampaignCrew = () => {
                                             <template v-if="member.category === 'ook'">
                                                 {{ member.effective_cost }}
                                                 <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                                <span class="ml-0.5 text-[10px] font-normal text-white/90">({{ member.cost }}+1)</span>
+                                                <span class="ml-0.5 text-2xs font-normal text-white/90">({{ member.cost }}+1)</span>
                                             </template>
                                             <template v-else>
                                                 {{ member.effective_cost }}
@@ -644,9 +644,9 @@ const confirmCampaignCrew = () => {
                     </Link>
                 </div>
                 <div v-if="opponentTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
-                    <span class="text-[11px] text-muted-foreground">Filter:</span>
+                    <span class="text-2xs text-muted-foreground">Filter:</span>
                     <button
-                        class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                        class="rounded-md border px-2 py-0.5 text-2xs transition-colors"
                         :class="!opponentFilterTitleId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
                         @click="opponentFilterTitleId = null"
                     >
@@ -655,7 +655,7 @@ const confirmCampaignCrew = () => {
                     <button
                         v-for="title in opponentTitleOptions"
                         :key="title.id"
-                        class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                        class="rounded-md border px-2 py-0.5 text-2xs transition-colors"
                         :class="opponentFilterTitleId === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
                         @click="opponentFilterTitleId = title.id"
                     >
@@ -679,9 +679,9 @@ const confirmCampaignCrew = () => {
                                 <div class="min-w-0 flex-1">
                                     <p class="break-words text-sm font-medium leading-tight">{{ crew.name }}</p>
                                     <div class="mt-1 flex flex-wrap items-center gap-1">
-                                        <Badge v-if="crew.master_name" variant="secondary" class="text-[10px]">{{ crew.master_name }}</Badge>
-                                        <Badge variant="secondary" class="text-[10px]">{{ crew.encounter_size }}ss</Badge>
-                                        <Badge v-if="crew.is_over_budget" variant="destructive" class="text-[10px]">Over Budget</Badge>
+                                        <Badge v-if="crew.master_name" variant="secondary" class="text-2xs">{{ crew.master_name }}</Badge>
+                                        <Badge variant="secondary" class="text-2xs">{{ crew.encounter_size }}ss</Badge>
+                                        <Badge v-if="crew.is_over_budget" variant="destructive" class="text-2xs">Over Budget</Badge>
                                     </div>
                                 </div>
                                 <ChevronDown
@@ -722,7 +722,7 @@ const confirmCampaignCrew = () => {
                                     >
                                         <div class="flex min-w-0 items-center gap-1.5">
                                             <span class="truncate font-medium">{{ member.display_name }}</span>
-                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-[10px]">
+                                            <Badge :class="categoryColor(member.category)" class="shrink-0 px-1 py-0 text-2xs">
                                                 {{ categoryLabel(member.category) }}
                                             </Badge>
                                         </div>
@@ -730,7 +730,7 @@ const confirmCampaignCrew = () => {
                                             <template v-if="member.category === 'ook'">
                                                 {{ member.effective_cost }}
                                                 <GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                                <span class="ml-0.5 text-[10px] font-normal text-white/90">({{ member.cost }}+1)</span>
+                                                <span class="ml-0.5 text-2xs font-normal text-white/90">({{ member.cost }}+1)</span>
                                             </template>
                                             <template v-else>
                                                 {{ member.effective_cost }}
@@ -761,7 +761,7 @@ const confirmCampaignCrew = () => {
                         <button
                             v-for="title in opponentTitleOptions"
                             :key="'skip-title-' + title.id"
-                            class="rounded-md border px-2 py-0.5 text-[11px] transition-colors"
+                            class="rounded-md border px-2 py-0.5 text-2xs transition-colors"
                             :class="selectedOpponentTitleForSkip === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
                             @click="selectedOpponentTitleForSkip = title.id"
                         >

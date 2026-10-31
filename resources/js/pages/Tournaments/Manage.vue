@@ -1575,6 +1575,9 @@ const titlesForMaster = (masterName: string | null) => {
                     <template v-else>
                         <div class="mb-4">
                             <h3 class="text-sm font-semibold">{{ tournament.rsvps.length }} RSVPs</h3>
+                            <p v-if="tournament.status === 'draft'" class="text-xs text-muted-foreground">
+                                Open registration to turn these RSVPs into players.
+                            </p>
                         </div>
                         <div class="space-y-1.5">
                             <div
@@ -1596,7 +1599,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         "
                                         variant="outline"
                                         size="sm"
-                                        class="h-6 gap-1 px-2 text-2xs"
+                                        class="h-8 gap-1 px-2.5 text-xs"
                                         @click="openRsvpPlayerDialog(rsvp)"
                                     >
                                         <Plus class="size-2.5" /> Register
@@ -2108,8 +2111,9 @@ const titlesForMaster = (masterName: string | null) => {
                                                     :class="gameStatus(game, round).tone"
                                                     >{{ gameStatus(game, round).label }}</span
                                                 >
+                                                <span v-if="game.is_bye" class="text-xs text-muted-foreground">Automatic win</span>
                                                 <span
-                                                    v-if="game.result === 'completed' || game.result === 'forfeited'"
+                                                    v-else-if="game.result === 'completed' || game.result === 'forfeited'"
                                                     class="text-sm font-bold tabular-nums"
                                                     >{{ game.player_one_vp ?? '-' }} – {{ game.player_two_vp ?? '-' }}</span
                                                 >
@@ -2515,7 +2519,7 @@ const titlesForMaster = (masterName: string | null) => {
                 <!-- Tracker status — visible whenever this tournament game is linked to a live tracker game. -->
                 <div
                     v-if="editingGame.tracker_game"
-                    class="flex items-start gap-2 rounded-md border p-2.5 text-xs"
+                    class="flex flex-wrap items-start gap-2 rounded-md border p-2.5 text-xs"
                     :class="
                         trackerInProgress
                             ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200'
@@ -2526,7 +2530,7 @@ const titlesForMaster = (masterName: string | null) => {
                                 : 'border-muted-foreground/20 bg-muted/50 text-muted-foreground'
                     "
                 >
-                    <div class="flex-1 space-y-0.5">
+                    <div class="min-w-48 flex-1 space-y-0.5">
                         <div class="font-semibold">
                             <template v-if="trackerInProgress">
                                 Tracker game in progress (turn {{ editingGame.tracker_game.current_turn }} of
@@ -2548,19 +2552,19 @@ const titlesForMaster = (masterName: string | null) => {
                             <template v-else>Scores below may be pre-filled from the linked tracker.</template>
                         </div>
                     </div>
-                    <div class="flex shrink-0 flex-col gap-1.5">
+                    <div class="flex shrink-0 flex-wrap gap-1.5 sm:flex-col">
                         <a
                             :href="route('games.show', editingGame.tracker_game.uuid)"
                             target="_blank"
                             rel="noopener"
-                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-center text-2xs font-medium"
+                            class="border-current/30 hover:bg-current/10 rounded border px-2.5 py-1.5 text-center text-xs font-medium"
                         >
                             Open tracker
                         </a>
                         <button
                             v-if="trackerInProgress"
                             type="button"
-                            class="border-current/30 hover:bg-current/10 rounded border px-2 py-0.5 text-2xs font-medium"
+                            class="border-current/30 hover:bg-current/10 rounded border px-2.5 py-1.5 text-xs font-medium"
                             :disabled="completingTracker"
                             @click="completeTrackerGame"
                         >

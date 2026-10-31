@@ -88,6 +88,10 @@ class TournamentRoundController extends Controller
     {
         $this->authorize('manage', $tournament);
 
+        if ($tournament->status === TournamentStatusEnum::Completed) {
+            return response()->json(['error' => 'This tournament is completed, so its rounds are locked.'], 422);
+        }
+
         // Never delete a round that is currently in progress — that's
         // destructive to live game state. Setup and Completed rounds can be
         // removed (Setup is empty by definition; Completed is at the TO's

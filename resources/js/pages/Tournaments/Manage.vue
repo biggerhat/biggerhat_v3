@@ -1893,16 +1893,23 @@ const titlesForMaster = (masterName: string | null) => {
                                             >{{ round.strategy.name }}</span
                                         >
                                         <button
-                                            v-if="round.status !== 'in_progress'"
+                                            v-if="round.status !== 'in_progress' && tournament.status !== 'completed'"
                                             class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                             title="Delete this round"
+                                            :aria-label="`Delete round ${round.round_number}`"
                                             @click="deleteRound(round.id, round.round_number)"
                                         >
                                             <X class="size-3.5" />
                                         </button>
                                     </div>
                                     <div class="flex items-center gap-1">
-                                        <Button variant="ghost" size="sm" class="h-7 px-2 text-2xs sm:text-xs" @click="toggleScenarioEdit(round)">
+                                        <Button
+                                            v-if="tournament.status !== 'completed' || round.strategy || round.deployment"
+                                            variant="ghost"
+                                            size="sm"
+                                            class="h-7 px-2 text-2xs sm:text-xs"
+                                            @click="toggleScenarioEdit(round)"
+                                        >
                                             {{
                                                 expandedScenarioRoundId === round.id
                                                     ? 'Hide Scenario'

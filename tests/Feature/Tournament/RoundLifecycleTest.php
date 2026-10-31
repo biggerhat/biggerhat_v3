@@ -66,6 +66,17 @@ it('refuses to delete a round that is currently in progress', function () {
         ->assertJsonFragment(['error' => 'Cannot delete a round that is in progress.']);
 });
 
+it('refuses to delete any round once the tournament is completed', function () {
+    $r = TournamentRound::factory()->for($this->tournament)->completed()->create(['round_number' => 1]);
+    $this->tournament->update(['status' => 'completed']);
+
+    $this->actingAs($this->creator)
+        ->deleteJson(route('tournaments.rounds.delete', [$this->tournament->uuid, $r]))
+        ->assertStatus(422);
+
+    expect($r->fresh())->not->toBeNull();
+});
+
 it('only marks bye games Completed when the round is started, not at pair time', function () {
     // Set up a Round 1 with 3 players (forces a bye).
     $players = \App\Models\TournamentPlayer::factory()->for($this->tournament)->count(3)->create();

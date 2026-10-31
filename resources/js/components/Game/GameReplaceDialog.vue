@@ -79,8 +79,9 @@ const emit = defineEmits<{
             </div>
 
             <!-- Search all characters -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <!-- With no reference characters the search is the only way in, so start it expanded. -->
+            <details class="rounded-md border" :open="!referenceCharacters.length">
+                <summary class="cursor-pointer px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                     Search All Characters
                 </summary>
                 <div class="border-t px-1 pb-1 pt-1">

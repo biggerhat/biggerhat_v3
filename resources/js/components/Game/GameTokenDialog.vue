@@ -95,8 +95,8 @@ const filteredTokens = computed(() => {
             </div>
 
             <!-- All tokens -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">All Tokens</summary>
+            <details class="rounded-md border" :open="!referenceTokens.length && !member?.attached_tokens?.length">
+                <summary class="cursor-pointer px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">All Tokens</summary>
                 <div class="border-t px-1 pb-1 pt-1">
                     <Input :model-value="search" placeholder="Filter..." class="mb-1" @update:model-value="(v) => emit('update:search', String(v))" />
                     <div class="max-h-36 space-y-0.5 overflow-y-auto">

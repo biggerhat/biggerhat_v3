@@ -126,7 +126,7 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                  empty/broken on first open). Open by default since it's the
                  primary interaction, not a rarely-needed extra. -->
             <details class="rounded-md border" open>
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                <summary class="cursor-pointer px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                     {{ optionsLabel }}
                 </summary>
                 <div class="border-t px-1 pb-1 pt-1">

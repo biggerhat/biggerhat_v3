@@ -4146,7 +4146,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <div class="flex items-center gap-1.5">
                                                 <button
                                                     aria-label="Decrease strategy points"
-                                                    class="rounded border p-1.5 hover:bg-muted"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     @click="strategyPoints = Math.max(0, strategyPoints - 1)"
                                                 >
                                                     <Minus class="size-3.5" />
@@ -4154,7 +4154,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <span class="w-7 text-center text-lg font-bold tabular-nums">{{ strategyPoints }}</span>
                                                 <button
                                                     aria-label="Increase strategy points"
-                                                    class="rounded border p-1.5 hover:bg-muted"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     :disabled="strategyPoints >= maxStrategyThisTurn"
                                                     :class="strategyPoints >= maxStrategyThisTurn ? 'opacity-30' : ''"
                                                     @click="strategyPoints = Math.min(maxStrategyThisTurn, strategyPoints + 1)"
@@ -4192,7 +4192,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <div class="flex items-center gap-1.5">
                                                 <button
                                                     aria-label="Decrease scheme points"
-                                                    class="rounded border p-1.5 hover:bg-muted"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     @click="schemePoints = Math.max(0, schemePoints - 1)"
                                                 >
                                                     <Minus class="size-3.5" />
@@ -4200,7 +4200,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <span class="w-7 text-center text-lg font-bold tabular-nums">{{ schemePoints }}</span>
                                                 <button
                                                     aria-label="Increase scheme points"
-                                                    class="rounded border p-1.5 hover:bg-muted"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     :disabled="schemePoints >= maxSchemeThisTurn"
                                                     :class="schemePoints >= maxSchemeThisTurn ? 'opacity-30' : ''"
                                                     @click="schemePoints = Math.min(maxSchemeThisTurn, schemePoints + 1)"
@@ -4397,7 +4397,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <div class="flex items-center gap-1.5">
                                                     <button
                                                         aria-label="Decrease opponent strategy points"
-                                                        class="rounded border p-1.5 hover:bg-muted"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         @click="opponentStrategyPoints = Math.max(0, opponentStrategyPoints - 1)"
                                                     >
                                                         <Minus class="size-3.5" />
@@ -4405,7 +4405,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <span class="w-7 text-center text-lg font-bold tabular-nums">{{ opponentStrategyPoints }}</span>
                                                     <button
                                                         aria-label="Increase opponent strategy points"
-                                                        class="rounded border p-1.5 hover:bg-muted"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         :disabled="opponentStrategyPoints >= opponentMaxStrategyThisTurn"
                                                         :class="opponentStrategyPoints >= opponentMaxStrategyThisTurn ? 'opacity-30' : ''"
                                                         @click="
@@ -4440,7 +4440,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <div class="flex items-center gap-1.5">
                                                     <button
                                                         aria-label="Decrease opponent scheme points"
-                                                        class="rounded border p-1.5 hover:bg-muted"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"
                                                     >
                                                         <Minus class="size-3.5" />
@@ -4448,7 +4448,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <span class="w-7 text-center text-lg font-bold tabular-nums">{{ opponentSchemePoints }}</span>
                                                     <button
                                                         aria-label="Increase opponent scheme points"
-                                                        class="rounded border p-1.5 hover:bg-muted"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn"
                                                         :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''"
                                                         @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"

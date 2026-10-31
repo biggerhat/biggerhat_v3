@@ -99,14 +99,14 @@ const submit = () => {
             </Button>
 
             <form class="mx-auto max-w-lg" @submit.prevent="submit">
-                <div v-if="previous_events.length" class="mb-4 flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                <div v-if="previous_events.length" class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-muted/30 p-3">
                     <Copy class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <div class="min-w-0 flex-1">
+                    <div class="min-w-48 flex-1">
                         <Label for="t-copy" class="text-sm font-medium">Start from a previous event</Label>
                         <p class="text-xs text-muted-foreground">Copies the format, scoring and description. You set the date.</p>
                     </div>
                     <Select :model-value="template ? undefined : '__none__'" @update:model-value="(v) => copyFrom(String(v))">
-                        <SelectTrigger id="t-copy" class="h-9 w-44 text-xs"><SelectValue placeholder="Choose event…" /></SelectTrigger>
+                        <SelectTrigger id="t-copy" class="h-9 w-full text-xs sm:w-44"><SelectValue placeholder="Choose event…" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="__none__">Blank form</SelectItem>
                             <SelectItem v-for="e in previous_events" :key="e.uuid" :value="e.uuid">{{ e.name }}</SelectItem>

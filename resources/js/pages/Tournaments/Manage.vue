@@ -2064,7 +2064,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         class="rounded-md border px-2 py-2 text-sm sm:px-3"
                                         :class="game.result === 'completed' || game.result === 'forfeited' ? '' : 'border-dashed'"
                                     >
-                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                                             <div class="flex min-w-0 flex-1 items-center gap-2">
                                                 <span
                                                     v-if="game.table_number"

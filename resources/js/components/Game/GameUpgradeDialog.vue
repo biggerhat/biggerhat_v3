@@ -152,6 +152,9 @@ const referenceList = computed(() => props.options.filter((u) => props.reference
                                 {{ usageCount(upgrade.id) + (memberHasUpgrade(upgrade.id) ? 1 : 0) }}/{{ upgrade.plentiful }}
                             </span>
                         </button>
+                        <div v-if="!options.length" class="py-3 text-center text-xs text-muted-foreground">
+                            {{ search ? 'No matches.' : 'Nothing to attach for this model.' }}
+                        </div>
                     </div>
                 </div>
             </details>

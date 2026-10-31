@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\Campaign\CampaignPlayerRoleEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
+use App\Enums\GameFormatEnum;
 use App\Enums\GameRoleEnum;
 use App\Enums\RoleEnum;
 use App\Models\Campaign\Campaign;
@@ -26,6 +27,7 @@ use App\Models\User;
 use App\Models\Wishlist;
 use App\Notifications\Friend\FriendRequestReceived;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -128,8 +130,7 @@ class UiAuditSeeder extends Seeder
             ]);
         };
 
-        foreach (['inProgress', 'completed'] as $state) {
-            $game = $make($state);
+        $populate = function (Game $game) use ($schemes, $member, $opponent): void {
             foreach ([[$member, 1, FactionEnum::Arcanists], [$opponent, 2, FactionEnum::Guild]] as [$user, $slot, $faction]) {
                 $player = GamePlayer::factory()->create([
                     'game_id' => $game->id, 'user_id' => $user->id, 'slot' => $slot, 'faction' => $faction,
@@ -137,15 +138,44 @@ class UiAuditSeeder extends Seeder
                     'current_scheme_id' => $schemes[$slot - 1] ?? null, 'scheme_pool' => $schemes,
                 ]);
                 Character::where('faction', $faction)->limit(5)->get()->each(function (Character $c, int $n) use ($game, $player, $faction) {
+                    $mini = Miniature::where('character_id', $c->id)->whereNotNull('front_image')->first();
                     GameCrewMember::factory()->create([
                         'game_id' => $game->id, 'game_player_id' => $player->id, 'character_id' => $c->id,
                         'display_name' => $c->display_name, 'faction' => $faction->value, 'cost' => $c->cost ?? 5,
                         'station' => $c->station->value ?? 'minion', 'current_health' => $c->health ?? 6, 'max_health' => $c->health ?? 6, 'sort_order' => $n,
+                        'front_image' => $mini?->front_image, 'back_image' => $mini?->back_image,
                     ]);
                 });
             }
+        };
+
+        foreach (['inProgress', 'completed'] as $state) {
+            $populate($make($state));
         }
+        // A Campaign-format game so the Injury button/dialog is reachable.
+        $campaign = $make('inProgress');
+        $campaign->update(['format' => GameFormatEnum::Campaign]);
+        $populate($campaign);
+        $this->characterLinks();
         $make('solo');
+    }
+
+    /** Give the first Arcanist character replace-on-death and summon links so those dialogs have something to show. */
+    private function characterLinks(): void
+    {
+        $character = Character::where('faction', FactionEnum::Arcanists)->first();
+        $targets = Character::where('id', '!=', $character?->id)->limit(4)->pluck('id');
+        if (! $character || $targets->count() < 4) {
+            return;
+        }
+
+        $now = now();
+        DB::table('character_links')->insertOrIgnore([
+            ['character_id' => $character->id, 'linked_character_id' => $targets[0], 'type' => 'replaces_on_death', 'count' => 1, 'health' => 3, 'created_at' => $now, 'updated_at' => $now],
+            ['character_id' => $character->id, 'linked_character_id' => $targets[1], 'type' => 'replaces_on_death', 'count' => 2, 'health' => null, 'created_at' => $now, 'updated_at' => $now],
+            ['character_id' => $character->id, 'linked_character_id' => $targets[2], 'type' => 'summons', 'count' => 3, 'health' => null, 'created_at' => $now, 'updated_at' => $now],
+            ['character_id' => $character->id, 'linked_character_id' => $targets[3], 'type' => 'summons', 'count' => 1, 'health' => null, 'created_at' => $now, 'updated_at' => $now],
+        ]);
     }
 
     private function tournament(User $organizer, User $member, User $opponent): void

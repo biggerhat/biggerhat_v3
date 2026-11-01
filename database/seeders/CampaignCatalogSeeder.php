@@ -115,20 +115,40 @@ class CampaignCatalogSeeder extends Seeder
         ]);
     }
 
+    /** Lucky Miss table (Index of the Untold, pg 36). */
     private function seedLuckyMiss(): void
     {
         if (LuckyMiss::query()->exists()) {
             return;
         }
 
-        foreach ([3, 8, 13] as $fv) {
-            LuckyMiss::factory()->create([
-                'name' => "Lucky Miss {$fv}",
-                'flip_value' => $fv,
-            ]);
+        foreach ([
+            [1, 'Martyr', 'When this model is killed, all friendly models within 6" gain a Fast token.'],
+            [2, 'In the Name of Research', 'After this model kills an enemy model, it may draw and discard a card.'],
+            [3, 'Lowered Expectations', 'Lower this model’s soulstone cost by 1. If this model is a master or totem, reflip this result.'],
+            [4, 'Discreet Operative', 'During the end phase of turn 4, this model may move up to 3" and make a Scheme marker in base contact with itself.'],
+            [5, 'Secret Directive', 'If this model is within 6" of the enemy deployment zone at the end of the game, gain 1 VP.'],
+            [6, 'Hydraulic Limb', 'This model’s melee actions deal +1 damage.'],
+            [7, 'Tyrant’s Hunger', 'When this model ends its activation, remove all Remains and enemy Scheme markers within 3". It heals 1 for each removed.'],
+            [8, 'Bestial Rage', 'When this model activates, it may deal 3 damage to itself to gain a Fast token.'],
+            [9, 'Slow to Die', 'When this model is killed, it may declare and resolve an attack action before being removed.'],
+            [10, 'Slippery', 'After an attack action is resolved against this model, it may move up to 2".'],
+            [11, 'Fast Runner', 'When this model is moved outside its activation, it may move up to an additional 3".'],
+            [12, 'The Hunter', 'When this model kills an enemy, it may infuse a soulstone.'],
+            [13, 'The Scholar', 'When this model activates, it may draw a card and then discard a card.'],
+        ] as [$fv, $name, $body]) {
+            LuckyMiss::factory()->create(['name' => $name, 'body' => $body, 'flip_value' => $fv]);
         }
+
+        LuckyMiss::factory()->create([
+            'name' => 'Doppelganger',
+            'body' => 'Any joker. No Lucky Miss upgrade gained; add a copy of this model (with its injuries and equipment) to the arsenal.',
+            'flip_value' => null,
+            'is_doppelganger' => true,
+        ]);
     }
 
+    /** Back-Alley Doctor table (Index of the Untold, pg 33). */
     private function seedBackAlleyDoctor(): void
     {
         if (BackAlleyDoctorResult::query()->exists()) {
@@ -138,51 +158,51 @@ class CampaignCatalogSeeder extends Seeder
         // Full 1–13 coverage is mandatory — the Phase 5 doctor flip lookup is
         // range-based and falls through to null on missing rows.
         BackAlleyDoctorResult::factory()->create([
-            'name' => 'Black Joker — Disaster',
-            'body' => 'No effect. Scrip is spent anyway.',
+            'name' => '“Oops?”',
+            'body' => 'Something goes terribly wrong! Attach an injury to the chosen model; reflip jokers and results that give no injury.',
             'flip_value_min' => null, 'flip_value_max' => null,
             'is_black_joker' => true,
-            'outcome_kind' => BackAlleyDoctorOutcomeEnum::NoEffect->value,
-        ]);
-
-        BackAlleyDoctorResult::factory()->create([
-            'name' => 'Oops',
-            'body' => 'No removal; a new injury is inflicted in its place.',
-            'flip_value_min' => 1, 'flip_value_max' => 8,
             'outcome_kind' => BackAlleyDoctorOutcomeEnum::AddedInjury->value,
         ]);
 
         BackAlleyDoctorResult::factory()->create([
-            'name' => 'How many fingers do you need?',
-            'body' => 'Annihilate the chosen injury, then reflip on the injury chart for a new one.',
+            'name' => '“Thanks for the scrip!”',
+            'body' => 'No result. The injury remains.',
+            'flip_value_min' => 1, 'flip_value_max' => 8,
+            'outcome_kind' => BackAlleyDoctorOutcomeEnum::NoEffect->value,
+        ]);
+
+        BackAlleyDoctorResult::factory()->create([
+            'name' => '“How many fingers do you need?”',
+            'body' => 'Annihilate the chosen injury, then flip for the model on the injury chart, reflipping results that give no injury.',
             'flip_value_min' => 9, 'flip_value_max' => 9,
             'outcome_kind' => BackAlleyDoctorOutcomeEnum::RemovedAndReflip->value,
         ]);
 
         BackAlleyDoctorResult::factory()->create([
-            'name' => 'Necromantic Improvement',
-            'body' => 'Injury removed; model gains Undead.',
+            'name' => '“That still counts as healed.”',
+            'body' => 'Annihilate the chosen injury. The model gains the Undead characteristic.',
             'flip_value_min' => 10, 'flip_value_max' => 10,
             'outcome_kind' => BackAlleyDoctorOutcomeEnum::GainedUndead->value,
         ]);
 
         BackAlleyDoctorResult::factory()->create([
-            'name' => 'Mechanical Augment',
-            'body' => 'Injury removed; model gains Construct.',
+            'name' => '“Took some spare parts but we got there.”',
+            'body' => 'Annihilate the chosen injury. The model gains the Construct characteristic.',
             'flip_value_min' => 11, 'flip_value_max' => 11,
             'outcome_kind' => BackAlleyDoctorOutcomeEnum::GainedConstruct->value,
         ]);
 
         BackAlleyDoctorResult::factory()->create([
-            'name' => 'Clean Recovery',
-            'body' => 'Injury removed with no complications.',
+            'name' => '“Success!”',
+            'body' => 'Annihilate the chosen injury.',
             'flip_value_min' => 12, 'flip_value_max' => 13,
             'outcome_kind' => BackAlleyDoctorOutcomeEnum::Removed->value,
         ]);
 
         BackAlleyDoctorResult::factory()->create([
-            'name' => 'Red Joker — Lucky Miss',
-            'body' => 'Annihilate, then reflip on the Lucky Miss table.',
+            'name' => '“Gonna need you to write me a review.”',
+            'body' => 'Cheated: annihilate the chosen injury. Flipped: annihilate it and flip on the Lucky Miss chart.',
             'flip_value_min' => null, 'flip_value_max' => null,
             'is_red_joker' => true,
             'outcome_kind' => BackAlleyDoctorOutcomeEnum::LuckyMissReflip->value,

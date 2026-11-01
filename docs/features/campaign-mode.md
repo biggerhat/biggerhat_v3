@@ -39,3 +39,9 @@ source-ally cost cap; characteristics from a fixed `characteristic_options` list
 ## Tests
 `tests/Feature/Campaign/*` — leader builder search/save, weekly cycle/hire,
 arsenal, aftermath, concurrency edges.
+
+## Local seed data
+`CampaignCatalogSeeder` (placeholder advancement tables/crew cards, plus the real Back-Alley Doctor and
+Lucky Miss tables) + `CampaignRulebookSeeder` (the book's real equipment, Those Who Thirst items and
+injury table, pg 22-35) + `CampaignSeeder` (two users `alpha@`/`beta@biggerhat.test`, a campaign and a
+live game). Log a game via `/campaigns/{id}/games/log` to walk the Aftermath wizard end to end.

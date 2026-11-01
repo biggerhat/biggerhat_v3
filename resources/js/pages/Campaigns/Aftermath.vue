@@ -176,6 +176,12 @@ const purchasedItems = computed(() =>
 
 const barterTotalCc = computed(() => purchasedItems.value.reduce((sum, e) => sum + (e.cc ?? 0), 0));
 
+// "5 of R/M" — the barter flip must match both the value and one of the item's two suits (pg 21).
+const barterPool = (item: EquipmentRow): string => {
+    const suits = [item.pool_suit_a, item.pool_suit_b].filter((x): x is string => !!x);
+    return item.is_always_available || !suits.length ? '' : ' of ' + suits.map((x) => x[0].toUpperCase()).join('/');
+};
+
 const addBarterItem = (id: number) => {
     if (!barterPurchases.value.includes(id)) barterPurchases.value.push(id);
     barterSearch.value = '';
@@ -888,6 +894,14 @@ interface InjuryCatalogRow {
 }
 const injury_catalog = computed<InjuryCatalogRow[]>(() => props.injury_catalog ?? []);
 
+// Several injuries share a name across the two suit halves (e.g. "Just a Flesh Wound" x4,
+// "Killed Off" x2), so the picker prefixes the flip they came from, as printed on pg 34-35.
+const injuryLabel = (inj: InjuryCatalogRow): string => {
+    if (inj.flip_value == null) return inj.name;
+    const pool = inj.suit_pool === 'pc' ? 'R/M' : inj.suit_pool === 'te' ? 'C/T' : '';
+    return `${inj.flip_value}${pool ? ' of ' + pool : ''} — ${inj.name}`;
+};
+
 interface TraitorCrewRow {
     id: number;
     name: string;
@@ -1058,7 +1072,7 @@ const submitInjuries = () => {
             <CardHeader>
                 <CardTitle>Phase 3 — Barter</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    Make your barter flips at the table (pg 21–30), then record what you bought below — search the catalog by name and add each item.
+                    Make your barter flip at the table (pg 21–30), then record what you bought below — search the catalog by name and add each item.
                     Its cost is charged to your scrip.
                 </p>
             </CardHeader>
@@ -1072,7 +1086,7 @@ const submitInjuries = () => {
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-medium">{{ item.name }}</p>
                                     <p class="text-2xs text-muted-foreground">
-                                        BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }} • CC {{ item.cc }}
+                                        BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }}{{ barterPool(item) }} • CC {{ item.cc }}
                                     </p>
                                 </div>
                                 <Button size="sm" variant="outline" :disabled="!is_owner" @click="addBarterItem(item.id)">Add</Button>
@@ -1605,7 +1619,9 @@ const submitInjuries = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="__none__">— added injury —</SelectItem>
-                                    <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{ inj.name }}</SelectItem>
+                                    <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{
+                                        injuryLabel(inj)
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <!-- Red Joker → Lucky Miss table (or Doppelganger). -->
@@ -1749,7 +1765,9 @@ const submitInjuries = () => {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="__none__">— pick the injury —</SelectItem>
-                                        <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{ inj.name }}</SelectItem>
+                                        <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{
+                                            injuryLabel(inj)
+                                        }}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </template>

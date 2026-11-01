@@ -117,6 +117,8 @@ class CampaignAftermathController extends Controller
             // the others. Read-side queries live in AftermathCatalog.
             'equipment_catalog' => fn () => $aftermath->current_phase === 3 ? AftermathCatalog::equipment() : null,
             'ttw_catalog' => fn () => $aftermath->current_phase === 3 ? AftermathCatalog::thoseWhoThirst($aftermath->campaign_crew_id) : null,
+            // Phase 6: Omen's Mark passes to the enemy that kills its carrier (pg 30).
+            'omens_mark' => fn () => $aftermath->current_phase === 6 ? $this->omensMarkState($aftermath) : null,
             'crew_injuries' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::crewInjuries($aftermath->campaign_crew_id) : null,
             'doctor_results' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::doctorResults() : null,
             // Phase 5 needs it too for the doctor "Oops" added-injury pick.
@@ -368,6 +370,8 @@ class CampaignAftermathController extends Controller
             $ownedTtw = CampaignEquipment::query()
                 ->where('campaign_crew_id', $crew->id)
                 ->active()
+                // A Corrupted Pawns starting item doesn't count against the limit (pg 146).
+                ->where('source', '!=', StartingArsenalController::CORRUPTED_PAWNS_SOURCE)
                 ->whereHas('catalog', fn ($q) => $q->where('campaign_ttw_only', true));
             $blocked = $ttwPickup->campaign_is_omens_mark
                 ? (clone $ownedTtw)->where('equipment_upgrade_id', $ttwPickup->id)->exists()
@@ -1093,6 +1097,8 @@ class CampaignAftermathController extends Controller
             // Optional freeform journal entry for this game (pg n/a — not a
             // rules mechanic), shown chronologically on the Arsenal Sheet.
             'story_entry' => ['nullable', 'string', 'max:5000'],
+            // The Omen's Mark carrier was killed by an enemy → the mark moves to that enemy's crew (pg 30).
+            'omens_mark_killed' => ['nullable', 'boolean'],
         ]);
 
         $flips = $data['flips'] ?? [];
@@ -1118,7 +1124,13 @@ class CampaignAftermathController extends Controller
 
         $storyEntry = $data['story_entry'] ?? null;
 
-        $this->lockAndAdvance($aftermath, 6, function (CampaignAftermath $locked) use ($flips, $opponentCrewId, $storyEntry) {
+        $omensMarkKilled = (bool) ($data['omens_mark_killed'] ?? false);
+
+        $this->lockAndAdvance($aftermath, 6, function (CampaignAftermath $locked) use ($flips, $opponentCrewId, $storyEntry, $omensMarkKilled) {
+            if ($omensMarkKilled) {
+                $this->passOmensMark($locked, $opponentCrewId);
+            }
+
             foreach ($flips as $f) {
                 $customCharId = ! empty($f['custom_character_id']) ? (int) $f['custom_character_id'] : null;
                 $arsenalModelId = ! empty($f['arsenal_model_id']) ? (int) $f['arsenal_model_id'] : null;
@@ -1288,6 +1300,66 @@ class CampaignAftermathController extends Controller
         $aftermath->update(['story_entry' => $data['story_entry'] ?? null]);
 
         return redirect()->back()->withMessage('Story updated.');
+    }
+
+    /**
+     * Omen's Mark (pg 30): "When this model is killed by an enemy model, annihilate this equipment,
+     * then attach an equipment of the same name to the model that received kill credit."
+     *
+     * @return array{owned: int, carrier_killed: bool}
+     */
+    private function omensMarkState(CampaignAftermath $aftermath): array
+    {
+        $marks = CampaignEquipment::query()
+            ->where('campaign_crew_id', $aftermath->campaign_crew_id)
+            ->active()
+            ->whereHas('catalog', fn ($q) => $q->where('campaign_is_omens_mark', true))
+            ->get(['id', 'equipment_upgrade_id']);
+
+        if ($marks->isEmpty()) {
+            return ['owned' => 0, 'carrier_killed' => false];
+        }
+
+        // With a linked tracker game, pre-tick it when one of this player's killed models carried the mark.
+        $carrierKilled = false;
+        $baseGameId = $aftermath->campaignGame->base_game_id ?? null;
+        if ($baseGameId) {
+            $userId = $aftermath->crew->user_id;
+            $markIds = $marks->pluck('equipment_upgrade_id')->all();
+            $carrierKilled = DB::table('game_crew_members as m')
+                ->join('game_players as p', 'p.id', '=', 'm.game_player_id')
+                ->where('m.game_id', $baseGameId)
+                ->where('m.is_killed', true)
+                ->where('p.user_id', $userId)
+                ->pluck('m.attached_upgrades')
+                ->contains(fn ($json) => collect(json_decode((string) $json, true) ?: [])->pluck('id')->intersect($markIds)->isNotEmpty());
+        }
+
+        return ['owned' => $marks->count(), 'carrier_killed' => $carrierKilled];
+    }
+
+    /** Annihilate this crew's Omen's Mark and hand a fresh one to the opposing crew, if the game had one. */
+    private function passOmensMark(CampaignAftermath $locked, ?int $opponentCrewId): void
+    {
+        $mark = CampaignEquipment::query()
+            ->where('campaign_crew_id', $locked->campaign_crew_id)
+            ->active()
+            ->whereHas('catalog', fn ($q) => $q->where('campaign_is_omens_mark', true))
+            ->lockForUpdate()
+            ->first();
+        if (! $mark) {
+            return;
+        }
+
+        $mark->update(['annihilated_at' => now()]);
+
+        if ($opponentCrewId) {
+            CampaignEquipment::create([
+                'campaign_crew_id' => $opponentCrewId,
+                'equipment_upgrade_id' => $mark->equipment_upgrade_id,
+                'source' => 'joker',
+            ]);
+        }
     }
 
     /**

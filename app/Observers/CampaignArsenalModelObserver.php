@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Jobs\Campaign\GenerateCombinedCrewCardImage;
 use App\Models\Campaign\CampaignArsenalModel;
+use App\Models\Campaign\CampaignEquipment;
 
 /**
  * Regenerates a crew's combined Crew Card back face (tokens/markers gathered
@@ -26,6 +27,13 @@ class CampaignArsenalModelObserver
     {
         if (! $model->wasChanged(['annihilated_at', 'removed_at'])) {
             return;
+        }
+
+        // A bound (Corrupted Pawns) item lives and dies with its model (pg 146); an undo that revives the model restores it.
+        if ($model->wasChanged('annihilated_at')) {
+            CampaignEquipment::query()
+                ->where('bound_arsenal_model_id', $model->id)
+                ->update(['annihilated_at' => $model->annihilated_at]);
         }
 
         GenerateCombinedCrewCardImage::dispatch($model->campaign_crew_id)->afterCommit();

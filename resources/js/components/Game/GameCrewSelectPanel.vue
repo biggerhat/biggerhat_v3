@@ -66,6 +66,9 @@ interface CampaignArsenalModel {
     effective_cost: number;
     is_ook: boolean;
     is_peon: boolean;
+    is_unique: boolean;
+    /** Corrupted Pawns items (pg 146) permanently attached to this model — auto-attached when hired. */
+    bound_equipment: string[];
     front_image: string | null;
     back_image: string | null;
     // Cache-bust signal for the two fields above — only ever set for a Custom
@@ -90,6 +93,10 @@ interface CampaignOwnedEquipment {
     // equipment-granted action, that equipment is tied to the Leader/Totem
     // going forward — can't be assigned to any other hired model.
     is_advanced: boolean;
+    // Printed attachment limits (pg 22-30) and Omen's Mark's "free and mandatory" (pg 30).
+    leader_only: boolean;
+    non_unique_only: boolean;
+    is_omens_mark: boolean;
 }
 
 const props = defineProps<{
@@ -243,6 +250,16 @@ const campaignArsenalCopyLabel = computed(() => {
 // Equipment assignment (pg 19): optional, one slot per owned copy. Value is
 // '__none__' (unassigned), 'leader', or a selected arsenal row id as a string.
 const equipmentTargets = ref<Record<string, string>>({});
+// Omen's Mark must be attached each encounter, so its slots start on the Leader (changeable).
+watch(
+    () => props.campaignOwnedEquipment,
+    (owned) => {
+        for (const e of owned.filter((x) => x.is_omens_mark)) {
+            for (let i = 0; i < e.plentiful; i++) equipmentTargets.value[`${e.id}:${i}`] ??= 'leader';
+        }
+    },
+    { immediate: true },
+);
 interface EquipmentSlot {
     key: string;
     equipmentId: number;
@@ -273,14 +290,21 @@ const equipmentTargetOptionsFor = (equipmentId: number) => {
         if (name) nameCounts[name] = (nameCounts[name] ?? 0) + 1;
     }
     const seen: Record<string, number> = {};
-    const isAdvanced = props.campaignOwnedEquipment.find((e) => e.id === equipmentId)?.is_advanced ?? false;
+    const equipment = props.campaignOwnedEquipment.find((e) => e.id === equipmentId);
+    const isAdvanced = equipment?.is_advanced ?? false;
+    const leaderOnly = equipment?.leader_only ?? false;
+    const nonUniqueOnly = equipment?.non_unique_only ?? false;
+    const hiredIds = selectedArsenalIds.value.filter((id) => !(nonUniqueOnly && props.campaignArsenal.find((a) => a.id === id)?.is_unique));
+
+    // Leader-only gear can't go anywhere else; non-unique-only gear can't go on the Leader, Totem or a unique model.
+    if (leaderOnly) return [{ value: 'leader', label: 'Leader' }];
 
     return [
-        { value: 'leader', label: 'Leader' },
-        ...(props.campaignTotem ? [{ value: 'totem', label: props.campaignTotem.name }] : []),
+        ...(nonUniqueOnly ? [] : [{ value: 'leader', label: 'Leader' }]),
+        ...(props.campaignTotem && !nonUniqueOnly ? [{ value: 'totem', label: props.campaignTotem.name }] : []),
         ...(isAdvanced
             ? []
-            : selectedArsenalIds.value.map((id) => {
+            : hiredIds.map((id) => {
                   const name = props.campaignArsenal.find((a) => a.id === id)?.name ?? `#${id}`;
                   if ((nameCounts[name] ?? 0) > 1) {
                       seen[name] = (seen[name] ?? 0) + 1;
@@ -435,6 +459,14 @@ const confirmCampaignCrew = () => {
                                 >OOK</Badge
                             >
                             <Badge v-if="m.is_peon" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Peon</Badge>
+                            <Badge
+                                v-for="name in m.bound_equipment"
+                                :key="`bound-${name}`"
+                                variant="outline"
+                                class="shrink-0 border-purple-500/50 px-1 py-0 text-2xs text-purple-700 dark:text-purple-300"
+                                title="Corrupted Pawns item — permanently attached to this model"
+                                >{{ name }}</Badge
+                            >
                             <Badge v-for="inj in m.injuries" :key="`inj-${inj.id}`" variant="destructive" class="shrink-0 px-1 py-0 text-2xs">
                                 {{ inj.name }}
                             </Badge>
@@ -468,7 +500,7 @@ const confirmCampaignCrew = () => {
 
                 <!-- Owned equipment: optional assignment to the Leader or a hired model (pg 19) -->
                 <div v-if="equipmentSlots.length" class="mt-4 border-t pt-3">
-                    <p class="mb-2 text-xs font-medium text-muted-foreground">Assign owned equipment (optional):</p>
+                    <p class="mb-2 text-xs font-medium text-muted-foreground">Assign owned equipment (optional, except Omen’s Mark):</p>
                     <div class="space-y-1.5">
                         <div v-for="slot in equipmentSlots" :key="slot.key" class="flex items-center justify-between gap-2 text-sm">
                             <span class="min-w-0 truncate"
@@ -480,6 +512,28 @@ const confirmCampaignCrew = () => {
                                     title="Has an advancement tied to it — Leader/Totem only"
                                 >
                                     Advanced
+                                </Badge>
+                                <Badge
+                                    v-if="campaignOwnedEquipment.find((e) => e.id === slot.equipmentId)?.leader_only"
+                                    variant="outline"
+                                    class="ml-1 text-2xs"
+                                >
+                                    Leader only
+                                </Badge>
+                                <Badge
+                                    v-if="campaignOwnedEquipment.find((e) => e.id === slot.equipmentId)?.non_unique_only"
+                                    variant="outline"
+                                    class="ml-1 text-2xs"
+                                >
+                                    Non-unique only
+                                </Badge>
+                                <Badge
+                                    v-if="campaignOwnedEquipment.find((e) => e.id === slot.equipmentId)?.is_omens_mark"
+                                    variant="outline"
+                                    class="ml-1 text-2xs"
+                                    title="Free and mandatory — attach it every game (pg 30)"
+                                >
+                                    Mandatory
                                 </Badge>
                             </span>
                             <Select

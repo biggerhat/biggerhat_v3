@@ -103,6 +103,7 @@ class AftermathCatalog
         $alreadyOwned = CampaignEquipment::query()
             ->where('campaign_crew_id', $crewId)
             ->active()
+            ->where('source', '!=', 'starting_corrupted_pawns')
             ->whereHas('catalog', fn ($q) => $q->where('campaign_ttw_only', true)->where('campaign_is_omens_mark', false))
             ->exists();
 
@@ -716,17 +717,19 @@ class AftermathCatalog
      * re-equipping that specific item) — enforced as an assignment
      * restriction in GameSetupController::resolveEquipmentAssignments().
      *
-     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: mixed, plentiful: int, power_bar_count: int|null, description: string|null, is_advanced: bool, actions: array<int, array<string, mixed>>, abilities: array<int, array<string, mixed>>}>
+     * @return array<int, array{id: int, name: string, slug: string, front_image: string|null, back_image: string|null, type: mixed, plentiful: int, power_bar_count: int|null, description: string|null, is_advanced: bool, leader_only: bool, non_unique_only: bool, is_omens_mark: bool, actions: array<int, array<string, mixed>>, abilities: array<int, array<string, mixed>>}>
      */
-    public static function ownedEquipmentForAttachment(CampaignCrew $crew, ?CustomCharacter $leader = null): array
+    public static function ownedEquipmentForAttachment(CampaignCrew $crew, ?CustomCharacter $leader = null, ?int $boundToModelId = null): array
     {
         $advancementInfo = self::equipmentAdvancementInfo($leader?->id);
 
         return CampaignEquipment::query()
             ->where('campaign_crew_id', $crew->id)
             ->active()
+            // Free pool = not bound to a model; a model's own bound items (Corrupted Pawns, pg 146) are fetched by id.
+            ->when($boundToModelId === null, fn ($q) => $q->whereNull('bound_arsenal_model_id'), fn ($q) => $q->where('bound_arsenal_model_id', $boundToModelId))
             ->with([
-                'catalog:id,name,slug,front_image,back_image,type,power_bar_count,description',
+                'catalog:id,name,slug,front_image,back_image,type,power_bar_count,description,campaign_leader_only,campaign_non_unique_only,campaign_is_omens_mark',
                 // Full action/ability text so the in-play "attach upgrade"
                 // drawer can render ActionCard/AbilityCard instead of just
                 // the bare description — same pattern as crewCardEffect.
@@ -765,6 +768,10 @@ class AftermathCatalog
                     'power_bar_count' => $u->power_bar_count,
                     'description' => $u->description,
                     'is_advanced' => $isAdvanced,
+                    // Attachment restrictions printed on the equipment (pg 22-30) and Omen's Mark's "attach each encounter".
+                    'leader_only' => (bool) $u->campaign_leader_only,
+                    'non_unique_only' => (bool) $u->campaign_non_unique_only,
+                    'is_omens_mark' => (bool) $u->campaign_is_omens_mark,
                     'actions' => $u->actions->map(fn (Action $a) => [
                         'name' => $a->name,
                         'type' => $a->type,

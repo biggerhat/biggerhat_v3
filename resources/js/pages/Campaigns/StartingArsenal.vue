@@ -114,6 +114,12 @@ interface CampaignData {
     status: string;
 }
 
+interface CorruptedPawns {
+    items: Array<{ id: number; name: string; flip: number | null; cc: number; body: string }>;
+    models: Array<{ id: number; name: string; cost: number }>;
+    current: { equipment_upgrade_id: number | null; arsenal_model_id: number | null } | null;
+}
+
 const props = defineProps<{
     campaign: CampaignData;
     crew: CrewData;
@@ -121,10 +127,32 @@ const props = defineProps<{
     hireable: CharRow[];
     crew_card_effects: CrewCardEffectRow[];
     crew_card_choice_options: CrewCardChoiceOptions;
+    corrupted_pawns?: CorruptedPawns | null;
     starting_budget_ss: number;
     max_leftover_scrip: number;
     locked: boolean;
 }>();
+
+// Corrupted Pawns (optional rule, pg 146): the starting Those Who Thirst item and the cost-6-or-less model carrying it.
+const pawnItemId = ref<string>('__none__');
+const pawnModelId = ref<string>('__none__');
+watch(
+    () => props.corrupted_pawns?.current,
+    (current) => {
+        pawnItemId.value = current?.equipment_upgrade_id ? String(current.equipment_upgrade_id) : '__none__';
+        pawnModelId.value = current?.arsenal_model_id ? String(current.arsenal_model_id) : '__none__';
+    },
+    { immediate: true },
+);
+const pawnReady = computed(() => pawnItemId.value !== '__none__' && pawnModelId.value !== '__none__');
+const savePawn = () =>
+    router.post(
+        route('campaigns.crews.corrupted-pawn.store', [props.campaign.id, props.crew.share_code]),
+        { equipment_upgrade_id: Number(pawnItemId.value), arsenal_model_id: Number(pawnModelId.value) },
+        { preserveScroll: true },
+    );
+const clearPawn = () =>
+    router.delete(route('campaigns.crews.corrupted-pawn.destroy', [props.campaign.id, props.crew.share_code]), { preserveScroll: true });
 
 const isVersatile = (c: CharRow): boolean => c.characteristics?.some((ch) => ch.name.toLowerCase() === 'versatile') ?? false;
 
@@ -362,11 +390,11 @@ const submit = () => {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <ul class="max-h-[55vh] space-y-0.5 overflow-y-auto pr-1">
+                    <ul class="max-h-[55vh] space-y-0.5 overflow-y-auto pr-1" tabindex="0" aria-label="Models you can hire">
                         <li
                             v-for="c in filteredHireable"
                             :key="c.id"
-                            :class="[factionBackground(c.faction), locked || effectiveCost(c) > remainingBudget ? 'opacity-40' : '']"
+                            :class="[factionBackground(c.faction), locked || effectiveCost(c) > remainingBudget ? 'brightness-50 saturate-50' : '']"
                             class="rounded-md border border-white/20 text-white transition-colors hover:brightness-110"
                         >
                             <div class="flex items-center justify-between px-2 py-1.5">
@@ -375,25 +403,25 @@ const submit = () => {
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         <span class="flex items-center text-sm font-bold text-white">
                                             {{ effectiveCost(c) }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                            <span v-if="getCategory(c) === 'ook'" class="ml-0.5 text-xs font-normal text-red-300">(+1 OOK)</span>
+                                            <span v-if="getCategory(c) === 'ook'" class="ml-0.5 text-xs font-normal text-red-200">(+1 OOK)</span>
                                         </span>
-                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90">
+                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-2xs capitalize text-white">
                                             {{ c.station ?? 'enforcer' }}
                                         </Badge>
-                                        <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-2xs text-blue-200"> Versatile </Badge>
-                                        <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-2xs text-red-200">
+                                        <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-2xs text-white"> Versatile </Badge>
+                                        <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-2xs text-white">
                                             OOK
                                         </Badge>
-                                        <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white/50 sm:inline">
+                                        <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white sm:inline">
                                             {{ c.keywords.map((k) => k.name).join(', ') }}
                                         </span>
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
-                                    <span v-if="hiredCountInSession(c.id) > 0" class="text-2xs text-white/70">
+                                    <span v-if="hiredCountInSession(c.id) > 0" class="text-2xs text-white">
                                         ×{{ hiredCountInSession(c.id) }}
                                     </span>
-                                    <span v-if="!locked && effectiveCost(c) > remainingBudget" class="text-2xs text-white/50">Over budget</span>
+                                    <span v-if="!locked && effectiveCost(c) > remainingBudget" class="text-2xs text-white">Over budget</span>
                                     <Button
                                         aria-label="Hire"
                                         variant="ghost"
@@ -436,6 +464,53 @@ const submit = () => {
                 </CardContent>
             </Card>
         </div>
+
+        <!-- Corrupted Pawns (optional rule, pg 146) -->
+        <Card v-if="corrupted_pawns" class="mt-6">
+            <CardHeader>
+                <CardTitle>Corrupted Pawns</CardTitle>
+                <p class="text-sm text-muted-foreground">
+                    After hiring your starting arsenal, flip a card that can’t be cheated against the Those Who Thirst table (pg 29–30) and take that
+                    item. It is attached for good to one model costing 6 or less, doesn’t count against the one-item limit, can’t be moved or stolen,
+                    and is annihilated with its model. Save your arsenal first — re-saving it resets this pick.
+                </p>
+            </CardHeader>
+            <CardContent class="space-y-3">
+                <p v-if="!arsenal.length" class="text-sm text-muted-foreground">Save a starting arsenal to pick a model.</p>
+                <template v-else>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="space-y-1">
+                            <Label for="pawn-item">Item</Label>
+                            <Select v-model="pawnItemId" :disabled="locked">
+                                <SelectTrigger id="pawn-item"><SelectValue placeholder="Pick the flipped item" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">— pick the flipped item —</SelectItem>
+                                    <SelectItem v-for="i in corrupted_pawns.items" :key="i.id" :value="String(i.id)"
+                                        >{{ i.flip }} — {{ i.name }}</SelectItem
+                                    >
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-1">
+                            <Label for="pawn-model">Model (cost 6 or less)</Label>
+                            <Select v-model="pawnModelId" :disabled="locked">
+                                <SelectTrigger id="pawn-model"><SelectValue placeholder="Pick a model" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">— pick a model —</SelectItem>
+                                    <SelectItem v-for="m in corrupted_pawns.models" :key="m.id" :value="String(m.id)"
+                                        >{{ m.name }} ({{ m.cost }}ss)</SelectItem
+                                    >
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                        <Button v-if="corrupted_pawns.current" variant="ghost" :disabled="locked" @click="clearPawn">Remove</Button>
+                        <Button :disabled="locked || !pawnReady" @click="savePawn">{{ corrupted_pawns.current ? 'Update' : 'Attach item' }}</Button>
+                    </div>
+                </template>
+            </CardContent>
+        </Card>
 
         <Card class="mt-6">
             <CardHeader>

@@ -1531,3 +1531,104 @@ it('exposes campaign_context.id on the tracker so the client can reach campaigns
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('campaign_context.id', $campaignGame->id));
 });
+
+function equipmentRulesFixture(): array
+{
+    [$userA, , , $crewA, , $game] = campaignGameSetup();
+
+    CustomCharacter::create([
+        'user_id' => $userA->id,
+        'campaign_crew_id' => $crewA->id,
+        'is_campaign_leader' => true,
+        'current' => true,
+        'share_code' => 'ldr-rules-001',
+        'name' => 'Rules Leader',
+        'display_name' => 'Rules Leader',
+        'slug' => 'rules-leader',
+        'faction' => FactionEnum::Arcanists->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6,
+    ]);
+
+    return [$userA, $crewA, $game];
+}
+
+it('submitCampaignCrew keeps leader-only equipment on the Leader (pg 23)', function () {
+    [$userA, $crewA, $game] = equipmentRulesFixture();
+    $hired = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+    $vow = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Vengeful Vow', 'campaign_leader_only' => true]);
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $vow->id]);
+
+    $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), [
+        'arsenal_model_ids' => [$model->id],
+        'equipment_assignments' => [['equipment_id' => $vow->id, 'target' => (string) $model->id]],
+    ])->assertStatus(422)->assertJsonPath('error', 'Vengeful Vow may only be attached to your Leader.');
+
+    $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), [
+        'arsenal_model_ids' => [$model->id],
+        'equipment_assignments' => [['equipment_id' => $vow->id, 'target' => 'leader']],
+    ])->assertOk();
+});
+
+it('submitCampaignCrew keeps non-unique-only equipment off unique models and the Leader (pg 23)', function () {
+    [$userA, $crewA, $game] = equipmentRulesFixture();
+    $unique = Character::factory()->create(['cost' => 6, 'faction' => FactionEnum::Arcanists->value]);
+    $unique->characteristics()->attach(\App\Models\Characteristic::factory()->create(['name' => 'Unique']));
+    $plain = Character::factory()->create(['cost' => 5, 'faction' => FactionEnum::Arcanists->value]);
+    $uniqueModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $unique->id]);
+    $plainModel = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $plain->id]);
+    $pod = \App\Models\Upgrade::factory()->campaignEquipment()->create(['name' => 'Strange Seed Pod', 'campaign_non_unique_only' => true]);
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $pod->id]);
+    $ids = [$uniqueModel->id, $plainModel->id];
+
+    foreach ([(string) $uniqueModel->id, 'leader'] as $badTarget) {
+        $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), [
+            'arsenal_model_ids' => $ids,
+            'equipment_assignments' => [['equipment_id' => $pod->id, 'target' => $badTarget]],
+        ])->assertStatus(422);
+    }
+
+    $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), [
+        'arsenal_model_ids' => $ids,
+        'equipment_assignments' => [['equipment_id' => $pod->id, 'target' => (string) $plainModel->id]],
+    ])->assertOk();
+});
+
+it('submitCampaignCrew requires Omen\'s Mark to be attached every game (pg 30)', function () {
+    [$userA, $crewA, $game] = equipmentRulesFixture();
+    $omen = \App\Models\Upgrade::factory()->campaignEquipmentTtw()->create(['name' => 'Omen\'s Mark', 'campaign_is_omens_mark' => true, 'campaign_cc' => 0]);
+    \App\Models\Campaign\CampaignEquipment::factory()->create(['campaign_crew_id' => $crewA->id, 'equipment_upgrade_id' => $omen->id]);
+
+    $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), ['arsenal_model_ids' => []])
+        ->assertStatus(422)->assertJsonPath('error', 'Omen\'s Mark is mandatory — attach it to a model this game (pg 30).');
+
+    $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), [
+        'arsenal_model_ids' => [],
+        'equipment_assignments' => [['equipment_id' => $omen->id, 'target' => 'leader']],
+    ])->assertOk();
+});
+
+it('a Corrupted Pawns item travels with its model and is annihilated with it (pg 146)', function () {
+    [$userA, $crewA, $game] = equipmentRulesFixture();
+    $hired = Character::factory()->create(['cost' => 5, 'faction' => FactionEnum::Arcanists->value]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crewA->id, 'character_id' => $hired->id]);
+    $ttw = \App\Models\Upgrade::factory()->campaignEquipmentTtw()->create(['name' => 'Medusa']);
+    $item = \App\Models\Campaign\CampaignEquipment::factory()->create([
+        'campaign_crew_id' => $crewA->id,
+        'equipment_upgrade_id' => $ttw->id,
+        'source' => 'starting_corrupted_pawns',
+        'bound_arsenal_model_id' => $model->id,
+    ]);
+
+    $this->actingAs($userA)->postJson(route('games.setup.campaign-crew', $game->uuid), ['arsenal_model_ids' => [$model->id]])->assertOk();
+
+    $player = $game->players()->where('user_id', $userA->id)->first();
+    $member = \App\Models\GameCrewMember::where('game_id', $game->id)->where('game_player_id', $player->id)->firstWhere('display_name', $hired->display_name);
+    expect(collect($member->attached_upgrades)->pluck('name')->all())->toBe(['Medusa']);
+
+    $model->update(['annihilated_at' => now()]);
+    expect($item->fresh()->annihilated_at)->not->toBeNull();
+
+    $model->update(['annihilated_at' => null]);
+    expect($item->fresh()->annihilated_at)->toBeNull();
+});

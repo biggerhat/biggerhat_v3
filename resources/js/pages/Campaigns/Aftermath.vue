@@ -115,6 +115,7 @@ const props = defineProps<{
     // Phase-gated props — server returns null on phases that don't need them.
     equipment_catalog?: EquipmentRow[] | null;
     ttw_catalog?: TtwCatalog | null;
+    omens_mark?: { owned: number; carrier_killed: boolean } | null;
     crew_injuries?: InjuryPivotRow[] | null;
     xp_track?: XpTrackPayload | null;
     advancement_catalogs?: AdvancementCatalogs | null;
@@ -950,9 +951,13 @@ const injuryFlipSummary = (f: InjuryEntry): string => {
     return injury?.name ?? '— no injury picked —';
 };
 
+// Omen's Mark (pg 30): killed by an enemy, it moves to that enemy's crew. Pre-ticked when the linked tracker game shows its carrier died.
+const omensMarkKilled = ref(props.omens_mark?.carrier_killed ?? false);
+
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
         flips: injuryFlips.value,
+        omens_mark_killed: omensMarkKilled.value,
         story_entry: storyEntry.value || null,
     } as Record<string, unknown>);
 };
@@ -1738,6 +1743,17 @@ const submitInjuries = () => {
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
+                <p class="text-xs text-muted-foreground">
+                    Killed by a <strong>Laid to Rest</strong> weapon (Those Who Thirst)? That model flips <strong>twice</strong> — add two injuries
+                    for it below (pg 29–30).
+                </p>
+                <label v-if="omens_mark?.owned" class="flex items-start gap-2 rounded-md border border-purple-500/40 bg-purple-500/5 p-2 text-sm">
+                    <input v-model="omensMarkKilled" type="checkbox" class="mt-0.5 size-4" :disabled="!is_owner" />
+                    <span>
+                        The model carrying <strong>Omen’s Mark</strong> was killed by an enemy — annihilate it and pass it to that enemy’s crew (pg
+                        30).
+                    </span>
+                </label>
                 <p v-if="kills_are_authoritative" class="text-xs uppercase text-muted-foreground">
                     Models highlighted below were auto-detected as killed this game — add or remove flips as needed.
                 </p>

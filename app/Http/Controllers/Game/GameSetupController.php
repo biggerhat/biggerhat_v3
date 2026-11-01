@@ -789,7 +789,12 @@ class GameSetupController extends Controller
                 }
 
                 $injuryUpgrades = $this->injuryUpgrades('campaign_arsenal_model_id', $arsenalModel->id);
-                $attachedUpgrades = array_merge($injuryUpgrades, $equipmentByTarget[$arsenalModel->id] ?? []);
+                // A model's bound Corrupted Pawns item (pg 146) always travels with it.
+                $boundEquipment = array_map(
+                    fn (array $e) => $this->attachedEquipmentShape($e),
+                    AftermathCatalog::ownedEquipmentForAttachment($campaignCrew, null, $arsenalModel->id),
+                );
+                $attachedUpgrades = array_merge($injuryUpgrades, $boundEquipment, $equipmentByTarget[$arsenalModel->id] ?? []);
 
                 // Hired from the owner's own Card Creator homebrew instead of the
                 // official catalog — no keywords/characteristics relations to check
@@ -968,11 +973,23 @@ class GameSetupController extends Controller
      */
     private function resolveEquipmentAssignments(CampaignCrew $crew, array $arsenalModelIds, array $assignments): array|string
     {
-        if (empty($assignments)) {
+        $owned = collect(AftermathCatalog::ownedEquipmentForAttachment($crew, $crew->leader))->keyBy('id');
+
+        // Omen's Mark is "free and mandatory" (pg 30): every owned copy must be attached to a model each encounter.
+        $mandatory = $owned->filter(fn (array $e) => $e['is_omens_mark']);
+        if (empty($assignments) && $mandatory->isEmpty()) {
             return [];
         }
 
-        $owned = collect(AftermathCatalog::ownedEquipmentForAttachment($crew, $crew->leader))->keyBy('id');
+        // Uniqueness of each hired model, for "may only be attached to a non-unique model" equipment (pg 23).
+        $uniqueModelIds = CampaignArsenalModel::query()
+            ->whereIn('id', $arsenalModelIds)
+            ->with('character.characteristics:id,name')
+            ->get()
+            ->filter(fn (CampaignArsenalModel $m) => $m->character?->characteristics->contains(fn ($c) => strtolower($c->name) === 'unique'))
+            ->pluck('id')
+            ->all();
+
         $usedCounts = [];
         $byTarget = [];
 
@@ -1001,23 +1018,46 @@ class GameSetupController extends Controller
                 return "{$entry['name']} has an advancement tied to it and can only be assigned to the Leader or Totem.";
             }
 
+            if ($entry['leader_only'] && $target !== 'leader') {
+                return "{$entry['name']} may only be attached to your Leader.";
+            }
+
+            if ($entry['non_unique_only'] && ($target === 'leader' || $target === 'totem' || in_array($target, $uniqueModelIds, true))) {
+                return "{$entry['name']} may only be attached to a non-unique model.";
+            }
+
             $usedCounts[$equipmentId] = ($usedCounts[$equipmentId] ?? 0) + 1;
             if ($usedCounts[$equipmentId] > $entry['plentiful']) {
                 return "You don't own enough copies of {$entry['name']} for that many assignments.";
             }
 
-            $byTarget[$target][] = [
-                'id' => $entry['id'],
-                'name' => $entry['name'],
-                'front_image' => $entry['front_image'],
-                'back_image' => $entry['back_image'],
-                'description' => $entry['description'],
-                'actions' => $entry['actions'],
-                'abilities' => $entry['abilities'],
-            ];
+            $byTarget[$target][] = $this->attachedEquipmentShape($entry);
+        }
+
+        foreach ($mandatory as $id => $entry) {
+            if (($usedCounts[$id] ?? 0) < $entry['plentiful']) {
+                return "{$entry['name']} is mandatory — attach it to a model this game (pg 30).";
+            }
         }
 
         return $byTarget;
+    }
+
+    /**
+     * @param  array<string, mixed>  $entry  a row from AftermathCatalog::ownedEquipmentForAttachment()
+     * @return array<string, mixed>
+     */
+    private function attachedEquipmentShape(array $entry): array
+    {
+        return [
+            'id' => $entry['id'],
+            'name' => $entry['name'],
+            'front_image' => $entry['front_image'],
+            'back_image' => $entry['back_image'],
+            'description' => $entry['description'],
+            'actions' => $entry['actions'],
+            'abilities' => $entry['abilities'],
+        ];
     }
 
     /**

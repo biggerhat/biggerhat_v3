@@ -23,6 +23,7 @@ use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignCrewCardAdvancement;
+use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\LuckyMiss;
 use App\Models\Character;
@@ -736,6 +737,16 @@ class GameController extends Controller
         // lucky_miss/gained_abilities fields for this identical model.
         $luckyMissNames = LuckyMiss::query()->pluck('name', 'id');
 
+        // Corrupted Pawns items (pg 146) bound to a model — shown on its row and auto-attached at hire.
+        $boundEquipment = CampaignEquipment::query()
+            ->where('campaign_crew_id', $campaignCrew->id)
+            ->active()
+            ->whereNotNull('bound_arsenal_model_id')
+            ->with('catalog:id,name')
+            ->get()
+            ->groupBy('bound_arsenal_model_id')
+            ->map(fn ($rows) => $rows->map(fn (CampaignEquipment $e) => $e->catalog?->name)->filter()->values()->all());
+
         return CampaignArsenalModel::query()
             ->where('campaign_crew_id', $campaignCrew->id)
             ->active()
@@ -751,7 +762,7 @@ class GameController extends Controller
                 'gainedAbilities:id,name,description',
             ])
             ->get()
-            ->map(function (CampaignArsenalModel $m) use ($leaderKeywordSlugs, $luckyMissNames) {
+            ->map(function (CampaignArsenalModel $m) use ($leaderKeywordSlugs, $luckyMissNames, $boundEquipment) {
                 $generatedAt = null;
                 if ($m->customCharacter) {
                     $custom = $m->customCharacter;
@@ -796,6 +807,9 @@ class GameController extends Controller
                     'cost' => $cost,
                     'effective_cost' => $isOok ? ($cost + 1) : $cost,
                     'is_ook' => $isOok,
+                    // Unique models can't carry "non-unique only" equipment (pg 23).
+                    'is_unique' => $characteristicNames->map(fn ($n) => strtolower($n))->contains('unique'),
+                    'bound_equipment' => $boundEquipment->get($m->id, []),
                     'is_peon' => $m->is_peon,
                     'front_image' => $frontImage,
                     'back_image' => $backImage,

@@ -204,11 +204,11 @@ const submit = () => {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <ul class="max-h-[60vh] space-y-0.5 overflow-y-auto pr-1">
+                    <ul class="max-h-[60vh] space-y-0.5 overflow-y-auto pr-1" tabindex="0" aria-label="Models you can hire">
                         <li
                             v-for="c in filteredHireable"
                             :key="c.id"
-                            :class="[factionBackground(c.faction), locked || !canAfford(c) ? 'opacity-40' : '']"
+                            :class="[factionBackground(c.faction), locked || !canAfford(c) ? 'brightness-50 saturate-50' : '']"
                             class="rounded-md border border-white/20 text-white transition-colors hover:brightness-110"
                         >
                             <div class="flex items-center justify-between px-2 py-1.5">

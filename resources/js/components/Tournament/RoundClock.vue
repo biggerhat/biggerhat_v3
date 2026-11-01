@@ -38,7 +38,7 @@ const label = computed(() => {
 
 const tone = computed(() => {
     if (remaining.value === null) return 'text-muted-foreground';
-    if (remaining.value < 0) return 'border-destructive/50 bg-destructive/10 text-destructive';
+    if (remaining.value < 0) return 'border-destructive/50 bg-destructive/10 text-red-700 dark:text-red-300';
     if (remaining.value <= 15 * 60) return 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300';
     return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
 });

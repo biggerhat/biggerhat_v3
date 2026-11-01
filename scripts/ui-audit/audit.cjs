@@ -40,6 +40,7 @@ const CREDS = {
     organizer: 'audit.organizer@example.test',
     admin: 'audit.admin@example.test',
     fresh: 'audit.fresh@example.test',
+    campaign: 'alpha@biggerhat.test', // from CampaignSeeder
 };
 const axePath = process.env.AXE || path.resolve('node_modules/axe-core/axe.min.js');
 const axeSrc = fs.existsSync(axePath) ? fs.readFileSync(axePath, 'utf8') : null;
@@ -91,7 +92,12 @@ async function discover(page, pages) {
         [...new Set(hrefs)].slice(0, limit).forEach((h) => found.add(h));
     };
     if (ROLE === 'admin') await grab('/admin', '^/admin(/|$)', 80);
-    else if (ROLE !== 'guest') {
+    else if (ROLE === 'campaign') {
+        await grab('/campaigns', '^/campaigns/[0-9]+$', 3);
+        for (const c of [...found].filter((p) => /^\/campaigns\/[0-9]+$/.test(p))) {
+            await grab(c, '^/campaigns/([0-9]+/(crews|games|weekly|leader)|aftermaths)/', 12);
+        }
+    } else if (ROLE !== 'guest') {
         await grab('/games', '^/games/[0-9a-f-]{36}$', 3);
         await grab('/tournaments', '^/tournaments/[0-9a-f-]{36}$', 3);
         await grab('/tools/crew-builder', '^/tools/crew-builder/(share|[0-9]+)', 3);

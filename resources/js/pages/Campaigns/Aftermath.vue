@@ -1013,7 +1013,7 @@ const submitInjuries = () => {
                     <Label>Schemes completed (0–3)</Label>
                     <Input type="number" min="0" max="3" v-model.number="handForm.schemes_completed" />
                 </div>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <div />
                     <Button :disabled="!is_owner" @click="drawHand">Confirm — draw my hand</Button>
                 </div>
@@ -1059,7 +1059,7 @@ const submitInjuries = () => {
                         </label>
                     </div>
                 </div>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner" @click="submitPayday">Confirm &amp; advance</Button>
@@ -1120,7 +1120,7 @@ const submitInjuries = () => {
                     Total:
                     <Badge variant="outline" class="text-2xs tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
                 </span>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
@@ -1553,11 +1553,11 @@ const submitInjuries = () => {
                 <p v-if="advanceLeaderOutOfOrder" class="text-xs text-destructive">
                     Advancements must be resolved in box order (pg 31) — pick one for every earlier box before a later one.
                 </p>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
-                    <div class="flex gap-2">
-                        <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip phase</Button>
+                    <div class="flex flex-wrap justify-end gap-2">
+                        <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip — don’t record XP</Button>
                         <Button :disabled="!is_owner || advanceLeaderOutOfOrder" @click="submitAdvanceLeader">
                             Confirm Advancements &amp; advance
                         </Button>
@@ -1643,7 +1643,7 @@ const submitInjuries = () => {
                     </ul>
                 </div>
 
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner || doctorAttempts.length > aftermath.crew.scrip" @click="submitDoctor"> Apply &amp; advance </Button>
@@ -1776,7 +1776,7 @@ const submitInjuries = () => {
                     </ul>
                 </div>
 
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner" @click="phase6Step = 'review'">Review &amp; continue →</Button>
@@ -1847,7 +1847,7 @@ const submitInjuries = () => {
                     />
                 </div>
 
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button variant="ghost" @click="phase6Step = 'flips'">← Back to injuries</Button>
                     <Button :disabled="!is_owner" @click="submitInjuries">Lock it in</Button>
                 </div>

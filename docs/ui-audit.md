@@ -43,3 +43,5 @@ screenshots + `<role>-results.json` in `--out`.
 Chrome: any Chromium works (Playwright's `chromium_headless_shell` is fine). On a machine without the
 shared libraries and no sudo, `apt-get download` the missing `.deb`s, `dpkg -x` them somewhere and set
 `LD_LIBRARY_PATH`.
+
+The `campaign` role signs in as `alpha@biggerhat.test` (from `CampaignSeeder`; run `CampaignCatalogSeeder` and `CampaignRulebookSeeder` first) and `--discover` follows the campaign hub to its crews and games.

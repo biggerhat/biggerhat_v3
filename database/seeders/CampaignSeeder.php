@@ -154,6 +154,7 @@ class CampaignSeeder extends Seeder
             'is_campaign_totem' => false,
             'current' => true,
             'archetype' => $archetype->value,
+            'tag' => $archetype === LeaderArchetypeEnum::HeavyHitter ? 'bruiser' : 'strategist',
             'campaign_size' => BaseSizeEnum::ThirtyMM->value,
             'campaign_df' => $archetype->df(),
             'campaign_wp' => $archetype->wp(),

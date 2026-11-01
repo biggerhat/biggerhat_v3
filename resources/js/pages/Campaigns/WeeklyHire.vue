@@ -217,19 +217,19 @@ const submit = () => {
                                     <div class="flex flex-wrap items-center gap-1.5">
                                         <span class="flex items-center text-sm font-bold text-white">
                                             {{ c.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                                            <span v-if="isOutOfKeyword(c)" class="ml-0.5 text-xs font-normal text-red-300">+1</span>
+                                            <span v-if="isOutOfKeyword(c)" class="ml-0.5 text-xs font-normal text-red-200">+1</span>
                                         </span>
-                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-2xs capitalize text-white/90">
+                                        <Badge variant="secondary" class="bg-white/15 px-1 py-0 text-2xs capitalize text-white">
                                             {{ c.station }}
                                         </Badge>
                                         <Badge v-if="isOutOfKeyword(c)" class="bg-red-400/30 px-1 py-0 text-2xs text-red-200"> OOK </Badge>
-                                        <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white/50 sm:inline">
+                                        <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white sm:inline">
                                             {{ c.keywords.map((k) => k.name).join(', ') }}
                                         </span>
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
-                                    <span v-if="!locked && !canAfford(c)" class="text-2xs text-white/50">Over budget</span>
+                                    <span v-if="!locked && !canAfford(c)" class="text-2xs text-white">Over budget</span>
                                     <Button
                                         aria-label="Hire"
                                         variant="ghost"

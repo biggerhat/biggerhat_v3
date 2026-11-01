@@ -4933,7 +4933,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Line 4 (mobile): Action buttons -->
                                     <div v-if="!isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-amber-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openUpgradeDialog(member)"
                                         >
                                             <ArrowUpCircle class="size-3.5" /><span class="text-2xs font-medium">Upgrades</span>
@@ -4946,13 +4946,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <HeartCrack class="size-3.5" /><span class="text-2xs font-medium">Injury</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openTokenDialog(member)"
                                         >
                                             <Puzzle class="size-3.5" /><span class="text-2xs font-medium">Tokens</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-blue-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openReplace(member)"
                                         >
                                             <Replace class="size-3.5" /><span class="text-2xs font-medium">Replace</span>
@@ -5575,7 +5575,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Line 4 (mobile): Action buttons -->
                                     <div v-if="isSolo && !isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-amber-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openUpgradeDialog(member)"
                                         >
                                             <ArrowUpCircle class="size-3.5" /><span class="text-2xs font-medium">Upgrades</span>
@@ -5588,13 +5588,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <HeartCrack class="size-3.5" /><span class="text-2xs font-medium">Injury</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openTokenDialog(member)"
                                         >
                                             <Puzzle class="size-3.5" /><span class="text-2xs font-medium">Tokens</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-blue-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openReplace(member)"
                                         >
                                             <Replace class="size-3.5" /><span class="text-2xs font-medium">Replace</span>

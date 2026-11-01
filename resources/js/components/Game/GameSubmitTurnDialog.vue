@@ -48,11 +48,11 @@ const hasNextSetup = computed(() => !!(props.nextSchemeModel || props.nextScheme
             <div class="space-y-3 text-sm">
                 <!-- VP summary -->
                 <div class="rounded-md border bg-muted/40 p-3">
-                    <div class="mb-1.5 text-[10px] font-semibold uppercase text-muted-foreground">Score this turn</div>
+                    <div class="mb-1.5 text-2xs font-semibold uppercase text-muted-foreground">Score this turn</div>
                     <div class="flex items-center justify-between">
                         <span>
                             Strategy VP
-                            <span v-if="strategyBonusUsed" class="ml-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                            <span v-if="strategyBonusUsed" class="ml-1 text-2xs font-medium text-amber-700 dark:text-amber-400">
                                 (uses once-per-game bonus)
                             </span>
                         </span>
@@ -70,7 +70,7 @@ const hasNextSetup = computed(() => !!(props.nextSchemeModel || props.nextScheme
 
                 <!-- Current scheme + action -->
                 <div class="rounded-md border p-3">
-                    <div class="mb-1.5 text-[10px] font-semibold uppercase text-muted-foreground">Current scheme</div>
+                    <div class="mb-1.5 text-2xs font-semibold uppercase text-muted-foreground">Current scheme</div>
                     <div class="flex items-center justify-between gap-2">
                         <span class="min-w-0 flex-1 font-medium">{{ currentSchemeName ?? '—' }}</span>
                         <span
@@ -88,7 +88,7 @@ const hasNextSetup = computed(() => !!(props.nextSchemeModel || props.nextScheme
 
                 <!-- Next scheme (if switching) -->
                 <div v-if="nextSchemeName" class="rounded-md border border-primary/30 bg-primary/5 p-3">
-                    <div class="mb-1.5 text-[10px] font-semibold uppercase text-muted-foreground">Next scheme</div>
+                    <div class="mb-1.5 text-2xs font-semibold uppercase text-muted-foreground">Next scheme</div>
                     <div class="font-medium">{{ nextSchemeName }}</div>
                     <div v-if="hasNextSetup" class="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
                         <div v-if="nextSchemeModel">

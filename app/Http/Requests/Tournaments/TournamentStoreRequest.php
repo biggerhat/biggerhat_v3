@@ -4,12 +4,18 @@ namespace App\Http\Requests\Tournaments;
 
 use App\Enums\EncounterTypeEnum;
 use App\Enums\PoolSeasonEnum;
+use App\Enums\RoleEnum;
+use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
+use App\Models\Tournament;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class TournamentStoreRequest extends FormRequest
 {
+    public const MAX_OPEN_EVENTS = 5;
+
     /**
      * Ownership and policy checks stay in the controller; this request only validates.
      */
@@ -40,5 +46,28 @@ class TournamentStoreRequest extends FormRequest
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
 
         ];
+    }
+
+    /**
+     * Creation is open to everyone signed in, so cap how many unfinished events one person can hold at once.
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            $user = $this->user();
+            if (! $user || $user->hasRole(RoleEnum::SuperAdmin->value)) {
+                return;
+            }
+
+            $open = Tournament::where('creator_id', $user->id)
+                ->where('status', '!=', TournamentStatusEnum::Completed->value)
+                ->count();
+
+            if ($open >= self::MAX_OPEN_EVENTS) {
+                $validator->errors()->add('name', 'You already have '.self::MAX_OPEN_EVENTS.' unfinished tournaments. Finish or delete one before creating another.');
+            }
+        }];
     }
 }

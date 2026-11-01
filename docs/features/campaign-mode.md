@@ -39,3 +39,20 @@ source-ally cost cap; characteristics from a fixed `characteristic_options` list
 ## Tests
 `tests/Feature/Campaign/*` — leader builder search/save, weekly cycle/hire,
 arsenal, aftermath, concurrency edges.
+
+## Equipment rules in play
+- Equipment is a crew-level pool; it is assigned to models at CrewSelect (`GameSetupController::resolveEquipmentAssignments`),
+  which enforces `campaign_leader_only`, `campaign_non_unique_only` and Omen's Mark being attached every game.
+- **Those Who Thirst** (pg 29-30): red joker on the barter → pick from the TTW table in Aftermath Phase 3 (`ttw_pickup`,
+  source `joker`). One TTW item per crew; Omen's Mark is free and exempt. In Phase 6, `omens_mark_killed` annihilates the
+  crew's mark and gives one to the opposing crew (pre-ticked when a linked tracker game shows the carrier died).
+- **Corrupted Pawns** (optional rule, pg 146): `campaign_equipment.bound_arsenal_model_id` + source `starting_corrupted_pawns`.
+  Picked on the Starting Arsenal page, auto-attached to its model at hire, not counted in the TTW limit, not removable by
+  hand, and annihilated/restored with its model (`CampaignArsenalModelObserver`). Re-saving the starting arsenal resets it.
+- Not modelled: "Laid to Rest" (the victim flips twice) is only a hint in Phase 6; `campaign_annihilate_after_game` is unused.
+
+## Local seed data
+`CampaignCatalogSeeder` (placeholder advancement tables/crew cards, plus the real Back-Alley Doctor and
+Lucky Miss tables) + `CampaignRulebookSeeder` (the book's real equipment, Those Who Thirst items and
+injury table, pg 22-35) + `CampaignSeeder` (two users `alpha@`/`beta@biggerhat.test`, a campaign and a
+live game). Log a game via `/campaigns/{id}/games/log` to walk the Aftermath wizard end to end.

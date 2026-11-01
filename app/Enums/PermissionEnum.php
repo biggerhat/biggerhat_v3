@@ -172,8 +172,6 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     case DeletePodLink = 'delete_pod_link';
 
     #[PermissionGroup(PermissionGroupEnum::Tournament)]
-    case CreateTournaments = 'create_tournaments';
-    #[PermissionGroup(PermissionGroupEnum::Tournament)]
     case ManageTournaments = 'manage_tournaments';
 
     #[PermissionGroup(PermissionGroupEnum::Feedback)]

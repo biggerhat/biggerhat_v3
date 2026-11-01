@@ -1083,7 +1083,8 @@ const gameplayColumnClass = (column: 'scenario' | 'my-crew' | 'opponent'): strin
     }
     // crew columns
     if (gameplayTab.value === column) return '';
-    if (gameplayTab.value === 'crews') return 'hidden md:block';
+    // Any non-scenario tab is the merged "Crews" view on tablet, so the other crew stays visible at md+.
+    if (gameplayTab.value !== 'scenario') return 'hidden md:block';
     return 'hidden xl:block';
 };
 
@@ -2858,7 +2859,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <button
                                 v-if="crewCardPayload(side)?.back_image"
                                 type="button"
-                                class="absolute bottom-1 right-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white/80 hover:bg-black/70"
+                                class="absolute bottom-1 right-1 rounded-full bg-black/50 px-2 py-0.5 text-2xs text-white/80 hover:bg-black/70"
                                 @click="flippedCrewCard[side] = !flippedCrewCard[side]"
                             >
                                 {{ flippedCrewCard[side] ? 'Show Front' : 'Show Back' }}
@@ -3093,7 +3094,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     v-if="!isObserver"
                                     size="sm"
                                     variant="outline"
-                                    class="ml-1 h-5 px-1.5 py-0 text-[10px]"
+                                    class="ml-1 h-5 px-1.5 py-0 text-2xs"
                                     @click="openYoinkPicker(marker)"
                                 >
                                     Yoink
@@ -3226,7 +3227,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 v-for="s in ['all', 'crow', 'mask', 'ram', 'tome', 'joker'] as const"
                                 :key="s"
                                 type="button"
-                                class="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] capitalize transition-colors"
+                                class="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-2xs capitalize transition-colors"
                                 :class="
                                     lootCardSelectorSuit === s
                                         ? lootSuitClass(s) + ' font-semibold'
@@ -3250,7 +3251,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     @click="pickLootCardForSelect(card)"
                                 >
                                     <span
-                                        class="border-current/40 inline-flex shrink-0 items-center gap-0.5 rounded border bg-background/40 px-1 font-mono text-[10px] tabular-nums"
+                                        class="border-current/40 inline-flex shrink-0 items-center gap-0.5 rounded border bg-background/40 px-1 font-mono text-2xs tabular-nums"
                                     >
                                         {{ card.value_label
                                         }}<GameIcon
@@ -3279,7 +3280,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <Badge
                     v-if="game.is_observable && !GAME_FINISHED_STATUSES.includes(game.status)"
                     variant="outline"
-                    class="border-amber-500/50 text-xs text-amber-600 dark:text-amber-400"
+                    class="border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
                     >Public</Badge
                 >
                 <div v-if="canEditScenario" class="ml-auto flex items-center gap-1">
@@ -3446,7 +3447,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <span v-else class="font-medium">{{ playerName(player) }}</span>
                                     <!-- Attacker/Defender role is meaningless in Bonanza
                                          (there's no opposing player to flip with). -->
-                                    <Badge v-if="player.role && !isBonanza" variant="outline" class="px-1 py-0 text-[10px] capitalize">
+                                    <Badge v-if="player.role && !isBonanza" variant="outline" class="px-1 py-0 text-2xs capitalize">
                                         <Shield v-if="player.role === 'defender'" class="mr-0.5 size-3" />
                                         <ShieldAlert v-else class="mr-0.5 size-3" />
                                         {{ player.role }}
@@ -3520,7 +3521,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <div class="mt-1 flex items-center justify-center gap-1">
                     <template v-for="(step, idx) in setupSteps" :key="step + '-label'">
                         <div v-if="idx > 0" class="w-8" />
-                        <span class="w-8 text-center text-[10px] text-muted-foreground">{{ stepLabels[step] }}</span>
+                        <span class="w-8 text-center text-2xs text-muted-foreground">{{ stepLabels[step] }}</span>
                     </template>
                 </div>
             </div>
@@ -3657,6 +3658,32 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </Tabs>
                 </div>
 
+                <!-- Score strip: keeps turn + VP visible while the Crew tabs are open (the full
+                 scoreboard lives on the Game tab). Tap to jump back there. -->
+                <button
+                    v-if="mobileGameplayTab !== 'scenario'"
+                    type="button"
+                    class="sticky top-0 z-20 mb-3 flex w-full items-center justify-between gap-3 rounded-lg border bg-card/95 px-3 py-2 text-sm shadow-sm backdrop-blur md:hidden"
+                    @click="mobileGameplayTab = 'scenario'"
+                >
+                    <span class="font-semibold"
+                        >Turn {{ game.current_turn }}<span class="font-normal text-muted-foreground"> / {{ game.max_turns }}</span></span
+                    >
+                    <span class="flex min-w-0 items-center gap-3 tabular-nums">
+                        <span
+                            v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
+                            :key="'strip-' + player.id"
+                            class="flex min-w-0 items-baseline gap-1"
+                        >
+                            <span class="max-w-[6rem] truncate text-xs text-muted-foreground">{{
+                                player.id === myPlayer?.id && !isObserver ? 'You' : playerName(player)
+                            }}</span>
+                            <span class="text-base font-bold">{{ player.total_points }}</span>
+                            <span class="text-2xs uppercase text-muted-foreground">VP</span>
+                        </span>
+                    </span>
+                </button>
+
                 <!-- Tablet: 2-tab switcher (game / both crews side-by-side).
                      Bonanza has only one crew, so the Crews tab is just the
                      user's own — keep the simpler tabs since the layout still
@@ -3683,7 +3710,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         v-if="turnBanner"
                         class="mb-4 overflow-hidden rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-amber-500/20 py-3 text-center"
                     >
-                        <div class="text-lg font-bold text-amber-600 dark:text-amber-400">Turn {{ game.current_turn }} Started</div>
+                        <div class="text-lg font-bold text-amber-700 dark:text-amber-400">Turn {{ game.current_turn }} Started</div>
                     </div>
                 </Transition>
 
@@ -3695,7 +3722,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <div
                     class="grid grid-cols-1 gap-4"
                     :class="[
-                        gameplayTab === 'crews' && !isBonanza ? 'md:grid-cols-2' : '',
+                        gameplayTab !== 'scenario' && !isBonanza ? 'md:grid-cols-2' : '',
                         isBonanza
                             ? scenarioCollapsed
                                 ? 'xl:grid-cols-[auto_1fr]'
@@ -3755,14 +3782,17 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <div
                                         v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
                                         :key="'score-' + player.id"
-                                        class="rounded-lg border p-3 text-center"
+                                        :class="[
+                                            'rounded-lg border p-3 text-center',
+                                            player.id === myPlayer?.id && !isObserver && !isBonanza ? 'border-primary/50 bg-primary/5' : '',
+                                        ]"
                                     >
                                         <div class="flex items-center justify-center gap-1.5">
                                             <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
-                                            <span class="text-xs font-medium">{{ playerName(player) }}</span>
+                                            <span class="truncate text-xs font-medium">{{ playerName(player) }}</span>
                                         </div>
                                         <div class="mt-1 flex items-center justify-center gap-1.5">
-                                            <span class="text-2xl font-bold">{{ player.total_points }}</span>
+                                            <span class="text-4xl font-extrabold tabular-nums leading-none">{{ player.total_points }}</span>
                                             <button
                                                 v-if="!isObserver && previousTurnFor(player)"
                                                 type="button"
@@ -3773,7 +3803,8 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <Pencil class="size-3" />
                                             </button>
                                         </div>
-                                        <Badge v-if="player.role && !isBonanza" variant="outline" class="mt-1 px-1 py-0 text-[10px] capitalize">{{
+                                        <div class="mt-1 text-2xs uppercase tracking-wide text-muted-foreground">Victory points</div>
+                                        <Badge v-if="player.role && !isBonanza" variant="outline" class="mt-1 px-1 py-0 text-2xs capitalize">{{
                                             player.role
                                         }}</Badge>
                                     </div>
@@ -3788,7 +3819,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     @click="deploymentDrawerOpen = true"
                                     @keydown.enter="deploymentDrawerOpen = true"
                                 >
-                                    <div class="text-[10px] uppercase text-muted-foreground">Deployment</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Deployment</div>
                                     <div class="text-sm font-medium">{{ deployment.label }}</div>
                                 </div>
                                 <div
@@ -3799,7 +3830,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     @click="strategyDrawerOpen = true"
                                     @keydown.enter="strategyDrawerOpen = true"
                                 >
-                                    <div class="text-[10px] uppercase text-muted-foreground">Strategy</div>
+                                    <div class="text-2xs uppercase text-muted-foreground">Strategy</div>
                                     <div class="text-sm font-medium">{{ game.strategy.name }}</div>
                                 </div>
 
@@ -3808,9 +3839,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Observer: show possible scheme pool per player -->
                                     <details v-for="player in game.players" :key="'obs-scheme-' + player.id" class="rounded-lg border">
                                         <summary class="cursor-pointer px-3 py-2 text-center">
-                                            <span class="text-[10px] uppercase text-muted-foreground"
-                                                >{{ playerName(player) }}'s Possible Schemes</span
-                                            >
+                                            <span class="text-2xs uppercase text-muted-foreground">{{ playerName(player) }}'s Possible Schemes</span>
                                         </summary>
                                         <div class="space-y-1 border-t px-3 py-2">
                                             <template v-if="observer_scheme_intel?.[player.slot]">
@@ -3833,7 +3862,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <Badge
                                                         v-if="scheme.id === observer_scheme_intel[player.slot].revealed_scheme_id"
                                                         variant="outline"
-                                                        class="shrink-0 border-green-500/50 px-1 py-0 text-[10px] text-green-600 dark:text-green-400"
+                                                        class="shrink-0 border-green-500/50 px-1 py-0 text-2xs text-green-600 dark:text-green-400"
                                                     >
                                                         Scored T{{ observer_scheme_intel[player.slot].last_scored_turn }}
                                                     </Badge>
@@ -3847,7 +3876,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Player: own scheme with hide toggle -->
                                     <div v-if="myDisplaySchemeId" class="rounded-lg border border-primary/30 bg-primary/5 p-2">
                                         <div class="flex items-center justify-center gap-1.5">
-                                            <span class="text-[10px] uppercase text-muted-foreground">Your Scheme</span>
+                                            <span class="text-2xs uppercase text-muted-foreground">Your Scheme</span>
                                             <button
                                                 :aria-label="schemeHidden ? 'Show your scheme' : 'Hide your scheme'"
                                                 class="rounded p-0.5 text-muted-foreground hover:text-foreground"
@@ -3870,14 +3899,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <!-- Prerequisite hint (only before locking) -->
                                                 <div
                                                     v-if="!schemeNotesLocked && findScheme(myDisplaySchemeId)?.prerequisite"
-                                                    class="text-[10px] italic text-muted-foreground"
+                                                    class="text-2xs italic text-muted-foreground"
                                                 >
                                                     {{ findScheme(myDisplaySchemeId)?.prerequisite }}
                                                 </div>
 
                                                 <!-- Model selection -->
                                                 <div v-if="schemeModelReq">
-                                                    <Label class="text-[10px] uppercase text-muted-foreground">{{ modelReqLabel }}</Label>
+                                                    <Label class="text-2xs uppercase text-muted-foreground">{{ modelReqLabel }}</Label>
                                                     <template v-if="schemeNotesLocked">
                                                         <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">
                                                             {{ schemeSelectedModel || 'Not selected' }}
@@ -3917,7 +3946,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                                 <!-- Marker selection -->
                                                 <div v-if="schemeHasMarkerReq">
-                                                    <Label class="text-[10px] uppercase text-muted-foreground">Target Marker</Label>
+                                                    <Label class="text-2xs uppercase text-muted-foreground">Target Marker</Label>
                                                     <template v-if="schemeNotesLocked">
                                                         <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">
                                                             {{ schemeSelectedMarker || 'Not selected' }}
@@ -3945,7 +3974,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                                 <!-- Terrain note -->
                                                 <div v-if="schemeHasTerrainReq">
-                                                    <Label class="text-[10px] uppercase text-muted-foreground">Terrain Note</Label>
+                                                    <Label class="text-2xs uppercase text-muted-foreground">Terrain Note</Label>
                                                     <template v-if="schemeNotesLocked">
                                                         <div class="mt-0.5 rounded border bg-muted/50 px-2 py-1 text-xs font-medium">
                                                             {{ schemeTerrainNote || 'Not set' }}
@@ -3963,7 +3992,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                                 <!-- Free text note (always editable) -->
                                                 <div>
-                                                    <Label class="text-[10px] uppercase text-muted-foreground">Notes</Label>
+                                                    <Label class="text-2xs uppercase text-muted-foreground">Notes</Label>
                                                     <Textarea
                                                         v-model="schemeNote"
                                                         placeholder="Any notes about your scheme..."
@@ -3989,19 +4018,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             class="rounded-md border border-amber-500/30 bg-amber-500/5 p-2"
                                         >
                                             <div class="flex items-center justify-between">
-                                                <div class="text-[10px] uppercase text-muted-foreground">
+                                                <div class="text-2xs uppercase text-muted-foreground">
                                                     Last Revealed (Turn {{ opponent_scheme_intel.last_revealed.turn_number }})
                                                 </div>
                                                 <Badge
                                                     v-if="opponent_scheme_intel.last_revealed.scheme_action === 'scored'"
                                                     variant="outline"
-                                                    class="border-green-500/50 px-1 py-0 text-[10px] text-green-600 dark:text-green-400"
+                                                    class="border-green-500/50 px-1 py-0 text-2xs text-green-600 dark:text-green-400"
                                                     >Scored</Badge
                                                 >
                                                 <Badge
                                                     v-else-if="opponent_scheme_intel.last_revealed.scheme_action === 'discarded'"
                                                     variant="outline"
-                                                    class="border-red-500/50 px-1 py-0 text-[10px] text-red-600 dark:text-red-400"
+                                                    class="border-red-500/50 px-1 py-0 text-2xs text-red-600 dark:text-red-400"
                                                     >Discarded</Badge
                                                 >
                                             </div>
@@ -4015,7 +4044,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                         <!-- Possible current schemes -->
                                         <div>
-                                            <div class="text-[10px] uppercase text-muted-foreground">
+                                            <div class="text-2xs uppercase text-muted-foreground">
                                                 {{ opponent_scheme_intel.last_revealed ? 'Possible Current Schemes' : 'Scheme Pool' }}
                                             </div>
                                             <div class="mt-1 space-y-1">
@@ -4035,7 +4064,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                         <Badge
                                                             v-if="opponent_scheme_intel.last_revealed?.scheme_id === scheme.id"
                                                             variant="outline"
-                                                            class="px-1 py-0 text-[10px]"
+                                                            class="px-1 py-0 text-2xs"
                                                             >Kept</Badge
                                                         >
                                                     </div>
@@ -4045,7 +4074,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                         <!-- Scheme history -->
                                         <div v-if="opponent_scheme_intel.scheme_history?.length" class="border-t pt-2">
-                                            <div class="text-[10px] uppercase text-muted-foreground">Scheme History</div>
+                                            <div class="text-2xs uppercase text-muted-foreground">Scheme History</div>
                                             <div class="mt-1 space-y-0.5">
                                                 <div
                                                     v-for="entry in opponent_scheme_intel.scheme_history"
@@ -4064,19 +4093,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <Badge
                                                         v-if="entry.scheme_action === 'scored'"
                                                         variant="outline"
-                                                        class="border-green-500/50 px-1 py-0 text-[10px] text-green-600 dark:text-green-400"
+                                                        class="border-green-500/50 px-1 py-0 text-2xs text-green-600 dark:text-green-400"
                                                         >Scored</Badge
                                                     >
                                                     <Badge
                                                         v-else-if="entry.scheme_action === 'discarded'"
                                                         variant="outline"
-                                                        class="border-red-500/50 px-1 py-0 text-[10px] text-red-600 dark:text-red-400"
+                                                        class="border-red-500/50 px-1 py-0 text-2xs text-red-600 dark:text-red-400"
                                                         >Discarded</Badge
                                                     >
                                                     <Badge
                                                         v-else
                                                         variant="outline"
-                                                        class="border-amber-500/50 px-1 py-0 text-[10px] text-amber-600 dark:text-amber-400"
+                                                        class="border-amber-500/50 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                                         >Held</Badge
                                                     >
                                                 </div>
@@ -4101,7 +4130,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </template>
                                 <template v-else>
                                     <div class="space-y-3 border-t pt-3">
-                                        <div class="text-xs font-semibold">End of Turn {{ game.current_turn }}</div>
+                                        <div class="text-sm font-semibold">End of Turn {{ game.current_turn }}</div>
 
                                         <!-- Strategy points (1/turn + 1 bonus once/game) -->
                                         <div class="flex items-center justify-between">
@@ -4109,23 +4138,23 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <span class="text-xs text-muted-foreground">Strategy VP</span>
                                                 <span
                                                     v-if="!myStrategyBonusUsed && strategyPoints < 2"
-                                                    class="ml-1 text-[10px] text-amber-700 dark:text-amber-400"
+                                                    class="ml-1 text-2xs text-amber-700 dark:text-amber-400"
                                                     >+1 bonus available</span
                                                 >
-                                                <span v-if="myStrategyBonusUsed" class="ml-1 text-[10px] text-muted-foreground">bonus used</span>
+                                                <span v-if="myStrategyBonusUsed" class="ml-1 text-2xs text-muted-foreground">bonus used</span>
                                             </div>
                                             <div class="flex items-center gap-1.5">
                                                 <button
                                                     aria-label="Decrease strategy points"
-                                                    class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     @click="strategyPoints = Math.max(0, strategyPoints - 1)"
                                                 >
                                                     <Minus class="size-3.5" />
                                                 </button>
-                                                <span class="w-6 text-center font-bold">{{ strategyPoints }}</span>
+                                                <span class="w-7 text-center text-lg font-bold tabular-nums">{{ strategyPoints }}</span>
                                                 <button
                                                     aria-label="Increase strategy points"
-                                                    class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     :disabled="strategyPoints >= maxStrategyThisTurn"
                                                     :class="strategyPoints >= maxStrategyThisTurn ? 'opacity-30' : ''"
                                                     @click="strategyPoints = Math.min(maxStrategyThisTurn, strategyPoints + 1)"
@@ -4148,7 +4177,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             />
                                             <span>
                                                 <span class="font-medium text-amber-700 dark:text-amber-400">This was the bonus point</span>
-                                                <span class="block text-[10px] text-muted-foreground">
+                                                <span class="block text-2xs text-muted-foreground">
                                                     Check if your 1 VP came from the once-per-game bonus (it can't be scored again).
                                                 </span>
                                             </span>
@@ -4158,20 +4187,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <div class="flex items-center justify-between">
                                             <div>
                                                 <span class="text-xs text-muted-foreground">Scheme VP</span>
-                                                <span class="ml-1 text-[10px] text-muted-foreground">{{ myTotalSchemeScored }}/6 total</span>
+                                                <span class="ml-1 text-2xs text-muted-foreground">{{ myTotalSchemeScored }}/6 total</span>
                                             </div>
                                             <div class="flex items-center gap-1.5">
                                                 <button
                                                     aria-label="Decrease scheme points"
-                                                    class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     @click="schemePoints = Math.max(0, schemePoints - 1)"
                                                 >
                                                     <Minus class="size-3.5" />
                                                 </button>
-                                                <span class="w-6 text-center font-bold">{{ schemePoints }}</span>
+                                                <span class="w-7 text-center text-lg font-bold tabular-nums">{{ schemePoints }}</span>
                                                 <button
                                                     aria-label="Increase scheme points"
-                                                    class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                    class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                     :disabled="schemePoints >= maxSchemeThisTurn"
                                                     :class="schemePoints >= maxSchemeThisTurn ? 'opacity-30' : ''"
                                                     @click="schemePoints = Math.min(maxSchemeThisTurn, schemePoints + 1)"
@@ -4183,31 +4212,46 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
 
                                         <!-- Next scheme (not on last turn) -->
                                         <div v-if="!isLastTurn">
-                                            <div class="mb-1.5 text-xs font-medium">
-                                                {{ currentSchemeScored ? 'Scored — select next scheme:' : 'Hold scheme or discard:' }}
+                                            <div id="next-scheme-label" class="mb-1.5 text-xs font-semibold">
+                                                {{ currentSchemeScored ? 'Scored — choose your next scheme' : 'Your scheme going into next turn' }}
                                             </div>
-                                            <div class="space-y-1">
+                                            <div class="space-y-1.5" role="radiogroup" aria-labelledby="next-scheme-label">
                                                 <!-- Hold option (only when not scored) -->
                                                 <button
                                                     v-if="!currentSchemeScored"
-                                                    class="w-full rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
-                                                    :class="!nextSchemeId ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                                                    type="button"
+                                                    role="radio"
+                                                    :aria-checked="!nextSchemeId"
+                                                    class="flex w-full items-start gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors"
+                                                    :class="!nextSchemeId ? 'border-primary bg-primary/10' : 'hover:bg-muted'"
                                                     @click="nextSchemeId = null"
                                                 >
-                                                    Hold Scheme (Hidden)
+                                                    <span
+                                                        class="mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border"
+                                                        :class="!nextSchemeId ? 'border-primary' : 'border-muted-foreground/50'"
+                                                        aria-hidden="true"
+                                                    >
+                                                        <span v-if="!nextSchemeId" class="size-2 rounded-full bg-primary" />
+                                                    </span>
+                                                    <span>
+                                                        <span class="block font-medium">Keep my current scheme</span>
+                                                        <span class="block text-muted-foreground">Stays hidden from your opponent.</span>
+                                                    </span>
                                                 </button>
-                                                <!-- Divider when showing discard options -->
-                                                <div
-                                                    v-if="!currentSchemeScored && next_schemes.length"
-                                                    class="py-0.5 text-center text-[10px] text-muted-foreground"
-                                                >
-                                                    — or discard &amp; switch to —
-                                                </div>
                                                 <!-- Follow-up schemes -->
                                                 <template v-if="next_schemes.length">
+                                                    <div
+                                                        v-if="!currentSchemeScored"
+                                                        class="pt-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+                                                    >
+                                                        Or discard it and switch to
+                                                    </div>
                                                     <div v-for="scheme in next_schemes" :key="scheme.id" class="flex items-center gap-1">
                                                         <button
-                                                            class="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-left text-xs transition-colors"
+                                                            type="button"
+                                                            role="radio"
+                                                            :aria-checked="nextSchemeId === scheme.id"
+                                                            class="flex min-w-0 flex-1 items-center gap-2 rounded-md border px-2.5 py-2 text-left text-xs transition-colors"
                                                             :class="
                                                                 nextSchemeId === scheme.id
                                                                     ? 'border-primary bg-primary/10 font-medium'
@@ -4215,18 +4259,26 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                             "
                                                             @click="nextSchemeId = scheme.id"
                                                         >
-                                                            {{ scheme.name }}
+                                                            <span
+                                                                class="flex size-3.5 shrink-0 items-center justify-center rounded-full border"
+                                                                :class="nextSchemeId === scheme.id ? 'border-primary' : 'border-muted-foreground/50'"
+                                                                aria-hidden="true"
+                                                            >
+                                                                <span v-if="nextSchemeId === scheme.id" class="size-2 rounded-full bg-primary" />
+                                                            </span>
+                                                            <span class="min-w-0 truncate">{{ scheme.name }}</span>
                                                         </button>
                                                         <button
+                                                            type="button"
                                                             aria-label="View scheme details"
-                                                            class="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                                            class="shrink-0 rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                                             @click="openSchemeDrawer(scheme)"
                                                         >
-                                                            <Eye class="size-3.5" />
+                                                            <Eye class="size-4" />
                                                         </button>
                                                     </div>
                                                 </template>
-                                                <div v-else-if="currentSchemeScored" class="text-[11px] text-muted-foreground">
+                                                <div v-else-if="currentSchemeScored" class="text-2xs text-muted-foreground">
                                                     No follow-up schemes available.
                                                 </div>
                                             </div>
@@ -4236,15 +4288,15 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 v-if="nextSchemeId && findScheme(nextSchemeId)?.requirements?.length"
                                                 class="mt-2 space-y-1.5 rounded border border-primary/20 bg-primary/5 p-2"
                                             >
-                                                <div class="text-[10px] font-medium uppercase text-muted-foreground">
+                                                <div class="text-2xs font-medium uppercase text-muted-foreground">
                                                     {{ findScheme(nextSchemeId)?.name }} — Setup
                                                 </div>
-                                                <div v-if="findScheme(nextSchemeId)?.prerequisite" class="text-[10px] italic text-muted-foreground">
+                                                <div v-if="findScheme(nextSchemeId)?.prerequisite" class="text-2xs italic text-muted-foreground">
                                                     {{ findScheme(nextSchemeId)?.prerequisite }}
                                                 </div>
                                                 <!-- Model -->
                                                 <div v-if="nextSchemeModelReq">
-                                                    <Label class="text-[10px] uppercase text-muted-foreground">{{ nextSchemeModelLabel }}</Label>
+                                                    <Label class="text-2xs uppercase text-muted-foreground">{{ nextSchemeModelLabel }}</Label>
                                                     <Select
                                                         v-if="nextSchemeModelOptions.length"
                                                         :model-value="nextSchemeModel || '__none__'"
@@ -4270,7 +4322,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </div>
                                                 <!-- Marker -->
                                                 <div v-if="findScheme(nextSchemeId)?.requirements?.some((r: any) => r.type === 'select_marker')">
-                                                    <Label class="text-[10px] uppercase text-muted-foreground">Target Marker</Label>
+                                                    <Label class="text-2xs uppercase text-muted-foreground">Target Marker</Label>
                                                     <Select
                                                         :model-value="nextSchemeMarker || '__none__'"
                                                         @update:model-value="(v) => (nextSchemeMarker = v === '__none__' ? '' : (v as string))"
@@ -4286,7 +4338,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </div>
                                                 <!-- Terrain -->
                                                 <div v-if="findScheme(nextSchemeId)?.requirements?.some((r: any) => r.type === 'terrain_note')">
-                                                    <Label class="text-[10px] uppercase text-muted-foreground">Terrain Note</Label>
+                                                    <Label class="text-2xs uppercase text-muted-foreground">Terrain Note</Label>
                                                     <Input
                                                         v-model="nextSchemeTerrain"
                                                         type="text"
@@ -4335,25 +4387,25 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                     <span class="text-xs text-muted-foreground">Strategy VP</span>
                                                     <span
                                                         v-if="!opponentStrategyBonusUsed && opponentStrategyPoints < 2"
-                                                        class="ml-1 text-[10px] text-amber-700 dark:text-amber-400"
+                                                        class="ml-1 text-2xs text-amber-700 dark:text-amber-400"
                                                         >+1 bonus available</span
                                                     >
-                                                    <span v-if="opponentStrategyBonusUsed" class="ml-1 text-[10px] text-muted-foreground"
+                                                    <span v-if="opponentStrategyBonusUsed" class="ml-1 text-2xs text-muted-foreground"
                                                         >bonus used</span
                                                     >
                                                 </div>
                                                 <div class="flex items-center gap-1.5">
                                                     <button
                                                         aria-label="Decrease opponent strategy points"
-                                                        class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         @click="opponentStrategyPoints = Math.max(0, opponentStrategyPoints - 1)"
                                                     >
                                                         <Minus class="size-3.5" />
                                                     </button>
-                                                    <span class="w-6 text-center font-bold">{{ opponentStrategyPoints }}</span>
+                                                    <span class="w-7 text-center text-lg font-bold tabular-nums">{{ opponentStrategyPoints }}</span>
                                                     <button
                                                         aria-label="Increase opponent strategy points"
-                                                        class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         :disabled="opponentStrategyPoints >= opponentMaxStrategyThisTurn"
                                                         :class="opponentStrategyPoints >= opponentMaxStrategyThisTurn ? 'opacity-30' : ''"
                                                         @click="
@@ -4375,7 +4427,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 />
                                                 <span>
                                                     <span class="font-medium text-amber-700 dark:text-amber-400">This was the bonus point</span>
-                                                    <span class="block text-[10px] text-muted-foreground">
+                                                    <span class="block text-2xs text-muted-foreground">
                                                         Check if the opponent's 1 VP came from the once-per-game bonus.
                                                     </span>
                                                 </span>
@@ -4383,22 +4435,20 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <span class="text-xs text-muted-foreground">Scheme VP</span>
-                                                    <span class="ml-1 text-[10px] text-muted-foreground"
-                                                        >{{ opponentTotalSchemeScored }}/6 total</span
-                                                    >
+                                                    <span class="ml-1 text-2xs text-muted-foreground">{{ opponentTotalSchemeScored }}/6 total</span>
                                                 </div>
                                                 <div class="flex items-center gap-1.5">
                                                     <button
                                                         aria-label="Decrease opponent scheme points"
-                                                        class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         @click="opponentSchemePoints = Math.max(0, opponentSchemePoints - 1)"
                                                     >
                                                         <Minus class="size-3.5" />
                                                     </button>
-                                                    <span class="w-6 text-center font-bold">{{ opponentSchemePoints }}</span>
+                                                    <span class="w-7 text-center text-lg font-bold tabular-nums">{{ opponentSchemePoints }}</span>
                                                     <button
                                                         aria-label="Increase opponent scheme points"
-                                                        class="rounded border p-1.5 hover:bg-muted sm:p-0.5"
+                                                        class="inline-flex size-9 items-center justify-center rounded border hover:bg-muted"
                                                         :disabled="opponentSchemePoints >= opponentMaxSchemeThisTurn"
                                                         :class="opponentSchemePoints >= opponentMaxSchemeThisTurn ? 'opacity-30' : ''"
                                                         @click="opponentSchemePoints = Math.min(opponentMaxSchemeThisTurn, opponentSchemePoints + 1)"
@@ -4434,7 +4484,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             Cancel End Game
                                         </Button>
                                     </div>
-                                    <div v-else-if="opponent?.is_game_complete" class="text-amber-600 dark:text-amber-400">
+                                    <div v-else-if="opponent?.is_game_complete" class="text-amber-700 dark:text-amber-400">
                                         <span class="font-medium">{{ playerName(opponent) }}</span> wants to end the game.
                                         <div class="mt-2 flex gap-2">
                                             <Button variant="outline" size="sm" class="flex-1 text-xs" @click="completeDialogOpen = true">
@@ -4496,18 +4546,19 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <button
                                     aria-label="Decrease soulstone pool"
                                     v-if="!isObserver"
-                                    class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1"
+                                    class="rounded border p-2 hover:bg-muted sm:p-1"
                                     @click="updateSoulstonePool(-1)"
                                 >
                                     <Minus class="size-4 sm:size-3.5" />
                                 </button>
-                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-xs font-bold">
-                                    {{ myPlayer?.soulstone_pool ?? 0 }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
+                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold" title="Soulstone pool">
+                                    <span class="sr-only">Soulstones:</span>{{ myPlayer?.soulstone_pool ?? 0
+                                    }}<GameIcon type="soulstone" class-name="h-3 inline-block" />
                                 </span>
                                 <button
                                     aria-label="Increase soulstone pool"
                                     v-if="!isObserver"
-                                    class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1"
+                                    class="rounded border p-2 hover:bg-muted sm:p-1"
                                     @click="updateSoulstonePool(1)"
                                 >
                                     <Plus class="size-4 sm:size-3.5" />
@@ -4524,12 +4575,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         >
                             <div
                                 v-if="soulstoneAwardSlot === 1"
-                                class="mb-2 overflow-hidden rounded-md bg-amber-500/10 px-2 py-1 text-center text-[11px] text-amber-700 dark:text-amber-400"
+                                class="mb-2 overflow-hidden rounded-md bg-amber-500/10 px-2 py-1 text-center text-2xs text-amber-700 dark:text-amber-400"
                             >
                                 +1<GameIcon type="soulstone" class-name="mx-0.5 h-3 inline-block" /> from {{ soulstoneAwardName }}'s death
                             </div>
                         </Transition>
-                        <div class="mb-2 text-[10px] text-muted-foreground">
+                        <div class="mb-2 text-2xs text-muted-foreground">
                             Activations:
                             <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ myCrewMembers.length }}</span> remaining
@@ -4556,7 +4607,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
                                     <button
                                         v-if="(myUpgradeMode === 'swappable' || isBonanza) && !isObserver && myActiveUpgradeId !== upgrade.id"
-                                        class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                        class="rounded bg-amber-500/20 px-1.5 py-0.5 text-2xs font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
                                         @click.stop="swapCrewUpgrade(upgrade.id)"
                                     >
                                         Activate
@@ -4564,7 +4615,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <Badge
                                         v-if="myActiveUpgradeId === upgrade.id"
                                         variant="outline"
-                                        class="border-amber-500/50 px-1.5 py-0 text-[10px] text-amber-600 dark:text-amber-400"
+                                        class="border-amber-500/50 px-1.5 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                         >Active</Badge
                                     >
                                     <button
@@ -4621,7 +4672,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div class="flex items-center gap-1.5">
                                     <Star class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="flex-1 font-semibold">{{ myCrewCard.effect.name }}</span>
-                                    <Badge variant="outline" class="px-1.5 py-0 text-[10px]">Crew Card</Badge>
+                                    <Badge variant="outline" class="px-1.5 py-0 text-2xs">Crew Card</Badge>
                                     <button
                                         type="button"
                                         class="rounded p-0.5 text-muted-foreground hover:text-foreground"
@@ -4720,37 +4771,37 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <Circle v-else class="size-4 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
                                             </button>
                                             <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Upgrades"
                                                 title="Upgrades"
                                                 @click.stop="openUpgradeDialog(member)"
                                             >
-                                                <ArrowUpCircle class="size-3.5" />
+                                                <ArrowUpCircle class="size-4" />
                                             </button>
                                             <button
                                                 v-if="game.format === GameFormat.Campaign"
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-rose-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-rose-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Attach Injury"
                                                 title="Attach Injury"
                                                 @click.stop="openInjuryDialog(member)"
                                             >
-                                                <HeartCrack class="size-3.5" />
+                                                <HeartCrack class="size-4" />
                                             </button>
                                             <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-cyan-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Tokens"
                                                 title="Tokens"
                                                 @click.stop="openTokenDialog(member)"
                                             >
-                                                <Puzzle class="size-3.5" />
+                                                <Puzzle class="size-4" />
                                             </button>
                                             <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-blue-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Replace"
                                                 title="Replace"
                                                 @click.stop="openReplace(member)"
                                             >
-                                                <Replace class="size-3.5" />
+                                                <Replace class="size-4" />
                                             </button>
                                         </template>
                                         <template v-else>
@@ -4802,7 +4853,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </div>
                                     </div>
                                     <!-- Line 3 (mobile): Stats + Health controls / Desktop: Stats + pips + controls on one row -->
-                                    <div class="mt-0.5 flex items-center gap-2 pl-8 sm:pl-6">
+                                    <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-8 sm:pl-6">
                                         <div
                                             v-if="member.defense || member.willpower || member.speed || member.size"
                                             class="flex gap-1.5 text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:text-xs"
@@ -4821,13 +4872,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             >
                                             <span
                                                 v-if="member.characteristics?.length"
-                                                class="text-[10px] font-normal italic text-white/70 sm:text-[10px]"
+                                                class="text-2xs font-normal italic text-white/70 sm:text-2xs"
                                                 :title="member.characteristics.join(', ')"
                                                 >({{ member.characteristics.join(', ') }})</span
                                             >
                                         </div>
                                         <!-- Desktop: health pips inline -->
-                                        <div class="hidden gap-0.5 sm:flex">
+                                        <div class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
                                             <button
                                                 v-for="pip in member.max_health"
                                                 :key="'hp-' + pip"
@@ -4850,7 +4901,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <div class="ml-auto flex shrink-0 items-center gap-0.5">
                                                 <button
                                                     :aria-label="`Decrease health of ${member.display_name}`"
-                                                    class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1"
+                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
                                                     @click="updateHealth(member, -1)"
                                                 >
                                                     <Minus class="size-4 sm:size-3.5" />
@@ -4864,7 +4915,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </span>
                                                 <button
                                                     :aria-label="`Increase health of ${member.display_name}`"
-                                                    class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1"
+                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
                                                     @click="updateHealth(member, 1)"
                                                 >
                                                     <Plus class="size-4 sm:size-3.5" />
@@ -4882,29 +4933,29 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Line 4 (mobile): Action buttons -->
                                     <div v-if="!isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-amber-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openUpgradeDialog(member)"
                                         >
-                                            <ArrowUpCircle class="size-3.5" /><span class="text-[10px] font-medium">Upgrades</span>
+                                            <ArrowUpCircle class="size-3.5" /><span class="text-2xs font-medium">Upgrades</span>
                                         </button>
                                         <button
                                             v-if="game.format === GameFormat.Campaign"
                                             class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-rose-200 active:bg-black/50"
                                             @click.stop="openInjuryDialog(member)"
                                         >
-                                            <HeartCrack class="size-3.5" /><span class="text-[10px] font-medium">Injury</span>
+                                            <HeartCrack class="size-3.5" /><span class="text-2xs font-medium">Injury</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openTokenDialog(member)"
                                         >
-                                            <Puzzle class="size-3.5" /><span class="text-[10px] font-medium">Tokens</span>
+                                            <Puzzle class="size-3.5" /><span class="text-2xs font-medium">Tokens</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-blue-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openReplace(member)"
                                         >
-                                            <Replace class="size-3.5" /><span class="text-[10px] font-medium">Replace</span>
+                                            <Replace class="size-3.5" /><span class="text-2xs font-medium">Replace</span>
                                         </button>
                                     </div>
                                 </div>
@@ -4995,7 +5046,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                      Equipment/Injury attachments doesn't grow the column
                                      unboundedly (mirrors the References <details> pattern below). -->
                                 <details v-if="member.attached_upgrades?.length" open class="mt-1 rounded-lg border border-white/10">
-                                    <summary class="cursor-pointer px-2 py-1 text-[11px] font-medium text-white/70 hover:text-white">
+                                    <summary class="cursor-pointer px-2 py-1 text-2xs font-medium text-white/70 hover:text-white">
                                         Attached Upgrades ({{ member.attached_upgrades.length }})
                                     </summary>
                                     <div class="space-y-0.5 p-1.5 pt-0.5">
@@ -5015,14 +5066,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
                                                 <template v-if="(upgrade as any).loot_side">
                                                     <span
-                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-2xs font-bold uppercase text-black"
                                                         :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
                                                     >
                                                         {{ (upgrade as any).loot_side.toUpperCase() }}
                                                     </span>
                                                     <span
                                                         v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
+                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-2xs tabular-nums"
                                                     >
                                                         {{ lootCardById((upgrade as any).loot_card_id)?.value_label
                                                         }}<GameIcon
@@ -5082,7 +5133,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         </Button>
                         <!-- Crew References -->
                         <details open class="mt-2 rounded-lg border" @toggle="($event.target as HTMLDetailsElement)?.open && toggleMyRefs()">
-                            <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                            <summary class="cursor-pointer px-2 py-1.5 text-2xs font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
                             <CrewBuilderReferences
@@ -5179,12 +5230,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         >
                             <div
                                 v-if="soulstoneAwardSlot === 2"
-                                class="mb-2 overflow-hidden rounded-md bg-amber-500/10 px-2 py-1 text-center text-[11px] text-amber-700 dark:text-amber-400"
+                                class="mb-2 overflow-hidden rounded-md bg-amber-500/10 px-2 py-1 text-center text-2xs text-amber-700 dark:text-amber-400"
                             >
                                 +1<GameIcon type="soulstone" class-name="mx-0.5 h-3 inline-block" /> from {{ soulstoneAwardName }}'s death
                             </div>
                         </Transition>
-                        <div v-if="opponentCrewMembers.length" class="mb-2 text-[10px] text-muted-foreground">
+                        <div v-if="opponentCrewMembers.length" class="mb-2 text-2xs text-muted-foreground">
                             Activations:
                             <span class="font-medium text-foreground">{{ opponentCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ opponentCrewMembers.length }}</span> remaining
@@ -5228,7 +5279,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <span class="flex-1 font-semibold">{{ upgrade.name }}</span>
                                     <button
                                         v-if="opponentUpgradeMode === 'swappable' && isSolo && !isObserver && opponentActiveUpgradeId !== upgrade.id"
-                                        class="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
+                                        class="rounded bg-amber-500/20 px-1.5 py-0.5 text-2xs font-medium text-amber-600 hover:bg-amber-500/30 dark:text-amber-400"
                                         @click.stop="swapCrewUpgrade(upgrade.id, 2)"
                                     >
                                         Activate
@@ -5236,7 +5287,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <Badge
                                         v-if="opponentActiveUpgradeId === upgrade.id"
                                         variant="outline"
-                                        class="border-amber-500/50 px-1.5 py-0 text-[10px] text-amber-600 dark:text-amber-400"
+                                        class="border-amber-500/50 px-1.5 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                         >Active</Badge
                                     >
                                 </div>
@@ -5259,7 +5310,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 <div class="flex items-center gap-1.5">
                                     <Star class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="flex-1 font-semibold">{{ opponentCrewCard.effect.name }}</span>
-                                    <Badge variant="outline" class="px-1.5 py-0 text-[10px]">Crew Card</Badge>
+                                    <Badge variant="outline" class="px-1.5 py-0 text-2xs">Crew Card</Badge>
                                     <button
                                         type="button"
                                         class="rounded p-0.5 text-muted-foreground hover:text-foreground"
@@ -5362,37 +5413,37 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <Circle v-else class="size-4 text-white/30 sm:size-3.5" />
                                             </button>
                                             <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-amber-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Upgrades"
                                                 title="Upgrades"
                                                 @click.stop="openUpgradeDialog(member)"
                                             >
-                                                <ArrowUpCircle class="size-3.5" />
+                                                <ArrowUpCircle class="size-4" />
                                             </button>
                                             <button
                                                 v-if="game.format === GameFormat.Campaign"
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-rose-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-rose-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Attach Injury"
                                                 title="Attach Injury"
                                                 @click.stop="openInjuryDialog(member)"
                                             >
-                                                <HeartCrack class="size-3.5" />
+                                                <HeartCrack class="size-4" />
                                             </button>
                                             <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-cyan-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-cyan-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Tokens"
                                                 title="Tokens"
                                                 @click.stop="openTokenDialog(member)"
                                             >
-                                                <Puzzle class="size-3.5" />
+                                                <Puzzle class="size-4" />
                                             </button>
                                             <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1 text-blue-200 hover:bg-black/50 sm:inline-flex"
+                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-blue-200 hover:bg-black/50 sm:inline-flex"
                                                 aria-label="Replace"
                                                 title="Replace"
                                                 @click.stop="openReplace(member)"
                                             >
-                                                <Replace class="size-3.5" />
+                                                <Replace class="size-4" />
                                             </button>
                                         </template>
                                         <template v-else>
@@ -5463,13 +5514,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             >
                                             <span
                                                 v-if="member.characteristics?.length"
-                                                class="text-[10px] font-normal italic text-white/70 sm:text-[10px]"
+                                                class="text-2xs font-normal italic text-white/70 sm:text-2xs"
                                                 :title="member.characteristics.join(', ')"
                                                 >({{ member.characteristics.join(', ') }})</span
                                             >
                                         </div>
                                         <!-- Desktop: health pips inline -->
-                                        <div class="hidden gap-0.5 sm:flex">
+                                        <div class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
                                             <button
                                                 v-for="pip in member.max_health"
                                                 :key="'ohp-' + pip"
@@ -5492,7 +5543,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             <div class="ml-auto flex shrink-0 items-center gap-0.5">
                                                 <button
                                                     :aria-label="`Decrease health of ${member.display_name}`"
-                                                    class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1"
+                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
                                                     @click="updateHealth(member, -1)"
                                                 >
                                                     <Minus class="size-4 sm:size-3.5" />
@@ -5506,7 +5557,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 </span>
                                                 <button
                                                     :aria-label="`Increase health of ${member.display_name}`"
-                                                    class="rounded bg-black/20 p-2 hover:bg-black/40 sm:p-1"
+                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
                                                     @click="updateHealth(member, 1)"
                                                 >
                                                     <Plus class="size-4 sm:size-3.5" />
@@ -5524,29 +5575,29 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                     <!-- Line 4 (mobile): Action buttons -->
                                     <div v-if="isSolo && !isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-amber-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openUpgradeDialog(member)"
                                         >
-                                            <ArrowUpCircle class="size-3.5" /><span class="text-[10px] font-medium">Upgrades</span>
+                                            <ArrowUpCircle class="size-3.5" /><span class="text-2xs font-medium">Upgrades</span>
                                         </button>
                                         <button
                                             v-if="game.format === GameFormat.Campaign"
                                             class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-rose-200 active:bg-black/50"
                                             @click.stop="openInjuryDialog(member)"
                                         >
-                                            <HeartCrack class="size-3.5" /><span class="text-[10px] font-medium">Injury</span>
+                                            <HeartCrack class="size-3.5" /><span class="text-2xs font-medium">Injury</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-cyan-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openTokenDialog(member)"
                                         >
-                                            <Puzzle class="size-3.5" /><span class="text-[10px] font-medium">Tokens</span>
+                                            <Puzzle class="size-3.5" /><span class="text-2xs font-medium">Tokens</span>
                                         </button>
                                         <button
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-blue-200 active:bg-black/50"
+                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
                                             @click.stop="openReplace(member)"
                                         >
-                                            <Replace class="size-3.5" /><span class="text-[10px] font-medium">Replace</span>
+                                            <Replace class="size-3.5" /><span class="text-2xs font-medium">Replace</span>
                                         </button>
                                     </div>
                                 </div>
@@ -5635,7 +5686,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 </Transition>
                                 <!-- Attached upgrades — collapsible, see the matching player-side block above. -->
                                 <details v-if="member.attached_upgrades?.length" open class="mt-1 rounded-lg border border-white/10">
-                                    <summary class="cursor-pointer px-2 py-1 text-[11px] font-medium text-white/70 hover:text-white">
+                                    <summary class="cursor-pointer px-2 py-1 text-2xs font-medium text-white/70 hover:text-white">
                                         Attached Upgrades ({{ member.attached_upgrades.length }})
                                     </summary>
                                     <div class="space-y-0.5 p-1.5 pt-0.5">
@@ -5655,14 +5706,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
                                                 <template v-if="(upgrade as any).loot_side">
                                                     <span
-                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-[10px] font-bold uppercase text-black"
+                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-2xs font-bold uppercase text-black"
                                                         :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
                                                     >
                                                         {{ (upgrade as any).loot_side.toUpperCase() }}
                                                     </span>
                                                     <span
                                                         v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-[10px] tabular-nums"
+                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-2xs tabular-nums"
                                                     >
                                                         {{ lootCardById((upgrade as any).loot_card_id)?.value_label
                                                         }}<GameIcon
@@ -5728,7 +5779,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             class="mt-2 rounded-lg border"
                             @toggle="($event.target as HTMLDetailsElement)?.open && toggleOpponentRefs()"
                         >
-                            <summary class="cursor-pointer px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                            <summary class="cursor-pointer px-2 py-1.5 text-2xs font-medium text-muted-foreground hover:text-foreground">
                                 <Puzzle class="mr-1 inline size-3" />References
                             </summary>
                             <CrewBuilderReferences :references="opponentReferences" :loading="false" compact />
@@ -6079,7 +6130,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     >
                         <div v-if="spectateOn" class="mt-3 flex flex-col items-center gap-3 border-t pt-3">
                             <img v-if="spectateQR" :src="spectateQR" alt="Spectate QR Code" class="rounded-lg" />
-                            <p class="break-all text-center text-[10px] text-muted-foreground">{{ route('games.observe', game.uuid) }}</p>
+                            <p class="break-all text-center text-2xs text-muted-foreground">{{ route('games.observe', game.uuid) }}</p>
                             <Button variant="outline" size="sm" class="w-full gap-1.5 text-xs" @click="copyObserveLink()">
                                 <Copy class="size-3" />
                                 {{ observeLinkCopied ? 'Copied!' : 'Copy Spectate Link' }}
@@ -6093,7 +6144,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     <div class="flex flex-col items-center gap-3">
                         <div class="text-sm font-medium">Spectate Link</div>
                         <img v-if="spectateQR" :src="spectateQR" alt="Spectate QR Code" class="rounded-lg" />
-                        <p class="break-all text-center text-[10px] text-muted-foreground">{{ route('games.observe', game.uuid) }}</p>
+                        <p class="break-all text-center text-2xs text-muted-foreground">{{ route('games.observe', game.uuid) }}</p>
                         <Button variant="outline" size="sm" class="w-full gap-1.5 text-xs" @click="copyObserveLink()">
                             <Copy class="size-3" />
                             {{ observeLinkCopied ? 'Copied!' : 'Copy Spectate Link' }}

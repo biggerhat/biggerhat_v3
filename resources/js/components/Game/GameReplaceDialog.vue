@@ -72,15 +72,16 @@ const emit = defineEmits<{
                         />
                         <div class="min-w-0 flex-1">
                             <div class="truncate font-medium">{{ char.display_name }}</div>
-                            <div v-if="char.type" class="text-[10px] text-muted-foreground">{{ char.type }}</div>
+                            <div v-if="char.type" class="text-2xs text-muted-foreground">{{ char.type }}</div>
                         </div>
                     </button>
                 </div>
             </div>
 
             <!-- Search all characters -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <!-- With no reference characters the search is the only way in, so start it expanded. -->
+            <details class="rounded-md border" :open="!referenceCharacters.length">
+                <summary class="cursor-pointer px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                     Search All Characters
                 </summary>
                 <div class="border-t px-1 pb-1 pt-1">

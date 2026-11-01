@@ -283,7 +283,11 @@ onMounted(() => {
                                         <Combobox v-model="selectedKeyword" by="label">
                                             <ComboboxAnchor as-child>
                                                 <ComboboxTrigger as-child>
-                                                    <Button variant="outline" class="w-full justify-between">
+                                                    <Button
+                                                        variant="outline"
+                                                        class="w-full justify-between"
+                                                        :aria-label="selectedKeyword?.name ?? 'Select Keyword'"
+                                                    >
                                                         <span class="truncate">{{ selectedKeyword?.name ?? 'Select Keyword' }}</span>
                                                         <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
@@ -355,7 +359,7 @@ onMounted(() => {
                                             <!-- Character row -->
                                             <div
                                                 :class="factionBackground(results[virtualRow.index].faction)"
-                                                class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                             >
                                                 <div
                                                     class="min-w-0 flex-1 cursor-pointer"
@@ -364,7 +368,7 @@ onMounted(() => {
                                                     <div class="text-sm font-semibold">
                                                         {{ results[virtualRow.index].display_name }}
                                                     </div>
-                                                    <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                                                    <div class="flex flex-wrap items-center gap-1 text-xs text-white">
                                                         <span v-if="results[virtualRow.index].cost">{{ results[virtualRow.index].cost }}ss</span>
                                                         <Badge
                                                             v-if="results[virtualRow.index].station"
@@ -376,10 +380,7 @@ onMounted(() => {
                                                                 ({{ results[virtualRow.index].count }})
                                                             </span>
                                                         </Badge>
-                                                        <span
-                                                            v-if="results[virtualRow.index].keywords?.length"
-                                                            class="truncate text-muted-foreground/70"
-                                                        >
+                                                        <span v-if="results[virtualRow.index].keywords?.length" class="truncate text-white">
                                                             {{ results[virtualRow.index].keywords.map((k: any) => k.name).join(', ') }}
                                                         </span>
                                                     </div>
@@ -405,7 +406,7 @@ onMounted(() => {
                                                     <ArrowUpFromLine class="mx-1 size-3.5 shrink-0 text-muted-foreground" />
                                                     <div
                                                         :class="factionBackground(upgrade.faction)"
-                                                        class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                        class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                                     >
                                                         <div
                                                             role="button"
@@ -415,7 +416,7 @@ onMounted(() => {
                                                             @keydown.enter="openPreview(upgrade, 'upgrade')"
                                                         >
                                                             <div class="text-sm font-semibold">{{ upgrade.name }}</div>
-                                                            <div class="text-xs text-muted-foreground">
+                                                            <div class="text-xs text-white">
                                                                 <span v-if="upgrade.type">
                                                                     {{ upgrade.type }}
                                                                     <span v-if="upgrade.master"> &mdash; {{ upgrade.master }} </span>
@@ -485,7 +486,7 @@ onMounted(() => {
                                         >
                                             <div
                                                 :class="factionBackground(upgradeResults[virtualRow.index].faction)"
-                                                class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                             >
                                                 <div
                                                     class="min-w-0 flex-1 cursor-pointer"
@@ -494,7 +495,7 @@ onMounted(() => {
                                                     <div class="text-sm font-semibold">
                                                         {{ upgradeResults[virtualRow.index].name }}
                                                     </div>
-                                                    <div class="text-xs text-muted-foreground">
+                                                    <div class="text-xs text-white">
                                                         <span v-if="upgradeResults[virtualRow.index].type">
                                                             {{ upgradeResults[virtualRow.index].type }}
                                                             <span v-if="upgradeResults[virtualRow.index].master">
@@ -584,7 +585,7 @@ onMounted(() => {
                                         <div
                                             v-if="card.card_type === 'miniature'"
                                             :class="factionBackground(card.faction)"
-                                            class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                            class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                         >
                                             <div
                                                 role="button"
@@ -594,7 +595,7 @@ onMounted(() => {
                                                 @keydown.enter="openPreview(card, 'character')"
                                             >
                                                 <div class="text-sm font-semibold">{{ card.display_name }}</div>
-                                                <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                                                <div class="flex flex-wrap items-center gap-1 text-xs text-white">
                                                     <span v-if="card.cost">{{ card.cost }}ss</span>
                                                     <Badge v-if="card.station" variant="secondary" class="px-1 py-0 text-2xs capitalize">
                                                         {{ card.station }}
@@ -617,7 +618,7 @@ onMounted(() => {
                                             <ArrowUpFromLine class="mx-1 size-3.5 shrink-0 text-muted-foreground" />
                                             <div
                                                 :class="factionBackground(card.faction)"
-                                                class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
                                             >
                                                 <div
                                                     role="button"
@@ -627,7 +628,7 @@ onMounted(() => {
                                                     @keydown.enter="openPreview(card, 'upgrade')"
                                                 >
                                                     <div class="text-sm font-semibold">{{ card.name }}</div>
-                                                    <div class="text-xs text-muted-foreground">
+                                                    <div class="text-xs text-white">
                                                         <span v-if="card.type">
                                                             {{ card.type }}
                                                             <span v-if="card.master"> &mdash; {{ card.master }} </span>

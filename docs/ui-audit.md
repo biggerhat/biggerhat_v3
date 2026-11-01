@@ -15,7 +15,7 @@ APP_ENV=testing php artisan db:seed --class=UiAuditSeeder --force
 
 `UiAuditSeeder` creates (password `password` for all): `audit.member@`, `audit.organizer@`,
 `audit.admin@` (super admin), `audit.opponent@`, `audit.pending@` `example.test`, plus crews, a
-collection, games (in progress / completed / solo) and tournaments built from the catalog. It refuses
+collection, games (in progress / completed / campaign-format / solo, with card images and replace-on-death + summon links on the first Arcanist character) and tournaments built from the catalog. It refuses
 to run in production.
 
 ## 2. Serve it
@@ -43,3 +43,5 @@ screenshots + `<role>-results.json` in `--out`.
 Chrome: any Chromium works (Playwright's `chromium_headless_shell` is fine). On a machine without the
 shared libraries and no sudo, `apt-get download` the missing `.deb`s, `dpkg -x` them somewhere and set
 `LD_LIBRARY_PATH`.
+
+The `campaign` role signs in as `alpha@biggerhat.test` (from `CampaignSeeder`; run `CampaignCatalogSeeder` and `CampaignRulebookSeeder` first) and `--discover` follows the campaign hub to its crews and games.

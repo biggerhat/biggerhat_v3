@@ -60,7 +60,7 @@ const emit = defineEmits<{
                 </button>
                 <div
                     v-if="(mode === 'discard' || mode === 'end-of-game') && schemePool.length"
-                    class="py-1 text-center text-[10px] text-muted-foreground"
+                    class="py-1 text-center text-2xs text-muted-foreground"
                 >
                     — or {{ mode === 'discard' ? 'discard' : 'reveal' }} —
                 </div>

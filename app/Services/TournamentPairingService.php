@@ -85,6 +85,55 @@ class TournamentPairingService
             $used[$j] = true;
         }
 
+        return $isFirstRound ? $this->separateSameMeta($pairings, $playersToRank->keyBy('id')) : $pairings;
+    }
+
+    /**
+     * The greedy first-fit pass can burn the only players who could split up a
+     * same-meta pair (e.g. A1, A2, B1, C1 → B1 meets C1, A1 is stuck with A2).
+     * Repair those by swapping partners with another pair when that leaves
+     * both pairs clash-free. Pairs that include the ringer or a bye are left alone.
+     *
+     * @param  array<int, array{player_one_id: int, player_two_id: int|null, is_bye: bool}>  $pairings
+     * @param  Collection<int, TournamentPlayer>  $players  rankable players keyed by id
+     * @return array<int, array{player_one_id: int, player_two_id: int|null, is_bye: bool}>
+     */
+    private function separateSameMeta(array $pairings, Collection $players): array
+    {
+        $clash = function (int $x, int $y) use ($players): bool {
+            $meta = $players->get($x)?->effectiveMetaId();
+
+            return $meta !== null && $meta === $players->get($y)?->effectiveMetaId();
+        };
+        $swappable = fn (array $p): bool => ! $p['is_bye']
+            && $p['player_two_id'] !== null
+            && $players->has($p['player_one_id'])
+            && $players->has($p['player_two_id']);
+
+        foreach (array_keys($pairings) as $i) {
+            if (! $swappable($pairings[$i]) || ! $clash($pairings[$i]['player_one_id'], $pairings[$i]['player_two_id'])) {
+                continue;
+            }
+            [$a, $b] = [$pairings[$i]['player_one_id'], $pairings[$i]['player_two_id']];
+
+            foreach (array_keys($pairings) as $k) {
+                if ($k === $i || ! $swappable($pairings[$k])) {
+                    continue;
+                }
+                [$c, $d] = [$pairings[$k]['player_one_id'], $pairings[$k]['player_two_id']];
+
+                foreach ([[$c, $d], [$d, $c]] as [$x, $y]) {
+                    // a meets x, b meets y — both new pairs must be clash-free.
+                    if (! $clash($a, $x) && ! $clash($b, $y)) {
+                        $pairings[$i]['player_two_id'] = $x;
+                        $pairings[$k] = ['player_one_id' => $b, 'player_two_id' => $y, 'is_bye' => false];
+
+                        continue 3;
+                    }
+                }
+            }
+        }
+
         return $pairings;
     }
 

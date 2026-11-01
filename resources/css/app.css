@@ -389,3 +389,20 @@ html {
 :is(.bg-outcasts, .bg-abyssinia, .bg-explorerssociety, .bg-resurrectionists) :is(.text-white, [class*='text-white/']) {
     color: #111827;
 }
+
+/* --destructive is a dark red meant for solid fills; as text on the dark theme it is ~1.8:1. Lift it for text only
+   (buttons use text-destructive-foreground, which this doesn't touch). */
+.dark .text-destructive {
+    color: #f87171;
+}
+
+/* Print: pages that opt in with [data-print-area] print just their content (pairings sheets etc.),
+   without the sidebar, site header or footer. */
+@media print {
+    body:has([data-print-area]) .group\/sidebar-wrapper > .peer,
+    body:has([data-print-area]) header,
+    body:has([data-print-area]) footer,
+    body:has([data-print-area]) [data-no-print] {
+        display: none !important;
+    }
+}

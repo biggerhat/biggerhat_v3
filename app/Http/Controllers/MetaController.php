@@ -28,7 +28,7 @@ class MetaController extends Controller
         }
 
         return response()->json([
-            'metas' => $query->limit(20)->get(['id', 'name', 'slug']),
+            'metas' => $query->limit(200)->get(['id', 'name', 'slug']),
         ]);
     }
 

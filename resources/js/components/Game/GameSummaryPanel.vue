@@ -72,7 +72,13 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
         <CardContent class="p-0">
             <div
                 class="px-4 py-3 text-center"
-                :class="game.status === GameStatus.Abandoned ? 'bg-muted' : game.is_tie ? 'bg-muted' : 'bg-amber-500/10'"
+                :class="
+                    game.status === GameStatus.Abandoned
+                        ? 'bg-muted'
+                        : game.is_tie || !(game.winner || (isSolo && game.winner_slot))
+                          ? 'bg-muted'
+                          : 'bg-amber-500/10'
+                "
             >
                 <div v-if="game.status === GameStatus.Abandoned" class="text-lg font-bold text-muted-foreground">Game Abandoned</div>
                 <div v-else-if="game.is_tie" class="text-lg font-bold">Draw!</div>
@@ -80,6 +86,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                 <div v-else-if="isSolo && game.winner_slot" class="text-lg font-bold text-amber-700 dark:text-amber-400">
                     {{ game.winner_slot === 1 ? playerName(myPlayer) : playerName(opponentPlayer) }} Wins!
                 </div>
+                <div v-else class="text-lg font-bold text-muted-foreground">Game complete</div>
             </div>
 
             <!-- Final scores side by side. Bonanza is single-column
@@ -93,14 +100,14 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                     <div class="flex items-center justify-center gap-1.5">
                         <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-4" />
                         <span class="text-xs font-medium">{{ playerName(player) }}</span>
-                        <Badge v-if="player.role && !isBonanza" variant="outline" class="px-1 py-0 text-[10px] capitalize">{{ player.role }}</Badge>
+                        <Badge v-if="player.role && !isBonanza" variant="outline" class="px-1 py-0 text-2xs capitalize">{{ player.role }}</Badge>
                     </div>
-                    <div v-if="player.master_name" class="mt-0.5 text-[10px] text-muted-foreground">{{ player.master_name }}</div>
+                    <div v-if="player.master_name" class="mt-0.5 text-2xs text-muted-foreground">{{ player.master_name }}</div>
                     <div
                         class="mt-1 text-2xl font-bold"
                         :class="
                             (game.winner?.id === player.user?.id && game.winner) || (isSolo && game.winner_slot === player.slot)
-                                ? 'text-amber-600 dark:text-amber-400'
+                                ? 'text-amber-700 dark:text-amber-400'
                                 : ''
                         "
                     >
@@ -142,7 +149,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                         <Badge
                             v-if="member.hiring_category && member.hiring_category !== 'leader' && member.hiring_category !== 'totem'"
                             :class="categoryColor(member.hiring_category)"
-                            class="shrink-0 px-1 py-0 text-[10px]"
+                            class="shrink-0 px-1 py-0 text-2xs"
                         >
                             {{ categoryLabel(member.hiring_category) }}
                         </Badge>
@@ -171,11 +178,11 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                             <div class="text-lg font-bold">
                                 {{ player.turns?.reduce((s: number, t: any) => s + (t.strategy_points ?? 0), 0) ?? 0 }}
                             </div>
-                            <div class="text-[10px] text-muted-foreground">Strategy VP</div>
+                            <div class="text-2xs text-muted-foreground">Strategy VP</div>
                         </div>
                         <div class="rounded bg-muted/50 p-2 text-center">
                             <div class="text-lg font-bold">{{ player.turns?.reduce((s: number, t: any) => s + (t.scheme_points ?? 0), 0) ?? 0 }}</div>
-                            <div class="text-[10px] text-muted-foreground">Scheme VP</div>
+                            <div class="text-2xs text-muted-foreground">Scheme VP</div>
                         </div>
                     </div>
                 </div>
@@ -196,7 +203,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                     <div
                         v-for="turn in (player.turns ?? []).slice().sort((a: any, b: any) => a.turn_number - b.turn_number)"
                         :key="'stl-' + player.id + '-' + turn.turn_number"
-                        class="flex items-center gap-1.5 text-[11px]"
+                        class="flex items-center gap-1.5 text-2xs"
                     >
                         <span class="w-5 shrink-0 text-muted-foreground">T{{ turn.turn_number }}</span>
                         <template v-if="turn.scheme_id && findScheme(turn.scheme_id)">
@@ -208,16 +215,16 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                         <Badge
                             v-if="turn.scheme_action === 'scored'"
                             variant="outline"
-                            class="shrink-0 border-green-500/50 px-1 py-0 text-[10px] text-green-600 dark:text-green-400"
+                            class="shrink-0 border-green-500/50 px-1 py-0 text-2xs text-green-600 dark:text-green-400"
                             >+{{ turn.scheme_points }}</Badge
                         >
                         <Badge
                             v-else-if="turn.scheme_action === 'discarded'"
                             variant="outline"
-                            class="shrink-0 border-amber-500/50 px-1 py-0 text-[10px] text-amber-600 dark:text-amber-400"
+                            class="shrink-0 border-amber-500/50 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                             >Discarded</Badge
                         >
-                        <Badge v-else-if="turn.scheme_action === 'held'" variant="outline" class="shrink-0 px-1 py-0 text-[10px]">Held</Badge>
+                        <Badge v-else-if="turn.scheme_action === 'held'" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Held</Badge>
                     </div>
                     <div v-if="!(player.turns ?? []).length" class="text-xs text-muted-foreground">No turns recorded</div>
                 </div>
@@ -270,7 +277,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                 >
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-semibold">Turn {{ turn }}</span>
-                        <div class="flex items-center gap-2 text-[11px]">
+                        <div class="flex items-center gap-2 text-2xs">
                             <template v-for="player in game.players" :key="'tscore-' + player.id + '-' + turn">
                                 <span class="flex items-center gap-1">
                                     <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-3" />
@@ -317,7 +324,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                             <!-- Scheme used this turn -->
                             <div
                                 v-if="getTurnSchemeInfo(player, turn).schemeId || getTurnSchemeInfo(player, turn).action"
-                                class="mt-2 rounded border border-dashed px-2 py-1 text-[10px]"
+                                class="mt-2 rounded border border-dashed px-2 py-1 text-2xs"
                             >
                                 <template v-if="getTurnSchemeInfo(player, turn).schemeId">
                                     <span class="text-muted-foreground">Scheme:</span>
@@ -332,19 +339,19 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                 <Badge
                                     v-if="getTurnSchemeInfo(player, turn).action === 'held'"
                                     variant="outline"
-                                    class="ml-1 border-blue-500/50 px-1 py-0 text-[10px] text-blue-600 dark:text-blue-400"
+                                    class="ml-1 border-blue-500/50 px-1 py-0 text-2xs text-blue-600 dark:text-blue-400"
                                     >Held</Badge
                                 >
                                 <Badge
                                     v-if="getTurnSchemeInfo(player, turn).action === 'scored'"
                                     variant="outline"
-                                    class="ml-1 border-green-500/50 px-1 py-0 text-[10px] text-green-600 dark:text-green-400"
+                                    class="ml-1 border-green-500/50 px-1 py-0 text-2xs text-green-600 dark:text-green-400"
                                     >Scored</Badge
                                 >
                                 <Badge
                                     v-if="getTurnSchemeInfo(player, turn).action === 'discarded'"
                                     variant="outline"
-                                    class="ml-1 border-amber-500/50 px-1 py-0 text-[10px] text-amber-600 dark:text-amber-400"
+                                    class="ml-1 border-amber-500/50 px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
                                     >Discarded</Badge
                                 >
 
@@ -370,7 +377,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
 
                             <!-- Crew snapshot -->
                             <div v-if="getPlayerTurn(player, turn)?.crew_snapshot?.length" class="mt-2">
-                                <div class="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Crew</div>
+                                <div class="mb-1 text-2xs font-medium uppercase text-muted-foreground">Crew</div>
                                 <div class="space-y-0.5">
                                     <div
                                         :key="'snap-' + turn + '-' + player.id + '-' + mIdx"
@@ -378,21 +385,19 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                     >
                                         <div
                                             :class="factionBackground(member.faction ?? player.faction ?? '')"
-                                            class="flex items-center justify-between rounded px-1.5 py-0.5 text-[11px] text-white"
+                                            class="flex items-center justify-between rounded px-1.5 py-0.5 text-2xs text-white"
                                             :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
                                         >
                                             <div class="flex min-w-0 items-center gap-1">
                                                 <span class="truncate font-medium">{{ member.display_name }}</span>
-                                                <Badge v-if="member.is_summoned" class="bg-cyan-400/20 px-0.5 py-0 text-[10px] text-cyan-200"
-                                                    >S</Badge
-                                                >
+                                                <Badge v-if="member.is_summoned" class="bg-cyan-400/20 px-0.5 py-0 text-2xs text-cyan-200">S</Badge>
                                             </div>
                                             <div class="flex items-center gap-1">
                                                 <template v-if="member.attached_tokens?.length">
                                                     <div
                                                         v-for="token in member.attached_tokens"
                                                         :key="token.id"
-                                                        class="rounded bg-cyan-900/50 px-0.5 text-[10px] text-cyan-200"
+                                                        class="rounded bg-cyan-900/50 px-0.5 text-2xs text-cyan-200"
                                                     >
                                                         {{ token.name }}
                                                     </div>
@@ -417,16 +422,16 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                             <div
                                                 v-for="upgrade in member.attached_upgrades"
                                                 :key="'su-' + upgrade.id"
-                                                class="flex items-center gap-1 rounded bg-black/10 px-1 py-0 text-[10px] text-amber-300"
+                                                class="flex items-center gap-1 rounded bg-black/10 px-1 py-0 text-2xs text-amber-300"
                                             >
                                                 <ArrowUpCircle class="size-2 shrink-0" />
                                                 <template v-if="(upgrade as any).loot_side">
-                                                    <span class="rounded bg-amber-400 px-0.5 text-[10px] font-bold text-black">
+                                                    <span class="rounded bg-amber-400 px-0.5 text-2xs font-bold text-black">
                                                         {{ (upgrade as any).loot_side.toUpperCase() }}
                                                     </span>
                                                     <span
                                                         v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                        class="rounded border border-white/30 bg-black/30 px-0.5 font-mono text-[10px] tabular-nums"
+                                                        class="rounded border border-white/30 bg-black/30 px-0.5 font-mono text-2xs tabular-nums"
                                                     >
                                                         {{ lootCardById((upgrade as any).loot_card_id)?.value_label }}
                                                     </span>
@@ -437,7 +442,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                     </div>
                                 </div>
                             </div>
-                            <div v-else-if="player.faction" class="mt-2 text-[10px] text-muted-foreground">No crew tracked</div>
+                            <div v-else-if="player.faction" class="mt-2 text-2xs text-muted-foreground">No crew tracked</div>
                         </div>
                     </div>
                 </div>
@@ -500,7 +505,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                 >
                                     {{ member.display_name }}
                                 </span>
-                                <Badge v-if="member.is_summoned" variant="secondary" class="bg-cyan-500/20 px-1 py-0 text-[10px] text-cyan-200"
+                                <Badge v-if="member.is_summoned" variant="secondary" class="bg-cyan-500/20 px-1 py-0 text-2xs text-cyan-200"
                                     >Summoned</Badge
                                 >
                             </div>
@@ -523,7 +528,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                 v-for="token in member.attached_tokens"
                                 :key="token.id"
                                 variant="secondary"
-                                class="border border-cyan-500/50 bg-cyan-900/60 px-1 py-0 text-[10px] text-cyan-200"
+                                class="border border-cyan-500/50 bg-cyan-900/60 px-1 py-0 text-2xs text-cyan-200"
                                 >{{ token.name }}</Badge
                             >
                         </div>

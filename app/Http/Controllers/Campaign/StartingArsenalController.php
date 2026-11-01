@@ -9,12 +9,14 @@ use App\Enums\UpgradeDomainTypeEnum;
 use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Campaign\StoreCorruptedPawnRequest;
 use App\Http\Requests\Campaign\StoreStartingArsenalRequest;
 use App\Jobs\Campaign\GenerateCombinedCrewCardImage;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignCrewCard;
+use App\Models\Campaign\CampaignEquipment;
 use App\Models\Character;
 use App\Models\CustomUpgrade;
 use App\Support\Campaign\AftermathCatalog;
@@ -40,6 +42,11 @@ class StartingArsenalController extends Controller
 
     private const MAX_LEFTOVER_SCRIP = 3;
 
+    public const CORRUPTED_PAWNS_SOURCE = 'starting_corrupted_pawns';
+
+    /** Corrupted Pawns (pg 146): the item goes on a model costing this much or less. */
+    private const CORRUPTED_PAWNS_MAX_COST = 6;
+
     public function edit(Request $request, Campaign $campaign, CampaignCrew $crew)
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
@@ -47,7 +54,7 @@ class StartingArsenalController extends Controller
         $arsenal = CampaignArsenalModel::query()
             ->where('campaign_crew_id', $crew->id)
             ->whereNull('annihilated_at')
-            ->with('character:id,display_name,cost,faction,station')
+            ->with(['character:id,display_name,cost,faction,station', 'customCharacter:id,display_name,cost'])
             ->get();
 
         return inertia('Campaigns/StartingArsenal', [
@@ -69,6 +76,7 @@ class StartingArsenalController extends Controller
             // choice (pg 17): items listed on a crew card belonging to a master
             // sharing either of the crew's keywords.
             'crew_card_choice_options' => fn () => AftermathCatalog::crewCardChoiceOptions($crew),
+            'corrupted_pawns' => fn () => $this->corruptedPawnsProp($campaign, $crew, $arsenal),
             'starting_budget_ss' => self::STARTING_BUDGET_SS,
             'max_leftover_scrip' => self::MAX_LEFTOVER_SCRIP,
             'locked' => $campaign->status !== CampaignStatusEnum::Planning,
@@ -180,6 +188,8 @@ class StartingArsenalController extends Controller
             // One-shot semantics: wipe + re-create. Players are free to
             // re-do their starting arsenal during planning. Annihilated/
             // removed rows aren't touched (annihilated_at + removed_at flags).
+            // The Corrupted Pawns item is bound to one of the models about to be rebuilt — pick it again afterwards.
+            CampaignEquipment::query()->where('campaign_crew_id', $crew->id)->where('source', self::CORRUPTED_PAWNS_SOURCE)->delete();
             $crew->arsenalModels()->where('acquired_via', 'hire')->whereNull('annihilated_at')->whereNull('removed_at')->delete();
 
             foreach ($hires as $h) {
@@ -224,6 +234,101 @@ class StartingArsenalController extends Controller
 
         return redirect()->route('campaigns.crews.starting-arsenal.edit', [$campaign, $crew])
             ->withMessage("Starting arsenal saved ({$totalCost} ss spent, {$leftoverScrip} scrip leftover).");
+    }
+
+    /**
+     * Corrupted Pawns (optional rule, pg 146): choose the starting Those Who Thirst item and the
+     * arsenal model (cost 6 or less) it is permanently attached to. Re-picking replaces it.
+     */
+    public function storeCorruptedPawn(StoreCorruptedPawnRequest $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        if (! ($campaign->optional_rules['corrupted_pawns'] ?? false)) {
+            abort(404);
+        }
+
+        if ($campaign->status !== CampaignStatusEnum::Planning) {
+            return redirect()->back()->withMessage('The starting item is locked once the campaign is active.', null, MessageTypeEnum::error);
+        }
+
+        $data = $request->validated();
+
+        $model = CampaignArsenalModel::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->active()
+            ->with(['character:id,cost', 'customCharacter:id,cost'])
+            ->find($data['arsenal_model_id']);
+        $cost = $model ? (int) (data_get($model, 'character.cost') ?? data_get($model, 'customCharacter.cost') ?? 0) : null;
+
+        if (! $model || $cost === null || $cost > self::CORRUPTED_PAWNS_MAX_COST) {
+            return redirect()->back()->withMessage(
+                'Pick a model in your arsenal that costs '.self::CORRUPTED_PAWNS_MAX_COST.' or less.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
+        DB::transaction(function () use ($crew, $data, $model) {
+            CampaignEquipment::query()->where('campaign_crew_id', $crew->id)->where('source', self::CORRUPTED_PAWNS_SOURCE)->delete();
+            CampaignEquipment::create([
+                'campaign_crew_id' => $crew->id,
+                'equipment_upgrade_id' => $data['equipment_upgrade_id'],
+                'source' => self::CORRUPTED_PAWNS_SOURCE,
+                'bound_arsenal_model_id' => $model->id,
+            ]);
+        });
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage('Starting Those Who Thirst item attached.');
+    }
+
+    public function destroyCorruptedPawn(Request $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        $this->ensureCrewOwner($request, $campaign, $crew);
+
+        if ($campaign->status !== CampaignStatusEnum::Planning) {
+            return redirect()->back()->withMessage('The starting item is locked once the campaign is active.', null, MessageTypeEnum::error);
+        }
+
+        CampaignEquipment::query()->where('campaign_crew_id', $crew->id)->where('source', self::CORRUPTED_PAWNS_SOURCE)->delete();
+
+        return redirect()->back()->withMessage('Starting Those Who Thirst item removed.');
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, CampaignArsenalModel>  $arsenal
+     * @return array{items: array<int, array<string, mixed>>, models: array<int, array{id: int, name: string, cost: int}>, current: array{equipment_upgrade_id: int|null, arsenal_model_id: int|null}|null}|null
+     */
+    private function corruptedPawnsProp(Campaign $campaign, CampaignCrew $crew, $arsenal): ?array
+    {
+        if (! ($campaign->optional_rules['corrupted_pawns'] ?? false)) {
+            return null;
+        }
+
+        $current = CampaignEquipment::query()
+            ->where('campaign_crew_id', $crew->id)
+            ->where('source', self::CORRUPTED_PAWNS_SOURCE)
+            ->first();
+
+        return [
+            'items' => array_values(array_filter(
+                AftermathCatalog::thoseWhoThirst($crew->id)['items'],
+                fn (array $i) => ! $i['is_omens_mark'],
+            )),
+            'models' => $arsenal
+                ->map(fn (CampaignArsenalModel $m) => [
+                    'id' => $m->id,
+                    'name' => $m->label ?: (data_get($m, 'character.display_name') ?? data_get($m, 'customCharacter.display_name') ?? 'Model'),
+                    'cost' => (int) (data_get($m, 'character.cost') ?? data_get($m, 'customCharacter.cost') ?? 0),
+                ])
+                ->filter(fn (array $m) => $m['cost'] <= self::CORRUPTED_PAWNS_MAX_COST)
+                ->values()
+                ->all(),
+            'current' => $current ? [
+                'equipment_upgrade_id' => $current->equipment_upgrade_id,
+                'arsenal_model_id' => $current->bound_arsenal_model_id,
+            ] : null,
+        ];
     }
 
     /**

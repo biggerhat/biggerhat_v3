@@ -88,6 +88,10 @@ class TournamentRoundController extends Controller
     {
         $this->authorize('manage', $tournament);
 
+        if ($tournament->status === TournamentStatusEnum::Completed) {
+            return response()->json(['error' => 'This tournament is completed, so its rounds are locked.'], 422);
+        }
+
         // Never delete a round that is currently in progress — that's
         // destructive to live game state. Setup and Completed rounds can be
         // removed (Setup is empty by definition; Completed is at the TO's
@@ -256,15 +260,16 @@ class TournamentRoundController extends Controller
             ->with(['playerOne:id,user_id,display_name', 'playerTwo:id,user_id,display_name'])
             ->get();
 
-        $pairedGames->each(function (TournamentGame $game) use ($tournament, $round) {
-            if ($game->playerOne->user_id) {
-                User::find($game->playerOne->user_id)
-                    ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name));
-            }
-            if ($game->playerTwo->user_id) {
-                User::find($game->playerTwo->user_id)
-                    ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name));
-            }
+        // One query for every player's account instead of a find() per seat.
+        $users = User::whereIn('id', $pairedGames->flatMap(fn (TournamentGame $g) => [$g->playerOne->user_id, $g->playerTwo->user_id])->filter()->unique())
+            ->get()
+            ->keyBy('id');
+
+        $pairedGames->each(function (TournamentGame $game) use ($tournament, $round, $users) {
+            $users->get($game->playerOne->user_id)
+                ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name, $game->table_number));
+            $users->get($game->playerTwo->user_id)
+                ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name, $game->table_number));
         });
 
         $this->broadcastUpdate($tournament, 'pairings_generated');

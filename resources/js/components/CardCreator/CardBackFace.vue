@@ -308,9 +308,12 @@ defineExpose({ rootRef });
         </div>
 
         <!-- Footer watermark -->
-        <div class="px-3 py-1 text-center text-[10px] uppercase tracking-widest" :class="printMode ? 'text-neutral-300' : 'text-white/20'">
-            Fan-Made Custom Card
-        </div>
+        <div
+            aria-hidden="true"
+            data-label="Fan-Made Custom Card"
+            class="px-3 py-1 text-center text-[10px] uppercase tracking-widest after:content-[attr(data-label)]"
+            :class="printMode ? 'text-neutral-300' : 'text-white/20'"
+        ></div>
 
         <!-- Faction border bottom -->
         <div class="h-1 w-full" :style="{ background: borderGradient }" />

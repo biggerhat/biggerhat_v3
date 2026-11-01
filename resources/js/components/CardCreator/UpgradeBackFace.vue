@@ -137,9 +137,12 @@ defineExpose({ rootRef });
                     <div class="text-xs uppercase tracking-widest" :class="printMode ? 'text-neutral-200' : 'text-white/10'">Fourth Edition</div>
                 </div>
             </div>
-            <div class="px-3 py-1 text-center text-[10px] uppercase tracking-widest" :class="printMode ? 'text-neutral-300' : 'text-white/20'">
-                Fan-Made Custom Card
-            </div>
+            <div
+                aria-hidden="true"
+                data-label="Fan-Made Custom Card"
+                class="px-3 py-1 text-center text-[10px] uppercase tracking-widest after:content-[attr(data-label)]"
+                :class="printMode ? 'text-neutral-300' : 'text-white/20'"
+            ></div>
         </template>
 
         <!-- Faction border bottom -->

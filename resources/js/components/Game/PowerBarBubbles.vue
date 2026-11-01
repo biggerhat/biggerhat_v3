@@ -72,7 +72,7 @@ const onClick = (index: number) => {
             :aria-pressed="i <= safeCurrent"
             @click.stop="onClick(i - 1)"
         />
-        <span class="ml-1 font-mono tabular-nums" :class="[compact ? 'text-[10px]' : 'text-xs', colorClasses.text]"
+        <span class="ml-1 font-mono tabular-nums" :class="[compact ? 'text-2xs' : 'text-xs', colorClasses.text]"
             >{{ safeCurrent }}/{{ safeMax }}</span
         >
     </div>

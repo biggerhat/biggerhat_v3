@@ -4,6 +4,12 @@ Run a Malifaux tournament: registration/RSVP, Swiss rounds + pairings, scoring,
 standings. Integrates with the [Game Tracker](game-tracker.md) — a tournament
 match can spawn/track a live Game.
 
+## Access
+Any signed-in user can create and run a tournament (creation is throttled to 20/hour). There is no `create_tournaments`
+permission or `tournament_organizer` role any more. Per-event control is the creator + `tournament_organizers` pivot
+(`TournamentPolicy::manage`); `manage_tournaments` stays a super-admin "manage any" permission. Draft events are hidden from
+the public list (they stay reachable by link for RSVPs).
+
 ## Routes (`routes/web.php`, `tournaments` prefix)
 - `Tournament\TournamentController` — index/show/create/store/update, organizer dashboard.
 - `Tournament\TournamentRoundController` — generate pairings, advance rounds.
@@ -24,9 +30,18 @@ match can spawn/track a live Game.
 (e.g. `tracker_abandoned`, `tracker_score`). Include the Echo socket id so
 `broadcast(...)->toOthers()` skips the originator (see `composables/useTournament.ts`).
 
+## UI pieces
+- `components/Tournament/MyMatchCard.vue` — a player's own pairing (table, opponent, scenario, live-game link) at the top of `Tournaments/View.vue`.
+- `components/Tournament/RoundClock.vue` — countdown from `round.started_at` + `tournament.round_time_limit` (client-only tick).
+- `components/Tournament/TournamentCard.vue` — Index card; Index groups Happening now / Upcoming / Past.
+- Pairings print sheet: `View.vue` "Print pairings" + `[data-print-area]` / `[data-no-print]` rules in `app.css`.
+- Create form can prefill from an event you organize: `/tournaments/create?copy={uuid}`.
+- Meta pickers in `Manage.vue` use reka-ui `Combobox`: bind the search text on `ComboboxInput` (the root has no `searchTerm`),
+  and use `<ComboboxList inline>` inside a Dialog (the portalled list otherwise closes the radix Dialog and steals focus).
+
 ## Services (`app/Services/`)
 The real logic lives in services, not the controllers:
-- `TournamentPairingService` — Swiss `regeneratePairings()` (per round, not upfront).
+- `TournamentPairingService` — Swiss `regeneratePairings()` (per round, not upfront). Round 1 avoids same-meta pairings, with a swap pass (`separateSameMeta`) to fix clashes the greedy pass causes.
 - `TournamentStandingsService` — standings math.
 - `TournamentStateMachine` — round/tournament status transitions.
 - `TournamentTrackerGameFactory` — spawns the linked `Game` for a pairing.

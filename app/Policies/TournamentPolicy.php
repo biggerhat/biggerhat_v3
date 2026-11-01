@@ -32,10 +32,10 @@ class TournamentPolicy
         return true;
     }
 
-    /** Tournament organizers (the role) can create new tournaments. */
+    /** Any signed-in user can run a tournament; per-event control is the creator/organizers pivot. */
     public function create(User $user): bool
     {
-        return $user->can(PermissionEnum::CreateTournaments->value);
+        return true;
     }
 
     /**

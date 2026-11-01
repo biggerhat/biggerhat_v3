@@ -188,25 +188,37 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
 
         <Tabs v-else v-model="activeTab" class="w-full">
             <TabsList class="mb-2 grid w-full grid-cols-4">
-                <TabsTrigger value="characters" class="gap-1" aria-label="Characters">
+                <TabsTrigger
+                    value="characters"
+                    class="gap-1"
+                    :aria-label="`Characters${references?.characters.length ? ' ' + references.characters.length : ''}`"
+                >
                     <Users class="size-3.5" />
                     <Badge v-if="references?.characters.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.characters.length }}
                     </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="upgrades" class="gap-1" aria-label="Upgrades">
+                <TabsTrigger
+                    value="upgrades"
+                    class="gap-1"
+                    :aria-label="`Upgrades${references?.upgrades.length ? ' ' + references.upgrades.length : ''}`"
+                >
                     <ArrowUpCircle class="size-3.5" />
                     <Badge v-if="references?.upgrades.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.upgrades.length }}
                     </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="markers" class="gap-1" aria-label="Markers">
+                <TabsTrigger
+                    value="markers"
+                    class="gap-1"
+                    :aria-label="`Markers${references?.markers.length ? ' ' + references.markers.length : ''}`"
+                >
                     <MapPin class="size-3.5" />
                     <Badge v-if="references?.markers.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.markers.length }}
                     </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="tokens" class="gap-1" aria-label="Tokens">
+                <TabsTrigger value="tokens" class="gap-1" :aria-label="`Tokens${references?.tokens.length ? ' ' + references.tokens.length : ''}`">
                     <Puzzle class="size-3.5" />
                     <Badge v-if="references?.tokens.length" variant="secondary" class="px-1 py-0 text-2xs">
                         {{ references.tokens.length }}

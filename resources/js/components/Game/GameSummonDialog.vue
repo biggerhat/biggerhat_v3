@@ -79,14 +79,14 @@ const emit = defineEmits<{
                         />
                         <div class="min-w-0 flex-1">
                             <div class="truncate font-medium">{{ char.display_name }}</div>
-                            <div v-if="metaParts(char).length" class="flex items-center gap-1.5 text-[10px] capitalize text-muted-foreground">
+                            <div v-if="metaParts(char).length" class="flex items-center gap-1.5 text-2xs capitalize text-muted-foreground">
                                 <template v-for="(part, i) in metaParts(char)" :key="i">
                                     <span v-if="i > 0" class="text-muted-foreground/40">·</span>
                                     <span>{{ part }}</span>
                                 </template>
                             </div>
                         </div>
-                        <span v-if="crewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
+                        <span v-if="crewCount(char.id) > 0" class="shrink-0 text-2xs text-muted-foreground">
                             {{ crewCount(char.id) }}
                         </span>
                     </button>
@@ -94,8 +94,9 @@ const emit = defineEmits<{
             </div>
 
             <!-- Search all characters -->
-            <details class="rounded-md border">
-                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <!-- With no reference characters the search is the only way in, so start it expanded. -->
+            <details class="rounded-md border" :open="!referenceCharacters.length">
+                <summary class="cursor-pointer px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                     Search All Characters
                 </summary>
                 <div class="border-t px-1 pb-1 pt-1">
@@ -128,7 +129,7 @@ const emit = defineEmits<{
                                         </template>
                                     </div>
                                 </div>
-                                <span v-if="crewCount(char.id) > 0" class="shrink-0 text-[10px] text-muted-foreground">
+                                <span v-if="crewCount(char.id) > 0" class="shrink-0 text-2xs text-muted-foreground">
                                     {{ crewCount(char.id) }}/{{ char.count ?? 1 }}
                                 </span>
                             </button>

@@ -103,6 +103,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('campaigns.crews.starting-arsenal.edit');
     Route::post('/campaigns/{campaign}/crews/{crew}/starting-arsenal', [StartingArsenalController::class, 'update'])
         ->name('campaigns.crews.starting-arsenal.update');
+    Route::post('/campaigns/{campaign}/crews/{crew}/starting-arsenal/corrupted-pawn', [StartingArsenalController::class, 'storeCorruptedPawn'])
+        ->name('campaigns.crews.corrupted-pawn.store');
+    Route::delete('/campaigns/{campaign}/crews/{crew}/starting-arsenal/corrupted-pawn', [StartingArsenalController::class, 'destroyCorruptedPawn'])
+        ->name('campaigns.crews.corrupted-pawn.destroy');
 
     // Arsenal Sheet (authenticated path — public share is above).
     Route::get('/campaigns/{campaign}/crews/{crew}/arsenal', [ArsenalSheetController::class, 'show'])

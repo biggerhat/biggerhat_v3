@@ -8,7 +8,8 @@ const props = defineProps<{
 </script>
 
 <template>
-  <div class="relative w-full overflow-auto">
+  <!-- tabindex: a scrollable region must be keyboard-focusable so it can be scrolled without a mouse -->
+  <div class="relative w-full overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" tabindex="0">
     <table :class="cn('w-full caption-bottom text-sm', props.class)">
       <slot />
     </table>

@@ -1683,6 +1683,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                                 v-model.number="xpAdjustAmount"
                                 type="number"
                                 placeholder="±N"
+                                aria-label="Set experience — signed delta in boxes"
                                 title="Set experience — signed delta in boxes"
                                 class="h-8 w-16 text-xs"
                             />
@@ -2076,23 +2077,22 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     <div
                         v-for="model in crew.arsenal_models"
                         :key="model.id"
-                        role="button"
-                        tabindex="0"
                         :class="['cursor-pointer rounded-md border p-3 text-sm', CARD_HOVER]"
                         @click="viewUnit(model)"
-                        @keydown.enter="viewUnit(model)"
                     >
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0 flex-1">
                                 <!-- A nickname is the model's identity at the table — show it as
                                      the primary line, with the actual unit name demoted to a
                                      small line underneath (reversed from before). -->
-                                <p class="truncate font-medium">
-                                    {{ model.label || model.character?.display_name || model.custom_character?.display_name || '—' }}
-                                </p>
-                                <p v-if="model.label" class="truncate text-2xs text-muted-foreground">
-                                    {{ model.character?.display_name || model.custom_character?.display_name }}
-                                </p>
+                                <button type="button" class="block w-full text-left" @click.stop="viewUnit(model)">
+                                    <span class="block truncate font-medium">
+                                        {{ model.label || model.character?.display_name || model.custom_character?.display_name || '—' }}
+                                    </span>
+                                    <span v-if="model.label" class="block truncate text-2xs text-muted-foreground">
+                                        {{ model.character?.display_name || model.custom_character?.display_name }}
+                                    </span>
+                                </button>
                                 <p class="flex items-center gap-1 text-2xs text-muted-foreground">
                                     {{ model.character?.station || model.custom_character?.station }}
                                     <Badge v-if="model.custom_character" variant="outline" class="text-2xs">Custom</Badge>

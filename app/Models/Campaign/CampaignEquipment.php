@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $equipment_upgrade_id
  * @property string $source
  * @property int|null $acquired_aftermath_id
+ * @property int|null $bound_arsenal_model_id
  * @property \Carbon\CarbonImmutable|null $annihilated_at
  * @property-read Upgrade|null $catalog
  * @property-read \App\Models\Campaign\CampaignCrew|null $crew

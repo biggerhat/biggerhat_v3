@@ -232,6 +232,15 @@ class ArsenalSheetController extends Controller
             );
         }
 
+        // Corrupted Pawns (pg 146): the starting item "cannot be discarded or stolen" — it leaves only with its model.
+        if ($equipment->source === StartingArsenalController::CORRUPTED_PAWNS_SOURCE) {
+            return redirect()->back()->withMessage(
+                'The Corrupted Pawns item stays on its model — it is only annihilated with that model.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
         $isLocked = CampaignLeaderAdvancement::query()
             ->where('from_equipment_id', $equipment->id)
             ->exists();

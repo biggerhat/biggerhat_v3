@@ -73,6 +73,18 @@ interface EquipmentRow {
     pool_suit_b: string | null;
     body: string;
 }
+interface TtwRow {
+    id: number;
+    name: string;
+    flip: number | null;
+    cc: number;
+    is_omens_mark: boolean;
+    body: string;
+}
+interface TtwCatalog {
+    items: TtwRow[];
+    already_owned: boolean;
+}
 interface InjuryPivotRow {
     pivot_id: number;
     arsenal_model_id: number | null;
@@ -102,6 +114,8 @@ const props = defineProps<{
     prefill: Prefill;
     // Phase-gated props — server returns null on phases that don't need them.
     equipment_catalog?: EquipmentRow[] | null;
+    ttw_catalog?: TtwCatalog | null;
+    omens_mark?: { owned: number; carrier_killed: boolean } | null;
     crew_injuries?: InjuryPivotRow[] | null;
     xp_track?: XpTrackPayload | null;
     advancement_catalogs?: AdvancementCatalogs | null;
@@ -174,7 +188,20 @@ const purchasedItems = computed(() =>
     barterPurchases.value.map((id) => equipment_catalog.value.find((e) => e.id === id)).filter((e): e is EquipmentRow => !!e),
 );
 
-const barterTotalCc = computed(() => purchasedItems.value.reduce((sum, e) => sum + (e.cc ?? 0), 0));
+// Red joker on the barter flip → one Those Who Thirst item from its own table (pg 29-30).
+const ttwOpen = ref(false);
+const ttwPickupId = ref<number | null>(null);
+const ttwItems = computed(() => props.ttw_catalog?.items ?? []);
+const ttwAlreadyOwned = computed(() => props.ttw_catalog?.already_owned ?? false);
+const ttwPickup = computed(() => ttwItems.value.find((i) => i.id === ttwPickupId.value) ?? null);
+
+const barterTotalCc = computed(() => purchasedItems.value.reduce((sum, e) => sum + (e.cc ?? 0), 0) + (ttwPickup.value?.cc ?? 0));
+
+// "5 of R/M" — the barter flip must match both the value and one of the item's two suits (pg 21).
+const barterPool = (item: EquipmentRow): string => {
+    const suits = [item.pool_suit_a, item.pool_suit_b].filter((x): x is string => !!x);
+    return item.is_always_available || !suits.length ? '' : ' of ' + suits.map((x) => x[0].toUpperCase()).join('/');
+};
 
 const addBarterItem = (id: number) => {
     if (!barterPurchases.value.includes(id)) barterPurchases.value.push(id);
@@ -190,6 +217,7 @@ const removeBarterItem = (id: number) => {
 const submitBarter = () => {
     router.post(route('campaigns.aftermaths.barter', props.aftermath.id), {
         purchases: barterPurchases.value,
+        ttw_pickup: ttwPickupId.value,
     } as Record<string, unknown>);
 };
 
@@ -888,6 +916,14 @@ interface InjuryCatalogRow {
 }
 const injury_catalog = computed<InjuryCatalogRow[]>(() => props.injury_catalog ?? []);
 
+// Several injuries share a name across the two suit halves (e.g. "Just a Flesh Wound" x4,
+// "Killed Off" x2), so the picker prefixes the flip they came from, as printed on pg 34-35.
+const injuryLabel = (inj: InjuryCatalogRow): string => {
+    if (inj.flip_value == null) return inj.name;
+    const pool = inj.suit_pool === 'pc' ? 'R/M' : inj.suit_pool === 'te' ? 'C/T' : '';
+    return `${inj.flip_value}${pool ? ' of ' + pool : ''} — ${inj.name}`;
+};
+
 interface TraitorCrewRow {
     id: number;
     name: string;
@@ -915,9 +951,13 @@ const injuryFlipSummary = (f: InjuryEntry): string => {
     return injury?.name ?? '— no injury picked —';
 };
 
+// Omen's Mark (pg 30): killed by an enemy, it moves to that enemy's crew. Pre-ticked when the linked tracker game shows its carrier died.
+const omensMarkKilled = ref(props.omens_mark?.carrier_killed ?? false);
+
 const submitInjuries = () => {
     router.post(route('campaigns.aftermaths.determine-injuries', props.aftermath.id), {
         flips: injuryFlips.value,
+        omens_mark_killed: omensMarkKilled.value,
         story_entry: storyEntry.value || null,
     } as Record<string, unknown>);
 };
@@ -999,7 +1039,7 @@ const submitInjuries = () => {
                     <Label>Schemes completed (0–3)</Label>
                     <Input type="number" min="0" max="3" v-model.number="handForm.schemes_completed" />
                 </div>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <div />
                     <Button :disabled="!is_owner" @click="drawHand">Confirm — draw my hand</Button>
                 </div>
@@ -1045,7 +1085,7 @@ const submitInjuries = () => {
                         </label>
                     </div>
                 </div>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner" @click="submitPayday">Confirm &amp; advance</Button>
@@ -1058,7 +1098,7 @@ const submitInjuries = () => {
             <CardHeader>
                 <CardTitle>Phase 3 — Barter</CardTitle>
                 <p class="text-sm text-muted-foreground">
-                    Make your barter flips at the table (pg 21–30), then record what you bought below — search the catalog by name and add each item.
+                    Make your barter flip at the table (pg 21–30), then record what you bought below — search the catalog by name and add each item.
                     Its cost is charged to your scrip.
                 </p>
             </CardHeader>
@@ -1072,7 +1112,7 @@ const submitInjuries = () => {
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-medium">{{ item.name }}</p>
                                     <p class="text-2xs text-muted-foreground">
-                                        BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }} • CC {{ item.cc }}
+                                        BR {{ item.is_always_available ? 'Always' : (item.br ?? '—') }}{{ barterPool(item) }} • CC {{ item.cc }}
                                     </p>
                                 </div>
                                 <Button size="sm" variant="outline" :disabled="!is_owner" @click="addBarterItem(item.id)">Add</Button>
@@ -1085,7 +1125,53 @@ const submitInjuries = () => {
                     <p v-else-if="barterSearch.trim()" class="mt-1 text-2xs text-muted-foreground">No equipment matches that name.</p>
                 </div>
 
-                <div v-if="purchasedItems.length" class="rounded-md border p-3">
+                <details
+                    v-if="ttwItems.length"
+                    class="rounded-md border"
+                    :open="ttwOpen"
+                    @toggle="ttwOpen = ($event.target as HTMLDetailsElement).open"
+                >
+                    <summary class="cursor-pointer px-3 py-2.5 text-sm font-medium">Flipped a red joker? Those Who Thirst</summary>
+                    <div class="space-y-2 border-t p-3">
+                        <p class="text-xs text-muted-foreground">
+                            After a red joker on your barter, flip again on the Those Who Thirst table (pg 29–30) and pick the matching item. Value
+                            9–13 (or a cheated red joker, which counts as 13) lets you choose any entry; either joker gives Omen’s Mark.
+                        </p>
+                        <p v-if="ttwAlreadyOwned" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs">
+                            Your crew already has a Those Who Thirst item, so this flip is ignored (only Omen’s Mark can be added).
+                        </p>
+                        <ul class="space-y-1">
+                            <li
+                                v-for="item in ttwItems"
+                                :key="item.id"
+                                class="rounded-sm border px-2 py-1.5 text-sm"
+                                :class="ttwPickupId === item.id ? 'border-primary bg-primary/5' : ''"
+                            >
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate font-medium">{{ item.name }}</p>
+                                        <p class="text-2xs text-muted-foreground">
+                                            {{ item.is_omens_mark ? 'Either joker' : `Flip ${item.flip}` }} • CC {{ item.cc }}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        :variant="ttwPickupId === item.id ? 'default' : 'outline'"
+                                        :disabled="!is_owner || (ttwAlreadyOwned && !item.is_omens_mark)"
+                                        @click="ttwPickupId = ttwPickupId === item.id ? null : item.id"
+                                    >
+                                        {{ ttwPickupId === item.id ? 'Selected' : 'Take' }}
+                                    </Button>
+                                </div>
+                                <p v-if="item.body" class="mt-1 text-2xs leading-relaxed text-muted-foreground">
+                                    <GameText :text="item.body" />
+                                </p>
+                            </li>
+                        </ul>
+                    </div>
+                </details>
+
+                <div v-if="purchasedItems.length || ttwPickup" class="rounded-md border p-3">
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Purchasing</p>
                     <ul class="space-y-1">
                         <li
@@ -1099,6 +1185,13 @@ const submitInjuries = () => {
                             </div>
                             <Button size="sm" variant="ghost" :disabled="!is_owner" @click="removeBarterItem(item.id)">Remove</Button>
                         </li>
+                        <li v-if="ttwPickup" class="flex items-center justify-between rounded-sm border px-2 py-1.5 text-sm">
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate font-medium">{{ ttwPickup.name }}</p>
+                                <p class="text-2xs text-muted-foreground">Those Who Thirst • CC {{ ttwPickup.cc }}</p>
+                            </div>
+                            <Button size="sm" variant="ghost" :disabled="!is_owner" @click="ttwPickupId = null">Remove</Button>
+                        </li>
                     </ul>
                 </div>
 
@@ -1106,11 +1199,11 @@ const submitInjuries = () => {
                     Total:
                     <Badge variant="outline" class="text-2xs tabular-nums">{{ barterTotalCc }} / {{ aftermath.crew.scrip }} scrip</Badge>
                 </span>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
-                        {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
+                        {{ purchasedItems.length || ttwPickup ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
                     </Button>
                 </div>
                 <p v-if="barterTotalCc > aftermath.crew.scrip" class="text-right text-xs text-destructive">
@@ -1539,11 +1632,11 @@ const submitInjuries = () => {
                 <p v-if="advanceLeaderOutOfOrder" class="text-xs text-destructive">
                     Advancements must be resolved in box order (pg 31) — pick one for every earlier box before a later one.
                 </p>
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
-                    <div class="flex gap-2">
-                        <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip phase</Button>
+                    <div class="flex flex-wrap justify-end gap-2">
+                        <Button variant="ghost" :disabled="!is_owner" @click="advance">Skip — don’t record XP</Button>
                         <Button :disabled="!is_owner || advanceLeaderOutOfOrder" @click="submitAdvanceLeader">
                             Confirm Advancements &amp; advance
                         </Button>
@@ -1605,7 +1698,9 @@ const submitInjuries = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="__none__">— added injury —</SelectItem>
-                                    <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{ inj.name }}</SelectItem>
+                                    <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{
+                                        injuryLabel(inj)
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <!-- Red Joker → Lucky Miss table (or Doppelganger). -->
@@ -1627,7 +1722,7 @@ const submitInjuries = () => {
                     </ul>
                 </div>
 
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner || doctorAttempts.length > aftermath.crew.scrip" @click="submitDoctor"> Apply &amp; advance </Button>
@@ -1648,6 +1743,17 @@ const submitInjuries = () => {
                 </p>
             </CardHeader>
             <CardContent class="space-y-3">
+                <p class="text-xs text-muted-foreground">
+                    Killed by a <strong>Laid to Rest</strong> weapon (Those Who Thirst)? That model flips <strong>twice</strong> — add two injuries
+                    for it below (pg 29–30).
+                </p>
+                <label v-if="omens_mark?.owned" class="flex items-start gap-2 rounded-md border border-purple-500/40 bg-purple-500/5 p-2 text-sm">
+                    <input v-model="omensMarkKilled" type="checkbox" class="mt-0.5 size-4" :disabled="!is_owner" />
+                    <span>
+                        The model carrying <strong>Omen’s Mark</strong> was killed by an enemy — annihilate it and pass it to that enemy’s crew (pg
+                        30).
+                    </span>
+                </label>
                 <p v-if="kills_are_authoritative" class="text-xs uppercase text-muted-foreground">
                     Models highlighted below were auto-detected as killed this game — add or remove flips as needed.
                 </p>
@@ -1749,7 +1855,9 @@ const submitInjuries = () => {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="__none__">— pick the injury —</SelectItem>
-                                        <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{ inj.name }}</SelectItem>
+                                        <SelectItem v-for="inj in injury_catalog" :key="inj.id" :value="inj.id.toString()">{{
+                                            injuryLabel(inj)
+                                        }}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </template>
@@ -1758,7 +1866,7 @@ const submitInjuries = () => {
                     </ul>
                 </div>
 
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner" @click="phase6Step = 'review'">Review &amp; continue →</Button>
@@ -1829,7 +1937,7 @@ const submitInjuries = () => {
                     />
                 </div>
 
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <Button variant="ghost" @click="phase6Step = 'flips'">← Back to injuries</Button>
                     <Button :disabled="!is_owner" @click="submitInjuries">Lock it in</Button>
                 </div>

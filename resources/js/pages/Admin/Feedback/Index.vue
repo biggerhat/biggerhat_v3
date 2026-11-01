@@ -261,7 +261,7 @@ const setCategoryFilter = (value: string) => {
                     <Button
                         size="sm"
                         variant="ghost"
-                        class="ml-auto h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        class="ml-auto h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-400 dark:hover:text-red-300"
                         @click="bulk('delete')"
                     >
                         <Trash2 class="mr-1 size-3" /> Delete
@@ -383,7 +383,7 @@ const setCategoryFilter = (value: string) => {
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                class="ml-auto h-7 gap-1 text-2xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                class="ml-auto h-7 gap-1 text-2xs text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-400 dark:hover:text-red-300"
                                 @click="askDelete(entry)"
                             >
                                 <Trash2 class="size-3" /> Delete

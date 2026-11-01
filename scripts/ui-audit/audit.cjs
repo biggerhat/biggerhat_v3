@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports -- standalone CommonJS script, not part of the app bundle */
 /*
  * Logged-in (or guest) UI audit: signs in through the real login form, visits pages at phone and
  * desktop widths, runs axe-core and a few layout checks, and writes screenshots. Local use only —
@@ -39,12 +40,14 @@ const CREDS = {
     organizer: 'audit.organizer@example.test',
     admin: 'audit.admin@example.test',
     fresh: 'audit.fresh@example.test',
+    campaign: 'alpha@biggerhat.test', // from CampaignSeeder
 };
 const axePath = process.env.AXE || path.resolve('node_modules/axe-core/axe.min.js');
 const axeSrc = fs.existsSync(axePath) ? fs.readFileSync(axePath, 'utf8') : null;
 if (!axeSrc) console.warn('axe-core not found (npm i --no-save axe-core or set AXE); skipping accessibility checks');
 const VP = {
     mobile: { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
+    tablet: { width: 820, height: 1180, hasTouch: true },
     desktop: { width: 1440, height: 900 },
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -89,7 +92,12 @@ async function discover(page, pages) {
         [...new Set(hrefs)].slice(0, limit).forEach((h) => found.add(h));
     };
     if (ROLE === 'admin') await grab('/admin', '^/admin(/|$)', 80);
-    else if (ROLE !== 'guest') {
+    else if (ROLE === 'campaign') {
+        await grab('/campaigns', '^/campaigns/[0-9]+$', 3);
+        for (const c of [...found].filter((p) => /^\/campaigns\/[0-9]+$/.test(p))) {
+            await grab(c, '^/campaigns/([0-9]+/(crews|games|weekly|leader)|aftermaths)/', 12);
+        }
+    } else if (ROLE !== 'guest') {
         await grab('/games', '^/games/[0-9a-f-]{36}$', 3);
         await grab('/tournaments', '^/tournaments/[0-9a-f-]{36}$', 3);
         await grab('/tools/crew-builder', '^/tools/crew-builder/(share|[0-9]+)', 3);

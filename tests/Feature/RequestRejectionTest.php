@@ -13,11 +13,10 @@ use Spatie\Permission\Models\Permission;
  */
 
 beforeEach(function () {
-    foreach ([PermissionEnum::CreateTournaments, PermissionEnum::ManageTournaments] as $perm) {
+    foreach ([PermissionEnum::ManageTournaments] as $perm) {
         Permission::firstOrCreate(['name' => $perm->value, 'guard_name' => 'web']);
     }
     $this->user = User::factory()->create();
-    $this->user->givePermissionTo(PermissionEnum::CreateTournaments->value);
 });
 
 function validTournamentPayload(array $overrides = []): array

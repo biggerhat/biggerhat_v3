@@ -6,7 +6,6 @@ use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
-    Permission::firstOrCreate(['name' => PermissionEnum::CreateTournaments->value, 'guard_name' => 'web']);
     Permission::firstOrCreate(['name' => PermissionEnum::ManageTournaments->value, 'guard_name' => 'web']);
 });
 

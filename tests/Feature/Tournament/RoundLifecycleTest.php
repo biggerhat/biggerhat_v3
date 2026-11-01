@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\Notification;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
-    Permission::firstOrCreate(['name' => PermissionEnum::CreateTournaments->value, 'guard_name' => 'web']);
     Permission::firstOrCreate(['name' => PermissionEnum::ManageTournaments->value, 'guard_name' => 'web']);
 
     $this->creator = User::factory()->create();
@@ -65,6 +64,17 @@ it('refuses to delete a round that is currently in progress', function () {
         ->deleteJson(route('tournaments.rounds.delete', [$this->tournament->uuid, $r]))
         ->assertStatus(422)
         ->assertJsonFragment(['error' => 'Cannot delete a round that is in progress.']);
+});
+
+it('refuses to delete any round once the tournament is completed', function () {
+    $r = TournamentRound::factory()->for($this->tournament)->completed()->create(['round_number' => 1]);
+    $this->tournament->update(['status' => 'completed']);
+
+    $this->actingAs($this->creator)
+        ->deleteJson(route('tournaments.rounds.delete', [$this->tournament->uuid, $r]))
+        ->assertStatus(422);
+
+    expect($r->fresh())->not->toBeNull();
 });
 
 it('only marks bye games Completed when the round is started, not at pair time', function () {
@@ -229,7 +239,8 @@ it('notifies both linked players when the round is paired', function () {
         ->postJson(route('tournaments.rounds.pair', [$this->tournament->uuid, $round]))
         ->assertOk();
 
-    Notification::assertSentTo($this->creator, TournamentRoundPaired::class);
+    Notification::assertSentTo($this->creator, TournamentRoundPaired::class, fn (TournamentRoundPaired $n) => $n->tableNumber === 1
+        && str_contains($n->toArray($this->creator)['message'], 'Table 1'));
     Notification::assertSentTo($opponent, TournamentRoundPaired::class);
 });
 

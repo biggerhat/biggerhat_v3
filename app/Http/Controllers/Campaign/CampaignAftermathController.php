@@ -116,6 +116,7 @@ class CampaignAftermathController extends Controller
             // so gating on `current_phase` keeps each phase's catalog query off
             // the others. Read-side queries live in AftermathCatalog.
             'equipment_catalog' => fn () => $aftermath->current_phase === 3 ? AftermathCatalog::equipment() : null,
+            'ttw_catalog' => fn () => $aftermath->current_phase === 3 ? AftermathCatalog::thoseWhoThirst($aftermath->campaign_crew_id) : null,
             'crew_injuries' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::crewInjuries($aftermath->campaign_crew_id) : null,
             'doctor_results' => fn () => $aftermath->current_phase === 5 ? AftermathCatalog::doctorResults() : null,
             // Phase 5 needs it too for the doctor "Oops" added-injury pick.
@@ -313,8 +314,8 @@ class CampaignAftermathController extends Controller
      *   - br === flip_value (exact match) AND the flipped suit matches one of
      *     the item's own two-suit flip pool (campaign_pool_suit_a/b) — this
      *     pool belongs to the equipment itself, not the crew's keywords.
-     * Red joker triggers a Those Who Thirst sub-flip (deferred — store the
-     * flag for now).
+     * A red joker adds one pick from the Those Who Thirst sub-table
+     * (`ttw_pickup`, pg 29-30).
      *
      * Purchases deduct cc from crew.scrip; insufficient scrip is rejected.
      */
@@ -351,6 +352,37 @@ class CampaignAftermathController extends Controller
             );
         }
 
+        // Red-joker pickup from the Those Who Thirst table (pg 29-30).
+        $ttwPickup = null;
+        if (! empty($data['ttw_pickup'])) {
+            $ttwPickup = Upgrade::query()
+                ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+                ->where('campaign_upgrade_kind', 'equipment')
+                ->where('campaign_ttw_only', true)
+                ->find($data['ttw_pickup']);
+            if (! $ttwPickup) {
+                return redirect()->back()->withMessage('That is not a Those Who Thirst item.', null, MessageTypeEnum::error);
+            }
+
+            // A crew may hold one TTW item at a time (Omen's Mark excepted); a second flip is simply ignored.
+            $ownedTtw = CampaignEquipment::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->active()
+                ->whereHas('catalog', fn ($q) => $q->where('campaign_ttw_only', true));
+            $blocked = $ttwPickup->campaign_is_omens_mark
+                ? (clone $ownedTtw)->where('equipment_upgrade_id', $ttwPickup->id)->exists()
+                : (clone $ownedTtw)->whereHas('catalog', fn ($q) => $q->where('campaign_is_omens_mark', false))->exists();
+            if ($blocked) {
+                return redirect()->back()->withMessage(
+                    $ttwPickup->campaign_is_omens_mark
+                        ? "Your crew already carries {$ttwPickup->name}."
+                        : 'Your crew already has a Those Who Thirst item — ignore this result (pg 29).',
+                    null,
+                    MessageTypeEnum::error,
+                );
+            }
+        }
+
         // Unique equipment (pg 21) — a crew may only ever hold one active
         // instance at a time.
         $ownedUniqueIds = CampaignEquipment::query()
@@ -368,7 +400,7 @@ class CampaignAftermathController extends Controller
             );
         }
 
-        $totalCc = (int) $items->sum('campaign_cc');
+        $totalCc = (int) $items->sum('campaign_cc') + (int) ($ttwPickup ? $ttwPickup->campaign_cc : 0);
 
         if ($totalCc > $crew->scrip) {
             return redirect()->back()->withMessage(
@@ -383,7 +415,16 @@ class CampaignAftermathController extends Controller
         // per-model equipment-attachment step this schema doesn't have (equipment
         // is a crew-level bucket, not tied to a specific arsenal model/leader).
 
-        $advanced = $this->lockAndAdvance($aftermath, 3, function (CampaignAftermath $locked) use ($crew, $items, $totalCc) {
+        $advanced = $this->lockAndAdvance($aftermath, 3, function (CampaignAftermath $locked) use ($crew, $items, $ttwPickup, $totalCc) {
+            if ($ttwPickup) {
+                CampaignEquipment::create([
+                    'campaign_crew_id' => $crew->id,
+                    'equipment_upgrade_id' => $ttwPickup->id,
+                    'source' => 'joker',
+                    'acquired_aftermath_id' => $locked->id,
+                ]);
+            }
+
             foreach ($items as $eq) {
                 CampaignEquipment::create([
                     'campaign_crew_id' => $crew->id,
@@ -406,9 +447,9 @@ class CampaignAftermathController extends Controller
         }
 
         return redirect()->route('campaigns.aftermaths.show', $aftermath)
-            ->withMessage($items->isEmpty()
+            ->withMessage($items->isEmpty() && ! $ttwPickup
                 ? 'Barter skipped. On to Advance Leader.'
-                : 'Bartered '.$items->count().' item(s) for '.$totalCc.' scrip. On to Advance Leader.');
+                : 'Bartered '.($items->count() + ($ttwPickup ? 1 : 0)).' item(s) for '.$totalCc.' scrip. On to Advance Leader.');
     }
 
     /**

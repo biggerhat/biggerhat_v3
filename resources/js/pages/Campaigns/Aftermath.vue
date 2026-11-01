@@ -73,6 +73,18 @@ interface EquipmentRow {
     pool_suit_b: string | null;
     body: string;
 }
+interface TtwRow {
+    id: number;
+    name: string;
+    flip: number | null;
+    cc: number;
+    is_omens_mark: boolean;
+    body: string;
+}
+interface TtwCatalog {
+    items: TtwRow[];
+    already_owned: boolean;
+}
 interface InjuryPivotRow {
     pivot_id: number;
     arsenal_model_id: number | null;
@@ -102,6 +114,7 @@ const props = defineProps<{
     prefill: Prefill;
     // Phase-gated props — server returns null on phases that don't need them.
     equipment_catalog?: EquipmentRow[] | null;
+    ttw_catalog?: TtwCatalog | null;
     crew_injuries?: InjuryPivotRow[] | null;
     xp_track?: XpTrackPayload | null;
     advancement_catalogs?: AdvancementCatalogs | null;
@@ -174,7 +187,14 @@ const purchasedItems = computed(() =>
     barterPurchases.value.map((id) => equipment_catalog.value.find((e) => e.id === id)).filter((e): e is EquipmentRow => !!e),
 );
 
-const barterTotalCc = computed(() => purchasedItems.value.reduce((sum, e) => sum + (e.cc ?? 0), 0));
+// Red joker on the barter flip → one Those Who Thirst item from its own table (pg 29-30).
+const ttwOpen = ref(false);
+const ttwPickupId = ref<number | null>(null);
+const ttwItems = computed(() => props.ttw_catalog?.items ?? []);
+const ttwAlreadyOwned = computed(() => props.ttw_catalog?.already_owned ?? false);
+const ttwPickup = computed(() => ttwItems.value.find((i) => i.id === ttwPickupId.value) ?? null);
+
+const barterTotalCc = computed(() => purchasedItems.value.reduce((sum, e) => sum + (e.cc ?? 0), 0) + (ttwPickup.value?.cc ?? 0));
 
 // "5 of R/M" — the barter flip must match both the value and one of the item's two suits (pg 21).
 const barterPool = (item: EquipmentRow): string => {
@@ -196,6 +216,7 @@ const removeBarterItem = (id: number) => {
 const submitBarter = () => {
     router.post(route('campaigns.aftermaths.barter', props.aftermath.id), {
         purchases: barterPurchases.value,
+        ttw_pickup: ttwPickupId.value,
     } as Record<string, unknown>);
 };
 
@@ -1099,7 +1120,53 @@ const submitInjuries = () => {
                     <p v-else-if="barterSearch.trim()" class="mt-1 text-2xs text-muted-foreground">No equipment matches that name.</p>
                 </div>
 
-                <div v-if="purchasedItems.length" class="rounded-md border p-3">
+                <details
+                    v-if="ttwItems.length"
+                    class="rounded-md border"
+                    :open="ttwOpen"
+                    @toggle="ttwOpen = ($event.target as HTMLDetailsElement).open"
+                >
+                    <summary class="cursor-pointer px-3 py-2.5 text-sm font-medium">Flipped a red joker? Those Who Thirst</summary>
+                    <div class="space-y-2 border-t p-3">
+                        <p class="text-xs text-muted-foreground">
+                            After a red joker on your barter, flip again on the Those Who Thirst table (pg 29–30) and pick the matching item. Value
+                            9–13 (or a cheated red joker, which counts as 13) lets you choose any entry; either joker gives Omen’s Mark.
+                        </p>
+                        <p v-if="ttwAlreadyOwned" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-xs">
+                            Your crew already has a Those Who Thirst item, so this flip is ignored (only Omen’s Mark can be added).
+                        </p>
+                        <ul class="space-y-1">
+                            <li
+                                v-for="item in ttwItems"
+                                :key="item.id"
+                                class="rounded-sm border px-2 py-1.5 text-sm"
+                                :class="ttwPickupId === item.id ? 'border-primary bg-primary/5' : ''"
+                            >
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate font-medium">{{ item.name }}</p>
+                                        <p class="text-2xs text-muted-foreground">
+                                            {{ item.is_omens_mark ? 'Either joker' : `Flip ${item.flip}` }} • CC {{ item.cc }}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        :variant="ttwPickupId === item.id ? 'default' : 'outline'"
+                                        :disabled="!is_owner || (ttwAlreadyOwned && !item.is_omens_mark)"
+                                        @click="ttwPickupId = ttwPickupId === item.id ? null : item.id"
+                                    >
+                                        {{ ttwPickupId === item.id ? 'Selected' : 'Take' }}
+                                    </Button>
+                                </div>
+                                <p v-if="item.body" class="mt-1 text-2xs leading-relaxed text-muted-foreground">
+                                    <GameText :text="item.body" />
+                                </p>
+                            </li>
+                        </ul>
+                    </div>
+                </details>
+
+                <div v-if="purchasedItems.length || ttwPickup" class="rounded-md border p-3">
                     <p class="mb-2 text-xs font-medium uppercase text-muted-foreground">Purchasing</p>
                     <ul class="space-y-1">
                         <li
@@ -1113,6 +1180,13 @@ const submitInjuries = () => {
                             </div>
                             <Button size="sm" variant="ghost" :disabled="!is_owner" @click="removeBarterItem(item.id)">Remove</Button>
                         </li>
+                        <li v-if="ttwPickup" class="flex items-center justify-between rounded-sm border px-2 py-1.5 text-sm">
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate font-medium">{{ ttwPickup.name }}</p>
+                                <p class="text-2xs text-muted-foreground">Those Who Thirst • CC {{ ttwPickup.cc }}</p>
+                            </div>
+                            <Button size="sm" variant="ghost" :disabled="!is_owner" @click="ttwPickupId = null">Remove</Button>
+                        </li>
                     </ul>
                 </div>
 
@@ -1124,7 +1198,7 @@ const submitInjuries = () => {
                     <Button v-if="canGoBack" variant="ghost" :disabled="!is_owner" @click="goBackAPhase">← Back</Button>
                     <div v-else />
                     <Button :disabled="!is_owner || barterTotalCc > aftermath.crew.scrip" @click="submitBarter">
-                        {{ purchasedItems.length ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
+                        {{ purchasedItems.length || ttwPickup ? 'Confirm purchases &amp; advance' : 'Skip — buy nothing' }}
                     </Button>
                 </div>
                 <p v-if="barterTotalCc > aftermath.crew.scrip" class="text-right text-xs text-destructive">

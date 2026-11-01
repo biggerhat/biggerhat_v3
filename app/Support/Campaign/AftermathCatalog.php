@@ -75,6 +75,41 @@ class AftermathCatalog
     }
 
     /**
+     * Phase 3 — the Those Who Thirst sub-table (pg 29-30), flipped after a red joker on the barter.
+     * Omen's Mark (either joker on that flip) is free and mandatory, so it sorts last.
+     *
+     * @return array{items: array<int, array<string, mixed>>, already_owned: bool}
+     */
+    public static function thoseWhoThirst(int $crewId): array
+    {
+        $items = Upgrade::query()
+            ->where('game_mode_type', GameModeTypeEnum::Campaign->value)
+            ->where('campaign_upgrade_kind', 'equipment')
+            ->where('campaign_ttw_only', true)
+            ->orderByRaw('campaign_is_omens_mark asc, campaign_br asc')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Upgrade $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'flip' => $u->campaign_br,
+                'cc' => (int) $u->campaign_cc,
+                'is_omens_mark' => (bool) $u->campaign_is_omens_mark,
+                'body' => $u->description,
+            ])
+            ->all();
+
+        // "Ignore this result if you already have one" — Omen's Mark may sit alongside another TTW item.
+        $alreadyOwned = CampaignEquipment::query()
+            ->where('campaign_crew_id', $crewId)
+            ->active()
+            ->whereHas('catalog', fn ($q) => $q->where('campaign_ttw_only', true)->where('campaign_is_omens_mark', false))
+            ->exists();
+
+        return ['items' => $items, 'already_owned' => $alreadyOwned];
+    }
+
+    /**
      * The crew's active, owned Equipment — full rules text plus the actions
      * and abilities it grants (from the shared Action/Ability catalogs via
      * its Upgrade record), so the Arsenal Sheet's equipment card view has the

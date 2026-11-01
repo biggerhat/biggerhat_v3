@@ -46,6 +46,16 @@ class CampaignRulebookSeeder extends Seeder
             ]);
         }
 
+        // Either joker on the Those Who Thirst flip (pg 30): free, mandatory, and travels with the killer.
+        $this->upsert(['campaign_upgrade_kind' => 'equipment', 'name' => 'Omen’s Mark'], [
+            'description' => 'Free and mandatory. Attach to a model each encounter; it suffers +1 damage. When killed by an enemy, annihilate this and attach an Omen’s Mark to the model that got kill credit. Cannot be discarded or annihilated any other way. May be held alongside another Those Who Thirst item.',
+            'campaign_br' => null,
+            'campaign_cc' => 0,
+            'campaign_ttw_only' => true,
+            'campaign_is_omens_mark' => true,
+            'campaign_is_always_available' => false,
+        ]);
+
         foreach ($this->injuries() as [$name, $value, $pool, $text, $flags]) {
             $this->upsert(['campaign_upgrade_kind' => 'injury', 'name' => $name, 'campaign_flip_value' => $value, 'campaign_suit_pool' => $pool], [
                 'description' => $text,

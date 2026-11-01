@@ -20,7 +20,7 @@ it('seeds the book equipment and injury tables and is idempotent', function () {
         ->and($injuries)->toBe(28)
         ->and(Upgrade::where('name', 'Pistol')->value('campaign_is_always_available'))->toBeTrue()
         ->and(Upgrade::where('name', 'Mutagen Injector')->first()->only(['campaign_br', 'campaign_cc']))->toBe(['campaign_br' => 10, 'campaign_cc' => 2])
-        ->and(Upgrade::where('campaign_ttw_only', true)->count())->toBe(8)
+        ->and(Upgrade::where('campaign_ttw_only', true)->count())->toBe(9)
         ->and(Upgrade::where('name', 'Killed Off')->where('campaign_annihilates_model', true)->count())->toBe(2);
 });
 

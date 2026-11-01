@@ -857,6 +857,77 @@ it('Phase 3 Barter equipment_catalog excludes Those Who Thirst items, since bart
     expect($catalogNames)->toContain($normal->name);
 });
 
+function ttwBarterFixture(): array
+{
+    [$user, , $crew, $game] = aftermathFixture();
+    $crew->update(['scrip' => 10]);
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 3,
+        'hand_drawn' => [],
+    ]);
+
+    return [$user, $crew, $aftermath];
+}
+
+it('Phase 3 Barter lists the Those Who Thirst table for a red joker pickup', function () {
+    [$user, , $aftermath] = ttwBarterFixture();
+    $ttw = Upgrade::factory()->campaignEquipmentTtw()->create(['name' => 'Edict', 'campaign_br' => 5, 'campaign_cc' => 3]);
+
+    $props = $this->actingAs($user)->get(route('campaigns.aftermaths.show', $aftermath))->viewData('page')['props'];
+
+    expect(collect($props['ttw_catalog']['items'])->pluck('name'))->toContain($ttw->name)
+        ->and($props['ttw_catalog']['already_owned'])->toBeFalse();
+});
+
+it('Phase 3 Barter grants a Those Who Thirst pickup, charges its cc, and undoing refunds it', function () {
+    [$user, $crew, $aftermath] = ttwBarterFixture();
+    $ttw = Upgrade::factory()->campaignEquipmentTtw()->create(['campaign_br' => 5, 'campaign_cc' => 3]);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.barter', $aftermath), ['ttw_pickup' => $ttw->id])->assertRedirect();
+
+    $owned = CampaignEquipment::where('campaign_crew_id', $crew->id)->first();
+    expect($owned->equipment_upgrade_id)->toBe($ttw->id)
+        ->and($owned->source)->toBe('joker')
+        ->and($crew->fresh()->scrip)->toBe(7)
+        ->and($aftermath->fresh()->current_phase)->toBe(4);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.back', $aftermath))->assertRedirect();
+
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0)
+        ->and($crew->fresh()->scrip)->toBe(10);
+});
+
+it('Phase 3 Barter ignores a second Those Who Thirst item but still allows Omen\'s Mark for free', function () {
+    [$user, $crew, $aftermath] = ttwBarterFixture();
+    $first = Upgrade::factory()->campaignEquipmentTtw()->create(['campaign_br' => 1, 'campaign_cc' => 3]);
+    $second = Upgrade::factory()->campaignEquipmentTtw()->create(['campaign_br' => 2, 'campaign_cc' => 3]);
+    $omen = Upgrade::factory()->campaignEquipmentTtw()->create(['name' => 'Omen\'s Mark', 'campaign_br' => null, 'campaign_cc' => 0, 'campaign_is_omens_mark' => true]);
+    CampaignEquipment::create(['campaign_crew_id' => $crew->id, 'equipment_upgrade_id' => $first->id, 'source' => 'joker']);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.barter', $aftermath), ['ttw_pickup' => $second->id])->assertRedirect();
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(1)
+        ->and($aftermath->fresh()->current_phase)->toBe(3);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.barter', $aftermath), ['ttw_pickup' => $omen->id])->assertRedirect();
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(2)
+        ->and($crew->fresh()->scrip)->toBe(10)
+        ->and($aftermath->fresh()->current_phase)->toBe(4);
+});
+
+it('Phase 3 Barter refuses a Those Who Thirst pickup that is not a Those Who Thirst item or is unaffordable', function () {
+    [$user, $crew, $aftermath] = ttwBarterFixture();
+    $normal = Upgrade::factory()->campaignEquipment()->create();
+    $pricey = Upgrade::factory()->campaignEquipmentTtw()->create(['campaign_cc' => 99]);
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.barter', $aftermath), ['ttw_pickup' => $normal->id])->assertRedirect();
+    $this->actingAs($user)->post(route('campaigns.aftermaths.barter', $aftermath), ['ttw_pickup' => $pricey->id])->assertRedirect();
+
+    expect(CampaignEquipment::where('campaign_crew_id', $crew->id)->count())->toBe(0)
+        ->and($aftermath->fresh()->current_phase)->toBe(3);
+});
+
 it('Phase 3 Barter empty purchases still advances the phase', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

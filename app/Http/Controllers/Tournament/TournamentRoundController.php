@@ -260,15 +260,16 @@ class TournamentRoundController extends Controller
             ->with(['playerOne:id,user_id,display_name', 'playerTwo:id,user_id,display_name'])
             ->get();
 
-        $pairedGames->each(function (TournamentGame $game) use ($tournament, $round) {
-            if ($game->playerOne->user_id) {
-                User::find($game->playerOne->user_id)
-                    ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name, $game->table_number));
-            }
-            if ($game->playerTwo->user_id) {
-                User::find($game->playerTwo->user_id)
-                    ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name, $game->table_number));
-            }
+        // One query for every player's account instead of a find() per seat.
+        $users = User::whereIn('id', $pairedGames->flatMap(fn (TournamentGame $g) => [$g->playerOne->user_id, $g->playerTwo->user_id])->filter()->unique())
+            ->get()
+            ->keyBy('id');
+
+        $pairedGames->each(function (TournamentGame $game) use ($tournament, $round, $users) {
+            $users->get($game->playerOne->user_id)
+                ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name, $game->table_number));
+            $users->get($game->playerTwo->user_id)
+                ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name, $game->table_number));
         });
 
         $this->broadcastUpdate($tournament, 'pairings_generated');

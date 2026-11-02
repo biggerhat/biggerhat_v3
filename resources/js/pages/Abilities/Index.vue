@@ -128,7 +128,7 @@ const formatDefensiveType = (type: string) => {
                             v-model="filterParams.name"
                             placeholder="Select Ability"
                             :options="props.ability_names"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -137,7 +137,7 @@ const formatDefensiveType = (type: string) => {
                             v-model="filterParams.suits"
                             placeholder="Any Suit"
                             :options="props.suits"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -146,7 +146,7 @@ const formatDefensiveType = (type: string) => {
                             v-model="filterParams.defensive_ability_type"
                             placeholder="Any Type"
                             :options="props.defensive_ability_types"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -155,7 +155,7 @@ const formatDefensiveType = (type: string) => {
                             v-model="filterParams.costs_stone"
                             placeholder="Any"
                             :options="booleanOptions"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">

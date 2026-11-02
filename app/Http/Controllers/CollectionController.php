@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameSystemEnum;
 use App\Http\Requests\Collection\CollectionAddCharacterRequest;
@@ -41,6 +42,72 @@ class CollectionController extends Controller
             'is_owner' => true,
             'share_code' => $user->collection_share_code,
             'is_public' => (bool) $user->collection_is_public,
+        ]);
+    }
+
+    /**
+     * "What can I play?" — for every Master the user owns, the owned models that share one of its
+     * keywords and how far that gets toward a full encounter-size crew.
+     */
+    public function playable()
+    {
+        $user = Auth::user();
+
+        $owned = $user->collectionMiniatures()
+            ->with(['character:id,slug,display_name,faction,station,cost,is_unhirable'])
+            ->get()
+            ->filter(fn (Miniature $m) => $m->character !== null)
+            ->groupBy('character_id')
+            ->map(fn ($group) => ['character' => $group->first()->character, 'quantity' => (int) $group->sum('pivot.quantity')]);
+
+        $characterIds = $owned->keys()->all();
+        /** @var array<int, array<int, int>> $keywordIdsByCharacter */
+        $keywordIdsByCharacter = [];
+        foreach (DB::table('characterables')
+            ->where('characterable_type', Keyword::class)
+            ->whereIn('character_id', $characterIds)
+            ->get(['character_id', 'characterable_id']) as $link) {
+            $keywordIdsByCharacter[(int) $link->character_id][] = (int) $link->characterable_id;
+        }
+
+        $keywordNames = Keyword::whereIn('id', collect($keywordIdsByCharacter)->flatten()->unique()->all())->pluck('name', 'id');
+
+        $isMaster = fn (array $row): bool => $row['character']->station === CharacterStationEnum::Master;
+        $masters = $owned->filter($isMaster);
+        $hires = $owned->filter(fn (array $row) => ! $isMaster($row) && ! $row['character']->is_unhirable);
+
+        $rows = [];
+        foreach ($masters as $masterId => $row) {
+            $masterKeywords = $keywordIdsByCharacter[$masterId] ?? [];
+            $models = [];
+            foreach ($hires as $hireId => $hire) {
+                if (array_intersect($masterKeywords, $keywordIdsByCharacter[$hireId] ?? []) === []) {
+                    continue;
+                }
+                $models[] = [
+                    'slug' => $hire['character']->slug,
+                    'name' => $hire['character']->display_name,
+                    'cost' => (int) $hire['character']->cost,
+                    'quantity' => $hire['quantity'],
+                ];
+            }
+            usort($models, fn (array $a, array $b) => $b['cost'] <=> $a['cost']);
+
+            $rows[] = [
+                'slug' => $row['character']->slug,
+                'name' => $row['character']->display_name,
+                'faction' => $row['character']->faction->value,
+                'keywords' => array_values(array_filter(array_map(fn (int $id) => $keywordNames[$id] ?? null, $masterKeywords))),
+                'models' => $models,
+                'model_count' => array_sum(array_column($models, 'quantity')),
+                'total_cost' => array_sum(array_map(fn (array $m) => $m['cost'] * $m['quantity'], $models)),
+            ];
+        }
+        usort($rows, fn (array $a, array $b) => $b['total_cost'] <=> $a['total_cost']);
+
+        return inertia('Collection/Playable', [
+            'masters' => $rows,
+            'encounter_size' => 50,
         ]);
     }
 

@@ -11,7 +11,8 @@ import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowRight, BookMarked, Lock, Megaphone, Newspaper, Radio, RefreshCw, Search, Sparkles, Swords, Target, Users } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { useRecentlyViewed } from '@/composables/useRecentlyViewed';
+import { computed, onMounted, ref } from 'vue';
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth?.user);
@@ -24,6 +25,9 @@ const props = defineProps<{
     recent_transmissions?: any[];
     stats: { characters: number; keywords: number; miniatures: number };
 }>();
+
+const { items: recentlyViewed, load: loadRecent } = useRecentlyViewed();
+onMounted(loadRecent);
 
 // One fixed slot per Community Activity feed (Articles / Site News / Aethervox / Recent Crews).
 const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
@@ -144,7 +148,7 @@ const feedGridClass = computed(() =>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <h3 class="text-base font-semibold leading-tight group-hover:text-primary">Crew Builder</h3>
-                                <p class="mt-1 text-xs text-muted-foreground">
+                                <p class="mt-1 hidden text-xs text-muted-foreground sm:block">
                                     Build, save, and share crews. PDF export, soulstone tracking, and reference cards built in.
                                 </p>
                                 <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary">
@@ -166,7 +170,7 @@ const feedGridClass = computed(() =>
                                 <h3 class="text-base font-semibold leading-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                                     Game Tracker
                                 </h3>
-                                <p class="mt-1 text-xs text-muted-foreground">
+                                <p class="mt-1 hidden text-xs text-muted-foreground sm:block">
                                     Track health, activations, schemes, and VP. Solo or multiplayer with live updates.
                                 </p>
                                 <div
@@ -198,7 +202,7 @@ const feedGridClass = computed(() =>
                                 <h3 class="text-base font-semibold leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400">
                                     Collection & Wishlist
                                 </h3>
-                                <p class="mt-1 text-xs text-muted-foreground">
+                                <p class="mt-1 hidden text-xs text-muted-foreground sm:block">
                                     Track owned, built, and painted models. Create wishlists by keyword or package.
                                 </p>
                                 <div
@@ -226,14 +230,20 @@ const feedGridClass = computed(() =>
                 class="animate-fade-in-up w-full min-w-0"
                 style="animation-delay: 140ms; max-width: 100%"
             >
-                <p class="mb-3 px-1 text-xs text-muted-foreground">New to Malifaux? Meet a random model from the roster.</p>
-                <div class="w-full min-w-0 overflow-hidden rounded-xl border bg-card p-4 sm:p-6" style="max-width: 100%">
+                <div class="mb-3 px-1">
+                    <HeadingEyebrow as="h2">Meet a Model</HeadingEyebrow>
+                    <p class="mt-1 text-xs text-muted-foreground">New to Malifaux? Here's a random model from the roster.</p>
+                </div>
+                <div
+                    class="w-full min-w-0 overflow-hidden rounded-xl border bg-card p-4 sm:p-6 md:flex md:items-center md:justify-center md:gap-10 md:p-8"
+                    style="max-width: 100%"
+                >
                     <!-- Card -->
-                    <div class="mx-auto mb-5 max-w-full overflow-hidden" style="width: 10rem">
+                    <div class="mx-auto mb-5 max-w-full shrink-0 overflow-hidden md:mx-0 md:mb-0 md:w-52" style="width: 10rem">
                         <CharacterCardView :miniature="featured_character.standard_miniatures[0]" :character-slug="featured_character.slug" />
                     </div>
                     <!-- Info -->
-                    <div class="min-w-0 text-center">
+                    <div class="min-w-0 text-center md:max-w-sm md:flex-1 md:text-left">
                         <div
                             class="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-2xs font-semibold uppercase tracking-wider text-primary"
                         >
@@ -242,7 +252,7 @@ const feedGridClass = computed(() =>
                         </div>
                         <h2 class="break-words text-xl font-bold sm:text-2xl">{{ featured_character.display_name }}</h2>
                         <p v-if="featured_character.title" class="break-words text-sm text-muted-foreground">{{ featured_character.title }}</p>
-                        <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                        <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5 md:justify-start">
                             <Badge variant="outline" class="text-2xs capitalize">{{
                                 featured_character.faction_label || featured_character.faction
                             }}</Badge>
@@ -253,7 +263,7 @@ const feedGridClass = computed(() =>
                                 kw.name
                             }}</Badge>
                         </div>
-                        <div class="mx-auto mt-4 grid w-full max-w-xs grid-cols-3 gap-2 text-center">
+                        <div class="mx-auto mt-4 grid w-full max-w-xs grid-cols-3 gap-2 text-center md:mx-0">
                             <div class="rounded-md bg-muted px-2 py-2">
                                 <HeadingEyebrow as="h3">Cost</HeadingEyebrow>
                                 <div class="text-base font-bold">{{ featured_character.cost ?? '—' }}</div>
@@ -267,7 +277,7 @@ const feedGridClass = computed(() =>
                                 <div class="text-base font-bold">{{ featured_character.defense ?? '—' }}</div>
                             </div>
                         </div>
-                        <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+                        <div class="mt-4 flex flex-wrap items-center justify-center gap-2 md:justify-start">
                             <Link
                                 :href="
                                     route('characters.view', {
@@ -288,6 +298,23 @@ const feedGridClass = computed(() =>
                 </div>
             </section>
 
+            <!-- ═══ Recently viewed (per browser) ═══ -->
+            <div v-if="recentlyViewed.length" class="animate-fade-in-up" style="animation-delay: 170ms">
+                <div class="mb-3 px-1">
+                    <HeadingEyebrow as="h2">Pick Up Where You Left Off</HeadingEyebrow>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <Link
+                        v-for="c in recentlyViewed"
+                        :key="c.slug"
+                        :href="route('characters.view', { character: c.slug, miniature: c.miniatureId, slug: c.miniatureSlug })"
+                        class="rounded-lg border bg-card px-3 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-muted/50"
+                    >
+                        {{ c.name }}
+                    </Link>
+                </div>
+            </div>
+
             <!-- ═══ Community Activity ═══ -->
             <div class="animate-fade-in-up" style="animation-delay: 200ms">
                 <div class="mb-3 flex items-center justify-between px-1">
@@ -295,7 +322,7 @@ const feedGridClass = computed(() =>
                 </div>
                 <div class="grid gap-4" :class="feedGridClass">
                     <!-- Articles -->
-                    <div v-if="recent_articles?.length" class="animate-fade-in-up" :style="feedDelays[0]">
+                    <div v-if="recent_articles?.length" class="animate-fade-in-up rounded-xl border bg-card p-3" :style="feedDelays[0]">
                         <div class="mb-2 flex items-center justify-between">
                             <h3 class="flex items-center gap-1.5 text-sm font-semibold">
                                 <Newspaper class="size-4 text-muted-foreground" />
@@ -308,7 +335,7 @@ const feedGridClass = computed(() =>
                                 v-for="article in recent_articles"
                                 :key="article.slug"
                                 :href="route('blog.view', article.slug)"
-                                class="group block overflow-hidden rounded-lg border px-3 py-2 transition-all hover:border-primary/30 hover:bg-muted/50"
+                                class="group block overflow-hidden rounded-lg border border-transparent bg-muted/40 px-3 py-2 transition-all hover:border-primary/30 hover:bg-muted/50"
                             >
                                 <p class="line-clamp-2 break-words text-sm font-medium leading-snug group-hover:text-primary">{{ article.title }}</p>
                                 <div class="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
@@ -321,7 +348,7 @@ const feedGridClass = computed(() =>
                     </div>
 
                     <!-- Site News -->
-                    <div v-if="recent_news?.length" class="animate-fade-in-up" :style="feedDelays[1]">
+                    <div v-if="recent_news?.length" class="animate-fade-in-up rounded-xl border bg-card p-3" :style="feedDelays[1]">
                         <div class="mb-2 flex items-center justify-between">
                             <h3 class="flex items-center gap-1.5 text-sm font-semibold">
                                 <Megaphone class="size-4 text-muted-foreground" />
@@ -335,7 +362,7 @@ const feedGridClass = computed(() =>
                                 v-for="item in recent_news"
                                 :key="item.slug"
                                 :href="route('news.view', item.slug)"
-                                class="group relative block overflow-hidden rounded-lg border py-2 pl-4 pr-3 transition-all hover:border-primary/30 hover:bg-muted/50"
+                                class="group relative block overflow-hidden rounded-lg border border-transparent bg-muted/40 py-2 pl-4 pr-3 transition-all hover:border-primary/30 hover:bg-muted/50"
                             >
                                 <span class="absolute inset-y-2 left-1.5 w-0.5 rounded-full bg-primary/50" />
                                 <p class="line-clamp-2 break-words text-sm font-medium leading-snug group-hover:text-primary">{{ item.title }}</p>
@@ -349,7 +376,7 @@ const feedGridClass = computed(() =>
                     </div>
 
                     <!-- Transmissions -->
-                    <div v-if="recent_transmissions?.length" class="animate-fade-in-up" :style="feedDelays[2]">
+                    <div v-if="recent_transmissions?.length" class="animate-fade-in-up rounded-xl border bg-card p-3" :style="feedDelays[2]">
                         <div class="mb-2 flex items-center justify-between">
                             <h3 class="flex items-center gap-1.5 text-sm font-semibold">
                                 <Radio class="size-4 text-muted-foreground" />
@@ -362,7 +389,7 @@ const feedGridClass = computed(() =>
                                 v-for="t in recent_transmissions"
                                 :key="t.id"
                                 :href="route('channels.view', t.channel_slug)"
-                                class="group flex items-start gap-2 rounded-lg border px-3 py-2 transition-all hover:border-primary/30 hover:bg-muted/50"
+                                class="group flex items-start gap-2 rounded-lg border border-transparent bg-muted/40 px-3 py-2 transition-all hover:border-primary/30 hover:bg-muted/50"
                             >
                                 <img
                                     v-if="t.channel_image"
@@ -386,7 +413,7 @@ const feedGridClass = computed(() =>
                     </div>
 
                     <!-- Recent Crews -->
-                    <div v-if="recent_crews?.length" class="animate-fade-in-up" :style="feedDelays[3]">
+                    <div v-if="recent_crews?.length" class="animate-fade-in-up rounded-xl border bg-card p-3" :style="feedDelays[3]">
                         <div class="mb-2 flex items-center justify-between">
                             <h3 class="flex items-center gap-1.5 text-sm font-semibold">
                                 <Users class="size-4 text-muted-foreground" />
@@ -399,7 +426,7 @@ const feedGridClass = computed(() =>
                                 v-for="crew in recent_crews.slice(0, 4)"
                                 :key="crew.id"
                                 :href="route('tools.crew_builder.share', crew.share_code)"
-                                class="group flex items-start gap-2 overflow-hidden rounded-lg border px-3 py-2 transition-all hover:border-primary/30 hover:bg-muted/50"
+                                class="group flex items-start gap-2 overflow-hidden rounded-lg border border-transparent bg-muted/40 px-3 py-2 transition-all hover:border-primary/30 hover:bg-muted/50"
                             >
                                 <span class="mt-0.5 h-6 w-1 shrink-0 rounded-full" :class="factionBackground(crew.faction)" />
                                 <FactionLogo :faction="crew.faction" class-name="size-6 shrink-0 mt-0.5" />

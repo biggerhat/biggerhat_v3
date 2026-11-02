@@ -279,13 +279,7 @@ const deleteCampaign = async (id: number) => {
     <!-- Campaign hub hero. Progress bar reflects week-to-week march. -->
     <div class="relative overflow-hidden border-b bg-gradient-to-r from-primary/15 via-primary/5 to-transparent">
         <div class="container mx-auto px-4 py-5">
-            <Link
-                :href="route('campaigns.index')"
-                class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
-            >
-                ← All Campaigns
-            </Link>
-            <div class="mt-1 flex flex-wrap items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
                 <h1 class="text-3xl font-black tracking-tight">{{ campaign.name }}</h1>
                 <Badge :variant="statusVariant" class="text-2xs uppercase">{{ campaign.status }}</Badge>
                 <Badge v-if="campaign.is_solo" variant="outline" class="text-2xs uppercase">Solo</Badge>

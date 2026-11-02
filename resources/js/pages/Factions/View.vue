@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import type { SharedData } from '@/types';
-import { router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { BookOpen, ChevronDown, Grid2x2, LayoutGrid, Library, List } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
@@ -103,6 +103,11 @@ const props = defineProps({
         default() {
             return {};
         },
+    },
+    community_crews: {
+        type: Object,
+        required: false,
+        default: null,
     },
     resources: {
         type: Object,
@@ -294,10 +299,10 @@ onMounted(() => {
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
             :style="{ background: `radial-gradient(ellipse at top, hsl(var(--${faction.color})) 0%, transparent 70%)` }"
         />
-        <PageBanner :title="faction.name" class="mb-2" :accent-color="`border-${faction.color}`">
+        <PageBanner :title="faction.name" class="mb-2" :accent-color="`border-${faction.color}`" :tint="faction.color">
             <template #logo>
                 <div class="w-20 md:w-32">
-                    <img :src="props.faction.logo" class="mx-auto my-auto h-16 w-16 md:h-20 md:w-20" :alt="props.faction.name" />
+                    <img :src="props.faction.logo" class="mx-auto my-auto h-16 w-16 drop-shadow-lg md:h-24 md:w-24" :alt="props.faction.name" />
                 </div>
             </template>
             <template #subtitle>
@@ -333,6 +338,20 @@ onMounted(() => {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Community crews -->
+        <div v-if="community_crews?.total" class="container mx-auto mb-2 sm:px-4">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card px-3 py-2.5 text-sm">
+                <span class="font-medium">Community crews</span>
+                <span class="text-xs text-muted-foreground"
+                    >{{ community_crews.total }} public {{ community_crews.total === 1 ? 'crew' : 'crews' }} · most played Masters</span
+                >
+                <Badge v-for="m in community_crews.masters" :key="m.slug" variant="secondary" class="gap-1 text-xs">
+                    {{ m.name }} <span class="text-muted-foreground">×{{ m.count }}</span>
+                </Badge>
+                <Link :href="route('tools.crew_builder.index')" class="ml-auto text-xs text-primary hover:underline">Browse crews</Link>
             </div>
         </div>
 
@@ -399,17 +418,11 @@ onMounted(() => {
                                             :options="props.keywords"
                                             option-label="name"
                                             option-value="slug"
-                                            trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Station</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.station"
-                                            placeholder="Any Station"
-                                            :options="props.stations"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
+                                        <ClearableSelect v-model="filterParams.station" placeholder="Any Station" :options="props.stations" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Characteristic</label>
@@ -419,7 +432,6 @@ onMounted(() => {
                                             :options="props.characteristics"
                                             option-label="name"
                                             option-value="slug"
-                                            trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
                                 </CollapsibleContent>
@@ -436,21 +448,11 @@ onMounted(() => {
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Sort By</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.sort"
-                                            placeholder="Sort By"
-                                            :options="props.sort_options"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
+                                        <ClearableSelect v-model="filterParams.sort" placeholder="Sort By" :options="props.sort_options" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Sort Direction</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.sort_type"
-                                            placeholder="Sort Direction"
-                                            :options="props.sort_types"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
+                                        <ClearableSelect v-model="filterParams.sort_type" placeholder="Sort Direction" :options="props.sort_types" />
                                     </div>
                                 </CollapsibleContent>
                             </Collapsible>

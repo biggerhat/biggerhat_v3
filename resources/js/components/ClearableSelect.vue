@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
     placeholder: 'Select...',
     optionLabel: 'name',
     optionValue: 'value',
-    triggerClass: 'h-8 text-xs border-2 border-primary rounded',
+    triggerClass: 'h-8 text-xs border-input',
 });
 </script>
 

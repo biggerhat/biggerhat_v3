@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\CharacterStationEnum;
 use App\Models\Character;
+use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\User;
 
@@ -161,4 +163,43 @@ it('rejects bulk endpoints when not authenticated', function () {
         'miniature_ids' => [$this->miniature1->id],
         'is_built' => true,
     ])->assertUnauthorized();
+});
+
+// ─── What can I play? ───
+
+it('requires login for the playable crews page', function () {
+    $this->get(route('collection.playable'))->assertRedirect();
+});
+
+it('lists owned Masters with the owned models that share a keyword', function () {
+    $shared = Keyword::factory()->create();
+    $other = Keyword::factory()->create();
+
+    $master = Character::factory()->create(['station' => CharacterStationEnum::Master, 'cost' => null]);
+    $master->keywords()->attach($shared);
+    $inKeyword = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 6, 'is_unhirable' => false]);
+    $inKeyword->keywords()->attach($shared);
+    $outOfKeyword = Character::factory()->create(['station' => CharacterStationEnum::Minion, 'cost' => 9, 'is_unhirable' => false]);
+    $outOfKeyword->keywords()->attach($other);
+
+    foreach ([$master, $inKeyword, $outOfKeyword] as $character) {
+        $miniature = Miniature::factory()->create(['character_id' => $character->id]);
+        $this->user->collectionMiniatures()->attach($miniature->id, ['quantity' => $character->is($inKeyword) ? 2 : 1]);
+    }
+
+    $this->actingAs($this->user)->get(route('collection.playable'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Collection/Playable')
+            ->has('masters', 1)
+            ->where('masters.0.slug', $master->slug)
+            ->where('masters.0.model_count', 2)
+            ->where('masters.0.total_cost', 12)
+            ->has('masters.0.models', 1));
+});
+
+it('shows an empty list when the user owns no Masters', function () {
+    $this->actingAs($this->user)->get(route('collection.playable'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('masters', 0));
 });

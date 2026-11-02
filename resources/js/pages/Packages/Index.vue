@@ -143,7 +143,7 @@ const formatPrice = (cents: number | null) => {
                             v-model="filterParams.character"
                             placeholder="Any Character"
                             :options="props.characters"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -152,7 +152,7 @@ const formatPrice = (cents: number | null) => {
                             v-model="filterParams.category"
                             placeholder="Any Category"
                             :options="props.categories"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -161,7 +161,7 @@ const formatPrice = (cents: number | null) => {
                             v-model="filterParams.sculpt_version"
                             placeholder="Any Edition"
                             :options="props.sculpt_versions"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                 </div>

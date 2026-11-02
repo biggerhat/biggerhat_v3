@@ -475,6 +475,7 @@ Route::prefix('collection')->name('collection.')->group(function () {
 
     Route::middleware('auth')->group(function () {
         Route::get('/', [CollectionController::class, 'index'])->name('index');
+        Route::get('/playable', [CollectionController::class, 'playable'])->name('playable');
         Route::post('/toggle', [CollectionController::class, 'toggle'])->name('toggle');
         Route::post('/toggle-public', [CollectionController::class, 'togglePublic'])->name('toggle_public');
         Route::post('/add-character', [CollectionController::class, 'addCharacter'])->name('add_character');

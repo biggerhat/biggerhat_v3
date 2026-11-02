@@ -12,10 +12,12 @@ use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
 use App\Models\Character;
 use App\Models\Characteristic;
+use App\Models\CrewBuild;
 use App\Models\Keyword;
 use App\Models\PodLink;
 use App\Models\Transmission;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class FactionController extends Controller
@@ -185,6 +187,7 @@ class FactionController extends Controller
             'sort_types' => SortTypeEnum::toSelectOptions(),
             'view_options' => PageViewOptionsEnum::toSelectOptions(),
             'resources' => fn () => $this->getFactionResources($factionEnum),
+            'community_crews' => fn () => $this->communityCrews($factionEnum),
         ])->withViewData([
             'page_meta' => $this->pageMeta(
                 title: $factionEnum->label().' — Faction',
@@ -240,5 +243,39 @@ class FactionController extends Controller
             'transmissions' => $transmissions,
             'pod_links' => $podLinks,
         ];
+    }
+
+    /**
+     * Public crew builds for a faction and which Masters lead them most often.
+     *
+     * @return array{total: int, masters: list<array{name: string, slug: string, count: int}>}
+     */
+    private function communityCrews(FactionEnum $factionEnum): array
+    {
+        return Cache::remember('faction_community_crews:'.$factionEnum->value, 600, function () use ($factionEnum) {
+            $base = CrewBuild::query()->where('is_public', true)->where('is_archived', false)->where('faction', $factionEnum->value);
+
+            $top = (clone $base)
+                ->select('master_id', DB::raw('count(*) as crews'))
+                ->groupBy('master_id')
+                ->orderByDesc('crews')
+                ->limit(5)
+                ->get();
+
+            $characters = Character::whereIn('id', $top->pluck('master_id'))->get(['id', 'display_name', 'slug'])->keyBy('id');
+
+            return [
+                'total' => (clone $base)->count(),
+                'masters' => $top
+                    ->filter(fn ($row) => $characters->has($row->master_id))
+                    ->map(fn ($row) => [
+                        'name' => $characters[$row->master_id]->display_name,
+                        'slug' => $characters[$row->master_id]->slug,
+                        'count' => (int) $row->getAttribute('crews'),
+                    ])
+                    ->values()
+                    ->all(),
+            ];
+        });
     }
 }

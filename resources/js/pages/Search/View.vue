@@ -2119,7 +2119,7 @@ onUnmounted(() => {
                                     v-model="filterParams.station"
                                     placeholder="Any Station"
                                     :options="props.stations"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -2301,7 +2301,7 @@ onUnmounted(() => {
                                             v-model="filterParams.base"
                                             placeholder="Any Base"
                                             :options="props.base_sizes"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-1">
@@ -2311,19 +2311,19 @@ onUnmounted(() => {
                                                 v-model="statCompareLeft"
                                                 placeholder="Stat"
                                                 :options="statCompareOptions"
-                                                trigger-class="border-2 border-primary rounded"
+                                               
                                             />
                                             <ClearableSelect
                                                 v-model="statCompareOp"
                                                 placeholder="Op"
                                                 :options="statCompareOps"
-                                                trigger-class="border-2 border-primary rounded"
+                                               
                                             />
                                             <ClearableSelect
                                                 v-model="statCompareRight"
                                                 placeholder="Stat"
                                                 :options="statCompareOptions"
-                                                trigger-class="border-2 border-primary rounded"
+                                               
                                             />
                                         </div>
                                     </div>
@@ -2375,7 +2375,7 @@ onUnmounted(() => {
                                             v-model="filterParams.action_type"
                                             placeholder="Any Type"
                                             :options="props.action_types"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2384,7 +2384,7 @@ onUnmounted(() => {
                                             v-model="filterParams.action_range_type"
                                             placeholder="Any Range Type"
                                             :options="props.action_range_types"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-1">
@@ -2427,7 +2427,7 @@ onUnmounted(() => {
                                             v-model="filterParams.action_stat_suits"
                                             placeholder="Any Suit"
                                             :options="props.suits"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2436,7 +2436,7 @@ onUnmounted(() => {
                                             v-model="filterParams.action_stat_modifier"
                                             placeholder="Any Modifier"
                                             :options="props.stat_modifiers"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2445,7 +2445,7 @@ onUnmounted(() => {
                                             v-model="filterParams.action_resisted_by"
                                             placeholder="Any"
                                             :options="props.resistance_types"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-1">
@@ -2471,7 +2471,7 @@ onUnmounted(() => {
                                             v-model="filterParams.action_target_suits"
                                             placeholder="Any Suit"
                                             :options="props.suits"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2498,7 +2498,7 @@ onUnmounted(() => {
                                             v-model="filterParams.action_costs_stone"
                                             placeholder="Any"
                                             :options="booleanOptions"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                 </CollapsibleContent>
@@ -2553,7 +2553,7 @@ onUnmounted(() => {
                                             v-model="filterParams.ability_defensive_type"
                                             placeholder="Any Type"
                                             :options="props.defensive_ability_types"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2562,7 +2562,7 @@ onUnmounted(() => {
                                             v-model="filterParams.ability_costs_stone"
                                             placeholder="Any"
                                             :options="booleanOptions"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2616,7 +2616,7 @@ onUnmounted(() => {
                                             v-model="filterParams.trigger_suits"
                                             placeholder="Any Suit"
                                             :options="props.suits"
-                                            trigger-class="border-2 border-primary rounded"
+                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2709,7 +2709,7 @@ onUnmounted(() => {
                                     v-model="filterParams.sort"
                                     placeholder="Sort Options"
                                     :options="props.sort_options"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -2718,7 +2718,7 @@ onUnmounted(() => {
                                     v-model="filterParams.sort_type"
                                     placeholder="Sort Type"
                                     :options="props.sort_types"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                         </div>

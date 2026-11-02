@@ -1765,7 +1765,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
 
                 <Card v-if="(crew_card_items?.length ?? 0) > 0 || view_mode.is_owner">
                     <CardHeader>
-                        <CardTitle>Crew Card Tokens &amp; Markers</CardTitle>
+                        <CardTitle>Tokens &amp; Markers</CardTitle>
                         <p class="text-2xs text-muted-foreground">
                             Gathered from your arsenal and crew card effects<template v-if="view_mode.is_owner">; add any the list missed</template>.
                         </p>
@@ -1812,7 +1812,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 </Card>
 
                 <Card>
-                    <CardHeader class="flex-row items-start justify-between space-y-0">
+                    <CardHeader class="space-y-3">
                         <div>
                             <CardTitle>Leadership Experience</CardTitle>
                             <p class="text-2xs text-muted-foreground">
@@ -2369,7 +2369,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         <img v-if="eq.front_image" :src="'/storage/' + eq.front_image" :alt="eq.name" class="size-10 shrink-0 rounded object-cover" />
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-medium">{{ eq.name }}</p>
-                            <p class="text-2xs capitalize text-muted-foreground">{{ eq.source }}</p>
+                            <p class="text-2xs capitalize text-muted-foreground">{{ eq.source.replace(/_/g, ' ') }}</p>
                         </div>
                         <div class="flex shrink-0 flex-col items-end gap-1">
                             <Badge v-if="eq.locked" variant="outline" class="text-2xs" title="Advancement attached — must keep this equipment">
@@ -2520,7 +2520,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         class="mx-auto max-h-[40vh] max-w-full rounded-md border-2 object-contain"
                     />
                     <div class="flex flex-wrap gap-1.5">
-                        <Badge variant="outline" class="text-2xs capitalize">{{ viewCard.equipment.source }}</Badge>
+                        <Badge variant="outline" class="text-2xs capitalize">{{ viewCard.equipment.source.replace(/_/g, ' ') }}</Badge>
                         <Badge v-if="viewCard.equipment.excludes_from_cr" variant="outline" class="text-2xs">Free (no CR)</Badge>
                         <Badge v-if="viewCard.equipment.br != null" variant="outline" class="text-2xs tabular-nums"
                             >BR {{ viewCard.equipment.br }}</Badge

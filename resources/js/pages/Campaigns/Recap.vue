@@ -25,6 +25,8 @@ interface RecapGame {
     vp_b: number;
     winner: string | null;
     withdrew: string | null;
+    stories: { crew: string | null; text: string }[];
+    injuries: { crew: string | null; model: string; injury: string }[];
 }
 
 defineProps<{
@@ -97,6 +99,15 @@ defineProps<{
                         <Badge v-if="g.winner" variant="secondary">{{ g.winner }} won</Badge>
                         <Badge v-else variant="outline">No winner recorded</Badge>
                         <Badge v-if="g.withdrew" variant="outline">{{ g.withdrew }} withdrew</Badge>
+                    </div>
+                    <ul v-if="g.injuries.length" class="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                        <li v-for="(inj, i) in g.injuries" :key="i">
+                            <span class="text-foreground">{{ inj.model }}</span> ({{ inj.crew }}) — {{ inj.injury }}
+                        </li>
+                    </ul>
+                    <div v-for="(story, i) in g.stories" :key="'s' + i" class="mt-2 border-l-2 pl-3 text-sm">
+                        <p class="whitespace-pre-line">{{ story.text }}</p>
+                        <p class="text-2xs text-muted-foreground">— {{ story.crew }}</p>
                     </div>
                 </div>
             </div>

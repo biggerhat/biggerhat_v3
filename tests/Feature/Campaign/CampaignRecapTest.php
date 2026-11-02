@@ -2,9 +2,13 @@
 
 use App\Enums\PermissionEnum;
 use App\Models\Campaign\Campaign;
+use App\Models\Campaign\CampaignAftermath;
+use App\Models\Campaign\CampaignArsenalModel;
+use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignPlayer;
+use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
 use Spatie\Permission\Models\Permission;
@@ -54,4 +58,27 @@ it('refuses non-members and guests', function () {
     $this->actingAs($outsider)->get(route('campaigns.recap', $campaign))->assertForbidden();
     auth()->logout();
     $this->get(route('campaigns.recap', $campaign))->assertRedirect();
+});
+
+it('includes each crew\'s story entry and the injuries taken in a game', function () {
+    [$user, $campaign, $mine, $theirs] = recapFixture();
+    $game = CampaignGame::factory()->create(['campaign_id' => $campaign->id, 'week_number' => 1, 'crew_a_id' => $mine->id, 'crew_b_id' => $theirs->id, 'status' => 'aftermath', 'winner_crew_id' => $mine->id]);
+    $aftermath = CampaignAftermath::factory()->create(['campaign_game_id' => $game->id, 'campaign_crew_id' => $mine->id, 'story_entry' => 'We held the bridge.']);
+    CampaignAftermath::factory()->create(['campaign_game_id' => $game->id, 'campaign_crew_id' => $theirs->id, 'story_entry' => null]);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $mine->id]);
+    CampaignArsenalModelInjury::create([
+        'campaign_arsenal_model_id' => $model->id,
+        'injury_upgrade_id' => Upgrade::factory()->campaignInjury()->create(['name' => 'Broken Arm'])->id,
+        'acquired_aftermath_id' => $aftermath->id,
+    ]);
+
+    $this->actingAs($user)->get(route('campaigns.recap', $campaign))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('weeks.0.games.0.stories', 1)
+            ->where('weeks.0.games.0.stories.0.text', 'We held the bridge.')
+            ->where('weeks.0.games.0.stories.0.crew', 'Mine')
+            ->has('weeks.0.games.0.injuries', 1)
+            ->where('weeks.0.games.0.injuries.0.injury', 'Broken Arm')
+            ->where('weeks.0.games.0.injuries.0.crew', 'Mine'));
 });

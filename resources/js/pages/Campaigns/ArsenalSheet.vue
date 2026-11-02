@@ -228,6 +228,7 @@ interface CrewData {
     faction: string | null;
     scrip: number;
     total_wins: number;
+    story_note: string | null;
     keyword_one: KeywordRow | null;
     keyword_two: KeywordRow | null;
     crew_card_effect: CrewCardEffectRow | null;
@@ -416,6 +417,8 @@ const props = defineProps<{
     // Equipment" ad-hoc picker. Small/bounded, so filtered client-side
     // (same pattern as the Aftermath Barter phase).
     equipment_catalog?: Array<{ id: number; name: string; br: number | null; body: string }> | null;
+    crew_card_items?: Array<{ type: 'token' | 'marker'; id: number; name: string; description: string | null; base: string | null; manual: boolean }>;
+    token_marker_catalog?: { tokens: Array<{ id: number; name: string }>; markers: Array<{ id: number; name: string }> } | null;
     injury_catalog?: Array<{ id: number; name: string; suit_pool: string | null; flip_value: number | null }> | null;
 }>();
 
@@ -1045,6 +1048,47 @@ const submitRename = (model: ArsenalRow) => {
             },
         },
     );
+};
+
+// ───────── Crew story note (owner-editable background) ─────────
+const editingCrewStory = ref(false);
+const crewStoryDraft = ref('');
+
+const startEditCrewStory = () => {
+    crewStoryDraft.value = props.crew.story_note ?? '';
+    editingCrewStory.value = true;
+};
+
+const submitCrewStory = () => {
+    router.put(
+        route('campaigns.crews.story-note.update', [props.campaign.id, props.crew.share_code]),
+        { story_note: crewStoryDraft.value },
+        { preserveScroll: true, onSuccess: () => (editingCrewStory.value = false) },
+    );
+};
+
+// ───────── Crew Card tokens/markers: derived list + owner-pinned extras ─────────
+const cardItemSearch = ref('');
+const cardItemOptions = computed(() => {
+    const cat = props.token_marker_catalog;
+    if (!cat) return [];
+    const taken = new Set((props.crew_card_items ?? []).map((i) => `${i.type}:${i.id}`));
+    const q = cardItemSearch.value.trim().toLowerCase();
+    return [...cat.tokens.map((t) => ({ ...t, type: 'token' as const })), ...cat.markers.map((m) => ({ ...m, type: 'marker' as const }))]
+        .filter((i) => !taken.has(`${i.type}:${i.id}`) && (!q || i.name.toLowerCase().includes(q)))
+        .slice(0, 12);
+});
+
+const addCardItem = (type: 'token' | 'marker', id: number) => {
+    router.post(
+        route('campaigns.crews.crew-card-items.store', [props.campaign.id, props.crew.share_code]),
+        { type, id },
+        { preserveScroll: true, onSuccess: () => (cardItemSearch.value = '') },
+    );
+};
+
+const removeCardItem = (type: 'token' | 'marker', id: number) => {
+    router.delete(route('campaigns.crews.crew-card-items.destroy', [props.campaign.id, props.crew.share_code, type, id]), { preserveScroll: true });
 };
 
 // ───────── Story Log: edit a written entry after the fact ─────────
@@ -1719,6 +1763,54 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </CardContent>
                 </Card>
 
+                <Card v-if="(crew_card_items?.length ?? 0) > 0 || view_mode.is_owner">
+                    <CardHeader>
+                        <CardTitle>Crew Card Tokens &amp; Markers</CardTitle>
+                        <p class="text-2xs text-muted-foreground">
+                            Gathered from your arsenal and crew card effects<template v-if="view_mode.is_owner">; add any the list missed</template>.
+                        </p>
+                    </CardHeader>
+                    <CardContent class="space-y-3">
+                        <ul v-if="crew_card_items?.length" class="space-y-1.5">
+                            <li v-for="item in crew_card_items" :key="`${item.type}-${item.id}`" class="flex items-start gap-2 text-sm">
+                                <Badge variant="outline" class="mt-0.5 shrink-0 text-2xs capitalize">{{ item.type }}</Badge>
+                                <div class="min-w-0 flex-1">
+                                    <span class="font-medium">{{ item.name }}</span>
+                                    <span v-if="item.description" class="text-xs text-muted-foreground">
+                                        — <GameText :text="item.description"
+                                    /></span>
+                                </div>
+                                <button
+                                    v-if="view_mode.is_owner && item.manual"
+                                    type="button"
+                                    class="shrink-0 rounded p-0.5 text-muted-foreground hover:text-destructive"
+                                    :aria-label="`Remove ${item.name}`"
+                                    @click="removeCardItem(item.type, item.id)"
+                                >
+                                    <X class="size-3.5" />
+                                </button>
+                            </li>
+                        </ul>
+                        <p v-else class="text-xs text-muted-foreground">Nothing yet.</p>
+                        <div v-if="view_mode.is_owner" class="space-y-1 border-t pt-3">
+                            <Input v-model="cardItemSearch" placeholder="Add a token or marker…" aria-label="Search tokens and markers" />
+                            <div v-if="cardItemSearch.trim()" class="max-h-48 overflow-y-auto">
+                                <button
+                                    v-for="opt in cardItemOptions"
+                                    :key="`${opt.type}-${opt.id}`"
+                                    type="button"
+                                    class="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                                    @click="addCardItem(opt.type, opt.id)"
+                                >
+                                    <span class="truncate">{{ opt.name }}</span>
+                                    <Badge variant="outline" class="shrink-0 text-2xs capitalize">{{ opt.type }}</Badge>
+                                </button>
+                                <p v-if="!cardItemOptions.length" class="py-2 text-center text-xs text-muted-foreground">No matches</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader class="flex-row items-start justify-between space-y-0">
                         <div>
@@ -2331,9 +2423,32 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         <Card class="mt-6">
             <CardHeader>
                 <CardTitle>Story Log</CardTitle>
-                <p class="text-2xs text-muted-foreground">Optional notes written at the end of each logged game.</p>
+                <p class="text-2xs text-muted-foreground">Your crew's background, then optional notes written at the end of each logged game.</p>
             </CardHeader>
             <CardContent>
+                <div class="mb-4 rounded-md border bg-muted/30 p-3 text-sm">
+                    <div class="mb-1 flex items-center justify-between gap-2">
+                        <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Crew background</h3>
+                        <Button
+                            v-if="view_mode.is_owner && !editingCrewStory"
+                            size="sm"
+                            variant="ghost"
+                            class="h-6 px-2 text-2xs"
+                            @click="startEditCrewStory"
+                        >
+                            <Pencil class="mr-1 size-3" /> {{ crew.story_note ? 'Edit' : 'Write' }}
+                        </Button>
+                    </div>
+                    <div v-if="editingCrewStory" class="space-y-2">
+                        <Textarea v-model="crewStoryDraft" rows="5" maxlength="5000" placeholder="Who is your crew? Where did they come from?" />
+                        <div class="flex gap-2">
+                            <Button size="sm" @click="submitCrewStory">Save</Button>
+                            <Button size="sm" variant="outline" @click="editingCrewStory = false">Cancel</Button>
+                        </div>
+                    </div>
+                    <p v-else-if="crew.story_note" class="whitespace-pre-line">{{ crew.story_note }}</p>
+                    <p v-else class="text-xs text-muted-foreground">No background written yet.</p>
+                </div>
                 <ul v-if="story_log.length" class="space-y-2">
                     <li v-for="entry in story_log" :key="entry.id" class="rounded-md border p-3 text-sm">
                         <div class="mb-1 flex items-center gap-2 text-2xs text-muted-foreground">

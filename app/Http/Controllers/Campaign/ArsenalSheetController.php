@@ -8,15 +8,19 @@ use App\Enums\MessageTypeEnum;
 use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Campaign\AddCrewCardItemRequest;
 use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
 use App\Http\Requests\Campaign\AddManualInjuryRequest;
 use App\Http\Requests\Campaign\AdjustLeaderXpRequest;
 use App\Http\Requests\Campaign\AdjustScripRequest;
 use App\Http\Requests\Campaign\RemoveArsenalModelRequest;
+use App\Http\Requests\Campaign\RemoveCrewCardItemRequest;
 use App\Http\Requests\Campaign\RemoveEquipmentRequest;
 use App\Http\Requests\Campaign\RemoveManualInjuryRequest;
 use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
+use App\Http\Requests\Campaign\UpdateCrewStoryNoteRequest;
+use App\Jobs\Campaign\GenerateCombinedCrewCardImage;
 use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignAftermath;
@@ -29,6 +33,8 @@ use App\Models\Campaign\LuckyMiss;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
+use App\Models\Marker;
+use App\Models\Token;
 use App\Models\Upgrade;
 use App\Services\CampaignRules;
 use App\Support\Campaign\AftermathCatalog;
@@ -262,6 +268,48 @@ class ArsenalSheetController extends Controller
         $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
 
         return redirect()->back()->withMessage("{$injury->name} removed.");
+    }
+
+    public function updateStoryNote(UpdateCrewStoryNoteRequest $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        $note = trim((string) $request->validated('story_note'));
+        $crew->update(['story_note' => $note !== '' ? $note : null]);
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage('Crew story saved.');
+    }
+
+    /**
+     * Pin a token/marker to the Crew Card. The derived list (arsenal characters + crew card effects) can miss
+     * grants, so owners can add anything from the catalog; the card back is regenerated to show it.
+     */
+    public function addCrewCardItem(AddCrewCardItemRequest $request, Campaign $campaign, CampaignCrew $crew)
+    {
+        ['type' => $type, 'id' => $id] = $request->validated();
+        $column = $type === 'marker' ? 'manual_marker_ids' : 'manual_token_ids';
+
+        $ids = collect($crew->{$column} ?? [])->push((int) $id)->unique()->values()->all();
+        $crew->update([$column => $ids]);
+
+        GenerateCombinedCrewCardImage::dispatch($crew->id)->afterCommit();
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage('Added to the Crew Card.');
+    }
+
+    public function removeCrewCardItem(RemoveCrewCardItemRequest $request, Campaign $campaign, CampaignCrew $crew, string $type, int $id)
+    {
+        abort_unless(in_array($type, ['token', 'marker'], true), 404);
+        $column = $type === 'marker' ? 'manual_marker_ids' : 'manual_token_ids';
+
+        $ids = collect($crew->{$column} ?? [])->reject(fn ($v) => (int) $v === $id)->values()->all();
+        $crew->update([$column => $ids !== [] ? $ids : null]);
+
+        GenerateCombinedCrewCardImage::dispatch($crew->id)->afterCommit();
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage('Removed from the Crew Card.');
     }
 
     /**
@@ -602,7 +650,7 @@ class ArsenalSheetController extends Controller
             // qualify for" at a glance.
             'available_crew_upgrades' => $arsenalModelsPayload->pluck('upgrades')->flatten(1)->unique(fn (array $u) => "{$u['type']}-{$u['id']}")->values(),
             'crew' => array_merge(
-                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'crew_card_choice', 'crew_card_front_image', 'crew_card_back_image', 'crew_card_generated_at']),
+                $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'total_wins', 'story_note', 'crew_card_choice', 'crew_card_front_image', 'crew_card_back_image', 'crew_card_generated_at']),
                 [
                     'keyword_one' => $crew->keywordOne,
                     'keyword_two' => $crew->keywordTwo,
@@ -689,6 +737,12 @@ class ArsenalSheetController extends Controller
             // Only the owner can add equipment ad hoc — no need to load the
             // full catalog for viewers/the public share link.
             'equipment_catalog' => $isOwner ? fn () => AftermathCatalog::equipment() : null,
+            // Tokens/markers shown on the Crew Card back (derived + owner-pinned) and the catalog to pin from.
+            'crew_card_items' => fn () => CombinedCrewCardEffects::arsenalTokensAndMarkers($crew),
+            'token_marker_catalog' => $isOwner ? fn () => [
+                'tokens' => Token::query()->orderBy('name')->get(['id', 'name']),
+                'markers' => Marker::query()->orderBy('name')->get(['id', 'name']),
+            ] : null,
             // Owner-only, for the freeform "add injury" picker on the model drawer.
             'injury_catalog' => $isOwner ? fn () => AftermathCatalog::injuries() : null,
             'view_mode' => [

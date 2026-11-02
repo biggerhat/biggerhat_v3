@@ -1776,3 +1776,45 @@ it('removeManualInjury deletes the injury and cascades across a titled group', f
 
     expect($one->injuries()->count())->toBe(0)->and($two->injuries()->count())->toBe(0);
 });
+
+it('crew story note: owner saves it, it ships on the sheet, a non-owner is refused', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $url = route('campaigns.crews.story-note.update', [$campaign, $crew->share_code]);
+
+    $this->actingAs($other)->put($url, ['story_note' => 'nope'])->assertForbidden();
+    $this->actingAs($owner)->put($url, ['story_note' => "  Born in the Quarantine Zone.\nStill there.  "])->assertRedirect();
+    expect($crew->fresh()->story_note)->toBe("Born in the Quarantine Zone.\nStill there.");
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertInertia(fn ($page) => $page->where('crew.story_note', "Born in the Quarantine Zone.\nStill there."));
+
+    $this->actingAs($owner)->put($url, ['story_note' => '   '])->assertRedirect();
+    expect($crew->fresh()->story_note)->toBeNull();
+});
+
+it('crew card items: owner pins a token and a marker, they surface as manual, and can be removed', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $token = \App\Models\Token::factory()->create(['is_general' => true]);
+    $marker = \App\Models\Marker::factory()->create();
+    $store = route('campaigns.crews.crew-card-items.store', [$campaign, $crew->share_code]);
+
+    $this->actingAs($other)->post($store, ['type' => 'token', 'id' => $token->id])->assertForbidden();
+    $this->actingAs($owner)->post($store, ['type' => 'token', 'id' => 99999])->assertSessionHasErrors('id');
+    $this->actingAs($owner)->post($store, ['type' => 'token', 'id' => $token->id])->assertRedirect();
+    $this->actingAs($owner)->post($store, ['type' => 'token', 'id' => $token->id])->assertRedirect();
+    $this->actingAs($owner)->post($store, ['type' => 'marker', 'id' => $marker->id])->assertRedirect();
+
+    expect($crew->fresh()->manual_token_ids)->toBe([$token->id])->and($crew->fresh()->manual_marker_ids)->toBe([$marker->id]);
+
+    $items = \App\Support\Campaign\CombinedCrewCardEffects::arsenalTokensAndMarkers($crew->fresh());
+    expect(collect($items)->where('manual', true)->pluck('id', 'type')->all())->toBe(['token' => $token->id, 'marker' => $marker->id]);
+
+    $this->actingAs($owner)->delete(route('campaigns.crews.crew-card-items.destroy', [$campaign, $crew->share_code, 'token', $token->id]))->assertRedirect();
+    expect($crew->fresh()->manual_token_ids)->toBeNull();
+    $this->actingAs($owner)->delete(route('campaigns.crews.crew-card-items.destroy', [$campaign, $crew->share_code, 'bogus', 1]))->assertNotFound();
+});

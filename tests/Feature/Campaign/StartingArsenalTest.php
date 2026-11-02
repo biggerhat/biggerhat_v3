@@ -451,6 +451,42 @@ it('lets a late joiner with no starting arsenal build one on an active campaign,
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(1);
 });
 
+it('gives a late joiner 5 extra budget per week beyond the first and carries unspent bonus as scrip', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+    $crew->campaign->update(['status' => CampaignStatusEnum::Active, 'current_week' => 3]); // bonus 10
+
+    $big = Character::factory()->create(['cost' => 30, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $big->keywords()->attach($kw);
+    $url = route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.crews.starting-arsenal.edit', [$crew->campaign_id, $crew->share_code]))
+        ->assertInertia(fn ($page) => $page->where('starting_budget_ss', 35)->where('late_join_bonus', 10));
+
+    // 30 ss fits in 25 + 10; 25 standard ss all spent, 5 of the bonus used, 5 bonus carries as scrip.
+    $this->actingAs($user)->post($url, ['hires' => [['character_id' => $big->id]], 'crew_card_effect_id' => $effect->id])->assertRedirect();
+    expect($crew->fresh()->scrip)->toBe(5);
+});
+
+it('rejects a late joiner spend above the catch-up budget', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+    $crew->campaign->update(['status' => CampaignStatusEnum::Active, 'current_week' => 2]); // 30 ss
+
+    $big = Character::factory()->create(['cost' => 31, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $big->keywords()->attach($kw);
+
+    $this->actingAs($user)
+        ->post(route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]), ['hires' => [['character_id' => $big->id]], 'crew_card_effect_id' => $effect->id])
+        ->assertRedirect();
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
 it('includes NULL-station (Henchman/Enforcer/Unique) models in the hireable pool', function () {
     $user = arsenalUser();
     $kw = Keyword::factory()->create();

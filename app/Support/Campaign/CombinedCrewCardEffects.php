@@ -348,7 +348,7 @@ class CombinedCrewCardEffects
      * selection would silently clobber that earlier load instead of adding
      * to it.
      *
-     * @return array<int, array{type: 'token'|'marker', id: int, name: string, description: string|null, base: string|null}>
+     * @return array<int, array{type: 'token'|'marker', id: int, name: string, description: string|null, base: string|null, manual: bool}>
      */
     public static function arsenalTokensAndMarkers(CampaignCrew $crew): array
     {
@@ -395,14 +395,24 @@ class CombinedCrewCardEffects
         // when the heuristic linker (LinkTokensAndMarkers) attached one via
         // a text-mention match rather than an actual grant.
         $tokenItems = $tokens->reject(fn (Token $t) => $t->is_general)->unique('id')->sortBy('name')->values()->map(fn (Token $t) => [
-            'type' => 'token', 'id' => $t->id, 'name' => $t->name, 'description' => $t->description, 'base' => null,
+            'type' => 'token', 'id' => $t->id, 'name' => $t->name, 'description' => $t->description, 'base' => null, 'manual' => false,
         ]);
 
         $markerItems = $markers->reject(fn (Marker $m) => $m->is_general)->unique('id')->sortBy('name')->values()->map(fn (Marker $m) => [
-            'type' => 'marker', 'id' => $m->id, 'name' => $m->name, 'description' => $m->description, 'base' => (string) $m->base,
+            'type' => 'marker', 'id' => $m->id, 'name' => $m->name, 'description' => $m->description, 'base' => (string) $m->base, 'manual' => false,
         ]);
 
-        return $tokenItems->concat($markerItems)->all();
+        // Owner-added extras: the derived list can miss grants (e.g. keyword-granted pieces the catalog doesn't link),
+        // so the player can pin any token/marker. Explicit picks bypass the is_general filter and win over a derived duplicate.
+        $manualTokens = Token::query()->whereIn('id', $crew->manual_token_ids ?? [])->get(['id', 'name', 'description'])
+            ->map(fn (Token $t) => ['type' => 'token', 'id' => $t->id, 'name' => $t->name, 'description' => $t->description, 'base' => null, 'manual' => true]);
+        $manualMarkers = Marker::query()->whereIn('id', $crew->manual_marker_ids ?? [])->get(['id', 'name', 'description', 'base'])
+            ->map(fn (Marker $m) => ['type' => 'marker', 'id' => $m->id, 'name' => $m->name, 'description' => $m->description, 'base' => (string) $m->base, 'manual' => true]);
+
+        $all = $tokenItems->concat($manualTokens)->concat($markerItems)->concat($manualMarkers);
+
+        // Same (type, id) twice: keep the manual row so the owner can remove it.
+        return $all->sortByDesc('manual')->unique(fn (array $i) => $i['type'].':'.$i['id'])->sortBy([['type', 'desc'], ['name', 'asc']])->values()->all();
     }
 
     private static function descriptorFor(?string $restriction, CrewUpgradeRestrictionDescriptorTypeEnum $type): ?string

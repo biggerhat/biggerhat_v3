@@ -129,6 +129,7 @@ const props = defineProps<{
     crew_card_choice_options: CrewCardChoiceOptions;
     corrupted_pawns?: CorruptedPawns | null;
     starting_budget_ss: number;
+    late_join_bonus?: number;
     max_leftover_scrip: number;
     locked: boolean;
 }>();
@@ -323,7 +324,12 @@ const submit = () => {
         <template #subtitle>
             <div class="px-2">
                 <span class="text-sm text-muted-foreground">
-                    {{ campaign.name }} • <strong class="text-foreground">{{ crew.name }}</strong> • 25 ss budget • unspent → scrip (max 3)
+                    {{ campaign.name }} • <strong class="text-foreground">{{ crew.name }}</strong> • {{ starting_budget_ss }} ss budget<template
+                        v-if="late_join_bonus"
+                    >
+                        (25 + {{ late_join_bonus }} late-join bonus)</template
+                    >
+                    • unspent → scrip (max 3, bonus carries over)
                 </span>
                 <p v-if="locked" class="mt-1 text-sm font-medium text-amber-700 dark:text-amber-400">
                     Locked — the campaign has started and this crew already has a starting arsenal.

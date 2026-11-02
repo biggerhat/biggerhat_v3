@@ -434,7 +434,7 @@ const deleteCampaign = async (id: number) => {
                                 </Button>
                             </template>
                             <Link
-                                v-if="campaign.status === 'active'"
+                                v-if="campaign.status === 'active' && campaign.current_week > 1"
                                 :href="route('campaigns.crews.weekly-hire.edit', [campaign.id, myCrew.share_code])"
                             >
                                 <Button size="sm" variant="outline" class="w-full">Weekly Hire</Button>
@@ -499,7 +499,7 @@ const deleteCampaign = async (id: number) => {
                                         </Button>
                                     </template>
                                     <Link
-                                        v-if="campaign.status === 'active'"
+                                        v-if="campaign.status === 'active' && campaign.current_week > 1"
                                         :href="route('campaigns.crews.weekly-hire.edit', [campaign.id, c.share_code])"
                                     >
                                         <Button size="sm" variant="outline" class="w-full">Weekly Hire</Button>

@@ -142,7 +142,7 @@ it('refuses to advance week on a non-active campaign', function () {
 
 it('renders the weekly hire page for the crew owner', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -164,7 +164,7 @@ it('renders the weekly hire page for the crew owner', function () {
 
 it('applies first-hire-of-week -5 discount and out-of-keyword +1 surcharge', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $otherKw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
@@ -208,7 +208,7 @@ it('applies first-hire-of-week -5 discount and out-of-keyword +1 surcharge', fun
 
 it('hiring one titled model auto-adds its sibling to the arsenal sharing an arsenal-side title_group_key', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -247,7 +247,7 @@ it('hiring one titled model auto-adds its sibling to the arsenal sharing an arse
 
 it('a double-submitted hire only claims the first-hire discount once', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -284,7 +284,7 @@ it('a double-submitted hire only claims the first-hire discount once', function 
 
 it('rejects hiring more than the crew can afford', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -314,7 +314,7 @@ it('rejects hiring more than the crew can afford', function () {
 
 it('requires at least one hire', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -333,7 +333,7 @@ it('requires at least one hire', function () {
 
 it('drops first-hire discount once already-hired-this-week > 0', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -369,7 +369,7 @@ it('drops first-hire discount once already-hired-this-week > 0', function () {
 
 it('excludes Unique models already in the active arsenal from the hireable pool', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -400,7 +400,7 @@ it('excludes Unique models already in the active arsenal from the hireable pool'
 
 it('rejects hiring the same Unique model twice in one weekly hire batch', function () {
     $organizer = wkUser();
-    $campaign = activeCampaignFor($organizer);
+    $campaign = activeCampaignFor($organizer, ['current_week' => 2]);
     $kw = Keyword::factory()->create();
     $crew = CampaignCrew::factory()->create([
         'campaign_id' => $campaign->id,
@@ -423,4 +423,20 @@ it('rejects hiring the same Unique model twice in one weekly hire batch', functi
 
     expect($crew->fresh()->scrip)->toBe(30);
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
+it('does not allow weekly hires in week 1', function () {
+    $organizer = wkUser();
+    $campaign = activeCampaignFor($organizer);
+    $crew = CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $organizer->id, 'scrip' => 20]);
+
+    $props = $this->actingAs($organizer)
+        ->get(route('campaigns.crews.weekly-hire.edit', [$campaign, $crew->share_code]))
+        ->viewData('page')['props'];
+    expect($props['locked'])->toBeTrue();
+
+    $this->actingAs($organizer)
+        ->post(route('campaigns.crews.weekly-hire.update', [$campaign, $crew->share_code]), ['hires' => []])
+        ->assertRedirect();
+    expect($crew->fresh()->scrip)->toBe(20);
 });

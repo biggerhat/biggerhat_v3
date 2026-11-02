@@ -74,7 +74,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader>
-                <CardTitle>{{ item ? 'Edit' : 'New' }} Action Advancement</CardTitle>
+                <CardTitle as="h1">{{ item ? 'Edit' : 'New' }} Action Advancement</CardTitle>
             </CardHeader>
             <CardContent class="space-y-4">
                 <div class="grid gap-3 md:grid-cols-2">

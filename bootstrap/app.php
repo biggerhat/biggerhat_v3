@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // The Discord bot authenticates with a bearer secret instead and has no session/token.
         $middleware->validateCsrfTokens(except: ['api/bot/heartbeat']);
 
-        $middleware->encryptCookies(except: ['appearance', 'preferred_game_system', 'cookie_consent']);
+        $middleware->encryptCookies(except: ['appearance', 'theme', 'text_size', 'preferred_game_system', 'cookie_consent']);
 
         $middleware->web(append: [
             HandleAppearance::class,

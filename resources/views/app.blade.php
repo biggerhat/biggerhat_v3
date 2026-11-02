@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'dark') == 'dark']) @if(! empty($theme)) data-theme="{{ $theme }}"@endif>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'dark') == 'dark']) @if(! empty($theme)) data-theme="{{ $theme }}"@endif @if(! empty($textSize)) data-text-size="{{ $textSize }}"@endif>
     <head>
         {{-- Google Analytics with Consent Mode v2. gtag always loads, but
              analytics_storage defaults to 'denied' until the user accepts the

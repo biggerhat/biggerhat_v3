@@ -26,7 +26,7 @@ class UpgradeAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Upgrades/Characters/Index', [
-            'upgrades' => Upgrade::forCharacters()->orderBy('name', 'ASC')->get(),
+            'upgrades' => Upgrade::forCharacters()->select(['id', 'name', 'slug', 'front_image', 'back_image', 'game_mode_type'])->orderBy('name', 'ASC')->get(),
         ]);
     }
 
@@ -73,14 +73,14 @@ class UpgradeAdminController extends Controller
             'factions' => fn () => FactionEnum::toSelectOptions(),
             'types' => fn () => UpgradeTypeEnum::toSelectOptions(),
             'limitations' => fn () => UpgradeLimitationEnum::toSelectOptions(),
-            'tokens' => fn () => Token::all(),
-            'markers' => fn () => Marker::all(),
+            'tokens' => fn () => Token::orderBy('name')->get(['id', 'name']),
+            'markers' => fn () => Marker::orderBy('name')->get(['id', 'name']),
             'actions' => fn () => Action::orderBy('name')->get(['id', 'name', 'internal_notes'])->map(fn (Action $action) => [
                 'id' => $action->id,
                 'name' => $action->name.' (#'.$action->id.')'.($action->internal_notes ? ' - '.$action->internal_notes : ''),
             ]),
-            'abilities' => fn () => Ability::all(),
-            'triggers' => fn () => Trigger::all(),
+            'abilities' => fn () => Ability::orderBy('name')->get(['id', 'name']),
+            'triggers' => fn () => Trigger::orderBy('name')->get(['id', 'name']),
             'game_mode_types' => fn () => GameModeTypeEnum::toSelectOptions(),
         ];
     }

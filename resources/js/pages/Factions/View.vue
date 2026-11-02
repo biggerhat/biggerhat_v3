@@ -539,7 +539,7 @@ onMounted(() => {
                         <TableSkeleton :rows="8" :cols="7" />
                     </div>
                     <div v-else-if="isLoading">
-                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3">
+                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
                             <CardSkeleton v-for="n in 8" :key="`skeleton-${n}`" />
                         </div>
                     </div>
@@ -560,14 +560,14 @@ onMounted(() => {
                     <div v-else-if="filterParams.page_view === 'full'">
                         <template v-if="props.characters?.length">
                             <div v-for="character in props.characters" v-bind:key="character.slug">
-                                <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
+                                <CharacterView :character="character" :miniature="character.standard_miniatures[0]" heading-level="h2" />
                             </div>
                         </template>
                         <EmptyState v-else />
                     </div>
                     <div v-else>
                         <template v-if="props.characters?.length">
-                            <div class="grid grid-cols-2 gap-4 md:grid-cols-3">
+                            <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
                                 <div
                                     v-for="(character, index) in props.characters"
                                     :key="`character-${character.id}`"

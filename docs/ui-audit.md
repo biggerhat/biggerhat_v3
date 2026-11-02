@@ -45,3 +45,9 @@ shared libraries and no sudo, `apt-get download` the missing `.deb`s, `dpkg -x` 
 `LD_LIBRARY_PATH`.
 
 The `campaign` role signs in as `alpha@biggerhat.test` (from `CampaignSeeder`; run `CampaignCatalogSeeder` and `CampaignRulebookSeeder` first) and `--discover` follows the campaign hub to its crews and games.
+
+## 4. Query / payload profile
+
+`php scripts/ui-audit/profile.php <guest|admin|member> urls.txt [--props]` replays paths in-process as Inertia
+requests and prints query counts, the most-repeated query shape (N+1 signature) and props size. See
+[performance.md](performance.md) for baselines and what has been fixed.

@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { useFactionColor } from '@/composables/useFactionColor';
 import { isMobileDevice } from '@/composables/useMobileDevice';
 import { Link } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronRight, ExternalLink } from 'lucide-vue-next';
+import { ChevronRight, ExternalLink } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface UpgradeData {
@@ -46,10 +46,6 @@ const props = defineProps<{
 
 const factionColor = computed(() => (props.upgrade.faction ? useFactionColor(props.upgrade.faction) : null));
 
-const backRoute = computed(() => (props.upgrade.domain === 'crew' ? route('upgrades.crew.index') : route('upgrades.character.index')));
-
-const backLabel = computed(() => (props.upgrade.domain === 'crew' ? 'Back to Crew Cards' : 'Back to Upgrades'));
-
 const hasRelatedContent = computed(
     () =>
         props.upgrade.keywords.length > 0 ||
@@ -85,15 +81,6 @@ const hasRelatedContent = computed(
         />
 
         <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
-            <!-- Back link -->
-            <Link
-                :href="backRoute"
-                class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
-            >
-                <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                {{ backLabel }}
-            </Link>
-
             <div class="animate-fade-in-up">
                 <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
                     <!-- Info panel — shown first on mobile -->

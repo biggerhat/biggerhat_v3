@@ -235,7 +235,7 @@ const confirmOpponentMasterSelection = () => {
                 >
                     <div
                         v-if="selectedMasterName"
-                        class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-lg sm:border sm:py-2"
+                        class="fixed inset-x-0 bottom-[var(--tabbar-h,0px)] z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-lg sm:border sm:py-2"
                     >
                         <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
                             <div class="min-w-0 flex-1">

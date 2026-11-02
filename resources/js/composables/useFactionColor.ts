@@ -32,3 +32,19 @@ export function factionForeground(faction: string | null): string {
 
     return LIGHT_FACTIONS.has(useFactionColor(faction.toLowerCase())) ? 'text-neutral-900' : 'text-white';
 }
+
+/** Same choice as {@link factionForeground}, as a CSS colour for inline `style` bindings. */
+export function factionForegroundColor(faction: string | null): string {
+    return factionForeground(faction) === 'text-neutral-900' ? '#111827' : '#ffffff';
+}
+
+/**
+ * Classes for a neutral surface carrying the faction as a coloured spine + tint (see `.faction-spine` in
+ * app.css). Pair with `bg-card border`. Pass `row: true` for a table row.
+ */
+export function factionSpine(faction: string | null, options: { row?: boolean } = {}): string {
+    const base = options.row ? 'faction-spine-row' : 'faction-spine';
+    if (!faction) return base;
+
+    return `${base} faction-${useFactionColor(faction.toLowerCase())}`;
+}

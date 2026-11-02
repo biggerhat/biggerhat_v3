@@ -10,10 +10,11 @@ use App\Models\Miniature;
 use App\Models\Package;
 use App\Models\TOS\Unit;
 use App\Models\TOS\UnitSculpt;
+use App\Models\User;
 use App\Models\WishlistItem;
 use App\Support\AdminNav;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -83,7 +84,10 @@ class HandleInertiaRequests extends Middleware
             'adminNav' => fn () => $request->is('admin', 'admin/*') ? AdminNav::forUser($request->user()) : null,
             'unread_notifications_count' => fn () => $this->unreadNotificationsCount($request),
             'auth' => [
-                'user' => $user,
+                // Without relations: getAllPermissions() above leaves Spatie's `permissions` /
+                // `roles` relations loaded on the model, which would serialize the whole
+                // permission catalogue a second time (~17KB for a super admin on every visit).
+                'user' => $user?->withoutRelations(),
                 'permissions' => $permissions,
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'can_access_admin' => $this->canAccessAdmin($request),
@@ -105,12 +109,18 @@ class HandleInertiaRequests extends Middleware
                 'wishlist_items' => fn () => $this->getWishlistItems($request),
                 'channel_ids' => fn () => $request->user()?->channels()->pluck('channels.id')->toArray() ?? [],
             ],
-            'ziggy' => [
-                // Guests / permission-less users never see admin UI, so they get
-                // the trimmed route table (see config/ziggy.php).
-                ...(new Ziggy($isSuperAdmin || $permissions->isNotEmpty() ? null : 'public'))->toArray(),
-                'location' => $request->url(),
-            ],
+            'ziggy' => $request->header('X-Inertia')
+                // The client builds its route table once, from the `@routes` global in the first
+                // HTML response; later visits only need `location` (useCurrentUrl). Re-sending the
+                // 55–95KB table on every SPA navigation is pure overhead. SSR renders from the
+                // initial (non-Inertia) request, which still carries the full table.
+                ? ['location' => $request->url()]
+                : [
+                    // Guests / permission-less users never see admin UI, so they get
+                    // the trimmed route table (see config/ziggy.php).
+                    ...(new Ziggy($isSuperAdmin || $permissions->isNotEmpty() ? null : 'public'))->toArray(),
+                    'location' => $request->url(),
+                ],
         ];
     }
 
@@ -197,15 +207,24 @@ class HandleInertiaRequests extends Middleware
      */
     private function activeAnnouncements(Request $request): array
     {
-        // Guard against the table not existing yet (fresh checkout before
-        // migrations run). Without this, every page load would 500.
-        if (! Schema::hasTable('announcements')) {
-            return [];
-        }
-
         $user = $request->user();
         $isSuperAdmin = $user && $user->hasRole('super_admin');
 
+        // Guard against the table not existing yet (fresh checkout before migrations run) by
+        // catching the query failure rather than probing the schema first: `Schema::hasTable`
+        // is an information_schema round-trip on MySQL, paid on every single page load.
+        try {
+            return $this->queryAnnouncements($user, $isSuperAdmin);
+        } catch (QueryException) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int, array{id: int, message: string, level: string, is_dismissable: bool, link_url: string|null, link_label: string|null}>
+     */
+    private function queryAnnouncements(?User $user, bool $isSuperAdmin): array
+    {
         return Announcement::active()
             ->where(function ($q) use ($user, $isSuperAdmin) {
                 $q->where('audience', 'all');
@@ -231,17 +250,17 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Schema-guarded like activeAnnouncements() — the notifications table
+     * Failure-guarded like activeAnnouncements() — the notifications table
      * ships as a migration, so any environment that hasn't run it yet
      * (fresh checkout) must not 500 on every page load.
      */
     private function unreadNotificationsCount(Request $request): int
     {
-        if (! Schema::hasTable('notifications')) {
+        try {
+            return $request->user()?->unreadNotifications()->count() ?? 0;
+        } catch (QueryException) {
             return 0;
         }
-
-        return $request->user()?->unreadNotifications()->count() ?? 0;
     }
 
     private function canAccessAdmin(Request $request): bool

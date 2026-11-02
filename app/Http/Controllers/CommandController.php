@@ -14,10 +14,31 @@ use App\Models\TOS\Unit as TosUnit;
 use App\Models\Upgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CommandController extends Controller
 {
+    /** Catalog changes only on admin edits/imports, so a few minutes of staleness is fine. */
+    private const CACHE_KEY = 'command.catalog';
+
+    private const CACHE_MINUTES = 10;
+
+    /**
+     * The Cmd-K palette catalog. Every page preloads this at idle, and building it is ~12 queries,
+     * so the payload is cached server-side and marked cacheable for browsers/CDNs (it has no
+     * per-user data).
+     */
     public function __invoke(Request $request): JsonResponse
+    {
+        $catalog = Cache::remember(self::CACHE_KEY, now()->addMinutes(self::CACHE_MINUTES), fn () => $this->buildCatalog());
+
+        return response()->json($catalog)->header('Cache-Control', 'public, max-age=300');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildCatalog(): array
     {
         $characters = Character::standard()->with('miniatures')->whereHas('miniatures')->orderBy('display_name', 'ASC')->get();
 
@@ -102,7 +123,7 @@ class CommandController extends Controller
             ];
         });
 
-        return response()->json([
+        return [
             'factions' => $factions,
             'keywords' => $keywords,
             'characters' => $characters,
@@ -112,6 +133,6 @@ class CommandController extends Controller
             'tos_allegiances' => $tosAllegiances,
             'tos_units' => $tosUnits,
             'tos_stratagems' => $tosStratagems,
-        ]);
+        ];
     }
 }

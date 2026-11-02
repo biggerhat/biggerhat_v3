@@ -141,7 +141,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Action</CardTitle>
+                <CardTitle as="h1">Action</CardTitle>
                 <CardDescription>Create and Edit Action Information</CardDescription>
             </CardHeader>
             <CardContent>

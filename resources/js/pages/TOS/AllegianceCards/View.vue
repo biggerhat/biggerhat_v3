@@ -8,7 +8,7 @@ import TosText from '@/components/TosText.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, BookOpen, Swords } from 'lucide-vue-next';
+import { BookOpen, Swords } from 'lucide-vue-next';
 
 interface Ability {
     id: number;
@@ -92,13 +92,6 @@ defineProps<{
         </PageBanner>
 
         <div class="container mx-auto space-y-4 sm:px-4">
-            <Link
-                :href="route('tos.allegiance_cards.index')"
-                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-                <ArrowLeft class="size-3" /> All allegiance cards
-            </Link>
-
             <Card class="overflow-hidden">
                 <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,260px)_1fr]">
                     <CardImage :src="card.image_path" :alt="card.name" :allegiance-slug="card.allegiance.slug" :placeholder-icon="BookOpen" />

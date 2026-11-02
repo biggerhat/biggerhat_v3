@@ -55,15 +55,13 @@ const copyBypass = async () => {
         </template>
         <template #subtitle>
             <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                Lock the public site behind a 503 page during a deploy or DB migration. The bypass URL keeps you (and anyone you share it with)
-                in.
+                Lock the public site behind a 503 page during a deploy or DB migration. The bypass URL keeps you (and anyone you share it with) in.
                 <Badge :variant="is_down ? 'destructive' : 'secondary'">{{ is_down ? 'Down' : 'Up' }}</Badge>
             </div>
         </template>
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <Card>
             <CardContent class="space-y-3 p-4">
                 <div v-if="is_down" class="space-y-2">

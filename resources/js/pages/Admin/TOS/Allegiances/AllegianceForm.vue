@@ -81,7 +81,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader>
-                <CardTitle>{{ allegiance ? 'Edit Allegiance' : 'New Allegiance' }}</CardTitle>
+                <CardTitle as="h1">{{ allegiance ? 'Edit Allegiance' : 'New Allegiance' }}</CardTitle>
                 <CardDescription>The Other Side allegiance / syndicate</CardDescription>
             </CardHeader>
             <CardContent>

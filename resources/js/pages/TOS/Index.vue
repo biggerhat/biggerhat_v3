@@ -65,7 +65,7 @@ const browseTiles = computed(() => [
         icon: Swords,
         count: props.stats.units,
         description: 'Every unit card with both Standard and Glory sides.',
-        accent: 'border-rose-500/30 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent group-hover:border-rose-500/60',
+        accent: 'border-l-4 border-l-rose-500/70',
         iconBg: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500 group-hover:text-white',
     },
     {
@@ -74,7 +74,7 @@ const browseTiles = computed(() => [
         icon: BookOpen,
         count: props.stats.allegiance_cards,
         description: 'Standard and Primary tiers — the core of every faction.',
-        accent: 'border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent group-hover:border-amber-500/60',
+        accent: 'border-l-4 border-l-amber-500/70',
         iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white',
     },
     {
@@ -83,7 +83,7 @@ const browseTiles = computed(() => [
         icon: Package,
         count: props.stats.assets,
         description: 'Vehicles, gear, and constructs — Restricted, Slot, Unique, Adjunct.',
-        accent: 'border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-cyan-500/5 to-transparent group-hover:border-cyan-500/60',
+        accent: 'border-l-4 border-l-cyan-500/70',
         iconBg: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white',
     },
     {
@@ -92,7 +92,7 @@ const browseTiles = computed(() => [
         icon: Newspaper,
         count: props.stats.stratagems,
         description: 'Tactics-token-cost battlefield events.',
-        accent: 'border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent group-hover:border-emerald-500/60',
+        accent: 'border-l-4 border-l-emerald-500/70',
         iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white',
     },
     {
@@ -101,7 +101,7 @@ const browseTiles = computed(() => [
         icon: Package,
         count: props.stats.packages,
         description: 'Starter boxes and blisters, with linked units.',
-        accent: 'border-sky-500/30 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-transparent group-hover:border-sky-500/60',
+        accent: 'border-l-4 border-l-sky-500/70',
         iconBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white',
     },
 ]);
@@ -123,7 +123,7 @@ const typePools = computed(() => [
         icon: Earth,
         count: props.type_pool_counts.earth,
         href: route('tos.allegiances.viewByType', 'earth'),
-        accent: 'from-amber-500/15 via-amber-500/5 to-transparent border-amber-500/30',
+        accent: 'border-l-4 border-l-amber-500/70',
         ring: 'ring-amber-500/40',
         iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
     },
@@ -134,7 +134,7 @@ const typePools = computed(() => [
         icon: Skull,
         count: props.type_pool_counts.malifaux,
         href: route('tos.allegiances.viewByType', 'malifaux'),
-        accent: 'from-purple-500/15 via-purple-500/5 to-transparent border-purple-500/30',
+        accent: 'border-l-4 border-l-purple-500/70',
         ring: 'ring-purple-500/40',
         iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
     },
@@ -215,15 +215,7 @@ const typePools = computed(() => [
                     <HeadingEyebrow as="h2">Sides</HeadingEyebrow>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2">
-                    <Link
-                        v-for="pool in typePools"
-                        :key="pool.slug"
-                        :href="pool.href"
-                        :class="[
-                            'group relative overflow-hidden rounded-xl border-2 bg-gradient-to-br p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
-                            pool.accent,
-                        ]"
-                    >
+                    <Link v-for="pool in typePools" :key="pool.slug" :href="pool.href" :class="['feature-card group', pool.accent]">
                         <div class="flex items-start gap-3">
                             <div :class="['flex size-12 shrink-0 items-center justify-center rounded-xl transition-colors', pool.iconBg]">
                                 <component :is="pool.icon" class="size-6" />
@@ -234,11 +226,7 @@ const typePools = computed(() => [
                                     <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ pool.count }} units</span>
                                 </div>
                                 <p class="mt-1 text-xs text-muted-foreground">{{ pool.description }}</p>
-                                <div
-                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
-                                >
-                                    Open roster <ArrowRight class="size-3" />
-                                </div>
+                                <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium">Open roster <ArrowRight class="size-3" /></div>
                             </div>
                         </div>
                     </Link>
@@ -315,15 +303,7 @@ const typePools = computed(() => [
                     <HeadingEyebrow as="h2">Browse the database</HeadingEyebrow>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Link
-                        v-for="tile in browseTiles"
-                        :key="tile.title"
-                        :href="tile.href"
-                        :class="[
-                            'group relative overflow-hidden rounded-xl border-2 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg',
-                            tile.accent,
-                        ]"
-                    >
+                    <Link v-for="tile in browseTiles" :key="tile.title" :href="tile.href" :class="['feature-card group', tile.accent]">
                         <div class="flex flex-col gap-3">
                             <div :class="['flex size-12 items-center justify-center rounded-xl transition-colors', tile.iconBg]">
                                 <component :is="tile.icon" class="size-6" />

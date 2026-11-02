@@ -85,9 +85,9 @@ const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en
                     <Badge v-if="post.category" variant="secondary" class="text-2xs">{{ post.category.name }}</Badge>
                     <span class="text-2xs text-muted-foreground">{{ formatDate(post.published_at) }}</span>
                 </div>
-                <h3 class="mb-1.5 line-clamp-2 text-sm font-bold leading-tight group-hover:text-primary sm:text-base">
+                <h2 class="mb-1.5 line-clamp-2 text-sm font-bold leading-tight group-hover:text-primary sm:text-base">
                     {{ post.title }}
-                </h3>
+                </h2>
                 <p v-if="post.excerpt" class="mb-3 line-clamp-2 text-xs text-muted-foreground">{{ post.excerpt }}</p>
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
                     <Avatar size="sm" class="!h-5 !w-5 !text-2xs">

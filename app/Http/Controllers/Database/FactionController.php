@@ -155,6 +155,10 @@ class FactionController extends Controller
             }
         }
 
+        // Loaded only for the suit tally above — the page never reads `character.actions`, and they were
+        // ~70% of this payload (≈235KB of 325KB for Arcanists). Models are shared with the keyword breakdown.
+        $characters->each(fn (Character $character) => $character->unsetRelation('actions'));
+
         return inertia('Factions/View', [
             'faction' => ['name' => $factionEnum->label(), 'color' => $factionEnum->color(), 'logo' => config('app.url').$factionEnum->logo(), 'route' => $factionEnum->value],
             'characters' => $characters,

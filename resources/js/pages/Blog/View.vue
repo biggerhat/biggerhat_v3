@@ -7,6 +7,7 @@ import SupporterBadge from '@/components/SupporterBadge.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { factionForeground } from '@/composables/useFactionColor';
 import { getInitials } from '@/composables/useInitials';
 import { Link } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
@@ -113,6 +114,7 @@ const seoDescription = computed(() => {
         <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
             <!-- Back link -->
             <Link
+                v-if="isPreview"
                 :href="isPreview ? route('admin.blog.posts.edit', post.slug) : route('blog.index')"
                 class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
             >
@@ -163,7 +165,7 @@ const seoDescription = computed(() => {
                 <div class="space-y-4 sm:space-y-6">
                     <!-- Characters -->
                     <div v-if="post.characters.length">
-                        <HeadingEyebrow as="h4" class="mb-1.5">Characters</HeadingEyebrow>
+                        <HeadingEyebrow as="h2" class="mb-1.5">Characters</HeadingEyebrow>
                         <div class="flex flex-wrap gap-1.5">
                             <Link
                                 v-for="character in post.characters"
@@ -179,7 +181,8 @@ const seoDescription = computed(() => {
                                 "
                             >
                                 <Badge
-                                    class="cursor-pointer border-0 text-white transition-opacity hover:opacity-80"
+                                    class="cursor-pointer border-0 transition-opacity hover:opacity-80"
+                                    :class="character.faction ? factionForeground(character.faction) : ''"
                                     :style="character.faction ? { backgroundColor: `hsl(var(--${factionCssVar(character.faction)}))` } : {}"
                                     :variant="character.faction ? 'default' : 'outline'"
                                 >
@@ -191,7 +194,7 @@ const seoDescription = computed(() => {
 
                     <!-- Keywords -->
                     <div v-if="post.keywords.length">
-                        <HeadingEyebrow as="h4" class="mb-1.5">Keywords</HeadingEyebrow>
+                        <HeadingEyebrow as="h2" class="mb-1.5">Keywords</HeadingEyebrow>
                         <div class="flex flex-wrap gap-1.5">
                             <Link v-for="keyword in post.keywords" :key="`k-${keyword.slug}`" :href="route('keywords.view', keyword.slug)">
                                 <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">
@@ -203,7 +206,7 @@ const seoDescription = computed(() => {
 
                     <!-- Upgrades -->
                     <div v-if="post.upgrades.length">
-                        <HeadingEyebrow as="h4" class="mb-1.5">Upgrades</HeadingEyebrow>
+                        <HeadingEyebrow as="h2" class="mb-1.5">Upgrades</HeadingEyebrow>
                         <div class="flex flex-wrap gap-1.5">
                             <Link v-for="upgrade in post.upgrades" :key="`u-${upgrade.slug}`" :href="route('upgrades.view', upgrade.slug)">
                                 <Badge variant="outline" class="cursor-pointer transition-colors hover:bg-accent">

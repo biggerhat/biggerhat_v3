@@ -59,7 +59,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Trigger</CardTitle>
+                <CardTitle as="h1">Trigger</CardTitle>
                 <CardDescription>Create and Edit Trigger Information</CardDescription>
             </CardHeader>
             <CardContent>

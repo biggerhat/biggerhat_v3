@@ -93,11 +93,11 @@ html {
         --cult: 12 80% 45%;
         --hordes: 150 55% 30%;
         --courtoftwo: 285 60% 35%;
-        --background: 0 0% 3.9%;
+        --background: 0 0% 4.5%;
         --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
+        --card: 0 0% 7.5%;
         --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
+        --popover: 0 0% 9%;
         --popover-foreground: 0 0% 98%;
         --primary: 0 0% 98%;
         --primary-foreground: 0 0% 9%;
@@ -109,8 +109,8 @@ html {
         --accent-foreground: 0 0% 98%;
         --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
+        --border: 0 0% 17%;
+        --input: 0 0% 19%;
         --ring: 0 0% 83.1%;
         --chart-1: 220 70% 50%;
         --chart-2: 160 60% 45%;
@@ -131,6 +131,31 @@ html {
 @layer base {
     * {
         @apply border-border;
+    }
+
+    /* Fallback focus indicator for anything that doesn't style its own (custom buttons, cards-as-links, chips).
+       Components that set `focus-visible:outline-none` + a ring keep their own look. */
+    :focus-visible {
+        outline: 2px solid hsl(var(--ring));
+        outline-offset: 2px;
+    }
+
+    /* Phone tab bar (components/MobileTabBar.vue): reserve its height, and expose it so other fixed bottom bars can sit above it. */
+    @media (max-width: 767px) {
+        :root:has([data-tabbar]) {
+            --tabbar-h: 3.5rem;
+        }
+        body:has([data-tabbar]) {
+            padding-bottom: var(--tabbar-h);
+        }
+    }
+
+    /* Reader text size (Settings → Appearance). Everything sized in rem scales with it. */
+    html[data-text-size='large'] {
+        font-size: 112.5%;
+    }
+    html[data-text-size='xlarge'] {
+        font-size: 125%;
     }
 
     body {
@@ -390,6 +415,72 @@ html {
     color: #111827;
 }
 
+/*
+ * Faction identity as a coloured spine + soft tint on a neutral surface, instead of a solid fill.
+ * Text stays on the normal foreground (no white-on-yellow flips), long lists are calmer, and the
+ * colour is reinforced by a logo/label where the component has one. Pair with `bg-card border`.
+ * Use `faction-spine` on a block and `faction-spine-row` on a <tr> (its first cell carries the spine).
+ */
+.faction-spine {
+    --faction: var(--border);
+    background-image: linear-gradient(90deg, hsl(var(--faction) / 0.16), transparent 70%);
+    box-shadow: inset 4px 0 0 hsl(var(--faction));
+}
+.faction-spine-row {
+    --faction: var(--border);
+    background-image: linear-gradient(90deg, hsl(var(--faction) / 0.16), transparent 70%);
+}
+.faction-spine-row > :first-child {
+    box-shadow: inset 4px 0 0 hsl(var(--faction));
+}
+.faction-arcanists {
+    --faction: var(--arcanists);
+}
+.faction-bayou {
+    --faction: var(--bayou);
+}
+.faction-explorerssociety {
+    --faction: var(--explorerssociety);
+}
+.faction-guild {
+    --faction: var(--guild);
+}
+.faction-neverborn {
+    --faction: var(--neverborn);
+}
+.faction-outcasts {
+    --faction: var(--outcasts);
+}
+.faction-resurrectionists {
+    --faction: var(--resurrectionists);
+}
+.faction-tenthunders {
+    --faction: var(--tenthunders);
+}
+.faction-kingsempire {
+    --faction: var(--kingsempire);
+}
+.faction-abyssinia {
+    --faction: var(--abyssinia);
+}
+.faction-cult {
+    --faction: var(--cult);
+}
+.faction-hordes {
+    --faction: var(--hordes);
+}
+.faction-courtoftwo {
+    --faction: var(--courtoftwo);
+}
+
+@layer components {
+    /* Landing/hub call-to-action card: neutral surface, one border weight, colour only on the icon chip
+       (and optional spine). Replaces the per-card tinted gradients + 2px borders + hover lift. */
+    .feature-card {
+        @apply relative overflow-hidden rounded-xl border bg-card p-5 transition-colors hover:border-foreground/30 hover:bg-accent/40;
+    }
+}
+
 /* --destructive is a dark red meant for solid fills; as text on the dark theme it is ~1.8:1. Lift it for text only
    (buttons use text-destructive-foreground, which this doesn't touch). */
 .dark .text-destructive {
@@ -404,5 +495,20 @@ html {
     body:has([data-print-area]) footer,
     body:has([data-print-area]) [data-no-print] {
         display: none !important;
+    }
+}
+
+/* Respect the OS "reduce motion" setting. Durations are shortened rather than removed so
+   `animation-fill-mode: forwards` entry animations still land on their final (visible) state and
+   Vue's animationend-based transitions still fire. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }

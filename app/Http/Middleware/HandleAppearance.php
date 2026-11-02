@@ -9,6 +9,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class HandleAppearance
 {
+    /** Accent themes the client can set (see `Theme` in composables/useAppearance.ts); anything else is ignored. */
+    private const ACCENT_THEMES = ['arcanists', 'bayou', 'explorerssociety', 'guild', 'neverborn', 'outcasts', 'resurrectionists', 'tenthunders'];
+
     /**
      * Handle an incoming request.
      *
@@ -20,7 +23,12 @@ class HandleAppearance
         // from the Appearance settings page. Only the "never chose" fallback
         // is affected — an explicit cookie always wins.
         View::share('appearance', $request->cookie('appearance') ?? 'dark');
-        View::share('theme', $request->cookie('theme'));
+        $theme = $request->cookie('theme');
+        View::share('theme', in_array($theme, self::ACCENT_THEMES, true) ? $theme : null);
+
+        // Reader text size, applied as `data-text-size` on <html> so the first paint is already scaled.
+        $textSize = $request->cookie('text_size');
+        View::share('textSize', in_array($textSize, ['large', 'xlarge'], true) ? $textSize : null);
 
         // Cookie-consent state drives whether Blade renders the Google Analytics
         // script. `null` = undecided (show banner, no GA). `accepted` = GA loads.

@@ -1,3 +1,4 @@
+import { loadEcho } from '@/lib/echo';
 import { BROADCAST_RELOAD_DEBOUNCE_MS } from '@/pages/Games/constants';
 import { router } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
@@ -11,6 +12,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
     const onlineMembers = ref<PresenceMember[]>([]);
     const opponentOnline = ref(false);
     let channel: any = null;
+    let active = false;
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingOnly: Set<string> = new Set();
 
@@ -43,7 +45,17 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
                     // to populate the hireable-models picker with — it looks
                     // blank/broken until a manual refresh. Mirrors the sender's
                     // own post-action reload list in Show.vue's postSetup().
-                    reload([...base, 'masters', 'my_crews', 'campaign_arsenal', 'campaign_owned_equipment', 'campaign_totem', 'campaign_leader', 'campaign_leader_option', 'campaign_context']);
+                    reload([
+                        ...base,
+                        'masters',
+                        'my_crews',
+                        'campaign_arsenal',
+                        'campaign_owned_equipment',
+                        'campaign_totem',
+                        'campaign_leader',
+                        'campaign_leader_option',
+                        'campaign_context',
+                    ]);
                 } else if (status === 'scheme_select') {
                     // all_markers is empty during crew_select (server only emits it
                     // for scheme_select + in_progress). The receiving-side player
@@ -104,23 +116,29 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         }
     };
 
-    const joinChannel = () => {
-        if (!window.Echo) {
-            if (import.meta.env.DEV) console.warn('[GameChannel] Echo not available');
-            return;
-        }
+    const joinChannel = async () => {
         if (!gameUuid) {
             if (import.meta.env.DEV) console.log('[GameChannel] No UUID, skipping');
             return;
         }
 
+        active = true;
+        const echo = await loadEcho();
+        if (!echo) {
+            if (import.meta.env.DEV) console.warn('[GameChannel] Echo not available');
+            return;
+        }
+        // Unmounted while the Echo chunk was loading.
+        if (!active) return;
+
         if (isObserver) {
             if (import.meta.env.DEV) console.log(`[GameChannel] Observer joining public channel: game-observe.${gameUuid}`);
-            channel = window.Echo.channel(`game-observe.${gameUuid}`);
+            channel = echo.channel(`game-observe.${gameUuid}`);
             addListeners(channel);
         } else {
             if (import.meta.env.DEV) console.log(`[GameChannel] Participant joining presence channel: game.${gameUuid}`);
-            channel = window.Echo.join(`game.${gameUuid}`)
+            channel = echo
+                .join(`game.${gameUuid}`)
                 .here((members: PresenceMember[]) => {
                     onlineMembers.value = members;
                     opponentOnline.value = members.length > 1;
@@ -138,6 +156,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
     };
 
     const leaveChannel = () => {
+        active = false;
         if (reloadTimer) clearTimeout(reloadTimer);
         if (channel) {
             const channelName = isObserver ? `game-observe.${gameUuid}` : `game.${gameUuid}`;

@@ -134,7 +134,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader>
-                <CardTitle>{{ item ? 'Edit' : 'New' }} Crew Card</CardTitle>
+                <CardTitle as="h1">{{ item ? 'Edit' : 'New' }} Crew Card</CardTitle>
             </CardHeader>
             <CardContent class="space-y-4">
                 <div>

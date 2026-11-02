@@ -61,7 +61,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Miniature</CardTitle>
+                <CardTitle as="h1">Miniature</CardTitle>
                 <CardDescription>Create and Edit Miniature Information</CardDescription>
             </CardHeader>
             <CardContent>

@@ -12,7 +12,7 @@ import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
 import { CARD_HOVER_GROUP } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, ExternalLink, FileImage, Library, Package } from 'lucide-vue-next';
+import { Check, ExternalLink, FileImage, Library, Package } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface PackageData {
@@ -194,14 +194,6 @@ const togglePackageCollection = () => {
         />
 
         <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
-            <Link
-                :href="route('packages.index')"
-                class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
-            >
-                <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                Back to Packages
-            </Link>
-
             <div class="animate-fade-in-up">
                 <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
                     <!-- Images -->

@@ -19,7 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cleanObject } from '@/composables/CleanObject';
 import type { TosSelectOption } from '@/types/tos';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, LayoutGrid, List, Newspaper, Package, ScrollText, Swords } from 'lucide-vue-next';
+import { ChevronDown, LayoutGrid, List, Newspaper, Package, ScrollText, Swords } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 interface Allegiance {
@@ -392,13 +392,6 @@ const ruleChips = computed(() => props.statistics.by_rule);
 
         <!-- Main content -->
         <div class="container mx-auto sm:px-4">
-            <Link
-                :href="route('tos.allegiances.index')"
-                class="mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-                <ArrowLeft class="size-3" /> All allegiances
-            </Link>
-
             <div class="flex gap-6">
                 <!-- Desktop sidebar filters — only relevant when units are visible -->
                 <aside v-if="showUnitFilters || filterParams.resource_type === 'all'" class="hidden w-56 shrink-0 md:block lg:w-72">

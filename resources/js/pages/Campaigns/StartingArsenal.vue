@@ -409,18 +409,14 @@ const submit = () => {
                                             {{ c.station ?? 'enforcer' }}
                                         </Badge>
                                         <Badge v-if="isVersatile(c)" class="bg-blue-400/30 px-1 py-0 text-2xs text-white"> Versatile </Badge>
-                                        <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-2xs text-white">
-                                            OOK
-                                        </Badge>
+                                        <Badge v-else-if="getCategory(c) === 'ook'" class="bg-red-400/30 px-1 py-0 text-2xs text-white"> OOK </Badge>
                                         <span v-if="c.keywords?.length" class="hidden truncate text-xs text-white sm:inline">
                                             {{ c.keywords.map((k) => k.name).join(', ') }}
                                         </span>
                                     </div>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-1">
-                                    <span v-if="hiredCountInSession(c.id) > 0" class="text-2xs text-white">
-                                        ×{{ hiredCountInSession(c.id) }}
-                                    </span>
+                                    <span v-if="hiredCountInSession(c.id) > 0" class="text-2xs text-white"> ×{{ hiredCountInSession(c.id) }} </span>
                                     <span v-if="!locked && effectiveCost(c) > remainingBudget" class="text-2xs text-white">Over budget</span>
                                     <Button
                                         aria-label="Hire"

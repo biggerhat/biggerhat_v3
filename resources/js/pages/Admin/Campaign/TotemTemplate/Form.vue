@@ -150,7 +150,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader>
-                <CardTitle>{{ item ? 'Edit' : 'New' }} Totem Template</CardTitle>
+                <CardTitle as="h1">{{ item ? 'Edit' : 'New' }} Totem Template</CardTitle>
             </CardHeader>
             <CardContent class="space-y-6">
                 <!-- Basic identity -->

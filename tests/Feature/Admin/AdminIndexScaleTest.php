@@ -4,9 +4,17 @@ use App\Enums\ContentTypeEnum;
 use App\Enums\PermissionEnum;
 use App\Enums\RoleEnum;
 use App\Enums\TransmissionTypeEnum;
+use App\Enums\UpgradeDomainTypeEnum;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\Ability;
+use App\Models\Action;
 use App\Models\BotHeartbeat;
 use App\Models\Channel;
+use App\Models\Character;
+use App\Models\Miniature;
 use App\Models\Transmission;
+use App\Models\Trigger;
+use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -159,3 +167,70 @@ it('lists failed jobs and an offline bot under needs attention', function () {
             ->where('attention.0.key', 'bot_offline')
             ->where('attention.1.key', 'failed_jobs'));
 });
+
+it('leaves the route table out of Inertia navigations but keeps it on the first load', function () {
+    $first = $this->actingAs($this->superAdmin)->get(route('admin.dashboard'));
+    expect($first->viewData('page')['props']['ziggy'])->toHaveKeys(['routes', 'location']);
+
+    $version = app(HandleInertiaRequests::class)->version(request());
+    $visit = $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => (string) $version])
+        ->get(route('admin.dashboard'));
+
+    $visit->assertOk();
+    expect($visit->json('props.ziggy'))->toHaveKey('location')->not->toHaveKey('routes');
+});
+
+it('does not serialize the permission catalogue into the shared auth user', function () {
+    $response = $this->actingAs($this->superAdmin)->get(route('admin.dashboard'));
+
+    $user = $response->viewData('page')['props']['auth']['user'];
+    expect($user)->not->toHaveKeys(['roles', 'permissions']);
+    // The names the client actually reads still ship once, under auth.permissions.
+    expect($response->viewData('page')['props']['auth']['permissions'])->not->toBeEmpty();
+});
+
+it('ships only the columns the admin index tables render', function () {
+    $character = Character::factory()->create();
+    Miniature::factory()->for($character)->create();
+    Action::factory()->create();
+
+    $this->actingAs($this->superAdmin)
+        ->get(route('admin.actions.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('actions.0', fn (Assert $row) => $row
+                ->hasAll(['id', 'name', 'slug', 'type', 'is_signature', 'game_mode_type', 'internal_notes'])
+                ->etc())
+            ->missing('actions.0.description'));
+
+    $this->actingAs($this->superAdmin)
+        ->get(route('admin.miniatures.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('miniatures.0', fn (Assert $row) => $row
+                ->hasAll(['id', 'display_name', 'slug', 'character_name', 'front_image', 'back_image', 'version'])
+                ->missing('character'))
+        );
+});
+
+it('renders the crew upgrades index with its trimmed character relation', function () {
+    $upgrade = Upgrade::factory()->create(['domain' => UpgradeDomainTypeEnum::Crew]);
+    $upgrade->characters()->attach(Character::factory()->create());
+
+    $this->actingAs($this->superAdmin)
+        ->get(route('admin.crews.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('upgrades.0.characters.0', fn (Assert $character) => $character->hasAll(['id', 'display_name'])->etc()));
+});
+
+it('still renders every trimmed catalog index', function (string $route, string $prop, string $model) {
+    $model::factory()->create();
+
+    $this->actingAs($this->superAdmin)
+        ->get(route($route))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has($prop, 1));
+})->with([
+    'abilities' => ['admin.abilities.index', 'abilities', Ability::class],
+    'triggers' => ['admin.triggers.index', 'triggers', Trigger::class],
+    'characters' => ['admin.characters.index', 'characters', Character::class],
+]);

@@ -5,6 +5,8 @@ import AppSettingsSidebar from '@/components/AppSettingsSidebar.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
 import CookieConsent from '@/components/CookieConsent.vue';
+import MobileTabBar from '@/components/MobileTabBar.vue';
+import PageBreadcrumbs from '@/components/PageBreadcrumbs.vue';
 import Toaster from '@/components/Toaster.vue';
 import { useToast } from '@/composables/useToast';
 import type { BreadcrumbItemType } from '@/types';
@@ -44,7 +46,8 @@ const hasResetLink = computed(() => !!(page.props as { flash?: { reset_link?: st
     <AppShell variant="sidebar">
         <AppSettingsSidebar />
         <AppContent variant="sidebar">
-            <AppSidebarHeader :breadcrumbs="breadcrumbs" />
+            <AppSidebarHeader />
+            <PageBreadcrumbs :breadcrumbs="breadcrumbs" />
             <AlertMessage
                 v-if="hasResetLink"
                 :message="($page.props as { flash?: { reset_link?: string } }).flash?.reset_link ?? ''"
@@ -58,6 +61,7 @@ const hasResetLink = computed(() => !!(page.props as { flash?: { reset_link?: st
                 </div>
             </Transition>
         </AppContent>
+        <MobileTabBar />
         <CookieConsent />
         <Toaster />
     </AppShell>

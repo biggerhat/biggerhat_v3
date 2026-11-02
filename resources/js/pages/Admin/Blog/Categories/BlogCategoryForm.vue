@@ -44,7 +44,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>{{ props.postType === 'news' ? 'News Category' : 'Article Category' }}</CardTitle>
+                <CardTitle as="h1">{{ props.postType === 'news' ? 'News Category' : 'Article Category' }}</CardTitle>
                 <CardDescription>{{
                     props.postType === 'news' ? 'Create and Edit News Category Information' : 'Create and Edit Article Category Information'
                 }}</CardDescription>

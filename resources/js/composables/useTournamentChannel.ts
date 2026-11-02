@@ -1,3 +1,4 @@
+import { loadEcho } from '@/lib/echo';
 import { router } from '@inertiajs/vue3';
 import { onMounted, onUnmounted } from 'vue';
 
@@ -10,6 +11,7 @@ import { onMounted, onUnmounted } from 'vue';
  */
 export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: any) => void) {
     let channel: any = null;
+    let active = false;
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     const reload = (event: any) => {
@@ -32,11 +34,16 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
         }, 300);
     };
 
-    const joinChannel = () => {
-        if (!window.Echo || !tournamentUuid) return;
+    const joinChannel = async () => {
+        if (!tournamentUuid) return;
+
+        active = true;
+        const echo = await loadEcho();
+        // Unmounted while the Echo chunk was loading.
+        if (!echo || !active) return;
 
         if (import.meta.env.DEV) console.log(`[TournamentChannel] Joining: tournament.${tournamentUuid}`);
-        channel = window.Echo.channel(`tournament.${tournamentUuid}`);
+        channel = echo.channel(`tournament.${tournamentUuid}`);
 
         channel.listen('.TournamentUpdated', (e: any) => {
             if (import.meta.env.DEV) console.log('[TournamentChannel] Event:', e);
@@ -45,6 +52,7 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
     };
 
     const leaveChannel = () => {
+        active = false;
         if (reloadTimer) clearTimeout(reloadTimer);
         if (channel) {
             window.Echo?.leave(`tournament.${tournamentUuid}`);

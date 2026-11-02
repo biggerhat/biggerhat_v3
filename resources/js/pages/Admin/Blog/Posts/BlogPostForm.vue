@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
             <CardHeader>
                 <div class="flex items-center justify-between">
                     <div>
-                        <CardTitle>{{ props.postType === 'news' ? 'Site News' : 'Article' }}</CardTitle>
+                        <CardTitle as="h1">{{ props.postType === 'news' ? 'Site News' : 'Article' }}</CardTitle>
                         <CardDescription>{{ props.postType === 'news' ? 'Create and Edit Site News' : 'Create and Edit Articles' }}</CardDescription>
                     </div>
                     <Badge v-if="autosaveStatus === 'saved'" variant="outline" class="border-green-500/50 text-2xs text-green-600 dark:text-green-400"

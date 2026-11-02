@@ -101,7 +101,7 @@ const copyResetLink = async () => {
     <div class="mx-4 mt-6 space-y-6">
         <Card>
             <CardHeader>
-                <CardTitle>User Form</CardTitle>
+                <CardTitle as="h1">User Form</CardTitle>
                 <CardDescription>Edit User Role Assignments</CardDescription>
             </CardHeader>
             <CardContent>

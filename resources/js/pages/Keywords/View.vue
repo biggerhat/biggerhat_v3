@@ -438,7 +438,7 @@ onMounted(() => {
         <div v-else-if="filterParams.page_view === 'full'" class="container mx-auto items-center sm:px-4">
             <template v-if="props.characters?.length">
                 <div v-for="character in props.characters" v-bind:key="character.slug">
-                    <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
+                    <CharacterView :character="character" :miniature="character.standard_miniatures[0]" heading-level="h2" />
                     <div v-if="character.crew_upgrades?.length" class="mb-4 ml-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                         <div v-for="upgrade in character.crew_upgrades" :key="'cu-' + upgrade.id">
                             <UpgradeCardView :upgrade="upgrade" />

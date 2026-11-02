@@ -1,12 +1,11 @@
 import '../css/app.css';
-import './echo';
 
 import { pageTitle, resolvePage } from '@/lib/resolvePage';
 import { createInertiaApp, Head, Link, router } from '@inertiajs/vue3';
 import { createApp, h } from 'vue';
 
 import { ZiggyVue } from 'ziggy-js';
-import { initializeAccent, initializeTheme } from './composables/useAppearance';
+import { initializeAccent, initializeTextSize, initializeTheme } from './composables/useAppearance';
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
@@ -41,6 +40,8 @@ createInertiaApp({
 initializeTheme();
 // Apply the saved per-faction accent (no-op if user hasn't picked one).
 initializeAccent();
+// Re-apply the saved reader text size.
+initializeTextSize();
 
 // After every Inertia navigation, sync <meta name="csrf-token"> with the
 // shared `csrf_token` prop. Without this, the meta tag stays at whatever

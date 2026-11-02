@@ -73,7 +73,7 @@ const submit = () => {
     <div class="mx-4 mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Role Form</CardTitle>
+                <CardTitle as="h1">Role Form</CardTitle>
                 <CardDescription>Create and Edit Role Information</CardDescription>
             </CardHeader>
             <CardContent>

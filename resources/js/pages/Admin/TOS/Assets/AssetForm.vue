@@ -138,7 +138,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader
-                ><CardTitle>{{ asset ? 'Edit Asset' : 'New Asset' }}</CardTitle></CardHeader
+                ><CardTitle as="h1">{{ asset ? 'Edit Asset' : 'New Asset' }}</CardTitle></CardHeader
             >
             <CardContent class="space-y-4">
                 <div class="grid gap-3 md:grid-cols-3">

@@ -8,7 +8,7 @@ import Button from '@/components/ui/button/Button.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Download, Library, Swords } from 'lucide-vue-next';
+import { Check, Download, Library, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Sculpt {
@@ -104,9 +104,6 @@ const sculptOptions = computed(() => props.unit.sculpts.map((s) => ({ id: s.id, 
 
         <div class="container mx-auto space-y-4 sm:px-4">
             <div class="flex items-center justify-between gap-2">
-                <Link :href="route('tos.units.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                    <ArrowLeft class="size-3" /> All units
-                </Link>
                 <Button
                     v-if="active_sculpt.combination_image || active_sculpt.front_image"
                     variant="outline"

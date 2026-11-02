@@ -28,7 +28,7 @@ class CharacterAdminController extends Controller
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         return inertia('Admin/Characters/Index', [
-            'characters' => Character::orderBy('display_name', 'ASC')->get(),
+            'characters' => Character::select(['id', 'display_name', 'slug', 'cost', 'faction', 'station', 'game_mode_type'])->orderBy('display_name', 'ASC')->get(),
         ]);
     }
 

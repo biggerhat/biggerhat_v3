@@ -809,7 +809,7 @@ const topAllegiances = computed(() =>
     >
         <div
             v-if="is_owner && selectMode && selectedIds.size > 0"
-            class="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-3 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur sm:px-6"
+            class="fixed inset-x-0 bottom-[var(--tabbar-h,0px)] z-40 border-t bg-background/95 px-3 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur sm:px-6"
         >
             <div class="container mx-auto flex flex-wrap items-center gap-2">
                 <span class="mr-1 text-sm font-medium">{{ selectedIds.size }} selected</span>

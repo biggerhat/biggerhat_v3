@@ -15,12 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
 import { imageLabel, imageSrc } from '@/composables/useBlueprintImages';
-import { useFactionColor } from '@/composables/useFactionColor';
+import { factionForegroundColor, useFactionColor } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
-    ArrowLeft,
     ArrowUpCircle,
     BookOpen,
     Check,
@@ -50,6 +49,12 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    /** Heading level for the character name — `h2` when several are listed under a page-level `h1` (faction/keyword/search "full" views). */
+    headingLevel: {
+        type: String as () => 'h1' | 'h2',
+        required: false,
+        default: 'h1',
+    },
     relatedCharacters: {
         type: Array,
         required: false,
@@ -76,7 +81,9 @@ const factionBadgeStyle = (faction: string) => {
     const color = useFactionColor(faction);
     return {
         backgroundColor: `hsl(var(--${color}))`,
-        color: 'hsl(var(--primary-foreground))',
+        // Not --primary-foreground: that flips to near-black in the dark theme, which fails on the
+        // darker faction colours (Bayou 2.6:1). Faction colours are theme-independent, so is their text.
+        color: factionForegroundColor(faction),
         borderColor: 'transparent',
     };
 };
@@ -252,15 +259,6 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
 <template>
     <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
-        <!-- Back link -->
-        <Link
-            :href="route('factions.view', character.faction)"
-            class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
-        >
-            <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            Back to {{ factionName }}
-        </Link>
-
         <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
             <!-- Info panel -->
             <div class="order-2 space-y-3 lg:space-y-4">
@@ -269,7 +267,7 @@ const openTextDrawer = (name: string, label: string, description: string | null,
                     <CardHeader class="pb-3">
                         <div class="flex items-center gap-2.5">
                             <FactionLogo :faction="character.faction" class-name="size-8 shrink-0" />
-                            <CardTitle as="h1" class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
+                            <CardTitle :as="headingLevel" class="flex-1 text-xl leading-tight lg:text-2xl">{{ character.display_name }}</CardTitle>
                             <AdminEditLink
                                 :href="() => route('admin.characters.edit', character.slug ?? character.id)"
                                 permission="edit_character"

@@ -6,7 +6,7 @@ use App\Interfaces\HasDefaultEnumMethods;
 use App\Models\TOS\Allegiance;
 use App\Traits\UsesEnumLabels;
 use App\Traits\UsesEnumSelectOptions;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\QueryException;
 
 enum AllegianceEnum: string implements HasDefaultEnumMethods
 {
@@ -45,22 +45,28 @@ enum AllegianceEnum: string implements HasDefaultEnumMethods
             ];
         }
 
-        // Merge DB rows. Guard on Schema::hasTable so console commands that run
-        // before migrations (fresh installs, artisan config:cache) don't fail.
-        if (Schema::hasTable('tos_allegiances')) {
-            foreach (Allegiance::all() as $allegiance) {
-                $existing = $details[$allegiance->slug] ?? null;
-                $dbLogo = self::resolveLogoUrl($allegiance->logo_path);
-                $details[$allegiance->slug] = [
-                    'slug' => $allegiance->slug,
-                    'name' => $allegiance->name,
-                    'short_name' => $allegiance->short_name ?? $existing['short_name'] ?? '',
-                    'type' => $allegiance->type->value,
-                    'is_syndicate' => (bool) $allegiance->is_syndicate,
-                    'color' => $allegiance->color_slug ?? $existing['color'] ?? 'default',
-                    'logo' => $dbLogo ?? $existing['logo'] ?? '',
-                ];
-            }
+        // Merge DB rows. The query is caught rather than probing `Schema::hasTable` first (an
+        // information_schema round-trip on MySQL, paid on every request via the Inertia shared
+        // props) so console commands that run before migrations (fresh installs,
+        // artisan config:cache) still don't fail.
+        try {
+            $allegiances = Allegiance::all();
+        } catch (QueryException) {
+            $allegiances = [];
+        }
+
+        foreach ($allegiances as $allegiance) {
+            $existing = $details[$allegiance->slug] ?? null;
+            $dbLogo = self::resolveLogoUrl($allegiance->logo_path);
+            $details[$allegiance->slug] = [
+                'slug' => $allegiance->slug,
+                'name' => $allegiance->name,
+                'short_name' => $allegiance->short_name ?? $existing['short_name'] ?? '',
+                'type' => $allegiance->type->value,
+                'is_syndicate' => (bool) $allegiance->is_syndicate,
+                'color' => $allegiance->color_slug ?? $existing['color'] ?? 'default',
+                'logo' => $dbLogo ?? $existing['logo'] ?? '',
+            ];
         }
 
         return $details;

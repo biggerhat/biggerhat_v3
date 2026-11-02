@@ -46,6 +46,8 @@ const editor = useEditor({
         Underline,
     ],
     content: props.modelValue ?? { type: 'doc', content: [] },
+    // ProseMirror renders a bare role="textbox" div; give it a name (axe: aria-input-field-name).
+    editorProps: { attributes: { 'aria-label': 'Post content', 'aria-multiline': 'true' } },
     onUpdate({ editor }) {
         emit('update:modelValue', editor.getJSON());
     },

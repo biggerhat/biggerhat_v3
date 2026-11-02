@@ -1,9 +1,9 @@
 import vue from '@vitejs/plugin-vue';
 import autoprefixer from 'autoprefixer';
 import laravel from 'laravel-vite-plugin';
+import { resolve } from 'node:path';
 import path from 'path';
 import tailwindcss from 'tailwindcss';
-import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -25,9 +25,22 @@ export default defineConfig({
         VitePWA({
             registerType: 'autoUpdate',
             workbox: {
-                globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+                // Precache only the small shell. Precaching every `.js` chunk made each new visitor (and
+                // every deploy) pull the whole ~5MB build in the background — jspdf, TipTap, every admin
+                // page — and with `navigateFallback: null` there is no offline page to benefit from it.
+                // Route chunks are cached on first use instead (see `build-js` below).
+                globPatterns: ['**/*.{css,ico,png,svg,woff,woff2}'],
                 navigateFallback: null,
                 runtimeCaching: [
+                    {
+                        // Content-hashed, so CacheFirst is always safe; stale hashes age out.
+                        urlPattern: /\/build\/assets\/.*\.js$/i,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'build-js',
+                            expiration: { maxEntries: 150, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                        },
+                    },
                     {
                         urlPattern: /^https:\/\/fonts\.bunny\.net\/.*/i,
                         handler: 'CacheFirst',
@@ -98,5 +111,5 @@ export default defineConfig({
                 },
             },
         },
-    }
+    },
 });

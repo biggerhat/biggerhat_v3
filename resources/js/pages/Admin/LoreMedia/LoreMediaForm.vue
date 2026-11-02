@@ -47,7 +47,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Lore Media</CardTitle>
+                <CardTitle as="h1">Lore Media</CardTitle>
                 <CardDescription>Create and Edit Lore Media (books, chronicles, broadcasts, etc.)</CardDescription>
             </CardHeader>
             <CardContent>

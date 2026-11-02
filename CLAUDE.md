@@ -23,6 +23,7 @@ file locations, models/enums, conventions, and gotchas (saves re-discovery):
 
 Other docs: [ssr.md](docs/ssr.md) — what Inertia SSR needs on the server and what has broken it;
 [ui-audit.md](docs/ui-audit.md) — local harness for browsing logged-in screens and running accessibility/layout checks.
+[design-system.md](docs/design-system.md) — surfaces, faction spine, feature cards, navigation (breadcrumbs, phone tab bar), accessibility defaults, type scale.
 [performance.md](docs/performance.md) — query/payload profiler, what has been measured and fixed, nginx caching config, open items.
 
 Shared gotchas: SSR is enabled (tests don't catch SSR-path 500s); the

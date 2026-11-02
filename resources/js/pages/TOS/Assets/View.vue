@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Ban, BookMarked, Package, Plus, Swords } from 'lucide-vue-next';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { Ban, BookMarked, Package, Plus, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Limit {
@@ -129,10 +129,6 @@ const addToCollection = () => {
         </PageBanner>
 
         <div class="container mx-auto space-y-4 sm:px-4">
-            <Link :href="route('tos.assets.index')" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                <ArrowLeft class="size-3" /> All assets
-            </Link>
-
             <Card class="overflow-hidden">
                 <div class="grid gap-4 p-4 lg:grid-cols-[minmax(0,260px)_1fr]">
                     <!-- Disable-able Assets flip to their Disabled backside (real art when uploaded, placeholder otherwise). -->

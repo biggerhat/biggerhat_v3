@@ -20,7 +20,6 @@ import { useToast } from '@/composables/useToast';
 import { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
-    ArrowLeft,
     ArrowUpCircle,
     BookOpen,
     Check,
@@ -260,15 +259,6 @@ const openTextDrawer = (name: string, label: string, description: string | null,
 
 <template>
     <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
-        <!-- Back link -->
-        <Link
-            :href="route('factions.view', character.faction)"
-            class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
-        >
-            <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            Back to {{ factionName }}
-        </Link>
-
         <div class="grid gap-6 lg:grid-cols-3 lg:gap-8">
             <!-- Info panel -->
             <div class="order-2 space-y-3 lg:space-y-4">

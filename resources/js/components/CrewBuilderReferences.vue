@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
-import { factionBackground } from '@/composables/useFactionColor';
+import { factionSpine } from '@/composables/useFactionColor';
 import { ArrowUpCircle, Loader2, MapPin, Plus, Puzzle, Users } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -232,8 +232,8 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                     <button
                         v-for="char in references.characters"
                         :key="char.id"
-                        :class="factionBackground(char.faction)"
-                        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-white transition-opacity hover:opacity-80"
+                        :class="factionSpine(char.faction)"
+                        class="flex w-full items-center gap-2 rounded-md border bg-card px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
                         @click="openCharacter(char)"
                     >
                         <span class="min-w-0 flex-1 truncate text-xs font-medium">{{ char.display_name }}</span>
@@ -449,28 +449,20 @@ const itemDisplayName = (item: any): string => item.display_name ?? item.name ??
                         :key="item.id"
                         class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
                         :class="[
-                            addDialogType === 'characters' && item.faction ? factionBackground(item.faction) + ' text-white' : '',
-                            existingIds.has(item.id)
-                                ? 'cursor-not-allowed opacity-40'
-                                : addDialogType === 'characters' && item.faction
-                                  ? 'hover:opacity-80'
-                                  : 'hover:bg-accent',
+                            addDialogType === 'characters' && item.faction ? factionSpine(item.faction) + ' border bg-card' : '',
+                            existingIds.has(item.id) ? 'cursor-not-allowed text-muted-foreground' : 'hover:bg-accent',
                         ]"
                         :disabled="existingIds.has(item.id)"
                         @click="selectAddItem(item)"
                     >
                         <div class="min-w-0 flex-1">
                             <div class="truncate text-xs font-medium">{{ itemDisplayName(item) }}</div>
-                            <div
-                                v-if="addDialogType === 'characters'"
-                                class="flex items-center gap-1.5 text-2xs"
-                                :class="item.faction ? 'text-white/90' : 'text-muted-foreground'"
-                            >
+                            <div v-if="addDialogType === 'characters'" class="flex items-center gap-1.5 text-2xs text-muted-foreground">
                                 <span v-if="item.station" class="capitalize">{{ item.station }}</span>
                                 <span v-if="item.miniatures?.length > 1">&middot; {{ item.miniatures.length }} sculpts</span>
                             </div>
                         </div>
-                        <Badge v-if="existingIds.has(item.id)" variant="outline" class="shrink-0 border-white/30 px-1 py-0 text-2xs">Added</Badge>
+                        <Badge v-if="existingIds.has(item.id)" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Added</Badge>
                     </button>
                 </template>
                 <div v-else-if="addSearch.length >= 2" class="py-3 text-center text-xs text-muted-foreground">No results found</div>

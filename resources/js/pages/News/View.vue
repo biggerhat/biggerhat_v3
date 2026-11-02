@@ -114,6 +114,7 @@ const seoDescription = computed(() => {
         <div class="container mx-auto pb-8 pt-4 sm:px-4 lg:pb-16 lg:pt-6">
             <!-- Back link -->
             <Link
+                v-if="isPreview"
                 :href="isPreview ? route('admin.news.posts.edit', post.slug) : route('news.index')"
                 class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground lg:mb-6"
             >

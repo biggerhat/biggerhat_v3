@@ -23,7 +23,7 @@ const { hasDecided, acceptConsent, declineConsent } = useCookieConsent();
             v-if="hasDecided === false"
             role="dialog"
             aria-label="Cookie consent"
-            class="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 shadow-lg backdrop-blur-sm"
+            class="fixed inset-x-0 bottom-[var(--tabbar-h,0px)] z-50 border-t bg-background/95 shadow-lg backdrop-blur-sm"
         >
             <div class="container mx-auto flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:py-4">
                 <div class="flex items-start gap-3 sm:flex-1">

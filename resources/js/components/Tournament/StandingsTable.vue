@@ -2,7 +2,7 @@
 import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { factionBackground } from '@/composables/useFactionColor';
+import { factionSpine } from '@/composables/useFactionColor';
 import type { StandingEntry } from '@/types/tournament';
 import { Crown } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -58,9 +58,9 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                             v-for="entry in props.standings"
                             :key="entry.player_id"
                             :class="[
-                                factionBackground(entry.faction),
-                                entry.faction ? 'text-white' : 'border-b last:border-0',
-                                entry.is_ringer ? 'opacity-50' : '',
+                                factionSpine(entry.faction, { row: true }),
+                                'border-b last:border-0',
+                                entry.is_ringer ? 'italic text-muted-foreground' : '',
                                 isMe(entry.player_id) ? 'ring-2 ring-inset ring-primary/60' : '',
                             ]"
                         >
@@ -74,7 +74,7 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                     />
                                     <Crown
                                         v-if="entry.rank === 1 && entry.rounds_played > 0 && !entry.is_ringer"
-                                        class="size-3.5 shrink-0 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                                        class="size-3.5 shrink-0 text-amber-600 dark:text-amber-300"
                                     />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ entry.display_name }}</span>
                                     <Badge
@@ -86,13 +86,13 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                     <Badge
                                         v-if="entry.is_ringer"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-2xs text-white/80 sm:inline-flex"
+                                        class="hidden shrink-0 px-1 py-0 text-2xs text-muted-foreground sm:inline-flex"
                                         >Ringer</Badge
                                     >
                                     <Badge
                                         v-if="entry.is_dropped"
                                         variant="outline"
-                                        class="hidden shrink-0 border-white/40 px-1 py-0 text-2xs text-white/60 sm:inline-flex"
+                                        class="hidden shrink-0 px-1 py-0 text-2xs text-muted-foreground sm:inline-flex"
                                         >Dropped</Badge
                                     >
                                 </div>

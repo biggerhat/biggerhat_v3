@@ -30,7 +30,8 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UpgradeCardView from '@/components/UpgradeCardView.vue';
-import { factionBackground } from '@/composables/useFactionColor';
+import FactionLogo from '@/components/FactionLogo.vue';
+import { factionSpine } from '@/composables/useFactionColor';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { refDebounced } from '@vueuse/core';
 import { ArrowUpFromLine, Check, ChevronsUpDown, CircleX, EllipsisVertical, Search, SquareMinus, SquarePlus, UserPlus } from 'lucide-vue-next';
@@ -358,17 +359,22 @@ onMounted(() => {
                                         >
                                             <!-- Character row -->
                                             <div
-                                                :class="factionBackground(results[virtualRow.index].faction)"
-                                                class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                :class="factionSpine(results[virtualRow.index].faction)"
+                                                class="my-0.5 flex items-center justify-between rounded-md border bg-card px-2 py-1.5 transition-colors hover:bg-accent"
                                             >
                                                 <div
                                                     class="min-w-0 flex-1 cursor-pointer"
                                                     @click="openPreview(results[virtualRow.index], 'character')"
                                                 >
-                                                    <div class="text-sm font-semibold">
+                                                    <div class="flex items-center gap-1.5 text-sm font-semibold">
+                                                        <FactionLogo
+                                                            v-if="results[virtualRow.index].faction"
+                                                            :faction="results[virtualRow.index].faction"
+                                                            class-name="size-4 shrink-0"
+                                                        />
                                                         {{ results[virtualRow.index].display_name }}
                                                     </div>
-                                                    <div class="flex flex-wrap items-center gap-1 text-xs text-white">
+                                                    <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                                                         <span v-if="results[virtualRow.index].cost">{{ results[virtualRow.index].cost }}ss</span>
                                                         <Badge
                                                             v-if="results[virtualRow.index].station"
@@ -380,7 +386,7 @@ onMounted(() => {
                                                                 ({{ results[virtualRow.index].count }})
                                                             </span>
                                                         </Badge>
-                                                        <span v-if="results[virtualRow.index].keywords?.length" class="truncate text-white">
+                                                        <span v-if="results[virtualRow.index].keywords?.length" class="truncate">
                                                             {{ results[virtualRow.index].keywords.map((k: any) => k.name).join(', ') }}
                                                         </span>
                                                     </div>
@@ -405,8 +411,8 @@ onMounted(() => {
                                                 >
                                                     <ArrowUpFromLine class="mx-1 size-3.5 shrink-0 text-muted-foreground" />
                                                     <div
-                                                        :class="factionBackground(upgrade.faction)"
-                                                        class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                        :class="factionSpine(upgrade.faction)"
+                                                        class="flex flex-1 items-center justify-between rounded-md border bg-card px-2 py-1.5 transition-colors hover:bg-accent"
                                                     >
                                                         <div
                                                             role="button"
@@ -416,7 +422,7 @@ onMounted(() => {
                                                             @keydown.enter="openPreview(upgrade, 'upgrade')"
                                                         >
                                                             <div class="text-sm font-semibold">{{ upgrade.name }}</div>
-                                                            <div class="text-xs text-white">
+                                                            <div class="text-xs text-muted-foreground">
                                                                 <span v-if="upgrade.type">
                                                                     {{ upgrade.type }}
                                                                     <span v-if="upgrade.master"> &mdash; {{ upgrade.master }} </span>
@@ -485,8 +491,8 @@ onMounted(() => {
                                             }"
                                         >
                                             <div
-                                                :class="factionBackground(upgradeResults[virtualRow.index].faction)"
-                                                class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                :class="factionSpine(upgradeResults[virtualRow.index].faction)"
+                                                class="my-0.5 flex items-center justify-between rounded-md border bg-card px-2 py-1.5 transition-colors hover:bg-accent"
                                             >
                                                 <div
                                                     class="min-w-0 flex-1 cursor-pointer"
@@ -495,7 +501,7 @@ onMounted(() => {
                                                     <div class="text-sm font-semibold">
                                                         {{ upgradeResults[virtualRow.index].name }}
                                                     </div>
-                                                    <div class="text-xs text-white">
+                                                    <div class="text-xs text-muted-foreground">
                                                         <span v-if="upgradeResults[virtualRow.index].type">
                                                             {{ upgradeResults[virtualRow.index].type }}
                                                             <span v-if="upgradeResults[virtualRow.index].master">
@@ -584,8 +590,8 @@ onMounted(() => {
                                         <!-- Miniature card -->
                                         <div
                                             v-if="card.card_type === 'miniature'"
-                                            :class="factionBackground(card.faction)"
-                                            class="my-0.5 flex items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                            :class="factionSpine(card.faction)"
+                                            class="my-0.5 flex items-center justify-between rounded-md border bg-card px-2 py-1.5 transition-colors hover:bg-accent"
                                         >
                                             <div
                                                 role="button"
@@ -594,8 +600,11 @@ onMounted(() => {
                                                 @click="openPreview(card, 'character')"
                                                 @keydown.enter="openPreview(card, 'character')"
                                             >
-                                                <div class="text-sm font-semibold">{{ card.display_name }}</div>
-                                                <div class="flex flex-wrap items-center gap-1 text-xs text-white">
+                                                <div class="flex items-center gap-1.5 text-sm font-semibold">
+                                                    <FactionLogo v-if="card.faction" :faction="card.faction" class-name="size-4 shrink-0" />
+                                                    {{ card.display_name }}
+                                                </div>
+                                                <div class="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                                                     <span v-if="card.cost">{{ card.cost }}ss</span>
                                                     <Badge v-if="card.station" variant="secondary" class="px-1 py-0 text-2xs capitalize">
                                                         {{ card.station }}
@@ -617,8 +626,8 @@ onMounted(() => {
                                         <div v-if="card.card_type === 'upgrade'" class="my-0.5 flex items-center">
                                             <ArrowUpFromLine class="mx-1 size-3.5 shrink-0 text-muted-foreground" />
                                             <div
-                                                :class="factionBackground(card.faction)"
-                                                class="flex flex-1 items-center justify-between rounded-md border border-border/50 px-2 py-1.5 text-white transition-colors hover:brightness-[0.93] dark:hover:brightness-110"
+                                                :class="factionSpine(card.faction)"
+                                                class="flex flex-1 items-center justify-between rounded-md border bg-card px-2 py-1.5 transition-colors hover:bg-accent"
                                             >
                                                 <div
                                                     role="button"
@@ -628,7 +637,7 @@ onMounted(() => {
                                                     @keydown.enter="openPreview(card, 'upgrade')"
                                                 >
                                                     <div class="text-sm font-semibold">{{ card.name }}</div>
-                                                    <div class="text-xs text-white">
+                                                    <div class="text-xs text-muted-foreground">
                                                         <span v-if="card.type">
                                                             {{ card.type }}
                                                             <span v-if="card.master"> &mdash; {{ card.master }} </span>
@@ -656,7 +665,10 @@ onMounted(() => {
         </div>
 
         <!-- Mobile sticky bottom bar -->
-        <div v-if="activeTab === 'list'" class="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 p-3 backdrop-blur-sm md:hidden">
+        <div
+            v-if="activeTab === 'list'"
+            class="fixed inset-x-0 bottom-[var(--tabbar-h,0px)] z-10 border-t bg-background/95 p-3 backdrop-blur-sm md:hidden"
+        >
             <div class="container mx-auto flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2 text-sm">
                     <span class="font-medium">{{ pdfCards.length }} cards</span>

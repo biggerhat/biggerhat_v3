@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
-import { factionBackground } from '@/composables/useFactionColor';
+import FactionLogo from '@/components/FactionLogo.vue';
+import { factionSpine } from '@/composables/useFactionColor';
 import { Maximize2, Shield, ShieldAlert, Star, Swords } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 
@@ -47,13 +48,13 @@ const categoryLabel = (cat: string): string =>
 
 const categoryColor = (cat: string): string =>
     ({
-        leader: 'bg-amber-400/20 text-amber-200',
-        totem: 'bg-purple-400/20 text-purple-200',
-        'in-keyword': 'bg-green-400/20 text-green-200',
-        versatile: 'bg-blue-400/20 text-blue-200',
-        ook: 'bg-red-400/20 text-red-200',
-        'fixed-crew': 'bg-cyan-400/20 text-cyan-200',
-        required: 'bg-orange-400/20 text-orange-200',
+        leader: 'bg-amber-500/15 text-amber-800 dark:text-amber-200',
+        totem: 'bg-purple-500/15 text-purple-800 dark:text-purple-200',
+        'in-keyword': 'bg-green-500/15 text-green-800 dark:text-green-200',
+        versatile: 'bg-blue-500/15 text-blue-800 dark:text-blue-200',
+        ook: 'bg-red-500/15 text-red-800 dark:text-red-200',
+        'fixed-crew': 'bg-cyan-500/15 text-cyan-800 dark:text-cyan-200',
+        required: 'bg-orange-500/15 text-orange-800 dark:text-orange-200',
     })[cat] ?? '';
 
 // Member card preview drawer
@@ -123,20 +124,21 @@ watch(upgradeDrawerOpen, (val) => {
         <div
             v-for="(member, index) in members"
             :key="index"
-            :class="factionBackground(member.faction)"
-            class="rounded-md border border-white/20 text-white transition-colors hover:brightness-110"
+            :class="factionSpine(member.faction)"
+            class="rounded-md border bg-card transition-colors hover:bg-accent"
             :style="{ cursor: member.front_image ? 'pointer' : 'default', padding: compact ? '2px 8px' : '4px 8px' }"
             @click="openMemberPreview(member)"
         >
             <div class="flex items-center justify-between">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1.5" :class="compact ? 'text-xs font-semibold' : 'text-sm font-semibold'">
+                        <FactionLogo v-if="member.faction" :faction="member.faction" class-name="size-4 shrink-0" />
                         <TooltipProvider v-if="member.category === 'leader' || member.category === 'totem' || member.category === 'ook'">
                             <Tooltip>
                                 <TooltipTrigger as-child>
-                                    <Shield v-if="member.category === 'leader'" class="size-3.5 shrink-0 text-amber-300" />
-                                    <Swords v-if="member.category === 'totem'" class="size-3.5 shrink-0 text-purple-300" />
-                                    <ShieldAlert v-if="member.category === 'ook'" class="size-3.5 shrink-0 text-red-300" />
+                                    <Shield v-if="member.category === 'leader'" class="size-3.5 shrink-0 text-amber-600 dark:text-amber-300" />
+                                    <Swords v-if="member.category === 'totem'" class="size-3.5 shrink-0 text-purple-600 dark:text-purple-300" />
+                                    <ShieldAlert v-if="member.category === 'ook'" class="size-3.5 shrink-0 text-red-600 dark:text-red-300" />
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
                                     <p class="text-xs">{{ categoryLabel(member.category) }}</p>
@@ -145,12 +147,12 @@ watch(upgradeDrawerOpen, (val) => {
                         </TooltipProvider>
                         <span class="truncate">{{ member.display_name }}</span>
                     </div>
-                    <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-white/90">
-                        <span v-if="member.category === 'ook'" class="flex items-center text-sm font-bold text-white">
+                    <div v-if="!compact" class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span v-if="member.category === 'ook'" class="flex items-center text-sm font-bold text-foreground">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
-                            <span class="text-xs font-normal text-white/90">({{ member.cost - 1 }}+1)</span>
+                            <span class="text-xs font-normal text-muted-foreground">({{ member.cost - 1 }}+1)</span>
                         </span>
-                        <span v-else class="flex items-center text-sm font-bold text-white">
+                        <span v-else class="flex items-center text-sm font-bold text-foreground">
                             {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                         </span>
                         <Badge :class="categoryColor(member.category)" class="px-1 py-0 text-2xs">
@@ -158,7 +160,7 @@ watch(upgradeDrawerOpen, (val) => {
                         </Badge>
                     </div>
                 </div>
-                <span v-if="compact" class="ml-2 shrink-0 text-xs font-bold text-white">
+                <span v-if="compact" class="ml-2 shrink-0 text-xs font-bold text-foreground">
                     {{ member.effective_cost ?? member.cost }}<GameIcon type="soulstone" class-name="ml-0.5 h-3 inline-block" />
                 </span>
             </div>

@@ -135,10 +135,7 @@ const feedGridClass = computed(() =>
                 </div>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <!-- Crew Builder -->
-                    <Link
-                        :href="route('tools.crew_builder.index')"
-                        class="group relative overflow-hidden rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg"
-                    >
+                    <Link :href="route('tools.crew_builder.index')" class="feature-card group">
                         <div class="flex items-start gap-3">
                             <div
                                 class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
@@ -158,10 +155,7 @@ const feedGridClass = computed(() =>
                     </Link>
 
                     <!-- Game Tracker -->
-                    <Link
-                        :href="isLoggedIn ? route('games.index') : route('login')"
-                        class="group relative overflow-hidden rounded-xl border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/50 hover:shadow-lg"
-                    >
+                    <Link :href="isLoggedIn ? route('games.index') : route('login')" class="feature-card group">
                         <div class="flex items-start gap-3">
                             <div
                                 class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 transition-colors group-hover:bg-emerald-500 group-hover:text-white dark:text-emerald-400"
@@ -193,10 +187,7 @@ const feedGridClass = computed(() =>
                     </Link>
 
                     <!-- Collection / Wishlist -->
-                    <Link
-                        :href="isLoggedIn ? route('collection.index') : route('login')"
-                        class="group relative overflow-hidden rounded-xl border-2 border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/50 hover:shadow-lg sm:col-span-2 lg:col-span-1"
-                    >
+                    <Link :href="isLoggedIn ? route('collection.index') : route('login')" class="feature-card group sm:col-span-2 lg:col-span-1">
                         <div class="flex items-start gap-3">
                             <div
                                 class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 transition-colors group-hover:bg-amber-500 group-hover:text-white dark:text-amber-400"

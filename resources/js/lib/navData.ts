@@ -420,6 +420,12 @@ export function buildMyHatNav(ctx: MyHatNavContext): NavGroup[] {
             keywords: 'collection miniatures owned',
         },
         {
+            title: 'What Can I Play?',
+            href: route('collection.playable'),
+            icon: Swords,
+            keywords: 'playable crews what can i play owned collection masters',
+        },
+        {
             title: 'My Stats',
             href: route('stats.my'),
             icon: BarChart3,

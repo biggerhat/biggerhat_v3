@@ -28,6 +28,7 @@ import {
     Minus,
     Package,
     Paintbrush,
+    Swords,
     Plus,
     Search,
     Trash2,
@@ -387,6 +388,9 @@ const topFactions = computed(() =>
                             <Copy v-else class="size-3.5" />
                             {{ copied ? 'Copied!' : 'Share' }}
                         </Button>
+                        <Link :href="route('collection.playable')">
+                            <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs"><Swords class="size-3.5" />What can I play?</Button>
+                        </Link>
                     </div>
                 </div>
             </template>

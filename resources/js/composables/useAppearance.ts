@@ -3,6 +3,9 @@ import { onMounted, ref } from 'vue';
 
 type Appearance = 'light' | 'dark' | 'system';
 
+/** Reader text size; scales the root font size (see `html[data-text-size]` in app.css). */
+export type TextSize = 'normal' | 'large' | 'xlarge';
+
 // Theme is the accent-color variant applied via `data-theme` on <html>.
 // 'default' = no tint (today's neutral black/white primary). Values are the
 // short slug form (matching existing Tailwind `bg-*` classes + CSS selectors)
@@ -49,6 +52,16 @@ const getStoredTheme = (): Theme | null => {
     return localStorage.getItem('theme') as Theme | null;
 };
 
+const getStoredTextSize = (): TextSize | null => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const value = localStorage.getItem('text_size');
+
+    return value === 'large' || value === 'xlarge' ? value : null;
+};
+
 const handleSystemThemeChange = () => {
     const currentAppearance = getStoredAppearance();
 
@@ -83,6 +96,24 @@ export function initializeAccent() {
     applyTheme(saved || 'default');
 }
 
+function applyTextSize(value: TextSize) {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    if (value === 'normal') {
+        delete document.documentElement.dataset.textSize;
+        return;
+    }
+
+    document.documentElement.dataset.textSize = value;
+}
+
+/** Re-apply the saved text size on boot (the server already set it from the cookie for first paint). */
+export function initializeTextSize() {
+    applyTextSize(getStoredTextSize() ?? 'normal');
+}
+
 /**
  * Toggle the `data-theme` attribute on <html>. Removes it entirely for
  * 'default' so CSS overrides scoped by `[data-theme="..."]` don't apply.
@@ -105,6 +136,7 @@ function applyTheme(value: Theme) {
 export function useAppearance() {
     const appearance = ref<Appearance>('dark');
     const theme = ref<Theme>('default');
+    const textSize = ref<TextSize>('normal');
 
     onMounted(() => {
         initializeTheme();
@@ -119,6 +151,8 @@ export function useAppearance() {
         if (savedTheme) {
             theme.value = savedTheme;
         }
+
+        textSize.value = getStoredTextSize() ?? 'normal';
     });
 
     function updateAppearance(value: Appearance) {
@@ -148,10 +182,26 @@ export function useAppearance() {
         applyTheme(value);
     }
 
+    function updateTextSize(value: TextSize) {
+        textSize.value = value;
+
+        if (value === 'normal') {
+            localStorage.removeItem('text_size');
+            clearCookie('text_size');
+        } else {
+            localStorage.setItem('text_size', value);
+            setCookie('text_size', value);
+        }
+
+        applyTextSize(value);
+    }
+
     return {
         appearance,
         theme,
+        textSize,
         updateAppearance,
         updateAccentTheme,
+        updateTextSize,
     };
 }

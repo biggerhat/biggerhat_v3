@@ -20,7 +20,8 @@ class ActionAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Actions/Index', [
-            'actions' => Action::orderBy('name', 'ASC')->get(),
+            // Only the columns the table renders — the full rows (rules text, JSON) made this payload ~320KB.
+            'actions' => Action::select(['id', 'name', 'slug', 'type', 'is_signature', 'game_mode_type', 'internal_notes'])->orderBy('name', 'ASC')->get(),
         ]);
     }
 

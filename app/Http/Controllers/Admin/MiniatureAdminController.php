@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\SculptVersionEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\MiniatureRequest;
-use App\Http\Resources\MiniatureResource;
 use App\Models\Character;
 use App\Models\Miniature;
 use Illuminate\Http\Request;
@@ -17,8 +16,20 @@ class MiniatureAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Miniatures/Index', [
-            'miniatures' => MiniatureResource::collection(Miniature::with('character')->orderBy('display_name', 'ASC')->get())
-                ->toArray($request),
+            // The table only shows these columns — the resource would also embed the whole Character row per miniature.
+            'miniatures' => Miniature::with('character:id,display_name')
+                ->select(['id', 'display_name', 'slug', 'character_id', 'front_image', 'back_image', 'version'])
+                ->orderBy('display_name', 'ASC')
+                ->get()
+                ->map(fn (Miniature $m) => [
+                    'id' => $m->id,
+                    'display_name' => $m->display_name,
+                    'slug' => $m->slug,
+                    'character_name' => data_get($m, 'character.display_name'),
+                    'front_image' => $m->front_image,
+                    'back_image' => $m->back_image,
+                    'version' => $m->version,
+                ]),
         ]);
     }
 

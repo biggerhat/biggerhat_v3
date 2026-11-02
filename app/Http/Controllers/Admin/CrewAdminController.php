@@ -28,7 +28,11 @@ class CrewAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Upgrades/Crews/Index', [
-            'upgrades' => Upgrade::forCrews()->with('characters')->orderBy('name', 'ASC')->get(),
+            'upgrades' => Upgrade::forCrews()
+                ->select(['id', 'name', 'slug', 'front_image', 'back_image', 'game_mode_type'])
+                ->with('characters:id,display_name,faction')
+                ->orderBy('name', 'ASC')
+                ->get(),
         ]);
     }
 

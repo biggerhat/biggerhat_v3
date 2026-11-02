@@ -16,7 +16,7 @@ class AbilityAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Abilities/Index', [
-            'abilities' => Ability::orderBy('name', 'ASC')->get(),
+            'abilities' => Ability::select(['id', 'name', 'slug', 'costs_stone', 'defensive_ability_type', 'game_mode_type', 'suits'])->orderBy('name', 'ASC')->get(),
         ]);
     }
 

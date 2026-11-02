@@ -14,7 +14,7 @@ class TriggerAdminController extends Controller
     public function index(Request $request)
     {
         return inertia('Admin/Triggers/Index', [
-            'triggers' => Trigger::orderBy('name', 'ASC')->get(),
+            'triggers' => Trigger::select(['id', 'name', 'slug', 'stone_cost', 'suits', 'internal_notes'])->orderBy('name', 'ASC')->get(),
         ]);
     }
 

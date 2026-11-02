@@ -31,6 +31,15 @@ JSON stat/ability/action payloads).
 - Reuse the `GameText` token vocabulary for ability/action text so custom cards
   match official rendering.
 
+- **Saving** goes through `saveCardJson()` in `utils.ts`: it never throws, and non-validation failures (offline, 419,
+  5xx) come back as `message` so the editors can toast them instead of leaving the Save button spinning.
+- **Export** goes through `captureCardFaces()` (shared by both editors): inlines unsaved `blob:` portraits for the capture
+  and always restores them, even if the capture throws.
+- **Drafts**: `composables/useEditorDraft.ts` warns before leaving with unsaved changes and keeps a debounced
+  localStorage draft for *new* cards (`bh_draft_card`, `bh_draft_upgrade_<domain>`) with a "Restore draft?" banner.
+- `useShrinkToFit` binary-searches the font-size grid (about 5 reflows instead of up to 14).
+- Known limitation: the uploaded character art is preview-only — it is not stored with the card.
+
 ## Tests
-No dedicated feature tests yet — add under `tests/Feature/` (CRUD gate, store
-validation, share-code resolution) when touching this area.
+`tests/Feature/CustomCharacterControllerTest.php`, `CustomUpgradeControllerTest.php`,
+`CardCreatorCampaignLeaderTest.php`. The editors' client-side behaviour (drafts, export) has no automated tests.

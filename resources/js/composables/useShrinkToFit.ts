@@ -31,12 +31,23 @@ export function useShrinkToFit(target: Ref<HTMLElement | null | undefined>, sour
         const el = target.value;
         if (!el) return;
 
-        let size = maxFontSize;
-        el.style.fontSize = `${size}px`;
-        while (el.scrollHeight > el.clientHeight && size > minFontSize) {
-            size = Math.max(minFontSize, size - step);
-            el.style.fontSize = `${size}px`;
+        // Fit is monotonic in font size (smaller text never overflows more), so binary-search the step grid
+        // instead of walking it: ~4-5 forced reflows instead of up to ~14, same resulting size.
+        const sizeAt = (k: number) => Math.max(minFontSize, maxFontSize - k * step);
+        const fits = (k: number) => {
+            el.style.fontSize = `${sizeAt(k)}px`;
+            return el.scrollHeight <= el.clientHeight;
+        };
+
+        const last = Math.ceil((maxFontSize - minFontSize) / step);
+        let lo = 0;
+        let hi = last; // the smallest size always "fits" — it's the floor, whether or not the text really does
+        while (lo < hi) {
+            const mid = Math.floor((lo + hi) / 2);
+            if (fits(mid)) hi = mid;
+            else lo = mid + 1;
         }
+        el.style.fontSize = `${sizeAt(lo)}px`;
     };
 
     watch(

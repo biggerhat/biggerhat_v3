@@ -48,7 +48,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader
-                ><CardTitle>{{ ability ? 'Edit Ability' : 'New Ability' }}</CardTitle></CardHeader
+                ><CardTitle as="h1">{{ ability ? 'Edit Ability' : 'New Ability' }}</CardTitle></CardHeader
             >
             <CardContent class="space-y-4">
                 <div>

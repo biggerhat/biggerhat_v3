@@ -5,9 +5,10 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import GameText from '@/components/GameText.vue';
 import UpgradeFlipCard from '@/components/UpgradeFlipCard.vue';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { cn } from '@/lib/utils';
 import { Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { Loader2, Package, Swords, Users } from 'lucide-vue-next';
@@ -85,10 +86,11 @@ const navigateToEntity = () => {
             }
         "
     >
+        <!-- A real <button> carries the trigger's aria-haspopup/aria-expanded; putting them on the Badge <div> was invalid ARIA and not keyboard-reachable. -->
         <DrawerTrigger as-child>
-            <Badge :class="['cursor-pointer border-0 px-1.5 py-0 text-[13px]', typeColor]" variant="outline">
+            <button type="button" :class="cn(badgeVariants({ variant: 'outline' }), 'cursor-pointer border-0 px-1.5 py-0 text-[13px]', typeColor)">
                 {{ displayName }}
-            </Badge>
+            </button>
         </DrawerTrigger>
         <DrawerContent>
             <div class="mx-auto w-full max-w-lg">

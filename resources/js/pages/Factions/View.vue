@@ -560,7 +560,7 @@ onMounted(() => {
                     <div v-else-if="filterParams.page_view === 'full'">
                         <template v-if="props.characters?.length">
                             <div v-for="character in props.characters" v-bind:key="character.slug">
-                                <CharacterView :character="character" :miniature="character.standard_miniatures[0]" />
+                                <CharacterView :character="character" :miniature="character.standard_miniatures[0]" heading-level="h2" />
                             </div>
                         </template>
                         <EmptyState v-else />

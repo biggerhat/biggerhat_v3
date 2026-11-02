@@ -104,7 +104,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader
-                ><CardTitle>{{ card ? 'Edit Allegiance Card' : 'New Allegiance Card' }}</CardTitle></CardHeader
+                ><CardTitle as="h1">{{ card ? 'Edit Allegiance Card' : 'New Allegiance Card' }}</CardTitle></CardHeader
             >
             <CardContent class="space-y-4">
                 <div class="grid gap-3 sm:grid-cols-2">

@@ -234,11 +234,7 @@ const typePools = computed(() => [
                                     <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ pool.count }} units</span>
                                 </div>
                                 <p class="mt-1 text-xs text-muted-foreground">{{ pool.description }}</p>
-                                <div
-                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
-                                >
-                                    Open roster <ArrowRight class="size-3" />
-                                </div>
+                                <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium">Open roster <ArrowRight class="size-3" /></div>
                             </div>
                         </div>
                     </Link>

@@ -150,9 +150,7 @@ const feedGridClass = computed(() =>
                                 <p class="mt-1 text-xs text-muted-foreground">
                                     Build, save, and share crews. PDF export, soulstone tracking, and reference cards built in.
                                 </p>
-                                <div
-                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100"
-                                >
+                                <div class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary">
                                     Open builder <ArrowRight class="size-3" />
                                 </div>
                             </div>
@@ -179,7 +177,7 @@ const feedGridClass = computed(() =>
                                 </p>
                                 <div
                                     v-if="isLoggedIn"
-                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-emerald-400"
+                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"
                                 >
                                     Start a game <ArrowRight class="size-3" />
                                 </div>
@@ -214,7 +212,7 @@ const feedGridClass = computed(() =>
                                 </p>
                                 <div
                                     v-if="isLoggedIn"
-                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-600 opacity-0 transition-opacity group-hover:opacity-100 dark:text-amber-400"
+                                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400"
                                 >
                                     My collection <ArrowRight class="size-3" />
                                 </div>

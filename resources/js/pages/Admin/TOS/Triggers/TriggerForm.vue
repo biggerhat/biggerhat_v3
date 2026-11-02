@@ -77,7 +77,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader
-                ><CardTitle>{{ trigger ? 'Edit Trigger' : 'New Trigger' }}</CardTitle></CardHeader
+                ><CardTitle as="h1">{{ trigger ? 'Edit Trigger' : 'New Trigger' }}</CardTitle></CardHeader
             >
             <CardContent class="space-y-3">
                 <div>

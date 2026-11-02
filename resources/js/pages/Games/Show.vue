@@ -5109,7 +5109,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="member in myKilledMembers"
                                 :key="'killed-' + member.id"
-                                class="flex items-center justify-between rounded-md border border-border/40 bg-muted/40 px-2 py-1.5 text-sm text-muted-foreground line-through opacity-60"
+                                class="flex items-center justify-between rounded-md border border-border/40 bg-muted/40 px-2 py-1.5 text-sm text-muted-foreground line-through"
                             >
                                 <button class="cursor-pointer hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</button>
                                 <button
@@ -5749,7 +5749,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="member in opponentKilledMembers"
                                 :key="'killed-' + member.id"
-                                class="flex items-center justify-between rounded-md border border-border/40 bg-muted/40 px-2 py-1.5 text-sm text-muted-foreground line-through opacity-60"
+                                class="flex items-center justify-between rounded-md border border-border/40 bg-muted/40 px-2 py-1.5 text-sm text-muted-foreground line-through"
                             >
                                 <button class="cursor-pointer hover:underline" @click="openMemberPreview(member)">{{ member.display_name }}</button>
                                 <button

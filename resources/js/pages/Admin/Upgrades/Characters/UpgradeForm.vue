@@ -221,7 +221,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 h-full">
         <Card>
             <CardHeader>
-                <CardTitle>Upgrade</CardTitle>
+                <CardTitle as="h1">Upgrade</CardTitle>
                 <CardDescription>Create and Edit Upgrade Information</CardDescription>
             </CardHeader>
             <CardContent>

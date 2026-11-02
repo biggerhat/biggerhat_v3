@@ -99,7 +99,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Lore</CardTitle>
+                <CardTitle as="h1">Lore</CardTitle>
                 <CardDescription>Create and Edit Lore Entries</CardDescription>
             </CardHeader>
             <CardContent>

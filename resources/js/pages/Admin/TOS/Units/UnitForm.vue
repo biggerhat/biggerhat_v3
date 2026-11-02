@@ -226,7 +226,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 space-y-4 px-4 pb-6">
         <Card>
             <CardHeader>
-                <CardTitle>{{ unit ? 'Edit Unit' : 'New Unit' }}</CardTitle>
+                <CardTitle as="h1">{{ unit ? 'Edit Unit' : 'New Unit' }}</CardTitle>
                 <CardDescription>The Other Side unit (every Unit Card has a Standard and Glory side)</CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
@@ -317,7 +317,7 @@ onMounted(() => {
                         </div>
 
                         <div class="mt-3">
-                            <HeadingEyebrow as="h4">Abilities</HeadingEyebrow>
+                            <HeadingEyebrow as="h3">Abilities</HeadingEyebrow>
                             <SearchableMultiselect
                                 v-model="side.ability_ids"
                                 placeholder="Search abilities…"
@@ -327,7 +327,7 @@ onMounted(() => {
                         </div>
 
                         <div class="mt-3">
-                            <HeadingEyebrow as="h4">Actions</HeadingEyebrow>
+                            <HeadingEyebrow as="h3">Actions</HeadingEyebrow>
                             <SearchableMultiselect
                                 v-model="side.action_ids"
                                 placeholder="Search actions…"

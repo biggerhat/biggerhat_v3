@@ -23,10 +23,10 @@ withDefaults(
     <div
         :class="[
             'rounded-md border p-3 transition-all',
-            active ? 'border-primary bg-card shadow-sm ring-1 ring-primary/40' : 'border-dashed bg-muted/40 opacity-60',
+            active ? 'border-primary bg-card shadow-sm ring-1 ring-primary/40' : 'border-dashed bg-muted/40 text-muted-foreground',
         ]"
     >
-        <HeadingEyebrow v-if="label" as="h4" :class="['mb-2', active ? 'text-foreground' : '']"> {{ label }} </HeadingEyebrow>
+        <HeadingEyebrow v-if="label" as="h3" :class="['mb-2', active ? 'text-foreground' : 'text-muted-foreground']"> {{ label }} </HeadingEyebrow>
         <div class="grid grid-cols-4 gap-2 text-center text-xs">
             <div>
                 <p class="text-2xs uppercase text-muted-foreground">Sp</p>

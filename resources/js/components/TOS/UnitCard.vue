@@ -277,7 +277,7 @@ function ruleBadge(rule: SpecialRule): string {
                     </div>
 
                     <div v-if="activeSide.abilities.length">
-                        <HeadingEyebrow as="h4" class="mb-1">Abilities</HeadingEyebrow>
+                        <HeadingEyebrow as="h3" class="mb-1">Abilities</HeadingEyebrow>
                         <ul class="space-y-1.5 text-xs">
                             <li v-for="a in activeSide.abilities" :key="a.id">
                                 <span class="font-medium">{{ a.name }}.</span>
@@ -287,7 +287,7 @@ function ruleBadge(rule: SpecialRule): string {
                     </div>
 
                     <div v-if="activeSide.actions.length">
-                        <HeadingEyebrow as="h4" class="mb-1">Actions</HeadingEyebrow>
+                        <HeadingEyebrow as="h3" class="mb-1">Actions</HeadingEyebrow>
                         <ul class="space-y-2 text-xs">
                             <li v-for="ac in activeSide.actions" :key="ac.id" class="rounded border bg-muted/30 p-2">
                                 <div class="flex items-center justify-between gap-2">

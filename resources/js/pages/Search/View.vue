@@ -3436,6 +3436,7 @@ onUnmounted(() => {
                                     v-if="item.result_type === 'character' && item.standard_miniatures?.[0]"
                                     :character="item"
                                     :miniature="item.standard_miniatures[0]"
+                                    heading-level="h2"
                                 />
                                 <div v-else class="mx-auto mb-6 max-w-xs text-center">
                                     <p class="mb-1 text-xs text-muted-foreground">{{ item.name }}</p>

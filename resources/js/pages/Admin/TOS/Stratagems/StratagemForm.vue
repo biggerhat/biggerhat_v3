@@ -89,7 +89,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader
-                ><CardTitle>{{ stratagem ? 'Edit Stratagem' : 'New Stratagem' }}</CardTitle></CardHeader
+                ><CardTitle as="h1">{{ stratagem ? 'Edit Stratagem' : 'New Stratagem' }}</CardTitle></CardHeader
             >
             <CardContent class="space-y-3">
                 <div>

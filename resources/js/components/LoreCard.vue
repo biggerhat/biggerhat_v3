@@ -47,7 +47,7 @@ const formatType = (type: string) => {
         <!-- Header: story name -->
         <div class="flex items-center gap-2 border-b bg-secondary px-3 py-2">
             <BookOpen class="h-4 w-4 shrink-0 text-muted-foreground" />
-            <h3 class="text-sm font-semibold leading-tight">{{ lore.name }}</h3>
+            <h2 class="text-sm font-semibold leading-tight">{{ lore.name }}</h2>
         </div>
 
         <!-- File attachment -->

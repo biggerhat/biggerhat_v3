@@ -80,7 +80,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6">
         <Card>
             <CardHeader>
-                <CardTitle>Print On Demand Link</CardTitle>
+                <CardTitle as="h1">Print On Demand Link</CardTitle>
                 <CardDescription>Create and edit POD product links</CardDescription>
             </CardHeader>
             <CardContent>

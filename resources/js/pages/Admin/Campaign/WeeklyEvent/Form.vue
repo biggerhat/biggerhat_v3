@@ -49,7 +49,7 @@ onMounted(() => {
     <div class="container mx-auto mt-6 px-4 pb-6">
         <Card>
             <CardHeader
-                ><CardTitle>{{ item ? 'Edit' : 'New' }} Weekly Event</CardTitle></CardHeader
+                ><CardTitle as="h1">{{ item ? 'Edit' : 'New' }} Weekly Event</CardTitle></CardHeader
             >
             <CardContent class="space-y-4">
                 <div class="grid gap-3 md:grid-cols-2">

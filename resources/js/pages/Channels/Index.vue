@@ -6,6 +6,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { factionForeground } from '@/composables/useFactionColor';
 import { useListFiltering } from '@/composables/useListFiltering';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
@@ -223,7 +224,7 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                                         rel="noopener noreferrer"
                                         class="group/title flex items-center gap-1.5"
                                     >
-                                        <h3 class="text-lg font-bold leading-tight group-hover/title:underline">{{ transmission.title }}</h3>
+                                        <h2 class="text-lg font-bold leading-tight group-hover/title:underline">{{ transmission.title }}</h2>
                                         <ExternalLink class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                     </a>
                                     <div class="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -257,7 +258,8 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                                         <Badge
                                             v-for="faction in transmission.factions ?? []"
                                             :key="faction"
-                                            class="flex cursor-pointer items-center gap-1 border-transparent text-xs text-white hover:opacity-80"
+                                            class="flex cursor-pointer items-center gap-1 border-transparent text-xs hover:opacity-80"
+                                            :class="factionForeground(getFactionColor(faction))"
                                             :style="{
                                                 backgroundColor: `hsl(var(--${getFactionColor(faction)}))`,
                                             }"
@@ -278,7 +280,8 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                                         <Badge
                                             v-for="character in transmission.characters"
                                             :key="'c-' + character.id"
-                                            class="cursor-pointer border-transparent text-xs text-white hover:opacity-80"
+                                            class="cursor-pointer border-transparent text-xs hover:opacity-80"
+                                            :class="factionForeground(character.faction_color)"
                                             :style="{
                                                 backgroundColor: character.faction_color ? `hsl(var(--${character.faction_color}))` : undefined,
                                             }"

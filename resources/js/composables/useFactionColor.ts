@@ -32,3 +32,8 @@ export function factionForeground(faction: string | null): string {
 
     return LIGHT_FACTIONS.has(useFactionColor(faction.toLowerCase())) ? 'text-neutral-900' : 'text-white';
 }
+
+/** Same choice as {@link factionForeground}, as a CSS colour for inline `style` bindings. */
+export function factionForegroundColor(faction: string | null): string {
+    return factionForeground(faction) === 'text-neutral-900' ? '#111827' : '#ffffff';
+}

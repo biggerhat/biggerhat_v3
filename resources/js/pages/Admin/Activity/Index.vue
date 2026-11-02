@@ -112,7 +112,6 @@ const clearFilters = () => {
     </PageBanner>
 
     <div class="container mx-auto space-y-4 px-4 py-6 lg:px-8 xl:px-12">
-
         <Card>
             <CardContent class="flex flex-wrap items-end gap-3 p-4">
                 <div class="flex flex-col gap-1">

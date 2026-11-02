@@ -28,7 +28,12 @@ it('builds rules for every form request', function () {
         App\Http\Requests\Settings\ProfileUpdateRequest::class,
     ];
     // Deliberately rule-less (authorization only).
-    $noRules = [App\Http\Requests\Campaign\RemoveEquipmentRequest::class];
+    $noRules = [
+        App\Http\Requests\Campaign\RemoveEquipmentRequest::class,
+        App\Http\Requests\Campaign\RemoveArsenalModelRequest::class,
+        App\Http\Requests\Campaign\RemoveManualInjuryRequest::class,
+        App\Http\Requests\Campaign\RemoveCrewCardItemRequest::class,
+    ];
 
     $broken = [];
     foreach (array_diff(formRequestClasses(), $needsContext) as $class) {

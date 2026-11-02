@@ -326,7 +326,7 @@ const submit = () => {
                     {{ campaign.name }} • <strong class="text-foreground">{{ crew.name }}</strong> • 25 ss budget • unspent → scrip (max 3)
                 </span>
                 <p v-if="locked" class="mt-1 text-sm font-medium text-amber-700 dark:text-amber-400">
-                    Locked — the campaign is no longer in planning.
+                    Locked — the campaign has started and this crew already has a starting arsenal.
                 </p>
             </div>
         </template>

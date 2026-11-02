@@ -125,7 +125,7 @@ class CampaignController extends Controller
         $campaign->load([
             'organizer:id,name',
             'players.user:id,name',
-            'crews:id,campaign_id,user_id,name,share_code,faction,keyword_1_id,keyword_2_id,scrip',
+            'crews:id,campaign_id,user_id,name,share_code,faction,keyword_1_id,keyword_2_id,scrip,crew_card_effect_id',
             'crews.user:id,name',
             'invitations' => fn ($q) => $q->pending(),
             'invitations.user:id,name,email',

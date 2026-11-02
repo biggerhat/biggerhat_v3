@@ -1690,3 +1690,34 @@ it('exposes excludes_from_cr on owned equipment in the Arsenal Sheet payload', f
             return $row && $row['excludes_from_cr'] === true;
         }));
 });
+
+it('removeArsenalModel soft-removes a model hired in error and drops it from active()', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.models.destroy', [$campaign, $crew->share_code, $model]))
+        ->assertRedirect();
+
+    expect($model->fresh()->removed_at)->not->toBeNull()
+        ->and(CampaignArsenalModel::query()->where('campaign_crew_id', $crew->id)->active()->count())->toBe(0);
+});
+
+it('removeArsenalModel rejects a non-owner and a model from another crew', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    [, $otherCrew] = crewFor2($other);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    $foreign = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $otherCrew->id, 'character_id' => Character::factory()->create()->id]);
+
+    $this->actingAs($other)
+        ->delete(route('campaigns.crews.arsenal.models.destroy', [$campaign, $crew->share_code, $model]))
+        ->assertForbidden();
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.models.destroy', [$campaign, $crew->share_code, $foreign]))
+        ->assertForbidden();
+
+    expect($model->fresh()->removed_at)->toBeNull()->and($foreign->fresh()->removed_at)->toBeNull();
+});

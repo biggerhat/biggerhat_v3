@@ -117,6 +117,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Rename (nickname) an already-hired Arsenal Model.
     Route::put('/campaigns/{campaign}/crews/{crew}/arsenal/models/{model}', [ArsenalSheetController::class, 'updateArsenalModel'])
         ->name('campaigns.crews.arsenal.models.update');
+    Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/models/{model}', [ArsenalSheetController::class, 'removeArsenalModel'])
+        ->name('campaigns.crews.arsenal.models.destroy');
     Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/equipment', [ArsenalSheetController::class, 'addManualEquipment'])
         ->name('campaigns.crews.arsenal.equipment.store');
     Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/equipment/{equipment}', [ArsenalSheetController::class, 'removeEquipment'])

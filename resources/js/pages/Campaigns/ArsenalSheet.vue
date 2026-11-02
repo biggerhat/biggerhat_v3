@@ -23,7 +23,7 @@ import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Calendar, Copy, Download, Loader2, Pencil, Plus, Printer, Swords, Tag } from 'lucide-vue-next';
+import { Calendar, Copy, Download, Loader2, Pencil, Plus, Printer, Swords, Tag, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface KeywordRow {
@@ -1136,6 +1136,22 @@ const removeEquipment = async (eq: EquipmentItem) => {
 
 // ───────── Unit card preview (Drawer) ─────────
 const unitPreviewRow = ref<ArsenalRow | null>(null);
+
+const removeArsenalModel = async (model: ArsenalRow) => {
+    const name = model.label || model.character?.display_name || model.custom_character?.display_name || 'this model';
+    // Same stacked-dialog problem as removeEquipment: close the drawer before the confirm opens.
+    unitPreviewRow.value = null;
+    if (
+        !(await confirmDialog({
+            title: 'Remove model',
+            message: `Remove ${name} from your arsenal? Use this for models hired in error — models lost in play should go through the Aftermath.`,
+            destructive: true,
+        }))
+    ) {
+        return;
+    }
+    router.delete(route('campaigns.crews.arsenal.models.destroy', [props.campaign.id, props.crew.share_code, model.id]));
+};
 const viewUnit = (model: ArsenalRow) => {
     unitPreviewRow.value = model;
 };
@@ -1157,7 +1173,7 @@ const confirmDialog = useConfirm();
 const toast = useToast();
 
 const copyShareLink = async () => {
-    const url = `${window.location.origin}${props.view_mode.share_url}`;
+    const url = props.view_mode.share_url;
     try {
         await navigator.clipboard.writeText(url);
         toast.success('Share link copied to clipboard.');
@@ -2582,6 +2598,16 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                             @click="startRename(unitPreviewRow)"
                         >
                             <Pencil class="size-3.5" />
+                        </button>
+                        <button
+                            v-if="view_mode.is_owner"
+                            type="button"
+                            class="text-muted-foreground hover:text-destructive"
+                            title="Remove from arsenal"
+                            aria-label="Remove from arsenal"
+                            @click="removeArsenalModel(unitPreviewRow)"
+                        >
+                            <Trash2 class="size-3.5" />
                         </button>
                     </div>
                     <p v-if="unitPreviewRow.label" class="text-center text-xs text-muted-foreground">

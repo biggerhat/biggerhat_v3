@@ -2,6 +2,7 @@
 
 namespace App\Models\Campaign;
 
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\FactionEnum;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
@@ -78,6 +79,20 @@ class CampaignCrew extends Model
     public function getRouteKeyName(): string
     {
         return 'share_code';
+    }
+
+    /**
+     * Whether the Starting Arsenal wizard is editable. Open for the whole planning phase, and — so players who
+     * join (or Start Anew) after launch aren't stuck — for any crew on an active campaign that has not yet
+     * picked a starting crew card effect. Saving the wizard sets that effect, which closes it again.
+     */
+    public function startingArsenalOpen(Campaign $campaign): bool
+    {
+        return match ($campaign->status) {
+            CampaignStatusEnum::Planning => true,
+            CampaignStatusEnum::Active => $this->crew_card_effect_id === null,
+            default => false,
+        };
     }
 
     protected static function booted(): void

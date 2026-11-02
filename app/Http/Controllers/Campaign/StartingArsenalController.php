@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Campaign;
 
-use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\MessageTypeEnum;
 use App\Enums\UpgradeDomainTypeEnum;
@@ -28,7 +27,7 @@ use Illuminate\Support\Str;
 
 /**
  * One-shot wizard for setting up a fresh crew's 25-ss starting arsenal
- * (rulebook pg 15). Locked once the campaign starts — the crew is then
+ * (rulebook pg 15). Locked once the campaign starts (unless the crew has no starting arsenal yet) — the crew is then
  * stuck with whatever rows it has (further growth happens via the weekly
  * New Hires step in Phase 7).
  */
@@ -79,7 +78,7 @@ class StartingArsenalController extends Controller
             'corrupted_pawns' => fn () => $this->corruptedPawnsProp($campaign, $crew, $arsenal),
             'starting_budget_ss' => self::STARTING_BUDGET_SS,
             'max_leftover_scrip' => self::MAX_LEFTOVER_SCRIP,
-            'locked' => $campaign->status !== CampaignStatusEnum::Planning,
+            'locked' => ! $crew->startingArsenalOpen($campaign),
         ]);
     }
 
@@ -87,7 +86,7 @@ class StartingArsenalController extends Controller
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
 
-        if ($campaign->status !== CampaignStatusEnum::Planning) {
+        if (! $crew->startingArsenalOpen($campaign)) {
             return redirect()->back()->withMessage(
                 'Starting arsenal is locked once the campaign is active.',
                 null,
@@ -246,7 +245,7 @@ class StartingArsenalController extends Controller
             abort(404);
         }
 
-        if ($campaign->status !== CampaignStatusEnum::Planning) {
+        if (! $crew->startingArsenalOpen($campaign)) {
             return redirect()->back()->withMessage('The starting item is locked once the campaign is active.', null, MessageTypeEnum::error);
         }
 
@@ -286,7 +285,7 @@ class StartingArsenalController extends Controller
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
 
-        if ($campaign->status !== CampaignStatusEnum::Planning) {
+        if (! $crew->startingArsenalOpen($campaign)) {
             return redirect()->back()->withMessage('The starting item is locked once the campaign is active.', null, MessageTypeEnum::error);
         }
 

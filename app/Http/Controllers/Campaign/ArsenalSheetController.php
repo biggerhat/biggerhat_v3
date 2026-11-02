@@ -12,6 +12,7 @@ use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
 use App\Http\Requests\Campaign\AdjustLeaderXpRequest;
 use App\Http\Requests\Campaign\AdjustScripRequest;
+use App\Http\Requests\Campaign\RemoveArsenalModelRequest;
 use App\Http\Requests\Campaign\RemoveEquipmentRequest;
 use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
 use App\Models\Ability;
@@ -190,6 +191,27 @@ class ArsenalSheetController extends Controller
         $model->update(['label' => $validated['label'] ?? null]);
 
         return redirect()->back()->withMessage('Nickname updated.');
+    }
+
+    /**
+     * Remove a model hired in error (wrong pick, bought a Unique twice, hired before the week advanced).
+     * Soft-removed via removed_at — same flag Starting Anew uses — so history survives but active() skips it.
+     * Equipment bound to the model (Corrupted Pawns item) goes with it, like an annihilation.
+     */
+    public function removeArsenalModel(RemoveArsenalModelRequest $request, Campaign $campaign, CampaignCrew $crew, CampaignArsenalModel $model)
+    {
+        DB::transaction(function () use ($model, $crew) {
+            $model->update(['removed_at' => now()]);
+            CampaignEquipment::query()
+                ->where('campaign_crew_id', $crew->id)
+                ->where('bound_arsenal_model_id', $model->id)
+                ->whereNull('annihilated_at')
+                ->update(['annihilated_at' => now()]);
+        });
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage('Model removed from the arsenal.');
     }
 
     /**

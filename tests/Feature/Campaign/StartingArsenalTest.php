@@ -406,11 +406,12 @@ it('allows Versatile-in-faction even when not in-keyword', function () {
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(1);
 });
 
-it('locks once the campaign is active', function () {
+it('locks once the campaign is active and the crew already has its starting arsenal', function () {
     $effect = CampaignCrewCard::factory()->create();
     $user = arsenalUser();
     $kw = Keyword::factory()->create();
     $crew = freshCrewWithKeyword($user, $kw);
+    $crew->update(['crew_card_effect_id' => $effect->id]);
     $crew->campaign->update(['status' => CampaignStatusEnum::Active]);
 
     $char = Character::factory()->create(['cost' => 5, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
@@ -424,6 +425,30 @@ it('locks once the campaign is active', function () {
         ->assertRedirect();
 
     expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
+it('lets a late joiner with no starting arsenal build one on an active campaign, then locks', function () {
+    $effect = CampaignCrewCard::factory()->create();
+    $user = arsenalUser();
+    $kw = Keyword::factory()->create();
+    $crew = freshCrewWithKeyword($user, $kw);
+    $crew->campaign->update(['status' => CampaignStatusEnum::Active]);
+
+    $char = Character::factory()->create(['cost' => 5, 'station' => CharacterStationEnum::Minion, 'faction' => FactionEnum::Arcanists]);
+    $char->keywords()->attach($kw);
+    $payload = ['hires' => [['character_id' => $char->id]], 'crew_card_effect_id' => $effect->id];
+    $url = route('campaigns.crews.starting-arsenal.update', [$crew->campaign_id, $crew->share_code]);
+
+    $this->actingAs($user)
+        ->get(route('campaigns.crews.starting-arsenal.edit', [$crew->campaign_id, $crew->share_code]))
+        ->assertInertia(fn ($page) => $page->where('locked', false));
+
+    $this->actingAs($user)->post($url, $payload)->assertRedirect();
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(1);
+
+    // Second save is rejected: the crew card effect is now set.
+    $this->actingAs($user)->post($url, ['hires' => [], 'crew_card_effect_id' => $effect->id])->assertRedirect();
+    expect(CampaignArsenalModel::where('campaign_crew_id', $crew->id)->count())->toBe(1);
 });
 
 it('includes NULL-station (Henchman/Enforcer/Unique) models in the hireable pool', function () {

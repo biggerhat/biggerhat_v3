@@ -5,6 +5,7 @@ use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignGame;
 use App\Models\Campaign\CampaignPlayer;
@@ -66,7 +67,9 @@ it('Corrupted Pawns refuses a model over cost 6, a non-TTW item, the disabled ru
     $this->actingAs($user)->post($route, ['equipment_upgrade_id' => $normal->id, 'arsenal_model_id' => $cheap->id])->assertSessionHasErrors('equipment_upgrade_id');
     expect(CampaignEquipment::count())->toBe(0);
 
+    // Started campaign + a crew that already finished its starting arsenal (crew card picked) = locked.
     $campaign->update(['status' => 'active']);
+    $crew->update(['crew_card_effect_id' => CampaignCrewCard::factory()->create()->id]);
     $this->actingAs($user)->post($route, ['equipment_upgrade_id' => $ttw->id, 'arsenal_model_id' => $cheap->id])->assertRedirect();
     expect(CampaignEquipment::count())->toBe(0);
 

@@ -42,6 +42,7 @@ interface CampaignCrewRow {
     keyword_1_id: number | null;
     keyword_2_id: number | null;
     scrip: number;
+    crew_card_effect_id?: number | null;
     user: UserMini | null;
 }
 
@@ -99,6 +100,11 @@ const props = defineProps<{
 // existing member (usually the organizer, who's a CampaignPlayer from
 // creation but never went through the invite-accept/join-link crew-creation
 // flow) has no crew of their own to actually play with otherwise.
+// Build Leader / Starting Arsenal stay available after launch for crews that haven't picked a starting crew card
+// effect yet (late joiners, Starting Anew) — mirrors CampaignCrew::startingArsenalOpen().
+const setupOpen = (crew: { crew_card_effect_id?: number | null }) =>
+    props.campaign.status === 'planning' || (props.campaign.status === 'active' && !crew.crew_card_effect_id);
+
 const myCrew = computed(() => props.campaign.crews.find((c) => c.user?.id === authUserId.value) ?? null);
 const isMember = computed(() => props.campaign.players.some((p) => p.user_id === authUserId.value));
 
@@ -406,13 +412,10 @@ const deleteCampaign = async (id: number) => {
                     <template v-if="myCrew">
                         <p class="mb-3 text-sm font-medium">{{ myCrew.name }}</p>
                         <div class="flex flex-col gap-2">
-                            <Link
-                                v-if="campaign.status === 'planning'"
-                                :href="route('campaigns.crews.leader.edit', [campaign.id, myCrew.share_code])"
-                            >
+                            <Link v-if="setupOpen(myCrew)" :href="route('campaigns.crews.leader.edit', [campaign.id, myCrew.share_code])">
                                 <Button size="sm" variant="outline" class="w-full">Build Leader</Button>
                             </Link>
-                            <template v-if="campaign.status === 'planning'">
+                            <template v-if="setupOpen(myCrew)">
                                 <Link
                                     v-if="myCrew.faction && myCrew.keyword_1_id && myCrew.keyword_2_id"
                                     :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, myCrew.share_code])"
@@ -474,13 +477,10 @@ const deleteCampaign = async (id: number) => {
                                 </Link>
                                 <!-- Multiplayer owners manage their crew in the "My crew" card; solo has no such card. -->
                                 <template v-if="campaign.is_solo">
-                                    <Link
-                                        v-if="campaign.status === 'planning'"
-                                        :href="route('campaigns.crews.leader.edit', [campaign.id, c.share_code])"
-                                    >
+                                    <Link v-if="setupOpen(c)" :href="route('campaigns.crews.leader.edit', [campaign.id, c.share_code])">
                                         <Button size="sm" variant="outline" class="w-full">Build Leader</Button>
                                     </Link>
-                                    <template v-if="campaign.status === 'planning'">
+                                    <template v-if="setupOpen(c)">
                                         <Link
                                             v-if="c.faction && c.keyword_1_id && c.keyword_2_id"
                                             :href="route('campaigns.crews.starting-arsenal.edit', [campaign.id, c.share_code])"

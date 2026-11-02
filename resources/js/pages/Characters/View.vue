@@ -3,7 +3,8 @@ import CharacterView from '@/components/CharacterView.vue';
 import JsonLd from '@/components/JsonLd.vue';
 import SeoHead from '@/components/SeoHead.vue';
 import { useFactionColor } from '@/composables/useFactionColor';
-import { computed } from 'vue';
+import { useRecentlyViewed } from '@/composables/useRecentlyViewed';
+import { computed, onMounted } from 'vue';
 
 const props = defineProps({
     character: {
@@ -40,6 +41,17 @@ const seoDescription = computed(() => {
 });
 
 const seoImage = computed(() => props.miniature?.front_image ?? null);
+
+const { record: recordRecent } = useRecentlyViewed();
+onMounted(() => {
+    recordRecent({
+        slug: props.character.slug,
+        name: props.character.display_name,
+        faction: props.character.faction ?? null,
+        miniatureId: props.miniature.id,
+        miniatureSlug: props.miniature.slug,
+    });
+});
 </script>
 
 <template>

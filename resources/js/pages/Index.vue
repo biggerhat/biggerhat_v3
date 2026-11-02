@@ -11,7 +11,8 @@ import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowRight, BookMarked, Lock, Megaphone, Newspaper, Radio, RefreshCw, Search, Sparkles, Swords, Target, Users } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { useRecentlyViewed } from '@/composables/useRecentlyViewed';
+import { computed, onMounted, ref } from 'vue';
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth?.user);
@@ -24,6 +25,9 @@ const props = defineProps<{
     recent_transmissions?: any[];
     stats: { characters: number; keywords: number; miniatures: number };
 }>();
+
+const { items: recentlyViewed, load: loadRecent } = useRecentlyViewed();
+onMounted(loadRecent);
 
 // One fixed slot per Community Activity feed (Articles / Site News / Aethervox / Recent Crews).
 const { delays: feedDelays } = useStaggeredEntry(ref(4), 60);
@@ -293,6 +297,23 @@ const feedGridClass = computed(() =>
                     </div>
                 </div>
             </section>
+
+            <!-- ═══ Recently viewed (per browser) ═══ -->
+            <div v-if="recentlyViewed.length" class="animate-fade-in-up" style="animation-delay: 170ms">
+                <div class="mb-3 px-1">
+                    <HeadingEyebrow as="h2">Pick Up Where You Left Off</HeadingEyebrow>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <Link
+                        v-for="c in recentlyViewed"
+                        :key="c.slug"
+                        :href="route('characters.view', { character: c.slug, miniature: c.miniatureId, slug: c.miniatureSlug })"
+                        class="rounded-lg border bg-card px-3 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-muted/50"
+                    >
+                        {{ c.name }}
+                    </Link>
+                </div>
+            </div>
 
             <!-- ═══ Community Activity ═══ -->
             <div class="animate-fade-in-up" style="animation-delay: 200ms">

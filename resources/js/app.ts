@@ -1,5 +1,4 @@
 import '../css/app.css';
-import './echo';
 
 import { pageTitle, resolvePage } from '@/lib/resolvePage';
 import { createInertiaApp, Head, Link, router } from '@inertiajs/vue3';

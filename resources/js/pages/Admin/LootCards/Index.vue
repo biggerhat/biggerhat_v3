@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/composables/useConfirm';
+import { loadEcho } from '@/lib/echo';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { Download, FileText, Loader2, Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
@@ -66,9 +67,13 @@ interface PdfStatusEvent {
     message: string | null;
 }
 
-onMounted(() => {
-    if (!window.Echo) return;
-    window.Echo.channel('bonanza-deck').listen('.pdf.status', (e: PdfStatusEvent) => {
+let echoActive = false;
+
+onMounted(async () => {
+    echoActive = true;
+    const echo = await loadEcho();
+    if (!echo || !echoActive) return;
+    echo.channel('bonanza-deck').listen('.pdf.status', (e: PdfStatusEvent) => {
         pdfStatus.value = e.status;
         if (e.status === 'ready') {
             pdfUrl.value = e.url;
@@ -81,6 +86,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    echoActive = false;
     window.Echo?.leave('bonanza-deck');
 });
 

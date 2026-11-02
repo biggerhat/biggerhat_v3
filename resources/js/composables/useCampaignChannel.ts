@@ -1,3 +1,4 @@
+import { loadEcho } from '@/lib/echo';
 import { router } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 
@@ -19,6 +20,7 @@ const BROADCAST_RELOAD_DEBOUNCE_MS = 150;
 export function useCampaignChannel(campaignId: number | null, only: string[]) {
     const onlineMembers = ref<PresenceMember[]>([]);
     let channel: any = null;
+    let active = false;
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingOnly: Set<string> = new Set();
 
@@ -53,13 +55,22 @@ export function useCampaignChannel(campaignId: number | null, only: string[]) {
         }
     };
 
-    const joinChannel = () => {
-        if (!window.Echo || !campaignId) {
-            if (import.meta.env.DEV) console.warn('[CampaignChannel] Echo unavailable or no campaign id, skipping');
+    const joinChannel = async () => {
+        if (!campaignId) {
+            if (import.meta.env.DEV) console.warn('[CampaignChannel] No campaign id, skipping');
             return;
         }
 
-        channel = window.Echo.join(`campaign.${campaignId}`)
+        active = true;
+        const echo = await loadEcho();
+        // Unmounted while the Echo chunk was loading.
+        if (!echo || !active) {
+            if (!echo && import.meta.env.DEV) console.warn('[CampaignChannel] Echo unavailable, skipping');
+            return;
+        }
+
+        channel = echo
+            .join(`campaign.${campaignId}`)
             .here((members: PresenceMember[]) => {
                 onlineMembers.value = members;
             })
@@ -73,6 +84,7 @@ export function useCampaignChannel(campaignId: number | null, only: string[]) {
     };
 
     const leaveChannel = () => {
+        active = false;
         if (reloadTimer) clearTimeout(reloadTimer);
         if (channel && campaignId) {
             window.Echo?.leave(`campaign.${campaignId}`);

@@ -3,7 +3,7 @@ import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
 import UpgradeBackFace from '@/components/CardCreator/UpgradeBackFace.vue';
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
 import UpgradeFrontFace from '@/components/CardCreator/UpgradeFrontFace.vue';
-import { createComboImage, exportComboAsPdf, fetchFontEmbedCSS, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
+import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
+import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useToast } from '@/composables/useToast';
 import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft, ChevronDown, Download, FileText, Loader2, Plus, Save, Trash2 } from 'lucide-vue-next';
@@ -41,6 +43,8 @@ interface MarkerData {
     description: string | null;
     source_id?: number | null;
 }
+
+const toast = useToast();
 
 const props = defineProps<{
     upgrade: {
@@ -112,6 +116,23 @@ const limitationsSuggestions = computed(() => {
 const contentBlocks = reactive<ContentBlock[]>(props.upgrade?.content_blocks ?? []);
 const backTokens = reactive<TokenData[]>(props.upgrade?.back_tokens ?? []);
 const backMarkers = reactive<MarkerData[]>(props.upgrade?.back_markers ?? []);
+
+const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+    key: `bh_draft_upgrade_${props.domain}`,
+    keepDraft: !props.upgrade,
+    snapshot: () => ({
+        form: { ...form },
+        contentBlocks: JSON.parse(JSON.stringify(contentBlocks)),
+        backTokens: JSON.parse(JSON.stringify(backTokens)),
+        backMarkers: JSON.parse(JSON.stringify(backMarkers)),
+    }),
+    restore: (d) => {
+        Object.assign(form, d.form);
+        contentBlocks.splice(0, contentBlocks.length, ...d.contentBlocks);
+        backTokens.splice(0, backTokens.length, ...d.backTokens);
+        backMarkers.splice(0, backMarkers.length, ...d.backMarkers);
+    },
+});
 
 const saving = ref(false);
 const exporting = ref(false);
@@ -306,30 +327,17 @@ const pickSearchResult = (official: any) => {
 
 const exportingPdf = ref(false);
 
-// Shared by exportImages() (PNG) and exportPdf() below.
-const captureFaces = async (
-    frontEl: HTMLElement | null | undefined,
-    backEl: HTMLElement | null | undefined,
-): Promise<{ frontData: string; backData: string; frontEl: HTMLElement; backEl: HTMLElement } | null> => {
-    if (!frontEl || !backEl) return null;
-    const { toPng } = await import('html-to-image');
-    const fontEmbedCSS = await fetchFontEmbedCSS();
-    const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
-    const frontData = await toPng(frontEl, opts);
-    const backData = await toPng(backEl, opts);
-    return { frontData, backData, frontEl, backEl };
-};
-
 const exportImages = async () => {
     exporting.value = true;
     try {
         await measureExportSize();
-        const captured = await captureFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
+        const captured = await captureCardFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
         if (!captured) return;
         const comboData = await createComboImage(captured.frontData, captured.backData);
         triggerDownload(comboData, `${form.name || 'upgrade'}.png`);
     } catch (e) {
         console.error('Image export failed:', e);
+        toast.error('Image export failed', { description: e instanceof Error ? e.message : 'Try again.' });
     } finally {
         exporting.value = false;
     }
@@ -342,11 +350,12 @@ const exportPdf = async () => {
     exportingPdf.value = true;
     try {
         await measurePrintSize();
-        const captured = await captureFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
+        const captured = await captureCardFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
         if (!captured) return;
         await exportComboAsPdf(captured.frontData, captured.backData, captured.frontEl, captured.backEl, `${form.name || 'upgrade'}.pdf`);
     } catch (e) {
         console.error('PDF export failed:', e);
+        toast.error('PDF export failed', { description: e instanceof Error ? e.message : 'Try again.' });
     } finally {
         exportingPdf.value = false;
     }
@@ -394,19 +403,17 @@ const save = async () => {
 
     const url = isEdit.value ? route('tools.card_creator.upgrades.update', props.upgrade!.id) : route('tools.card_creator.upgrades.store');
 
-    const res = await fetch(url, {
-        method: isEdit.value ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        body: JSON.stringify(body),
-    });
+    const result = await saveCardJson(url, isEdit.value ? 'PUT' : 'POST', body, csrfToken());
+    const data = result.data;
 
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-        errors.value = data.errors ?? {};
+    if (!result.ok) {
+        errors.value = result.errors;
+        if (result.message) toast.error('Not saved', { description: result.message });
         saving.value = false;
         return;
     }
+
+    markSaved();
 
     if (data.redirect) {
         router.visit(data.redirect);
@@ -453,6 +460,14 @@ const blockTypeColor = (type: string, idx: number) => {
                 </div>
             </template>
         </PageBanner>
+
+        <div v-if="hasDraft" class="container mx-auto mt-4 px-4 lg:px-6">
+            <div class="flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+                <span class="min-w-0 flex-1">You have an unsaved draft from earlier. Restore it?</span>
+                <Button size="sm" @click="restoreDraft">Restore draft</Button>
+                <Button size="sm" variant="ghost" @click="discardDraft">Discard</Button>
+            </div>
+        </div>
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <div class="mb-4 flex gap-2">

@@ -57,13 +57,83 @@ export function tarotCardSize(totalChars: number): { width: number; height: numb
 
 let cachedFontCSS: string | null = null;
 
+const bytesToBase64 = (bytes: Uint8Array): string => {
+    // Chunked so a large font never blows the argument limit of String.fromCharCode(...bytes).
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+};
+
 export async function fetchFontEmbedCSS(): Promise<string> {
     if (cachedFontCSS) return cachedFontCSS;
     const res = await fetch('/font/M4E-Symbols.otf');
-    const buf = await res.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    if (!res.ok) throw new Error(`Could not load the card symbol font (${res.status}).`);
+    const base64 = bytesToBase64(new Uint8Array(await res.arrayBuffer()));
+    // Only cache a successful load so a transient failure doesn't poison later exports.
     cachedFontCSS = `@font-face { font-family: 'M4E-Symbols'; src: url(data:font/opentype;base64,${base64}) format('opentype'); }`;
     return cachedFontCSS;
+}
+
+/**
+ * Captures both card faces as PNG data URLs. Any `blob:` image (an uploaded portrait that hasn't been saved
+ * yet) is inlined as a data URL for the capture and always restored afterwards — even when the capture throws.
+ */
+export async function captureCardFaces(
+    frontEl: HTMLElement | null | undefined,
+    backEl: HTMLElement | null | undefined,
+): Promise<{ frontData: string; backData: string; frontEl: HTMLElement; backEl: HTMLElement } | null> {
+    if (!frontEl || !backEl) return null;
+    const { toPng } = await import('html-to-image');
+    const fontEmbedCSS = await fetchFontEmbedCSS();
+    const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
+
+    const swapped: { el: HTMLImageElement; src: string }[] = [];
+    try {
+        for (const img of [
+            ...frontEl.querySelectorAll<HTMLImageElement>('img[src^="blob:"]'),
+            ...backEl.querySelectorAll<HTMLImageElement>('img[src^="blob:"]'),
+        ]) {
+            swapped.push({ el: img, src: img.src });
+            img.src = await blobToDataURL(img.src);
+        }
+        const frontData = await toPng(frontEl, opts);
+        const backData = await toPng(backEl, opts);
+        return { frontData, backData, frontEl, backEl };
+    } finally {
+        for (const { el, src } of swapped) el.src = src;
+    }
+}
+
+export interface SaveCardResult {
+    ok: boolean;
+    errors: Record<string, any>;
+    data: Record<string, any>;
+    /** Set for anything that isn't a plain validation failure (network down, 419 expired session, 5xx). */
+    message: string | null;
+}
+
+/** JSON save used by both card editors. Never throws: network and server failures come back as `message`. */
+export async function saveCardJson(url: string, method: 'POST' | 'PUT', body: unknown, csrf: string): Promise<SaveCardResult> {
+    try {
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) return { ok: true, errors: {}, data, message: null };
+        if (res.status === 422) return { ok: false, errors: data.errors ?? {}, data, message: null };
+        const message =
+            res.status === 419
+                ? 'Your session expired. Reload the page and try again — copy your work first if you need to.'
+                : (data.message ?? `Could not save (error ${res.status}).`);
+        return { ok: false, errors: data.errors ?? {}, data, message };
+    } catch {
+        return { ok: false, errors: {}, data: {}, message: 'Could not reach the server. Check your connection and try again.' };
+    }
 }
 
 export function blobToDataURL(blobUrl: string): Promise<string> {

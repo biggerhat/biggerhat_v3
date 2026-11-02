@@ -5,7 +5,7 @@ import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
-import { blobToDataURL, createComboImage, exportComboAsPdf, fetchFontEmbedCSS, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
+import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
+import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useToast } from '@/composables/useToast';
 import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-vue-next';
@@ -75,6 +77,8 @@ interface LinkedItem {
     id: number;
     name: string;
 }
+
+const toast = useToast();
 
 const props = defineProps<{
     character: {
@@ -187,6 +191,29 @@ const keywords = reactive<KeywordData[]>(props.character?.keywords ?? []);
 const characteristics = reactive<string[]>(props.character?.characteristics ?? []);
 const linkedCrewUpgrades = reactive<LinkedItem[]>(props.character?.linked_crew_upgrades ?? []);
 const linkedTotems = reactive<LinkedItem[]>(props.character?.linked_totems ?? []);
+
+const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+    key: 'bh_draft_card',
+    keepDraft: !props.character,
+    snapshot: () => ({
+        form: { ...form },
+        actions: JSON.parse(JSON.stringify(actions)),
+        abilities: JSON.parse(JSON.stringify(abilities)),
+        keywords: JSON.parse(JSON.stringify(keywords)),
+        characteristics: [...characteristics],
+        linkedCrewUpgrades: JSON.parse(JSON.stringify(linkedCrewUpgrades)),
+        linkedTotems: JSON.parse(JSON.stringify(linkedTotems)),
+    }),
+    restore: (d) => {
+        Object.assign(form, d.form);
+        actions.splice(0, actions.length, ...d.actions);
+        abilities.splice(0, abilities.length, ...d.abilities);
+        keywords.splice(0, keywords.length, ...d.keywords);
+        characteristics.splice(0, characteristics.length, ...d.characteristics);
+        linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...d.linkedCrewUpgrades);
+        linkedTotems.splice(0, linkedTotems.length, ...d.linkedTotems);
+    },
+});
 
 // Clone from official character
 const cloneSearchQuery = ref('');
@@ -303,48 +330,17 @@ const {
     () => tarotCardSize(abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0)).width,
 );
 
-// Shared by exportImages() (PNG) and exportPdf() below — captures both faces
-// as toPng() data URLs, restoring every temporary style/src mutation made to
-// get a clean capture.
-const captureFaces = async (
-    frontEl: HTMLElement | null | undefined,
-    backEl: HTMLElement | null | undefined,
-): Promise<{ frontData: string; backData: string; frontEl: HTMLElement; backEl: HTMLElement } | null> => {
-    if (!frontEl || !backEl) return null;
-    const { toPng } = await import('html-to-image');
-    const fontEmbedCSS = await fetchFontEmbedCSS();
-    const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
-
-    // Convert any blob: image sources to data URLs so html-to-image can embed them
-    const blobImages = frontEl.querySelectorAll<HTMLImageElement>('img[src^="blob:"]');
-    const origSrcs: { el: HTMLImageElement; src: string }[] = [];
-    for (const img of blobImages) {
-        origSrcs.push({ el: img, src: img.src });
-        img.src = await blobToDataURL(img.src);
-    }
-
-    const frontData = await toPng(frontEl, opts);
-
-    // Restore original blob sources
-    for (const { el, src } of origSrcs) {
-        el.src = src;
-    }
-
-    const backData = await toPng(backEl, opts);
-
-    return { frontData, backData, frontEl, backEl };
-};
-
 const exportImages = async () => {
     exporting.value = true;
     try {
         await measureExportSize();
-        const captured = await captureFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
+        const captured = await captureCardFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
         if (!captured) return;
         const comboData = await createComboImage(captured.frontData, captured.backData);
         triggerDownload(comboData, `${form.name || 'card'}.png`);
     } catch (e) {
         console.error('Image export failed:', e);
+        toast.error('Image export failed', { description: e instanceof Error ? e.message : 'Try again.' });
     } finally {
         exporting.value = false;
     }
@@ -358,11 +354,12 @@ const exportPdf = async () => {
     exportingPdf.value = true;
     try {
         await measurePrintSize();
-        const captured = await captureFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
+        const captured = await captureCardFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
         if (!captured) return;
         await exportComboAsPdf(captured.frontData, captured.backData, captured.frontEl, captured.backEl, `${form.name || 'card'}.pdf`);
     } catch (e) {
         console.error('PDF export failed:', e);
+        toast.error('PDF export failed', { description: e instanceof Error ? e.message : 'Try again.' });
     } finally {
         exportingPdf.value = false;
     }
@@ -402,16 +399,12 @@ const save = async () => {
 
     const url = isEdit.value ? route('tools.card_creator.update', props.character!.id) : route('tools.card_creator.store');
 
-    const res = await fetch(url, {
-        method: isEdit.value ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        body: JSON.stringify(body),
-    });
+    const result = await saveCardJson(url, isEdit.value ? 'PUT' : 'POST', body, csrfToken());
+    const data = result.data;
 
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-        errors.value = data.errors ?? {};
+    if (!result.ok) {
+        errors.value = result.errors;
+        if (result.message) toast.error('Not saved', { description: result.message });
         saving.value = false;
         return;
     }
@@ -424,6 +417,8 @@ const save = async () => {
     if (isCampaignManaged.value) {
         justSavedCardTarget.value = isCampaignTotem.value ? 'totem' : 'leader';
     }
+
+    markSaved();
 
     if (data.redirect) {
         router.visit(data.redirect);
@@ -665,6 +660,14 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </div>
             </template>
         </PageBanner>
+
+        <div v-if="hasDraft" class="container mx-auto mt-4 px-4 lg:px-6">
+            <div class="flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+                <span class="min-w-0 flex-1">You have an unsaved draft from earlier. Restore it?</span>
+                <Button size="sm" @click="restoreDraft">Restore draft</Button>
+                <Button size="sm" variant="ghost" @click="discardDraft">Discard</Button>
+            </div>
+        </div>
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <div class="mb-4 flex gap-2">

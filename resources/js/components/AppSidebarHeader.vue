@@ -1,23 +1,19 @@
 <script setup lang="ts">
 import AdminPaletteContent from '@/components/AdminPaletteContent.vue';
-import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import CommandPaletteCatalog from '@/components/CommandPaletteCatalog.vue';
 import GameSystemSwitcher from '@/components/GameSystemSwitcher.vue';
 import NotificationBell from '@/components/NotificationBell.vue';
+import { commandPaletteOpen } from '@/composables/useCommandPalette';
 import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { buildMainNav, buildMyHatNav, buildTosMyStuff, buildTosNav } from '@/lib/navData';
 import { flattenNavGroups } from '@/lib/navFlatten';
-import type { BreadcrumbItemType, NavItem, SharedData } from '@/types';
+import type { NavItem, SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
 import { useMagicKeys, whenever } from '@vueuse/core';
 import axios from 'axios';
 import { Dice6, Loader2, Search } from 'lucide-vue-next';
-import { computed, markRaw, onMounted, ref, type Component } from 'vue';
-
-defineProps<{
-    breadcrumbs?: BreadcrumbItemType[];
-}>();
+import { computed, markRaw, onMounted, ref, watch, type Component } from 'vue';
 
 interface CommandEntry {
     name: string;
@@ -50,7 +46,7 @@ const isAdminPage = computed(() => !!page.props.adminNav);
 const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
-const open = ref(false);
+const open = commandPaletteOpen;
 const commandSearch = ref<CommandSearchResults | null>(null);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
@@ -159,8 +155,12 @@ async function loadCatalog() {
 
 async function openDialog() {
     open.value = true;
-    await loadCatalog();
 }
+
+// Opened from the header pill, Cmd-K, or the mobile tab bar — all just flip the shared ref.
+watch(open, (isOpen) => {
+    if (isOpen) loadCatalog();
+});
 
 // Preload during idle so the first palette open is instant.
 onMounted(() => {
@@ -192,15 +192,12 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             <SidebarTrigger class="-ml-1" />
             <GameSystemSwitcher compact class="sm:hidden" />
             <GameSystemSwitcher class="hidden sm:inline-flex" />
-            <template v-if="breadcrumbs.length > 0">
-                <Breadcrumbs :breadcrumbs="breadcrumbs" />
-            </template>
         </div>
         <div class="ml-auto flex items-center gap-2">
             <!-- Search trigger: a pill with the shortcut hint, standard palette UX. -->
             <button
                 type="button"
-                class="group inline-flex h-10 items-center gap-2 rounded-md border border-input bg-background/60 px-3 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-9 sm:min-w-[200px] sm:justify-start"
+                class="group inline-flex h-11 items-center gap-2 rounded-md border border-input bg-background/60 px-3 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-9 sm:min-w-[200px] sm:justify-start"
                 @click="openDialog"
             >
                 <Search class="size-4 shrink-0" aria-hidden="true" />
@@ -215,7 +212,7 @@ const isMac = computed(() => typeof navigator !== 'undefined' && /Mac|iPhone|iPa
             <button
                 type="button"
                 aria-label="Open a random character"
-                class="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:size-9"
+                class="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:size-9"
                 @click="router.get(route('characters.random'))"
             >
                 <Dice6 class="size-4" />

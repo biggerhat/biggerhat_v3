@@ -125,6 +125,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('campaigns.crews.arsenal.injuries.store');
     Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/models/{model}/injuries/{injury}', [ArsenalSheetController::class, 'removeManualInjury'])
         ->name('campaigns.crews.arsenal.injuries.destroy');
+    Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/custom/{character}/injuries', [ArsenalSheetController::class, 'addLeaderTotemInjury'])
+        ->name('campaigns.crews.arsenal.custom-injuries.store');
+    Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/custom/{character}/injuries/{injury}', [ArsenalSheetController::class, 'removeLeaderTotemInjury'])
+        ->name('campaigns.crews.arsenal.custom-injuries.destroy');
     Route::put('/campaigns/{campaign}/crews/{crew}/story-note', [ArsenalSheetController::class, 'updateStoryNote'])
         ->name('campaigns.crews.story-note.update');
     Route::post('/campaigns/{campaign}/crews/{crew}/crew-card-items', [ArsenalSheetController::class, 'addCrewCardItem'])

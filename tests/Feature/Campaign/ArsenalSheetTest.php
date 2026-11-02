@@ -1818,3 +1818,58 @@ it('crew card items: owner pins a token and a marker, they surface as manual, an
     expect($crew->fresh()->manual_token_ids)->toBeNull();
     $this->actingAs($owner)->delete(route('campaigns.crews.crew-card-items.destroy', [$campaign, $crew->share_code, 'bogus', 1]))->assertNotFound();
 });
+
+it('leader and totem injuries can be added and removed by hand, with the same guard rails as models', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $leader = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id, 'campaign_crew_id' => $crew->id, 'is_campaign_leader' => true, 'current' => true,
+        'name' => 'Leader', 'faction' => FactionEnum::Guild->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    [$a, $b, $c] = Upgrade::factory()->campaignInjury()->count(3)->create();
+    $store = route('campaigns.crews.arsenal.custom-injuries.store', [$campaign, $crew->share_code, $leader]);
+
+    $this->actingAs($owner)->post($store, ['injury_upgrade_id' => $a->id])->assertRedirect();
+    $this->actingAs($owner)->post($store, ['injury_upgrade_id' => $a->id])->assertRedirect(); // duplicate ignored
+    $this->actingAs($owner)->post($store, ['injury_upgrade_id' => $b->id])->assertRedirect();
+    $this->actingAs($owner)->post($store, ['injury_upgrade_id' => $c->id])->assertRedirect(); // third is refused
+    $count = fn () => \App\Models\Campaign\CampaignArsenalModelInjury::where('custom_character_id', $leader->id)->count();
+    expect($count())->toBe(2);
+
+    $killedOff = Upgrade::factory()->campaignInjuryKilledOff()->create();
+    $this->actingAs($owner)->post($store, ['injury_upgrade_id' => $killedOff->id])->assertRedirect();
+    expect($count())->toBe(2);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.custom-injuries.destroy', [$campaign, $crew->share_code, $leader, $a]))
+        ->assertRedirect();
+    expect($count())->toBe(1);
+});
+
+it('refuses leader/totem injury edits from non-owners and for characters of another crew', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $mine = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id, 'campaign_crew_id' => $crew->id, 'is_campaign_leader' => true, 'current' => true,
+        'name' => 'Mine', 'faction' => FactionEnum::Guild->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $stray = \App\Models\CustomCharacter::create([
+        'user_id' => $owner->id, 'campaign_crew_id' => null, 'is_campaign_leader' => true, 'current' => true,
+        'name' => 'Stray', 'faction' => FactionEnum::Guild->value,
+        'health' => 14, 'defense' => 5, 'willpower' => 5, 'speed' => 6, 'base' => 30,
+    ]);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+
+    $this->actingAs($other)
+        ->post(route('campaigns.crews.arsenal.custom-injuries.store', [$campaign, $crew->share_code, $mine]), ['injury_upgrade_id' => $injury->id])
+        ->assertForbidden();
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.custom-injuries.store', [$campaign, $crew->share_code, $stray]), ['injury_upgrade_id' => $injury->id])
+        ->assertForbidden();
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.custom-injuries.store', [$campaign, $crew->share_code, $mine]), ['injury_upgrade_id' => Upgrade::factory()->campaignEquipment()->create()->id])
+        ->assertSessionHasErrors('injury_upgrade_id');
+});

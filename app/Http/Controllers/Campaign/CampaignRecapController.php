@@ -42,7 +42,7 @@ class CampaignRecapController extends Controller
 
         $injuriesByAftermath = CampaignArsenalModelInjury::query()
             ->whereIn('acquired_aftermath_id', $aftermaths->flatten(1)->pluck('id'))
-            ->with(['arsenalModel.character:id,display_name', 'customCharacter:id,name', 'injury:id,name'])
+            ->with(['arsenalModel.character:id,display_name', 'customCharacter', 'injury:id,name'])
             ->get()
             ->groupBy('acquired_aftermath_id');
 
@@ -110,7 +110,7 @@ class CampaignRecapController extends Controller
             foreach ($injuriesByAftermath->get($aftermath->id, []) as $injury) {
                 $rows[] = [
                     'crew' => $crewName($aftermath->campaign_crew_id),
-                    'model' => $injury->arsenalModel->character->display_name ?? $injury->customCharacter->name ?? 'Model',
+                    'model' => $injury->arsenalModel->character->display_name ?? $injury->customCharacter->display_name ?? 'Model',
                     'injury' => $injury->injury->name ?? 'Injury',
                 ];
             }

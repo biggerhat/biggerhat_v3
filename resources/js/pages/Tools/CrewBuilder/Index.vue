@@ -4,6 +4,7 @@ import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import CrewStatsBar from '@/components/CrewStatsBar.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -2143,9 +2144,16 @@ onUnmounted(() => {
                     </TabsList>
 
                     <TabsContent value="active" class="mt-4">
-                        <div v-if="activeBuilds.length === 0" class="py-12 text-center text-sm text-muted-foreground">
-                            No active crews yet. Create your first one!
-                        </div>
+                        <EmptyState
+                            v-if="activeBuilds.length === 0"
+                            :icon="Swords"
+                            title="No active crews yet"
+                            description="Pick a master, hire models and track soulstones. Your crews are saved here."
+                        >
+                            <template #action>
+                                <Button class="gap-1.5" @click="startNewBuild"><Plus class="size-4" />Create your first crew</Button>
+                            </template>
+                        </EmptyState>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             <Card
                                 v-for="build in activeBuilds"

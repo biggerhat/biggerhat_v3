@@ -15,7 +15,13 @@ const props = defineProps<Props>();
 
 <template>
     <div
-        :class="cn('mb-4 flex w-full bg-secondary', props.class, accentColor ? `border-b-4 ${accentColor}` : '')"
+        :class="
+            cn(
+                'mb-4 flex w-full border-b border-border/60 bg-gradient-to-b from-secondary to-secondary/50 shadow-sm',
+                props.class,
+                accentColor ? `border-b-4 ${accentColor}` : '',
+            )
+        "
         :style="
             tint ? { backgroundImage: `linear-gradient(90deg, hsl(var(--${tint}) / 0.42), hsl(var(--${tint}) / 0.1) 60%, transparent)` } : undefined
         "

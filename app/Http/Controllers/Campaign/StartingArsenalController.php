@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
 
 /**
  * One-shot wizard for setting up a fresh crew's 25-ss starting arsenal
- * (rulebook pg 15). Locked once the campaign starts — the crew is then
+ * (rulebook pg 15). Locked once the campaign starts (unless the crew has no starting arsenal yet) — the crew is then
  * stuck with whatever rows it has (further growth happens via the weekly
  * New Hires step in Phase 7).
  */
@@ -77,17 +77,28 @@ class StartingArsenalController extends Controller
             // sharing either of the crew's keywords.
             'crew_card_choice_options' => fn () => AftermathCatalog::crewCardChoiceOptions($crew),
             'corrupted_pawns' => fn () => $this->corruptedPawnsProp($campaign, $crew, $arsenal),
-            'starting_budget_ss' => self::STARTING_BUDGET_SS,
+            'starting_budget_ss' => self::STARTING_BUDGET_SS + $this->lateJoinBonus($campaign, $crew),
+            'late_join_bonus' => $this->lateJoinBonus($campaign, $crew),
             'max_leftover_scrip' => self::MAX_LEFTOVER_SCRIP,
-            'locked' => $campaign->status !== CampaignStatusEnum::Planning,
+            'locked' => ! $crew->startingArsenalOpen($campaign),
         ]);
+    }
+
+    /** Scrip a late joiner gets on top of the 25 ss (pg 37): 5 per week beyond the first. Starting Anew crews use their own scrip pool. */
+    private function lateJoinBonus(Campaign $campaign, CampaignCrew $crew): int
+    {
+        if ($crew->starting_anew_at !== null || $campaign->status !== CampaignStatusEnum::Active) {
+            return 0;
+        }
+
+        return 5 * max(0, ($campaign->current_week ?? 1) - 1);
     }
 
     public function update(StoreStartingArsenalRequest $request, Campaign $campaign, CampaignCrew $crew)
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
 
-        if ($campaign->status !== CampaignStatusEnum::Planning) {
+        if (! $crew->startingArsenalOpen($campaign)) {
             return redirect()->back()->withMessage(
                 'Starting arsenal is locked once the campaign is active.',
                 null,
@@ -143,9 +154,13 @@ class StartingArsenalController extends Controller
         // bonus and spend from it rather than the standard 25 ss budget.
         $isStartingAnew = $crew->starting_anew_at !== null;
 
-        if (! $isStartingAnew && $totalCost > self::STARTING_BUDGET_SS) {
+        // Late joiner (pg 37, same procedure as Starting Anew): the usual 25 ss starting arsenal plus 5 scrip per week
+        // the campaign has run beyond the first. Standard leftover keeps the 3 scrip cap; unspent bonus carries over.
+        $lateJoinBonus = $this->lateJoinBonus($campaign, $crew);
+
+        if (! $isStartingAnew && $totalCost > self::STARTING_BUDGET_SS + $lateJoinBonus) {
             return redirect()->back()->withMessage(
-                'Starting arsenal cost '.$totalCost.' ss exceeds the '.self::STARTING_BUDGET_SS.' ss budget.',
+                'Starting arsenal cost '.$totalCost.' ss exceeds the '.(self::STARTING_BUDGET_SS + $lateJoinBonus).' ss budget.',
                 null,
                 MessageTypeEnum::error,
             );
@@ -154,9 +169,13 @@ class StartingArsenalController extends Controller
         // Starting Anew: leftover is whatever scrip remains after the hire cost
         // (no max cap since the crew's bonus may legitimately exceed 3). Standard
         // start: leftover is capped at 3 per pg 15.
-        $leftoverScrip = $isStartingAnew
-            ? max(0, $crew->scrip - $totalCost)
-            : min(self::MAX_LEFTOVER_SCRIP, self::STARTING_BUDGET_SS - $totalCost);
+        if ($isStartingAnew) {
+            $leftoverScrip = max(0, $crew->scrip - $totalCost);
+        } else {
+            $overStandard = max(0, $totalCost - self::STARTING_BUDGET_SS);
+            $leftoverScrip = min(self::MAX_LEFTOVER_SCRIP, max(0, self::STARTING_BUDGET_SS - $totalCost))
+                + max(0, $lateJoinBonus - $overStandard);
+        }
 
         // Crew cards that require a token/marker/upgrade choice (pg 17) must
         // pick one of the constrained options; cards that don't store null.
@@ -246,7 +265,7 @@ class StartingArsenalController extends Controller
             abort(404);
         }
 
-        if ($campaign->status !== CampaignStatusEnum::Planning) {
+        if (! $crew->startingArsenalOpen($campaign)) {
             return redirect()->back()->withMessage('The starting item is locked once the campaign is active.', null, MessageTypeEnum::error);
         }
 
@@ -286,7 +305,7 @@ class StartingArsenalController extends Controller
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
 
-        if ($campaign->status !== CampaignStatusEnum::Planning) {
+        if (! $crew->startingArsenalOpen($campaign)) {
             return redirect()->back()->withMessage('The starting item is locked once the campaign is active.', null, MessageTypeEnum::error);
         }
 

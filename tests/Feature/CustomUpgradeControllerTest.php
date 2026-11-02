@@ -294,7 +294,7 @@ it('gives a Campaign crew card the crew\'s live-computed tokens/markers, not its
         ->get(route('tools.card_creator.upgrades.edit', $crewCard->id))
         ->assertOk()
         ->assertInertia(fn ($p) => $p->where('crew_computed_tokens_markers', [
-            ['type' => 'token', 'id' => $token->id, 'name' => 'Corpse Counter', 'description' => $token->description, 'base' => null],
+            ['type' => 'token', 'id' => $token->id, 'name' => 'Corpse Counter', 'description' => $token->description, 'base' => null, 'manual' => false],
         ]));
 });
 

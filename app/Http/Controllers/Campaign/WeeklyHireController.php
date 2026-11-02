@@ -46,7 +46,7 @@ class WeeklyHireController extends Controller
             'crew' => $crew->only(['id', 'share_code', 'name', 'faction', 'scrip', 'keyword_1_id', 'keyword_2_id']),
             'hireable' => fn () => $this->hireableModels($crew),
             'already_hired_this_week' => $alreadyHiredThisWeek,
-            'locked' => $campaign->status !== CampaignStatusEnum::Active,
+            'locked' => $campaign->status !== CampaignStatusEnum::Active || $campaign->current_week <= 1,
         ]);
     }
 
@@ -54,9 +54,9 @@ class WeeklyHireController extends Controller
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
 
-        if ($campaign->status !== CampaignStatusEnum::Active) {
+        if ($campaign->status !== CampaignStatusEnum::Active || $campaign->current_week <= 1) {
             return redirect()->back()->withMessage(
-                'Weekly hiring is only available while the campaign is active.',
+                'Weekly hiring is only available while the campaign is active, from week 2 onward.',
                 null,
                 MessageTypeEnum::error,
             );

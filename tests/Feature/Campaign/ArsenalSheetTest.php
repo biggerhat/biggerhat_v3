@@ -11,6 +11,7 @@ use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Character;
+use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 use Spatie\Permission\Models\Permission;
@@ -1689,4 +1690,131 @@ it('exposes excludes_from_cr on owned equipment in the Arsenal Sheet payload', f
 
             return $row && $row['excludes_from_cr'] === true;
         }));
+});
+
+it('removeArsenalModel soft-removes a model hired in error and drops it from active()', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.models.destroy', [$campaign, $crew->share_code, $model]))
+        ->assertRedirect();
+
+    expect($model->fresh()->removed_at)->not->toBeNull()
+        ->and(CampaignArsenalModel::query()->where('campaign_crew_id', $crew->id)->active()->count())->toBe(0);
+});
+
+it('removeArsenalModel rejects a non-owner and a model from another crew', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    [, $otherCrew] = crewFor2($other);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    $foreign = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $otherCrew->id, 'character_id' => Character::factory()->create()->id]);
+
+    $this->actingAs($other)
+        ->delete(route('campaigns.crews.arsenal.models.destroy', [$campaign, $crew->share_code, $model]))
+        ->assertForbidden();
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.models.destroy', [$campaign, $crew->share_code, $foreign]))
+        ->assertForbidden();
+
+    expect($model->fresh()->removed_at)->toBeNull()->and($foreign->fresh()->removed_at)->toBeNull();
+});
+
+it('addManualInjury attaches an injury, ignores a duplicate, and refuses a third that would annihilate', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    [$a, $b, $c] = Upgrade::factory()->campaignInjury()->count(3)->create();
+    $url = fn () => route('campaigns.crews.arsenal.injuries.store', [$campaign, $crew->share_code, $model]);
+
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $a->id])->assertRedirect();
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $a->id])->assertRedirect();
+    expect($model->injuries()->count())->toBe(1);
+
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $b->id])->assertRedirect();
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $c->id])->assertRedirect();
+    expect($model->injuries()->count())->toBe(2)->and($model->fresh()->annihilated_at)->toBeNull();
+
+    $killedOff = Upgrade::factory()->campaignInjuryKilledOff()->create();
+    $fresh = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.injuries.store', [$campaign, $crew->share_code, $fresh]), ['injury_upgrade_id' => $killedOff->id])
+        ->assertRedirect();
+    expect($fresh->fresh()->annihilated_at)->toBeNull()->and($fresh->injuries()->count())->toBe(0);
+});
+
+it('addManualInjury rejects a non-injury upgrade and a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    $equipment = Upgrade::factory()->campaignEquipment()->create();
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $url = route('campaigns.crews.arsenal.injuries.store', [$campaign, $crew->share_code, $model]);
+
+    $this->actingAs($owner)->post($url, ['injury_upgrade_id' => $equipment->id])->assertSessionHasErrors('injury_upgrade_id');
+    $this->actingAs($other)->post($url, ['injury_upgrade_id' => $injury->id])->assertForbidden();
+    expect($model->injuries()->count())->toBe(0);
+});
+
+it('removeManualInjury deletes the injury and cascades across a titled group', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $one = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id, 'title_group_key' => 'tg']);
+    $two = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id, 'title_group_key' => 'tg']);
+    $one->attachInjury($injury);
+
+    expect($two->injuries()->count())->toBe(1);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.injuries.destroy', [$campaign, $crew->share_code, $one, $injury]))
+        ->assertRedirect();
+
+    expect($one->injuries()->count())->toBe(0)->and($two->injuries()->count())->toBe(0);
+});
+
+it('crew story note: owner saves it, it ships on the sheet, a non-owner is refused', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $url = route('campaigns.crews.story-note.update', [$campaign, $crew->share_code]);
+
+    $this->actingAs($other)->put($url, ['story_note' => 'nope'])->assertForbidden();
+    $this->actingAs($owner)->put($url, ['story_note' => "  Born in the Quarantine Zone.\nStill there.  "])->assertRedirect();
+    expect($crew->fresh()->story_note)->toBe("Born in the Quarantine Zone.\nStill there.");
+
+    $this->actingAs($owner)
+        ->get(route('campaigns.crews.arsenal.show', [$campaign, $crew->share_code]))
+        ->assertInertia(fn ($page) => $page->where('crew.story_note', "Born in the Quarantine Zone.\nStill there."));
+
+    $this->actingAs($owner)->put($url, ['story_note' => '   '])->assertRedirect();
+    expect($crew->fresh()->story_note)->toBeNull();
+});
+
+it('crew card items: owner pins a token and a marker, they surface as manual, and can be removed', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $token = \App\Models\Token::factory()->create(['is_general' => true]);
+    $marker = \App\Models\Marker::factory()->create();
+    $store = route('campaigns.crews.crew-card-items.store', [$campaign, $crew->share_code]);
+
+    $this->actingAs($other)->post($store, ['type' => 'token', 'id' => $token->id])->assertForbidden();
+    $this->actingAs($owner)->post($store, ['type' => 'token', 'id' => 99999])->assertSessionHasErrors('id');
+    $this->actingAs($owner)->post($store, ['type' => 'token', 'id' => $token->id])->assertRedirect();
+    $this->actingAs($owner)->post($store, ['type' => 'token', 'id' => $token->id])->assertRedirect();
+    $this->actingAs($owner)->post($store, ['type' => 'marker', 'id' => $marker->id])->assertRedirect();
+
+    expect($crew->fresh()->manual_token_ids)->toBe([$token->id])->and($crew->fresh()->manual_marker_ids)->toBe([$marker->id]);
+
+    $items = \App\Support\Campaign\CombinedCrewCardEffects::arsenalTokensAndMarkers($crew->fresh());
+    expect(collect($items)->where('manual', true)->pluck('id', 'type')->all())->toBe(['token' => $token->id, 'marker' => $marker->id]);
+
+    $this->actingAs($owner)->delete(route('campaigns.crews.crew-card-items.destroy', [$campaign, $crew->share_code, 'token', $token->id]))->assertRedirect();
+    expect($crew->fresh()->manual_token_ids)->toBeNull();
+    $this->actingAs($owner)->delete(route('campaigns.crews.crew-card-items.destroy', [$campaign, $crew->share_code, 'bogus', 1]))->assertNotFound();
 });

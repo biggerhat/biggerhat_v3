@@ -2,6 +2,7 @@
 
 namespace App\Models\Campaign;
 
+use App\Enums\Campaign\CampaignStatusEnum;
 use App\Enums\FactionEnum;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
@@ -35,6 +36,9 @@ use Illuminate\Support\Str;
  * @property string|null $crew_card_back_image generated image of every currently-held Tier-4 borrowed effect (T2-22) — see CombinedCrewCardEffects
  * @property \Carbon\CarbonInterface|null $crew_card_generated_at set only when CombinedCrewCardImageGenerator::generate() finishes — the cache-bust signal for crew_card_front_image/crew_card_back_image
  * @property int $scrip
+ * @property string|null $story_note player-authored crew background, shown on the Arsenal Sheet and Story Log
+ * @property array<int, int>|null $manual_token_ids tokens the owner added to the Crew Card by hand (merged by CombinedCrewCardEffects)
+ * @property array<int, int>|null $manual_marker_ids markers the owner added to the Crew Card by hand
  * @property int $total_wins
  * @property \Carbon\CarbonImmutable|null $retired_at
  * @property \Carbon\CarbonImmutable|null $starting_anew_at
@@ -71,6 +75,8 @@ class CampaignCrew extends Model
             'retired_at' => 'immutable_datetime',
             'starting_anew_at' => 'immutable_datetime',
             'crew_card_choice' => 'array',
+            'manual_token_ids' => 'array',
+            'manual_marker_ids' => 'array',
             'crew_card_generated_at' => 'datetime',
         ];
     }
@@ -78,6 +84,20 @@ class CampaignCrew extends Model
     public function getRouteKeyName(): string
     {
         return 'share_code';
+    }
+
+    /**
+     * Whether the Starting Arsenal wizard is editable. Open for the whole planning phase, and — so players who
+     * join (or Start Anew) after launch aren't stuck — for any crew on an active campaign that has not yet
+     * picked a starting crew card effect. Saving the wizard sets that effect, which closes it again.
+     */
+    public function startingArsenalOpen(Campaign $campaign): bool
+    {
+        return match ($campaign->status) {
+            CampaignStatusEnum::Planning => true,
+            CampaignStatusEnum::Active => $this->crew_card_effect_id === null,
+            default => false,
+        };
     }
 
     protected static function booted(): void

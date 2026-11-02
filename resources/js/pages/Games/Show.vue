@@ -377,6 +377,27 @@ const opponentSlot = computed(() => opponent.value?.slot ?? 2);
 const { onlineMembers } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
 const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id === userId);
 
+// Safety net for campaign crew select: the arsenal prop is server-gated to status === crew_select, so a tab whose status
+// flipped without the campaign props arriving (missed/late websocket reload) would show an empty hire list until the
+// player left and rejoined. Refetch the campaign props once per crew_select entry when the list comes back empty.
+let arsenalRefetched = false;
+watch(
+    () => [props.game.status, props.game.format, props.campaign_arsenal?.length ?? 0] as const,
+    ([status, format, count]) => {
+        if (status !== GameStatus.CrewSelect) {
+            arsenalRefetched = false;
+            return;
+        }
+        if (format !== GameFormat.Campaign || isObserver.value || count > 0 || arsenalRefetched) return;
+        arsenalRefetched = true;
+        router.reload({
+            only: ['campaign_arsenal', 'campaign_owned_equipment', 'campaign_totem', 'campaign_leader', 'campaign_leader_option', 'campaign_context'],
+            preserveScroll: true,
+        });
+    },
+    { immediate: true },
+);
+
 // Scenario editing
 const isCreator = computed(() => currentUserId.value === props.game.creator_id);
 const canEditScenario = computed(() => GAME_SETUP_STATUSES.includes(props.game.status) && isCreator.value);

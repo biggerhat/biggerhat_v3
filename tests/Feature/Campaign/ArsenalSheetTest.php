@@ -11,6 +11,7 @@ use App\Models\Campaign\CampaignCrewCard;
 use App\Models\Campaign\CampaignPlayer;
 use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\Character;
+use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 use Spatie\Permission\Models\Permission;
@@ -1720,4 +1721,58 @@ it('removeArsenalModel rejects a non-owner and a model from another crew', funct
         ->assertForbidden();
 
     expect($model->fresh()->removed_at)->toBeNull()->and($foreign->fresh()->removed_at)->toBeNull();
+});
+
+it('addManualInjury attaches an injury, ignores a duplicate, and refuses a third that would annihilate', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    [$a, $b, $c] = Upgrade::factory()->campaignInjury()->count(3)->create();
+    $url = fn () => route('campaigns.crews.arsenal.injuries.store', [$campaign, $crew->share_code, $model]);
+
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $a->id])->assertRedirect();
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $a->id])->assertRedirect();
+    expect($model->injuries()->count())->toBe(1);
+
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $b->id])->assertRedirect();
+    $this->actingAs($owner)->post($url(), ['injury_upgrade_id' => $c->id])->assertRedirect();
+    expect($model->injuries()->count())->toBe(2)->and($model->fresh()->annihilated_at)->toBeNull();
+
+    $killedOff = Upgrade::factory()->campaignInjuryKilledOff()->create();
+    $fresh = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    $this->actingAs($owner)
+        ->post(route('campaigns.crews.arsenal.injuries.store', [$campaign, $crew->share_code, $fresh]), ['injury_upgrade_id' => $killedOff->id])
+        ->assertRedirect();
+    expect($fresh->fresh()->annihilated_at)->toBeNull()->and($fresh->injuries()->count())->toBe(0);
+});
+
+it('addManualInjury rejects a non-injury upgrade and a non-owner', function () {
+    $owner = sheetUser();
+    $other = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $model = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id]);
+    $equipment = Upgrade::factory()->campaignEquipment()->create();
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $url = route('campaigns.crews.arsenal.injuries.store', [$campaign, $crew->share_code, $model]);
+
+    $this->actingAs($owner)->post($url, ['injury_upgrade_id' => $equipment->id])->assertSessionHasErrors('injury_upgrade_id');
+    $this->actingAs($other)->post($url, ['injury_upgrade_id' => $injury->id])->assertForbidden();
+    expect($model->injuries()->count())->toBe(0);
+});
+
+it('removeManualInjury deletes the injury and cascades across a titled group', function () {
+    $owner = sheetUser();
+    [$campaign, $crew] = crewFor2($owner);
+    $injury = Upgrade::factory()->campaignInjury()->create();
+    $one = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id, 'title_group_key' => 'tg']);
+    $two = CampaignArsenalModel::factory()->create(['campaign_crew_id' => $crew->id, 'character_id' => Character::factory()->create()->id, 'title_group_key' => 'tg']);
+    $one->attachInjury($injury);
+
+    expect($two->injuries()->count())->toBe(1);
+
+    $this->actingAs($owner)
+        ->delete(route('campaigns.crews.arsenal.injuries.destroy', [$campaign, $crew->share_code, $one, $injury]))
+        ->assertRedirect();
+
+    expect($one->injuries()->count())->toBe(0)->and($two->injuries()->count())->toBe(0);
 });

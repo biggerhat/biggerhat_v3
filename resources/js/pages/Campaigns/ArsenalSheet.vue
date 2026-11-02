@@ -10,7 +10,7 @@ import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +23,7 @@ import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Calendar, Copy, Download, Loader2, Pencil, Plus, Printer, Swords, Tag, Trash2 } from 'lucide-vue-next';
+import { Calendar, Copy, Download, Loader2, Pencil, Plus, Printer, Swords, Tag, Trash2, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface KeywordRow {
@@ -416,6 +416,7 @@ const props = defineProps<{
     // Equipment" ad-hoc picker. Small/bounded, so filtered client-side
     // (same pattern as the Aftermath Barter phase).
     equipment_catalog?: Array<{ id: number; name: string; br: number | null; body: string }> | null;
+    injury_catalog?: Array<{ id: number; name: string; suit_pool: string | null; flip_value: number | null }> | null;
 }>();
 
 const xpTrack = computed<XpBox[]>(() => props.leader_xp_track ?? []);
@@ -1136,6 +1137,39 @@ const removeEquipment = async (eq: EquipmentItem) => {
 
 // ───────── Unit card preview (Drawer) ─────────
 const unitPreviewRow = ref<ArsenalRow | null>(null);
+
+// Freeform injuries on the model drawer (owner-only manual correction).
+const addInjuryOpen = ref(false);
+const addInjurySearch = ref('');
+const addInjuryResults = computed(() => {
+    const q = addInjurySearch.value.trim().toLowerCase();
+    const all = props.injury_catalog ?? [];
+    const held = new Set(unitPreviewRow.value?.injuries.map((i) => i.id) ?? []);
+    return all.filter((i) => !held.has(i.id) && (!q || i.name.toLowerCase().includes(q))).slice(0, 25);
+});
+
+const submitAddInjury = (model: ArsenalRow, injuryId: number) => {
+    router.post(
+        route('campaigns.crews.arsenal.injuries.store', [props.campaign.id, props.crew.share_code, model.id]),
+        { injury_upgrade_id: injuryId },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                addInjuryOpen.value = false;
+                addInjurySearch.value = '';
+                unitPreviewRow.value = null;
+            },
+        },
+    );
+};
+
+const removeInjury = async (model: ArsenalRow, injury: InjuryItem) => {
+    unitPreviewRow.value = null;
+    if (!(await confirmDialog({ title: 'Remove injury', message: `Remove ${injury.name} from this model?`, destructive: true }))) return;
+    router.delete(route('campaigns.crews.arsenal.injuries.destroy', [props.campaign.id, props.crew.share_code, model.id, injury.id]), {
+        preserveScroll: true,
+    });
+};
 
 const removeArsenalModel = async (model: ArsenalRow) => {
     const name = model.label || model.character?.display_name || model.custom_character?.display_name || 'this model';
@@ -2504,6 +2538,28 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         </Dialog>
 
         <!-- Ad-hoc Add Equipment — mid-game events outside Barter/Aftermath. -->
+        <Dialog :open="addInjuryOpen" @update:open="(o: boolean) => (addInjuryOpen = o)">
+            <DialogContent class="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Add Injury</DialogTitle>
+                    <DialogDescription>Manual correction. Injuries from a game normally come through the Aftermath.</DialogDescription>
+                </DialogHeader>
+                <Input v-model="addInjurySearch" placeholder="Search injuries…" />
+                <div class="max-h-64 space-y-0.5 overflow-y-auto">
+                    <button
+                        v-for="inj in addInjuryResults"
+                        :key="inj.id"
+                        type="button"
+                        class="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                        @click="unitPreviewRow && submitAddInjury(unitPreviewRow, inj.id)"
+                    >
+                        <span class="min-w-0 flex-1 truncate font-medium">{{ inj.name }}</span>
+                    </button>
+                    <div v-if="!addInjuryResults.length" class="py-3 text-center text-xs text-muted-foreground">No injuries found</div>
+                </div>
+            </DialogContent>
+        </Dialog>
+
         <Dialog :open="addEquipmentDialogOpen" @update:open="resetAddEquipmentDialog">
             <DialogContent class="max-w-sm">
                 <DialogHeader>
@@ -2614,8 +2670,13 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         {{ unitPreviewRow.character?.display_name || unitPreviewRow.custom_character?.display_name }}
                     </p>
                     <div
-                        v-if="unitPreviewRow.injuries.length || unitPreviewRow.gained_characteristics.length || unitPreviewRow.upgrades.length"
-                        class="mt-1.5 flex flex-wrap justify-center gap-1"
+                        v-if="
+                            unitPreviewRow.injuries.length ||
+                            unitPreviewRow.gained_characteristics.length ||
+                            unitPreviewRow.upgrades.length ||
+                            view_mode.is_owner
+                        "
+                        class="mt-1.5 flex flex-wrap items-center justify-center gap-1"
                     >
                         <Badge
                             v-for="inj in unitPreviewRow.injuries"
@@ -2629,6 +2690,27 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                         >
                             {{ inj.name }}
                         </Badge>
+                        <template v-if="view_mode.is_owner">
+                            <button
+                                v-for="inj in unitPreviewRow.injuries"
+                                :key="`rm-${inj.id}`"
+                                type="button"
+                                class="rounded-full p-0.5 text-muted-foreground hover:text-destructive"
+                                :aria-label="`Remove injury ${inj.name}`"
+                                @click="removeInjury(unitPreviewRow, inj)"
+                            >
+                                <X class="size-3" />
+                            </button>
+                            <Button
+                                v-if="!unitPreviewRow.is_peon && unitPreviewRow.injuries.length < 2"
+                                size="sm"
+                                variant="outline"
+                                class="h-6 px-2 text-2xs"
+                                @click="addInjuryOpen = true"
+                            >
+                                <Plus class="mr-1 size-3" /> Injury
+                            </Button>
+                        </template>
                         <Badge v-for="ch in unitPreviewRow.gained_characteristics" :key="`dc-${ch}`" variant="outline" class="text-2xs">{{
                             ch
                         }}</Badge>

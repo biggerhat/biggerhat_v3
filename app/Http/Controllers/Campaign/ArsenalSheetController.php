@@ -10,10 +10,12 @@ use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
+use App\Http\Requests\Campaign\AddManualInjuryRequest;
 use App\Http\Requests\Campaign\AdjustLeaderXpRequest;
 use App\Http\Requests\Campaign\AdjustScripRequest;
 use App\Http\Requests\Campaign\RemoveArsenalModelRequest;
 use App\Http\Requests\Campaign\RemoveEquipmentRequest;
+use App\Http\Requests\Campaign\RemoveManualInjuryRequest;
 use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
 use App\Models\Ability;
 use App\Models\Campaign\Campaign;
@@ -27,6 +29,7 @@ use App\Models\Campaign\LuckyMiss;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
+use App\Models\Upgrade;
 use App\Services\CampaignRules;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Campaign\CombinedCrewCardEffects;
@@ -212,6 +215,53 @@ class ArsenalSheetController extends Controller
         $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
 
         return redirect()->back()->withMessage('Model removed from the arsenal.');
+    }
+
+    /**
+     * Freeform injury add — a manual correction for injuries that happened outside the Aftermath flow.
+     * Goes through attachInjury() so duplicate and titled-sibling rules hold, but refuses anything that
+     * would annihilate the model (a third injury, Killed Off): that is a real loss and belongs in the Aftermath.
+     */
+    public function addManualInjury(AddManualInjuryRequest $request, Campaign $campaign, CampaignCrew $crew, CampaignArsenalModel $model)
+    {
+        $injury = Upgrade::query()->findOrFail($request->validated('injury_upgrade_id'));
+
+        if ($model->is_peon || $model->annihilated_at !== null || $model->removed_at !== null) {
+            return redirect()->back()->withMessage('That model can\'t take injuries.', null, MessageTypeEnum::error);
+        }
+        if ($injury->campaign_annihilates_model || $model->injuries()->count() >= 2) {
+            return redirect()->back()->withMessage(
+                'That would annihilate this model. Log it through a game\'s Aftermath instead (or remove the model).',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+
+        DB::transaction(fn () => $model->attachInjury($injury));
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage("{$injury->name} added.");
+    }
+
+    /**
+     * Freeform injury removal (wrongly logged, or healed off-app). Titled models share injuries (pg 18), so
+     * the same injury is removed from every sibling.
+     */
+    public function removeManualInjury(RemoveManualInjuryRequest $request, Campaign $campaign, CampaignCrew $crew, CampaignArsenalModel $model, Upgrade $injury)
+    {
+        $modelIds = $model->title_group_key !== null
+            ? CampaignArsenalModel::query()->where('campaign_crew_id', $crew->id)->where('title_group_key', $model->title_group_key)->pluck('id')
+            : collect([$model->id]);
+
+        CampaignArsenalModelInjury::query()
+            ->whereIn('campaign_arsenal_model_id', $modelIds)
+            ->where('injury_upgrade_id', $injury->id)
+            ->delete();
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage("{$injury->name} removed.");
     }
 
     /**
@@ -639,6 +689,8 @@ class ArsenalSheetController extends Controller
             // Only the owner can add equipment ad hoc — no need to load the
             // full catalog for viewers/the public share link.
             'equipment_catalog' => $isOwner ? fn () => AftermathCatalog::equipment() : null,
+            // Owner-only, for the freeform "add injury" picker on the model drawer.
+            'injury_catalog' => $isOwner ? fn () => AftermathCatalog::injuries() : null,
             'view_mode' => [
                 'is_member' => $isMember,
                 'is_owner' => $isOwner,

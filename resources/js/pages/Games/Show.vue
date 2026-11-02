@@ -4852,7 +4852,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </button>
                                     </div>
                                     <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
-                                    <div class="mt-0.5 flex pl-8 sm:hidden">
+                                    <div class="mt-0.5 flex items-center pl-8 sm:hidden">
                                         <div class="flex gap-0.5">
                                             <button
                                                 v-for="pip in member.max_health"
@@ -4871,6 +4871,37 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 :aria-label="`Set health to ${pip} of ${member.max_health}`"
                                                 @click.stop="onHealthPipClick(member, pip, isObserver)"
                                             />
+                                        </div>
+
+                                        <div v-if="!isObserver" class="ml-auto flex shrink-0 gap-1 sm:hidden">
+                                            <button
+                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                                                title="Upgrades"
+                                                @click.stop="openUpgradeDialog(member)"
+                                            >
+                                                <ArrowUpCircle class="size-3.5" /><span class="sr-only">Upgrades</span>
+                                            </button>
+                                            <button
+                                                v-if="game.format === GameFormat.Campaign"
+                                                class="flex items-center gap-1 rounded bg-black/30 p-1.5 text-rose-200 active:bg-black/50"
+                                                @click.stop="openInjuryDialog(member)"
+                                            >
+                                                <HeartCrack class="size-3.5" /><span class="sr-only">Injury</span>
+                                            </button>
+                                            <button
+                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                                                title="Tokens"
+                                                @click.stop="openTokenDialog(member)"
+                                            >
+                                                <Puzzle class="size-3.5" /><span class="sr-only">Tokens</span>
+                                            </button>
+                                            <button
+                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                                                title="Replace"
+                                                @click.stop="openReplace(member)"
+                                            >
+                                                <Replace class="size-3.5" /><span class="sr-only">Replace</span>
+                                            </button>
                                         </div>
                                     </div>
                                     <!-- Line 3 (mobile): Stats + Health controls / Desktop: Stats + pips + controls on one row -->
@@ -4950,34 +4981,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             />
                                             {{ member.current_health }}/{{ member.max_health }}
                                         </span>
-                                    </div>
-                                    <!-- Line 4 (mobile): Action buttons -->
-                                    <div v-if="!isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
-                                        <button
-                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
-                                            @click.stop="openUpgradeDialog(member)"
-                                        >
-                                            <ArrowUpCircle class="size-3.5" /><span class="text-2xs font-medium">Upgrades</span>
-                                        </button>
-                                        <button
-                                            v-if="game.format === GameFormat.Campaign"
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-rose-200 active:bg-black/50"
-                                            @click.stop="openInjuryDialog(member)"
-                                        >
-                                            <HeartCrack class="size-3.5" /><span class="text-2xs font-medium">Injury</span>
-                                        </button>
-                                        <button
-                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
-                                            @click.stop="openTokenDialog(member)"
-                                        >
-                                            <Puzzle class="size-3.5" /><span class="text-2xs font-medium">Tokens</span>
-                                        </button>
-                                        <button
-                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
-                                            @click.stop="openReplace(member)"
-                                        >
-                                            <Replace class="size-3.5" /><span class="text-2xs font-medium">Replace</span>
-                                        </button>
                                     </div>
                                 </div>
                                 <!-- Token badges -->
@@ -5494,7 +5497,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         </button>
                                     </div>
                                     <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
-                                    <div class="mt-0.5 flex sm:hidden" :class="isSolo ? 'pl-8' : 'pl-5'">
+                                    <div class="mt-0.5 flex items-center sm:hidden" :class="isSolo ? 'pl-8' : 'pl-5'">
                                         <div class="flex gap-0.5">
                                             <button
                                                 v-for="pip in member.max_health"
@@ -5513,6 +5516,37 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                                 :aria-label="`Set health to ${pip} of ${member.max_health}`"
                                                 @click.stop="onHealthPipClick(member, pip, !isSolo || isObserver)"
                                             />
+                                        </div>
+
+                                        <div v-if="isSolo && !isObserver" class="ml-auto flex shrink-0 gap-1 sm:hidden">
+                                            <button
+                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                                                title="Upgrades"
+                                                @click.stop="openUpgradeDialog(member)"
+                                            >
+                                                <ArrowUpCircle class="size-3.5" /><span class="sr-only">Upgrades</span>
+                                            </button>
+                                            <button
+                                                v-if="game.format === GameFormat.Campaign"
+                                                class="flex items-center gap-1 rounded bg-black/30 p-1.5 text-rose-200 active:bg-black/50"
+                                                @click.stop="openInjuryDialog(member)"
+                                            >
+                                                <HeartCrack class="size-3.5" /><span class="sr-only">Injury</span>
+                                            </button>
+                                            <button
+                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                                                title="Tokens"
+                                                @click.stop="openTokenDialog(member)"
+                                            >
+                                                <Puzzle class="size-3.5" /><span class="sr-only">Tokens</span>
+                                            </button>
+                                            <button
+                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                                                title="Replace"
+                                                @click.stop="openReplace(member)"
+                                            >
+                                                <Replace class="size-3.5" /><span class="sr-only">Replace</span>
+                                            </button>
                                         </div>
                                     </div>
                                     <!-- Line 3 (mobile): Stats + Health controls / Desktop: Stats + pips + controls on one row -->
@@ -5592,34 +5626,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                             />
                                             {{ member.current_health }}/{{ member.max_health }}
                                         </span>
-                                    </div>
-                                    <!-- Line 4 (mobile): Action buttons -->
-                                    <div v-if="isSolo && !isObserver" class="mt-1 flex gap-1.5 pl-8 sm:hidden">
-                                        <button
-                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
-                                            @click.stop="openUpgradeDialog(member)"
-                                        >
-                                            <ArrowUpCircle class="size-3.5" /><span class="text-2xs font-medium">Upgrades</span>
-                                        </button>
-                                        <button
-                                            v-if="game.format === GameFormat.Campaign"
-                                            class="flex items-center gap-1 rounded bg-black/30 px-2 py-1.5 text-rose-200 active:bg-black/50"
-                                            @click.stop="openInjuryDialog(member)"
-                                        >
-                                            <HeartCrack class="size-3.5" /><span class="text-2xs font-medium">Injury</span>
-                                        </button>
-                                        <button
-                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
-                                            @click.stop="openTokenDialog(member)"
-                                        >
-                                            <Puzzle class="size-3.5" /><span class="text-2xs font-medium">Tokens</span>
-                                        </button>
-                                        <button
-                                            class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-neutral-50 active:bg-black/70"
-                                            @click.stop="openReplace(member)"
-                                        >
-                                            <Replace class="size-3.5" /><span class="text-2xs font-medium">Replace</span>
-                                        </button>
                                     </div>
                                 </div>
                                 <!-- Token badges -->

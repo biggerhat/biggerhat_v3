@@ -242,7 +242,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.name"
                                     placeholder="Select Action"
                                     :options="props.action_names"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -251,7 +251,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.type"
                                     placeholder="Any Type"
                                     :options="props.action_types"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -260,7 +260,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.trigger"
                                     placeholder="Any Trigger"
                                     :options="props.trigger_names"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -269,7 +269,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.is_signature"
                                     placeholder="Any"
                                     :options="booleanOptions"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -278,7 +278,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.costs_stone"
                                     placeholder="Any"
                                     :options="booleanOptions"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                         </CollapsibleContent>
@@ -299,7 +299,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.range_type"
                                     placeholder="Any Range Type"
                                     :options="props.action_range_types"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -342,7 +342,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.stat_suits"
                                     placeholder="Any Suit"
                                     :options="props.suits"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -351,7 +351,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.stat_modifier"
                                     placeholder="Any Modifier"
                                     :options="props.stat_modifiers"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -390,7 +390,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.resisted_by"
                                     placeholder="Any"
                                     :options="props.resistance_types"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                             <div class="space-y-2">
@@ -416,7 +416,7 @@ const formatRangeType = (rangeType: string) => {
                                     v-model="filterParams.target_suits"
                                     placeholder="Any Suit"
                                     :options="props.suits"
-                                    trigger-class="border-2 border-primary rounded"
+                                   
                                 />
                             </div>
                         </CollapsibleContent>

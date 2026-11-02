@@ -138,7 +138,7 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                             v-model="filterParams.transmission_type"
                             placeholder="All Platforms"
                             :options="transmission_types"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -147,7 +147,7 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                             v-model="filterParams.content_type"
                             placeholder="All Content"
                             :options="content_types"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -156,7 +156,7 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                             v-model="filterParams.faction"
                             placeholder="All Factions"
                             :options="factions"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -165,7 +165,7 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                             v-model="filterParams.keyword"
                             placeholder="All Keywords"
                             :options="keywords"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -174,7 +174,7 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                             v-model="filterParams.character"
                             placeholder="All Characters"
                             :options="characters"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                 </div>

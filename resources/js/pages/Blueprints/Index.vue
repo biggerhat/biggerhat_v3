@@ -86,7 +86,7 @@ const formatVersion = (version: string) => {
                             v-model="filterParams.character"
                             placeholder="Any Character"
                             :options="props.characters"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -95,7 +95,7 @@ const formatVersion = (version: string) => {
                             v-model="filterParams.sculpt_version"
                             placeholder="Any Version"
                             :options="props.sculpt_versions"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                 </div>

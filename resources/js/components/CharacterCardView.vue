@@ -187,8 +187,9 @@ const backImageUrl = computed(() =>
                 "
                 size="sm"
                 variant="link"
+                class="h-7 text-xs"
             >
-                View Character Page
+                View page →
             </Button>
         </div>
 

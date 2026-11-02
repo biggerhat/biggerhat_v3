@@ -294,10 +294,10 @@ onMounted(() => {
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
             :style="{ background: `radial-gradient(ellipse at top, hsl(var(--${faction.color})) 0%, transparent 70%)` }"
         />
-        <PageBanner :title="faction.name" class="mb-2" :accent-color="`border-${faction.color}`">
+        <PageBanner :title="faction.name" class="mb-2" :accent-color="`border-${faction.color}`" :tint="faction.color">
             <template #logo>
                 <div class="w-20 md:w-32">
-                    <img :src="props.faction.logo" class="mx-auto my-auto h-16 w-16 md:h-20 md:w-20" :alt="props.faction.name" />
+                    <img :src="props.faction.logo" class="mx-auto my-auto h-16 w-16 drop-shadow-lg md:h-24 md:w-24" :alt="props.faction.name" />
                 </div>
             </template>
             <template #subtitle>
@@ -399,17 +399,11 @@ onMounted(() => {
                                             :options="props.keywords"
                                             option-label="name"
                                             option-value="slug"
-                                            trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Station</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.station"
-                                            placeholder="Any Station"
-                                            :options="props.stations"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
+                                        <ClearableSelect v-model="filterParams.station" placeholder="Any Station" :options="props.stations" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Characteristic</label>
@@ -419,7 +413,6 @@ onMounted(() => {
                                             :options="props.characteristics"
                                             option-label="name"
                                             option-value="slug"
-                                            trigger-class="border-2 border-primary rounded"
                                         />
                                     </div>
                                 </CollapsibleContent>
@@ -436,21 +429,11 @@ onMounted(() => {
                                 <CollapsibleContent class="space-y-3 px-1 pt-2">
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Sort By</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.sort"
-                                            placeholder="Sort By"
-                                            :options="props.sort_options"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
+                                        <ClearableSelect v-model="filterParams.sort" placeholder="Sort By" :options="props.sort_options" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Sort Direction</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.sort_type"
-                                            placeholder="Sort Direction"
-                                            :options="props.sort_types"
-                                            trigger-class="border-2 border-primary rounded"
-                                        />
+                                        <ClearableSelect v-model="filterParams.sort_type" placeholder="Sort Direction" :options="props.sort_types" />
                                     </div>
                                 </CollapsibleContent>
                             </Collapsible>

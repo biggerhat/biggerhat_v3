@@ -477,20 +477,20 @@ const copyLink = async () => {
                     v-model="activeCategory"
                     placeholder="Any Category"
                     :options="props.categories"
-                    trigger-class="h-8 w-40 text-xs border-2 border-primary rounded"
+                    trigger-class="h-8 w-40 text-xs border-input"
                 />
                 <SearchableSelect
                     v-model="activeKeyword"
                     placeholder="Any Keyword"
                     :options="props.keywords"
-                    trigger-class="h-8 w-44 text-xs border-2 border-primary rounded"
+                    trigger-class="h-8 w-44 text-xs border-input"
                 />
                 <ClearableSelect
                     v-if="isLoggedIn"
                     v-model="collectionFilter"
                     placeholder="Any Collection Status"
                     :options="collectionFilterOptions"
-                    trigger-class="h-8 w-48 text-xs border-2 border-primary rounded"
+                    trigger-class="h-8 w-48 text-xs border-input"
                 />
                 <Select v-model="sortBy">
                     <SelectTrigger class="h-8 w-44 border-2 border-primary text-xs">

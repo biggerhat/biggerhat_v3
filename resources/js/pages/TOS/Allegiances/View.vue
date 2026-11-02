@@ -350,7 +350,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                                 v-model="filterParams.special_rule"
                                                 placeholder="Any Rule"
                                                 :options="special_rules"
-                                                trigger-class="border-2 border-primary rounded"
+                                               
                                             />
                                         </div>
                                     </CollapsibleContent>
@@ -369,7 +369,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                                 v-model="filterParams.sort"
                                                 placeholder="Sort By"
                                                 :options="sort_options"
-                                                trigger-class="border-2 border-primary rounded"
+                                               
                                             />
                                         </div>
                                         <div class="space-y-2">
@@ -378,7 +378,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                                 v-model="filterParams.sort_type"
                                                 placeholder="Direction"
                                                 :options="sort_types"
-                                                trigger-class="border-2 border-primary rounded"
+                                               
                                             />
                                         </div>
                                     </CollapsibleContent>

@@ -83,7 +83,7 @@ const { delays } = useStaggeredEntry(loreCount);
                             v-model="filterParams.character"
                             placeholder="Any Character"
                             :options="props.characters"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -92,7 +92,7 @@ const { delays } = useStaggeredEntry(loreCount);
                             v-model="filterParams.media_type"
                             placeholder="Any Type"
                             :options="props.media_types"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                     <div class="space-y-2">
@@ -101,7 +101,7 @@ const { delays } = useStaggeredEntry(loreCount);
                             v-model="filterParams.lore_media"
                             placeholder="Any Source"
                             :options="props.lore_media"
-                            trigger-class="border-2 border-primary rounded"
+                           
                         />
                     </div>
                 </div>

@@ -5,6 +5,7 @@ use App\Http\Controllers\Campaign\CampaignAftermathController;
 use App\Http\Controllers\Campaign\CampaignController;
 use App\Http\Controllers\Campaign\CampaignGameController;
 use App\Http\Controllers\Campaign\CampaignInvitationController;
+use App\Http\Controllers\Campaign\CampaignRecapController;
 use App\Http\Controllers\Campaign\CrewLifecycleController;
 use App\Http\Controllers\Campaign\LeaderAdvancementController;
 use App\Http\Controllers\Campaign\LeaderBuilderController;
@@ -54,6 +55,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/campaigns', [CampaignController::class, 'store'])->name('campaigns.store');
 
     Route::get('/campaigns/{campaign}', [CampaignController::class, 'show'])->name('campaigns.show');
+    Route::get('/campaigns/{campaign}/recap', [CampaignRecapController::class, 'show'])->name('campaigns.recap');
     Route::get('/campaigns/{campaign}/settings', [CampaignController::class, 'settings'])->name('campaigns.settings');
     Route::post('/campaigns/{campaign}', [CampaignController::class, 'update'])->name('campaigns.update');
     Route::post('/campaigns/{campaign}/start', [CampaignController::class, 'start'])->name('campaigns.start');

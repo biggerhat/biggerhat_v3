@@ -8,10 +8,11 @@ import SeoHead from '@/components/SeoHead.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { renderCrewPoster, shareOrDownload } from '@/lib/crewShareImage';
 import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { usePage } from '@inertiajs/vue3';
-import { ArrowLeft, Check, Copy, Loader2, Printer, Star } from 'lucide-vue-next';
+import { ArrowLeft, Check, Copy, ImageDown, Loader2, Printer, Star } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 interface Keyword {
@@ -258,6 +259,33 @@ const getSelectedMiniature = (character: CharacterData): MiniatureData | null =>
 
     const usedMiniatureIds = new Set(crew.value.filter((m) => m.character.id === character.id && m.miniature).map((m) => m.miniature!.id));
     return miniatures.find((m) => !usedMiniatureIds.has(m.id)) ?? miniatures[0];
+};
+
+// ─── Share image ───
+const sharingImage = ref(false);
+const shareImage = async () => {
+    if (!master.value || sharingImage.value) return;
+    sharingImage.value = true;
+    try {
+        const blob = await renderCrewPoster({
+            name: props.build.name,
+            masterName: master.value.display_name,
+            factionName: faction.value?.name ?? null,
+            factionColor: faction.value?.color ?? null,
+            factionLogo: faction.value?.logo ?? null,
+            author: props.build.user_name,
+            encounterSize: props.build.encounter_size,
+            spent: totalSpent.value,
+            members: crew.value.map((m) => ({
+                name: m.miniature?.display_name || m.character.display_name,
+                cost: m.effectiveCost,
+                category: m.hiringCategory,
+            })),
+        });
+        await shareOrDownload(blob, `${props.build.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'crew'}.png`, props.build.name);
+    } finally {
+        sharingImage.value = false;
+    }
 };
 
 // ─── Copy to My Builds ───
@@ -612,6 +640,11 @@ onMounted(() => {
                             <Button variant="outline" class="gap-1.5" :disabled="crew.length === 0" @click="printCrewPDF">
                                 <Printer class="size-4" />
                                 PDF
+                            </Button>
+                            <Button variant="outline" class="gap-1.5" :disabled="crew.length === 0 || sharingImage" @click="shareImage">
+                                <Loader2 v-if="sharingImage" class="size-4 animate-spin" />
+                                <ImageDown v-else class="size-4" />
+                                Share image
                             </Button>
                         </div>
                     </CardContent>

@@ -4,7 +4,7 @@ import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { factionBackground } from '@/composables/useFactionColor';
+import { factionDeep } from '@/composables/useFactionColor';
 import { categoryColor, categoryLabel, playerName } from '@/lib/gameDisplay';
 import {
     GameStatus,
@@ -141,7 +141,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                 <div
                     v-for="(member, mIdx) in startingCrews[player.slot]"
                     :key="'sc-' + player.slot + '-' + mIdx"
-                    :class="factionBackground(member.faction ?? player.faction ?? '')"
+                    :class="factionDeep(member.faction ?? player.faction ?? '')"
                     class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
                 >
                     <div class="flex min-w-0 items-center gap-1.5">
@@ -384,7 +384,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                                         v-for="(member, mIdx) in getPlayerTurn(player, turn).crew_snapshot"
                                     >
                                         <div
-                                            :class="factionBackground(member.faction ?? player.faction ?? '')"
+                                            :class="factionDeep(member.faction ?? player.faction ?? '')"
                                             class="flex items-center justify-between rounded px-1.5 py-0.5 text-2xs text-white"
                                             :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
                                         >
@@ -492,7 +492,7 @@ const getTurnSchemeInfo = (player: { turns?: any[] }, turnNumber: number): { sch
                     <div
                         v-for="member in player.crew_members"
                         :key="member.id"
-                        :class="factionBackground(member.faction ?? player.faction ?? '')"
+                        :class="factionDeep(member.faction ?? player.faction ?? '')"
                         class="rounded-md border border-white/20 px-2 py-1.5 text-white"
                         :style="member.is_killed ? 'opacity: 0.4; text-decoration: line-through' : ''"
                     >

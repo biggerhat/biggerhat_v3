@@ -49,7 +49,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
-import { factionBackground } from '@/composables/useFactionColor';
+import { factionDeep } from '@/composables/useFactionColor';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
@@ -4772,7 +4772,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="member in myCrewMembers"
                                 :key="member.id"
-                                :class="factionBackground(member.faction ?? myPlayer?.faction ?? '')"
+                                :class="factionDeep(member.faction ?? myPlayer?.faction ?? '')"
                                 class="rounded-md border border-white/20 px-2 py-1.5 text-white"
                                 :style="member.is_activated ? 'opacity: 0.7' : ''"
                             >
@@ -5420,7 +5420,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             <div
                                 v-for="member in opponentCrewMembers"
                                 :key="member.id"
-                                :class="factionBackground(member.faction ?? opponent?.faction ?? '')"
+                                :class="factionDeep(member.faction ?? opponent?.faction ?? '')"
                                 class="rounded-md border border-white/20 px-2 py-1.5 text-white"
                                 :style="member.is_activated ? 'opacity: 0.7' : ''"
                             >

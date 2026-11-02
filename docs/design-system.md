@@ -19,9 +19,10 @@ spine and a faint tint. Build the class with `factionSpine(faction)` (`composabl
 with `border bg-card`. Text stays on the normal foreground, so no contrast flips, and the colour is always backed by
 a logo or label (never colour alone). Used by the crew list, tournament standings and crew references.
 
-The **game tracker** still uses solid faction fills (`factionBackground()` + white text, with the CSS flip in
-`app.css`). It's a 6.7k-line page whose child badges are all tuned for light-on-colour; converting it is a separate,
-larger piece of work.
+The **game tracker** keeps white text on its crew rows, so it uses `faction-deep` (`factionDeep(faction)`): a dark
+faction-hued wash (faction colour mixed 55/45 with near-black) plus the same 4px spine. White text clears AA on every
+faction (lowest is Outcasts at ~5.8:1), so no per-faction text flip is needed. Don't use `factionBackground()` on rows
+with white text — it's a saturated fill and the light factions need the dark-text flip.
 
 ## Cards
 

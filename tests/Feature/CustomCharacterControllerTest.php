@@ -648,3 +648,14 @@ it('exposes the saved combination image on the public share page', function () {
     $this->get(route('tools.card_creator.share', $character->share_code))
         ->assertInertia(fn ($page) => $page->where('character.combination_image', 'custom-characters/9/combination.png'));
 });
+
+it('gives the crew builder a custom character\'s saved card images', function () {
+    $user = User::factory()->create(['email_verified_at' => now()]);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    $character->forceFill(['front_image' => 'custom-characters/5/front.png', 'back_image' => 'custom-characters/5/back.png'])->saveQuietly();
+
+    $this->actingAs($user)->get(route('tools.crew_builder.editor'))
+        ->assertInertia(fn ($page) => $page
+            ->where('customCharacters.0.front_image', 'custom-characters/5/front.png')
+            ->where('customCharacters.0.back_image', 'custom-characters/5/back.png'));
+});

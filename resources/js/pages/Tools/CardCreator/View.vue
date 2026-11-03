@@ -2,12 +2,13 @@
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import type { SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { Download } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -21,6 +22,7 @@ const props = defineProps<{
         card_art_y?: number;
         card_art_zoom?: number;
         combination_image?: string | null;
+        front_image?: string | null;
         card_image_generated_at?: string | null;
         faction: string;
         second_faction: string | null;
@@ -66,7 +68,11 @@ const stationLabel = (station: string | null) => {
 </script>
 
 <template>
-    <Head :title="`${character.display_name} — Custom Character`" />
+    <SeoHead
+        :title="`${character.display_name} — Custom Character`"
+        :description="`${character.display_name}, a custom ${stationLabel(character.station) ?? 'character'} card by ${creator_name}.`"
+        :image="character.combination_image ?? character.front_image"
+    />
 
     <div class="relative pb-12">
         <div

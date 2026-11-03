@@ -50,6 +50,8 @@ class GenerateLeaderCardImage implements ShouldQueue
             return;
         }
 
+        Cache::put(CustomCharacter::renderingKey($character->id), true, $this->timeout + 30);
+
         try {
             $generator->generate($character);
         } catch (\Throwable $e) {
@@ -57,6 +59,8 @@ class GenerateLeaderCardImage implements ShouldQueue
             // whatever request (Aftermath advance, Leader Builder save, ...)
             // triggered this dispatch.
             report($e);
+        } finally {
+            Cache::forget(CustomCharacter::renderingKey($character->id));
         }
     }
 }

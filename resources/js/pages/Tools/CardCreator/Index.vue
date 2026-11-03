@@ -5,6 +5,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useToast } from '@/composables/useToast';
@@ -13,7 +14,7 @@ import { CARD_HOVER } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Check, Download, Pencil, Plus, Share2, Trash2 } from 'lucide-vue-next';
+import { Check, Download, Loader2, Pencil, Plus, RefreshCw, Search, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface CustomCharacter {
@@ -34,6 +35,7 @@ interface CustomCharacter {
     combination_image?: string | null;
     card_image_generated_at?: string | null;
     card_art_path?: string | null;
+    card_image_pending?: boolean;
     // A Leader/Totem tied to a STILL-ACTIVE Campaign crew can't be deleted
     // here — see performDelete(). is_campaign_leader/is_campaign_totem stay
     // true forever (only cleared if a replacement Leader supersedes this
@@ -71,6 +73,37 @@ const props = defineProps<{
 const toast = useToast();
 
 const activeTab = ref<'characters' | 'crew_cards' | 'upgrades'>('characters');
+
+// A saved image that 404s (deleted file, storage hiccup) drops back to the art / logo instead of a broken-image icon.
+const brokenImages = ref<number[]>([]);
+const hasSavedImage = (c: CustomCharacter) => !!c.front_image && !brokenImages.value.includes(c.id);
+
+const characterSearch = ref('');
+const filteredCharacters = computed(() => {
+    const q = characterSearch.value.trim().toLowerCase();
+    return q ? props.characters.filter((c) => c.display_name.toLowerCase().includes(q)) : props.characters;
+});
+
+// Re-queue the saved card image (a render that failed, or one you want refreshed). The finished event reloads the list.
+const rerenderingIds = ref<number[]>([]);
+const rerenderCharacter = async (character: CustomCharacter) => {
+    rerenderingIds.value.push(character.id);
+    const res = await fetch(route('tools.card_creator.rerender', character.id), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    });
+    if (!res.ok) {
+        rerenderingIds.value = rerenderingIds.value.filter((id) => id !== character.id);
+        toast.error('Could not start the render — please try again in a moment.');
+        return;
+    }
+    router.reload({
+        only: ['characters'],
+        preserveScroll: true,
+        onFinish: () => (rerenderingIds.value = rerenderingIds.value.filter((id) => id !== character.id)),
+    });
+};
+const isRendering = (character: CustomCharacter) => !!character.card_image_pending || rerenderingIds.value.includes(character.id);
 
 const crewCards = computed(() => props.upgrades.filter((u) => u.domain === 'crew'));
 const characterUpgrades = computed(() => props.upgrades.filter((u) => u.domain === 'character'));
@@ -169,8 +202,10 @@ const stationLabel = (station: string | null) => {
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <!-- Tabs -->
-            <div class="mb-6 flex items-center gap-4 border-b">
+            <div class="mb-6 flex items-center gap-4 border-b" role="tablist" aria-label="Card types">
                 <button
+                    role="tab"
+                    :aria-selected="activeTab === 'characters'"
                     class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
                     :class="
                         activeTab === 'characters' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -181,6 +216,8 @@ const stationLabel = (station: string | null) => {
                     <Badge v-if="characters.length" variant="secondary" class="ml-1.5 text-[10px]">{{ characters.length }}</Badge>
                 </button>
                 <button
+                    role="tab"
+                    :aria-selected="activeTab === 'crew_cards'"
                     class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
                     :class="
                         activeTab === 'crew_cards' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -191,6 +228,8 @@ const stationLabel = (station: string | null) => {
                     <Badge v-if="crewCards.length" variant="secondary" class="ml-1.5 text-[10px]">{{ crewCards.length }}</Badge>
                 </button>
                 <button
+                    role="tab"
+                    :aria-selected="activeTab === 'upgrades'"
                     class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
                     :class="
                         activeTab === 'upgrades' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -206,12 +245,20 @@ const stationLabel = (station: string | null) => {
             <div v-if="activeTab === 'characters'">
                 <div class="mb-6 flex items-center justify-between">
                     <h2 class="text-lg font-semibold">Your Custom Characters</h2>
+                    <div v-if="characters.length > 6" class="relative ml-auto mr-3 w-full max-w-[14rem]">
+                        <Search class="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                        <Input v-model="characterSearch" placeholder="Search characters…" aria-label="Search your characters" class="h-9 pl-8" />
+                    </div>
                     <Link :href="route('tools.card_creator.create')">
                         <Button size="sm"><Plus class="mr-1 size-4" /> New Character</Button>
                     </Link>
                 </div>
 
-                <EmptyState v-if="characters.length === 0" title="No custom characters yet" description="">
+                <EmptyState
+                    v-if="characters.length === 0"
+                    title="No custom characters yet"
+                    description="Build a card with your own stats, actions and art. Every character gets a shareable card image you can download."
+                >
                     <template #action>
                         <Link :href="route('tools.card_creator.create')">
                             <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
@@ -219,15 +266,25 @@ const stationLabel = (station: string | null) => {
                     </template>
                 </EmptyState>
 
+                <p v-else-if="filteredCharacters.length === 0" class="py-10 text-center text-sm text-muted-foreground">
+                    No characters match "{{ characterSearch }}".
+                </p>
+
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="character in characters" :key="character.id" :class="['group overflow-hidden', CARD_HOVER]">
+                    <Card v-for="character in filteredCharacters" :key="character.id" :class="['group overflow-hidden', CARD_HOVER]">
                         <div class="relative h-48 w-full overflow-hidden bg-muted">
+                            <Link
+                                :href="route('tools.card_creator.share', character.share_code)"
+                                class="absolute inset-0 z-0"
+                                :aria-label="`View ${character.display_name}`"
+                            />
                             <img
-                                v-if="character.front_image"
-                                :src="'/storage/' + cacheBustedImagePath(character.front_image, character.card_image_generated_at)"
+                                v-if="hasSavedImage(character)"
+                                :src="'/storage/' + cacheBustedImagePath(character.front_image!, character.card_image_generated_at)"
                                 :alt="character.display_name"
                                 class="h-full w-full object-contain"
                                 loading="lazy"
+                                @error="brokenImages.push(character.id)"
                             />
                             <img
                                 v-else-if="character.card_art_path"
@@ -239,8 +296,17 @@ const stationLabel = (station: string | null) => {
                             <div v-else class="flex h-full items-center justify-center text-muted-foreground">
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinked(character)" class="absolute left-2 top-2 bg-amber-600 text-[10px] text-white"
+                            <span
+                                v-if="isRendering(character)"
+                                class="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium shadow"
+                                role="status"
+                            >
+                                <Loader2 class="size-3 animate-spin" /> Rendering…
+                            </span>
+                            <Badge class="pointer-events-none absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
+                            <Badge
+                                v-if="isCampaignLinked(character)"
+                                class="pointer-events-none absolute left-2 top-2 bg-amber-600 text-[10px] text-white"
                                 >Campaign</Badge
                             >
                         </div>
@@ -269,6 +335,17 @@ const stationLabel = (station: string | null) => {
                                 >
                                     <Download class="size-3" />
                                 </a>
+                                <Button
+                                    v-else-if="!isRendering(character)"
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs"
+                                    :aria-label="`Render ${character.display_name} card image`"
+                                    title="No card image yet — render it now"
+                                    @click="rerenderCharacter(character)"
+                                >
+                                    <RefreshCw class="size-3" />
+                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"

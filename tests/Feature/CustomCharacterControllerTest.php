@@ -659,3 +659,39 @@ it('gives the crew builder a custom character\'s saved card images', function ()
             ->where('customCharacters.0.front_image', 'custom-characters/5/front.png')
             ->where('customCharacters.0.back_image', 'custom-characters/5/back.png'));
 });
+
+it('removes a deleted card\'s saved images from disk', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    \Illuminate\Support\Facades\Storage::disk('public')->put("custom-characters/{$character->id}/front.png", 'x');
+
+    $this->actingAs($user)->deleteJson(route('tools.card_creator.destroy', $character->id))->assertOk();
+
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing("custom-characters/{$character->id}/front.png");
+});
+
+it('flags a card whose image is waiting to render and lets the owner re-render it', function () {
+    Bus::fake();
+    $user = User::factory()->create();
+    $other = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    \Illuminate\Support\Facades\Cache::forget(CustomCharacter::renderPendingKey($character->id));
+    Bus::fake();
+
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page->where('characters.0.card_image_pending', false));
+
+    $this->actingAs($other)->postJson(route('tools.card_creator.rerender', $character->id))->assertForbidden();
+    Bus::assertNotDispatched(\App\Jobs\Campaign\GenerateLeaderCardImage::class);
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.rerender', $character->id))->assertOk();
+    Bus::assertDispatched(\App\Jobs\Campaign\GenerateLeaderCardImage::class);
+
+    // A second click while it's rendering doesn't queue another.
+    Bus::fake();
+    $this->actingAs($user)->postJson(route('tools.card_creator.rerender', $character->id))->assertOk();
+    Bus::assertNotDispatched(\App\Jobs\Campaign\GenerateLeaderCardImage::class);
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page->where('characters.0.card_image_pending', true));
+});

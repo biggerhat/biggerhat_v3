@@ -54,6 +54,18 @@ class CustomCharacter extends Model
     }
 
     /** Cache key marking a delayed render as waiting; the job clears it the moment it starts reading the card. */
+    /** True while a render is waiting for its delay or running — drives the "Rendering…" state on My Cards. */
+    public function cardImagePending(): bool
+    {
+        return Cache::has(self::renderPendingKey($this->id)) || Cache::has(self::renderingKey($this->id));
+    }
+
+    /** Set by the job while headless Chrome is working, so the pending flag survives the marker being released at start. */
+    public static function renderingKey(int $id): string
+    {
+        return "custom-card-rendering:{$id}";
+    }
+
     public static function renderPendingKey(int $id): string
     {
         return "custom-card-render-pending:{$id}";

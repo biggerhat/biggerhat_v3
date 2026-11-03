@@ -14,12 +14,14 @@ use App\Enums\SuitEnum;
 use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Requests\CustomCharacterRequest;
+use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CardArt;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Response;
 
 class CustomCharacterController extends Controller
@@ -36,6 +38,7 @@ class CustomCharacterController extends Controller
         // Tile thumbnail fallback while a card's saved image is still rendering.
         foreach ($characters as $c) {
             $c->setAttribute('card_art_path', $c->cardArt?->image_path);
+            $c->setAttribute('card_image_pending', $c->cardImagePending());
             $c->unsetRelation('cardArt');
         }
 
@@ -116,6 +119,7 @@ class CustomCharacterController extends Controller
             'enums' => $this->enumOptions(),
             'card_arts' => $this->cardArtOptions($customCharacter->card_art_id),
             'campaign_back_url' => $campaignBackUrl,
+            'card_image_pending' => $customCharacter->cardImagePending(),
         ]);
     }
 
@@ -199,6 +203,22 @@ class CustomCharacterController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Owner-triggered re-render of the saved card image (a failed or stale render). Same job the observer queues,
+     * but immediate; the pending flag makes My Cards show "Rendering…" until CardImageGenerated arrives.
+     */
+    public function rerender(CustomCharacter $customCharacter): JsonResponse
+    {
+        $this->authorize('update', $customCharacter);
+
+        if (! $customCharacter->cardImagePending()) {
+            Cache::put(CustomCharacter::renderingKey($customCharacter->id), true, 150);
+            GenerateLeaderCardImage::dispatch($customCharacter->id)->afterCommit();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function share(string $shareCode): Response
     {
         $character = CustomCharacter::where('share_code', $shareCode)
@@ -208,6 +228,7 @@ class CustomCharacterController extends Controller
         return inertia('Tools/CardCreator/View', [
             'character' => $character,
             'card_art_path' => $character->cardArt?->image_path,
+            'card_image_pending' => $character->cardImagePending(),
             'creator_name' => $character->user->name,
         ]);
     }

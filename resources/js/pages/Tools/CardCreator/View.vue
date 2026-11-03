@@ -9,9 +9,10 @@ import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import type { SharedData } from '@/types';
 import { router, usePage } from '@inertiajs/vue3';
-import { Download } from 'lucide-vue-next';
+import { Download, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps<{
+    card_image_pending?: boolean;
     card_art_path?: string | null;
     character: {
         id: number;
@@ -87,8 +88,12 @@ const stationLabel = (station: string | null) => {
                     <span>Created by {{ creator_name }}</span>
                 </div>
             </template>
-            <template v-if="character.combination_image" #actions>
+            <template v-if="character.combination_image || card_image_pending" #actions>
+                <span v-if="!character.combination_image" class="mr-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
+                    <Loader2 class="size-4 animate-spin" /> Preparing card image…
+                </span>
                 <a
+                    v-else
                     :href="'/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at)"
                     :download="`${character.display_name}.png`"
                     class="mr-2 inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent [@media(pointer:coarse)]:h-11"

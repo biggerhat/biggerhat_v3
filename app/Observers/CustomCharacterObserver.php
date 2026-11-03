@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\CustomCharacter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CustomCharacterObserver
@@ -81,5 +82,14 @@ class CustomCharacterObserver
         if ($character->wasChanged(self::CARD_RENDER_COLUMNS)) {
             $character->queueCardImage();
         }
+    }
+
+    /**
+     * Deleting a card (soft-delete; nothing restores it) takes its saved front/back/combination PNGs with it, so
+     * orphaned renders don't pile up on disk.
+     */
+    public function deleted(CustomCharacter $character): void
+    {
+        Storage::disk('public')->deleteDirectory("custom-characters/{$character->id}");
     }
 }

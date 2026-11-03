@@ -319,6 +319,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
                 Route::post('/', [CustomCharacterController::class, 'store'])->name('store');
                 Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
                 Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
+                Route::post('/{customCharacter}/render', [CustomCharacterController::class, 'rerender'])->middleware('throttle:10,1')->name('rerender');
 
                 Route::prefix('upgrades')->name('upgrades.')->group(function () {
                     Route::post('/', [CustomUpgradeController::class, 'store'])->name('store');

@@ -71,3 +71,11 @@ When a saved card render finishes, `LeaderCardImageGenerator` / `CombinedCrewCar
 = `custom_character`|`crew_card`, `id`, `generated_at`). `useCardImageEvents` listens (only removing its own listener, since
 `useNotifications` shares the channel); My Cards, the share page and the Arsenal Sheet reload on it. The Arsenal Sheet keeps
 its old polling as a fallback when Reverb is unavailable, and does one safety reload after 60s if an event is lost.
+
+## Saved-image states and housekeeping
+
+- `CustomCharacter::cardImagePending()` = the coalescing marker (`renderPendingKey`, waiting for its delay) **or** the `renderingKey` the job holds while Chrome runs. My Cards, the share page and the Editor save bar show "Rendering…" from it.
+- `POST /tools/card-creator/{id}/render` (`tools.card_creator.rerender`, owner-only, throttled 10/min) queues an immediate render; ignored while one is already pending. My Cards shows a retry button on tiles with no image; the Editor save bar has "Re-render".
+- Deleting a card removes `custom-characters/{id}/` from the public disk (observer `deleted`).
+- My Cards tiles fall back to the art/logo if the saved image 404s, link to the share page, and get a search box above 6 characters.
+- The Editor's save bar is sticky (offset by `--tabbar-h` on phones) and, when editing, shows image state with Download / Share page / Re-render.

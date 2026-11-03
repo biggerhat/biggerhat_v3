@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
@@ -131,7 +132,10 @@ interface CustomCharacterData {
     base: number | string;
     keywords: Array<{ id: number | null; name: string }>;
     characteristics: string[];
-    image_path: string | null;
+    card_art_path?: string | null;
+    card_art_x?: number;
+    card_art_y?: number;
+    card_art_zoom?: number;
     // Server-rendered card images (App\Services\Campaign\LeaderCardImageGenerator),
     // regenerated automatically whenever the card-relevant fields above change.
     // Null until the first render lands — callers fall back to the live CardRenderer.
@@ -728,26 +732,54 @@ const targetActionOptions = (position: number): Array<{ ref: number; name: strin
 // its very first poll — before the redo's render had actually run.
 const cardRegenerating = ref<{ leader: boolean; totem: boolean; crew_card: boolean }>({ leader: false, totem: false, crew_card: false });
 
-const pollCardRegeneration = (target: 'leader' | 'totem' | 'crew_card', previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
+type CardTarget = 'leader' | 'totem' | 'crew_card';
+
+const currentGeneratedAt = (target: CardTarget) =>
+    target === 'leader'
+        ? props.leader?.card_image_generated_at
+        : target === 'totem'
+          ? props.totem?.card_image_generated_at
+          : props.crew.crew_card_generated_at;
+
+const reloadCards = (onDone?: () => void) => router.reload({ only: ['leader', 'totem', 'crew'], preserveScroll: true, onSuccess: onDone });
+
+// Realtime: CardImageGenerated names the finished render, so reload once and stop that spinner. Polling below is only
+// the fallback for when the socket isn't available, and a one-shot safety net if an event is lost.
+const finishTarget = (target: CardTarget) => {
+    cardRegenerating.value[target] = false;
+};
+const { ready: cardSocketReady } = useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    const targets: CardTarget[] = [];
+    if (event.kind === 'crew_card' && event.id === props.crew.id) targets.push('crew_card');
+    if (event.kind === 'custom_character') {
+        if (props.leader?.id === event.id) targets.push('leader');
+        if (props.totem?.id === event.id) targets.push('totem');
+    }
+    if (!targets.length) return;
+    reloadCards(() => targets.forEach(finishTarget));
+});
+
+const pollCardRegeneration = async (target: CardTarget, previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
     cardRegenerating.value[target] = true;
+
+    if (attemptsLeft === 8 && (await cardSocketReady)) {
+        // The event normally lands within seconds; if it never does, check once and stop the spinner.
+        setTimeout(() => {
+            if (cardRegenerating.value[target]) reloadCards(() => finishTarget(target));
+        }, 60000);
+        return;
+    }
+
     setTimeout(() => {
-        router.reload({
-            only: ['leader', 'totem', 'crew'],
-            onSuccess: () => {
-                const current =
-                    target === 'leader'
-                        ? props.leader?.card_image_generated_at
-                        : target === 'totem'
-                          ? props.totem?.card_image_generated_at
-                          : props.crew.crew_card_generated_at;
-                if (current && current !== previousGeneratedAt) {
-                    cardRegenerating.value[target] = false;
-                } else if (attemptsLeft > 1) {
-                    pollCardRegeneration(target, previousGeneratedAt, attemptsLeft - 1);
-                } else {
-                    cardRegenerating.value[target] = false;
-                }
-            },
+        reloadCards(() => {
+            const current = currentGeneratedAt(target);
+            if (current && current !== previousGeneratedAt) {
+                finishTarget(target);
+            } else if (attemptsLeft > 1) {
+                pollCardRegeneration(target, previousGeneratedAt, attemptsLeft - 1);
+            } else {
+                finishTarget(target);
+            }
         });
     }, 2000);
 };
@@ -1207,6 +1239,38 @@ const submitAddInjury = (model: ArsenalRow, injuryId: number) => {
     );
 };
 
+// Leader / Totem injuries (CustomCharacter rows, not arsenal models) — same owner-only correction.
+const charInjuryTarget = ref<{ id: number; name: string; injuries: InjuryItem[] } | null>(null);
+const charInjurySearch = ref('');
+const charInjuryResults = computed(() => {
+    const q = charInjurySearch.value.trim().toLowerCase();
+    const held = new Set(charInjuryTarget.value?.injuries.map((i) => i.id) ?? []);
+    return (props.injury_catalog ?? []).filter((i) => !held.has(i.id) && (!q || i.name.toLowerCase().includes(q))).slice(0, 25);
+});
+const openCharInjuries = (target: 'leader' | 'totem') => {
+    const c = target === 'leader' ? props.leader : props.totem;
+    if (!c) return;
+    charInjurySearch.value = '';
+    charInjuryTarget.value = { id: c.id, name: c.display_name, injuries: c.injury_names ?? [] };
+};
+const addCharInjury = (injuryId: number) => {
+    if (!charInjuryTarget.value) return;
+    router.post(
+        route('campaigns.crews.arsenal.custom-injuries.store', [props.campaign.id, props.crew.share_code, charInjuryTarget.value.id]),
+        { injury_upgrade_id: injuryId },
+        { preserveScroll: true, onSuccess: () => (charInjuryTarget.value = null) },
+    );
+};
+const removeCharInjury = async (injury: InjuryItem) => {
+    const target = charInjuryTarget.value;
+    if (!target) return;
+    charInjuryTarget.value = null;
+    if (!(await confirmDialog({ title: 'Remove injury', message: `Remove ${injury.name} from ${target.name}?`, destructive: true }))) return;
+    router.delete(route('campaigns.crews.arsenal.custom-injuries.destroy', [props.campaign.id, props.crew.share_code, target.id, injury.id]), {
+        preserveScroll: true,
+    });
+};
+
 const removeInjury = async (model: ArsenalRow, injury: InjuryItem) => {
     unitPreviewRow.value = null;
     if (!(await confirmDialog({ title: 'Remove injury', message: `Remove ${injury.name} from this model?`, destructive: true }))) return;
@@ -1306,7 +1370,8 @@ const leaderRendererProps = computed(() => {
         base: String(props.leader.base),
         keywords: props.leader.keywords,
         characteristics: props.leader.characteristics ?? [],
-        characterImage: props.leader.image_path,
+        characterImage: props.leader.card_art_path ?? null,
+        characterImageFocus: { x: props.leader.card_art_x ?? 50, y: props.leader.card_art_y ?? 50, zoom: props.leader.card_art_zoom ?? 100 },
         actions: props.leader.actions ?? [],
         abilities: props.leader.abilities ?? [],
         linkedCrewUpgrades: props.leader.linked_crew_upgrades ?? [],
@@ -1333,7 +1398,8 @@ const totemRendererProps = computed(() => {
         base: String(props.totem.base),
         keywords: props.totem.keywords,
         characteristics: props.totem.characteristics ?? [],
-        characterImage: props.totem.image_path,
+        characterImage: props.totem.card_art_path ?? null,
+        characterImageFocus: { x: props.totem.card_art_x ?? 50, y: props.totem.card_art_y ?? 50, zoom: props.totem.card_art_zoom ?? 100 },
         actions: props.totem.actions ?? [],
         abilities: props.totem.abilities ?? [],
         linkedCrewUpgrades: props.totem.linked_crew_upgrades ?? [],
@@ -1512,7 +1578,18 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
             <div class="lg:col-span-2">
                 <Card>
                     <CardHeader class="flex-row items-center justify-between space-y-0">
-                        <CardTitle>Leader</CardTitle>
+                        <div class="flex items-center gap-2">
+                            <CardTitle>Leader</CardTitle>
+                            <Button
+                                v-if="view_mode.is_owner && leader"
+                                size="sm"
+                                variant="ghost"
+                                class="h-7 px-2 text-xs"
+                                @click="openCharInjuries('leader')"
+                            >
+                                Injuries
+                            </Button>
+                        </div>
                         <a
                             v-if="leader?.combination_image"
                             :href="'/storage/' + cacheBustedImagePath(leader.combination_image, leader.card_image_generated_at)"
@@ -1599,7 +1676,18 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
 
                 <Card v-if="totemRendererProps" class="mt-4">
                     <CardHeader class="flex-row items-center justify-between space-y-0">
-                        <CardTitle>Totem</CardTitle>
+                        <div class="flex items-center gap-2">
+                            <CardTitle>Totem</CardTitle>
+                            <Button
+                                v-if="view_mode.is_owner && totem"
+                                size="sm"
+                                variant="ghost"
+                                class="h-7 px-2 text-xs"
+                                @click="openCharInjuries('totem')"
+                            >
+                                Injuries
+                            </Button>
+                        </div>
                         <a
                             v-if="totem?.combination_image"
                             :href="'/storage/' + cacheBustedImagePath(totem.combination_image, totem.card_image_generated_at)"
@@ -2672,6 +2760,41 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                     </button>
                     <div v-if="!addInjuryResults.length" class="py-3 text-center text-xs text-muted-foreground">No injuries found</div>
                 </div>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog :open="!!charInjuryTarget" @update:open="(o: boolean) => !o && (charInjuryTarget = null)">
+            <DialogContent class="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>{{ charInjuryTarget?.name }} — Injuries</DialogTitle>
+                    <DialogDescription>
+                        Manual correction. A third injury or Killed Off must go through the Aftermath, which handles Miraculous Recovery.
+                    </DialogDescription>
+                </DialogHeader>
+                <div v-if="charInjuryTarget?.injuries.length" class="flex flex-wrap gap-1.5">
+                    <Badge v-for="inj in charInjuryTarget.injuries" :key="inj.id" variant="destructive" class="gap-1 text-2xs">
+                        {{ inj.name }}
+                        <button type="button" class="rounded-full" :aria-label="`Remove injury ${inj.name}`" @click="removeCharInjury(inj)">
+                            <X class="size-3" />
+                        </button>
+                    </Badge>
+                </div>
+                <template v-if="(charInjuryTarget?.injuries.length ?? 0) < 2">
+                    <Input v-model="charInjurySearch" placeholder="Search injuries…" />
+                    <div class="max-h-64 space-y-0.5 overflow-y-auto">
+                        <button
+                            v-for="inj in charInjuryResults"
+                            :key="inj.id"
+                            type="button"
+                            class="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                            @click="addCharInjury(inj.id)"
+                        >
+                            <span class="min-w-0 flex-1 truncate font-medium">{{ inj.name }}</span>
+                        </button>
+                        <div v-if="!charInjuryResults.length" class="py-3 text-center text-xs text-muted-foreground">No injuries found</div>
+                    </div>
+                </template>
+                <p v-else class="text-xs text-muted-foreground">Already at two injuries — remove one to add another.</p>
             </DialogContent>
         </Dialog>
 

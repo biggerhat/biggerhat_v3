@@ -3,23 +3,30 @@ import AbilityLookupModal from '@/components/CardCreator/AbilityLookupModal.vue'
 import ActionLookupModal from '@/components/CardCreator/ActionLookupModal.vue';
 import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
+import ArtPositioner from '@/components/CardCreator/ArtPositioner.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
-import { blobToDataURL, createComboImage, exportComboAsPdf, fetchFontEmbedCSS, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
+import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
+import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useToast } from '@/composables/useToast';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Plus, RefreshCw, Save, Share2, Trash2, X } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 
 interface EnumOption {
@@ -76,6 +83,8 @@ interface LinkedItem {
     name: string;
 }
 
+const toast = useToast();
+
 const props = defineProps<{
     character: {
         id: number;
@@ -98,6 +107,10 @@ const props = defineProps<{
         summon_target_number: number | null;
         generates_stone: boolean;
         is_unhirable: boolean;
+        card_art_id: number | null;
+        card_art_x: number;
+        card_art_y: number;
+        card_art_zoom: number;
         is_campaign_leader: boolean;
         is_campaign_totem: boolean;
         archetype: string | null;
@@ -110,6 +123,9 @@ const props = defineProps<{
         linked_totems: LinkedItem[] | null;
         notes: string | null;
         share_code: string;
+        front_image?: string | null;
+        combination_image?: string | null;
+        card_image_generated_at?: string | null;
     } | null;
     enums: {
         factions: EnumOption[];
@@ -121,7 +137,9 @@ const props = defineProps<{
         defensive_ability_types: EnumOption[];
         tags: EnumOption[];
     };
+    card_arts: Array<{ id: number; name: string; image_path: string; faction: string | null; category: string | null }>;
     campaign_back_url: string | null;
+    card_image_pending?: boolean;
 }>();
 
 const isEdit = computed(() => !!props.character);
@@ -138,6 +156,34 @@ const campaignBackUrl = computed(() => {
 
     return `${props.campaign_back_url}?poll_card=${justSavedCardTarget.value}`;
 });
+// Saved card image: rendered server-side shortly after each save; the event swaps the status in when it lands.
+const imagePending = computed(() => props.card_image_pending ?? false);
+const imageUrl = computed(() =>
+    props.character?.combination_image
+        ? '/storage/' + cacheBustedImagePath(props.character.combination_image, props.character.card_image_generated_at)
+        : null,
+);
+const rerendering = ref(false);
+useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    if (event.kind === 'custom_character' && event.id === props.character?.id) {
+        router.reload({ only: ['character', 'card_image_pending'], preserveScroll: true });
+    }
+});
+const rerender = async () => {
+    if (!props.character || rerendering.value) return;
+    rerendering.value = true;
+    const res = await fetch(route('tools.card_creator.rerender', props.character.id), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    });
+    rerendering.value = false;
+    if (!res.ok) {
+        toast.error('Could not start the render — please try again in a moment.');
+        return;
+    }
+    router.reload({ only: ['card_image_pending'], preserveScroll: true });
+};
+
 const formatSlug = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const displayNameLength = computed(() => {
@@ -166,6 +212,10 @@ const form = reactive({
     summon_target_number: props.character?.summon_target_number ?? (null as number | null),
     generates_stone: props.character?.generates_stone ?? false,
     is_unhirable: props.character?.is_unhirable ?? false,
+    card_art_id: props.character?.card_art_id ?? (null as number | null),
+    card_art_x: props.character?.card_art_x ?? 50,
+    card_art_y: props.character?.card_art_y ?? 50,
+    card_art_zoom: props.character?.card_art_zoom ?? 100,
     notes: props.character?.notes ?? '',
     // Only meaningful (and only editable — see the template) for a Campaign
     // Leader; left as whatever it already is for every other character.
@@ -187,6 +237,29 @@ const keywords = reactive<KeywordData[]>(props.character?.keywords ?? []);
 const characteristics = reactive<string[]>(props.character?.characteristics ?? []);
 const linkedCrewUpgrades = reactive<LinkedItem[]>(props.character?.linked_crew_upgrades ?? []);
 const linkedTotems = reactive<LinkedItem[]>(props.character?.linked_totems ?? []);
+
+const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+    key: 'bh_draft_card',
+    keepDraft: !props.character,
+    snapshot: () => ({
+        form: { ...form },
+        actions: JSON.parse(JSON.stringify(actions)),
+        abilities: JSON.parse(JSON.stringify(abilities)),
+        keywords: JSON.parse(JSON.stringify(keywords)),
+        characteristics: [...characteristics],
+        linkedCrewUpgrades: JSON.parse(JSON.stringify(linkedCrewUpgrades)),
+        linkedTotems: JSON.parse(JSON.stringify(linkedTotems)),
+    }),
+    restore: (d) => {
+        Object.assign(form, d.form);
+        actions.splice(0, actions.length, ...d.actions);
+        abilities.splice(0, abilities.length, ...d.abilities);
+        keywords.splice(0, keywords.length, ...d.keywords);
+        characteristics.splice(0, characteristics.length, ...d.characteristics);
+        linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...d.linkedCrewUpgrades);
+        linkedTotems.splice(0, linkedTotems.length, ...d.linkedTotems);
+    },
+});
 
 // Clone from official character
 const cloneSearchQuery = ref('');
@@ -276,6 +349,39 @@ const printBackRef = ref<InstanceType<typeof CardBackFace> | null>(null);
 const exporting = ref(false);
 const exportingPdf = ref(false);
 
+// ─── Library art picker ───
+const selectedArt = computed(() => props.card_arts.find((a) => a.id === form.card_art_id) ?? null);
+// An uploaded file still wins for the live preview (it's the player's own try-out); otherwise the chosen library art.
+// Framing belongs to the library art; a try-out upload is always shown centred.
+const artFocus = computed(() =>
+    characterImagePreview.value ? { x: 50, y: 50, zoom: 100 } : { x: form.card_art_x, y: form.card_art_y, zoom: form.card_art_zoom },
+);
+const characterImageSrc = computed(() => characterImagePreview.value ?? selectedArt.value?.image_path ?? null);
+
+const artPickerOpen = ref(false);
+const artSearch = ref('');
+const artCategory = ref<string | null>(null);
+const artFactionOnly = ref(true);
+const artCategories = computed(() => [...new Set(props.card_arts.map((a) => a.category).filter((c): c is string => !!c))].sort());
+const visibleArts = computed(() => {
+    const q = artSearch.value.trim().toLowerCase();
+    return props.card_arts.filter((a) => {
+        if (artFactionOnly.value && form.faction !== 'none' && a.faction && a.faction !== form.faction) return false;
+        if (artCategory.value && a.category !== artCategory.value) return false;
+        return !q || a.name.toLowerCase().includes(q);
+    });
+});
+const pickArt = (id: number | null) => {
+    // New art starts centred and unzoomed; re-picking the same piece keeps the framing the player set.
+    if (id !== form.card_art_id) {
+        form.card_art_x = 50;
+        form.card_art_y = 50;
+        form.card_art_zoom = 100;
+    }
+    form.card_art_id = id;
+    artPickerOpen.value = false;
+};
+
 // The live preview (CardRenderer.vue) sits in this page's 1/3-width column,
 // which routinely clamps its box below every tarotCardSize tier — there's no
 // room for it to grow into, so it falls back to shrinkToFit (shrinking text
@@ -303,48 +409,17 @@ const {
     () => tarotCardSize(abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0)).width,
 );
 
-// Shared by exportImages() (PNG) and exportPdf() below — captures both faces
-// as toPng() data URLs, restoring every temporary style/src mutation made to
-// get a clean capture.
-const captureFaces = async (
-    frontEl: HTMLElement | null | undefined,
-    backEl: HTMLElement | null | undefined,
-): Promise<{ frontData: string; backData: string; frontEl: HTMLElement; backEl: HTMLElement } | null> => {
-    if (!frontEl || !backEl) return null;
-    const { toPng } = await import('html-to-image');
-    const fontEmbedCSS = await fetchFontEmbedCSS();
-    const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
-
-    // Convert any blob: image sources to data URLs so html-to-image can embed them
-    const blobImages = frontEl.querySelectorAll<HTMLImageElement>('img[src^="blob:"]');
-    const origSrcs: { el: HTMLImageElement; src: string }[] = [];
-    for (const img of blobImages) {
-        origSrcs.push({ el: img, src: img.src });
-        img.src = await blobToDataURL(img.src);
-    }
-
-    const frontData = await toPng(frontEl, opts);
-
-    // Restore original blob sources
-    for (const { el, src } of origSrcs) {
-        el.src = src;
-    }
-
-    const backData = await toPng(backEl, opts);
-
-    return { frontData, backData, frontEl, backEl };
-};
-
 const exportImages = async () => {
     exporting.value = true;
     try {
         await measureExportSize();
-        const captured = await captureFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
+        const captured = await captureCardFaces(exportFrontRef.value?.rootRef, exportBackRef.value?.rootRef);
         if (!captured) return;
         const comboData = await createComboImage(captured.frontData, captured.backData);
         triggerDownload(comboData, `${form.name || 'card'}.png`);
     } catch (e) {
         console.error('Image export failed:', e);
+        toast.error('Image export failed', { description: e instanceof Error ? e.message : 'Try again.' });
     } finally {
         exporting.value = false;
     }
@@ -358,11 +433,12 @@ const exportPdf = async () => {
     exportingPdf.value = true;
     try {
         await measurePrintSize();
-        const captured = await captureFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
+        const captured = await captureCardFaces(printFrontRef.value?.rootRef, printBackRef.value?.rootRef);
         if (!captured) return;
         await exportComboAsPdf(captured.frontData, captured.backData, captured.frontEl, captured.backEl, `${form.name || 'card'}.pdf`);
     } catch (e) {
         console.error('PDF export failed:', e);
+        toast.error('PDF export failed', { description: e instanceof Error ? e.message : 'Try again.' });
     } finally {
         exportingPdf.value = false;
     }
@@ -402,16 +478,12 @@ const save = async () => {
 
     const url = isEdit.value ? route('tools.card_creator.update', props.character!.id) : route('tools.card_creator.store');
 
-    const res = await fetch(url, {
-        method: isEdit.value ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
-        body: JSON.stringify(body),
-    });
+    const result = await saveCardJson(url, isEdit.value ? 'PUT' : 'POST', body, csrfToken());
+    const data = result.data;
 
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-        errors.value = data.errors ?? {};
+    if (!result.ok) {
+        errors.value = result.errors;
+        if (result.message) toast.error('Not saved', { description: result.message });
         saving.value = false;
         return;
     }
@@ -425,10 +497,15 @@ const save = async () => {
         justSavedCardTarget.value = isCampaignTotem.value ? 'totem' : 'leader';
     }
 
+    markSaved();
+
     if (data.redirect) {
         router.visit(data.redirect);
         return;
     }
+
+    // Stay on the editor: pick up the "rendering" state the save just triggered.
+    router.reload({ only: ['character', 'card_image_pending'], preserveScroll: true });
 
     saving.value = false;
 };
@@ -666,6 +743,14 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
             </template>
         </PageBanner>
 
+        <div v-if="hasDraft" class="container mx-auto mt-4 px-4 lg:px-6">
+            <div class="flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+                <span class="min-w-0 flex-1">You have an unsaved draft from earlier. Restore it?</span>
+                <Button size="sm" @click="restoreDraft">Restore draft</Button>
+                <Button size="sm" variant="ghost" @click="discardDraft">Discard</Button>
+            </div>
+        </div>
+
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <div class="mb-4 flex gap-2">
                 <Link v-if="campaignBackUrl" :href="campaignBackUrl">
@@ -809,38 +894,66 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 </div>
                             </div>
 
-                            <!-- Character Art (inline) -->
+                            <!-- Character Art (library) -->
                             <div class="border-t pt-3">
                                 <label class="mb-1.5 block text-xs text-muted-foreground">Character Art</label>
-                                <div v-if="characterImagePreview" class="relative">
-                                    <img
-                                        :src="characterImagePreview"
-                                        alt="Character art preview"
-                                        class="h-32 w-full rounded-md border object-cover"
-                                    />
-                                    <button
-                                        aria-label="Remove image"
-                                        class="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-                                        @click="removeImage"
-                                    >
-                                        <X class="size-4" />
-                                    </button>
+                                <div
+                                    v-if="selectedArt"
+                                    class="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-xs"
+                                >
+                                    <span class="truncate font-medium">{{ selectedArt.name }}</span>
+                                    <span class="flex shrink-0 gap-1">
+                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="artPickerOpen = true"
+                                            >Change</Button
+                                        >
+                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="pickArt(null)"
+                                            >Remove</Button
+                                        >
+                                    </span>
                                 </div>
-                                <label
+                                <button
                                     v-else
-                                    class="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 transition-colors hover:border-muted-foreground/50 hover:bg-muted/50"
+                                    type="button"
+                                    class="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-left transition-colors hover:border-muted-foreground/50 hover:bg-muted/50"
+                                    @click="artPickerOpen = true"
                                 >
                                     <ImagePlus class="size-5 shrink-0 text-muted-foreground" />
-                                    <div>
-                                        <span class="text-xs font-medium">Click to upload</span>
-                                        <span class="ml-1 text-xs text-muted-foreground">(jpg/png/webp)</span>
+                                    <span class="text-xs font-medium">Choose art from the library</span>
+                                    <span class="ml-auto text-xs text-muted-foreground">{{ card_arts.length }} available</span>
+                                </button>
+                                <ArtPositioner
+                                    v-if="selectedArt && !characterImagePreview"
+                                    v-model:x="form.card_art_x"
+                                    v-model:y="form.card_art_y"
+                                    v-model:zoom="form.card_art_zoom"
+                                    :src="selectedArt.image_path"
+                                    :alt="selectedArt.name"
+                                    class="mt-2"
+                                />
+                                <details class="mt-2 text-xs text-muted-foreground">
+                                    <summary class="cursor-pointer">Try your own image (preview only)</summary>
+                                    <div class="mt-1.5 space-y-1.5">
+                                        <div v-if="characterImagePreview" class="flex items-center gap-2">
+                                            <img
+                                                :src="characterImagePreview"
+                                                alt="Your uploaded preview"
+                                                class="h-12 w-16 rounded border object-cover"
+                                            />
+                                            <button type="button" class="underline" @click="removeImage">Remove</button>
+                                        </div>
+                                        <input
+                                            v-else
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            class="text-xs"
+                                            @change="onImageSelected"
+                                        />
+                                        <p class="text-[10px]">
+                                            Your own image is never saved and won't appear on exports from a later visit or on the public share link.
+                                            Pick library art to keep it on the card.
+                                        </p>
                                     </div>
-                                    <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelected" />
-                                </label>
-                                <p class="mt-1 text-[10px] text-muted-foreground">
-                                    Preview only — this image isn't saved with the card, so it won't be here after a refresh or on the public share
-                                    link. Re-upload it each time you edit.
-                                </p>
+                                </details>
                             </div>
                         </CardContent>
                     </Card>
@@ -1469,7 +1582,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             :base="String(form.base)"
                             :keywords="keywords"
                             :characteristics="characteristics"
-                            :character-image="characterImagePreview"
+                            :character-image="characterImageSrc"
+                            :character-image-focus="artFocus"
                             :actions="actions"
                             :abilities="abilities"
                             :linked-crew-upgrades="linkedCrewUpgrades"
@@ -1505,7 +1619,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 :base="String(form.base)"
                                 :keywords="keywords"
                                 :characteristics="characteristics"
-                                :character-image="characterImagePreview"
+                                :character-image="characterImageSrc"
+                                :character-image-focus="artFocus"
                                 :abilities="abilities"
                                 :linked-crew-upgrades="linkedCrewUpgrades"
                                 :linked-totems="linkedTotems"
@@ -1555,7 +1670,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 :base="String(form.base)"
                                 :keywords="keywords"
                                 :characteristics="characteristics"
-                                :character-image="characterImagePreview"
+                                :character-image="characterImageSrc"
+                                :character-image-focus="artFocus"
                                 :abilities="abilities"
                                 :linked-crew-upgrades="linkedCrewUpgrades"
                                 :linked-totems="linkedTotems"
@@ -1582,10 +1698,43 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
         </div>
 
         <!-- ═══ SAVE BAR ═══ -->
-        <div class="container mx-auto mt-4 px-4 lg:px-6">
-            <div class="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2.5">
-                <div v-if="Object.keys(errors).length" class="text-xs text-destructive">Please fix validation errors above.</div>
-                <div v-else class="text-xs text-muted-foreground">{{ isEdit ? 'Editing ' + (form.name || 'character') : 'New character' }}</div>
+        <!-- Sticky so Save is always in reach on this long form; shows the saved card image's state when editing. -->
+        <div
+            class="sticky bottom-[var(--tabbar-h,0px)] z-20 mt-4 border-t bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        >
+            <div class="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
+                <div class="min-w-0 text-xs" aria-live="polite">
+                    <div v-if="Object.keys(errors).length" class="text-destructive">Please fix validation errors above.</div>
+                    <div v-else-if="!isEdit" class="text-muted-foreground">
+                        New character — a shareable card image is rendered automatically after you create it.
+                    </div>
+                    <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+                        <span class="truncate">Editing {{ form.name || 'character' }}</span>
+                        <span v-if="imagePending || rerendering" class="inline-flex items-center gap-1 text-foreground">
+                            <Loader2 class="size-3 animate-spin" /> Rendering card image…
+                        </span>
+                        <template v-else-if="imageUrl">
+                            <a :href="imageUrl" :download="`${form.name || 'card'}.png`" class="inline-flex items-center gap-1 hover:text-foreground">
+                                <Download class="size-3" /> Card image
+                            </a>
+                            <Link
+                                :href="route('tools.card_creator.share', character!.share_code)"
+                                class="inline-flex items-center gap-1 hover:text-foreground"
+                            >
+                                <Share2 class="size-3" /> Share page
+                            </Link>
+                        </template>
+                        <span v-else>No card image yet.</span>
+                        <button
+                            v-if="!imagePending && !rerendering"
+                            type="button"
+                            class="inline-flex items-center gap-1 underline-offset-2 hover:text-foreground hover:underline"
+                            @click="rerender"
+                        >
+                            <RefreshCw class="size-3" /> Re-render
+                        </button>
+                    </div>
+                </div>
                 <Button :disabled="saving || !form.name || form.faction === 'none'" size="sm" @click="save">
                     <Loader2 v-if="saving" class="mr-2 size-4 animate-spin" />
                     <Save v-else class="mr-2 size-4" />
@@ -1593,6 +1742,64 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </Button>
             </div>
         </div>
+
+        <Dialog :open="artPickerOpen" @update:open="(o: boolean) => (artPickerOpen = o)">
+            <DialogContent class="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Choose character art</DialogTitle>
+                    <DialogDescription>Art from the BiggerHat library. It's saved with the card and shows on the share link.</DialogDescription>
+                </DialogHeader>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Input v-model="artSearch" placeholder="Search art…" class="h-8 max-w-[14rem]" aria-label="Search art" />
+                    <label v-if="form.faction !== 'none'" class="flex items-center gap-1.5 text-xs">
+                        <input v-model="artFactionOnly" type="checkbox" />
+                        Only this faction (and unrestricted art)
+                    </label>
+                </div>
+                <div v-if="artCategories.length" class="flex flex-wrap gap-1.5">
+                    <button
+                        type="button"
+                        class="rounded-full border px-2.5 py-0.5 text-xs"
+                        :class="artCategory === null ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'"
+                        @click="artCategory = null"
+                    >
+                        All
+                    </button>
+                    <button
+                        v-for="c in artCategories"
+                        :key="c"
+                        type="button"
+                        class="rounded-full border px-2.5 py-0.5 text-xs"
+                        :class="artCategory === c ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'"
+                        @click="artCategory = c"
+                    >
+                        {{ c }}
+                    </button>
+                </div>
+                <div class="max-h-[55vh] overflow-y-auto">
+                    <div v-if="card_arts.length === 0" class="py-10 text-center text-sm text-muted-foreground">
+                        The art library is empty for now — check back soon.
+                    </div>
+                    <div v-else-if="visibleArts.length === 0" class="py-10 text-center text-sm text-muted-foreground">
+                        No art matches. Try clearing the filters.
+                    </div>
+                    <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                        <button
+                            v-for="art in visibleArts"
+                            :key="art.id"
+                            type="button"
+                            class="group overflow-hidden rounded-md border text-left transition-colors hover:border-primary focus-visible:ring-2 focus-visible:ring-ring"
+                            :class="form.card_art_id === art.id ? 'border-primary ring-2 ring-primary' : ''"
+                            :aria-pressed="form.card_art_id === art.id"
+                            @click="pickArt(art.id)"
+                        >
+                            <img :src="'/storage/' + art.image_path" :alt="art.name" class="aspect-[4/3] w-full object-cover" loading="lazy" />
+                            <span class="block truncate px-2 py-1 text-xs">{{ art.name }}</span>
+                        </button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
 
         <ActionLookupModal v-model:open="actionModalOpen" @commit="commitActionsFromModal" />
         <AbilityLookupModal v-model:open="abilityModalOpen" @commit="commitAbilitiesFromModal" />

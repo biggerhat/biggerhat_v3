@@ -2,8 +2,8 @@
 
 namespace App\Observers;
 
-use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\CustomCharacter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CustomCharacterObserver
@@ -18,7 +18,7 @@ class CustomCharacterObserver
         'name', 'title', 'faction', 'second_faction', 'station', 'cost',
         'health', 'defense', 'defense_suit', 'willpower', 'willpower_suit',
         'speed', 'size', 'base', 'keywords', 'characteristics', 'actions',
-        'abilities', 'linked_crew_upgrades', 'linked_totems',
+        'abilities', 'linked_crew_upgrades', 'linked_totems', 'card_art_id', 'card_art_x', 'card_art_y', 'card_art_zoom',
     ];
 
     public function creating(CustomCharacter $character): void
@@ -58,42 +58,38 @@ class CustomCharacterObserver
     }
 
     /**
-     * Card-image regeneration (Campaign Leaders/Totems only, pg 31/52) — the
-     * single hook every mutation path funnels through (Leader Builder,
-     * Advance Leader, direct Arsenal Sheet advancement logging/removal, Totem
-     * creation), so none of those call sites need to remember to trigger it
-     * themselves. Generic homebrew Custom Card Creator characters are
-     * unaffected — they stay client-side-render-only.
+     * Saved card image (front/back/combination PNGs): the single hook every mutation path funnels through (Leader
+     * Builder, Advance Leader, Arsenal Sheet advancements, Totem creation, the Custom Card Creator editor), so no
+     * call site needs to remember to trigger it. CustomCharacter::queueCardImage() decides how — immediately and
+     * unthrottled for Campaign Leaders/Totems (pg 31/52), a short delayed, coalesced render for everyone else.
      *
-     * Dedicated `created`/`updated` hooks rather than the combined `saved`
-     * event: Eloquent only populates change-tracking (`wasChanged()`) on
-     * updates, not inserts, and `wasRecentlyCreated` stays true for the rest
-     * of that model instance's lifetime once set — neither reliably tells
-     * "was this specific save a create or an update" on its own.
+     * Dedicated `created`/`updated` hooks rather than the combined `saved` event: Eloquent only populates
+     * change-tracking (`wasChanged()`) on updates, not inserts, and `wasRecentlyCreated` stays true for the rest of
+     * that model instance's lifetime once set — neither reliably tells "was this specific save a create or an
+     * update" on its own.
+     *
+     * queueCardImage() uses afterCommit(): every campaign call site creates/updates its Leader or Totem inside
+     * DB::transaction, and queue connections here run with after_commit=false, so a worker could otherwise dequeue
+     * the job before the transaction commits, fail to find the row and silently no-op.
      */
     public function created(CustomCharacter $character): void
     {
-        if ($character->is_campaign_leader || $character->is_campaign_totem) {
-            // afterCommit(): every call site that creates/updates a Leader or
-            // Totem (Leader Builder, Advance Leader, Aftermath) does so inside
-            // DB::transaction. Queue connections here run with after_commit=false,
-            // so a worker can otherwise dequeue this before the transaction
-            // commits, fail to find the row, and silently no-op — the card
-            // then never renders and there's no retry to catch it.
-            GenerateLeaderCardImage::dispatch($character->id)->afterCommit();
-        }
+        $character->queueCardImage();
     }
 
     public function updated(CustomCharacter $character): void
     {
-        if (! $character->is_campaign_leader && ! $character->is_campaign_totem) {
-            return;
+        if ($character->wasChanged(self::CARD_RENDER_COLUMNS)) {
+            $character->queueCardImage();
         }
+    }
 
-        if (! $character->wasChanged(self::CARD_RENDER_COLUMNS)) {
-            return;
-        }
-
-        GenerateLeaderCardImage::dispatch($character->id)->afterCommit();
+    /**
+     * Deleting a card (soft-delete; nothing restores it) takes its saved front/back/combination PNGs with it, so
+     * orphaned renders don't pile up on disk.
+     */
+    public function deleted(CustomCharacter $character): void
+    {
+        Storage::disk('public')->deleteDirectory("custom-characters/{$character->id}");
     }
 }

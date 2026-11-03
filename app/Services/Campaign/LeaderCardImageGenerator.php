@@ -2,7 +2,9 @@
 
 namespace App\Services\Campaign;
 
+use App\Events\CardImageGenerated;
 use App\Models\CustomCharacter;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Browsershot\Browsershot;
 
@@ -50,9 +52,25 @@ class LeaderCardImageGenerator
             // Arsenal Sheet's regeneration poll — see the column's migration.
             'card_image_generated_at' => now(),
         ]);
+
+        $this->announce(CardImageGenerated::KIND_CUSTOM_CHARACTER, $character->id, $character->user_id, $character->card_image_generated_at);
     }
 
-    private function capture(string $url, string $selector): string
+    /** Tells the owner's open pages the render is done; a socket outage must not fail a finished render. */
+    private function announce(string $kind, int $id, ?int $userId, ?CarbonInterface $generatedAt): void
+    {
+        if (! $userId) {
+            return;
+        }
+
+        try {
+            event(new CardImageGenerated($userId, $kind, $id, $generatedAt?->toIso8601String()));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    protected function capture(string $url, string $selector): string
     {
         $browsershot = Browsershot::url($url)
             ->noSandbox()
@@ -85,7 +103,7 @@ class LeaderCardImageGenerator
     }
 
     /** Side-by-side merge — same GD approach as CreateCombinationImages, PNG instead of JPEG. */
-    private function mergeSideBySide(string $frontPath, string $backPath, string $outPath): void
+    protected function mergeSideBySide(string $frontPath, string $backPath, string $outPath): void
     {
         [$fw, $fh] = getimagesize($frontPath);
         [$bw, $bh] = getimagesize($backPath);

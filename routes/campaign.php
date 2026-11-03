@@ -5,6 +5,7 @@ use App\Http\Controllers\Campaign\CampaignAftermathController;
 use App\Http\Controllers\Campaign\CampaignController;
 use App\Http\Controllers\Campaign\CampaignGameController;
 use App\Http\Controllers\Campaign\CampaignInvitationController;
+use App\Http\Controllers\Campaign\CampaignRecapController;
 use App\Http\Controllers\Campaign\CrewLifecycleController;
 use App\Http\Controllers\Campaign\LeaderAdvancementController;
 use App\Http\Controllers\Campaign\LeaderBuilderController;
@@ -54,6 +55,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/campaigns', [CampaignController::class, 'store'])->name('campaigns.store');
 
     Route::get('/campaigns/{campaign}', [CampaignController::class, 'show'])->name('campaigns.show');
+    Route::get('/campaigns/{campaign}/recap', [CampaignRecapController::class, 'show'])->name('campaigns.recap');
     Route::get('/campaigns/{campaign}/settings', [CampaignController::class, 'settings'])->name('campaigns.settings');
     Route::post('/campaigns/{campaign}', [CampaignController::class, 'update'])->name('campaigns.update');
     Route::post('/campaigns/{campaign}/start', [CampaignController::class, 'start'])->name('campaigns.start');
@@ -123,6 +125,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('campaigns.crews.arsenal.injuries.store');
     Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/models/{model}/injuries/{injury}', [ArsenalSheetController::class, 'removeManualInjury'])
         ->name('campaigns.crews.arsenal.injuries.destroy');
+    Route::post('/campaigns/{campaign}/crews/{crew}/arsenal/custom/{character}/injuries', [ArsenalSheetController::class, 'addLeaderTotemInjury'])
+        ->name('campaigns.crews.arsenal.custom-injuries.store');
+    Route::delete('/campaigns/{campaign}/crews/{crew}/arsenal/custom/{character}/injuries/{injury}', [ArsenalSheetController::class, 'removeLeaderTotemInjury'])
+        ->name('campaigns.crews.arsenal.custom-injuries.destroy');
     Route::put('/campaigns/{campaign}/crews/{crew}/story-note', [ArsenalSheetController::class, 'updateStoryNote'])
         ->name('campaigns.crews.story-note.update');
     Route::post('/campaigns/{campaign}/crews/{crew}/crew-card-items', [ArsenalSheetController::class, 'addCrewCardItem'])

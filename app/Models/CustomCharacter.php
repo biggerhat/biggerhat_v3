@@ -7,6 +7,7 @@ use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -29,6 +31,51 @@ class CustomCharacter extends Model
     use SoftDeletes;
 
     protected $guarded = ['id'];
+
+    /**
+     * Queue a render of the saved card image (front/back/combination PNGs). Campaign Leaders/Totems render
+     * immediately — the Arsenal Sheet polls for the result. Every other card is rendered shortly after the last save:
+     * while a render is already waiting the extra call is dropped, because that job reads the card as it is when it
+     * runs, so a burst of edits costs one headless-Chrome render rather than one per save.
+     */
+    public function queueCardImage(): void
+    {
+        if ($this->is_campaign_leader || $this->is_campaign_totem) {
+            GenerateLeaderCardImage::dispatch($this->id)->afterCommit();
+
+            return;
+        }
+
+        if (! Cache::add(self::renderPendingKey($this->id), true, 60)) {
+            return;
+        }
+
+        GenerateLeaderCardImage::dispatch($this->id)->delay(now()->addSeconds(20))->afterCommit();
+    }
+
+    /** Cache key marking a delayed render as waiting; the job clears it the moment it starts reading the card. */
+    /** True while a render is waiting for its delay or running — drives the "Rendering…" state on My Cards. */
+    public function cardImagePending(): bool
+    {
+        return Cache::has(self::renderPendingKey($this->id)) || Cache::has(self::renderingKey($this->id));
+    }
+
+    /** Set by the job while headless Chrome is working, so the pending flag survives the marker being released at start. */
+    public static function renderingKey(int $id): string
+    {
+        return "custom-card-rendering:{$id}";
+    }
+
+    public static function renderPendingKey(int $id): string
+    {
+        return "custom-card-render-pending:{$id}";
+    }
+
+    /** @return BelongsTo<CardArt, $this> */
+    public function cardArt(): BelongsTo
+    {
+        return $this->belongsTo(CardArt::class, 'card_art_id');
+    }
 
     public function casts(): array
     {
@@ -61,6 +108,9 @@ class CustomCharacter extends Model
             'replaced_at' => 'datetime',
             'card_image_generated_at' => 'datetime',
             'xp_track' => 'array',
+            'card_art_x' => 'integer',
+            'card_art_y' => 'integer',
+            'card_art_zoom' => 'integer',
             // Integer casts on campaign-mode stat columns. SQLite returns
             // strings for numeric columns by default, which trips comparison
             // operators (e.g. campaign_totem_flip_value === $flipped). Cast

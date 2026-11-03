@@ -113,8 +113,8 @@ class CrewBuilderController extends Controller
                         'count' => $c->count ?? 1,
                         'keywords' => $c->keywords ?? [],
                         'characteristics' => $c->characteristics ?? [],
-                        'front_image' => null,
-                        'back_image' => null,
+                        'front_image' => $c->front_image,
+                        'back_image' => $c->back_image,
                         'is_custom' => true,
                     ])->toArray()
                 : [],

@@ -2,16 +2,29 @@
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Head } from '@inertiajs/vue3';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
+import type { SharedData } from '@/types';
+import { router, usePage } from '@inertiajs/vue3';
+import { Download, Loader2 } from 'lucide-vue-next';
 
-defineProps<{
+const props = defineProps<{
+    card_image_pending?: boolean;
+    card_art_path?: string | null;
     character: {
         id: number;
         name: string;
         title: string | null;
         display_name: string;
+        card_art_x?: number;
+        card_art_y?: number;
+        card_art_zoom?: number;
+        combination_image?: string | null;
+        front_image?: string | null;
+        card_image_generated_at?: string | null;
         faction: string;
         second_faction: string | null;
         station: string;
@@ -43,6 +56,11 @@ defineProps<{
     creator_name: string;
 }>();
 
+// The owner viewing their card sees the download button appear when the render finishes.
+useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    if (event.kind === 'custom_character' && event.id === props.character.id) router.reload({ only: ['character'], preserveScroll: true });
+});
+
 const stationLabel = (station: string | null) => {
     if (!station || station === 'none') return null;
     const map: Record<string, string> = { master: 'Master', enforcer: 'Enforcer', minion: 'Minion', peon: 'Peon' };
@@ -51,7 +69,11 @@ const stationLabel = (station: string | null) => {
 </script>
 
 <template>
-    <Head :title="`${character.display_name} — Custom Character`" />
+    <SeoHead
+        :title="`${character.display_name} — Custom Character`"
+        :description="`${character.display_name}, a custom ${stationLabel(character.station) ?? 'character'} card by ${creator_name}.`"
+        :image="character.combination_image ?? character.front_image"
+    />
 
     <div class="relative pb-12">
         <div
@@ -65,6 +87,19 @@ const stationLabel = (station: string | null) => {
                     <Badge class="bg-purple-600 text-white">Custom</Badge>
                     <span>Created by {{ creator_name }}</span>
                 </div>
+            </template>
+            <template v-if="character.combination_image || card_image_pending" #actions>
+                <span v-if="!character.combination_image" class="mr-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
+                    <Loader2 class="size-4 animate-spin" /> Preparing card image…
+                </span>
+                <a
+                    v-else
+                    :href="'/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at)"
+                    :download="`${character.display_name}.png`"
+                    class="mr-2 inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent [@media(pointer:coarse)]:h-11"
+                >
+                    <Download class="size-4" /> Download card
+                </a>
             </template>
         </PageBanner>
 
@@ -88,7 +123,8 @@ const stationLabel = (station: string | null) => {
                     :base="String(character.base)"
                     :keywords="character.keywords ?? []"
                     :characteristics="character.characteristics ?? []"
-                    :character-image="null"
+                    :character-image="card_art_path ?? null"
+                    :character-image-focus="{ x: character.card_art_x ?? 50, y: character.card_art_y ?? 50, zoom: character.card_art_zoom ?? 100 }"
                     :actions="character.actions ?? []"
                     :abilities="character.abilities ?? []"
                     :linked-crew-upgrades="character.linked_crew_upgrades ?? []"

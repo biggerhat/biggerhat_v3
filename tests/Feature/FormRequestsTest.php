@@ -33,6 +33,7 @@ it('builds rules for every form request', function () {
         App\Http\Requests\Campaign\RemoveArsenalModelRequest::class,
         App\Http\Requests\Campaign\RemoveManualInjuryRequest::class,
         App\Http\Requests\Campaign\RemoveCrewCardItemRequest::class,
+        App\Http\Requests\Campaign\RemoveLeaderTotemInjuryRequest::class,
     ];
 
     $broken = [];

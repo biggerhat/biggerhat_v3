@@ -542,3 +542,156 @@ it('capture does not add a tag characteristic for a non-leader custom character'
         ->assertOk()
         ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living']));
 });
+
+// ─── Library art (CardArt) ───
+
+it('offers only active library art in the editor, plus the art already chosen', function () {
+    $user = User::factory()->create();
+    $active = \App\Models\CardArt::factory()->create(['name' => 'Active']);
+    $retired = \App\Models\CardArt::factory()->inactive()->create(['name' => 'Retired']);
+    $retiredButChosen = \App\Models\CardArt::factory()->inactive()->create(['name' => 'Chosen']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $retiredButChosen->id]));
+
+    $this->actingAs($user)->get(route('tools.card_creator.create'))
+        ->assertInertia(fn ($page) => $page->has('card_arts', 1)->where('card_arts.0.id', $active->id));
+
+    $this->actingAs($user)->get(route('tools.card_creator.edit', $character->id))
+        ->assertInertia(fn ($page) => $page->has('card_arts', 2)->where('card_arts.0.name', 'Active')->where('card_arts.1.name', 'Chosen'));
+    expect($retired->is_active)->toBeFalse();
+});
+
+it('stores a chosen art id and rejects unknown or retired art', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create();
+    $retired = \App\Models\CardArt::factory()->inactive()->create();
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id]))->assertOk();
+    expect(CustomCharacter::where('user_id', $user->id)->first()->card_art_id)->toBe($art->id);
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => 99999]))->assertUnprocessable()->assertJsonValidationErrors('card_art_id');
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $retired->id]))->assertUnprocessable()->assertJsonValidationErrors('card_art_id');
+});
+
+it('lets a character keep retired art on update and clear it with null', function () {
+    $user = User::factory()->create();
+    $retired = \App\Models\CardArt::factory()->inactive()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $retired->id]));
+
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['name' => 'Renamed', 'card_art_id' => $retired->id]))->assertOk();
+    expect($character->fresh()->card_art_id)->toBe($retired->id);
+
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null]))->assertOk();
+    expect($character->fresh()->card_art_id)->toBeNull();
+});
+
+it('exposes the chosen art path on the share page and the capture page', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create(['image_path' => 'card_arts/demo.webp']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id]));
+
+    $this->get(route('tools.card_creator.share', $character->share_code))->assertInertia(fn ($page) => $page->where('card_art_path', 'card_arts/demo.webp'));
+    $this->get(route('tools.card_creator.capture', $character->share_code))->assertInertia(fn ($page) => $page->where('card.characterImage', 'card_arts/demo.webp'));
+});
+
+it('stores art framing, rejects out-of-range values, and resets it when the art is removed', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create();
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id, 'card_art_x' => 20, 'card_art_y' => 80, 'card_art_zoom' => 175]))->assertOk();
+    $character = CustomCharacter::where('user_id', $user->id)->firstOrFail();
+    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom])->toBe([20, 80, 175]);
+
+    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 99], ['card_art_zoom' => 301]] as $bad) {
+        $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload($bad))->assertUnprocessable();
+    }
+
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null, 'card_art_x' => 20, 'card_art_zoom' => 175]))->assertOk();
+    expect([$character->fresh()->card_art_x, $character->fresh()->card_art_y, $character->fresh()->card_art_zoom])->toBe([50, 50, 100]);
+});
+
+it('defaults framing to centred and unzoomed, and a null framing value falls back to the default', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_x' => null, 'card_art_zoom' => null]))->assertOk();
+    $character = CustomCharacter::where('user_id', $user->id)->firstOrFail();
+    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom])->toBe([50, 50, 100]);
+});
+
+it('exposes the framing to the headless capture page', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create(['image_path' => 'card_arts/demo.webp']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id, 'card_art_x' => 10, 'card_art_y' => 90, 'card_art_zoom' => 200]));
+
+    $this->get(route('tools.card_creator.capture', $character->share_code))
+        ->assertInertia(fn ($page) => $page->where('card.characterImageFocus', ['x' => 10, 'y' => 90, 'zoom' => 200]));
+});
+
+it('lists each card with its saved image fields and the art fallback for the tile thumbnail', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create(['image_path' => 'card_arts/tile.webp']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id]));
+    $character->forceFill(['front_image' => 'custom-characters/1/front.png', 'combination_image' => 'custom-characters/1/combination.png', 'card_image_generated_at' => now()])->saveQuietly();
+
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('characters.0.card_art_path', 'card_arts/tile.webp')
+            ->where('characters.0.front_image', 'custom-characters/1/front.png')
+            ->where('characters.0.combination_image', 'custom-characters/1/combination.png')
+            ->missing('characters.0.card_art'));
+});
+
+it('exposes the saved combination image on the public share page', function () {
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    $character->forceFill(['combination_image' => 'custom-characters/9/combination.png'])->saveQuietly();
+
+    $this->get(route('tools.card_creator.share', $character->share_code))
+        ->assertInertia(fn ($page) => $page->where('character.combination_image', 'custom-characters/9/combination.png'));
+});
+
+it('gives the crew builder a custom character\'s saved card images', function () {
+    $user = User::factory()->create(['email_verified_at' => now()]);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    $character->forceFill(['front_image' => 'custom-characters/5/front.png', 'back_image' => 'custom-characters/5/back.png'])->saveQuietly();
+
+    $this->actingAs($user)->get(route('tools.crew_builder.editor'))
+        ->assertInertia(fn ($page) => $page
+            ->where('customCharacters.0.front_image', 'custom-characters/5/front.png')
+            ->where('customCharacters.0.back_image', 'custom-characters/5/back.png'));
+});
+
+it('removes a deleted card\'s saved images from disk', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    \Illuminate\Support\Facades\Storage::disk('public')->put("custom-characters/{$character->id}/front.png", 'x');
+
+    $this->actingAs($user)->deleteJson(route('tools.card_creator.destroy', $character->id))->assertOk();
+
+    \Illuminate\Support\Facades\Storage::disk('public')->assertMissing("custom-characters/{$character->id}/front.png");
+});
+
+it('flags a card whose image is waiting to render and lets the owner re-render it', function () {
+    Bus::fake();
+    $user = User::factory()->create();
+    $other = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    \Illuminate\Support\Facades\Cache::forget(CustomCharacter::renderPendingKey($character->id));
+    Bus::fake();
+
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page->where('characters.0.card_image_pending', false));
+
+    $this->actingAs($other)->postJson(route('tools.card_creator.rerender', $character->id))->assertForbidden();
+    Bus::assertNotDispatched(\App\Jobs\Campaign\GenerateLeaderCardImage::class);
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.rerender', $character->id))->assertOk();
+    Bus::assertDispatched(\App\Jobs\Campaign\GenerateLeaderCardImage::class);
+
+    // A second click while it's rendering doesn't queue another.
+    Bus::fake();
+    $this->actingAs($user)->postJson(route('tools.card_creator.rerender', $character->id))->assertOk();
+    Bus::assertNotDispatched(\App\Jobs\Campaign\GenerateLeaderCardImage::class);
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page->where('characters.0.card_image_pending', true));
+});

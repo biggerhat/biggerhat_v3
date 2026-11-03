@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { factionBackground } from '@/composables/useFactionColor';
+import { factionDeep } from '@/composables/useFactionColor';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
@@ -626,7 +626,7 @@ const confirmCampaignCrew = () => {
                                     <div
                                         v-for="(member, mIdx) in crew.members"
                                         :key="mIdx"
-                                        :class="factionBackground(member.faction)"
+                                        :class="factionDeep(member.faction)"
                                         class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
                                     >
                                         <div class="flex min-w-0 items-center gap-1.5">
@@ -771,7 +771,7 @@ const confirmCampaignCrew = () => {
                                     <div
                                         v-for="(member, mIdx) in crew.members"
                                         :key="mIdx"
-                                        :class="factionBackground(member.faction)"
+                                        :class="factionDeep(member.faction)"
                                         class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
                                     >
                                         <div class="flex min-w-0 items-center gap-1.5">

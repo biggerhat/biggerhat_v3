@@ -1013,6 +1013,10 @@ class CampaignAftermathController extends Controller
                 lost: $data['lost'],
             );
 
+        // "3 XP per game (outside of optional rules, equipment, etc.)" (pg 31): effects like Cruel Lessons (pg 40,
+        // +1 XP in the aftermath after killing the enemy leader) sit on top of that cap.
+        $xpEarned += (int) ($data['bonus_xp'] ?? 0);
+
         // Rule enforcement before we mutate state. Reject the batch if any
         // advancement violates a rule — better than partial application.
         $advancementService = app(LeaderAdvancementService::class);

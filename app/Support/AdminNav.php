@@ -134,6 +134,7 @@ class AdminNav
                     ['key' => 'access_security_roles', 'title' => 'Roles', 'href' => route('admin.roles.index'), 'icon' => 'ShieldCheck', 'permission' => 'view_role', 'external' => false, 'count' => null],
                     ['key' => 'access_security_api_tokens', 'title' => 'API Tokens', 'href' => route('admin.api_tokens.index'), 'icon' => 'Key', 'permission' => 'super_admin', 'external' => false, 'count' => null],
                     ['key' => 'access_security_sessions', 'title' => 'Sessions', 'href' => route('admin.sessions.index'), 'icon' => 'MonitorSmartphone', 'permission' => 'super_admin', 'external' => false, 'count' => null],
+                    ['key' => 'access_security_card_arts', 'title' => 'Card Art Library', 'href' => route('admin.card_arts.index'), 'icon' => 'FileImage', 'permission' => 'super_admin', 'external' => false, 'count' => null],
                     ['key' => 'access_security_custom_cards', 'title' => 'Custom Cards', 'href' => route('admin.custom_cards.index'), 'icon' => 'ShieldAlert', 'permission' => 'super_admin', 'external' => false, 'count' => null],
                 ],
             ],

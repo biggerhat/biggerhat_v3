@@ -9,6 +9,7 @@ use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Campaign\AddCrewCardItemRequest;
+use App\Http\Requests\Campaign\AddLeaderTotemInjuryRequest;
 use App\Http\Requests\Campaign\AddManualArsenalModelRequest;
 use App\Http\Requests\Campaign\AddManualEquipmentRequest;
 use App\Http\Requests\Campaign\AddManualInjuryRequest;
@@ -17,6 +18,7 @@ use App\Http\Requests\Campaign\AdjustScripRequest;
 use App\Http\Requests\Campaign\RemoveArsenalModelRequest;
 use App\Http\Requests\Campaign\RemoveCrewCardItemRequest;
 use App\Http\Requests\Campaign\RemoveEquipmentRequest;
+use App\Http\Requests\Campaign\RemoveLeaderTotemInjuryRequest;
 use App\Http\Requests\Campaign\RemoveManualInjuryRequest;
 use App\Http\Requests\Campaign\UpdateArsenalModelRequest;
 use App\Http\Requests\Campaign\UpdateCrewStoryNoteRequest;
@@ -262,6 +264,49 @@ class ArsenalSheetController extends Controller
 
         CampaignArsenalModelInjury::query()
             ->whereIn('campaign_arsenal_model_id', $modelIds)
+            ->where('injury_upgrade_id', $injury->id)
+            ->delete();
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage("{$injury->name} removed.");
+    }
+
+    /**
+     * Freeform injury on the Leader or Totem. Same guard rails as arsenal models: duplicates, Killed Off and
+     * a third injury (which would annihilate) go through the Aftermath, which knows about Miraculous Recovery.
+     */
+    public function addLeaderTotemInjury(AddLeaderTotemInjuryRequest $request, Campaign $campaign, CampaignCrew $crew, CustomCharacter $character)
+    {
+        $injury = Upgrade::query()->findOrFail($request->validated('injury_upgrade_id'));
+
+        $held = CampaignArsenalModelInjury::query()->where('custom_character_id', $character->id)->pluck('injury_upgrade_id');
+        if ($injury->campaign_annihilates_model || $held->count() >= 2) {
+            return redirect()->back()->withMessage(
+                'That could annihilate this character. Log it through a game\'s Aftermath instead, which handles Miraculous Recovery.',
+                null,
+                MessageTypeEnum::error,
+            );
+        }
+        if ($held->contains($injury->id)) {
+            return redirect()->back()->withMessage("Already has {$injury->name}.", null, MessageTypeEnum::error);
+        }
+
+        CampaignArsenalModelInjury::create([
+            'campaign_arsenal_model_id' => null,
+            'custom_character_id' => $character->id,
+            'injury_upgrade_id' => $injury->id,
+        ]);
+
+        $this->broadcastToCampaign($campaign, new CampaignCrewUpdated($crew));
+
+        return redirect()->back()->withMessage("{$injury->name} added.");
+    }
+
+    public function removeLeaderTotemInjury(RemoveLeaderTotemInjuryRequest $request, Campaign $campaign, CampaignCrew $crew, CustomCharacter $character, Upgrade $injury)
+    {
+        CampaignArsenalModelInjury::query()
+            ->where('custom_character_id', $character->id)
             ->where('injury_upgrade_id', $injury->id)
             ->delete();
 
@@ -544,6 +589,14 @@ class ArsenalSheetController extends Controller
 
         $leader = $crew->leader;
         $totem = $crew->totem;
+
+        // Library art picked for the Leader/Totem card (CardArt), shipped as a plain path for the card renderer.
+        foreach ([$leader, $totem] as $custom) {
+            if ($custom) {
+                $custom->setAttribute('card_art_path', $custom->cardArt?->image_path);
+                $custom->unsetRelation('cardArt');
+            }
+        }
 
         // Display-only characteristic additions on the live card — see
         // CustomCharacter::displayCharacteristics(), shared with the card

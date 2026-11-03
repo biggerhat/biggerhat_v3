@@ -433,6 +433,13 @@ html {
 .faction-spine-row > :first-child {
     box-shadow: inset 4px 0 0 hsl(var(--faction));
 }
+.faction-deep {
+    --faction: var(--border);
+    /* Dark, desaturated faction wash for rows that carry white text (game tracker): same hue as the
+       faction, but deep enough that white text always clears AA — including the light factions. */
+    background-color: color-mix(in srgb, hsl(var(--faction)) 55%, #0a0a0c);
+    box-shadow: inset 4px 0 0 hsl(var(--faction));
+}
 .faction-arcanists {
     --faction: var(--arcanists);
 }

@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { factionBackground } from '@/composables/useFactionColor';
+import { factionDeep } from '@/composables/useFactionColor';
 import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
 import type { CrewMember, GameData, GamePlayer, SchemeData } from '@/types/game';
 import { Check, Loader2 } from 'lucide-vue-next';
@@ -260,7 +260,7 @@ const confirmPendingScheme = () => {
                 <div
                     v-for="member in player.crew_members"
                     :key="member.id"
-                    :class="factionBackground(member.faction ?? player.faction ?? '')"
+                    :class="factionDeep(member.faction ?? player.faction ?? '')"
                     class="flex items-center justify-between rounded px-2 py-1 text-xs text-white"
                 >
                     <div class="flex min-w-0 items-center gap-1.5">

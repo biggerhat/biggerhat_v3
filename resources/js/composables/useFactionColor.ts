@@ -48,3 +48,14 @@ export function factionSpine(faction: string | null, options: { row?: boolean } 
 
     return `${base} faction-${useFactionColor(faction.toLowerCase())}`;
 }
+
+/**
+ * Deep faction-tinted surface for rows that keep white text (the game tracker). Unlike
+ * `factionBackground()` it never needs a dark-text flip, and reads calmer than a saturated fill.
+ */
+export function factionDeep(faction: string | null): string {
+    const base = 'faction-deep';
+    if (!faction) return base;
+
+    return `${base} faction-${useFactionColor(faction.toLowerCase())}`;
+}

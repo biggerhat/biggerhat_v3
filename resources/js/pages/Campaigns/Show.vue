@@ -331,6 +331,9 @@ const deleteCampaign = async (id: number) => {
                     <Button variant="outline">Log Game</Button>
                 </Link>
             </template>
+            <Link v-if="campaign.status !== 'planning'" :href="route('campaigns.recap', campaign.id)">
+                <Button variant="outline">Recap</Button>
+            </Link>
             <Button
                 v-if="!campaign.is_solo && campaign.status !== 'ended' && isMember && !myCrew"
                 variant="outline"

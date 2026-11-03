@@ -31,6 +31,51 @@ JSON stat/ability/action payloads).
 - Reuse the `GameText` token vocabulary for ability/action text so custom cards
   match official rendering.
 
+- **Saving** goes through `saveCardJson()` in `utils.ts`: it never throws, and non-validation failures (offline, 419,
+  5xx) come back as `message` so the editors can toast them instead of leaving the Save button spinning.
+- **Export** goes through `captureCardFaces()` (shared by both editors): inlines unsaved `blob:` portraits for the capture
+  and always restores them, even if the capture throws.
+- **Drafts**: `composables/useEditorDraft.ts` warns before leaving with unsaved changes and keeps a debounced
+  localStorage draft for *new* cards (`bh_draft_card`, `bh_draft_upgrade_<domain>`) with a "Restore draft?" banner.
+- `useShrinkToFit` binary-searches the font-size grid (about 5 reflows instead of up to 14).
+- **Character art** comes from an admin-curated library (`card_arts` table, `CardArt` model,
+  `Admin\CardArtAdminController` at `/admin/card-arts`, super-admin only). A `CustomCharacter` stores `card_art_id`;
+  the editor's "Choose art" dialog lists active art (filter by faction / category / search), and the render surfaces
+  receive the path (`card_art_path` on the share page and Arsenal Sheet Leader/Totem, `card.characterImage` on the
+  capture page). Changing `card_art_id` regenerates Campaign Leader/Totem card images (`CARD_RENDER_COLUMNS`).
+  Retired (inactive) art stays on cards that already use it; deleting art clears it from those cards.
+  **Framing**: `card_art_x` / `card_art_y` (0-100 focus point) and `card_art_zoom` (100-300%) on `CustomCharacter` choose
+  which part of the art shows. `ArtImage.vue` renders it in pure CSS (a box `zoom`× the window, shifted and
+  cover-positioned by the same x/y), so the live preview, the html-to-image export and the server-side capture all match;
+  `ArtPositioner.vue` is the drag / arrow-key / zoom-slider editor. Picking different art resets the framing; clearing
+  the art resets it server-side too.
+  **Saved card images**: every custom character gets a server-rendered front/back/combination PNG
+  (`GenerateLeaderCardImage` → headless capture of `CardCreator/Capture`, with the chosen art and framing). The
+  Arsenal Sheet and Game Tracker show it for campaign Leaders/Totems and homebrew hires; "My Cards" tiles and the
+  share page use it for thumbnails and a *Download card* link. `CustomCharacter::queueCardImage()` (called from
+  `CustomCharacterObserver` whenever a card-render column — including art/framing — changes) renders Leaders/Totems
+  immediately, and everyone else ~20s after the last save, coalescing bursts of edits into one render (the job clears
+  the `renderPendingKey` marker as it starts). Run `php artisan app:regenerate-leader-card-images` to backfill cards
+  that existed before this.
+  Player uploads are **never stored** — the "Try your own image" option is a preview-only convenience.
+  The images live on the `public` disk under `card_arts/` (needs `php artisan storage:link` like other uploads).
+
 ## Tests
-No dedicated feature tests yet — add under `tests/Feature/` (CRUD gate, store
-validation, share-code resolution) when touching this area.
+`tests/Feature/CustomCharacterControllerTest.php`, `CustomUpgradeControllerTest.php`,
+`CardCreatorCampaignLeaderTest.php`. The editors' client-side behaviour (drafts, export) has no automated tests.
+
+## Realtime: render-finished events
+
+When a saved card render finishes, `LeaderCardImageGenerator` / `CombinedCrewCardImageGenerator` fire `CardImageGenerated`
+(`ShouldBroadcastNow`, private `App.Models.User.{owner}` channel, event `.card.image.generated`, payload `kind`
+= `custom_character`|`crew_card`, `id`, `generated_at`). `useCardImageEvents` listens (only removing its own listener, since
+`useNotifications` shares the channel); My Cards, the share page and the Arsenal Sheet reload on it. The Arsenal Sheet keeps
+its old polling as a fallback when Reverb is unavailable, and does one safety reload after 60s if an event is lost.
+
+## Saved-image states and housekeeping
+
+- `CustomCharacter::cardImagePending()` = the coalescing marker (`renderPendingKey`, waiting for its delay) **or** the `renderingKey` the job holds while Chrome runs. My Cards, the share page and the Editor save bar show "Rendering…" from it.
+- `POST /tools/card-creator/{id}/render` (`tools.card_creator.rerender`, owner-only, throttled 10/min) queues an immediate render; ignored while one is already pending. My Cards shows a retry button on tiles with no image; the Editor save bar has "Re-render".
+- Deleting a card removes `custom-characters/{id}/` from the public disk (observer `deleted`).
+- My Cards tiles fall back to the art/logo if the saved image 404s, link to the share page, and get a search box above 6 characters.
+- The Editor's save bar is sticky (offset by `--tabbar-h` on phones) and, when editing, shows image state with Download / Share page / Re-render.

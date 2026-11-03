@@ -293,6 +293,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
         Route::get('/upgrades/share/{shareCode}', [CustomUpgradeController::class, 'share'])->name('upgrades.share');
+        Route::get('/upgrades/capture/{shareCode}', [CustomUpgradeController::class, 'capture'])->name('upgrades.capture');
         // Headless-Chrome capture target for App\Services\Campaign\LeaderCardImageGenerator —
         // bare front/back faces only, no page chrome. Public/unauthenticated like `share`
         // above (same unguessable share_code trust model), hit only by the queue worker.
@@ -326,6 +327,8 @@ Route::prefix('tools')->name('tools.')->group(function () {
                     Route::post('/', [CustomUpgradeController::class, 'store'])->name('store');
                     Route::put('/{customUpgrade}', [CustomUpgradeController::class, 'update'])->name('update');
                     Route::delete('/{customUpgrade}', [CustomUpgradeController::class, 'destroy'])->name('destroy');
+                    Route::post('/{customUpgrade}/duplicate', [CustomUpgradeController::class, 'duplicate'])->name('duplicate');
+                    Route::post('/{customUpgrade}/render', [CustomUpgradeController::class, 'rerender'])->middleware('throttle:10,1')->name('rerender');
                 });
             });
         });

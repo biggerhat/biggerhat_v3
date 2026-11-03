@@ -11,12 +11,15 @@ use App\Enums\UpgradeDomainTypeEnum;
 use App\Enums\UpgradeLimitationEnum;
 use App\Enums\UpgradeTypeEnum;
 use App\Http\Requests\CustomUpgradeRequest;
+use App\Jobs\Campaign\GenerateCustomUpgradeCardImage;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CustomUpgrade;
 use App\Support\Campaign\CombinedCrewCardEffects;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Inertia\Response;
 
 class CustomUpgradeController extends Controller
@@ -73,6 +76,7 @@ class CustomUpgradeController extends Controller
             'enums' => $this->enumOptions(),
             'campaign_back_url' => $campaignBackUrl,
             'crew_computed_tokens_markers' => $crewComputedTokensMarkers,
+            'card_image_pending' => $customUpgrade->cardImagePending(),
         ]);
     }
 
@@ -115,6 +119,56 @@ class CustomUpgradeController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Bare front/back faces, no page chrome — the headless-Chrome capture target for CustomUpgradeCardImageGenerator.
+     * Public like `share` (same unguessable share_code trust model), hit only by the queue worker.
+     */
+    public function capture(string $shareCode): Response
+    {
+        $upgrade = CustomUpgrade::where('share_code', $shareCode)->firstOrFail();
+
+        return inertia('CardCreator/UpgradeCapture', [
+            'upgrade' => $upgrade->only([
+                'name', 'domain', 'faction', 'type', 'limitations', 'master_name', 'keyword_name', 'content_blocks', 'back_tokens', 'back_markers',
+            ]),
+        ]);
+    }
+
+    /** Owner-triggered re-render of the saved card image; ignored while one is already pending. */
+    public function rerender(CustomUpgrade $customUpgrade): JsonResponse
+    {
+        $this->authorize('update', $customUpgrade);
+
+        if (! $customUpgrade->cardImagePending()) {
+            Cache::put(CustomUpgrade::renderingKey($customUpgrade->id), true, 150);
+            GenerateCustomUpgradeCardImage::dispatch($customUpgrade->id)->afterCommit();
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Copies one of the owner's upgrades / crew cards into a new plain custom card (no campaign linkage). */
+    public function duplicate(CustomUpgrade $customUpgrade): JsonResponse
+    {
+        $this->authorize('update', $customUpgrade);
+
+        if (CustomUpgrade::where('user_id', Auth::id())->count() >= CustomUpgradeRequest::MAX_PER_USER) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have reached the limit of '.CustomUpgradeRequest::MAX_PER_USER.' custom upgrades and crew cards. Delete one you no longer need first.',
+            ], 422);
+        }
+
+        $copy = CustomUpgrade::create(array_merge(
+            $customUpgrade->only([
+                'domain', 'faction', 'type', 'limitations', 'plentiful', 'master_name', 'keyword_name', 'content_blocks', 'back_tokens', 'back_markers', 'notes',
+            ]),
+            ['user_id' => Auth::id(), 'name' => Str::limit($customUpgrade->name, 245, '').' (Copy)'],
+        ));
+
+        return response()->json(['success' => true, 'redirect' => route('tools.card_creator.upgrades.edit', $copy->id)]);
+    }
+
     public function share(string $shareCode): Response
     {
         $upgrade = CustomUpgrade::where('share_code', $shareCode)
@@ -128,8 +182,10 @@ class CustomUpgradeController extends Controller
             // Allow-list: the model also carries the owner's private notes and user id, and this page is public.
             'upgrade' => $upgrade->only([
                 'id', 'name', 'display_name', 'domain', 'type', 'faction', 'limitations', 'plentiful', 'master_name',
-                'keyword_name', 'content_blocks', 'back_tokens', 'back_markers',
+                'keyword_name', 'content_blocks', 'back_tokens', 'back_markers', 'front_image', 'back_image', 'combination_image',
+                'card_image_generated_at',
             ]),
+            'card_image_pending' => $upgrade->cardImagePending(),
             'creator_name' => $user->name,
         ]);
     }

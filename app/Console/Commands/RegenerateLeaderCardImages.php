@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\Campaign\GenerateCustomUpgradeCardImage;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\CustomCharacter;
+use App\Models\CustomUpgrade;
 use Illuminate\Console\Command;
 
 /**
@@ -19,7 +21,7 @@ class RegenerateLeaderCardImages extends Command
 {
     protected $signature = 'app:regenerate-leader-card-images';
 
-    protected $description = 'Re-queues saved card image generation for every custom character (current Campaign Leaders/Totems and homebrew cards).';
+    protected $description = 'Re-queues saved card image generation for every custom character (current Campaign Leaders/Totems and homebrew cards) and every custom upgrade / crew card.';
 
     public function handle(): int
     {
@@ -33,7 +35,12 @@ class RegenerateLeaderCardImages extends Command
             GenerateLeaderCardImage::dispatch($id);
         }
 
-        $this->info("Queued card image regeneration for {$ids->count()} card(s).");
+        $upgradeIds = CustomUpgrade::pluck('id');
+        foreach ($upgradeIds as $id) {
+            GenerateCustomUpgradeCardImage::dispatch($id);
+        }
+
+        $this->info("Queued card image regeneration for {$ids->count()} character(s) and {$upgradeIds->count()} upgrade/crew card(s).");
 
         return self::SUCCESS;
     }

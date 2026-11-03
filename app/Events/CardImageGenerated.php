@@ -10,7 +10,7 @@ use Illuminate\Foundation\Events\Dispatchable;
 /**
  * A saved card render finished, sent to the owner's private channel (App.Models.User.{id}, already authorized in
  * routes/channels.php) so the page that is waiting on it can reload instead of polling.
- * kind: 'custom_character' (id = custom character) | 'crew_card' (id = campaign crew).
+ * kind: 'custom_character' (id = custom character) | 'custom_upgrade' (id = custom upgrade / crew card) | 'crew_card' (id = campaign crew).
  */
 class CardImageGenerated implements ShouldBroadcastNow
 {
@@ -19,6 +19,8 @@ class CardImageGenerated implements ShouldBroadcastNow
     public const KIND_CUSTOM_CHARACTER = 'custom_character';
 
     public const KIND_CREW_CARD = 'crew_card';
+
+    public const KIND_CUSTOM_UPGRADE = 'custom_upgrade';
 
     public function __construct(
         public int $userId,

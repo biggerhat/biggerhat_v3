@@ -13,12 +13,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { useEditorDraft } from '@/composables/useEditorDraft';
 import { useToast } from '@/composables/useToast';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Download, FileText, Loader2, Plus, Save, Trash2 } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowLeft, ChevronDown, Download, FileText, Loader2, Plus, RefreshCw, Save, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 
 interface EnumOption {
@@ -64,6 +67,9 @@ const props = defineProps<{
         notes: string | null;
         share_code: string;
         is_campaign_crew_card: boolean;
+        front_image?: string | null;
+        combination_image?: string | null;
+        card_image_generated_at?: string | null;
     } | null;
     domain: string;
     enums: {
@@ -75,6 +81,7 @@ const props = defineProps<{
         range_types: EnumOption[];
     };
     campaign_back_url: string | null;
+    card_image_pending?: boolean;
     // Auto-calculated from the crew's arsenal (CombinedCrewCardEffects::
     // arsenalTokensAndMarkers()) — only present for an is_campaign_crew_card
     // upgrade, whose own back_tokens/back_markers columns are never read by
@@ -85,6 +92,34 @@ const props = defineProps<{
 const isEdit = computed(() => !!props.upgrade);
 const isCrew = computed(() => props.domain === 'crew');
 const domainLabel = computed(() => (isCrew.value ? 'Crew Card' : 'Upgrade'));
+
+// Saved card image: rendered server-side shortly after each save; the finished event swaps the status in.
+const imagePending = computed(() => props.card_image_pending ?? false);
+const imageUrl = computed(() =>
+    props.upgrade?.combination_image
+        ? '/storage/' + cacheBustedImagePath(props.upgrade.combination_image, props.upgrade.card_image_generated_at)
+        : null,
+);
+const rerendering = ref(false);
+useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    if (event.kind === 'custom_upgrade' && event.id === props.upgrade?.id) {
+        router.reload({ only: ['upgrade', 'card_image_pending'], preserveScroll: true });
+    }
+});
+const rerender = async () => {
+    if (!props.upgrade || rerendering.value) return;
+    rerendering.value = true;
+    const res = await fetch(route('tools.card_creator.upgrades.rerender', props.upgrade.id), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    });
+    rerendering.value = false;
+    if (!res.ok) {
+        toast.error('Could not start the render — please try again in a moment.');
+        return;
+    }
+    router.reload({ only: ['card_image_pending'], preserveScroll: true });
+};
 
 const form = reactive({
     name: props.upgrade?.name ?? '',
@@ -419,6 +454,9 @@ const save = async () => {
         router.visit(data.redirect);
         return;
     }
+
+    // Stay on the editor: pick up the "rendering" state the save just triggered.
+    router.reload({ only: ['upgrade', 'card_image_pending'], preserveScroll: true });
 
     saving.value = false;
 };
@@ -1150,12 +1188,42 @@ const blockTypeColor = (type: string, idx: number) => {
             </div>
         </div>
 
-        <!-- Save bar -->
-        <div class="container mx-auto mt-4 px-4 lg:px-6">
-            <div class="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2.5">
-                <div v-if="Object.keys(errors).length" class="text-xs text-destructive">Please fix validation errors above.</div>
-                <div v-else class="text-xs text-muted-foreground">
-                    {{ isEdit ? 'Editing ' + (form.name || domainLabel.toLowerCase()) : `New ${domainLabel.toLowerCase()}` }}
+        <!-- Save bar: sticky so Save stays in reach; shows the saved card image's state when editing. -->
+        <div
+            class="sticky bottom-[var(--tabbar-h,0px)] z-20 mt-4 border-t bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        >
+            <div class="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
+                <div class="min-w-0 text-xs" aria-live="polite">
+                    <div v-if="Object.keys(errors).length" class="text-destructive">Please fix validation errors above.</div>
+                    <div v-else-if="!isEdit" class="text-muted-foreground">
+                        New {{ domainLabel.toLowerCase() }} — a shareable card image is rendered automatically after you create it.
+                    </div>
+                    <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+                        <span class="truncate">Editing {{ form.name || domainLabel.toLowerCase() }}</span>
+                        <span v-if="imagePending || rerendering" class="inline-flex items-center gap-1 text-foreground">
+                            <Loader2 class="size-3 animate-spin" /> Rendering card image…
+                        </span>
+                        <template v-else-if="imageUrl">
+                            <a :href="imageUrl" :download="`${form.name || 'card'}.png`" class="inline-flex items-center gap-1 hover:text-foreground">
+                                <Download class="size-3" /> Card image
+                            </a>
+                            <Link
+                                :href="route('tools.card_creator.upgrades.share', upgrade!.share_code)"
+                                class="inline-flex items-center gap-1 hover:text-foreground"
+                            >
+                                <Share2 class="size-3" /> Share page
+                            </Link>
+                        </template>
+                        <span v-else>No card image yet.</span>
+                        <button
+                            v-if="!imagePending && !rerendering"
+                            type="button"
+                            class="inline-flex items-center gap-1 underline-offset-2 hover:text-foreground hover:underline"
+                            @click="rerender"
+                        >
+                            <RefreshCw class="size-3" /> Re-render
+                        </button>
+                    </div>
                 </div>
                 <Button :disabled="saving || !form.name" size="sm" @click="save">
                     <Loader2 v-if="saving" class="mr-2 size-4 animate-spin" />

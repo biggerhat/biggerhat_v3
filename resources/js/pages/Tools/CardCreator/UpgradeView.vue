@@ -2,11 +2,17 @@
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Head } from '@inertiajs/vue3';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
+import type { SharedData } from '@/types';
+import { router, usePage } from '@inertiajs/vue3';
+import { Download, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps<{
+    card_image_pending?: boolean;
     upgrade: {
         id: number;
         name: string;
@@ -21,9 +27,17 @@ const props = defineProps<{
         content_blocks: { type: string; text?: string; data?: Record<string, unknown> }[] | null;
         back_tokens: { name: string; description: string | null }[] | null;
         back_markers: { name: string; description: string | null }[] | null;
+        combination_image?: string | null;
+        front_image?: string | null;
+        card_image_generated_at?: string | null;
     };
     creator_name: string;
 }>();
+
+// The owner viewing their card sees the download button appear when the render finishes.
+useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    if (event.kind === 'custom_upgrade' && event.id === props.upgrade.id) router.reload({ only: ['upgrade'], preserveScroll: true });
+});
 
 const domainLabel = props.upgrade.domain === 'crew' ? 'Crew Card' : 'Upgrade';
 
@@ -50,7 +64,11 @@ const blockTypeLabel = (type: string) => {
 </script>
 
 <template>
-    <Head :title="`${upgrade.display_name} — Custom ${domainLabel}`" />
+    <SeoHead
+        :title="`${upgrade.display_name} — Custom ${domainLabel}`"
+        :description="`${upgrade.display_name}, a custom ${domainLabel.toLowerCase()} card by ${creator_name}.`"
+        :image="upgrade.combination_image ?? upgrade.front_image"
+    />
 
     <div class="relative pb-12">
         <div
@@ -64,6 +82,19 @@ const blockTypeLabel = (type: string) => {
                     <Badge class="bg-purple-600 text-white">Custom {{ domainLabel }}</Badge>
                     <span>Created by {{ creator_name }}</span>
                 </div>
+            </template>
+            <template v-if="upgrade.combination_image || card_image_pending" #actions>
+                <span v-if="!upgrade.combination_image" class="mr-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
+                    <Loader2 class="size-4 animate-spin" /> Preparing card image…
+                </span>
+                <a
+                    v-else
+                    :href="'/storage/' + cacheBustedImagePath(upgrade.combination_image, upgrade.card_image_generated_at)"
+                    :download="`${upgrade.display_name}.png`"
+                    class="mr-2 inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent [@media(pointer:coarse)]:h-11"
+                >
+                    <Download class="size-4" /> Download card
+                </a>
             </template>
         </PageBanner>
 

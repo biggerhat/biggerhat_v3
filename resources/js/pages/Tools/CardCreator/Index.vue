@@ -57,6 +57,10 @@ interface CustomUpgrade {
     master_name: string | null;
     share_code: string;
     updated_at: string;
+    front_image?: string | null;
+    combination_image?: string | null;
+    card_image_generated_at?: string | null;
+    card_image_pending?: boolean;
     // A crew card saved from Starting Arsenal, while its Campaign crew is
     // still active, can't be deleted here — see performDelete(). Once that
     // campaign ends or is deleted, campaign_still_live flips false and
@@ -73,6 +77,68 @@ const props = defineProps<{
 const toast = useToast();
 
 const activeTab = ref<'characters' | 'crew_cards' | 'upgrades'>('characters');
+
+// ── Crew Cards / Upgrades tabs share one tile ──
+const upgradeTab = computed(() =>
+    activeTab.value === 'crew_cards'
+        ? {
+              heading: 'Your Custom Crew Cards',
+              domain: 'crew',
+              newLabel: 'New Crew Card',
+              itemLabel: 'Crew Card',
+              items: crewCards.value,
+              emptyTitle: 'No custom crew cards yet',
+              emptyDescription: 'Design a crew card for your crew. It gets a shareable card image you can download.',
+          }
+        : {
+              heading: 'Your Custom Upgrades',
+              domain: 'character',
+              newLabel: 'New Upgrade',
+              itemLabel: 'Upgrade',
+              items: characterUpgrades.value,
+              emptyTitle: 'No custom upgrades yet',
+              emptyDescription: 'Make an upgrade with your own text. It gets a shareable card image you can download.',
+          },
+);
+const brokenUpgradeImages = ref<number[]>([]);
+const hasSavedUpgradeImage = (u: CustomUpgrade) => !!u.front_image && !brokenUpgradeImages.value.includes(u.id);
+const rerenderingUpgradeIds = ref<number[]>([]);
+const isUpgradeRendering = (u: CustomUpgrade) => !!u.card_image_pending || rerenderingUpgradeIds.value.includes(u.id);
+const rerenderUpgrade = async (u: CustomUpgrade) => {
+    rerenderingUpgradeIds.value.push(u.id);
+    const res = await fetch(route('tools.card_creator.upgrades.rerender', u.id), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    });
+    if (!res.ok) {
+        rerenderingUpgradeIds.value = rerenderingUpgradeIds.value.filter((id) => id !== u.id);
+        toast.error('Could not start the render — please try again in a moment.');
+        return;
+    }
+    router.reload({
+        only: ['upgrades'],
+        preserveScroll: true,
+        onFinish: () => (rerenderingUpgradeIds.value = rerenderingUpgradeIds.value.filter((id) => id !== u.id)),
+    });
+};
+const duplicateUpgrade = async (u: CustomUpgrade) => {
+    if (duplicatingId.value !== null) return;
+    duplicatingId.value = 'upg-' + u.id;
+    try {
+        const res = await fetch(route('tools.card_creator.upgrades.duplicate', u.id), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !body?.redirect) {
+            toast.error('Could not duplicate', { description: body?.message ?? 'Please try again.' });
+            return;
+        }
+        router.visit(body.redirect);
+    } finally {
+        duplicatingId.value = null;
+    }
+};
 
 // A saved image that 404s (deleted file, storage hiccup) drops back to the art / logo instead of a broken-image icon.
 const brokenImages = ref<number[]>([]);
@@ -104,7 +170,7 @@ const rerenderCharacter = async (character: CustomCharacter) => {
     });
 };
 // Copies one of your cards into a new one and opens it in the editor.
-const duplicatingId = ref<number | null>(null);
+const duplicatingId = ref<number | string | null>(null);
 const duplicateCharacter = async (character: CustomCharacter) => {
     if (duplicatingId.value !== null) return;
     duplicatingId.value = character.id;
@@ -183,6 +249,7 @@ const performDelete = async () => {
 // A saved card's image is rendered shortly after each save; swap it in as soon as the server announces it.
 useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
     if (event.kind === 'custom_character') router.reload({ only: ['characters'], preserveScroll: true });
+    if (event.kind === 'custom_upgrade') router.reload({ only: ['upgrades'], preserveScroll: true });
 });
 
 const copiedId = ref<string | null>(null);
@@ -405,33 +472,56 @@ const stationLabel = (station: string | null) => {
                 </div>
             </div>
 
-            <!-- ═══ Crew Cards tab ═══ -->
-            <div v-if="activeTab === 'crew_cards'">
+            <!-- ═══ Crew Cards / Upgrades tabs (same tile, different list) ═══ -->
+            <div v-if="activeTab !== 'characters'">
                 <div class="mb-6 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold">Your Custom Crew Cards</h2>
-                    <Link :href="route('tools.card_creator.upgrades.create', { domain: 'crew' })">
-                        <Button size="sm"><Plus class="mr-1 size-4" /> New Crew Card</Button>
+                    <h2 class="text-lg font-semibold">{{ upgradeTab.heading }}</h2>
+                    <Link :href="route('tools.card_creator.upgrades.create', { domain: upgradeTab.domain })">
+                        <Button size="sm"><Plus class="mr-1 size-4" /> {{ upgradeTab.newLabel }}</Button>
                     </Link>
                 </div>
 
-                <EmptyState v-if="crewCards.length === 0" title="No custom crew cards yet" description="">
+                <EmptyState v-if="upgradeTab.items.length === 0" :title="upgradeTab.emptyTitle" :description="upgradeTab.emptyDescription">
                     <template #action>
-                        <Link :href="route('tools.card_creator.upgrades.create', { domain: 'crew' })">
+                        <Link :href="route('tools.card_creator.upgrades.create', { domain: upgradeTab.domain })">
                             <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
                         </Link>
                     </template>
                 </EmptyState>
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="card in crewCards" :key="card.id" :class="['group overflow-hidden', CARD_HOVER]">
-                        <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
-                            <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Card v-for="card in upgradeTab.items" :key="card.id" :class="['group overflow-hidden', CARD_HOVER]">
+                        <div class="relative h-48 w-full overflow-hidden bg-muted">
+                            <Link
+                                :href="route('tools.card_creator.upgrades.share', card.share_code)"
+                                class="absolute inset-0 z-0"
+                                :aria-label="`View ${card.display_name}`"
+                            />
+                            <img
+                                v-if="hasSavedUpgradeImage(card)"
+                                :src="'/storage/' + cacheBustedImagePath(card.front_image!, card.card_image_generated_at)"
+                                :alt="card.display_name"
+                                class="h-full w-full object-contain"
+                                loading="lazy"
+                                @error="brokenUpgradeImages.push(card.id)"
+                            />
+                            <div v-else class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                                 <FactionLogo v-if="card.faction" :faction="card.faction" class-name="size-12 opacity-30" />
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
-                                <span class="text-2xs font-medium uppercase tracking-wider opacity-40">Crew Card</span>
+                                <span class="text-2xs font-medium uppercase tracking-wider opacity-40">{{ upgradeTab.itemLabel }}</span>
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-2xs text-white">
+                            <span
+                                v-if="isUpgradeRendering(card)"
+                                class="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-2xs font-medium shadow"
+                                role="status"
+                            >
+                                <Loader2 class="size-3 animate-spin" /> Rendering…
+                            </span>
+                            <Badge class="pointer-events-none absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
+                            <Badge
+                                v-if="isCampaignLinkedCrewCard(card)"
+                                class="pointer-events-none absolute left-2 top-2 bg-amber-600 text-2xs text-white"
+                            >
                                 Campaign
                             </Badge>
                         </div>
@@ -441,7 +531,7 @@ const stationLabel = (station: string | null) => {
                                     <div class="truncate text-sm font-semibold">{{ card.display_name }}</div>
                                     <div class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                         <FactionLogo v-if="card.faction" :faction="card.faction" class-name="size-3" />
-                                        <span v-if="card.master_name">{{ card.master_name }}</span>
+                                        <span>{{ card.master_name || upgradeTab.itemLabel }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -449,6 +539,39 @@ const stationLabel = (station: string | null) => {
                                 <Link :href="route('tools.card_creator.upgrades.edit', card.id)" class="flex-1">
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
+                                <a
+                                    v-if="card.combination_image"
+                                    :href="'/storage/' + cacheBustedImagePath(card.combination_image, card.card_image_generated_at)"
+                                    :download="`${card.display_name}.png`"
+                                    class="inline-flex h-8 items-center justify-center rounded-md border px-2.5 text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:h-10"
+                                    :aria-label="`Download ${card.display_name} card image`"
+                                    title="Download card image (front and back)"
+                                >
+                                    <Download class="size-3" />
+                                </a>
+                                <Button
+                                    v-else-if="!isUpgradeRendering(card)"
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs"
+                                    :aria-label="`Render ${card.display_name} card image`"
+                                    title="No card image yet — render it now"
+                                    @click="rerenderUpgrade(card)"
+                                >
+                                    <RefreshCw class="size-3" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs"
+                                    :disabled="duplicatingId === 'upg-' + card.id"
+                                    :aria-label="`Duplicate ${card.display_name}`"
+                                    title="Duplicate"
+                                    @click="duplicateUpgrade(card)"
+                                >
+                                    <Loader2 v-if="duplicatingId === 'upg-' + card.id" class="size-3 animate-spin" />
+                                    <Copy v-else class="size-3" />
+                                </Button>
                                 <Button variant="outline" size="sm" class="text-xs" aria-label="Copy share link" @click="copyUpgradeShareLink(card)">
                                     <Check v-if="copiedId === 'upg-' + card.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
@@ -461,72 +584,6 @@ const stationLabel = (station: string | null) => {
                                     :aria-label="isCampaignLinkedCrewCard(card) ? 'Cannot delete — tied to a Campaign crew' : 'Delete'"
                                     :title="isCampaignLinkedCrewCard(card) ? 'Tied to a Campaign crew — saved from Starting Arsenal' : undefined"
                                     @click="confirmDeleteUpgrade(card)"
-                                >
-                                    <Trash2 class="size-3" />
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-
-            <!-- ═══ Upgrades tab ═══ -->
-            <div v-if="activeTab === 'upgrades'">
-                <div class="mb-6 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold">Your Custom Upgrades</h2>
-                    <Link :href="route('tools.card_creator.upgrades.create', { domain: 'character' })">
-                        <Button size="sm"><Plus class="mr-1 size-4" /> New Upgrade</Button>
-                    </Link>
-                </div>
-
-                <EmptyState v-if="characterUpgrades.length === 0" title="No custom upgrades yet" description="">
-                    <template #action>
-                        <Link :href="route('tools.card_creator.upgrades.create', { domain: 'character' })">
-                            <Button><Plus class="mr-1 size-4" /> Create Your First</Button>
-                        </Link>
-                    </template>
-                </EmptyState>
-
-                <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="upgrade in characterUpgrades" :key="upgrade.id" :class="['group overflow-hidden', CARD_HOVER]">
-                        <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
-                            <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                                <FactionLogo v-if="upgrade.faction" :faction="upgrade.faction" class-name="size-12 opacity-30" />
-                                <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
-                                <span class="text-2xs font-medium uppercase tracking-wider opacity-40">Upgrade</span>
-                            </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
-                        </div>
-                        <CardContent class="p-3">
-                            <div class="mb-1 flex items-start justify-between gap-2">
-                                <div class="min-w-0">
-                                    <div class="truncate text-sm font-semibold">{{ upgrade.display_name }}</div>
-                                    <div class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                                        <FactionLogo v-if="upgrade.faction" :faction="upgrade.faction" class-name="size-3" />
-                                        <span>Upgrade</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-2 flex items-center gap-1">
-                                <Link :href="route('tools.card_creator.upgrades.edit', upgrade.id)" class="flex-1">
-                                    <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
-                                </Link>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    class="text-xs"
-                                    aria-label="Copy share link"
-                                    @click="copyUpgradeShareLink(upgrade)"
-                                >
-                                    <Check v-if="copiedId === 'upg-' + upgrade.id" class="size-3 text-green-700 dark:text-green-400" />
-                                    <Share2 v-else class="size-3" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    class="text-xs text-destructive hover:bg-destructive/10"
-                                    aria-label="Delete"
-                                    @click="confirmDeleteUpgrade(upgrade)"
                                 >
                                     <Trash2 class="size-3" />
                                 </Button>

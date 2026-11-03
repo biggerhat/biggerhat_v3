@@ -87,3 +87,9 @@ its old polling as a fallback when Reverb is unavailable, and does one safety re
 - `POST /tools/card-creator/{id}/duplicate` copies a card (art, framing, notes) into a plain custom character; campaign state, XP and injuries are not copied.
 - Editor searches ignore stale or failed responses (`fetchLatest`), and UI text follows the 11px (`text-2xs`) floor.
 - Not handled: deleting a *user account* cascades the rows at the database level, so their `custom-characters/{id}/` image folders stay on disk (the observer only runs for model deletes).
+
+## Saved images for upgrades / crew cards, and render capacity
+
+- Custom upgrades and crew cards get saved front / back / combined images exactly like characters: `CustomUpgrade::queueCardImage()` (20s delayed, coalesced) → `GenerateCustomUpgradeCardImage` → `CustomUpgradeCardImageGenerator` (shares `CapturesCardImages` with the character generator) → capture page `CardCreator/UpgradeCapture.vue` (`tools.card_creator.upgrades.capture`). Files live in `custom-upgrades/{id}/`; `CardImageGenerated` kind `custom_upgrade`; `card_image_pending`, `…/render` and `…/duplicate` mirror the character endpoints. `app:regenerate-leader-card-images` backfills both.
+- **Global render cap:** every Chrome render job (`GenerateLeaderCardImage`, `GenerateCustomUpgradeCardImage`, `GenerateCombinedCrewCardImage`) runs through `LimitConcurrentRenders`, which allows `services.browsershot.max_concurrent_renders` (env `BROWSERSHOT_MAX_CONCURRENT_RENDERS`, default 2) at once across all workers via cache locks, and releases the rest back to the queue. The jobs use `retryUntil` (15 min) so being released never burns a try. Needs a cache store that supports locks (redis / database / file).
+- Deleting a user (admin or self) clears their `custom-characters/*` and `custom-upgrades/*` folders (`User::booted`), since the database cascade fires no model events.

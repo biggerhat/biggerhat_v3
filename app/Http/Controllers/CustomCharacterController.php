@@ -80,6 +80,7 @@ class CustomCharacterController extends Controller
             $c->campaign_still_live = $c->campaign_crew_id !== null && $liveCrewIds->contains($c->campaign_crew_id);
         }
         foreach ($upgrades as $u) {
+            $u->setAttribute('card_image_pending', $u->cardImagePending());
             $u->campaign_still_live = $u->campaign_crew_id !== null && $liveCrewIds->contains($u->campaign_crew_id);
         }
 

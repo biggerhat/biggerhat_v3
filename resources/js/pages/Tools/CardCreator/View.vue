@@ -13,6 +13,9 @@ defineProps<{
         name: string;
         title: string | null;
         display_name: string;
+        card_art_x?: number;
+        card_art_y?: number;
+        card_art_zoom?: number;
         faction: string;
         second_faction: string | null;
         station: string;
@@ -90,6 +93,7 @@ const stationLabel = (station: string | null) => {
                     :keywords="character.keywords ?? []"
                     :characteristics="character.characteristics ?? []"
                     :character-image="card_art_path ?? null"
+                    :character-image-focus="{ x: character.card_art_x ?? 50, y: character.card_art_y ?? 50, zoom: character.card_art_zoom ?? 100 }"
                     :actions="character.actions ?? []"
                     :abilities="character.abilities ?? []"
                     :linked-crew-upgrades="character.linked_crew_upgrades ?? []"

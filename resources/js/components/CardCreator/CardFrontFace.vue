@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ArtImage from '@/components/CardCreator/ArtImage.vue';
 import { alternatingBoxBg, factionGradient, getFactionVar } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import GameIcon from '@/components/GameIcon.vue';
@@ -44,6 +45,8 @@ const props = defineProps<{
     keywords: KeywordData[];
     characteristics: string[];
     characterImage: string | null;
+    /** How the art is framed in the window (see ArtImage.vue); defaults to centred, unzoomed. */
+    characterImageFocus?: { x: number; y: number; zoom: number } | null;
     abilities: AbilityData[];
     linkedCrewUpgrades: LinkedItem[];
     linkedTotems: LinkedItem[];
@@ -168,7 +171,7 @@ defineExpose({ rootRef });
              doesn't hold any text — needlessly forcing much bigger tiers
              than the ability content actually needs. -->
         <div class="relative aspect-[550/440] max-h-[440px] w-full shrink-0 overflow-hidden" :class="printMode ? 'bg-neutral-100' : 'bg-neutral-800'">
-            <img
+            <ArtImage
                 v-if="characterImage"
                 :src="
                     characterImage.startsWith('http') || characterImage.startsWith('/') || characterImage.startsWith('blob:')
@@ -176,7 +179,9 @@ defineExpose({ rootRef });
                         : '/storage/' + characterImage
                 "
                 :alt="name"
-                class="h-full w-full object-cover"
+                :x="characterImageFocus?.x ?? 50"
+                :y="characterImageFocus?.y ?? 50"
+                :zoom="characterImageFocus?.zoom ?? 100"
             />
             <div v-else class="flex h-full items-center justify-center gap-2">
                 <FactionLogo v-if="faction" :faction="faction" class-name="size-24 opacity-10" />

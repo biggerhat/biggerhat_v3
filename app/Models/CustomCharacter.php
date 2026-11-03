@@ -67,6 +67,9 @@ class CustomCharacter extends Model
             'replaced_at' => 'datetime',
             'card_image_generated_at' => 'datetime',
             'xp_track' => 'array',
+            'card_art_x' => 'integer',
+            'card_art_y' => 'integer',
+            'card_art_zoom' => 'integer',
             // Integer casts on campaign-mode stat columns. SQLite returns
             // strings for numeric columns by default, which trips comparison
             // operators (e.g. campaign_totem_flip_value === $flipped). Cast

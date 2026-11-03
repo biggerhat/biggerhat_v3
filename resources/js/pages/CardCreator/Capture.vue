@@ -77,6 +77,7 @@ const props = defineProps<{
         keywords: KeywordData[];
         characteristics: string[];
         characterImage: string | null;
+        characterImageFocus?: { x: number; y: number; zoom: number } | null;
         actions: ActionData[];
         abilities: AbilityData[];
         linkedCrewUpgrades: LinkedItem[];
@@ -137,6 +138,7 @@ const backSize = computed(() =>
                 :keywords="card.keywords"
                 :characteristics="card.characteristics"
                 :character-image="card.characterImage"
+                :character-image-focus="card.characterImageFocus"
                 :abilities="card.abilities"
                 :linked-crew-upgrades="card.linkedCrewUpgrades"
                 :linked-totems="card.linkedTotems"

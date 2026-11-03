@@ -81,7 +81,7 @@ class CustomCharacterController extends Controller
 
     public function store(CustomCharacterRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        $validated = $this->normalizeArtFraming($request->validated());
         $validated['user_id'] = Auth::id();
 
         $character = CustomCharacter::create($validated);
@@ -114,7 +114,7 @@ class CustomCharacterController extends Controller
 
     public function update(CustomCharacterRequest $request, CustomCharacter $customCharacter): JsonResponse
     {
-        $validated = $request->validated();
+        $validated = $this->normalizeArtFraming($request->validated());
 
         // A campaign leader can be edited here for action/ability/tag detail,
         // but the generic editor must not break its campaign invariants — it
@@ -238,6 +238,7 @@ class CustomCharacterController extends Controller
                 'characteristics' => $characteristics,
                 // Library art the player picked (CardArt); uploads are preview-only and never reach here.
                 'characterImage' => $character->cardArt?->image_path,
+                'characterImageFocus' => ['x' => $character->card_art_x, 'y' => $character->card_art_y, 'zoom' => $character->card_art_zoom],
                 'actions' => $character->actions ?? [],
                 'abilities' => $character->abilities ?? [],
                 'linkedCrewUpgrades' => $character->linked_crew_upgrades ?? [],
@@ -267,6 +268,31 @@ class CustomCharacterController extends Controller
                 'category' => $a->category,
             ])
             ->all();
+    }
+
+    /**
+     * The framing columns are NOT NULL with defaults, so a null (or clearing the art) maps back to the default
+     * framing; keys the client didn't send are left alone.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function normalizeArtFraming(array $validated): array
+    {
+        foreach (['card_art_x' => 50, 'card_art_y' => 50, 'card_art_zoom' => 100] as $key => $default) {
+            if (array_key_exists($key, $validated)) {
+                $validated[$key] ??= $default;
+            }
+        }
+
+        // No art, no framing to keep.
+        if (array_key_exists('card_art_id', $validated) && $validated['card_art_id'] === null) {
+            $validated['card_art_x'] = 50;
+            $validated['card_art_y'] = 50;
+            $validated['card_art_zoom'] = 100;
+        }
+
+        return $validated;
     }
 
     private function enumOptions(): array

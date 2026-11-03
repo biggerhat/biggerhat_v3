@@ -70,6 +70,7 @@ const props = defineProps<{
     keywords: KeywordData[];
     characteristics: string[];
     characterImage: string | null;
+    characterImageFocus?: { x: number; y: number; zoom: number } | null;
     actions: ActionData[];
     abilities: AbilityData[];
     linkedCrewUpgrades: LinkedItem[];
@@ -180,6 +181,7 @@ defineExpose({ frontRef, backRef });
                         :keywords="keywords"
                         :characteristics="characteristics"
                         :character-image="characterImage"
+                        :character-image-focus="characterImageFocus"
                         :abilities="abilities"
                         :linked-crew-upgrades="linkedCrewUpgrades"
                         :linked-totems="linkedTotems"

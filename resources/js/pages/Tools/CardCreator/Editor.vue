@@ -3,6 +3,7 @@ import AbilityLookupModal from '@/components/CardCreator/AbilityLookupModal.vue'
 import ActionLookupModal from '@/components/CardCreator/ActionLookupModal.vue';
 import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
+import ArtPositioner from '@/components/CardCreator/ArtPositioner.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
@@ -104,6 +105,9 @@ const props = defineProps<{
         generates_stone: boolean;
         is_unhirable: boolean;
         card_art_id: number | null;
+        card_art_x: number;
+        card_art_y: number;
+        card_art_zoom: number;
         is_campaign_leader: boolean;
         is_campaign_totem: boolean;
         archetype: string | null;
@@ -174,6 +178,9 @@ const form = reactive({
     generates_stone: props.character?.generates_stone ?? false,
     is_unhirable: props.character?.is_unhirable ?? false,
     card_art_id: props.character?.card_art_id ?? (null as number | null),
+    card_art_x: props.character?.card_art_x ?? 50,
+    card_art_y: props.character?.card_art_y ?? 50,
+    card_art_zoom: props.character?.card_art_zoom ?? 100,
     notes: props.character?.notes ?? '',
     // Only meaningful (and only editable — see the template) for a Campaign
     // Leader; left as whatever it already is for every other character.
@@ -310,6 +317,10 @@ const exportingPdf = ref(false);
 // ─── Library art picker ───
 const selectedArt = computed(() => props.card_arts.find((a) => a.id === form.card_art_id) ?? null);
 // An uploaded file still wins for the live preview (it's the player's own try-out); otherwise the chosen library art.
+// Framing belongs to the library art; a try-out upload is always shown centred.
+const artFocus = computed(() =>
+    characterImagePreview.value ? { x: 50, y: 50, zoom: 100 } : { x: form.card_art_x, y: form.card_art_y, zoom: form.card_art_zoom },
+);
 const characterImageSrc = computed(() => characterImagePreview.value ?? selectedArt.value?.image_path ?? null);
 
 const artPickerOpen = ref(false);
@@ -326,6 +337,12 @@ const visibleArts = computed(() => {
     });
 });
 const pickArt = (id: number | null) => {
+    // New art starts centred and unzoomed; re-picking the same piece keeps the framing the player set.
+    if (id !== form.card_art_id) {
+        form.card_art_x = 50;
+        form.card_art_y = 50;
+        form.card_art_zoom = 100;
+    }
     form.card_art_id = id;
     artPickerOpen.value = false;
 };
@@ -842,25 +859,19 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             <!-- Character Art (library) -->
                             <div class="border-t pt-3">
                                 <label class="mb-1.5 block text-xs text-muted-foreground">Character Art</label>
-                                <div v-if="selectedArt" class="relative">
-                                    <img
-                                        :src="'/storage/' + selectedArt.image_path"
-                                        :alt="selectedArt.name"
-                                        class="h-32 w-full rounded-md border object-cover"
-                                    />
-                                    <div
-                                        class="absolute inset-x-0 bottom-0 flex items-center justify-between rounded-b-md bg-black/60 px-2 py-1 text-xs text-white"
-                                    >
-                                        <span class="truncate">{{ selectedArt.name }}</span>
-                                        <span class="flex shrink-0 gap-1">
-                                            <button type="button" class="rounded px-1.5 py-0.5 hover:bg-white/20" @click="artPickerOpen = true">
-                                                Change
-                                            </button>
-                                            <button type="button" class="rounded px-1.5 py-0.5 hover:bg-white/20" @click="pickArt(null)">
-                                                Remove
-                                            </button>
-                                        </span>
-                                    </div>
+                                <div
+                                    v-if="selectedArt"
+                                    class="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-xs"
+                                >
+                                    <span class="truncate font-medium">{{ selectedArt.name }}</span>
+                                    <span class="flex shrink-0 gap-1">
+                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="artPickerOpen = true"
+                                            >Change</Button
+                                        >
+                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="pickArt(null)"
+                                            >Remove</Button
+                                        >
+                                    </span>
                                 </div>
                                 <button
                                     v-else
@@ -872,6 +883,15 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     <span class="text-xs font-medium">Choose art from the library</span>
                                     <span class="ml-auto text-xs text-muted-foreground">{{ card_arts.length }} available</span>
                                 </button>
+                                <ArtPositioner
+                                    v-if="selectedArt && !characterImagePreview"
+                                    v-model:x="form.card_art_x"
+                                    v-model:y="form.card_art_y"
+                                    v-model:zoom="form.card_art_zoom"
+                                    :src="selectedArt.image_path"
+                                    :alt="selectedArt.name"
+                                    class="mt-2"
+                                />
                                 <details class="mt-2 text-xs text-muted-foreground">
                                     <summary class="cursor-pointer">Try your own image (preview only)</summary>
                                     <div class="mt-1.5 space-y-1.5">
@@ -1525,6 +1545,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             :keywords="keywords"
                             :characteristics="characteristics"
                             :character-image="characterImageSrc"
+                            :character-image-focus="artFocus"
                             :actions="actions"
                             :abilities="abilities"
                             :linked-crew-upgrades="linkedCrewUpgrades"
@@ -1561,6 +1582,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 :keywords="keywords"
                                 :characteristics="characteristics"
                                 :character-image="characterImageSrc"
+                                :character-image-focus="artFocus"
                                 :abilities="abilities"
                                 :linked-crew-upgrades="linkedCrewUpgrades"
                                 :linked-totems="linkedTotems"
@@ -1611,6 +1633,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 :keywords="keywords"
                                 :characteristics="characteristics"
                                 :character-image="characterImageSrc"
+                                :character-image-focus="artFocus"
                                 :abilities="abilities"
                                 :linked-crew-upgrades="linkedCrewUpgrades"
                                 :linked-totems="linkedTotems"

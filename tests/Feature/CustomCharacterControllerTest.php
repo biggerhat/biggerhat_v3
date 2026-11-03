@@ -592,3 +592,36 @@ it('exposes the chosen art path on the share page and the capture page', functio
     $this->get(route('tools.card_creator.share', $character->share_code))->assertInertia(fn ($page) => $page->where('card_art_path', 'card_arts/demo.webp'));
     $this->get(route('tools.card_creator.capture', $character->share_code))->assertInertia(fn ($page) => $page->where('card.characterImage', 'card_arts/demo.webp'));
 });
+
+it('stores art framing, rejects out-of-range values, and resets it when the art is removed', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create();
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id, 'card_art_x' => 20, 'card_art_y' => 80, 'card_art_zoom' => 175]))->assertOk();
+    $character = CustomCharacter::where('user_id', $user->id)->firstOrFail();
+    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom])->toBe([20, 80, 175]);
+
+    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 99], ['card_art_zoom' => 301]] as $bad) {
+        $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload($bad))->assertUnprocessable();
+    }
+
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null, 'card_art_x' => 20, 'card_art_zoom' => 175]))->assertOk();
+    expect([$character->fresh()->card_art_x, $character->fresh()->card_art_y, $character->fresh()->card_art_zoom])->toBe([50, 50, 100]);
+});
+
+it('defaults framing to centred and unzoomed, and a null framing value falls back to the default', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_x' => null, 'card_art_zoom' => null]))->assertOk();
+    $character = CustomCharacter::where('user_id', $user->id)->firstOrFail();
+    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom])->toBe([50, 50, 100]);
+});
+
+it('exposes the framing to the headless capture page', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create(['image_path' => 'card_arts/demo.webp']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id, 'card_art_x' => 10, 'card_art_y' => 90, 'card_art_zoom' => 200]));
+
+    $this->get(route('tools.card_creator.capture', $character->share_code))
+        ->assertInertia(fn ($page) => $page->where('card.characterImageFocus', ['x' => 10, 'y' => 90, 'zoom' => 200]));
+});

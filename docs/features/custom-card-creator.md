@@ -44,6 +44,11 @@ JSON stat/ability/action payloads).
   receive the path (`card_art_path` on the share page and Arsenal Sheet Leader/Totem, `card.characterImage` on the
   capture page). Changing `card_art_id` regenerates Campaign Leader/Totem card images (`CARD_RENDER_COLUMNS`).
   Retired (inactive) art stays on cards that already use it; deleting art clears it from those cards.
+  **Framing**: `card_art_x` / `card_art_y` (0-100 focus point) and `card_art_zoom` (100-300%) on `CustomCharacter` choose
+  which part of the art shows. `ArtImage.vue` renders it in pure CSS (a box `zoom`× the window, shifted and
+  cover-positioned by the same x/y), so the live preview, the html-to-image export and the server-side capture all match;
+  `ArtPositioner.vue` is the drag / arrow-key / zoom-slider editor. Picking different art resets the framing; clearing
+  the art resets it server-side too.
   Player uploads are **never stored** — the "Try your own image" option is a preview-only convenience.
   The images live on the `public` disk under `card_arts/` (needs `php artisan storage:link` like other uploads).
 

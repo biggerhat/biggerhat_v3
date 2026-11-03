@@ -119,6 +119,10 @@ class CustomCharacterRequest extends FormRequest
             // post-creation rather than locked with the other campaign
             // invariants CustomCharacterController::update() protects.
             'tag' => ['nullable', 'string', Rule::enum(LeaderTagEnum::class)],
+            // Framing of the chosen art inside the card's art window (focus point in %, zoom in %).
+            'card_art_x' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'card_art_y' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'card_art_zoom' => ['nullable', 'integer', 'min:100', 'max:300'],
         ];
     }
 }

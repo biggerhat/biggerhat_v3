@@ -15,6 +15,7 @@ use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
 use App\Http\Requests\CustomCharacterRequest;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\CardArt;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
@@ -74,6 +75,7 @@ class CustomCharacterController extends Controller
         return inertia('Tools/CardCreator/Editor', [
             'character' => null,
             'enums' => $this->enumOptions(),
+            'card_arts' => $this->cardArtOptions(),
         ]);
     }
 
@@ -105,6 +107,7 @@ class CustomCharacterController extends Controller
         return inertia('Tools/CardCreator/Editor', [
             'character' => $customCharacter,
             'enums' => $this->enumOptions(),
+            'card_arts' => $this->cardArtOptions($customCharacter->card_art_id),
             'campaign_back_url' => $campaignBackUrl,
         ]);
     }
@@ -197,6 +200,7 @@ class CustomCharacterController extends Controller
 
         return inertia('Tools/CardCreator/View', [
             'character' => $character,
+            'card_art_path' => $character->cardArt?->image_path,
             'creator_name' => $character->user->name,
         ]);
     }
@@ -232,15 +236,37 @@ class CustomCharacterController extends Controller
                 'base' => (string) ($character->base->value ?? ''),
                 'keywords' => $character->keywords ?? [],
                 'characteristics' => $characteristics,
-                // Never populated — Custom Card Creator character art is
-                // client-blob-only, not persisted server-side.
-                'characterImage' => null,
+                // Library art the player picked (CardArt); uploads are preview-only and never reach here.
+                'characterImage' => $character->cardArt?->image_path,
                 'actions' => $character->actions ?? [],
                 'abilities' => $character->abilities ?? [],
                 'linkedCrewUpgrades' => $character->linked_crew_upgrades ?? [],
                 'linkedTotems' => $character->linked_totems ?? [],
             ],
         ]);
+    }
+
+    /**
+     * The art library for the picker: every active piece, plus the one currently chosen even if it has since
+     * been retired (so an existing card never silently loses its art in the editor).
+     *
+     * @return list<array{id: int, name: string, image_path: string, faction: string|null, category: string|null}>
+     */
+    private function cardArtOptions(?int $currentId = null): array
+    {
+        return CardArt::query()
+            ->where(fn ($q) => $q->where('is_active', true)->when($currentId, fn ($qq) => $qq->orWhere('id', $currentId)))
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'image_path', 'faction', 'category'])
+            ->map(fn (CardArt $a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+                'image_path' => $a->image_path,
+                'faction' => $a->faction?->value,
+                'category' => $a->category,
+            ])
+            ->all();
     }
 
     private function enumOptions(): array

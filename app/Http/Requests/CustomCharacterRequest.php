@@ -53,6 +53,13 @@ class CustomCharacterRequest extends FormRequest
             'summon_target_number' => ['nullable', 'integer', 'min:1', 'max:20'],
             'generates_stone' => ['boolean'],
             'is_unhirable' => ['boolean'],
+            // Only active library art can be picked; null clears it.
+            // A character keeps art that was retired after it was picked, so the current value is also allowed.
+            'card_art_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('card_arts', 'id')->where(fn ($q) => $q->where('is_active', true)->orWhere('id', $this->route('customCharacter')?->card_art_id)),
+            ],
             'actions' => ['nullable', 'array', 'max:20'],
             'actions.*.name' => ['required', 'string', 'max:255'],
             'actions.*.type' => ['required', 'string', Rule::enum(ActionTypeEnum::class)],

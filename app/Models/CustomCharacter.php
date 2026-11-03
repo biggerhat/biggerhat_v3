@@ -30,6 +30,12 @@ class CustomCharacter extends Model
 
     protected $guarded = ['id'];
 
+    /** @return BelongsTo<CardArt, $this> */
+    public function cardArt(): BelongsTo
+    {
+        return $this->belongsTo(CardArt::class, 'card_art_id');
+    }
+
     public function casts(): array
     {
         return [

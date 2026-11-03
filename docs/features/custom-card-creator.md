@@ -38,7 +38,14 @@ JSON stat/ability/action payloads).
 - **Drafts**: `composables/useEditorDraft.ts` warns before leaving with unsaved changes and keeps a debounced
   localStorage draft for *new* cards (`bh_draft_card`, `bh_draft_upgrade_<domain>`) with a "Restore draft?" banner.
 - `useShrinkToFit` binary-searches the font-size grid (about 5 reflows instead of up to 14).
-- Known limitation: the uploaded character art is preview-only — it is not stored with the card.
+- **Character art** comes from an admin-curated library (`card_arts` table, `CardArt` model,
+  `Admin\CardArtAdminController` at `/admin/card-arts`, super-admin only). A `CustomCharacter` stores `card_art_id`;
+  the editor's "Choose art" dialog lists active art (filter by faction / category / search), and the render surfaces
+  receive the path (`card_art_path` on the share page and Arsenal Sheet Leader/Totem, `card.characterImage` on the
+  capture page). Changing `card_art_id` regenerates Campaign Leader/Totem card images (`CARD_RENDER_COLUMNS`).
+  Retired (inactive) art stays on cards that already use it; deleting art clears it from those cards.
+  Player uploads are **never stored** — the "Try your own image" option is a preview-only convenience.
+  The images live on the `public` disk under `card_arts/` (needs `php artisan storage:link` like other uploads).
 
 ## Tests
 `tests/Feature/CustomCharacterControllerTest.php`, `CustomUpgradeControllerTest.php`,

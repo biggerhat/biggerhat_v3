@@ -590,6 +590,14 @@ class ArsenalSheetController extends Controller
         $leader = $crew->leader;
         $totem = $crew->totem;
 
+        // Library art picked for the Leader/Totem card (CardArt), shipped as a plain path for the card renderer.
+        foreach ([$leader, $totem] as $custom) {
+            if ($custom) {
+                $custom->setAttribute('card_art_path', $custom->cardArt?->image_path);
+                $custom->unsetRelation('cardArt');
+            }
+        }
+
         // Display-only characteristic additions on the live card — see
         // CustomCharacter::displayCharacteristics(), shared with the card
         // image capture export and the print sheet.

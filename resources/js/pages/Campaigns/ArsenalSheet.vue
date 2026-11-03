@@ -131,7 +131,7 @@ interface CustomCharacterData {
     base: number | string;
     keywords: Array<{ id: number | null; name: string }>;
     characteristics: string[];
-    image_path: string | null;
+    card_art_path?: string | null;
     // Server-rendered card images (App\Services\Campaign\LeaderCardImageGenerator),
     // regenerated automatically whenever the card-relevant fields above change.
     // Null until the first render lands — callers fall back to the live CardRenderer.
@@ -1338,7 +1338,7 @@ const leaderRendererProps = computed(() => {
         base: String(props.leader.base),
         keywords: props.leader.keywords,
         characteristics: props.leader.characteristics ?? [],
-        characterImage: props.leader.image_path,
+        characterImage: props.leader.card_art_path ?? null,
         actions: props.leader.actions ?? [],
         abilities: props.leader.abilities ?? [],
         linkedCrewUpgrades: props.leader.linked_crew_upgrades ?? [],
@@ -1365,7 +1365,7 @@ const totemRendererProps = computed(() => {
         base: String(props.totem.base),
         keywords: props.totem.keywords,
         characteristics: props.totem.characteristics ?? [],
-        characterImage: props.totem.image_path,
+        characterImage: props.totem.card_art_path ?? null,
         actions: props.totem.actions ?? [],
         abilities: props.totem.abilities ?? [],
         linkedCrewUpgrades: props.totem.linked_crew_upgrades ?? [],

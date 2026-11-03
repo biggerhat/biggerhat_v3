@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\Campaign\LuckyMissAdminController as CampaignLuck
 use App\Http\Controllers\Admin\Campaign\TacticalModAdvancementAdminController;
 use App\Http\Controllers\Admin\Campaign\TotemTemplateAdminController as CampaignTotemTemplateAdminController;
 use App\Http\Controllers\Admin\Campaign\WeeklyEventAdminController as CampaignWeeklyEventAdminController;
+use App\Http\Controllers\Admin\CardArtAdminController;
 use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
@@ -113,6 +114,15 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
             Route::get('/', 'index')->name('index');
             Route::post('/{id}/delete', 'destroy')->name('delete');
             Route::post('/user/{userId}/delete-all', 'destroyAllForUser')->name('delete_all_for_user');
+        });
+
+        Route::controller(CardArtAdminController::class)->prefix('card-arts')->name('card_arts.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/store', 'store')->name('store');
+            Route::get('/edit/{cardArt}', 'edit')->name('edit');
+            Route::post('/update/{cardArt}', 'update')->name('update');
+            Route::post('/delete/{cardArt}', 'delete')->name('delete');
         });
 
         Route::controller(CustomCardModerationAdminController::class)->prefix('custom-cards')->name('custom_cards.')->group(function () {

@@ -542,3 +542,53 @@ it('capture does not add a tag characteristic for a non-leader custom character'
         ->assertOk()
         ->assertInertia(fn ($p) => $p->where('card.characteristics', ['Living']));
 });
+
+// ─── Library art (CardArt) ───
+
+it('offers only active library art in the editor, plus the art already chosen', function () {
+    $user = User::factory()->create();
+    $active = \App\Models\CardArt::factory()->create(['name' => 'Active']);
+    $retired = \App\Models\CardArt::factory()->inactive()->create(['name' => 'Retired']);
+    $retiredButChosen = \App\Models\CardArt::factory()->inactive()->create(['name' => 'Chosen']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $retiredButChosen->id]));
+
+    $this->actingAs($user)->get(route('tools.card_creator.create'))
+        ->assertInertia(fn ($page) => $page->has('card_arts', 1)->where('card_arts.0.id', $active->id));
+
+    $this->actingAs($user)->get(route('tools.card_creator.edit', $character->id))
+        ->assertInertia(fn ($page) => $page->has('card_arts', 2)->where('card_arts.0.name', 'Active')->where('card_arts.1.name', 'Chosen'));
+    expect($retired->is_active)->toBeFalse();
+});
+
+it('stores a chosen art id and rejects unknown or retired art', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create();
+    $retired = \App\Models\CardArt::factory()->inactive()->create();
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id]))->assertOk();
+    expect(CustomCharacter::where('user_id', $user->id)->first()->card_art_id)->toBe($art->id);
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => 99999]))->assertUnprocessable()->assertJsonValidationErrors('card_art_id');
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $retired->id]))->assertUnprocessable()->assertJsonValidationErrors('card_art_id');
+});
+
+it('lets a character keep retired art on update and clear it with null', function () {
+    $user = User::factory()->create();
+    $retired = \App\Models\CardArt::factory()->inactive()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $retired->id]));
+
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['name' => 'Renamed', 'card_art_id' => $retired->id]))->assertOk();
+    expect($character->fresh()->card_art_id)->toBe($retired->id);
+
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null]))->assertOk();
+    expect($character->fresh()->card_art_id)->toBeNull();
+});
+
+it('exposes the chosen art path on the share page and the capture page', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create(['image_path' => 'card_arts/demo.webp']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id]));
+
+    $this->get(route('tools.card_creator.share', $character->share_code))->assertInertia(fn ($page) => $page->where('card_art_path', 'card_arts/demo.webp'));
+    $this->get(route('tools.card_creator.capture', $character->share_code))->assertInertia(fn ($page) => $page->where('card.characterImage', 'card_arts/demo.webp'));
+});

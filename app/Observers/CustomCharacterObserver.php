@@ -18,7 +18,7 @@ class CustomCharacterObserver
         'name', 'title', 'faction', 'second_faction', 'station', 'cost',
         'health', 'defense', 'defense_suit', 'willpower', 'willpower_suit',
         'speed', 'size', 'base', 'keywords', 'characteristics', 'actions',
-        'abilities', 'linked_crew_upgrades', 'linked_totems',
+        'abilities', 'linked_crew_upgrades', 'linked_totems', 'card_art_id',
     ];
 
     public function creating(CustomCharacter $character): void

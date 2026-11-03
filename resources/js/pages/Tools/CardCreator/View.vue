@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Head } from '@inertiajs/vue3';
 
 defineProps<{
+    card_art_path?: string | null;
     character: {
         id: number;
         name: string;
@@ -88,7 +89,7 @@ const stationLabel = (station: string | null) => {
                     :base="String(character.base)"
                     :keywords="character.keywords ?? []"
                     :characteristics="character.characteristics ?? []"
-                    :character-image="null"
+                    :character-image="card_art_path ?? null"
                     :actions="character.actions ?? []"
                     :abilities="character.abilities ?? []"
                     :linked-crew-upgrades="character.linked_crew_upgrades ?? []"

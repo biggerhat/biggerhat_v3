@@ -289,11 +289,11 @@ const stationLabel = (station: string | null) => {
 
         <div class="container mx-auto mt-6 px-4 lg:px-6">
             <!-- Tabs -->
-            <div class="mb-6 flex items-center gap-4 border-b" role="tablist" aria-label="Card types">
+            <div class="mb-6 flex items-center gap-3 overflow-x-auto border-b sm:gap-4" role="tablist" aria-label="Card types">
                 <button
                     role="tab"
                     :aria-selected="activeTab === 'characters'"
-                    class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
+                    class="whitespace-nowrap border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
                     :class="
                         activeTab === 'characters' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
                     "
@@ -305,7 +305,7 @@ const stationLabel = (station: string | null) => {
                 <button
                     role="tab"
                     :aria-selected="activeTab === 'crew_cards'"
-                    class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
+                    class="whitespace-nowrap border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
                     :class="
                         activeTab === 'crew_cards' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
                     "
@@ -317,7 +317,7 @@ const stationLabel = (station: string | null) => {
                 <button
                     role="tab"
                     :aria-selected="activeTab === 'upgrades'"
-                    class="border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
+                    class="whitespace-nowrap border-b-2 px-1 pb-2 text-sm font-medium transition-colors"
                     :class="
                         activeTab === 'upgrades' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
                     "
@@ -330,9 +330,12 @@ const stationLabel = (station: string | null) => {
 
             <!-- ═══ Characters tab ═══ -->
             <div v-if="activeTab === 'characters'">
-                <div class="mb-6 flex items-center justify-between">
+                <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
                     <h2 class="text-lg font-semibold">Your Custom Characters</h2>
-                    <div v-if="characters.length > 6" class="relative ml-auto mr-3 w-full max-w-[14rem]">
+                    <div
+                        v-if="characters.length > 6"
+                        class="relative order-last w-full sm:order-none sm:ml-auto sm:mr-0 sm:w-auto sm:max-w-[14rem] sm:flex-1"
+                    >
                         <Search class="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
                         <Input v-model="characterSearch" placeholder="Search characters…" aria-label="Search your characters" class="h-9 pl-8" />
                     </div>
@@ -358,8 +361,8 @@ const stationLabel = (station: string | null) => {
                 </p>
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="character in filteredCharacters" :key="character.id" :class="['group overflow-hidden', CARD_HOVER]">
-                        <div class="relative h-48 w-full overflow-hidden bg-muted">
+                    <Card v-for="character in filteredCharacters" :key="character.id" :class="['group flex overflow-hidden sm:flex-col', CARD_HOVER]">
+                        <div class="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-muted sm:w-full">
                             <Link
                                 :href="route('tools.card_creator.share', character.share_code)"
                                 class="absolute inset-0 z-0"
@@ -390,14 +393,16 @@ const stationLabel = (station: string | null) => {
                             >
                                 <Loader2 class="size-3 animate-spin" /> Rendering…
                             </span>
-                            <Badge class="pointer-events-none absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
+                            <Badge class="pointer-events-none absolute right-2 top-2 hidden bg-purple-600 text-2xs text-white sm:inline-flex"
+                                >Custom</Badge
+                            >
                             <Badge
                                 v-if="isCampaignLinked(character)"
-                                class="pointer-events-none absolute left-2 top-2 bg-amber-600 text-2xs text-white"
+                                class="pointer-events-none absolute left-2 top-2 bg-amber-700 text-2xs text-white"
                                 >Campaign</Badge
                             >
                         </div>
-                        <CardContent class="p-3">
+                        <CardContent class="min-w-0 flex-1 p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <div class="truncate text-sm font-semibold">{{ character.display_name }}</div>
@@ -408,15 +413,15 @@ const stationLabel = (station: string | null) => {
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-2 flex items-center gap-1">
-                                <Link :href="route('tools.card_creator.edit', character.id)" class="flex-1">
+                            <div class="mt-2 flex flex-wrap items-center gap-1">
+                                <Link :href="route('tools.card_creator.edit', character.id)" class="min-w-[4.5rem] flex-1">
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
                                 <a
                                     v-if="character.combination_image"
                                     :href="'/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at)"
                                     :download="`${character.display_name}.png`"
-                                    class="inline-flex h-8 items-center justify-center rounded-md border px-2.5 text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:h-10"
+                                    class="inline-flex size-8 shrink-0 items-center justify-center rounded-md border text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:size-10"
                                     :aria-label="`Download ${character.display_name} card image`"
                                     title="Download card image (front and back)"
                                 >
@@ -426,7 +431,7 @@ const stationLabel = (station: string | null) => {
                                     v-else-if="!isRendering(character)"
                                     variant="outline"
                                     size="sm"
-                                    class="text-xs"
+                                    class="size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10"
                                     :aria-label="`Render ${character.display_name} card image`"
                                     title="No card image yet — render it now"
                                     @click="rerenderCharacter(character)"
@@ -436,7 +441,7 @@ const stationLabel = (station: string | null) => {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    class="text-xs"
+                                    class="size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10"
                                     :disabled="duplicatingId === character.id"
                                     :aria-label="`Duplicate ${character.display_name}`"
                                     title="Duplicate"
@@ -448,7 +453,7 @@ const stationLabel = (station: string | null) => {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    class="text-xs"
+                                    class="size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10"
                                     aria-label="Copy share link"
                                     @click="copyCharacterShareLink(character)"
                                 >
@@ -459,7 +464,10 @@ const stationLabel = (station: string | null) => {
                                     variant="outline"
                                     size="sm"
                                     :disabled="isCampaignLinked(character)"
-                                    :class="['text-xs', !isCampaignLinked(character) && 'text-destructive hover:bg-destructive/10']"
+                                    :class="[
+                                        'size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10',
+                                        !isCampaignLinked(character) && 'text-destructive hover:bg-destructive/10',
+                                    ]"
                                     :aria-label="isCampaignLinked(character) ? 'Cannot delete — tied to a Campaign crew' : 'Delete'"
                                     :title="isCampaignLinked(character) ? 'Tied to a Campaign crew — delete from the crew instead' : undefined"
                                     @click="confirmDeleteCharacter(character)"
@@ -490,8 +498,8 @@ const stationLabel = (station: string | null) => {
                 </EmptyState>
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Card v-for="card in upgradeTab.items" :key="card.id" :class="['group overflow-hidden', CARD_HOVER]">
-                        <div class="relative h-48 w-full overflow-hidden bg-muted">
+                    <Card v-for="card in upgradeTab.items" :key="card.id" :class="['group flex overflow-hidden sm:flex-col', CARD_HOVER]">
+                        <div class="relative aspect-[3/4] w-28 shrink-0 overflow-hidden bg-muted sm:w-full">
                             <Link
                                 :href="route('tools.card_creator.upgrades.share', card.share_code)"
                                 class="absolute inset-0 z-0"
@@ -517,15 +525,17 @@ const stationLabel = (station: string | null) => {
                             >
                                 <Loader2 class="size-3 animate-spin" /> Rendering…
                             </span>
-                            <Badge class="pointer-events-none absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
+                            <Badge class="pointer-events-none absolute right-2 top-2 hidden bg-purple-600 text-2xs text-white sm:inline-flex"
+                                >Custom</Badge
+                            >
                             <Badge
                                 v-if="isCampaignLinkedCrewCard(card)"
-                                class="pointer-events-none absolute left-2 top-2 bg-amber-600 text-2xs text-white"
+                                class="pointer-events-none absolute left-2 top-2 bg-amber-700 text-2xs text-white"
                             >
                                 Campaign
                             </Badge>
                         </div>
-                        <CardContent class="p-3">
+                        <CardContent class="min-w-0 flex-1 p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">
                                 <div class="min-w-0">
                                     <div class="truncate text-sm font-semibold">{{ card.display_name }}</div>
@@ -535,15 +545,15 @@ const stationLabel = (station: string | null) => {
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-2 flex items-center gap-1">
-                                <Link :href="route('tools.card_creator.upgrades.edit', card.id)" class="flex-1">
+                            <div class="mt-2 flex flex-wrap items-center gap-1">
+                                <Link :href="route('tools.card_creator.upgrades.edit', card.id)" class="min-w-[4.5rem] flex-1">
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
                                 <a
                                     v-if="card.combination_image"
                                     :href="'/storage/' + cacheBustedImagePath(card.combination_image, card.card_image_generated_at)"
                                     :download="`${card.display_name}.png`"
-                                    class="inline-flex h-8 items-center justify-center rounded-md border px-2.5 text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:h-10"
+                                    class="inline-flex size-8 shrink-0 items-center justify-center rounded-md border text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:size-10"
                                     :aria-label="`Download ${card.display_name} card image`"
                                     title="Download card image (front and back)"
                                 >
@@ -553,7 +563,7 @@ const stationLabel = (station: string | null) => {
                                     v-else-if="!isUpgradeRendering(card)"
                                     variant="outline"
                                     size="sm"
-                                    class="text-xs"
+                                    class="size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10"
                                     :aria-label="`Render ${card.display_name} card image`"
                                     title="No card image yet — render it now"
                                     @click="rerenderUpgrade(card)"
@@ -563,7 +573,7 @@ const stationLabel = (station: string | null) => {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    class="text-xs"
+                                    class="size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10"
                                     :disabled="duplicatingId === 'upg-' + card.id"
                                     :aria-label="`Duplicate ${card.display_name}`"
                                     title="Duplicate"
@@ -572,7 +582,13 @@ const stationLabel = (station: string | null) => {
                                     <Loader2 v-if="duplicatingId === 'upg-' + card.id" class="size-3 animate-spin" />
                                     <Copy v-else class="size-3" />
                                 </Button>
-                                <Button variant="outline" size="sm" class="text-xs" aria-label="Copy share link" @click="copyUpgradeShareLink(card)">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10"
+                                    aria-label="Copy share link"
+                                    @click="copyUpgradeShareLink(card)"
+                                >
                                     <Check v-if="copiedId === 'upg-' + card.id" class="size-3 text-green-700 dark:text-green-400" />
                                     <Share2 v-else class="size-3" />
                                 </Button>
@@ -580,7 +596,10 @@ const stationLabel = (station: string | null) => {
                                     variant="outline"
                                     size="sm"
                                     :disabled="isCampaignLinkedCrewCard(card)"
-                                    :class="['text-xs', !isCampaignLinkedCrewCard(card) && 'text-destructive hover:bg-destructive/10']"
+                                    :class="[
+                                        'size-8 shrink-0 p-0 text-xs [@media(pointer:coarse)]:size-10',
+                                        !isCampaignLinkedCrewCard(card) && 'text-destructive hover:bg-destructive/10',
+                                    ]"
                                     :aria-label="isCampaignLinkedCrewCard(card) ? 'Cannot delete — tied to a Campaign crew' : 'Delete'"
                                     :title="isCampaignLinkedCrewCard(card) ? 'Tied to a Campaign crew — saved from Starting Arsenal' : undefined"
                                     @click="confirmDeleteUpgrade(card)"

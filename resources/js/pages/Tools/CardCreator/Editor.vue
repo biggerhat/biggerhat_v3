@@ -26,7 +26,7 @@ import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Plus, RefreshCw, Save, Share2, Trash2, X } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Eye, Plus, RefreshCw, Save, Share2, Trash2, X } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 
 interface EnumOption {
@@ -171,6 +171,9 @@ useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
         router.reload({ only: ['character', 'card_image_pending'], preserveScroll: true });
     }
 });
+// Below lg the preview sits under the form; the save bar's Preview button jumps to it.
+const scrollToPreview = () => document.getElementById('card-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
 const rerender = async () => {
     if (!props.character || rerendering.value) return;
     rerendering.value = true;
@@ -1566,10 +1569,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </div>
 
                 <!-- ═══ LIVE PREVIEW ═══ -->
-                <!-- order-first below lg so the preview leads on mobile/tablet (users get live
-                     feedback while filling in the form instead of scrolling past it entirely);
-                     lg:order-none restores normal DOM order (form left, preview right) at desktop. -->
-                <div class="order-first lg:order-none lg:col-span-1">
+                <!-- Below lg the preview follows the form (it is a screen-tall card, and leading with it pushed the
+                     fields out of view); the save bar's Preview button jumps to it. Side by side at desktop. -->
+                <div id="card-preview" class="scroll-mt-4 lg:col-span-1">
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <h3 class="text-sm font-semibold">Preview</h3>
@@ -1727,9 +1729,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
             <div class="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
                 <div class="min-w-0 text-xs" aria-live="polite">
                     <div v-if="Object.keys(errors).length" class="text-destructive">Please fix validation errors above.</div>
-                    <div v-else-if="!isEdit" class="text-muted-foreground">
-                        New character — a shareable card image is rendered automatically after you create it.
-                    </div>
+                    <div v-else-if="!isEdit" class="text-muted-foreground">A card image is rendered after you create it.</div>
                     <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                         <span class="truncate">Editing {{ form.name || 'character' }}</span>
                         <span v-if="imagePending || rerendering" class="inline-flex items-center gap-1 text-foreground">
@@ -1757,6 +1757,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                         </button>
                     </div>
                 </div>
+                <Button variant="outline" size="sm" class="ml-auto lg:hidden" @click="scrollToPreview"><Eye class="mr-1.5 size-4" /> Preview</Button>
                 <Button :disabled="saving || !form.name || form.faction === 'none'" size="sm" @click="save">
                     <Loader2 v-if="saving" class="mr-2 size-4 animate-spin" />
                     <Save v-else class="mr-2 size-4" />

@@ -39,6 +39,9 @@ class CampaignAftermathAdvanceLeaderRequest extends FormRequest
             'bruiser_killed_non_peon' => ['required', 'boolean'],
             'strategist_interacted' => ['required', 'boolean'],
             'lost' => ['required', 'boolean'],
+            // Self-reported extra XP from effects outside the pg 31 cap — Cruel Lessons (pg 40), equipment, optional
+            // rules. Bounded so a typo can't fill the whole track.
+            'bonus_xp' => ['nullable', 'integer', 'min:0', 'max:6'],
             'advancements' => ['nullable', 'array'],
             'advancements.*.source_table' => ['required', 'string', Rule::enum(AdvancementTableEnum::class)],
             'advancements.*.catalog_id' => ['nullable', 'integer'],

@@ -373,6 +373,7 @@ const xpForm = ref({
     bruiser_killed: false,
     strategist_interacted: false,
     lost: false,
+    bonus_xp: 0,
 });
 
 // Mirror of CampaignRules::xpFromGame — the conditional bonuses only count for
@@ -383,7 +384,8 @@ const totalXp = computed(() => {
     if (tag === 'bruiser' && xpForm.value.bruiser_killed) xp++;
     if (tag === 'strategist' && xpForm.value.strategist_interacted) xp++;
     if (xpForm.value.lost) xp++;
-    return Math.min(3, xp);
+    // Cruel Lessons / equipment / optional rules sit on top of the 3-per-game cap (pg 31).
+    return Math.min(3, xp) + (xpForm.value.bonus_xp || 0);
 });
 
 // Preview the track with XP-earned hypothetically filling the next N empty boxes.
@@ -753,6 +755,7 @@ const submitAdvanceLeader = () => {
             bruiser_killed_non_peon: xpForm.value.bruiser_killed,
             strategist_interacted: xpForm.value.strategist_interacted,
             lost: xpForm.value.lost,
+            bonus_xp: xpForm.value.bonus_xp || 0,
             advancements: advancementsQueued.value
                 .filter((adv) => {
                     const d = advDrafts.value[adv.position_in_xp_track];
@@ -1257,10 +1260,17 @@ const submitInjuries = () => {
                             <Checkbox :checked="xpForm.lost" @update:checked="(v: boolean) => (xpForm.lost = v)" />
                             <span>+1 for losing the game</span>
                         </label>
+                        <label class="flex flex-wrap items-center gap-2">
+                            <Input v-model.number="xpForm.bonus_xp" type="number" min="0" max="6" inputmode="numeric" class="h-8 w-16" />
+                            <span>Extra XP from other effects</span>
+                            <span class="w-full pl-[4.5rem] text-xs text-muted-foreground">
+                                Cruel Lessons (+1 after killing the enemy leader), equipment, optional rules — these aren't part of the 3 XP cap.
+                            </span>
+                        </label>
                     </div>
                     <p class="mt-3 text-xs">
                         Total XP: <Badge class="tabular-nums">{{ totalXp }}</Badge>
-                        <span class="ml-2 text-muted-foreground">(capped at 3)</span>
+                        <span class="ml-2 text-muted-foreground">(game XP capped at 3, plus any extra)</span>
                     </p>
                 </fieldset>
 

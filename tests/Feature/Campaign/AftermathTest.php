@@ -1332,6 +1332,27 @@ it('Phase 4 caps XP at 3 and ignores the off-tag bonus', function () {
     expect($aftermath->fresh()->current_phase)->toBe(5);
 });
 
+it('Phase 4 adds bonus XP (Cruel Lessons, equipment) on top of the 3 XP cap and validates its range', function () {
+    [$user, , $crew, $game] = aftermathFixture();
+    $aftermath = CampaignAftermath::factory()->create([
+        'campaign_game_id' => $game->id,
+        'campaign_crew_id' => $crew->id,
+        'current_phase' => 4,
+        'hand_drawn' => [],
+    ]);
+    $leader = buildLeaderFor($crew, $user, 'bruiser');
+    $payload = ['bruiser_killed_non_peon' => true, 'strategist_interacted' => false, 'lost' => true, 'advancements' => []];
+
+    $this->actingAs($user)->post(route('campaigns.aftermaths.advance-leader', $aftermath), $payload + ['bonus_xp' => 9])
+        ->assertSessionHasErrors('bonus_xp');
+
+    // 3 (capped game XP) + 1 (Cruel Lessons) = 4 boxes, recorded so going back unfills exactly 4.
+    $this->actingAs($user)->post(route('campaigns.aftermaths.advance-leader', $aftermath), $payload + ['bonus_xp' => 1])->assertRedirect();
+
+    expect(collect($leader->fresh()->xp_track)->where('filled', true)->count())->toBe(4)
+        ->and($aftermath->fresh()->xp_earned)->toBe(4);
+});
+
 it('Phase 4 ignores the Bruiser bonus for a Strategist leader', function () {
     [$user, , $crew, $game] = aftermathFixture();
     $aftermath = CampaignAftermath::factory()->create([

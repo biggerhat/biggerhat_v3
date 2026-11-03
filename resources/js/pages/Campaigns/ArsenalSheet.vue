@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
@@ -731,26 +732,54 @@ const targetActionOptions = (position: number): Array<{ ref: number; name: strin
 // its very first poll — before the redo's render had actually run.
 const cardRegenerating = ref<{ leader: boolean; totem: boolean; crew_card: boolean }>({ leader: false, totem: false, crew_card: false });
 
-const pollCardRegeneration = (target: 'leader' | 'totem' | 'crew_card', previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
+type CardTarget = 'leader' | 'totem' | 'crew_card';
+
+const currentGeneratedAt = (target: CardTarget) =>
+    target === 'leader'
+        ? props.leader?.card_image_generated_at
+        : target === 'totem'
+          ? props.totem?.card_image_generated_at
+          : props.crew.crew_card_generated_at;
+
+const reloadCards = (onDone?: () => void) => router.reload({ only: ['leader', 'totem', 'crew'], preserveScroll: true, onSuccess: onDone });
+
+// Realtime: CardImageGenerated names the finished render, so reload once and stop that spinner. Polling below is only
+// the fallback for when the socket isn't available, and a one-shot safety net if an event is lost.
+const finishTarget = (target: CardTarget) => {
+    cardRegenerating.value[target] = false;
+};
+const { ready: cardSocketReady } = useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    const targets: CardTarget[] = [];
+    if (event.kind === 'crew_card' && event.id === props.crew.id) targets.push('crew_card');
+    if (event.kind === 'custom_character') {
+        if (props.leader?.id === event.id) targets.push('leader');
+        if (props.totem?.id === event.id) targets.push('totem');
+    }
+    if (!targets.length) return;
+    reloadCards(() => targets.forEach(finishTarget));
+});
+
+const pollCardRegeneration = async (target: CardTarget, previousGeneratedAt: string | null | undefined, attemptsLeft = 8) => {
     cardRegenerating.value[target] = true;
+
+    if (attemptsLeft === 8 && (await cardSocketReady)) {
+        // The event normally lands within seconds; if it never does, check once and stop the spinner.
+        setTimeout(() => {
+            if (cardRegenerating.value[target]) reloadCards(() => finishTarget(target));
+        }, 60000);
+        return;
+    }
+
     setTimeout(() => {
-        router.reload({
-            only: ['leader', 'totem', 'crew'],
-            onSuccess: () => {
-                const current =
-                    target === 'leader'
-                        ? props.leader?.card_image_generated_at
-                        : target === 'totem'
-                          ? props.totem?.card_image_generated_at
-                          : props.crew.crew_card_generated_at;
-                if (current && current !== previousGeneratedAt) {
-                    cardRegenerating.value[target] = false;
-                } else if (attemptsLeft > 1) {
-                    pollCardRegeneration(target, previousGeneratedAt, attemptsLeft - 1);
-                } else {
-                    cardRegenerating.value[target] = false;
-                }
-            },
+        reloadCards(() => {
+            const current = currentGeneratedAt(target);
+            if (current && current !== previousGeneratedAt) {
+                finishTarget(target);
+            } else if (attemptsLeft > 1) {
+                pollCardRegeneration(target, previousGeneratedAt, attemptsLeft - 1);
+            } else {
+                finishTarget(target);
+            }
         });
     }, 2000);
 };

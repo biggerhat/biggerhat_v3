@@ -2,6 +2,7 @@
 
 namespace App\Services\Campaign;
 
+use App\Events\CardImageGenerated;
 use App\Models\Campaign\CampaignCrew;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Browsershot\Browsershot;
@@ -37,6 +38,14 @@ class CombinedCrewCardImageGenerator
             'crew_card_back_image' => "{$dir}/crew-card-back.png",
             'crew_card_generated_at' => now(),
         ]);
+
+        if ($crew->user_id) {
+            try {
+                event(new CardImageGenerated($crew->user_id, CardImageGenerated::KIND_CREW_CARD, $crew->id, $crew->crew_card_generated_at?->toIso8601String()));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
     }
 
     private function capture(string $url, string $selector): string

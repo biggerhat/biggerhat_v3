@@ -63,3 +63,11 @@ JSON stat/ability/action payloads).
 ## Tests
 `tests/Feature/CustomCharacterControllerTest.php`, `CustomUpgradeControllerTest.php`,
 `CardCreatorCampaignLeaderTest.php`. The editors' client-side behaviour (drafts, export) has no automated tests.
+
+## Realtime: render-finished events
+
+When a saved card render finishes, `LeaderCardImageGenerator` / `CombinedCrewCardImageGenerator` fire `CardImageGenerated`
+(`ShouldBroadcastNow`, private `App.Models.User.{owner}` channel, event `.card.image.generated`, payload `kind`
+= `custom_character`|`crew_card`, `id`, `generated_at`). `useCardImageEvents` listens (only removing its own listener, since
+`useNotifications` shares the channel); My Cards, the share page and the Arsenal Sheet reload on it. The Arsenal Sheet keeps
+its old polling as a fallback when Reverb is unavailable, and does one safety reload after 60s if an event is lost.

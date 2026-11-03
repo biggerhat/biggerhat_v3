@@ -4,6 +4,7 @@ use App\Enums\Campaign\LeaderArchetypeEnum;
 use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
+use App\Events\CardImageGenerated;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
@@ -11,8 +12,11 @@ use App\Models\Campaign\CampaignPlayer;
 use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
 use App\Models\User;
+use App\Services\Campaign\LeaderCardImageGenerator;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
@@ -293,4 +297,30 @@ it('backfill command re-queues current Leaders/Totems and homebrew cards, skippi
     Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 2);
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id);
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $plain->id);
+});
+
+it('announces a finished render to the owner over their private channel', function () {
+    Event::fake([CardImageGenerated::class]);
+    Storage::fake('public');
+    $character = lciHomebrew(lciUser());
+    $generator = new class extends LeaderCardImageGenerator
+    {
+        protected function capture(string $url, string $selector): string
+        {
+            return 'png';
+        }
+
+        protected function mergeSideBySide(string $frontPath, string $backPath, string $outPath): void {}
+    };
+
+    $generator->generate($character);
+
+    Event::assertDispatched(
+        CardImageGenerated::class,
+        fn (CardImageGenerated $e) => $e->userId === $character->user_id
+            && $e->kind === 'custom_character'
+            && $e->id === $character->id
+            && $e->generatedAt !== null
+            && $e->broadcastOn()->name === 'private-App.Models.User.'.$character->user_id,
+    );
 });

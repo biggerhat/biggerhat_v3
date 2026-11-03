@@ -6,11 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useToast } from '@/composables/useToast';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
-import { Head, Link, router } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Check, Download, Pencil, Plus, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -124,6 +126,11 @@ const performDelete = async () => {
     deleteTarget.value = null;
     router.reload({ only: ['characters', 'upgrades'] });
 };
+
+// A saved card's image is rendered shortly after each save; swap it in as soon as the server announces it.
+useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    if (event.kind === 'custom_character') router.reload({ only: ['characters'], preserveScroll: true });
+});
 
 const copiedId = ref<string | null>(null);
 const copyCharacterShareLink = (character: CustomCharacter) => {

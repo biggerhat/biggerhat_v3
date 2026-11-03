@@ -4,11 +4,13 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
-import { Head } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Download } from 'lucide-vue-next';
 
-defineProps<{
+const props = defineProps<{
     card_art_path?: string | null;
     character: {
         id: number;
@@ -50,6 +52,11 @@ defineProps<{
     };
     creator_name: string;
 }>();
+
+// The owner viewing their card sees the download button appear when the render finishes.
+useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    if (event.kind === 'custom_character' && event.id === props.character.id) router.reload({ only: ['character'], preserveScroll: true });
+});
 
 const stationLabel = (station: string | null) => {
     if (!station || station === 'none') return null;

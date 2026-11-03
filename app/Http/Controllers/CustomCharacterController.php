@@ -266,7 +266,7 @@ class CustomCharacterController extends Controller
                 'characteristics' => $characteristics,
                 // Library art the player picked (CardArt); uploads are preview-only and never reach here.
                 'characterImage' => $character->cardArt?->image_path,
-                'characterImageFocus' => ['x' => $character->card_art_x, 'y' => $character->card_art_y, 'zoom' => $character->card_art_zoom],
+                'characterImageFocus' => ['x' => $character->card_art_x, 'y' => $character->card_art_y, 'zoom' => $character->card_art_zoom, 'dx' => $character->card_art_dx, 'dy' => $character->card_art_dy],
                 'actions' => $character->actions ?? [],
                 'abilities' => $character->abilities ?? [],
                 'linkedCrewUpgrades' => $character->linked_crew_upgrades ?? [],
@@ -307,7 +307,7 @@ class CustomCharacterController extends Controller
      */
     private function normalizeArtFraming(array $validated): array
     {
-        foreach (['card_art_x' => 50, 'card_art_y' => 50, 'card_art_zoom' => 100] as $key => $default) {
+        foreach (['card_art_x' => 50, 'card_art_y' => 50, 'card_art_zoom' => 100, 'card_art_dx' => 0, 'card_art_dy' => 0] as $key => $default) {
             if (array_key_exists($key, $validated)) {
                 $validated[$key] ??= $default;
             }
@@ -318,6 +318,8 @@ class CustomCharacterController extends Controller
             $validated['card_art_x'] = 50;
             $validated['card_art_y'] = 50;
             $validated['card_art_zoom'] = 100;
+            $validated['card_art_dx'] = 0;
+            $validated['card_art_dy'] = 0;
         }
 
         return $validated;

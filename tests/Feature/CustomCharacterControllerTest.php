@@ -597,16 +597,16 @@ it('stores art framing, rejects out-of-range values, and resets it when the art 
     $user = User::factory()->create();
     $art = \App\Models\CardArt::factory()->create();
 
-    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id, 'card_art_x' => 20, 'card_art_y' => 80, 'card_art_zoom' => 175]))->assertOk();
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id, 'card_art_x' => 20, 'card_art_y' => 80, 'card_art_zoom' => 175, 'card_art_dx' => -40, 'card_art_dy' => 100]))->assertOk();
     $character = CustomCharacter::where('user_id', $user->id)->firstOrFail();
-    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom])->toBe([20, 80, 175]);
+    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom, $character->card_art_dx, $character->card_art_dy])->toBe([20, 80, 175, -40, 100]);
 
-    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 99], ['card_art_zoom' => 301]] as $bad) {
+    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 99], ['card_art_zoom' => 301], ['card_art_dx' => 101], ['card_art_dy' => -101]] as $bad) {
         $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload($bad))->assertUnprocessable();
     }
 
-    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null, 'card_art_x' => 20, 'card_art_zoom' => 175]))->assertOk();
-    expect([$character->fresh()->card_art_x, $character->fresh()->card_art_y, $character->fresh()->card_art_zoom])->toBe([50, 50, 100]);
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null, 'card_art_x' => 20, 'card_art_zoom' => 175, 'card_art_dx' => 30]))->assertOk();
+    expect([$character->fresh()->card_art_x, $character->fresh()->card_art_y, $character->fresh()->card_art_zoom, $character->fresh()->card_art_dx, $character->fresh()->card_art_dy])->toBe([50, 50, 100, 0, 0]);
 });
 
 it('defaults framing to centred and unzoomed, and a null framing value falls back to the default', function () {
@@ -623,7 +623,7 @@ it('exposes the framing to the headless capture page', function () {
     $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id, 'card_art_x' => 10, 'card_art_y' => 90, 'card_art_zoom' => 200]));
 
     $this->get(route('tools.card_creator.capture', $character->share_code))
-        ->assertInertia(fn ($page) => $page->where('card.characterImageFocus', ['x' => 10, 'y' => 90, 'zoom' => 200]));
+        ->assertInertia(fn ($page) => $page->where('card.characterImageFocus', ['x' => 10, 'y' => 90, 'zoom' => 200, 'dx' => 0, 'dy' => 0]));
 });
 
 it('lists each card with its saved image fields and the art fallback for the tile thumbnail', function () {

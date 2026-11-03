@@ -136,6 +136,8 @@ interface CustomCharacterData {
     card_art_x?: number;
     card_art_y?: number;
     card_art_zoom?: number;
+    card_art_dx?: number;
+    card_art_dy?: number;
     // Server-rendered card images (App\Services\Campaign\LeaderCardImageGenerator),
     // regenerated automatically whenever the card-relevant fields above change.
     // Null until the first render lands — callers fall back to the live CardRenderer.
@@ -1371,7 +1373,13 @@ const leaderRendererProps = computed(() => {
         keywords: props.leader.keywords,
         characteristics: props.leader.characteristics ?? [],
         characterImage: props.leader.card_art_path ?? null,
-        characterImageFocus: { x: props.leader.card_art_x ?? 50, y: props.leader.card_art_y ?? 50, zoom: props.leader.card_art_zoom ?? 100 },
+        characterImageFocus: {
+            x: props.leader.card_art_x ?? 50,
+            y: props.leader.card_art_y ?? 50,
+            zoom: props.leader.card_art_zoom ?? 100,
+            dx: props.leader.card_art_dx ?? 0,
+            dy: props.leader.card_art_dy ?? 0,
+        },
         actions: props.leader.actions ?? [],
         abilities: props.leader.abilities ?? [],
         linkedCrewUpgrades: props.leader.linked_crew_upgrades ?? [],
@@ -1399,7 +1407,13 @@ const totemRendererProps = computed(() => {
         keywords: props.totem.keywords,
         characteristics: props.totem.characteristics ?? [],
         characterImage: props.totem.card_art_path ?? null,
-        characterImageFocus: { x: props.totem.card_art_x ?? 50, y: props.totem.card_art_y ?? 50, zoom: props.totem.card_art_zoom ?? 100 },
+        characterImageFocus: {
+            x: props.totem.card_art_x ?? 50,
+            y: props.totem.card_art_y ?? 50,
+            zoom: props.totem.card_art_zoom ?? 100,
+            dx: props.totem.card_art_dx ?? 0,
+            dy: props.totem.card_art_dy ?? 0,
+        },
         actions: props.totem.actions ?? [],
         abilities: props.totem.abilities ?? [],
         linkedCrewUpgrades: props.totem.linked_crew_upgrades ?? [],

@@ -22,6 +22,8 @@ const props = defineProps<{
         card_art_x?: number;
         card_art_y?: number;
         card_art_zoom?: number;
+        card_art_dx?: number;
+        card_art_dy?: number;
         combination_image?: string | null;
         front_image?: string | null;
         card_image_generated_at?: string | null;
@@ -124,7 +126,13 @@ const stationLabel = (station: string | null) => {
                     :keywords="character.keywords ?? []"
                     :characteristics="character.characteristics ?? []"
                     :character-image="card_art_path ?? null"
-                    :character-image-focus="{ x: character.card_art_x ?? 50, y: character.card_art_y ?? 50, zoom: character.card_art_zoom ?? 100 }"
+                    :character-image-focus="{
+                        x: character.card_art_x ?? 50,
+                        y: character.card_art_y ?? 50,
+                        zoom: character.card_art_zoom ?? 100,
+                        dx: character.card_art_dx ?? 0,
+                        dy: character.card_art_dy ?? 0,
+                    }"
                     :actions="character.actions ?? []"
                     :abilities="character.abilities ?? []"
                     :linked-crew-upgrades="character.linked_crew_upgrades ?? []"

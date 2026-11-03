@@ -46,7 +46,7 @@ const props = defineProps<{
     characteristics: string[];
     characterImage: string | null;
     /** How the art is framed in the window (see ArtImage.vue); defaults to centred, unzoomed. */
-    characterImageFocus?: { x: number; y: number; zoom: number } | null;
+    characterImageFocus?: { x: number; y: number; zoom: number; dx?: number; dy?: number } | null;
     abilities: AbilityData[];
     linkedCrewUpgrades: LinkedItem[];
     linkedTotems: LinkedItem[];
@@ -182,6 +182,8 @@ defineExpose({ rootRef });
                 :x="characterImageFocus?.x ?? 50"
                 :y="characterImageFocus?.y ?? 50"
                 :zoom="characterImageFocus?.zoom ?? 100"
+                :dx="characterImageFocus?.dx ?? 0"
+                :dy="characterImageFocus?.dy ?? 0"
             />
             <div v-else class="flex h-full items-center justify-center gap-2">
                 <FactionLogo v-if="faction" :faction="faction" class-name="size-24 opacity-10" />

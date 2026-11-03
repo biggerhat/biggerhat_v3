@@ -111,6 +111,8 @@ class CustomCharacter extends Model
             'card_art_x' => 'integer',
             'card_art_y' => 'integer',
             'card_art_zoom' => 'integer',
+            'card_art_dx' => 'integer',
+            'card_art_dy' => 'integer',
             // Integer casts on campaign-mode stat columns. SQLite returns
             // strings for numeric columns by default, which trips comparison
             // operators (e.g. campaign_totem_flip_value === $flipped). Cast

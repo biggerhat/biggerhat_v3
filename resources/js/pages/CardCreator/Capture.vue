@@ -77,7 +77,7 @@ const props = defineProps<{
         keywords: KeywordData[];
         characteristics: string[];
         characterImage: string | null;
-        characterImageFocus?: { x: number; y: number; zoom: number } | null;
+        characterImageFocus?: { x: number; y: number; zoom: number; dx?: number; dy?: number } | null;
         actions: ActionData[];
         abilities: AbilityData[];
         linkedCrewUpgrades: LinkedItem[];

@@ -111,6 +111,8 @@ const props = defineProps<{
         card_art_x: number;
         card_art_y: number;
         card_art_zoom: number;
+        card_art_dx: number;
+        card_art_dy: number;
         is_campaign_leader: boolean;
         is_campaign_totem: boolean;
         archetype: string | null;
@@ -216,6 +218,8 @@ const form = reactive({
     card_art_x: props.character?.card_art_x ?? 50,
     card_art_y: props.character?.card_art_y ?? 50,
     card_art_zoom: props.character?.card_art_zoom ?? 100,
+    card_art_dx: props.character?.card_art_dx ?? 0,
+    card_art_dy: props.character?.card_art_dy ?? 0,
     notes: props.character?.notes ?? '',
     // Only meaningful (and only editable — see the template) for a Campaign
     // Leader; left as whatever it already is for every other character.
@@ -354,7 +358,9 @@ const selectedArt = computed(() => props.card_arts.find((a) => a.id === form.car
 // An uploaded file still wins for the live preview (it's the player's own try-out); otherwise the chosen library art.
 // Framing belongs to the library art; a try-out upload is always shown centred.
 const artFocus = computed(() =>
-    characterImagePreview.value ? { x: 50, y: 50, zoom: 100 } : { x: form.card_art_x, y: form.card_art_y, zoom: form.card_art_zoom },
+    characterImagePreview.value
+        ? { x: 50, y: 50, zoom: 100 }
+        : { x: form.card_art_x, y: form.card_art_y, zoom: form.card_art_zoom, dx: form.card_art_dx, dy: form.card_art_dy },
 );
 const characterImageSrc = computed(() => characterImagePreview.value ?? selectedArt.value?.image_path ?? null);
 
@@ -377,6 +383,8 @@ const pickArt = (id: number | null) => {
         form.card_art_x = 50;
         form.card_art_y = 50;
         form.card_art_zoom = 100;
+        form.card_art_dx = 0;
+        form.card_art_dy = 0;
     }
     form.card_art_id = id;
     artPickerOpen.value = false;
@@ -926,6 +934,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     v-model:x="form.card_art_x"
                                     v-model:y="form.card_art_y"
                                     v-model:zoom="form.card_art_zoom"
+                                    v-model:dx="form.card_art_dx"
+                                    v-model:dy="form.card_art_dy"
                                     :src="selectedArt.image_path"
                                     :alt="selectedArt.name"
                                     class="mt-2"

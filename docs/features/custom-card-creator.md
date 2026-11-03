@@ -99,3 +99,7 @@ its old polling as a fallback when Reverb is unavailable, and does one safety re
 - My Cards tiles are card-gallery tiles: a `3/4` image area showing the saved front image (`object-contain`), stacked on `sm+`, and a horizontal thumbnail + details row on phones. One shared tile serves the Crew Cards and Upgrades tabs. Icon-only actions are fixed `size-8` (40px on coarse pointers) so five of them always fit.
 - Below `lg` the Editors put the preview *after* the form (it is a screen-tall card); the sticky save bar's **Preview** button scrolls to `#card-preview`.
 - Amber "Campaign" badges use `bg-amber-700` (white on amber-600 fails contrast at this size).
+
+## Saved image size
+
+Both faces of a saved image are always the same exact tarot size (2.75 x 4.75 in proportions, like the Bonanza cards). The capture pages (`CardCreator/Capture.vue`, `CardCreator/UpgradeCapture.vue`) use `useTarotFit`: start at the smallest tier (`TAROT_WIDTH_TIERS`, 550px wide, rendered at 2x) and step up until the taller face's content fits, so text-heavy cards get a *larger* tarot card instead of a taller, off-ratio one. Dead space inside the border is expected. Only past the largest tier does a face grow taller (both still match). The page sets `data-capture-ready` when settled and `CapturesCardImages::capture()` waits for it before the screenshot.

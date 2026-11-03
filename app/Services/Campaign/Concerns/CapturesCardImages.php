@@ -29,6 +29,8 @@ trait CapturesCardImages
             ->windowSize(2500, 2100)
             ->deviceScaleFactor(2)
             ->waitUntilNetworkIdle()
+            // The capture pages size both faces to the taller one, then flag themselves ready (useEqualCardHeight).
+            ->waitForSelector('[data-capture-ready="true"]')
             ->timeout(60);
 
         if ($node = config('services.browsershot.node_binary')) {

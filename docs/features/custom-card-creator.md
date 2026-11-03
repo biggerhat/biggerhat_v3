@@ -79,3 +79,11 @@ its old polling as a fallback when Reverb is unavailable, and does one safety re
 - Deleting a card removes `custom-characters/{id}/` from the public disk (observer `deleted`).
 - My Cards tiles fall back to the art/logo if the saved image 404s, link to the share page, and get a search box above 6 characters.
 - The Editor's save bar is sticky (offset by `--tabbar-h` on phones) and, when editing, shows image state with Download / Share page / Re-render.
+
+## Limits and privacy (audit, Nov 2026)
+
+- **Public share pages use allow-lists** (`CustomCharacterController::PUBLIC_SHARE_FIELDS`, the `only([...])` in `CustomUpgradeController::share`). The models carry private `notes`, `user_id` and campaign bookkeeping, so never pass a whole model to a public page — add the field to the list when the page needs it.
+- **Per-user cap** of 200 custom characters (`CustomCharacterRequest::MAX_PER_USER`) and 200 upgrades/crew cards: every character now costs a headless-Chrome render. Display names are capped at 60 characters server-side (the card has room for ~32).
+- `POST /tools/card-creator/{id}/duplicate` copies a card (art, framing, notes) into a plain custom character; campaign state, XP and injuries are not copied.
+- Editor searches ignore stale or failed responses (`fetchLatest`), and UI text follows the 11px (`text-2xs`) floor.
+- Not handled: deleting a *user account* cascades the rows at the database level, so their `custom-characters/{id}/` image folders stay on disk (the observer only runs for model deletes).

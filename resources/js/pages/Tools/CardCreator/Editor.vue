@@ -265,6 +265,21 @@ const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
     },
 });
 
+// Search results must never override a newer query's, and a failed request (rate limit, offline) just shows nothing
+// rather than throwing an unhandled rejection from inside a timer.
+const latestSearch: Record<string, number> = {};
+const fetchLatest = async <T,>(key: string, url: string): Promise<T | null> => {
+    const id = (latestSearch[key] = (latestSearch[key] ?? 0) + 1);
+    try {
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return id === latestSearch[key] ? data : null;
+    } catch {
+        return null;
+    }
+};
+
 // Clone from official character
 const cloneSearchQuery = ref('');
 const cloneSearchResults = ref<{ id: number; name: string }[]>([]);
@@ -279,9 +294,8 @@ const searchCloneCharacter = (q: string) => {
         return;
     }
     cloneDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
-        const data = await res.json();
-        cloneSearchResults.value = data.filter((r: any) => r.source_type === 'official');
+        const data = await fetchLatest<any>('clone', route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
+        if (data) cloneSearchResults.value = data.filter((r: any) => r.source_type === 'official');
     }, 300);
 };
 
@@ -290,7 +304,8 @@ const cloneFromCharacter = async (charId: number) => {
     cloneSearchResults.value = [];
     cloneSearchQuery.value = '';
     try {
-        const res = await fetch(route('api.card-creator.character-detail', charId));
+        const res = await fetch(route('api.card-creator.character-detail', charId), { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
         form.name = data.name ?? '';
@@ -320,6 +335,7 @@ const cloneFromCharacter = async (charId: number) => {
         linkedTotems.splice(0, linkedTotems.length, ...(data.linked_totems ?? []));
     } catch (e) {
         console.error('Failed to clone character:', e);
+        toast.error('Could not load that character', { description: 'Try again in a moment.' });
     } finally {
         cloneLoading.value = false;
     }
@@ -594,8 +610,8 @@ const searchOfficial = (type: 'action' | 'ability', q: string) => {
     }
     searchDebounce = setTimeout(async () => {
         const endpoint = type === 'action' ? 'api.card-creator.actions' : 'api.card-creator.abilities';
-        const res = await fetch(route(endpoint) + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
+        const data = await fetchLatest<any>('official', route(endpoint) + '?q=' + encodeURIComponent(q));
+        if (data) searchResults.value = data;
     }, 300);
 };
 
@@ -639,8 +655,8 @@ const searchTriggers = (q: string, actionIndex: number) => {
         return;
     }
     searchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.triggers') + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
+        const data = await fetchLatest<any>('official', route('api.card-creator.triggers') + '?q=' + encodeURIComponent(q));
+        if (data) searchResults.value = data;
     }, 300);
 };
 
@@ -663,8 +679,8 @@ const searchKeywords = (q: string) => {
     }
     searchType.value = 'keyword' as any;
     searchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.keywords') + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
+        const data = await fetchLatest<any>('official', route('api.card-creator.keywords') + '?q=' + encodeURIComponent(q));
+        if (data) searchResults.value = data;
     }, 300);
 };
 
@@ -690,8 +706,8 @@ const searchCrewUpgrades = (q: string) => {
         return;
     }
     upgradeSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.crew-upgrades') + '?q=' + encodeURIComponent(q));
-        upgradeSearchResults.value = await res.json();
+        const data = await fetchLatest<any>('upgrade', route('api.card-creator.crew-upgrades') + '?q=' + encodeURIComponent(q));
+        if (data) upgradeSearchResults.value = data;
     }, 300);
 };
 
@@ -718,8 +734,8 @@ const searchTotems = (q: string) => {
         return;
     }
     totemSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
-        totemSearchResults.value = await res.json();
+        const data = await fetchLatest<any>('totem', route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
+        if (data) totemSearchResults.value = data;
     }, 300);
 };
 
@@ -800,7 +816,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 </button>
                             </div>
                         </div>
-                        <p class="mt-1 text-[10px] text-muted-foreground">
+                        <p class="mt-1 text-2xs text-muted-foreground">
                             Populates all fields from an official character. You can edit everything after cloning.
                         </p>
                     </div>
@@ -958,7 +974,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             class="text-xs"
                                             @change="onImageSelected"
                                         />
-                                        <p class="text-[10px]">
+                                        <p class="text-2xs">
                                             Your own image is never saved and won't appear on exports from a later visit or on the public share link.
                                             Pick library art to keep it on the card.
                                         </p>
@@ -975,34 +991,34 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             <!-- Row 1: Core -->
                             <div class="grid grid-cols-4 gap-2">
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Cost</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Cost</label>
                                     <Input v-model.number="form.cost" type="number" min="0" max="99" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Health *</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Health *</label>
                                     <Input v-model.number="form.health" type="number" min="1" max="99" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Df</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Df</label>
                                     <Input v-model.number="form.defense" type="number" min="0" max="20" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Wp</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Wp</label>
                                     <Input v-model.number="form.willpower" type="number" min="0" max="20" class="h-8" />
                                 </div>
                             </div>
                             <!-- Row 2: Physical -->
                             <div class="grid grid-cols-5 gap-2">
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Mv</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Mv</label>
                                     <Input v-model.number="form.speed" type="number" min="0" max="20" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Sz</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Sz</label>
                                     <Input v-model.number="form.size" type="number" min="0" max="10" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Base</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Base</label>
                                     <Select v-model="form.base">
                                         <SelectTrigger class="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>
@@ -1011,11 +1027,11 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     </Select>
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Count</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Count</label>
                                     <Input v-model.number="form.count" type="number" min="1" max="10" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Summon</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Summon</label>
                                     <Input v-model.number="form.summon_target_number" type="number" min="1" max="20" placeholder="—" class="h-8" />
                                 </div>
                             </div>
@@ -1044,7 +1060,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="keywords.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(kw, i) in keywords" :key="'kw-' + i" variant="secondary" class="gap-1">
                                         {{ kw.name }}
-                                        <Badge v-if="kw.id" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]">Official</Badge>
+                                        <Badge v-if="kw.id" variant="outline" class="ml-0.5 px-1 py-0 text-2xs">Official</Badge>
                                         <button
                                             aria-label="Remove keyword"
                                             v-if="!isCampaignManaged"
@@ -1074,7 +1090,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickKeyword(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -1109,10 +1125,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedCrewUpgrades.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(u, i) in linkedCrewUpgrades" :key="'cu-' + i" variant="secondary" class="gap-1">
                                         {{ u.name }}
-                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]"
+                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-2xs"
                                             >Official</Badge
                                         >
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                             >Custom</Badge
                                         >
                                         <button aria-label="Remove crew upgrade" class="ml-0.5 hover:text-destructive" @click="removeCrewUpgrade(i)">
@@ -1138,10 +1154,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickCrewUpgrade(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[10px]"
-                                                >Official</Badge
-                                            >
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                                 >Custom</Badge
                                             >
                                         </button>
@@ -1155,10 +1169,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedTotems.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(t, i) in linkedTotems" :key="'totem-' + i" variant="secondary" class="gap-1">
                                         {{ t.name }}
-                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]"
+                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-2xs"
                                             >Official</Badge
                                         >
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                             >Custom</Badge
                                         >
                                         <button aria-label="Remove totem" class="ml-0.5 hover:text-destructive" @click="removeTotem(i)">
@@ -1184,10 +1198,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickTotem(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[10px]"
-                                                >Official</Badge
-                                            >
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                                 >Custom</Badge
                                             >
                                         </button>
@@ -1204,7 +1216,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold">Abilities</h3>
-                                        <Badge v-if="abilities.length" variant="secondary" class="text-[10px]">{{ abilities.length }}</Badge>
+                                        <Badge v-if="abilities.length" variant="secondary" class="text-2xs">{{ abilities.length }}</Badge>
                                     </div>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                                 </CollapsibleTrigger>
@@ -1257,7 +1269,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                 <div class="flex items-center justify-between">
                                                     <div class="flex items-center gap-2">
                                                         <span class="text-sm font-medium">{{ ability.name }}</span>
-                                                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[10px]">Official</Badge>
+                                                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-2xs">Official</Badge>
                                                     </div>
                                                     <button
                                                         aria-label="Remove ability"
@@ -1326,7 +1338,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold">Actions</h3>
-                                        <Badge v-if="actions.length" variant="secondary" class="text-[10px]">{{ actions.length }}</Badge>
+                                        <Badge v-if="actions.length" variant="secondary" class="text-2xs">{{ actions.length }}</Badge>
                                     </div>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                                 </CollapsibleTrigger>
@@ -1350,7 +1362,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         @click="pickAction(r)"
                                                     >
                                                         <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge class="ml-2 text-[10px]">{{ r.type }}</Badge>
+                                                        <Badge class="ml-2 text-2xs">{{ r.type }}</Badge>
                                                     </button>
                                                 </div>
                                             </div>
@@ -1373,7 +1385,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             <div class="flex items-center justify-between">
                                                 <div class="flex flex-1 items-center gap-2">
                                                     <Input v-model="action.name" placeholder="Action name" class="h-7 text-sm font-medium" />
-                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[10px]"
+                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-2xs"
                                                         >Official</Badge
                                                     >
                                                 </div>
@@ -1387,7 +1399,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             </div>
                                             <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Type</label>
+                                                    <label class="text-2xs text-muted-foreground">Type</label>
                                                     <Select v-model="action.type">
                                                         <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
                                                         <SelectContent>
@@ -1398,11 +1410,11 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     </Select>
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Range</label>
+                                                    <label class="text-2xs text-muted-foreground">Range</label>
                                                     <Input v-model="action.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Range Type</label>
+                                                    <label class="text-2xs text-muted-foreground">Range Type</label>
                                                     <Select v-model="action.range_type">
                                                         <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
                                                         <SelectContent>
@@ -1414,33 +1426,33 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     </Select>
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Stat</label>
+                                                    <label class="text-2xs text-muted-foreground">Stat</label>
                                                     <Input v-model="action.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Resisted By</label>
+                                                    <label class="text-2xs text-muted-foreground">Resisted By</label>
                                                     <Input v-model="action.resisted_by" placeholder="Df" class="h-7 text-xs" />
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Damage</label>
+                                                    <label class="text-2xs text-muted-foreground">Damage</label>
                                                     <Input v-model="action.damage" placeholder="2/3/5" class="h-7 text-xs" />
                                                 </div>
                                             </div>
                                             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Stat Suits</label>
+                                                    <label class="text-2xs text-muted-foreground">Stat Suits</label>
                                                     <Input v-model="action.stat_suits" placeholder="e.g. crow ram" class="h-7 text-xs" />
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Stat Modifier</label>
+                                                    <label class="text-2xs text-muted-foreground">Stat Modifier</label>
                                                     <Input v-model="action.stat_modifier" placeholder="e.g. crow" class="h-7 text-xs" />
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Target #</label>
+                                                    <label class="text-2xs text-muted-foreground">Target #</label>
                                                     <Input v-model="action.target_number" placeholder="e.g. 13" class="h-7 text-xs" />
                                                 </div>
                                                 <div>
-                                                    <label class="text-[10px] text-muted-foreground">Target Suits</label>
+                                                    <label class="text-2xs text-muted-foreground">Target Suits</label>
                                                     <Input v-model="action.target_suits" placeholder="e.g. crow" class="h-7 text-xs" />
                                                 </div>
                                             </div>
@@ -1458,7 +1470,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             <div class="space-y-2 border-t pt-2">
                                                 <div class="flex items-center justify-between">
                                                     <span class="text-[11px] font-medium text-muted-foreground">Triggers</span>
-                                                    <Button variant="ghost" size="sm" class="h-5 px-1.5 text-[10px]" @click="addTrigger(action)"
+                                                    <Button variant="ghost" size="sm" class="h-5 px-1.5 text-2xs" @click="addTrigger(action)"
                                                         ><Plus class="mr-0.5 size-2.5" /> Add</Button
                                                     >
                                                 </div>
@@ -1499,7 +1511,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         <div class="flex-1 text-xs">
                                                             <span class="font-medium">{{ trigger.suits }} {{ trigger.name }}:</span>
                                                             <span class="text-muted-foreground"> {{ trigger.description }}</span>
-                                                            <Badge variant="outline" class="ml-1 px-1 py-0 text-[10px]">Official</Badge>
+                                                            <Badge variant="outline" class="ml-1 px-1 py-0 text-2xs">Official</Badge>
                                                         </div>
                                                     </template>
                                                     <template v-else>

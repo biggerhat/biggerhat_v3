@@ -22,10 +22,19 @@ use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Inertia\Response;
 
 class CustomCharacterController extends Controller
 {
+    /** @var array<int, string> */
+    private const PUBLIC_SHARE_FIELDS = [
+        'id', 'name', 'title', 'display_name', 'faction', 'second_faction', 'station', 'cost', 'health', 'defense',
+        'defense_suit', 'willpower', 'willpower_suit', 'speed', 'size', 'base', 'keywords', 'characteristics', 'actions',
+        'abilities', 'linked_crew_upgrades', 'linked_totems', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx',
+        'card_art_dy', 'front_image', 'back_image', 'combination_image', 'card_image_generated_at',
+    ];
+
     use BroadcastsCampaignEvents;
 
     public function index(): Response
@@ -204,6 +213,38 @@ class CustomCharacterController extends Controller
     }
 
     /**
+     * Copies one of the owner's cards into a new, plain custom character (no campaign linkage, fresh share link and
+     * saved image) and sends them to its editor. Works from an explicit field list so campaign bookkeeping, XP
+     * and injuries never come along.
+     */
+    public function duplicate(CustomCharacter $customCharacter): JsonResponse
+    {
+        $this->authorize('update', $customCharacter);
+
+        if (CustomCharacter::where('user_id', Auth::id())->count() >= CustomCharacterRequest::MAX_PER_USER) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have reached the limit of '.CustomCharacterRequest::MAX_PER_USER.' custom characters. Delete one you no longer need first.',
+            ], 422);
+        }
+
+        $copy = CustomCharacter::create(array_merge(
+            $customCharacter->only([
+                'title', 'faction', 'second_faction', 'station', 'cost', 'health', 'size', 'base', 'defense', 'defense_suit',
+                'willpower', 'willpower_suit', 'speed', 'count', 'summon_target_number', 'generates_stone', 'is_unhirable',
+                'card_art_id', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx', 'card_art_dy', 'actions',
+                'abilities', 'keywords', 'characteristics', 'linked_crew_upgrades', 'linked_totems', 'notes',
+            ]),
+            [
+                'user_id' => Auth::id(),
+                'name' => Str::limit($customCharacter->name, 52, '').' (Copy)',
+            ],
+        ));
+
+        return response()->json(['success' => true, 'redirect' => route('tools.card_creator.edit', $copy->id)]);
+    }
+
+    /**
      * Owner-triggered re-render of the saved card image (a failed or stale render). Same job the observer queues,
      * but immediate; the pending flag makes My Cards show "Rendering…" until CardImageGenerated arrives.
      */
@@ -225,8 +266,10 @@ class CustomCharacterController extends Controller
             ->with('user:id,name')
             ->firstOrFail();
 
+        // An explicit allow-list: the model also carries the owner's private notes, user id and campaign bookkeeping,
+        // and this page is public.
         return inertia('Tools/CardCreator/View', [
-            'character' => $character,
+            'character' => $character->only(self::PUBLIC_SHARE_FIELDS),
             'card_art_path' => $character->cardArt?->image_path,
             'card_image_pending' => $character->cardImagePending(),
             'creator_name' => $character->user->name,

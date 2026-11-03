@@ -14,7 +14,7 @@ import { CARD_HOVER } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Check, Download, Loader2, Pencil, Plus, RefreshCw, Search, Share2, Trash2 } from 'lucide-vue-next';
+import { Check, Copy, Download, Loader2, Pencil, Plus, RefreshCw, Search, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface CustomCharacter {
@@ -102,6 +102,26 @@ const rerenderCharacter = async (character: CustomCharacter) => {
         preserveScroll: true,
         onFinish: () => (rerenderingIds.value = rerenderingIds.value.filter((id) => id !== character.id)),
     });
+};
+// Copies one of your cards into a new one and opens it in the editor.
+const duplicatingId = ref<number | null>(null);
+const duplicateCharacter = async (character: CustomCharacter) => {
+    if (duplicatingId.value !== null) return;
+    duplicatingId.value = character.id;
+    try {
+        const res = await fetch(route('tools.card_creator.duplicate', character.id), {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok || !body?.redirect) {
+            toast.error('Could not duplicate', { description: body?.message ?? 'Please try again.' });
+            return;
+        }
+        router.visit(body.redirect);
+    } finally {
+        duplicatingId.value = null;
+    }
 };
 const isRendering = (character: CustomCharacter) => !!character.card_image_pending || rerenderingIds.value.includes(character.id);
 
@@ -213,7 +233,7 @@ const stationLabel = (station: string | null) => {
                     @click="activeTab = 'characters'"
                 >
                     Characters
-                    <Badge v-if="characters.length" variant="secondary" class="ml-1.5 text-[10px]">{{ characters.length }}</Badge>
+                    <Badge v-if="characters.length" variant="secondary" class="ml-1.5 text-2xs">{{ characters.length }}</Badge>
                 </button>
                 <button
                     role="tab"
@@ -225,7 +245,7 @@ const stationLabel = (station: string | null) => {
                     @click="activeTab = 'crew_cards'"
                 >
                     Crew Cards
-                    <Badge v-if="crewCards.length" variant="secondary" class="ml-1.5 text-[10px]">{{ crewCards.length }}</Badge>
+                    <Badge v-if="crewCards.length" variant="secondary" class="ml-1.5 text-2xs">{{ crewCards.length }}</Badge>
                 </button>
                 <button
                     role="tab"
@@ -237,7 +257,7 @@ const stationLabel = (station: string | null) => {
                     @click="activeTab = 'upgrades'"
                 >
                     Upgrades
-                    <Badge v-if="characterUpgrades.length" variant="secondary" class="ml-1.5 text-[10px]">{{ characterUpgrades.length }}</Badge>
+                    <Badge v-if="characterUpgrades.length" variant="secondary" class="ml-1.5 text-2xs">{{ characterUpgrades.length }}</Badge>
                 </button>
             </div>
 
@@ -298,15 +318,15 @@ const stationLabel = (station: string | null) => {
                             </div>
                             <span
                                 v-if="isRendering(character)"
-                                class="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium shadow"
+                                class="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-2xs font-medium shadow"
                                 role="status"
                             >
                                 <Loader2 class="size-3 animate-spin" /> Rendering…
                             </span>
-                            <Badge class="pointer-events-none absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
+                            <Badge class="pointer-events-none absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
                             <Badge
                                 v-if="isCampaignLinked(character)"
-                                class="pointer-events-none absolute left-2 top-2 bg-amber-600 text-[10px] text-white"
+                                class="pointer-events-none absolute left-2 top-2 bg-amber-600 text-2xs text-white"
                                 >Campaign</Badge
                             >
                         </div>
@@ -345,6 +365,18 @@ const stationLabel = (station: string | null) => {
                                     @click="rerenderCharacter(character)"
                                 >
                                     <RefreshCw class="size-3" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="text-xs"
+                                    :disabled="duplicatingId === character.id"
+                                    :aria-label="`Duplicate ${character.display_name}`"
+                                    title="Duplicate"
+                                    @click="duplicateCharacter(character)"
+                                >
+                                    <Loader2 v-if="duplicatingId === character.id" class="size-3 animate-spin" />
+                                    <Copy v-else class="size-3" />
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -396,10 +428,10 @@ const stationLabel = (station: string | null) => {
                             <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                                 <FactionLogo v-if="card.faction" :faction="card.faction" class-name="size-12 opacity-30" />
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
-                                <span class="text-[10px] font-medium uppercase tracking-wider opacity-40">Crew Card</span>
+                                <span class="text-2xs font-medium uppercase tracking-wider opacity-40">Crew Card</span>
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
-                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-[10px] text-white">
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
+                            <Badge v-if="isCampaignLinkedCrewCard(card)" class="absolute left-2 top-2 bg-amber-600 text-2xs text-white">
                                 Campaign
                             </Badge>
                         </div>
@@ -461,9 +493,9 @@ const stationLabel = (station: string | null) => {
                             <div class="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                                 <FactionLogo v-if="upgrade.faction" :faction="upgrade.faction" class-name="size-12 opacity-30" />
                                 <div v-else class="size-12 rounded-full border-2 border-muted-foreground/10" />
-                                <span class="text-[10px] font-medium uppercase tracking-wider opacity-40">Upgrade</span>
+                                <span class="text-2xs font-medium uppercase tracking-wider opacity-40">Upgrade</span>
                             </div>
-                            <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
+                            <Badge class="absolute right-2 top-2 bg-purple-600 text-2xs text-white">Custom</Badge>
                         </div>
                         <CardContent class="p-3">
                             <div class="mb-1 flex items-start justify-between gap-2">

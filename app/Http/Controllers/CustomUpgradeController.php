@@ -125,7 +125,11 @@ class CustomUpgradeController extends Controller
         $user = $upgrade->user;
 
         return inertia('Tools/CardCreator/UpgradeView', [
-            'upgrade' => $upgrade,
+            // Allow-list: the model also carries the owner's private notes and user id, and this page is public.
+            'upgrade' => $upgrade->only([
+                'id', 'name', 'display_name', 'domain', 'type', 'faction', 'limitations', 'plentiful', 'master_name',
+                'keyword_name', 'content_blocks', 'back_tokens', 'back_markers',
+            ]),
             'creator_name' => $user->name,
         ]);
     }

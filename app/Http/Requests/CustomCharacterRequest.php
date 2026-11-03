@@ -32,11 +32,28 @@ class CustomCharacterRequest extends FormRequest
             : $this->user() !== null;
     }
 
+    /** Per-user ceiling on saved custom characters: every card now gets a headless-Chrome render, so creation is not free. */
+    public const MAX_PER_USER = 200;
+
+    public function after(): array
+    {
+        return [
+            function (\Illuminate\Validation\Validator $validator) {
+                if ($this->route('customCharacter') === null && $this->user() !== null
+                    && CustomCharacter::where('user_id', $this->user()->id)->count() >= self::MAX_PER_USER) {
+                    $validator->errors()->add('name', 'You have reached the limit of '.self::MAX_PER_USER.' custom characters. Delete one you no longer need first.');
+                }
+            },
+        ];
+    }
+
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'title' => ['nullable', 'string', 'max:255'],
+            // The card only has room for ~32 characters of display name; 60 leaves headroom without letting a
+            // 255-character name through to break the layout on the share page and the rendered image.
+            'name' => ['required', 'string', 'max:60'],
+            'title' => ['nullable', 'string', 'max:60'],
             'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
             'second_faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
             'station' => ['nullable', 'string', Rule::enum(CharacterStationEnum::class)],

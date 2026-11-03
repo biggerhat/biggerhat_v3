@@ -485,7 +485,7 @@ const blockTypeColor = (type: string, idx: number) => {
                     <!-- Identity -->
                     <Card>
                         <CardContent class="space-y-4 p-4">
-                            <h3 class="text-sm font-semibold">{{ domainLabel }} Identity</h3>
+                            <h2 class="text-sm font-semibold">{{ domainLabel }} Identity</h2>
                             <div>
                                 <label class="mb-1 block text-xs text-muted-foreground">Name *</label>
                                 <Input v-model="form.name" :placeholder="`${domainLabel} name`" />
@@ -524,7 +524,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             "
                                         >
                                             {{ t.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -550,7 +550,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             "
                                         >
                                             {{ l.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -570,7 +570,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h2 class="text-sm font-semibold">Card Content</h2>
-                                        <Badge v-if="contentBlocks.length" variant="secondary" class="text-[10px]">{{ contentBlocks.length }}</Badge>
+                                        <Badge v-if="contentBlocks.length" variant="secondary" class="text-2xs">{{ contentBlocks.length }}</Badge>
                                     </div>
                                     <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                                 </CollapsibleTrigger>
@@ -660,8 +660,8 @@ const blockTypeColor = (type: string, idx: number) => {
                                                             <ChevronDown class="size-3" />
                                                         </button>
                                                     </div>
-                                                    <Badge variant="outline" class="text-[10px]">{{ blockTypeLabel(block.type) }}</Badge>
-                                                    <span v-if="block.data?.source_id" class="text-[10px] text-muted-foreground">(Official)</span>
+                                                    <Badge variant="outline" class="text-2xs">{{ blockTypeLabel(block.type) }}</Badge>
+                                                    <span v-if="block.data?.source_id" class="text-2xs text-muted-foreground">(Official)</span>
                                                 </div>
                                                 <button
                                                     aria-label="Remove block"
@@ -732,13 +732,13 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         placeholder="Action name"
                                                         class="h-7 flex-1 text-sm font-medium"
                                                     />
-                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[10px]"
+                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-2xs"
                                                         >Official</Badge
                                                     >
                                                 </div>
                                                 <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
                                                     <div>
-                                                        <label class="text-[10px] text-muted-foreground">Type</label>
+                                                        <label class="text-2xs text-muted-foreground">Type</label>
                                                         <Select v-model="block.data!.type">
                                                             <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
                                                             <SelectContent>
@@ -749,23 +749,23 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         </Select>
                                                     </div>
                                                     <div>
-                                                        <label class="text-[10px] text-muted-foreground">Range</label>
+                                                        <label class="text-2xs text-muted-foreground">Range</label>
                                                         <Input v-model="block.data!.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
                                                     </div>
                                                     <div>
-                                                        <label class="text-[10px] text-muted-foreground">Stat</label>
+                                                        <label class="text-2xs text-muted-foreground">Stat</label>
                                                         <Input v-model="block.data!.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
                                                     </div>
                                                     <div>
-                                                        <label class="text-[10px] text-muted-foreground">Resisted By</label>
+                                                        <label class="text-2xs text-muted-foreground">Resisted By</label>
                                                         <Input v-model="block.data!.resisted_by" placeholder="Df" class="h-7 text-xs" />
                                                     </div>
                                                     <div>
-                                                        <label class="text-[10px] text-muted-foreground">TN</label>
+                                                        <label class="text-2xs text-muted-foreground">TN</label>
                                                         <Input v-model="block.data!.target_number" placeholder="e.g. 12" class="h-7 text-xs" />
                                                     </div>
                                                     <div>
-                                                        <label class="text-[10px] text-muted-foreground">Damage</label>
+                                                        <label class="text-2xs text-muted-foreground">Damage</label>
                                                         <Input v-model="block.data!.damage" placeholder="2/3/5" class="h-7 text-xs" />
                                                     </div>
                                                 </div>
@@ -826,7 +826,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold">Back — Tokens & Markers</h3>
-                                        <Badge v-if="backTokens.length + backMarkers.length" variant="secondary" class="text-[10px]">{{
+                                        <Badge v-if="backTokens.length + backMarkers.length" variant="secondary" class="text-2xs">{{
                                             backTokens.length + backMarkers.length
                                         }}</Badge>
                                     </div>
@@ -859,7 +859,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         @click="pickToken(r)"
                                                     >
                                                         <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[10px]">Official</Badge>
+                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-2xs">Official</Badge>
                                                     </button>
                                                 </div>
                                             </div>
@@ -872,7 +872,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                     <template v-if="token.source_id">
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium">{{ token.name }}</span>
-                                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                                         </div>
                                                         <div v-if="token.description" class="text-xs text-muted-foreground">
                                                             {{ token.description }}
@@ -928,7 +928,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         @click="pickMarker(r)"
                                                     >
                                                         <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[10px]">Official</Badge>
+                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-2xs">Official</Badge>
                                                     </button>
                                                 </div>
                                             </div>
@@ -941,7 +941,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                                     <template v-if="marker.source_id">
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium">{{ marker.name }}</span>
-                                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                                         </div>
                                                         <div v-if="marker.description" class="text-xs text-muted-foreground">
                                                             {{ marker.description }}
@@ -982,7 +982,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold">Back — Tokens & Markers</h3>
-                                        <Badge v-if="props.crew_computed_tokens_markers?.length" variant="secondary" class="text-[10px]">{{
+                                        <Badge v-if="props.crew_computed_tokens_markers?.length" variant="secondary" class="text-2xs">{{
                                             props.crew_computed_tokens_markers.length
                                         }}</Badge>
                                     </div>
@@ -1002,7 +1002,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                     >
                                         <div class="flex items-center gap-2">
                                             <span class="text-xs font-medium">{{ item.name }}</span>
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">{{
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">{{
                                                 item.type === 'token' ? 'Token' : 'Marker'
                                             }}</Badge>
                                         </div>

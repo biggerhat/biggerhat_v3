@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\FactionEnum;
+use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\CardArt;
 use App\Models\CustomCharacter;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 
@@ -117,4 +119,33 @@ it('renders the create and edit pages', function () {
 
     $this->actingAs($admin)->get(route('admin.card_arts.create'))->assertOk()->assertInertia(fn ($p) => $p->component('Admin/CardArts/Form')->where('art', null));
     $this->actingAs($admin)->get(route('admin.card_arts.edit', $art))->assertOk()->assertInertia(fn ($p) => $p->where('art.id', $art->id));
+});
+
+it('re-renders Leader and Totem cards when their art image is replaced or the art is deleted', function () {
+    Bus::fake();
+    $admin = artSuperAdmin();
+    $art = CardArt::factory()->create();
+    $make = fn (array $flags) => CustomCharacter::create(array_merge([
+        'user_id' => $admin->id, 'name' => 'C', 'faction' => 'guild', 'health' => 10, 'base' => 30,
+        'defense' => 5, 'willpower' => 5, 'speed' => 5, 'card_art_id' => $art->id, 'current' => true,
+    ], $flags));
+    $leader = $make(['is_campaign_leader' => true]);
+    $totem = $make(['is_campaign_totem' => true]);
+    $plain = $make([]);
+    $retired = $make(['is_campaign_leader' => true, 'current' => false]);
+    Bus::fake(); // discard the renders queued by creating the fixtures
+
+    // Editing text fields doesn't change the image, so nothing re-renders.
+    $this->actingAs($admin)->post(route('admin.card_arts.update', $art), ['name' => 'Renamed', 'is_active' => 1])->assertRedirect();
+    Bus::assertNotDispatched(GenerateLeaderCardImage::class);
+
+    $this->actingAs($admin)->post(route('admin.card_arts.update', $art), ['name' => 'Renamed', 'is_active' => 1, 'image' => UploadedFile::fake()->image('new.png')])->assertRedirect();
+    Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 2);
+    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id);
+    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $totem->id);
+
+    Bus::fake();
+    $this->actingAs($admin)->post(route('admin.card_arts.delete', $art))->assertRedirect();
+    Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 2);
+    expect($plain->fresh()->card_art_id)->toBeNull()->and($retired->fresh()->card_art_id)->toBeNull();
 });

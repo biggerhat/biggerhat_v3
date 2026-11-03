@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\FactionEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CardArtRequest;
+use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\CardArt;
 use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
@@ -81,13 +82,19 @@ class CardArtAdminController extends Controller
         $data['is_active'] = (bool) ($data['is_active'] ?? false);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
 
-        if ($request->hasFile('image')) {
+        $replacedImage = $request->hasFile('image');
+        if ($replacedImage) {
             $old = $cardArt->image_path;
             $data['image_path'] = $this->storeImage($request->file('image'), $cardArt->slug);
             Storage::disk('public')->delete($old);
         }
 
         $cardArt->update($data);
+
+        // Campaign Leader/Totem cards are baked into generated images, so a new image file means re-rendering them.
+        if ($replacedImage) {
+            $this->regenerateCampaignCards($cardArt);
+        }
         AdminAudit::log("Updated card art {$cardArt->name}", $cardArt);
 
         return redirect()->route('admin.card_arts.index')->withMessage("{$cardArt->name} updated.");
@@ -100,13 +107,37 @@ class CardArtAdminController extends Controller
 
         // Characters keep rendering without art (the FK is nullOnDelete). Deactivating is the gentler option,
         // so the delete message says how many cards lost their art.
+        // Campaign Leader/Totem cards are baked into generated images that would otherwise keep the deleted art.
+        $campaignCardIds = $this->campaignCardIds($cardArt);
+
         // Cleared explicitly as well as by the nullOnDelete FK, so it holds on any database setup.
         $cardArt->customCharacters()->update(['card_art_id' => null]);
         Storage::disk('public')->delete($cardArt->image_path);
         $cardArt->delete();
         AdminAudit::log("Deleted card art {$name}", null, ['characters_affected' => $uses]);
 
+        foreach ($campaignCardIds as $id) {
+            GenerateLeaderCardImage::dispatch($id)->afterCommit();
+        }
+
         return redirect()->route('admin.card_arts.index')->withMessage($uses > 0 ? "{$name} deleted — {$uses} card(s) lost their art." : "{$name} deleted.");
+    }
+
+    /** @return list<int> current Campaign Leader/Totem characters that use this art */
+    private function campaignCardIds(CardArt $cardArt): array
+    {
+        return $cardArt->customCharacters()
+            ->where('current', true)
+            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true))
+            ->pluck('id')
+            ->all();
+    }
+
+    private function regenerateCampaignCards(CardArt $cardArt): void
+    {
+        foreach ($this->campaignCardIds($cardArt) as $id) {
+            GenerateLeaderCardImage::dispatch($id)->afterCommit();
+        }
     }
 
     private function storeImage(?UploadedFile $file, string $slug): string

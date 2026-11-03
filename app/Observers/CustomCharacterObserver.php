@@ -86,11 +86,12 @@ class CustomCharacterObserver
 
     public function updated(CustomCharacter $character): void
     {
-        if (! $character->is_campaign_leader && ! $character->is_campaign_totem) {
+        if (! $character->wasChanged(self::CARD_RENDER_COLUMNS)) {
             return;
         }
 
-        if (! $character->wasChanged(self::CARD_RENDER_COLUMNS)) {
+        // Campaign Leaders/Totems, and homebrew characters hired into a campaign arsenal.
+        if (! $character->needsCardImage()) {
             return;
         }
 

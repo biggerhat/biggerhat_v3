@@ -3,8 +3,10 @@
 namespace App\Observers;
 
 use App\Jobs\Campaign\GenerateCombinedCrewCardImage;
+use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignEquipment;
+use App\Models\CustomCharacter;
 
 /**
  * Regenerates a crew's combined Crew Card back face (tokens/markers gathered
@@ -20,6 +22,15 @@ class CampaignArsenalModelObserver
 {
     public function created(CampaignArsenalModel $model): void
     {
+        // A homebrew hire's card is shown from its saved image, so make sure one exists (or is current) the moment
+        // it joins an arsenal — the CustomCharacterObserver only re-renders on later edits.
+        if ($model->custom_character_id) {
+            $character = CustomCharacter::query()->find($model->custom_character_id);
+            if ($character && ($character->front_image === null || $character->card_image_generated_at === null || $character->card_image_generated_at->lt($character->updated_at))) {
+                GenerateLeaderCardImage::dispatch($character->id)->afterCommit();
+            }
+        }
+
         GenerateCombinedCrewCardImage::dispatch($model->campaign_crew_id)->afterCommit();
     }
 

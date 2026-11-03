@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CardArtRequest;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\CardArt;
+use App\Models\CustomCharacter;
 use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -91,7 +92,7 @@ class CardArtAdminController extends Controller
 
         $cardArt->update($data);
 
-        // Campaign Leader/Totem cards are baked into generated images, so a new image file means re-rendering them.
+        // Saved card images (Leaders/Totems and homebrew arsenal hires) have the art baked in, so a new file means re-rendering.
         if ($replacedImage) {
             $this->regenerateCampaignCards($cardArt);
         }
@@ -123,12 +124,12 @@ class CardArtAdminController extends Controller
         return redirect()->route('admin.card_arts.index')->withMessage($uses > 0 ? "{$name} deleted — {$uses} card(s) lost their art." : "{$name} deleted.");
     }
 
-    /** @return list<int> current Campaign Leader/Totem characters that use this art */
+    /** @return list<int> characters using this art whose saved card image (Leader/Totem, or homebrew in an arsenal) needs re-rendering */
     private function campaignCardIds(CardArt $cardArt): array
     {
         return $cardArt->customCharacters()
-            ->where('current', true)
-            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true))
+            ->get()
+            ->filter(fn (CustomCharacter $c) => $c->needsCardImage())
             ->pluck('id')
             ->all();
     }

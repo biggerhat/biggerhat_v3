@@ -7,6 +7,7 @@ use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -29,6 +30,27 @@ class CustomCharacter extends Model
     use SoftDeletes;
 
     protected $guarded = ['id'];
+
+    /** @return HasMany<CampaignArsenalModel, $this> */
+    public function arsenalModels(): HasMany
+    {
+        return $this->hasMany(CampaignArsenalModel::class, 'custom_character_id');
+    }
+
+    /**
+     * Whether this card needs a server-rendered card image (front/back/combination PNGs) kept up to date. The Arsenal
+     * Sheet and Game Tracker show that saved image instead of re-drawing the card, so it matters for the current
+     * Campaign Leader/Totem and for any homebrew character hired into a campaign arsenal. Everything else is drawn
+     * client-side on demand, so rendering it would only waste a headless-Chrome job.
+     */
+    public function needsCardImage(): bool
+    {
+        if ($this->is_campaign_leader || $this->is_campaign_totem) {
+            return (bool) $this->current;
+        }
+
+        return $this->arsenalModels()->exists();
+    }
 
     /** @return BelongsTo<CardArt, $this> */
     public function cardArt(): BelongsTo

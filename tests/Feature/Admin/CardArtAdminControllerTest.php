@@ -149,3 +149,24 @@ it('re-renders Leader and Totem cards when their art image is replaced or the ar
     Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 2);
     expect($plain->fresh()->card_art_id)->toBeNull()->and($retired->fresh()->card_art_id)->toBeNull();
 });
+
+it('also re-renders homebrew characters hired into an arsenal when their art changes', function () {
+    Bus::fake();
+    $admin = artSuperAdmin();
+    $art = CardArt::factory()->create();
+    $campaign = \App\Models\Campaign\Campaign::factory()->create(['organizer_user_id' => $admin->id]);
+    $crew = \App\Models\Campaign\CampaignCrew::factory()->create(['campaign_id' => $campaign->id, 'user_id' => $admin->id]);
+    $mk = fn (string $name) => CustomCharacter::create([
+        'user_id' => $admin->id, 'name' => $name, 'faction' => 'guild', 'health' => 10, 'base' => 30,
+        'defense' => 5, 'willpower' => 5, 'speed' => 5, 'card_art_id' => $art->id,
+    ]);
+    $hired = $mk('Hired');
+    $mk('Free');
+    \App\Models\Campaign\CampaignArsenalModel::create(['campaign_crew_id' => $crew->id, 'custom_character_id' => $hired->id, 'acquired_via' => 'manual']);
+    Bus::fake();
+
+    $this->actingAs($admin)->post(route('admin.card_arts.update', $art), ['name' => 'X', 'is_active' => 1, 'image' => UploadedFile::fake()->image('n.png')])->assertRedirect();
+
+    Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 1);
+    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $hired->id);
+});

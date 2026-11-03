@@ -19,20 +19,22 @@ class RegenerateLeaderCardImages extends Command
 {
     protected $signature = 'app:regenerate-leader-card-images';
 
-    protected $description = 'Re-queues card image generation for every current Campaign Leader/Totem.';
+    protected $description = 'Re-queues card image generation for every current Campaign Leader/Totem and every homebrew character in a campaign arsenal.';
 
     public function handle(): int
     {
         $ids = CustomCharacter::query()
-            ->where('current', true)
-            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true))
+            ->where(fn ($q) => $q
+                ->where(fn ($leaders) => $leaders->where('current', true)->where(fn ($l) => $l->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true)))
+                // Homebrew characters hired into a campaign arsenal are shown from the same saved image.
+                ->orWhereHas('arsenalModels'))
             ->pluck('id');
 
         foreach ($ids as $id) {
             GenerateLeaderCardImage::dispatch($id);
         }
 
-        $this->info("Queued card image regeneration for {$ids->count()} Leader/Totem row(s).");
+        $this->info("Queued card image regeneration for {$ids->count()} card(s).");
 
         return self::SUCCESS;
     }

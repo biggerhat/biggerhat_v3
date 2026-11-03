@@ -4,7 +4,9 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { Head } from '@inertiajs/vue3';
+import { Download } from 'lucide-vue-next';
 
 defineProps<{
     card_art_path?: string | null;
@@ -16,6 +18,8 @@ defineProps<{
         card_art_x?: number;
         card_art_y?: number;
         card_art_zoom?: number;
+        combination_image?: string | null;
+        card_image_generated_at?: string | null;
         faction: string;
         second_faction: string | null;
         station: string;
@@ -69,6 +73,15 @@ const stationLabel = (station: string | null) => {
                     <Badge class="bg-purple-600 text-white">Custom</Badge>
                     <span>Created by {{ creator_name }}</span>
                 </div>
+            </template>
+            <template v-if="character.combination_image" #actions>
+                <a
+                    :href="'/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at)"
+                    :download="`${character.display_name}.png`"
+                    class="mr-2 inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent [@media(pointer:coarse)]:h-11"
+                >
+                    <Download class="size-4" /> Download card
+                </a>
             </template>
         </PageBanner>
 

@@ -7,7 +7,7 @@ use App\Enums\Campaign\LeaderTagEnum;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
-use App\Models\Campaign\CampaignArsenalModel;
+use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignArsenalModelInjury;
 use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -31,25 +32,31 @@ class CustomCharacter extends Model
 
     protected $guarded = ['id'];
 
-    /** @return HasMany<CampaignArsenalModel, $this> */
-    public function arsenalModels(): HasMany
-    {
-        return $this->hasMany(CampaignArsenalModel::class, 'custom_character_id');
-    }
-
     /**
-     * Whether this card needs a server-rendered card image (front/back/combination PNGs) kept up to date. The Arsenal
-     * Sheet and Game Tracker show that saved image instead of re-drawing the card, so it matters for the current
-     * Campaign Leader/Totem and for any homebrew character hired into a campaign arsenal. Everything else is drawn
-     * client-side on demand, so rendering it would only waste a headless-Chrome job.
+     * Queue a render of the saved card image (front/back/combination PNGs). Campaign Leaders/Totems render
+     * immediately — the Arsenal Sheet polls for the result. Every other card is rendered shortly after the last save:
+     * while a render is already waiting the extra call is dropped, because that job reads the card as it is when it
+     * runs, so a burst of edits costs one headless-Chrome render rather than one per save.
      */
-    public function needsCardImage(): bool
+    public function queueCardImage(): void
     {
         if ($this->is_campaign_leader || $this->is_campaign_totem) {
-            return (bool) $this->current;
+            GenerateLeaderCardImage::dispatch($this->id)->afterCommit();
+
+            return;
         }
 
-        return $this->arsenalModels()->exists();
+        if (! Cache::add(self::renderPendingKey($this->id), true, 60)) {
+            return;
+        }
+
+        GenerateLeaderCardImage::dispatch($this->id)->delay(now()->addSeconds(20))->afterCommit();
+    }
+
+    /** Cache key marking a delayed render as waiting; the job clears it the moment it starts reading the card. */
+    public static function renderPendingKey(int $id): string
+    {
+        return "custom-card-render-pending:{$id}";
     }
 
     /** @return BelongsTo<CardArt, $this> */

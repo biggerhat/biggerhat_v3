@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/composables/useToast';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Check, Pencil, Plus, Share2, Trash2 } from 'lucide-vue-next';
+import { Check, Download, Pencil, Plus, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface CustomCharacter {
@@ -26,6 +27,11 @@ interface CustomCharacter {
     health: number;
     share_code: string;
     updated_at: string;
+    // Saved card images (rendered server-side shortly after each save) and the art fallback while one is pending.
+    front_image?: string | null;
+    combination_image?: string | null;
+    card_image_generated_at?: string | null;
+    card_art_path?: string | null;
     // A Leader/Totem tied to a STILL-ACTIVE Campaign crew can't be deleted
     // here — see performDelete(). is_campaign_leader/is_campaign_totem stay
     // true forever (only cleared if a replacement Leader supersedes this
@@ -208,8 +214,22 @@ const stationLabel = (station: string | null) => {
 
                 <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     <Card v-for="character in characters" :key="character.id" :class="['group overflow-hidden', CARD_HOVER]">
-                        <div class="relative aspect-[550/950] max-h-48 overflow-hidden bg-muted">
-                            <div class="flex h-full items-center justify-center text-muted-foreground">
+                        <div class="relative h-48 w-full overflow-hidden bg-muted">
+                            <img
+                                v-if="character.front_image"
+                                :src="'/storage/' + cacheBustedImagePath(character.front_image, character.card_image_generated_at)"
+                                :alt="character.display_name"
+                                class="h-full w-full object-contain"
+                                loading="lazy"
+                            />
+                            <img
+                                v-else-if="character.card_art_path"
+                                :src="'/storage/' + character.card_art_path"
+                                :alt="character.display_name"
+                                class="h-full w-full object-cover"
+                                loading="lazy"
+                            />
+                            <div v-else class="flex h-full items-center justify-center text-muted-foreground">
                                 <FactionLogo v-if="character.faction" :faction="character.faction" class-name="size-12 opacity-30" />
                             </div>
                             <Badge class="absolute right-2 top-2 bg-purple-600 text-[10px] text-white">Custom</Badge>
@@ -232,6 +252,16 @@ const stationLabel = (station: string | null) => {
                                 <Link :href="route('tools.card_creator.edit', character.id)" class="flex-1">
                                     <Button variant="outline" size="sm" class="w-full text-xs"><Pencil class="mr-1 size-3" /> Edit</Button>
                                 </Link>
+                                <a
+                                    v-if="character.combination_image"
+                                    :href="'/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at)"
+                                    :download="`${character.display_name}.png`"
+                                    class="inline-flex h-8 items-center justify-center rounded-md border px-2.5 text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:h-10"
+                                    :aria-label="`Download ${character.display_name} card image`"
+                                    title="Download card image (front and back)"
+                                >
+                                    <Download class="size-3" />
+                                </a>
                                 <Button
                                     variant="outline"
                                     size="sm"

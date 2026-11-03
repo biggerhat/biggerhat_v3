@@ -49,12 +49,14 @@ JSON stat/ability/action payloads).
   cover-positioned by the same x/y), so the live preview, the html-to-image export and the server-side capture all match;
   `ArtPositioner.vue` is the drag / arrow-key / zoom-slider editor. Picking different art resets the framing; clearing
   the art resets it server-side too.
-  **Saved card images**: Campaign Leaders/Totems *and* homebrew characters hired into a campaign arsenal get a
-  server-rendered front/back/combination PNG (`GenerateLeaderCardImage` → headless capture of `CardCreator/Capture`),
-  because the Arsenal Sheet and Game Tracker show that saved image. `CustomCharacter::needsCardImage()` decides who
-  qualifies; a homebrew hire is rendered when it joins an arsenal (`CampaignArsenalModelObserver`) and re-rendered when
-  its card fields or art/framing change. Other homebrew characters render client-side on demand. Run
-  `php artisan app:regenerate-leader-card-images` to backfill existing cards.
+  **Saved card images**: every custom character gets a server-rendered front/back/combination PNG
+  (`GenerateLeaderCardImage` → headless capture of `CardCreator/Capture`, with the chosen art and framing). The
+  Arsenal Sheet and Game Tracker show it for campaign Leaders/Totems and homebrew hires; "My Cards" tiles and the
+  share page use it for thumbnails and a *Download card* link. `CustomCharacter::queueCardImage()` (called from
+  `CustomCharacterObserver` whenever a card-render column — including art/framing — changes) renders Leaders/Totems
+  immediately, and everyone else ~20s after the last save, coalescing bursts of edits into one render (the job clears
+  the `renderPendingKey` marker as it starts). Run `php artisan app:regenerate-leader-card-images` to backfill cards
+  that existed before this.
   Player uploads are **never stored** — the "Try your own image" option is a preview-only convenience.
   The images live on the `public` disk under `card_arts/` (needs `php artisan storage:link` like other uploads).
 

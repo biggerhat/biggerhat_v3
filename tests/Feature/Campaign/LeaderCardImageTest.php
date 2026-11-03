@@ -12,6 +12,7 @@ use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
@@ -208,20 +209,6 @@ it('uses WithoutOverlapping (release, not drop) so a redo-during-undo render is 
     expect($middleware[0])->toBeInstanceOf(\Illuminate\Queue\Middleware\WithoutOverlapping::class);
 });
 
-it('does not queue a card regeneration for a non-Campaign homebrew character', function () {
-    $user = lciUser();
-
-    Bus::fake();
-    CustomCharacter::create([
-        'user_id' => $user->id,
-        'name' => 'Homebrew Master',
-        'faction' => FactionEnum::Guild->value,
-        'health' => 10, 'defense' => 5, 'willpower' => 5, 'speed' => 5, 'base' => 30,
-    ]);
-
-    Bus::assertNotDispatched(GenerateLeaderCardImage::class);
-});
-
 function lciHomebrew(User $user, array $overrides = []): CustomCharacter
 {
     return CustomCharacter::create(array_merge([
@@ -232,57 +219,78 @@ function lciHomebrew(User $user, array $overrides = []): CustomCharacter
     ], $overrides));
 }
 
-it('renders the saved card image for a homebrew character the moment it is hired into an arsenal', function () {
+it('queues a delayed saved-card render for a regular homebrew character on create', function () {
     $user = lciUser();
-    $crew = lciCrew($user);
+    Bus::fake();
+    Cache::flush();
+
     $homebrew = lciHomebrew($user);
 
-    Bus::fake();
-    \App\Models\Campaign\CampaignArsenalModel::create(['campaign_crew_id' => $crew->id, 'custom_character_id' => $homebrew->id, 'acquired_via' => 'manual']);
-
-    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $homebrew->id);
+    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $homebrew->id && $job->delay !== null);
 });
 
-it('does not re-render a homebrew hire whose saved image is already current', function () {
+it('renders Campaign Leaders and Totems immediately, without the delay', function () {
     $user = lciUser();
     $crew = lciCrew($user);
+    Bus::fake();
+
+    $leader = lciHomebrew($user, ['is_campaign_leader' => true, 'current' => true, 'campaign_crew_id' => $crew->id]);
+
+    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id && $job->delay === null);
+});
+
+it('coalesces a burst of edits into one waiting render, and renders again once it has started', function () {
+    $user = lciUser();
     $homebrew = lciHomebrew($user);
-    $homebrew->forceFill(['front_image' => 'x/front.png', 'back_image' => 'x/back.png', 'card_image_generated_at' => now()->addMinute()])->saveQuietly();
-
     Bus::fake();
-    \App\Models\Campaign\CampaignArsenalModel::create(['campaign_crew_id' => $crew->id, 'custom_character_id' => $homebrew->id, 'acquired_via' => 'manual']);
+    Cache::flush();
 
-    Bus::assertNotDispatched(GenerateLeaderCardImage::class);
-});
-
-it('re-renders a hired homebrew character when its art or framing changes, but not one that is not in any arsenal', function () {
-    $user = lciUser();
-    $crew = lciCrew($user);
-    $art = \App\Models\CardArt::factory()->create();
-    $hired = lciHomebrew($user, ['name' => 'Hired']);
-    $free = lciHomebrew($user, ['name' => 'Free']);
-    \App\Models\Campaign\CampaignArsenalModel::create(['campaign_crew_id' => $crew->id, 'custom_character_id' => $hired->id, 'acquired_via' => 'manual']);
-
-    Bus::fake();
-    $hired->update(['card_art_id' => $art->id, 'card_art_zoom' => 150]);
-    $free->update(['card_art_id' => $art->id, 'card_art_zoom' => 150]);
-
+    $homebrew->update(['health' => 11]);
+    $homebrew->update(['health' => 12]);
+    $homebrew->update(['defense' => 6]);
     Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 1);
-    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $hired->id);
+
+    // The job releases the marker as it starts, so an edit made while it runs queues a fresh render.
+    Cache::forget(CustomCharacter::renderPendingKey($homebrew->id));
+    $homebrew->update(['defense' => 7]);
+    Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 2);
 });
 
-it('backfill command re-queues Leaders, Totems and arsenal homebrew hires only', function () {
+it('re-renders when the chosen art or its framing changes, but not for an unrelated field', function () {
+    $user = lciUser();
+    $art = \App\Models\CardArt::factory()->create();
+    $homebrew = lciHomebrew($user);
+    Bus::fake();
+    Cache::flush();
+
+    $homebrew->update(['notes' => 'just a note']);
+    Bus::assertNotDispatched(GenerateLeaderCardImage::class);
+
+    $homebrew->update(['card_art_id' => $art->id, 'card_art_zoom' => 150]);
+    Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 1);
+});
+
+it('the render job clears the coalescing marker when it starts', function () {
+    $user = lciUser();
+    $homebrew = lciHomebrew($user);
+    Cache::put(CustomCharacter::renderPendingKey($homebrew->id), true, 60);
+
+    (new GenerateLeaderCardImage($homebrew->id))->handle(Mockery::mock(\App\Services\Campaign\LeaderCardImageGenerator::class)->shouldReceive('generate')->once()->getMock());
+
+    expect(Cache::has(CustomCharacter::renderPendingKey($homebrew->id)))->toBeFalse();
+});
+
+it('backfill command re-queues current Leaders/Totems and homebrew cards, skipping replaced Leaders', function () {
     $user = lciUser();
     $crew = lciCrew($user);
     $leader = lciHomebrew($user, ['is_campaign_leader' => true, 'current' => true, 'campaign_crew_id' => $crew->id]);
-    $hired = lciHomebrew($user, ['name' => 'Hired']);
-    lciHomebrew($user, ['name' => 'Free']);
-    \App\Models\Campaign\CampaignArsenalModel::create(['campaign_crew_id' => $crew->id, 'custom_character_id' => $hired->id, 'acquired_via' => 'manual']);
+    lciHomebrew($user, ['is_campaign_leader' => true, 'current' => false, 'campaign_crew_id' => $crew->id, 'name' => 'Old Leader']);
+    $plain = lciHomebrew($user, ['name' => 'Plain']);
 
     Bus::fake();
     $this->artisan('app:regenerate-leader-card-images')->assertSuccessful();
 
     Bus::assertDispatchedTimes(GenerateLeaderCardImage::class, 2);
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $leader->id);
-    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $hired->id);
+    Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $plain->id);
 });

@@ -29,8 +29,15 @@ class CustomCharacterController extends Controller
     public function index(): Response
     {
         $characters = CustomCharacter::where('user_id', Auth::id())
+            ->with('cardArt:id,image_path')
             ->orderBy('updated_at', 'desc')
             ->get();
+
+        // Tile thumbnail fallback while a card's saved image is still rendering.
+        foreach ($characters as $c) {
+            $c->setAttribute('card_art_path', $c->cardArt?->image_path);
+            $c->unsetRelation('cardArt');
+        }
 
         $upgrades = CustomUpgrade::where('user_id', Auth::id())
             ->orderBy('updated_at', 'desc')

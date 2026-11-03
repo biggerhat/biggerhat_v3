@@ -625,3 +625,26 @@ it('exposes the framing to the headless capture page', function () {
     $this->get(route('tools.card_creator.capture', $character->share_code))
         ->assertInertia(fn ($page) => $page->where('card.characterImageFocus', ['x' => 10, 'y' => 90, 'zoom' => 200]));
 });
+
+it('lists each card with its saved image fields and the art fallback for the tile thumbnail', function () {
+    $user = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create(['image_path' => 'card_arts/tile.webp']);
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id]));
+    $character->forceFill(['front_image' => 'custom-characters/1/front.png', 'combination_image' => 'custom-characters/1/combination.png', 'card_image_generated_at' => now()])->saveQuietly();
+
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('characters.0.card_art_path', 'card_arts/tile.webp')
+            ->where('characters.0.front_image', 'custom-characters/1/front.png')
+            ->where('characters.0.combination_image', 'custom-characters/1/combination.png')
+            ->missing('characters.0.card_art'));
+});
+
+it('exposes the saved combination image on the public share page', function () {
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id]));
+    $character->forceFill(['combination_image' => 'custom-characters/9/combination.png'])->saveQuietly();
+
+    $this->get(route('tools.card_creator.share', $character->share_code))
+        ->assertInertia(fn ($page) => $page->where('character.combination_image', 'custom-characters/9/combination.png'));
+});

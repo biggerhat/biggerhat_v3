@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CardArtRequest;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\CardArt;
-use App\Models\CustomCharacter;
 use App\Support\AdminAudit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -92,7 +91,7 @@ class CardArtAdminController extends Controller
 
         $cardArt->update($data);
 
-        // Saved card images (Leaders/Totems and homebrew arsenal hires) have the art baked in, so a new file means re-rendering.
+        // Saved card images have the art baked in, so a new file means re-rendering them.
         if ($replacedImage) {
             $this->regenerateCampaignCards($cardArt);
         }
@@ -108,7 +107,7 @@ class CardArtAdminController extends Controller
 
         // Characters keep rendering without art (the FK is nullOnDelete). Deactivating is the gentler option,
         // so the delete message says how many cards lost their art.
-        // Campaign Leader/Totem cards are baked into generated images that would otherwise keep the deleted art.
+        // Saved card images would otherwise keep the deleted art baked in.
         $campaignCardIds = $this->campaignCardIds($cardArt);
 
         // Cleared explicitly as well as by the nullOnDelete FK, so it holds on any database setup.
@@ -124,14 +123,10 @@ class CardArtAdminController extends Controller
         return redirect()->route('admin.card_arts.index')->withMessage($uses > 0 ? "{$name} deleted — {$uses} card(s) lost their art." : "{$name} deleted.");
     }
 
-    /** @return list<int> characters using this art whose saved card image (Leader/Totem, or homebrew in an arsenal) needs re-rendering */
+    /** @return list<int> every character using this art — their saved card images have it baked in */
     private function campaignCardIds(CardArt $cardArt): array
     {
-        return $cardArt->customCharacters()
-            ->get()
-            ->filter(fn (CustomCharacter $c) => $c->needsCardImage())
-            ->pluck('id')
-            ->all();
+        return $cardArt->customCharacters()->pluck('id')->all();
     }
 
     private function regenerateCampaignCards(CardArt $cardArt): void

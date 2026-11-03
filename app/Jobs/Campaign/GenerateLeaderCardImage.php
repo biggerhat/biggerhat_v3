@@ -10,6 +10,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Regenerates a Campaign Leader/Totem's card images in the background.
@@ -41,6 +42,9 @@ class GenerateLeaderCardImage implements ShouldQueue
 
     public function handle(LeaderCardImageGenerator $generator): void
     {
+        // Edits from here on need a fresh render of their own, so release the coalescing marker before reading the card.
+        Cache::forget(CustomCharacter::renderPendingKey($this->customCharacterId));
+
         $character = CustomCharacter::find($this->customCharacterId);
         if (! $character) {
             return;

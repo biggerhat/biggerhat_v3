@@ -5,7 +5,7 @@ import { computed } from 'vue';
  * Character art filling its (relative, overflow-hidden) parent, framed by a focus point and a zoom.
  *
  * x / y are 0-100: which part of the image sits at the matching edge of the window (0 = left/top, 100 = right/
- * bottom). zoom is a percentage (100 = fill the window like `object-fit: cover`). The image is drawn in a box
+ * bottom). zoom is a percentage (100 = fill the window like `object-fit: cover`; below 100 the art shrinks inside the window, positioned by the same x / y). The image is drawn in a box
  * `zoom` times the window and shifted by the same x/y percentage, then cover-positioned inside that box — so one
  * pair of numbers pans both the zoomed box and any cover overflow, and the focus point stays put as zoom changes.
  * Pure CSS (no measuring), so it renders identically in the live preview, the html-to-image export and the
@@ -29,7 +29,7 @@ const props = withDefaults(
 );
 
 const style = computed(() => {
-    const z = Math.min(300, Math.max(100, props.zoom)) / 100;
+    const z = Math.min(300, Math.max(50, props.zoom)) / 100;
     const x = Math.min(100, Math.max(0, props.x));
     const y = Math.min(100, Math.max(0, props.y));
     const dxPct = Math.min(100, Math.max(-100, props.dx));

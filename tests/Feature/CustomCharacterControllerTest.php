@@ -601,7 +601,7 @@ it('stores art framing, rejects out-of-range values, and resets it when the art 
     $character = CustomCharacter::where('user_id', $user->id)->firstOrFail();
     expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom, $character->card_art_dx, $character->card_art_dy])->toBe([20, 80, 175, -40, 100]);
 
-    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 99], ['card_art_zoom' => 301], ['card_art_dx' => 101], ['card_art_dy' => -101]] as $bad) {
+    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 49], ['card_art_zoom' => 301], ['card_art_dx' => 101], ['card_art_dy' => -101]] as $bad) {
         $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload($bad))->assertUnprocessable();
     }
 

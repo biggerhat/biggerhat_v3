@@ -71,8 +71,10 @@ const applyShift = (axis: 'x' | 'y', shift: number) => {
     if (!el) return;
     const t = travel()[axis];
     const dim = axis === 'x' ? el.clientWidth : el.clientHeight;
-    const focus = t >= 1 ? clamp(50 - (shift / t) * 100) : 50;
-    const rest = shift - ((50 - focus) / 100) * Math.max(t, 0);
+    // Zoomed out the pan range is tiny or even reverses (the box and the art inside it move opposite ways), so the
+    // focus is left alone and the whole move goes into the offset. Likewise with too little range to divide by.
+    const focus = zoom.value >= 100 && t >= 1 ? clamp(50 - (shift / t) * 100) : axis === 'x' ? x.value : y.value;
+    const rest = shift - ((50 - focus) / 100) * t;
     const offset = clamp((rest / dim) * 100, -100, 100);
     if (axis === 'x') {
         x.value = focus;
@@ -148,7 +150,7 @@ onBeforeUnmount(() => (drag = null));
         </div>
         <div class="flex max-w-sm items-center gap-3">
             <label for="art-zoom" class="text-xs text-muted-foreground">Zoom</label>
-            <input id="art-zoom" v-model.number="zoom" type="range" min="100" max="300" step="5" class="h-1.5 flex-1 accent-primary" />
+            <input id="art-zoom" v-model.number="zoom" type="range" min="50" max="300" step="5" class="h-1.5 flex-1 accent-primary" />
             <span class="w-10 text-right text-xs tabular-nums text-muted-foreground">{{ (zoom / 100).toFixed(2).replace(/0$/, '') }}×</span>
             <Button type="button" variant="ghost" size="sm" class="h-7 gap-1 px-2 text-xs" @click="reset"><RotateCcw class="size-3" />Reset</Button>
         </div>

@@ -44,7 +44,7 @@ JSON stat/ability/action payloads).
   receive the path (`card_art_path` on the share page and Arsenal Sheet Leader/Totem, `card.characterImage` on the
   capture page). Changing `card_art_id` regenerates Campaign Leader/Totem card images (`CARD_RENDER_COLUMNS`).
   Retired (inactive) art stays on cards that already use it; deleting art clears it from those cards.
-  **Framing**: `card_art_x` / `card_art_y` (0-100 focus point) and `card_art_zoom` (100-300%) plus a free offset `card_art_dx` / `card_art_dy` (±100, % of the window) on `CustomCharacter` choose
+  **Framing**: `card_art_x` / `card_art_y` (0-100 focus point) and `card_art_zoom` (50-300%; below 100 the art shrinks inside the window) plus a free offset `card_art_dx` / `card_art_dy` (±100, % of the window) on `CustomCharacter` choose
   which part of the art shows. `ArtImage.vue` renders it in pure CSS (a box `zoom`× the window, shifted and
   cover-positioned by the same x/y), so the live preview, the html-to-image export and the server-side capture all match;
   The offset pushes the art past the window edges on either axis (including the axis where it fits and can't pan). `ArtPositioner.vue` is the drag / arrow-key / zoom-slider editor: dragging adds to one on-screen shift per axis, split into pan first and offset for the remainder, so it stays reversible. Picking different art resets the framing; clearing

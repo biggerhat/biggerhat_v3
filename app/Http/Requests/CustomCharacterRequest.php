@@ -122,7 +122,7 @@ class CustomCharacterRequest extends FormRequest
             // Framing of the chosen art inside the card's art window (focus point in %, zoom in %).
             'card_art_x' => ['nullable', 'integer', 'min:0', 'max:100'],
             'card_art_y' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'card_art_zoom' => ['nullable', 'integer', 'min:100', 'max:300'],
+            'card_art_zoom' => ['nullable', 'integer', 'min:50', 'max:300'],
             'card_art_dx' => ['nullable', 'integer', 'min:-100', 'max:100'],
             'card_art_dy' => ['nullable', 'integer', 'min:-100', 'max:100'],
         ];

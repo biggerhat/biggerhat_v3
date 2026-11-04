@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import GameIcon from '@/components/GameIcon.vue';
+import { insertTokenAtCaret } from '@/lib/gameTextDom';
 
 interface TokenOption {
-    /** Inserted as {{token}} — matches GameText.vue's tagToIconType vocabulary. */
+    /** Inserted as {{token}} — matches the TAG_TO_ICON_TYPE vocabulary in lib/gameIcons.ts. */
     token: string;
     iconType: string;
     label: string;
 }
 
-// Canonical keys only — tagToIconType's aliases (e.g. "stone"/"soulstones"
+// Canonical keys only — TAG_TO_ICON_TYPE's aliases (e.g. "stone"/"soulstones"
 // both map to the same "soulstone" icon) are deliberately not duplicated here.
 const TOKENS: TokenOption[] = [
     { token: 'ram', iconType: 'ram', label: 'Ram' },
@@ -28,12 +29,20 @@ const TOKENS: TokenOption[] = [
     { token: 'signatureaction', iconType: 'signature_action', label: 'Signature Action' },
 ];
 
-// Inserts {{token}} at the cursor of whatever text field last had focus.
+// Inserts the icon at the cursor of whatever text field last had focus (a GameTextEditor shows it as an icon; a plain
+// field gets {{token}} text).
 // @mousedown.prevent on each button below stops the browser's default
 // focus-shift-on-click, so document.activeElement (and its selection range)
 // is still the field the user was typing in when this handler runs.
 const insert = (token: string) => {
     const el = document.activeElement;
+    // A GameTextEditor: insert a real icon at the caret.
+    const editor = el instanceof HTMLElement ? el.closest<HTMLElement>('[data-game-text-editor]') : null;
+    if (editor) {
+        insertTokenAtCaret(editor, token);
+        editor.focus();
+        return;
+    }
     if (!(el instanceof HTMLTextAreaElement) && !(el instanceof HTMLInputElement)) return;
 
     const text = `{{${token}}}`;

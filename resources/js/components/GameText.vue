@@ -2,6 +2,7 @@
 import { computed, HTMLAttributes } from 'vue';
 
 import GameIcon from '@/components/GameIcon.vue';
+import { TAG_TO_ICON_TYPE } from '@/lib/gameIcons';
 
 defineOptions({
     inheritAttrs: false,
@@ -29,32 +30,6 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 // Map tag names from {{tag}} to GameIcon type keys
-const tagToIconType: Record<string, string> = {
-    crow: 'crow',
-    crows: 'crow',
-    mask: 'mask',
-    masks: 'mask',
-    ram: 'ram',
-    rams: 'ram',
-    tome: 'tome',
-    tomes: 'tome',
-    soulstone: 'soulstone',
-    soulstones: 'soulstone',
-    stone: 'soulstone',
-    melee: 'melee',
-    missile: 'missile',
-    magic: 'magic',
-    pulse: 'pulse',
-    positive: 'positive',
-    negative: 'negative',
-    fortitude: 'physical_defense',
-    warding: 'magical_defense',
-    unusual: 'unusual_defense',
-    unusualdefense: 'unusual_defense',
-    signatureaction: 'signature_action',
-    '+': 'positive',
-    '-': 'negative',
-};
 
 type Segment = { type: 'text'; value: string } | { type: 'icon'; iconType: string };
 
@@ -77,7 +52,7 @@ const segments = computed((): Segment[] => {
         }
 
         const tag = match[1].toLowerCase();
-        const iconType = tagToIconType[tag];
+        const iconType = TAG_TO_ICON_TYPE[tag];
         if (iconType) {
             parts.push({ type: 'icon', iconType });
         } else {

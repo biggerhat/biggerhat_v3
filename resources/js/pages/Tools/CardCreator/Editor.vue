@@ -5,6 +5,7 @@ import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
 import ArtPositioner from '@/components/CardCreator/ArtPositioner.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
+import GameTextEditor from '@/components/CardCreator/GameTextEditor.vue';
 import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
@@ -1319,10 +1320,11 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                         Costs Soulstone
                                                     </label>
                                                 </div>
-                                                <Textarea
+                                                <GameTextEditor
                                                     v-model="ability.description"
                                                     placeholder="Ability description..."
-                                                    rows="2"
+                                                    multiline
+                                                    :rows="2"
                                                     class="text-xs"
                                                 />
                                                 <IconTokenPalette class="mt-1" />
@@ -1459,7 +1461,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                     <Input v-model="action.target_suits" placeholder="e.g. crow" class="h-7 text-xs" />
                                                 </div>
                                             </div>
-                                            <Textarea v-model="action.description" placeholder="Action description..." rows="2" class="text-xs" />
+                                            <GameTextEditor
+                                                v-model="action.description"
+                                                placeholder="Action description..."
+                                                multiline
+                                                :rows="2"
+                                                class="text-xs"
+                                            />
                                             <IconTokenPalette class="mt-1" />
                                             <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                                                 <Checkbox
@@ -1527,10 +1535,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                                                 />
                                                                 <Input v-model="trigger.suits" placeholder="Suits" class="h-6 w-24 text-xs" />
                                                             </div>
-                                                            <Input
+                                                            <GameTextEditor
                                                                 v-model="trigger.description"
                                                                 placeholder="Trigger description"
-                                                                class="h-6 text-xs"
+                                                                class="text-xs"
                                                             />
                                                         </div>
                                                     </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import GameTextEditor from '@/components/CardCreator/GameTextEditor.vue';
 import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
 import UpgradeBackFace from '@/components/CardCreator/UpgradeBackFace.vue';
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
@@ -715,10 +716,10 @@ const blockTypeColor = (type: string, idx: number) => {
 
                                             <!-- Text block -->
                                             <div v-if="block.type === 'text'">
-                                                <Input
+                                                <GameTextEditor
                                                     v-model="block.text"
                                                     placeholder="e.g. This model gains the following ability:"
-                                                    class="h-8 text-xs italic"
+                                                    class="text-xs italic"
                                                 />
                                             </div>
 
@@ -755,10 +756,11 @@ const blockTypeColor = (type: string, idx: number) => {
                                                             Costs Soulstone
                                                         </label>
                                                     </div>
-                                                    <Textarea
+                                                    <GameTextEditor
                                                         v-model="block.data!.description"
                                                         placeholder="Ability description..."
-                                                        rows="2"
+                                                        multiline
+                                                        :rows="2"
                                                         class="text-xs"
                                                     />
                                                     <IconTokenPalette class="mt-1" />
@@ -810,10 +812,11 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         <Input v-model="block.data!.damage" placeholder="2/3/5" class="h-7 text-xs" />
                                                     </div>
                                                 </div>
-                                                <Textarea
+                                                <GameTextEditor
                                                     v-model="block.data!.description"
                                                     placeholder="Action description..."
-                                                    rows="2"
+                                                    multiline
+                                                    :rows="2"
                                                     class="text-xs"
                                                 />
                                                 <IconTokenPalette class="mt-1" />
@@ -846,7 +849,11 @@ const blockTypeColor = (type: string, idx: number) => {
                                                         />
                                                         <Input v-model="block.data!.suits" placeholder="Suits" class="h-7 w-28 text-xs" />
                                                     </div>
-                                                    <Input v-model="block.data!.description" placeholder="Trigger description" class="h-7 text-xs" />
+                                                    <GameTextEditor
+                                                        v-model="block.data!.description"
+                                                        placeholder="Trigger description"
+                                                        class="text-xs"
+                                                    />
                                                 </template>
                                             </div>
                                         </div>
@@ -925,10 +932,11 @@ const blockTypeColor = (type: string, idx: number) => {
                                                             placeholder="Token name (e.g. Fast, Shielded)"
                                                             class="h-7 text-xs font-medium"
                                                         />
-                                                        <Textarea
+                                                        <GameTextEditor
                                                             v-model="token.description"
                                                             placeholder="Token effect description..."
-                                                            rows="2"
+                                                            multiline
+                                                            :rows="2"
                                                             class="text-xs"
                                                         />
                                                         <IconTokenPalette class="mt-1" />
@@ -990,10 +998,11 @@ const blockTypeColor = (type: string, idx: number) => {
                                                     </template>
                                                     <template v-else>
                                                         <Input v-model="marker.name" placeholder="Marker name" class="h-7 text-xs font-medium" />
-                                                        <Textarea
+                                                        <GameTextEditor
                                                             v-model="marker.description"
                                                             placeholder="Marker description..."
-                                                            rows="2"
+                                                            multiline
+                                                            :rows="2"
                                                             class="text-xs"
                                                         />
                                                         <IconTokenPalette class="mt-1" />

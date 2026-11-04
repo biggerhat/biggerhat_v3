@@ -103,3 +103,9 @@ its old polling as a fallback when Reverb is unavailable, and does one safety re
 ## Saved image size
 
 Both faces of a saved image are always the same exact tarot size (2.75 x 4.75 in proportions, like the Bonanza cards). The capture pages (`CardCreator/Capture.vue`, `CardCreator/UpgradeCapture.vue`) use `useTarotFit`: start at the smallest tier (`TAROT_WIDTH_TIERS`, 550px wide, rendered at 2x) and step up until the taller face's content fits, so text-heavy cards get a *larger* tarot card instead of a taller, off-ratio one. Dead space inside the border is expected. Only past the largest tier does a face grow taller (both still match). The page sets `data-capture-ready` when settled and `CapturesCardImages::capture()` waits for it before the screenshot.
+
+## Description fields: icons instead of `{{ }}`
+
+Card text is still stored as plain strings with `{{tag}}` tokens (so `GameText`, exports, the API and old cards are unchanged), but every description field in the editors is a `GameTextEditor` (`components/CardCreator/GameTextEditor.vue`): suits, ranges, soulstones etc. appear as real inline icons while editing. The `IconTokenPalette` inserts an icon at the caret, pasted `{{tag}}` text becomes icons, Backspace removes an icon whole, Enter adds a line break in multiline fields and is ignored in single-line ones. The icon table and tag map live in `lib/gameIcons.ts` (shared with `GameIcon` / `GameText`); the contenteditable ↔ string conversion is in `lib/gameTextDom.ts`.
+
+My Cards (`CustomCharacterController::index`) selects only the columns the tiles render, not the full rows with every action, ability and note.

@@ -755,3 +755,15 @@ it('duplicates a card into a plain copy with no campaign state, and only for its
         ->and($copy->is_campaign_leader)->toBeFalse()
         ->and($copy->campaign_crew_id)->toBeNull();
 });
+
+it('keeps the My Cards payload to what the tiles render', function () {
+    Bus::fake();
+    $user = User::factory()->create();
+    CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'notes' => 'private notes', 'abilities' => [['name' => 'A', 'description' => str_repeat('x', 500)]]]));
+    \App\Models\CustomUpgrade::create(['user_id' => $user->id, 'name' => 'U', 'domain' => 'character', 'faction' => 'guild', 'notes' => 'private', 'content_blocks' => [['type' => 'text', 'text' => 'long']]]);
+
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page
+            ->has('characters.0.display_name')->missing('characters.0.notes')->missing('characters.0.abilities')->missing('characters.0.actions')
+            ->has('upgrades.0.display_name')->missing('upgrades.0.notes')->missing('upgrades.0.content_blocks'));
+});

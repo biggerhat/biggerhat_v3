@@ -39,7 +39,15 @@ class CustomCharacterController extends Controller
 
     public function index(): Response
     {
+        // Only what the tiles render: the full rows carry every action, ability and note, which for a user with many
+        // cards is most of the payload. (card_art_id feeds the cardArt relation; faction_color is an appended accessor
+        // that reads faction.)
         $characters = CustomCharacter::where('user_id', Auth::id())
+            ->select([
+                'id', 'name', 'title', 'display_name', 'slug', 'faction', 'second_faction', 'station', 'cost', 'health', 'share_code',
+                'updated_at', 'front_image', 'combination_image', 'card_image_generated_at', 'card_art_id', 'is_campaign_leader',
+                'is_campaign_totem', 'campaign_crew_id',
+            ])
             ->with('cardArt:id,image_path')
             ->orderBy('updated_at', 'desc')
             ->get();
@@ -52,6 +60,10 @@ class CustomCharacterController extends Controller
         }
 
         $upgrades = CustomUpgrade::where('user_id', Auth::id())
+            ->select([
+                'id', 'name', 'display_name', 'slug', 'domain', 'type', 'faction', 'master_name', 'share_code', 'updated_at',
+                'front_image', 'combination_image', 'card_image_generated_at', 'is_campaign_crew_card', 'campaign_crew_id',
+            ])
             ->orderBy('updated_at', 'desc')
             ->get();
 

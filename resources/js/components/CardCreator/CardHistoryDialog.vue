@@ -27,12 +27,17 @@ const restoringId = ref<number | null>(null);
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 const restore = async (v: CardVersion) => {
+    // The shared confirm dialog mounts below this one, so step aside while it is open and come back if cancelled.
+    open.value = false;
     const ok = await confirm({
         title: 'Restore this version?',
         message: `Put the card back to "${v.label}" from ${when(v.created_at)}. ${props.dirty ? 'Your unsaved changes in the editor will be lost. ' : ''}The current version is kept in this history.`,
         confirmLabel: 'Restore',
     });
-    if (!ok) return;
+    if (!ok) {
+        open.value = true;
+        return;
+    }
     restoringId.value = v.id;
     try {
         const res = await fetch(props.restoreUrl(v.id), { method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' } });

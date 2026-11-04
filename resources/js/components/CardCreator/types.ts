@@ -40,3 +40,21 @@ export interface AbilityData {
     source_id: number | null;
     source_character_id?: number | null;
 }
+
+export interface ContentBlock {
+    type: 'text' | 'ability' | 'action' | 'trigger';
+    text?: string;
+    data?: Record<string, any>;
+}
+
+export interface TokenData {
+    name: string;
+    description: string | null;
+    source_id?: number | null;
+}
+
+export interface MarkerData {
+    name: string;
+    description: string | null;
+    source_id?: number | null;
+}

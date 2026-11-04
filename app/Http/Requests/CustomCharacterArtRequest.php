@@ -18,9 +18,8 @@ class CustomCharacterArtRequest extends FormRequest
 
     public function rules(): array
     {
-        /** @var CustomCharacter $character */
         $character = $this->route('customCharacter');
 
-        return CardArt::validationRules($character->card_art_id);
+        return CardArt::validationRules($character instanceof CustomCharacter ? $character->card_art_id : null);
     }
 }

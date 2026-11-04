@@ -21,6 +21,7 @@ import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
+import { csrfToken } from '@/lib/utils';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
@@ -1336,18 +1337,29 @@ const openArtDialog = (which: 'leader' | 'totem') => {
     };
     artTarget.value = which;
 };
-const saveArt = () => {
+const saveArt = async () => {
     const card = artTarget.value === 'leader' ? props.leader : props.totem;
     if (!card || savingArt.value) return;
     savingArt.value = true;
-    router.patch(route('tools.card_creator.art', card.id), artDraft.value, {
-        preserveScroll: true,
-        onSuccess: () => {
-            artTarget.value = null;
-            toast.success('Art saved — the card image is re-rendering.');
-        },
-        onFinish: () => (savingArt.value = false),
-    });
+    try {
+        const res = await fetch(route('tools.card_creator.art', card.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            body: JSON.stringify(artDraft.value),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            toast.error(body?.message ?? 'Could not save the art — please try again.');
+            return;
+        }
+        artTarget.value = null;
+        toast.success('Art saved — the card image is re-rendering.');
+        router.reload({ only: ['leader', 'totem'], preserveScroll: true });
+    } catch {
+        toast.error('Could not save the art — check your connection and try again.');
+    } finally {
+        savingArt.value = false;
+    }
 };
 
 const copyShareLink = async () => {

@@ -7,6 +7,7 @@ import UpgradeFrontFace from '@/components/CardCreator/UpgradeFrontFace.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import SuggestInput from '@/components/CardCreator/SuggestInput.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import CardHistoryDialog, { type CardVersion } from '@/components/CardCreator/CardHistoryDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,6 +32,7 @@ import {
     Copy,
     Download,
     FileJson,
+    History,
     FileText,
     Eye,
     Loader2,
@@ -102,6 +104,7 @@ const props = defineProps<{
     };
     campaign_back_url: string | null;
     card_image_pending?: boolean;
+    versions?: CardVersion[];
     // Auto-calculated from the crew's arsenal (CombinedCrewCardEffects::
     // arsenalTokensAndMarkers()) — only present for an is_campaign_crew_card
     // upgrade, whose own back_tokens/back_markers columns are never read by
@@ -199,6 +202,7 @@ const { hasDraft, dirty, restoreDraft, discardDraft, markSaved, currentSnapshot,
     },
 });
 
+const historyOpen = ref(false);
 const { exportJson, importFile } = useCardJsonTransfer({
     kind: 'custom-upgrade',
     snapshot: currentSnapshot,
@@ -600,6 +604,9 @@ const blockTypeColor = (type: string, idx: number) => {
                         <Upload class="size-4" /> Import JSON
                         <input type="file" accept="application/json,.json" class="sr-only" @change="importFile" />
                     </label>
+                    <Button v-if="isEdit && versions?.length" variant="ghost" size="sm" @click="historyOpen = true"
+                        ><History class="mr-1 size-4" /> History</Button
+                    >
                     <Button variant="ghost" size="sm" @click="exportJson"><FileJson class="mr-1 size-4" /> Export JSON</Button>
                 </div>
             </div>
@@ -1381,5 +1388,13 @@ const blockTypeColor = (type: string, idx: number) => {
                 </Button>
             </div>
         </div>
+
+        <CardHistoryDialog
+            v-if="isEdit && versions"
+            v-model:open="historyOpen"
+            :versions="versions"
+            :dirty="dirty"
+            :restore-url="(id: number) => route('tools.card_creator.upgrades.restore_version', [props.upgrade!.id, id])"
+        />
     </div>
 </template>

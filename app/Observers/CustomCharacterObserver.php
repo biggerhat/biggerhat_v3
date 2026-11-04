@@ -79,6 +79,8 @@ class CustomCharacterObserver
 
     public function updated(CustomCharacter $character): void
     {
+        $character->recordPreviousVersion();
+
         if ($character->wasChanged(self::CARD_RENDER_COLUMNS)) {
             $character->queueCardImage();
         }
@@ -90,6 +92,7 @@ class CustomCharacterObserver
      */
     public function deleted(CustomCharacter $character): void
     {
+        $character->versions()->delete();
         Storage::disk('public')->deleteDirectory("custom-characters/{$character->id}");
     }
 }

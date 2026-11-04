@@ -9,6 +9,7 @@ import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import CardHistoryDialog, { type CardVersion } from '@/components/CardCreator/CardHistoryDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,7 +27,22 @@ import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, FileJson, FileText, Loader2, Eye, RefreshCw, Save, Share2, Upload, X } from 'lucide-vue-next';
+import {
+    ArrowLeft,
+    ChevronDown,
+    Copy,
+    Download,
+    FileJson,
+    History,
+    FileText,
+    Loader2,
+    Eye,
+    RefreshCw,
+    Save,
+    Share2,
+    Upload,
+    X,
+} from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 
 interface KeywordData {
@@ -99,6 +115,7 @@ const props = defineProps<{
     card_arts: Array<{ id: number; name: string; image_path: string; faction: string | null; category: string | null }>;
     campaign_back_url: string | null;
     card_image_pending?: boolean;
+    versions?: CardVersion[];
 }>();
 
 const isEdit = computed(() => !!props.character);
@@ -229,6 +246,7 @@ const { hasDraft, dirty, restoreDraft, discardDraft, markSaved, currentSnapshot,
     },
 });
 
+const historyOpen = ref(false);
 const { exportJson, importFile } = useCardJsonTransfer({
     kind: 'custom-character',
     snapshot: currentSnapshot,
@@ -618,6 +636,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                         <Upload class="size-4" /> Import JSON
                         <input type="file" accept="application/json,.json" class="sr-only" @change="importFile" />
                     </label>
+                    <Button v-if="isEdit && versions?.length" variant="ghost" size="sm" @click="historyOpen = true"
+                        ><History class="mr-1 size-4" /> History</Button
+                    >
                     <Button variant="ghost" size="sm" @click="exportJson"><FileJson class="mr-1 size-4" /> Export JSON</Button>
                 </div>
             </div>
@@ -1245,5 +1266,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </Button>
             </div>
         </div>
+
+        <CardHistoryDialog
+            v-if="isEdit && versions"
+            v-model:open="historyOpen"
+            :versions="versions"
+            :dirty="dirty"
+            :restore-url="(id: number) => route('tools.card_creator.restore_version', [props.character!.id, id])"
+        />
     </div>
 </template>

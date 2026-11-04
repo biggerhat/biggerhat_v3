@@ -41,6 +41,10 @@ class User extends Authenticatable
             $disk = Storage::disk('public');
             CustomCharacter::withTrashed()->where('user_id', $user->id)->pluck('id')->each(fn ($id) => $disk->deleteDirectory("custom-characters/{$id}"));
             CustomUpgrade::withTrashed()->where('user_id', $user->id)->pluck('id')->each(fn ($id) => $disk->deleteDirectory("custom-upgrades/{$id}"));
+            CustomCardVersion::where('versionable_type', (new CustomCharacter)->getMorphClass())
+                ->whereIn('versionable_id', CustomCharacter::withTrashed()->where('user_id', $user->id)->select('id'))->delete();
+            CustomCardVersion::where('versionable_type', (new CustomUpgrade)->getMorphClass())
+                ->whereIn('versionable_id', CustomUpgrade::withTrashed()->where('user_id', $user->id)->select('id'))->delete();
         });
     }
 

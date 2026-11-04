@@ -9,6 +9,7 @@ use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignArsenalModelInjury;
+use App\Models\Concerns\HasCardVersions;
 use App\Observers\CustomCharacterObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,7 @@ use Illuminate\Support\Str;
 #[ObservedBy(CustomCharacterObserver::class)]
 class CustomCharacter extends Model
 {
+    use HasCardVersions;
     use SoftDeletes;
 
     protected $guarded = ['id'];
@@ -234,5 +236,21 @@ class CustomCharacter extends Model
         $this->update(['current' => false, 'annihilated_at' => now()]);
 
         return false;
+    }
+
+    /** @return array<int, string> */
+    public static function versionedColumns(): array
+    {
+        return [
+            'name', 'title', 'faction', 'second_faction', 'station', 'cost', 'health', 'size', 'base', 'defense', 'defense_suit',
+            'willpower', 'willpower_suit', 'speed', 'count', 'summon_target_number', 'generates_stone', 'is_unhirable',
+            'card_art_id', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx', 'card_art_dy', 'actions', 'abilities',
+            'keywords', 'characteristics', 'linked_crew_upgrades', 'linked_totems',
+        ];
+    }
+
+    public function isCampaignManaged(): bool
+    {
+        return (bool) ($this->is_campaign_leader || $this->is_campaign_totem);
     }
 }

@@ -13,6 +13,7 @@ use App\Enums\UpgradeTypeEnum;
 use App\Http\Requests\CustomUpgradeRequest;
 use App\Jobs\Campaign\GenerateCustomUpgradeCardImage;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\CustomCardVersion;
 use App\Models\CustomUpgrade;
 use App\Support\Campaign\CombinedCrewCardEffects;
 use Illuminate\Http\JsonResponse;
@@ -81,7 +82,23 @@ class CustomUpgradeController extends Controller
             'campaign_back_url' => $campaignBackUrl,
             'crew_computed_tokens_markers' => $crewComputedTokensMarkers,
             'card_image_pending' => $customUpgrade->cardImagePending(),
+            'versions' => $customUpgrade->isCampaignManaged() ? [] : $customUpgrade->versions()->get()->map(fn (CustomCardVersion $v) => [
+                'id' => $v->id,
+                'created_at' => $v->created_at->toIso8601String(),
+                'label' => ($v->snapshot['name'] ?? 'Card').' · '.count($v->snapshot['content_blocks'] ?? []).' blocks',
+            ])->values(),
         ]);
+    }
+
+    /** Puts an earlier saved state of the card back (the state it replaces becomes a version itself, so a restore can be undone). */
+    public function restoreVersion(CustomUpgrade $customUpgrade, CustomCardVersion $version): JsonResponse
+    {
+        $this->authorize('update', $customUpgrade);
+        abort_if($customUpgrade->isCampaignManaged() || $version->versionable_type !== $customUpgrade->getMorphClass() || $version->versionable_id !== $customUpgrade->id, 404);
+
+        $customUpgrade->restoreVersion($version);
+
+        return response()->json(['success' => true, 'redirect' => route('tools.card_creator.upgrades.edit', $customUpgrade->id)]);
     }
 
     public function update(CustomUpgradeRequest $request, CustomUpgrade $customUpgrade): JsonResponse

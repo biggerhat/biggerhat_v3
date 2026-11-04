@@ -18,6 +18,7 @@ use App\Http\Requests\CustomCharacterRequest;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CardArt;
+use App\Models\CustomCardVersion;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
@@ -147,7 +148,23 @@ class CustomCharacterController extends Controller
             'card_arts' => CardArt::pickerOptions($customCharacter->card_art_id),
             'campaign_back_url' => $campaignBackUrl,
             'card_image_pending' => $customCharacter->cardImagePending(),
+            'versions' => $customCharacter->isCampaignManaged() ? [] : $customCharacter->versions()->get()->map(fn (CustomCardVersion $v) => [
+                'id' => $v->id,
+                'created_at' => $v->created_at->toIso8601String(),
+                'label' => ($v->snapshot['name'] ?? 'Card').' · '.count($v->snapshot['actions'] ?? []).' actions · '.count($v->snapshot['abilities'] ?? []).' abilities',
+            ])->values(),
         ]);
+    }
+
+    /** Puts an earlier saved state of the card back (the state it replaces becomes a version itself, so a restore can be undone). */
+    public function restoreVersion(CustomCharacter $customCharacter, CustomCardVersion $version): JsonResponse
+    {
+        $this->authorize('update', $customCharacter);
+        abort_if($customCharacter->isCampaignManaged() || $version->versionable_type !== $customCharacter->getMorphClass() || $version->versionable_id !== $customCharacter->id, 404);
+
+        $customCharacter->restoreVersion($version);
+
+        return response()->json(['success' => true, 'redirect' => route('tools.card_creator.edit', $customCharacter->id)]);
     }
 
     public function update(CustomCharacterRequest $request, CustomCharacter $customCharacter): JsonResponse

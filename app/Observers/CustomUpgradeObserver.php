@@ -27,6 +27,7 @@ class CustomUpgradeObserver
     /** Removes the saved front/back/combined PNGs along with the (soft-)deleted card. */
     public function deleted(CustomUpgrade $upgrade): void
     {
+        $upgrade->versions()->delete();
         Storage::disk('public')->deleteDirectory("custom-upgrades/{$upgrade->id}");
     }
 
@@ -71,6 +72,8 @@ class CustomUpgradeObserver
      */
     public function updated(CustomUpgrade $upgrade): void
     {
+        $upgrade->recordPreviousVersion();
+
         if ($upgrade->wasChanged(self::CARD_RENDER_COLUMNS)) {
             $upgrade->queueCardImage();
         }

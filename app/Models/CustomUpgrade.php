@@ -6,6 +6,7 @@ use App\Enums\FactionEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Jobs\Campaign\GenerateCustomUpgradeCardImage;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\Concerns\HasCardVersions;
 use App\Observers\CustomUpgradeObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,7 @@ use Illuminate\Support\Str;
 #[ObservedBy(CustomUpgradeObserver::class)]
 class CustomUpgrade extends Model
 {
+    use HasCardVersions;
     use SoftDeletes;
 
     protected $guarded = ['id'];
@@ -111,5 +113,16 @@ class CustomUpgrade extends Model
         }
 
         return $this;
+    }
+
+    /** @return array<int, string> */
+    public static function versionedColumns(): array
+    {
+        return ['name', 'faction', 'type', 'limitations', 'plentiful', 'master_name', 'keyword_name', 'content_blocks', 'back_tokens', 'back_markers'];
+    }
+
+    public function isCampaignManaged(): bool
+    {
+        return (bool) $this->is_campaign_crew_card;
     }
 }

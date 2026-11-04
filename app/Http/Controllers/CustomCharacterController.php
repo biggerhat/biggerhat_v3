@@ -239,6 +239,17 @@ class CustomCharacterController extends Controller
     {
         $this->authorize('update', $customCharacter);
 
+        return $this->copyCard($customCharacter, keepPrivate: true);
+    }
+
+    /** Anyone signed in can copy a card from its public share link into their own cards (without the owner's private notes). */
+    public function copyShared(string $shareCode): JsonResponse
+    {
+        return $this->copyCard(CustomCharacter::where('share_code', $shareCode)->firstOrFail(), keepPrivate: false);
+    }
+
+    private function copyCard(CustomCharacter $source, bool $keepPrivate): JsonResponse
+    {
         if (CustomCharacter::where('user_id', Auth::id())->count() >= CustomCharacterRequest::MAX_PER_USER) {
             return response()->json([
                 'success' => false,
@@ -246,18 +257,26 @@ class CustomCharacterController extends Controller
             ], 422);
         }
 
-        $copy = CustomCharacter::create(array_merge(
-            $customCharacter->only([
-                'title', 'faction', 'second_faction', 'station', 'cost', 'health', 'size', 'base', 'defense', 'defense_suit',
-                'willpower', 'willpower_suit', 'speed', 'count', 'summon_target_number', 'generates_stone', 'is_unhirable',
-                'card_art_id', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx', 'card_art_dy', 'actions',
-                'abilities', 'keywords', 'characteristics', 'linked_crew_upgrades', 'linked_totems', 'notes',
-            ]),
-            [
-                'user_id' => Auth::id(),
-                'name' => Str::limit($customCharacter->name, 52, '').' (Copy)',
-            ],
-        ));
+        $attributes = $source->only([
+            'title', 'faction', 'second_faction', 'station', 'cost', 'health', 'size', 'base', 'defense', 'defense_suit',
+            'willpower', 'willpower_suit', 'speed', 'count', 'summon_target_number', 'generates_stone', 'is_unhirable',
+            'card_art_id', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx', 'card_art_dy', 'actions',
+            'abilities', 'keywords', 'characteristics', 'linked_crew_upgrades', 'linked_totems',
+        ]);
+
+        if ($keepPrivate) {
+            $attributes['notes'] = $source->notes;
+        } else {
+            // Links to the other person's own custom cards are meaningless (and not theirs to see) for the copier.
+            foreach (['linked_crew_upgrades', 'linked_totems'] as $links) {
+                $attributes[$links] = array_values(array_filter($attributes[$links] ?? [], fn ($l) => ($l['source_type'] ?? null) === 'official'));
+            }
+        }
+
+        $copy = CustomCharacter::create(array_merge($attributes, [
+            'user_id' => Auth::id(),
+            'name' => Str::limit($source->name, 52, '').' (Copy)',
+        ]));
 
         return response()->json(['success' => true, 'redirect' => route('tools.card_creator.edit', $copy->id)]);
     }
@@ -295,6 +314,7 @@ class CustomCharacterController extends Controller
         // An explicit allow-list: the model also carries the owner's private notes, user id and campaign bookkeeping,
         // and this page is public.
         return inertia('Tools/CardCreator/View', [
+            'share_code' => $shareCode,
             'character' => $character->only(self::PUBLIC_SHARE_FIELDS),
             'card_art_path' => $character->cardArt?->image_path,
             'card_image_pending' => $character->cardImagePending(),

@@ -156,6 +156,17 @@ class CustomUpgradeController extends Controller
     {
         $this->authorize('update', $customUpgrade);
 
+        return $this->copyCard($customUpgrade, keepPrivate: true);
+    }
+
+    /** Anyone signed in can copy a card from its public share link into their own cards (without the owner's private notes). */
+    public function copyShared(string $shareCode): JsonResponse
+    {
+        return $this->copyCard(CustomUpgrade::where('share_code', $shareCode)->firstOrFail(), keepPrivate: false);
+    }
+
+    private function copyCard(CustomUpgrade $source, bool $keepPrivate): JsonResponse
+    {
         if (CustomUpgrade::where('user_id', Auth::id())->count() >= CustomUpgradeRequest::MAX_PER_USER) {
             return response()->json([
                 'success' => false,
@@ -163,12 +174,14 @@ class CustomUpgradeController extends Controller
             ], 422);
         }
 
-        $copy = CustomUpgrade::create(array_merge(
-            $customUpgrade->only([
-                'domain', 'faction', 'type', 'limitations', 'plentiful', 'master_name', 'keyword_name', 'content_blocks', 'back_tokens', 'back_markers', 'notes',
-            ]),
-            ['user_id' => Auth::id(), 'name' => Str::limit($customUpgrade->name, 245, '').' (Copy)'],
-        ));
+        $attributes = $source->only([
+            'domain', 'faction', 'type', 'limitations', 'plentiful', 'master_name', 'keyword_name', 'content_blocks', 'back_tokens', 'back_markers',
+        ]);
+        if ($keepPrivate) {
+            $attributes['notes'] = $source->notes;
+        }
+
+        $copy = CustomUpgrade::create(array_merge($attributes, ['user_id' => Auth::id(), 'name' => Str::limit($source->name, 245, '').' (Copy)']));
 
         return response()->json(['success' => true, 'redirect' => route('tools.card_creator.upgrades.edit', $copy->id)]);
     }
@@ -187,6 +200,7 @@ class CustomUpgradeController extends Controller
         }
 
         return inertia('Tools/CardCreator/UpgradeView', [
+            'share_code' => $shareCode,
             // Allow-list: the model also carries the owner's private notes and user id, and this page is public.
             'upgrade' => $upgrade->only([
                 'id', 'name', 'display_name', 'domain', 'type', 'faction', 'limitations', 'plentiful', 'master_name',

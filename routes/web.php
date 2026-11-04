@@ -320,6 +320,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
                 Route::post('/', [CustomCharacterController::class, 'store'])->name('store');
                 Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
                 Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
+                Route::post('/shared/{shareCode}/copy', [CustomCharacterController::class, 'copyShared'])->name('copy_shared');
                 Route::post('/{customCharacter}/duplicate', [CustomCharacterController::class, 'duplicate'])->name('duplicate');
                 Route::patch('/{customCharacter}/art', [CustomCharacterController::class, 'updateArt'])->name('art');
                 Route::post('/{customCharacter}/render', [CustomCharacterController::class, 'rerender'])->middleware('throttle:10,1')->name('rerender');
@@ -328,6 +329,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
                     Route::post('/', [CustomUpgradeController::class, 'store'])->name('store');
                     Route::put('/{customUpgrade}', [CustomUpgradeController::class, 'update'])->name('update');
                     Route::delete('/{customUpgrade}', [CustomUpgradeController::class, 'destroy'])->name('destroy');
+                    Route::post('/shared/{shareCode}/copy', [CustomUpgradeController::class, 'copyShared'])->name('copy_shared');
                     Route::post('/{customUpgrade}/duplicate', [CustomUpgradeController::class, 'duplicate'])->name('duplicate');
                     Route::post('/{customUpgrade}/render', [CustomUpgradeController::class, 'rerender'])->middleware('throttle:10,1')->name('rerender');
                 });

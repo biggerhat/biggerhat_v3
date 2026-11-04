@@ -19,13 +19,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useCardJsonTransfer } from '@/composables/useCardJsonTransfer';
 import { useLatestFetch } from '@/composables/useLatestFetch';
 import { useToast } from '@/composables/useToast';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, FileText, Loader2, Eye, RefreshCw, Save, Share2, X } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Copy, Download, FileJson, FileText, Loader2, Eye, RefreshCw, Save, Share2, Upload, X } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 
 interface KeywordData {
@@ -201,7 +202,7 @@ const characteristics = reactive<string[]>(props.character?.characteristics ?? [
 const linkedCrewUpgrades = reactive<LinkedItem[]>(props.character?.linked_crew_upgrades ?? []);
 const linkedTotems = reactive<LinkedItem[]>(props.character?.linked_totems ?? []);
 
-const { hasDraft, dirty, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+const { hasDraft, dirty, restoreDraft, discardDraft, markSaved, currentSnapshot, applySnapshot } = useEditorDraft({
     key: 'bh_draft_card',
     keepDraft: !props.character,
     snapshot: () => ({
@@ -214,14 +215,32 @@ const { hasDraft, dirty, restoreDraft, discardDraft, markSaved } = useEditorDraf
         linkedTotems: JSON.parse(JSON.stringify(linkedTotems)),
     }),
     restore: (d) => {
-        Object.assign(form, d.form);
-        actions.splice(0, actions.length, ...d.actions);
-        abilities.splice(0, abilities.length, ...d.abilities);
-        keywords.splice(0, keywords.length, ...d.keywords);
-        characteristics.splice(0, characteristics.length, ...d.characteristics);
-        linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...d.linkedCrewUpgrades);
-        linkedTotems.splice(0, linkedTotems.length, ...d.linkedTotems);
+        // Drafts and imported files are only trusted for keys the form has and values of the right shape.
+        for (const key of Object.keys(form) as (keyof typeof form)[]) {
+            if (d.form && key in d.form) (form as Record<string, unknown>)[key] = d.form[key];
+        }
+        const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+        actions.splice(0, actions.length, ...list<ActionData>(d.actions));
+        abilities.splice(0, abilities.length, ...list<AbilityData>(d.abilities));
+        keywords.splice(0, keywords.length, ...list<KeywordData>(d.keywords));
+        characteristics.splice(0, characteristics.length, ...list<string>(d.characteristics));
+        linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...list<LinkedItem>(d.linkedCrewUpgrades));
+        linkedTotems.splice(0, linkedTotems.length, ...list<LinkedItem>(d.linkedTotems));
     },
+});
+
+const { exportJson, importFile } = useCardJsonTransfer({
+    kind: 'custom-character',
+    snapshot: currentSnapshot,
+    apply: applySnapshot,
+    // Private notes stay home, and links to the owner's own custom cards mean nothing to anyone else.
+    scrub: (d) => ({
+        ...d,
+        form: { ...d.form, notes: '' },
+        linkedCrewUpgrades: d.linkedCrewUpgrades.filter((l: LinkedItem) => l.source_type === 'official'),
+        linkedTotems: d.linkedTotems.filter((l: LinkedItem) => l.source_type === 'official'),
+    }),
+    filename: () => form.name,
 });
 
 const fetchLatest = useLatestFetch();
@@ -594,6 +613,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 <Link :href="route('tools.card_creator.index')">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to List</Button>
                 </Link>
+                <div class="ml-auto flex gap-2">
+                    <label v-if="!isEdit" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm hover:bg-accent">
+                        <Upload class="size-4" /> Import JSON
+                        <input type="file" accept="application/json,.json" class="sr-only" @change="importFile" />
+                    </label>
+                    <Button variant="ghost" size="sm" @click="exportJson"><FileJson class="mr-1 size-4" /> Export JSON</Button>
+                </div>
             </div>
 
             <div class="grid gap-6 lg:grid-cols-3">

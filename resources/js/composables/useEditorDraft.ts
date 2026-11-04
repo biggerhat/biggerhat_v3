@@ -99,5 +99,6 @@ export function useEditorDraft<T>({ key, snapshot, restore, keepDraft }: Options
         write(null);
     };
 
-    return { hasDraft, dirty, restoreDraft, discardDraft, markSaved };
+    // Same state, for JSON export / import (see useCardJsonTransfer).
+    return { hasDraft, dirty, restoreDraft, discardDraft, markSaved, currentSnapshot: snapshot, applySnapshot: restore };
 }

@@ -372,7 +372,10 @@ const stationLabel = (station: string | null) => {
                             />
                             <img
                                 v-if="hasSavedImage(character)"
-                                :src="'/storage/' + cacheBustedImagePath(character.thumb_image || character.front_image!, character.card_image_generated_at)"
+                                :src="
+                                    '/storage/' +
+                                    cacheBustedImagePath(character.thumb_image || character.front_image!, character.card_image_generated_at)
+                                "
                                 :alt="character.display_name"
                                 class="h-full w-full object-contain"
                                 loading="lazy"

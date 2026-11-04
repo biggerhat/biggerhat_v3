@@ -6,6 +6,7 @@ use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
+use App\Models\CustomUpgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
@@ -786,4 +787,38 @@ it('changes only a card\'s art and framing from the art endpoint, for its owner,
 
     $this->actingAs($owner)->patchJson($url, ['card_art_id' => null])->assertOk();
     expect($card->fresh()->card_art_zoom)->toBe(100);
+});
+
+it('lets a signed-in visitor copy a shared character into their cards without its private notes or custom links', function () {
+    $owner = User::factory()->create();
+    $visitor = User::factory()->create();
+    $card = CustomCharacter::create(ccValidPayload(['name' => 'Shared One']) + ['user_id' => $owner->id, 'notes' => 'PRIVATE', 'linked_crew_upgrades' => [
+        ['source_type' => 'official', 'id' => 1, 'name' => 'Official'],
+        ['source_type' => 'custom', 'id' => 99, 'name' => 'Owners Custom'],
+    ]]);
+    $url = route('tools.card_creator.copy_shared', $card->share_code);
+
+    $this->postJson($url)->assertUnauthorized();
+    $this->actingAs($visitor)->postJson(route('tools.card_creator.copy_shared', 'nope'))->assertNotFound();
+
+    $res = $this->actingAs($visitor)->postJson($url)->assertOk()->json();
+    $copy = CustomCharacter::where('user_id', $visitor->id)->first();
+    expect($copy->name)->toBe('Shared One (Copy)')
+        ->and($copy->notes)->toBeNull()
+        ->and($copy->linked_crew_upgrades)->toHaveCount(1)
+        ->and($copy->is_campaign_leader)->toBeFalse()
+        ->and($res['redirect'])->toBe(route('tools.card_creator.edit', $copy->id));
+    expect($card->fresh()->user_id)->toBe($owner->id);
+});
+
+it('lets a signed-in visitor copy a shared upgrade, but not past the cap', function () {
+    $owner = User::factory()->create();
+    $visitor = User::factory()->create();
+    $up = CustomUpgrade::create(['user_id' => $owner->id, 'name' => 'Shared Up', 'domain' => 'crew', 'content_blocks' => [], 'notes' => 'PRIVATE']);
+
+    $this->actingAs($visitor)->postJson(route('tools.card_creator.upgrades.copy_shared', $up->share_code))->assertOk();
+    $copy = CustomUpgrade::where('user_id', $visitor->id)->first();
+    expect($copy->name)->toBe('Shared Up (Copy)')->and($copy->notes)->toBeNull();
+
+    $this->get(route('tools.card_creator.upgrades.share', $up->share_code))->assertInertia(fn ($p) => $p->where('share_code', $up->share_code));
 });

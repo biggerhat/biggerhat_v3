@@ -7,11 +7,13 @@ defineOptions({
 
 interface Props {
     className?: HTMLAttributes['class'];
+    /** Empty when the logo sits next to the site name as text, so screen readers don't hear it twice. */
+    alt?: string;
 }
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), { alt: 'BiggerHat' });
 </script>
 
 <template>
-    <img src="/images/hat_cropped_sm.webp" :class="className" alt="BiggerHat" />
+    <img src="/images/hat_cropped_sm.webp" :class="className" :alt="alt" />
 </template>

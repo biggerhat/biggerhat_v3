@@ -18,13 +18,29 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useCardJsonTransfer } from '@/composables/useCardJsonTransfer';
 import { useLatestFetch } from '@/composables/useLatestFetch';
 import { useToast } from '@/composables/useToast';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, FileText, Eye, Loader2, Plus, RefreshCw, Save, Share2, Trash2 } from 'lucide-vue-next';
+import {
+    ArrowLeft,
+    ChevronDown,
+    Copy,
+    Download,
+    FileJson,
+    FileText,
+    Eye,
+    Loader2,
+    Plus,
+    RefreshCw,
+    Save,
+    Share2,
+    Trash2,
+    Upload,
+} from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 
 interface EnumOption {
@@ -162,7 +178,7 @@ const contentBlocks = reactive<ContentBlock[]>(props.upgrade?.content_blocks ?? 
 const backTokens = reactive<TokenData[]>(props.upgrade?.back_tokens ?? []);
 const backMarkers = reactive<MarkerData[]>(props.upgrade?.back_markers ?? []);
 
-const { hasDraft, dirty, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+const { hasDraft, dirty, restoreDraft, discardDraft, markSaved, currentSnapshot, applySnapshot } = useEditorDraft({
     key: `bh_draft_upgrade_${props.domain}`,
     keepDraft: !props.upgrade,
     snapshot: () => ({
@@ -172,11 +188,23 @@ const { hasDraft, dirty, restoreDraft, discardDraft, markSaved } = useEditorDraf
         backMarkers: JSON.parse(JSON.stringify(backMarkers)),
     }),
     restore: (d) => {
-        Object.assign(form, d.form);
-        contentBlocks.splice(0, contentBlocks.length, ...d.contentBlocks);
-        backTokens.splice(0, backTokens.length, ...d.backTokens);
-        backMarkers.splice(0, backMarkers.length, ...d.backMarkers);
+        // Drafts and imported files are only trusted for keys the form has and values of the right shape.
+        for (const key of Object.keys(form) as (keyof typeof form)[]) {
+            if (d.form && key in d.form) (form as Record<string, unknown>)[key] = d.form[key];
+        }
+        const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+        contentBlocks.splice(0, contentBlocks.length, ...list<ContentBlock>(d.contentBlocks));
+        backTokens.splice(0, backTokens.length, ...list<TokenData>(d.backTokens));
+        backMarkers.splice(0, backMarkers.length, ...list<MarkerData>(d.backMarkers));
     },
+});
+
+const { exportJson, importFile } = useCardJsonTransfer({
+    kind: 'custom-upgrade',
+    snapshot: currentSnapshot,
+    apply: applySnapshot,
+    scrub: (d) => ({ ...d, form: { ...d.form, notes: '' } }),
+    filename: () => form.name,
 });
 
 const saving = ref(false);
@@ -567,6 +595,13 @@ const blockTypeColor = (type: string, idx: number) => {
                 <Link :href="route('tools.card_creator.index')">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to List</Button>
                 </Link>
+                <div class="ml-auto flex gap-2">
+                    <label v-if="!isEdit" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm hover:bg-accent">
+                        <Upload class="size-4" /> Import JSON
+                        <input type="file" accept="application/json,.json" class="sr-only" @change="importFile" />
+                    </label>
+                    <Button variant="ghost" size="sm" @click="exportJson"><FileJson class="mr-1 size-4" /> Export JSON</Button>
+                </div>
             </div>
 
             <div class="grid gap-6 lg:grid-cols-3">

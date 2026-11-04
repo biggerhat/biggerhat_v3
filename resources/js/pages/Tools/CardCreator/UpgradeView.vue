@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
+import CopyToMyCards from '@/components/CardCreator/CopyToMyCards.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import SeoHead from '@/components/SeoHead.vue';
@@ -12,6 +13,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import { Download, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps<{
+    share_code: string;
     card_image_pending?: boolean;
     upgrade: {
         id: number;
@@ -61,6 +63,7 @@ const blockTypeLabel = (type: string) => {
     const map: Record<string, string> = { text: 'Text', ability: 'Ability', action: 'Action', trigger: 'Trigger' };
     return map[type] ?? type;
 };
+const signedIn = !!usePage<SharedData>().props.auth.user;
 </script>
 
 <template>
@@ -83,12 +86,17 @@ const blockTypeLabel = (type: string) => {
                     <span>Created by {{ creator_name }}</span>
                 </div>
             </template>
-            <template v-if="upgrade.combination_image || card_image_pending" #actions>
-                <span v-if="!upgrade.combination_image" class="mr-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
+            <template v-if="signedIn || upgrade.combination_image || card_image_pending" #actions>
+                <CopyToMyCards v-if="signedIn" :url="route('tools.card_creator.upgrades.copy_shared', share_code)" />
+                <span
+                    v-if="!upgrade.combination_image && card_image_pending"
+                    class="mr-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+                    role="status"
+                >
                     <Loader2 class="size-4 animate-spin" /> Preparing card image…
                 </span>
                 <a
-                    v-else
+                    v-else-if="upgrade.combination_image"
                     :href="'/storage/' + cacheBustedImagePath(upgrade.combination_image, upgrade.card_image_generated_at)"
                     :download="`${upgrade.display_name}.png`"
                     class="mr-2 inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent [@media(pointer:coarse)]:h-11"

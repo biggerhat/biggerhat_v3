@@ -321,6 +321,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
                 Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
                 Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
                 Route::post('/{customCharacter}/duplicate', [CustomCharacterController::class, 'duplicate'])->name('duplicate');
+                Route::patch('/{customCharacter}/art', [CustomCharacterController::class, 'updateArt'])->name('art');
                 Route::post('/{customCharacter}/render', [CustomCharacterController::class, 'rerender'])->middleware('throttle:10,1')->name('rerender');
 
                 Route::prefix('upgrades')->name('upgrades.')->group(function () {

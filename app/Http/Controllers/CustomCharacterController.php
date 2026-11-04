@@ -13,6 +13,7 @@ use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
 use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
+use App\Http\Requests\CustomCharacterArtRequest;
 use App\Http\Requests\CustomCharacterRequest;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignCrew;
@@ -273,6 +274,14 @@ class CustomCharacterController extends Controller
             Cache::put(CustomCharacter::renderingKey($customCharacter->id), true, 150);
             GenerateLeaderCardImage::dispatch($customCharacter->id)->afterCommit();
         }
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Changes only the card's library art and its framing (used from the Arsenal Sheet); the render observer re-queues the image. */
+    public function updateArt(CustomCharacterArtRequest $request, CustomCharacter $customCharacter): JsonResponse
+    {
+        $customCharacter->update(CardArt::normalizeFraming($request->validated()));
 
         return response()->json(['success' => true]);
     }

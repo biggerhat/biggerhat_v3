@@ -767,3 +767,23 @@ it('keeps the My Cards payload to what the tiles render', function () {
             ->has('characters.0.display_name')->missing('characters.0.notes')->missing('characters.0.abilities')->missing('characters.0.actions')
             ->has('upgrades.0.display_name')->missing('upgrades.0.notes')->missing('upgrades.0.content_blocks'));
 });
+
+it('changes only a card\'s art and framing from the art endpoint, for its owner, and queues a re-render', function () {
+    Bus::fake();
+    $owner = User::factory()->create();
+    $other = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create();
+    $retired = \App\Models\CardArt::factory()->inactive()->create();
+    $card = CustomCharacter::create(ccValidPayload(['name' => 'Totem Thing']) + ['user_id' => $owner->id]);
+    $url = route('tools.card_creator.art', $card->id);
+
+    $this->actingAs($other)->patchJson($url, ['card_art_id' => $art->id])->assertForbidden();
+    $this->actingAs($owner)->patchJson($url, ['card_art_id' => $retired->id])->assertJsonValidationErrors('card_art_id');
+
+    $this->actingAs($owner)->patchJson($url, ['card_art_id' => $art->id, 'card_art_zoom' => 140, 'card_art_x' => 20])->assertOk();
+    $card->refresh();
+    expect($card->card_art_id)->toBe($art->id)->and($card->card_art_zoom)->toBe(140)->and($card->card_art_x)->toBe(20)->and($card->name)->toBe('Totem Thing');
+
+    $this->actingAs($owner)->patchJson($url, ['card_art_id' => null])->assertOk();
+    expect($card->fresh()->card_art_zoom)->toBe(100);
+});

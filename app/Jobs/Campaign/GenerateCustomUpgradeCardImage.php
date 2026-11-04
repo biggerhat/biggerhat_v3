@@ -36,7 +36,7 @@ class GenerateCustomUpgradeCardImage implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping("custom-upgrade-card-{$this->customUpgradeId}"))->releaseAfter(2)->expireAfter(150), new LimitConcurrentRenders];
+        return [(new WithoutOverlapping("custom-upgrade-card-{$this->customUpgradeId}"))->releaseAfter(2)->expireAfter(150), new LimitConcurrentRenders(priority: false)];
     }
 
     public function handle(CustomUpgradeCardImageGenerator $generator): void

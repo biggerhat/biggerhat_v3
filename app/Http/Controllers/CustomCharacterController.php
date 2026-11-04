@@ -91,9 +91,13 @@ class CustomCharacterController extends Controller
         foreach ($characters as $c) {
             $c->campaign_still_live = $c->campaign_crew_id !== null && $liveCrewIds->contains($c->campaign_crew_id);
         }
+        $crewsById = CampaignCrew::whereIn('id', $upgrades->pluck('campaign_crew_id')->filter()->unique())->get()->keyBy('id');
         foreach ($upgrades as $u) {
             $u->setAttribute('card_image_pending', $u->cardImagePending());
             $u->campaign_still_live = $u->campaign_crew_id !== null && $liveCrewIds->contains($u->campaign_crew_id);
+            if ($u->campaign_still_live) {
+                $u->useCombinedCrewCardImages($crewsById->get($u->campaign_crew_id));
+            }
         }
 
         return inertia('Tools/CardCreator/Index', [

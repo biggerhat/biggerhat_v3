@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\FactionEnum;
 use App\Enums\UpgradeDomainTypeEnum;
 use App\Jobs\Campaign\GenerateCustomUpgradeCardImage;
+use App\Models\Campaign\CampaignCrew;
 use App\Observers\CustomUpgradeObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
@@ -93,5 +94,22 @@ class CustomUpgrade extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * A crew card tied to a live campaign crew is shown as the crew's combined Crew Card (starter effect + every held
+     * Tier-4 borrow), not this row's own content. Display-only: the attributes are swapped on this instance, never saved.
+     */
+    public function useCombinedCrewCardImages(?CampaignCrew $crew): static
+    {
+        if ($this->is_campaign_crew_card && $crew?->crew_card_front_image) {
+            $this->setAttribute('front_image', $crew->crew_card_front_image);
+            $this->setAttribute('back_image', $crew->crew_card_back_image);
+            $this->setAttribute('combination_image', $crew->crew_card_combination_image);
+            $this->setAttribute('thumb_image', $crew->crew_card_thumb_image);
+            $this->setAttribute('card_image_generated_at', $crew->crew_card_generated_at);
+        }
+
+        return $this;
     }
 }

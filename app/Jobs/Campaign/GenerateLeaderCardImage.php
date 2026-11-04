@@ -44,7 +44,15 @@ class GenerateLeaderCardImage implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping("leader-card-{$this->customCharacterId}"))->releaseAfter(2)->expireAfter(150), new LimitConcurrentRenders];
+        return [(new WithoutOverlapping("leader-card-{$this->customCharacterId}"))->releaseAfter(2)->expireAfter(150), new LimitConcurrentRenders(priority: $this->isCampaignCard())];
+    }
+
+    /** Leaders and totems jump the queue for the reserved render slot; homebrew cards wait for the shared ones. */
+    private function isCampaignCard(): bool
+    {
+        return CustomCharacter::query()->whereKey($this->customCharacterId)
+            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true))
+            ->exists();
     }
 
     public function handle(LeaderCardImageGenerator $generator): void

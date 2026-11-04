@@ -70,6 +70,10 @@ class CustomUpgradeController extends Controller
             }
         }
 
+        if (isset($crew)) {
+            $customUpgrade->useCombinedCrewCardImages($crew);
+        }
+
         return inertia('Tools/CardCreator/UpgradeEditor', [
             'upgrade' => $customUpgrade,
             'domain' => $customUpgrade->domain instanceof UpgradeDomainTypeEnum ? $customUpgrade->domain->value : $customUpgrade->domain,
@@ -177,6 +181,10 @@ class CustomUpgradeController extends Controller
 
         /** @var \App\Models\User $user */
         $user = $upgrade->user;
+
+        if ($upgrade->is_campaign_crew_card && $upgrade->campaign_crew_id) {
+            $upgrade->useCombinedCrewCardImages(CampaignCrew::find($upgrade->campaign_crew_id));
+        }
 
         return inertia('Tools/CardCreator/UpgradeView', [
             // Allow-list: the model also carries the owner's private notes and user id, and this page is public.

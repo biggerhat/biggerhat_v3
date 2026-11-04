@@ -70,6 +70,7 @@ const props = defineProps<{
         notes: string | null;
         share_code: string;
         is_campaign_crew_card: boolean;
+        campaign_crew_id?: number | null;
         front_image?: string | null;
         combination_image?: string | null;
         card_image_generated_at?: string | null;
@@ -105,7 +106,10 @@ const imageUrl = computed(() =>
 );
 const rerendering = ref(false);
 useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
-    if (event.kind === 'custom_upgrade' && event.id === props.upgrade?.id) {
+    const ownEvent = event.kind === 'custom_upgrade' && event.id === props.upgrade?.id;
+    // A campaign crew card shows the crew's combined card, which finishes under its own event.
+    const crewEvent = event.kind === 'crew_card' && !!props.upgrade?.is_campaign_crew_card && event.id === props.upgrade?.campaign_crew_id;
+    if (ownEvent || crewEvent) {
         router.reload({ only: ['upgrade', 'card_image_pending'], preserveScroll: true });
     }
 });

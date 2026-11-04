@@ -251,7 +251,7 @@ const performDelete = async () => {
 // A saved card's image is rendered shortly after each save; swap it in as soon as the server announces it.
 useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
     if (event.kind === 'custom_character') router.reload({ only: ['characters'], preserveScroll: true });
-    if (event.kind === 'custom_upgrade') router.reload({ only: ['upgrades'], preserveScroll: true });
+    if (event.kind === 'custom_upgrade' || event.kind === 'crew_card') router.reload({ only: ['upgrades'], preserveScroll: true });
 });
 
 const copiedId = ref<string | null>(null);

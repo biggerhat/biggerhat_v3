@@ -192,3 +192,24 @@ it('backfills thumbnails for existing saved images without re-rendering', functi
     Storage::disk('public')->assertExists("custom-upgrades/{$upgrade->id}/thumb.webp");
     Bus::assertDispatchedTimes(GenerateCustomUpgradeCardImage::class, 1); // only the creation one
 });
+
+it('holds the last render slot back for priority jobs', function () {
+    Cache::flush();
+    config(['services.browsershot.max_concurrent_renders' => 2]);
+    $ran = 0;
+    $run = function (LimitConcurrentRenders $m) use (&$ran) {
+        $job = Mockery::mock(\Illuminate\Contracts\Queue\Job::class);
+        $job->shouldReceive('release')->with(5)->zeroOrMoreTimes();
+        $m->handle($job, function () use (&$ran) {
+            $ran++;
+        });
+    };
+
+    $held = Cache::lock('card-render-slot:0', 60);
+    $held->get();
+
+    $run(new LimitConcurrentRenders(priority: false)); // slot 0 busy, slot 1 reserved -> released, not run
+    expect($ran)->toBe(0);
+    $run(new LimitConcurrentRenders); // priority may use slot 1
+    expect($ran)->toBe(1);
+});

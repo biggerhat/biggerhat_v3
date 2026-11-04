@@ -423,3 +423,29 @@ it('returns an official upgrade as editor-ready content blocks, tokens and marke
     $campaign = Upgrade::factory()->create(['game_mode_type' => 'campaign']);
     $this->actingAs($user)->getJson(route('api.card-creator.upgrade-detail', $campaign))->assertNotFound();
 });
+
+it('shows a campaign crew card as the crew\'s combined card images in My Cards and on its share page', function () {
+    $user = User::factory()->create();
+    $campaign = Campaign::factory()->create(['organizer_user_id' => $user->id]);
+    $crew = CampaignCrew::factory()->create([
+        'campaign_id' => $campaign->id, 'user_id' => $user->id,
+        'crew_card_front_image' => 'campaign-crews/9/crew-card.png',
+        'crew_card_back_image' => 'campaign-crews/9/crew-card-back.png',
+        'crew_card_combination_image' => 'campaign-crews/9/crew-card-combination.png',
+        'crew_card_thumb_image' => 'campaign-crews/9/crew-card-thumb.webp',
+        'crew_card_generated_at' => now(),
+    ]);
+    $upgrade = CustomUpgrade::create(['user_id' => $user->id, 'name' => 'Crew Card', 'domain' => 'crew', 'content_blocks' => [], 'is_campaign_crew_card' => true, 'campaign_crew_id' => $crew->id]);
+    $plain = CustomUpgrade::create(['user_id' => $user->id, 'name' => 'Plain', 'domain' => 'crew', 'content_blocks' => []]);
+    $plain->forceFill(['front_image' => 'custom-upgrades/1/front.png'])->saveQuietly();
+
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('upgrades', fn ($ups) => collect($ups)->firstWhere('id', $upgrade->id)['front_image'] === 'campaign-crews/9/crew-card.png'
+                && collect($ups)->firstWhere('id', $upgrade->id)['thumb_image'] === 'campaign-crews/9/crew-card-thumb.webp'
+                && collect($ups)->firstWhere('id', $plain->id)['front_image'] === 'custom-upgrades/1/front.png'));
+
+    $this->get(route('tools.card_creator.upgrades.share', $upgrade->share_code))
+        ->assertInertia(fn ($page) => $page->where('upgrade.combination_image', 'campaign-crews/9/crew-card-combination.png'));
+    expect($upgrade->fresh()->front_image)->toBeNull(); // display-only, never persisted
+});

@@ -18,10 +18,12 @@ interface Art {
     image_path: string;
     is_active: boolean;
     sort_order: number;
+    character_id: number | null;
 }
 
 const props = defineProps<{
     art: Art | null;
+    linked_character: { id: number; name: string } | null;
     factions: { value: string; name: string }[];
     categories: string[];
 }>();
@@ -37,6 +39,39 @@ const form = ref({
     is_active: props.art?.is_active ?? true,
     sort_order: props.art?.sort_order ?? 0,
 });
+
+// Optional link to the official character this art depicts — it is suggested first when a card is cloned from, or named
+// after, that character. Plain search over the official characters; nothing about the link restricts who can use the art.
+const linked = ref<{ id: number; name: string } | null>(props.linked_character);
+const characterQuery = ref('');
+const characterResults = ref<{ id: number; name: string }[]>([]);
+let characterTimer: ReturnType<typeof setTimeout> | undefined;
+let characterRequest = 0;
+const searchCharacters = (q: string) => {
+    characterQuery.value = q;
+    clearTimeout(characterTimer);
+    if (q.length < 2) {
+        characterResults.value = [];
+        return;
+    }
+    characterTimer = setTimeout(async () => {
+        const id = ++characterRequest;
+        try {
+            const res = await fetch(route('api.card-creator.characters') + '?q=' + encodeURIComponent(q), {
+                headers: { Accept: 'application/json' },
+            });
+            if (!res.ok || id !== characterRequest) return;
+            characterResults.value = (await res.json()).filter((r: { source_type: string }) => r.source_type === 'official');
+        } catch {
+            characterResults.value = [];
+        }
+    }, 300);
+};
+const linkCharacter = (c: { id: number; name: string }) => {
+    linked.value = c;
+    characterQuery.value = '';
+    characterResults.value = [];
+};
 const file = ref<File | null>(null);
 const preview = ref<string | null>(props.art ? '/storage/' + props.art.image_path : null);
 const saving = ref(false);
@@ -59,6 +94,7 @@ const submit = () => {
             ...form.value,
             faction: form.value.faction === 'any' ? null : form.value.faction,
             category: form.value.category || null,
+            character_id: linked.value?.id ?? null,
             credit: form.value.credit || null,
             is_active: form.value.is_active ? 1 : 0,
             image: file.value,
@@ -125,6 +161,40 @@ const submit = () => {
                             </datalist>
                             <InputError :message="errors.category" />
                         </div>
+                    </div>
+                    <div class="flex flex-col space-y-1.5">
+                        <Label for="character">Depicts (optional)</Label>
+                        <div v-if="linked" class="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-sm">
+                            <span class="truncate font-medium">{{ linked.name }}</span>
+                            <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="linked = null">Unlink</Button>
+                        </div>
+                        <div v-else class="relative">
+                            <Input
+                                id="character"
+                                :model-value="characterQuery"
+                                placeholder="Search for the official character this art shows…"
+                                autocomplete="off"
+                                @update:model-value="(v) => searchCharacters(String(v))"
+                            />
+                            <div
+                                v-if="characterResults.length"
+                                class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
+                            >
+                                <button
+                                    v-for="r in characterResults"
+                                    :key="r.id"
+                                    type="button"
+                                    class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                    @click="linkCharacter(r)"
+                                >
+                                    {{ r.name }}
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-muted-foreground">
+                            Linked art is suggested first when a player clones or names a card after that character. It doesn't limit who can use it.
+                        </p>
+                        <InputError :message="errors.character_id" />
                     </div>
                     <div class="flex flex-col space-y-1.5">
                         <Label for="credit">Credit (optional)</Label>

@@ -282,6 +282,9 @@ const searchCloneCharacter = (q: string) => {
     }, 300);
 };
 
+// The official character this card was cloned from — its linked library art is suggested (and picked if the card has none).
+const clonedCharacterId = ref<number | null>(null);
+
 const cloneFromCharacter = async (charId: number) => {
     cloneLoading.value = true;
     cloneSearchResults.value = [];
@@ -316,6 +319,19 @@ const cloneFromCharacter = async (charId: number) => {
         characteristics.splice(0, characteristics.length, ...(data.characteristics ?? []));
         linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...(data.linked_crew_upgrades ?? []));
         linkedTotems.splice(0, linkedTotems.length, ...(data.linked_totems ?? []));
+
+        clonedCharacterId.value = charId;
+        if (!form.card_art_id) {
+            const linkedArt = props.card_arts.find((a) => a.character_id === charId);
+            if (linkedArt) {
+                form.card_art_id = linkedArt.id;
+                form.card_art_x = 50;
+                form.card_art_y = 50;
+                form.card_art_zoom = 100;
+                form.card_art_dx = 0;
+                form.card_art_dy = 0;
+            }
+        }
     } catch (e) {
         console.error('Failed to clone character:', e);
         toast.error('Could not load that character', { description: 'Try again in a moment.' });
@@ -786,6 +802,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 v-model:dy="form.card_art_dy"
                                 :card-arts="card_arts"
                                 :faction="form.faction"
+                                :suggest-character-id="clonedCharacterId"
+                                :suggest-name="form.name"
                                 :show-positioner="!characterImagePreview"
                                 class="border-t pt-3"
                             >

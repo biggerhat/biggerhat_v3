@@ -3078,6 +3078,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 v-model:dy="artDraft.card_art_dy"
                 :card-arts="card_arts ?? []"
                 :faction="crew.faction"
+                :suggest-name="(artTarget === 'totem' ? totem?.name : leader?.name) ?? null"
             />
             <DialogFooter>
                 <Button variant="ghost" @click="artTarget = null">Cancel</Button>

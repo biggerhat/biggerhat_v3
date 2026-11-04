@@ -7,6 +7,7 @@ use Database\Factories\CardArtFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\Rule;
 
@@ -18,6 +19,7 @@ use Illuminate\Validation\Rule;
  * @property string $slug
  * @property FactionEnum|null $faction
  * @property string|null $category
+ * @property int|null $character_id official character this art depicts (optional; only used to suggest it in the editor)
  * @property string $image_path path on the public disk (e.g. card_arts/foo_uuid.webp)
  * @property string|null $credit
  * @property bool $is_active
@@ -51,6 +53,12 @@ class CardArt extends Model
         return $query->where('is_active', true);
     }
 
+    /** @return BelongsTo<Character, $this> */
+    public function character(): BelongsTo
+    {
+        return $this->belongsTo(Character::class);
+    }
+
     /** @return HasMany<CustomCharacter, $this> */
     public function customCharacters(): HasMany
     {
@@ -60,7 +68,7 @@ class CardArt extends Model
     /**
      * Active library art for a picker, plus the art a card already has even if it has since been retired.
      *
-     * @return array<int, array{id: int, name: string, image_path: string, faction: string|null, category: string|null}>
+     * @return array<int, array{id: int, name: string, image_path: string, faction: string|null, category: string|null, character_id: int|null, character_name: string|null}>
      */
     public static function pickerOptions(?int $currentId = null): array
     {
@@ -68,13 +76,16 @@ class CardArt extends Model
             ->where(fn ($q) => $q->where('is_active', true)->when($currentId, fn ($qq) => $qq->orWhere('id', $currentId)))
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['id', 'name', 'image_path', 'faction', 'category'])
+            ->with('character:id,name,display_name')
+            ->get(['id', 'name', 'image_path', 'faction', 'category', 'character_id'])
             ->map(fn (CardArt $a) => [
                 'id' => $a->id,
                 'name' => $a->name,
                 'image_path' => $a->image_path,
                 'faction' => $a->faction?->value,
                 'category' => $a->category,
+                'character_id' => $a->character_id,
+                'character_name' => $a->character?->display_name,
             ])
             ->all();
     }

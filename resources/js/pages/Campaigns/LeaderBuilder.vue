@@ -448,6 +448,7 @@ const submit = async () => {
                         v-model:dy="form.card_art_dy"
                         :card-arts="card_arts"
                         :faction="form.faction"
+                        :suggest-name="form.name"
                     />
                     <InputError :message="usePage().props.errors.card_art_id" />
                 </div>

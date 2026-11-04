@@ -131,3 +131,10 @@ My Cards (`CustomCharacterController::index`) selects only the columns the tiles
 - **Undo for inline icons.** `GameTextEditor` keeps its own value history (Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y, `historyUndo` from menus); typing in quick succession shares one step, icon inserts and pastes are their own.
 - **Splits.** `ContentBlocksPanel`, `TokensMarkersPanel` (upgrade editor) and `AbilitiesPanel` / `ActionsPanel` (character editor); the panel components must not carry the parent's `v-if`.
 - Deploy: `php artisan migrate`, then `app:backfill-card-thumbnails`; crew-card combined images/thumbnails appear after each crew's next render (`app:regenerate-crew-card-images` forces it).
+
+## Art linked to characters (Nov 2026)
+
+- `card_arts.character_id` (nullable, `nullOnDelete`) links a piece of library art to the official character it depicts; the admin form has a "Depicts (optional)" search. It never restricts who can use the art.
+- **Faction and category are filters, not limits.** The picker's faction checkbox (on by default, can be unticked) and category chips only narrow the list; the server only checks that the art exists and is active (or is the card's current art).
+- Suggestions: `CardArtField` (`suggestCharacterId` / `suggestName`) puts art linked to the cloned character — or to a character whose name matches the card's — first, with a "Suggested" badge, never hides it behind the faction filter, and shows a one-click strip when the card has no art. Cloning an official character in the editor auto-picks its linked art if the card has none. The Leader Builder and Arsenal Sheet dialogs suggest by name.
+- Local harness note: a from-scratch `migrate` on SQLite needs `APP_ENV=testing` (older migrations drop foreign keys by name); never `source` the harness env in the same command as the test suite — it points the tests at the harness DB.

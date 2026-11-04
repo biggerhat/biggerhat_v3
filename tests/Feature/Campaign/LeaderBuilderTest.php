@@ -703,3 +703,74 @@ it('rejects a non-Heavy-Hitter archetype granting a free attack trigger', functi
         ])
         ->assertSessionHasErrors('actions.0.triggers');
 });
+
+function leaderArtPayload(Keyword $kw1, Keyword $kw2, array $extra = []): array
+{
+    return array_merge([
+        'name' => 'Art Leader',
+        'archetype' => LeaderArchetypeEnum::Generalist->value,
+        'tag' => LeaderTagEnum::Bruiser->value,
+        'faction' => FactionEnum::Guild->value,
+        'keyword_1_id' => $kw1->id, 'keyword_2_id' => $kw2->id,
+        'size' => 2, 'base' => 30,
+        'actions' => [], 'abilities' => [],
+    ], $extra);
+}
+
+it('offers library art in the builder and saves the chosen art with its framing', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $art = \App\Models\CardArt::factory()->create();
+    \App\Models\CardArt::factory()->inactive()->create();
+    $kw1 = keywordWithModelInFaction(FactionEnum::Guild);
+    $kw2 = Keyword::factory()->create();
+    $url = route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]);
+
+    $this->actingAs($user)->get(route('campaigns.crews.leader.edit', [$crew->campaign_id, $crew->share_code]))
+        ->assertInertia(fn ($page) => $page->has('card_arts', 1)->where('card_arts.0.id', $art->id));
+
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2, ['card_art_id' => $art->id, 'card_art_x' => 30, 'card_art_zoom' => 150, 'card_art_dx' => -20]))->assertRedirect();
+
+    $leader = CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->first();
+    expect($leader->card_art_id)->toBe($art->id)
+        ->and($leader->card_art_x)->toBe(30)
+        ->and($leader->card_art_y)->toBe(50)
+        ->and($leader->card_art_zoom)->toBe(150)
+        ->and($leader->card_art_dx)->toBe(-20);
+});
+
+it('rejects unknown or retired art and out-of-range framing in the builder', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $retired = \App\Models\CardArt::factory()->inactive()->create();
+    $kw1 = keywordWithModelInFaction(FactionEnum::Guild);
+    $kw2 = Keyword::factory()->create();
+    $url = route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]);
+
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2, ['card_art_id' => $retired->id]))->assertSessionHasErrors('card_art_id');
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2, ['card_art_id' => 99999]))->assertSessionHasErrors('card_art_id');
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2, ['card_art_zoom' => 500]))->assertSessionHasErrors('card_art_zoom');
+    expect(CustomCharacter::where('campaign_crew_id', $crew->id)->count())->toBe(0);
+});
+
+it('keeps the leader\'s art through a re-save, including art retired since, and clears it on request', function () {
+    $user = leaderUser();
+    $crew = crewFor($user);
+    $art = \App\Models\CardArt::factory()->create();
+    $kw1 = keywordWithModelInFaction(FactionEnum::Guild);
+    $kw2 = Keyword::factory()->create();
+    $url = route('campaigns.crews.leader.update', [$crew->campaign_id, $crew->share_code]);
+
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2, ['card_art_id' => $art->id, 'card_art_zoom' => 120]))->assertRedirect();
+    $art->update(['is_active' => false]);
+
+    // Re-saving with the retired art still selected is fine; an older page that sends no art keeps it too.
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2, ['card_art_id' => $art->id, 'card_art_zoom' => 120]))->assertRedirect();
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2))->assertRedirect();
+    $leader = CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->first();
+    expect($leader->card_art_id)->toBe($art->id)->and($leader->card_art_zoom)->toBe(120);
+
+    $this->actingAs($user)->post($url, leaderArtPayload($kw1, $kw2, ['card_art_id' => null]))->assertRedirect();
+    $leader = CustomCharacter::where('campaign_crew_id', $crew->id)->where('current', true)->first();
+    expect($leader->card_art_id)->toBeNull()->and($leader->card_art_zoom)->toBe(100);
+});

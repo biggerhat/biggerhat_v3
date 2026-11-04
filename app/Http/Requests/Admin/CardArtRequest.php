@@ -28,6 +28,7 @@ class CardArtRequest extends FormRequest
             'name' => ['required', 'string', 'max:120'],
             'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
             'category' => ['nullable', 'string', 'max:60'],
+            'character_id' => ['nullable', 'integer', Rule::exists('characters', 'id')],
             'credit' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],

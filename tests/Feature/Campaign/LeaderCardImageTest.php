@@ -209,8 +209,10 @@ it('uses WithoutOverlapping (release, not drop) so a redo-during-undo render is 
     expect($job)->not->toBeInstanceOf(\Illuminate\Contracts\Queue\ShouldBeUnique::class);
 
     $middleware = $job->middleware();
-    expect($middleware)->toHaveCount(1);
+    expect($middleware)->toHaveCount(2);
     expect($middleware[0])->toBeInstanceOf(\Illuminate\Queue\Middleware\WithoutOverlapping::class);
+    // …and the global cap on simultaneous Chrome renders.
+    expect($middleware[1])->toBeInstanceOf(\App\Jobs\Middleware\LimitConcurrentRenders::class);
 });
 
 function lciHomebrew(User $user, array $overrides = []): CustomCharacter

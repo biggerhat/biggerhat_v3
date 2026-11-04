@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Lab404\Impersonate\Models\Impersonate;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
@@ -31,6 +32,21 @@ class User extends Authenticatable
     use Impersonate;
     use LogsAdminActivity;
     use UsesSlugName;
+
+    protected static function booted(): void
+    {
+        // The database cascades the user's custom cards away without firing model events, so their saved card image
+        // folders have to be cleared here, while the ids can still be looked up.
+        static::deleting(function (User $user) {
+            $disk = Storage::disk('public');
+            CustomCharacter::withTrashed()->where('user_id', $user->id)->pluck('id')->each(fn ($id) => $disk->deleteDirectory("custom-characters/{$id}"));
+            CustomUpgrade::withTrashed()->where('user_id', $user->id)->pluck('id')->each(fn ($id) => $disk->deleteDirectory("custom-upgrades/{$id}"));
+            CustomCardVersion::where('versionable_type', (new CustomCharacter)->getMorphClass())
+                ->whereIn('versionable_id', CustomCharacter::withTrashed()->where('user_id', $user->id)->select('id'))->delete();
+            CustomCardVersion::where('versionable_type', (new CustomUpgrade)->getMorphClass())
+                ->whereIn('versionable_id', CustomUpgrade::withTrashed()->where('user_id', $user->id)->select('id'))->delete();
+        });
+    }
 
     /**
      * Only super_admin can impersonate. Anyone can be impersonated except

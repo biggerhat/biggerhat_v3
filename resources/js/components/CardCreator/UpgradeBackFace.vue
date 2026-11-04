@@ -119,7 +119,7 @@ defineExpose({ rootRef });
             <!-- Footer -->
             <div
                 class="px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-widest"
-                :class="printMode ? 'text-neutral-300' : 'text-white/30'"
+                :class="printMode ? 'text-neutral-300' : 'text-white/60'"
                 :style="{ background: `hsl(var(${factionVar}) / 0.1)` }"
             >
                 Reference

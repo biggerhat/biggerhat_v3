@@ -6,6 +6,7 @@ use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignTotemTemplate;
 use App\Models\CustomCharacter;
+use App\Models\CustomUpgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
@@ -597,16 +598,16 @@ it('stores art framing, rejects out-of-range values, and resets it when the art 
     $user = User::factory()->create();
     $art = \App\Models\CardArt::factory()->create();
 
-    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id, 'card_art_x' => 20, 'card_art_y' => 80, 'card_art_zoom' => 175]))->assertOk();
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['card_art_id' => $art->id, 'card_art_x' => 20, 'card_art_y' => 80, 'card_art_zoom' => 175, 'card_art_dx' => -40, 'card_art_dy' => 100]))->assertOk();
     $character = CustomCharacter::where('user_id', $user->id)->firstOrFail();
-    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom])->toBe([20, 80, 175]);
+    expect([$character->card_art_x, $character->card_art_y, $character->card_art_zoom, $character->card_art_dx, $character->card_art_dy])->toBe([20, 80, 175, -40, 100]);
 
-    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 99], ['card_art_zoom' => 301]] as $bad) {
+    foreach ([['card_art_x' => 101], ['card_art_y' => -1], ['card_art_zoom' => 49], ['card_art_zoom' => 301], ['card_art_dx' => 101], ['card_art_dy' => -101]] as $bad) {
         $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload($bad))->assertUnprocessable();
     }
 
-    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null, 'card_art_x' => 20, 'card_art_zoom' => 175]))->assertOk();
-    expect([$character->fresh()->card_art_x, $character->fresh()->card_art_y, $character->fresh()->card_art_zoom])->toBe([50, 50, 100]);
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $character->id), ccValidPayload(['card_art_id' => null, 'card_art_x' => 20, 'card_art_zoom' => 175, 'card_art_dx' => 30]))->assertOk();
+    expect([$character->fresh()->card_art_x, $character->fresh()->card_art_y, $character->fresh()->card_art_zoom, $character->fresh()->card_art_dx, $character->fresh()->card_art_dy])->toBe([50, 50, 100, 0, 0]);
 });
 
 it('defaults framing to centred and unzoomed, and a null framing value falls back to the default', function () {
@@ -623,7 +624,7 @@ it('exposes the framing to the headless capture page', function () {
     $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'card_art_id' => $art->id, 'card_art_x' => 10, 'card_art_y' => 90, 'card_art_zoom' => 200]));
 
     $this->get(route('tools.card_creator.capture', $character->share_code))
-        ->assertInertia(fn ($page) => $page->where('card.characterImageFocus', ['x' => 10, 'y' => 90, 'zoom' => 200]));
+        ->assertInertia(fn ($page) => $page->where('card.characterImageFocus', ['x' => 10, 'y' => 90, 'zoom' => 200, 'dx' => 0, 'dy' => 0]));
 });
 
 it('lists each card with its saved image fields and the art fallback for the tile thumbnail', function () {
@@ -694,4 +695,130 @@ it('flags a card whose image is waiting to render and lets the owner re-render i
     Bus::assertNotDispatched(\App\Jobs\Campaign\GenerateLeaderCardImage::class);
     $this->actingAs($user)->get(route('tools.card_creator.index'))
         ->assertInertia(fn ($page) => $page->where('characters.0.card_image_pending', true));
+});
+
+it('does not leak the owner\'s private fields on the public share pages', function () {
+    $user = User::factory()->create();
+    $character = CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'notes' => 'SECRET NOTE']));
+    $upgrade = \App\Models\CustomUpgrade::create([
+        'user_id' => $user->id, 'name' => 'Secret Upgrade', 'domain' => 'character', 'faction' => 'guild', 'notes' => 'SECRET UPGRADE NOTE',
+    ]);
+
+    $this->get(route('tools.card_creator.share', $character->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('character.display_name')->missing('character.notes')->missing('character.user_id')->missing('character.share_code'))
+        ->assertDontSee('SECRET NOTE');
+
+    $this->get(route('tools.card_creator.upgrades.share', $upgrade->share_code))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('upgrade.display_name')->missing('upgrade.notes')->missing('upgrade.user_id'))
+        ->assertDontSee('SECRET UPGRADE NOTE');
+});
+
+it('caps how many custom characters a user can keep, and bounds name length', function () {
+    $user = User::factory()->create();
+    Bus::fake();
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['name' => str_repeat('a', 61)]))->assertUnprocessable()->assertJsonValidationErrors('name');
+
+    foreach (range(1, \App\Http\Requests\CustomCharacterRequest::MAX_PER_USER) as $i) {
+        CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'name' => "Card {$i}"]));
+    }
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccValidPayload(['name' => 'One too many']))
+        ->assertUnprocessable()->assertJsonValidationErrors('name');
+
+    // Editing an existing card is unaffected.
+    $existing = CustomCharacter::where('user_id', $user->id)->first();
+    $this->actingAs($user)->putJson(route('tools.card_creator.update', $existing->id), ccValidPayload(['name' => 'Renamed']))->assertOk();
+});
+
+it('duplicates a card into a plain copy with no campaign state, and only for its owner', function () {
+    Bus::fake();
+    $user = User::factory()->create();
+    $other = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create();
+    $original = CustomCharacter::create(array_merge(ccValidPayload(), [
+        'user_id' => $user->id, 'name' => 'Original', 'notes' => 'my notes', 'card_art_id' => $art->id, 'card_art_zoom' => 150, 'card_art_dx' => -20,
+        'is_campaign_leader' => true, 'campaign_crew_id' => ccCrewWithStatus($user, CampaignStatusEnum::Active)->id,
+    ]));
+
+    $this->actingAs($other)->postJson(route('tools.card_creator.duplicate', $original->id))->assertForbidden();
+
+    $res = $this->actingAs($user)->postJson(route('tools.card_creator.duplicate', $original->id))->assertOk();
+    $copy = CustomCharacter::where('user_id', $user->id)->where('id', '!=', $original->id)->firstOrFail();
+
+    expect($res->json('redirect'))->toBe(route('tools.card_creator.edit', $copy->id))
+        ->and($copy->name)->toBe('Original (Copy)')
+        ->and($copy->share_code)->not->toBe($original->share_code)
+        ->and($copy->notes)->toBe('my notes')
+        ->and([$copy->card_art_id, $copy->card_art_zoom, $copy->card_art_dx])->toBe([$art->id, 150, -20])
+        ->and($copy->is_campaign_leader)->toBeFalse()
+        ->and($copy->campaign_crew_id)->toBeNull();
+});
+
+it('keeps the My Cards payload to what the tiles render', function () {
+    Bus::fake();
+    $user = User::factory()->create();
+    CustomCharacter::create(array_merge(ccValidPayload(), ['user_id' => $user->id, 'notes' => 'private notes', 'abilities' => [['name' => 'A', 'description' => str_repeat('x', 500)]]]));
+    \App\Models\CustomUpgrade::create(['user_id' => $user->id, 'name' => 'U', 'domain' => 'character', 'faction' => 'guild', 'notes' => 'private', 'content_blocks' => [['type' => 'text', 'text' => 'long']]]);
+
+    $this->actingAs($user)->get(route('tools.card_creator.index'))
+        ->assertInertia(fn ($page) => $page
+            ->has('characters.0.display_name')->missing('characters.0.notes')->missing('characters.0.abilities')->missing('characters.0.actions')
+            ->has('upgrades.0.display_name')->missing('upgrades.0.notes')->missing('upgrades.0.content_blocks'));
+});
+
+it('changes only a card\'s art and framing from the art endpoint, for its owner, and queues a re-render', function () {
+    Bus::fake();
+    $owner = User::factory()->create();
+    $other = User::factory()->create();
+    $art = \App\Models\CardArt::factory()->create();
+    $retired = \App\Models\CardArt::factory()->inactive()->create();
+    $card = CustomCharacter::create(ccValidPayload(['name' => 'Totem Thing']) + ['user_id' => $owner->id]);
+    $url = route('tools.card_creator.art', $card->id);
+
+    $this->actingAs($other)->patchJson($url, ['card_art_id' => $art->id])->assertForbidden();
+    $this->actingAs($owner)->patchJson($url, ['card_art_id' => $retired->id])->assertJsonValidationErrors('card_art_id');
+
+    $this->actingAs($owner)->patchJson($url, ['card_art_id' => $art->id, 'card_art_zoom' => 140, 'card_art_x' => 20])->assertOk();
+    $card->refresh();
+    expect($card->card_art_id)->toBe($art->id)->and($card->card_art_zoom)->toBe(140)->and($card->card_art_x)->toBe(20)->and($card->name)->toBe('Totem Thing');
+
+    $this->actingAs($owner)->patchJson($url, ['card_art_id' => null])->assertOk();
+    expect($card->fresh()->card_art_zoom)->toBe(100);
+});
+
+it('lets a signed-in visitor copy a shared character into their cards without its private notes or custom links', function () {
+    $owner = User::factory()->create();
+    $visitor = User::factory()->create();
+    $card = CustomCharacter::create(ccValidPayload(['name' => 'Shared One']) + ['user_id' => $owner->id, 'notes' => 'PRIVATE', 'linked_crew_upgrades' => [
+        ['source_type' => 'official', 'id' => 1, 'name' => 'Official'],
+        ['source_type' => 'custom', 'id' => 99, 'name' => 'Owners Custom'],
+    ]]);
+    $url = route('tools.card_creator.copy_shared', $card->share_code);
+
+    $this->postJson($url)->assertUnauthorized();
+    $this->actingAs($visitor)->postJson(route('tools.card_creator.copy_shared', 'nope'))->assertNotFound();
+
+    $res = $this->actingAs($visitor)->postJson($url)->assertOk()->json();
+    $copy = CustomCharacter::where('user_id', $visitor->id)->first();
+    expect($copy->name)->toBe('Shared One (Copy)')
+        ->and($copy->notes)->toBeNull()
+        ->and($copy->linked_crew_upgrades)->toHaveCount(1)
+        ->and($copy->is_campaign_leader)->toBeFalse()
+        ->and($res['redirect'])->toBe(route('tools.card_creator.edit', $copy->id));
+    expect($card->fresh()->user_id)->toBe($owner->id);
+});
+
+it('lets a signed-in visitor copy a shared upgrade, but not past the cap', function () {
+    $owner = User::factory()->create();
+    $visitor = User::factory()->create();
+    $up = CustomUpgrade::create(['user_id' => $owner->id, 'name' => 'Shared Up', 'domain' => 'crew', 'content_blocks' => [], 'notes' => 'PRIVATE']);
+
+    $this->actingAs($visitor)->postJson(route('tools.card_creator.upgrades.copy_shared', $up->share_code))->assertOk();
+    $copy = CustomUpgrade::where('user_id', $visitor->id)->first();
+    expect($copy->name)->toBe('Shared Up (Copy)')->and($copy->notes)->toBeNull();
+
+    $this->get(route('tools.card_creator.upgrades.share', $up->share_code))->assertInertia(fn ($p) => $p->where('share_code', $up->share_code));
 });

@@ -27,6 +27,7 @@ class CardArtAdminController extends Controller
         return inertia('Admin/CardArts/Index', [
             'arts' => CardArt::query()
                 ->withCount('customCharacters')
+                ->with('character:id,name,display_name')
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get()
@@ -35,6 +36,7 @@ class CardArtAdminController extends Controller
                     'name' => $a->name,
                     'faction' => $a->faction?->value,
                     'category' => $a->category,
+                    'character' => $a->character?->display_name,
                     'image_path' => $a->image_path,
                     'is_active' => $a->is_active,
                     'sort_order' => $a->sort_order,
@@ -48,6 +50,7 @@ class CardArtAdminController extends Controller
     {
         return inertia('Admin/CardArts/Form', [
             'art' => null,
+            'linked_character' => null,
             'factions' => FactionEnum::toSelectOptions(),
             'categories' => $this->categories(),
         ]);
@@ -56,7 +59,8 @@ class CardArtAdminController extends Controller
     public function edit(CardArt $cardArt): Response|ResponseFactory
     {
         return inertia('Admin/CardArts/Form', [
-            'art' => $cardArt->only(['id', 'name', 'faction', 'category', 'credit', 'image_path', 'is_active', 'sort_order']),
+            'art' => $cardArt->only(['id', 'name', 'faction', 'category', 'credit', 'image_path', 'is_active', 'sort_order', 'character_id']),
+            'linked_character' => $cardArt->character ? ['id' => $cardArt->character->id, 'name' => $cardArt->character->display_name] : null,
             'factions' => FactionEnum::toSelectOptions(),
             'categories' => $this->categories(),
         ]);

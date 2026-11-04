@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Campaign;
 
+use App\Jobs\Middleware\LimitConcurrentRenders;
 use App\Models\Campaign\CampaignCrew;
 use App\Services\Campaign\CombinedCrewCardImageGenerator;
 use Illuminate\Bus\Queueable;
@@ -25,6 +26,19 @@ class GenerateCombinedCrewCardImage implements ShouldBeUnique, ShouldQueue
     public int $timeout = 120;
 
     public function __construct(public int $campaignCrewId) {}
+
+    public function retryUntil(): \DateTimeInterface
+    {
+        return now()->addMinutes(15);
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    public function middleware(): array
+    {
+        return [new LimitConcurrentRenders];
+    }
 
     public function uniqueId(): string
     {

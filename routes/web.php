@@ -293,6 +293,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
         Route::get('/upgrades/share/{shareCode}', [CustomUpgradeController::class, 'share'])->name('upgrades.share');
+        Route::get('/upgrades/capture/{shareCode}', [CustomUpgradeController::class, 'capture'])->name('upgrades.capture');
         // Headless-Chrome capture target for App\Services\Campaign\LeaderCardImageGenerator —
         // bare front/back faces only, no page chrome. Public/unauthenticated like `share`
         // above (same unguessable share_code trust model), hit only by the queue worker.
@@ -319,12 +320,20 @@ Route::prefix('tools')->name('tools.')->group(function () {
                 Route::post('/', [CustomCharacterController::class, 'store'])->name('store');
                 Route::put('/{customCharacter}', [CustomCharacterController::class, 'update'])->name('update');
                 Route::delete('/{customCharacter}', [CustomCharacterController::class, 'destroy'])->name('destroy');
+                Route::post('/shared/{shareCode}/copy', [CustomCharacterController::class, 'copyShared'])->name('copy_shared');
+                Route::post('/{customCharacter}/versions/{version}/restore', [CustomCharacterController::class, 'restoreVersion'])->name('restore_version');
+                Route::post('/{customCharacter}/duplicate', [CustomCharacterController::class, 'duplicate'])->name('duplicate');
+                Route::patch('/{customCharacter}/art', [CustomCharacterController::class, 'updateArt'])->name('art');
                 Route::post('/{customCharacter}/render', [CustomCharacterController::class, 'rerender'])->middleware('throttle:10,1')->name('rerender');
 
                 Route::prefix('upgrades')->name('upgrades.')->group(function () {
                     Route::post('/', [CustomUpgradeController::class, 'store'])->name('store');
                     Route::put('/{customUpgrade}', [CustomUpgradeController::class, 'update'])->name('update');
                     Route::delete('/{customUpgrade}', [CustomUpgradeController::class, 'destroy'])->name('destroy');
+                    Route::post('/shared/{shareCode}/copy', [CustomUpgradeController::class, 'copyShared'])->name('copy_shared');
+                    Route::post('/{customUpgrade}/versions/{version}/restore', [CustomUpgradeController::class, 'restoreVersion'])->name('restore_version');
+                    Route::post('/{customUpgrade}/duplicate', [CustomUpgradeController::class, 'duplicate'])->name('duplicate');
+                    Route::post('/{customUpgrade}/render', [CustomUpgradeController::class, 'rerender'])->middleware('throttle:10,1')->name('rerender');
                 });
             });
         });

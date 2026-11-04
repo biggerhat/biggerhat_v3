@@ -6,13 +6,15 @@ import { onBeforeUnmount, ref, watch } from 'vue';
 
 /**
  * Lets the player choose which part of the art shows in the card's art window: drag the image (or use the arrow
- * keys) to pan, and the slider to zoom. The frame has the card's art-window aspect ratio, so what is visible
+ * keys) to pan — freely, including past the frame edges — and the slider to zoom. The frame has the card's art-window aspect ratio, so what is visible
  * here is what the card shows.
  */
 const props = defineProps<{ src: string; alt: string }>();
 const x = defineModel<number>('x', { required: true });
 const y = defineModel<number>('y', { required: true });
 const zoom = defineModel<number>('zoom', { required: true });
+const dx = defineModel<number>('dx', { default: 0 });
+const dy = defineModel<number>('dy', { default: 0 });
 
 const frame = ref<HTMLElement | null>(null);
 const natural = ref<{ w: number; h: number } | null>(null);
@@ -48,35 +50,71 @@ const travel = () => {
     return { x: (z - 1) * fw + overflowX, y: (z - 1) * fh + overflowY };
 };
 
-const clamp = (v: number) => Math.min(100, Math.max(0, Math.round(v)));
+const clamp = (v: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, Math.round(v)));
 
-let drag: { px: number; py: number; x: number; y: number } | null = null;
+// Position is two numbers per axis: the cover pan (x/y, 0-100, limited by how much of the art overflows the window)
+// and a free offset (dx/dy, % of the window, ±100) that carries on past that limit — so the art can be pushed beyond
+// the frame on either axis, including the axis where it fits exactly and can't pan at all. Both reduce to one
+// on-screen shift S (px, positive = right/down) from the centred starting point; dragging adds to S and the split is
+// recomputed (pan first, remainder into the offset), which keeps every drag and key press reversible.
+const shiftOf = (axis: 'x' | 'y') => {
+    const el = frame.value;
+    if (!el) return 0;
+    const t = travel()[axis];
+    const dim = axis === 'x' ? el.clientWidth : el.clientHeight;
+    const focus = axis === 'x' ? x.value : y.value;
+    const offset = axis === 'x' ? dx.value : dy.value;
+    return ((50 - focus) / 100) * t + (offset / 100) * dim;
+};
+const applyShift = (axis: 'x' | 'y', shift: number) => {
+    const el = frame.value;
+    if (!el) return;
+    const t = travel()[axis];
+    const dim = axis === 'x' ? el.clientWidth : el.clientHeight;
+    // Zoomed out the pan range is tiny or even reverses (the box and the art inside it move opposite ways), so the
+    // focus is left alone and the whole move goes into the offset. Likewise with too little range to divide by.
+    const focus = zoom.value >= 100 && t >= 1 ? clamp(50 - (shift / t) * 100) : axis === 'x' ? x.value : y.value;
+    const rest = shift - ((50 - focus) / 100) * t;
+    const offset = clamp((rest / dim) * 100, -100, 100);
+    if (axis === 'x') {
+        x.value = focus;
+        dx.value = offset;
+    } else {
+        y.value = focus;
+        dy.value = offset;
+    }
+};
+
+let drag: { px: number; py: number; sx: number; sy: number } | null = null;
 const onDown = (e: PointerEvent) => {
-    drag = { px: e.clientX, py: e.clientY, x: x.value, y: y.value };
+    drag = { px: e.clientX, py: e.clientY, sx: shiftOf('x'), sy: shiftOf('y') };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 };
 const onMove = (e: PointerEvent) => {
     if (!drag) return;
-    const t = travel();
-    // Dragging the picture right reveals more of its left side, i.e. the focus moves toward 0.
-    if (t.x > 0) x.value = clamp(drag.x - ((e.clientX - drag.px) / t.x) * 100);
-    if (t.y > 0) y.value = clamp(drag.y - ((e.clientY - drag.py) / t.y) * 100);
+    applyShift('x', drag.sx + (e.clientX - drag.px));
+    applyShift('y', drag.sy + (e.clientY - drag.py));
 };
 const onUp = () => (drag = null);
 
 const onKey = (e: KeyboardEvent) => {
-    const step = e.shiftKey ? 10 : 3;
-    const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const el = frame.value;
+    if (!el) return;
+    const step = e.shiftKey ? 0.1 : 0.03;
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     const m = moves[e.key];
     if (!m) return;
     e.preventDefault();
-    x.value = clamp(x.value + m[0]);
-    y.value = clamp(y.value + m[1]);
+    // The art moves in the direction of the arrow.
+    if (m[0]) applyShift('x', shiftOf('x') + m[0] * step * el.clientWidth);
+    if (m[1]) applyShift('y', shiftOf('y') + m[1] * step * el.clientHeight);
 };
 
 const reset = () => {
     x.value = 50;
     y.value = 50;
+    dx.value = 0;
+    dy.value = 0;
     zoom.value = 100;
 };
 
@@ -103,6 +141,8 @@ onBeforeUnmount(() => (drag = null));
                 :x="x"
                 :y="y"
                 :zoom="zoom"
+                :dx="dx"
+                :dy="dy"
             />
             <span class="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
                 <Move class="size-3" /> Drag to reposition
@@ -110,7 +150,7 @@ onBeforeUnmount(() => (drag = null));
         </div>
         <div class="flex max-w-sm items-center gap-3">
             <label for="art-zoom" class="text-xs text-muted-foreground">Zoom</label>
-            <input id="art-zoom" v-model.number="zoom" type="range" min="100" max="300" step="5" class="h-1.5 flex-1 accent-primary" />
+            <input id="art-zoom" v-model.number="zoom" type="range" min="50" max="300" step="5" class="h-1.5 flex-1 accent-primary" />
             <span class="w-10 text-right text-xs tabular-nums text-muted-foreground">{{ (zoom / 100).toFixed(2).replace(/0$/, '') }}×</span>
             <Button type="button" variant="ghost" size="sm" class="h-7 gap-1 px-2 text-xs" @click="reset"><RotateCcw class="size-3" />Reset</Button>
         </div>

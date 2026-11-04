@@ -4,6 +4,7 @@ namespace App\Services\Campaign;
 
 use App\Events\CardImageGenerated;
 use App\Models\Campaign\CampaignCrew;
+use App\Services\Campaign\Concerns\CapturesCardImages;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Browsershot\Browsershot;
 
@@ -16,6 +17,9 @@ use Spatie\Browsershot\Browsershot;
  */
 class CombinedCrewCardImageGenerator
 {
+    // This class keeps its own capture() (it waits on a descendant selector); the trait supplies merge + thumbnail.
+    use CapturesCardImages;
+
     public function generate(CampaignCrew $crew): void
     {
         $dir = "campaign-crews/{$crew->id}";
@@ -33,9 +37,15 @@ class CombinedCrewCardImageGenerator
         $back = $this->capture($url, '#card-crew-back');
         Storage::disk('public')->put("{$dir}/crew-card-back.png", $back);
 
+        $disk = Storage::disk('public');
+        $this->mergeSideBySide($disk->path("{$dir}/crew-card.png"), $disk->path("{$dir}/crew-card-back.png"), $disk->path("{$dir}/crew-card-combination.png"));
+        $thumb = $this->makeThumbnail($disk->path("{$dir}/crew-card.png"), $disk->path("{$dir}/crew-card-thumb.webp"));
+
         $crew->update([
             'crew_card_front_image' => "{$dir}/crew-card.png",
             'crew_card_back_image' => "{$dir}/crew-card-back.png",
+            'crew_card_combination_image' => "{$dir}/crew-card-combination.png",
+            'crew_card_thumb_image' => $thumb ? "{$dir}/crew-card-thumb.webp" : null,
             'crew_card_generated_at' => now(),
         ]);
 

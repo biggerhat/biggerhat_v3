@@ -14,7 +14,7 @@ import { CARD_HOVER } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Check, Copy, Download, Loader2, Pencil, Plus, RefreshCw, Search, Share2, Trash2 } from 'lucide-vue-next';
+import { Check, CheckSquare, Copy, Download, Loader2, Pencil, Plus, RefreshCw, Search, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface CustomCharacter {
@@ -207,6 +207,82 @@ const isCampaignLinked = (character: CustomCharacter) =>
     (character.is_campaign_leader || character.is_campaign_totem) && character.campaign_still_live;
 const isCampaignLinkedCrewCard = (upgrade: CustomUpgrade) => upgrade.is_campaign_crew_card && upgrade.campaign_still_live;
 
+// ─── Bulk select: delete or re-render several cards at once. Runs the same per-card endpoints one after another. ───
+const selecting = ref(false);
+const selected = ref<string[]>([]); // 'c-<id>' for characters, 'u-<id>' for upgrades / crew cards
+const bulkBusy = ref(false);
+const isSelected = (key: string) => selected.value.includes(key);
+const toggleSelected = (key: string) => {
+    selected.value = isSelected(key) ? selected.value.filter((k) => k !== key) : [...selected.value, key];
+};
+const stopSelecting = () => {
+    selecting.value = false;
+    selected.value = [];
+};
+// Cards tied to a live campaign can't be deleted (the server refuses), so they are never offered for selection-delete.
+const visibleKeys = computed(() =>
+    activeTab.value === 'characters' ? filteredCharacters.value.map((c) => 'c-' + c.id) : upgradeTab.value.items.map((u) => 'u-' + u.id),
+);
+const selectAllVisible = () => {
+    selected.value = [...new Set([...selected.value, ...visibleKeys.value])];
+};
+const selectedDeletable = computed(() =>
+    selected.value.filter((key) => {
+        const id = Number(key.slice(2));
+        return key.startsWith('c-')
+            ? !props.characters.some((c) => c.id === id && isCampaignLinked(c))
+            : !props.upgrades.some((u) => u.id === id && isCampaignLinkedCrewCard(u));
+    }),
+);
+
+const bulkRun = async (keys: string[], request: (kind: 'c' | 'u', id: number) => Promise<Response>, doneLabel: string) => {
+    if (bulkBusy.value || keys.length === 0) return;
+    bulkBusy.value = true;
+    let ok = 0;
+    let stoppedBy: string | null = null;
+    for (const key of keys) {
+        const res = await request(key.startsWith('c-') ? 'c' : 'u', Number(key.slice(2))).catch(() => null);
+        if (res?.ok) {
+            ok++;
+            continue;
+        }
+        if (res?.status === 429) {
+            stoppedBy = 'You are going too fast — wait a minute and try the rest again.';
+            break;
+        }
+        const body = await res?.json().catch(() => null);
+        stoppedBy = body?.message ?? 'One of the cards could not be processed.';
+    }
+    bulkBusy.value = false;
+    if (ok > 0) toast.success(`${doneLabel} ${ok} card${ok === 1 ? '' : 's'}.`);
+    if (stoppedBy) toast.error(stoppedBy);
+    stopSelecting();
+    router.reload({ only: ['characters', 'upgrades'], preserveScroll: true });
+};
+const bulkDeleteOpen = ref(false);
+const bulkDelete = async () => {
+    bulkDeleteOpen.value = false;
+    await bulkRun(
+        selectedDeletable.value,
+        (kind, id) =>
+            fetch(kind === 'c' ? route('tools.card_creator.destroy', id) : route('tools.card_creator.upgrades.destroy', id), {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            }),
+        'Deleted',
+    );
+};
+const bulkRerender = () =>
+    bulkRun(
+        selected.value,
+        (kind, id) =>
+            fetch(kind === 'c' ? route('tools.card_creator.rerender', id) : route('tools.card_creator.upgrades.rerender', id), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            }),
+        'Re-rendering',
+    );
+
 const deleteDialogOpen = ref(false);
 const deleteTarget = ref<{ id: number; display_name: string; type: 'character' | 'upgrade' } | null>(null);
 const deleting = ref(false);
@@ -328,6 +404,32 @@ const stationLabel = (station: string | null) => {
                     Upgrades
                     <Badge v-if="characterUpgrades.length" variant="secondary" class="ml-1.5 text-2xs">{{ characterUpgrades.length }}</Badge>
                 </button>
+                <button
+                    v-if="characters.length + upgrades.length > 1"
+                    type="button"
+                    class="mb-2 ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                    :aria-pressed="selecting"
+                    @click="selecting ? stopSelecting() : (selecting = true)"
+                >
+                    <CheckSquare class="size-3.5" /> {{ selecting ? 'Done' : 'Select' }}
+                </button>
+            </div>
+
+            <div
+                v-if="selecting"
+                class="sticky bottom-[var(--tabbar-h,0px)] z-20 mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 px-3 py-2 text-sm shadow backdrop-blur"
+                role="region"
+                aria-label="Bulk actions"
+            >
+                <span class="font-medium" aria-live="polite">{{ selected.length }} selected</span>
+                <Button size="sm" variant="ghost" @click="selectAllVisible">Select all shown</Button>
+                <Button size="sm" variant="outline" :disabled="bulkBusy || !selected.length" @click="bulkRerender"
+                    ><RefreshCw class="mr-1 size-3.5" /> Re-render</Button
+                >
+                <Button size="sm" variant="destructive" :disabled="bulkBusy || !selectedDeletable.length" @click="bulkDeleteOpen = true"
+                    ><Trash2 class="mr-1 size-3.5" /> Delete{{ selectedDeletable.length ? ` ${selectedDeletable.length}` : '' }}</Button
+                >
+                <Button size="sm" variant="ghost" class="ml-auto" @click="stopSelecting">Cancel</Button>
             </div>
 
             <!-- ═══ Characters tab ═══ -->
@@ -370,6 +472,26 @@ const stationLabel = (station: string | null) => {
                                 class="absolute inset-0 z-0"
                                 :aria-label="`View ${character.display_name}`"
                             />
+                            <button
+                                v-if="selecting"
+                                type="button"
+                                class="absolute inset-0 z-10 flex items-start justify-start p-2 transition-colors"
+                                :class="
+                                    isSelected('c-' + character.id)
+                                        ? 'bg-primary/20 ring-2 ring-inset ring-primary'
+                                        : 'bg-background/30 hover:bg-background/10'
+                                "
+                                :aria-pressed="isSelected('c-' + character.id)"
+                                :aria-label="`Select ${character.display_name}`"
+                                @click="toggleSelected('c-' + character.id)"
+                            >
+                                <span
+                                    class="flex size-5 items-center justify-center rounded border bg-background"
+                                    :class="isSelected('c-' + character.id) ? 'border-primary bg-primary text-primary-foreground' : ''"
+                                >
+                                    <Check v-if="isSelected('c-' + character.id)" class="size-3.5" />
+                                </span>
+                            </button>
                             <img
                                 v-if="hasSavedImage(character)"
                                 :src="
@@ -510,6 +632,26 @@ const stationLabel = (station: string | null) => {
                                 class="absolute inset-0 z-0"
                                 :aria-label="`View ${card.display_name}`"
                             />
+                            <button
+                                v-if="selecting"
+                                type="button"
+                                class="absolute inset-0 z-10 flex items-start justify-start p-2 transition-colors"
+                                :class="
+                                    isSelected('u-' + card.id)
+                                        ? 'bg-primary/20 ring-2 ring-inset ring-primary'
+                                        : 'bg-background/30 hover:bg-background/10'
+                                "
+                                :aria-pressed="isSelected('u-' + card.id)"
+                                :aria-label="`Select ${card.display_name}`"
+                                @click="toggleSelected('u-' + card.id)"
+                            >
+                                <span
+                                    class="flex size-5 items-center justify-center rounded border bg-background"
+                                    :class="isSelected('u-' + card.id) ? 'border-primary bg-primary text-primary-foreground' : ''"
+                                >
+                                    <Check v-if="isSelected('u-' + card.id)" class="size-3.5" />
+                                </span>
+                            </button>
                             <img
                                 v-if="hasSavedUpgradeImage(card)"
                                 :src="'/storage/' + cacheBustedImagePath(card.thumb_image || card.front_image!, card.card_image_generated_at)"
@@ -620,6 +762,24 @@ const stationLabel = (station: string | null) => {
     </div>
 
     <!-- Delete confirmation -->
+    <Dialog v-model:open="bulkDeleteOpen">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Delete {{ selectedDeletable.length }} card{{ selectedDeletable.length === 1 ? '' : 's' }}?</DialogTitle>
+                <DialogDescription>
+                    This removes them and their saved images and share links.
+                    <template v-if="selectedDeletable.length < selected.length"
+                        >Cards tied to an active Campaign crew are skipped — they can't be deleted here.</template
+                    >
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+                <Button variant="outline" @click="bulkDeleteOpen = false">Cancel</Button>
+                <Button variant="destructive" @click="bulkDelete">Delete</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
     <Dialog v-model:open="deleteDialogOpen">
         <DialogContent class="max-w-sm">
             <DialogHeader>

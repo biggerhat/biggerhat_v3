@@ -107,13 +107,13 @@ class CustomCharacterController extends Controller
         return inertia('Tools/CardCreator/Editor', [
             'character' => null,
             'enums' => $this->enumOptions(),
-            'card_arts' => $this->cardArtOptions(),
+            'card_arts' => CardArt::pickerOptions(),
         ]);
     }
 
     public function store(CustomCharacterRequest $request): JsonResponse
     {
-        $validated = $this->normalizeArtFraming($request->validated());
+        $validated = CardArt::normalizeFraming($request->validated());
         $validated['user_id'] = Auth::id();
 
         $character = CustomCharacter::create($validated);
@@ -139,7 +139,7 @@ class CustomCharacterController extends Controller
         return inertia('Tools/CardCreator/Editor', [
             'character' => $customCharacter,
             'enums' => $this->enumOptions(),
-            'card_arts' => $this->cardArtOptions($customCharacter->card_art_id),
+            'card_arts' => CardArt::pickerOptions($customCharacter->card_art_id),
             'campaign_back_url' => $campaignBackUrl,
             'card_image_pending' => $customCharacter->cardImagePending(),
         ]);
@@ -147,7 +147,7 @@ class CustomCharacterController extends Controller
 
     public function update(CustomCharacterRequest $request, CustomCharacter $customCharacter): JsonResponse
     {
-        $validated = $this->normalizeArtFraming($request->validated());
+        $validated = CardArt::normalizeFraming($request->validated());
 
         // A campaign leader can be edited here for action/ability/tag detail,
         // but the generic editor must not break its campaign invariants — it
@@ -329,56 +329,6 @@ class CustomCharacterController extends Controller
                 'linkedTotems' => $character->linked_totems ?? [],
             ],
         ]);
-    }
-
-    /**
-     * The art library for the picker: every active piece, plus the one currently chosen even if it has since
-     * been retired (so an existing card never silently loses its art in the editor).
-     *
-     * @return list<array{id: int, name: string, image_path: string, faction: string|null, category: string|null}>
-     */
-    private function cardArtOptions(?int $currentId = null): array
-    {
-        return CardArt::query()
-            ->where(fn ($q) => $q->where('is_active', true)->when($currentId, fn ($qq) => $qq->orWhere('id', $currentId)))
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'name', 'image_path', 'faction', 'category'])
-            ->map(fn (CardArt $a) => [
-                'id' => $a->id,
-                'name' => $a->name,
-                'image_path' => $a->image_path,
-                'faction' => $a->faction?->value,
-                'category' => $a->category,
-            ])
-            ->all();
-    }
-
-    /**
-     * The framing columns are NOT NULL with defaults, so a null (or clearing the art) maps back to the default
-     * framing; keys the client didn't send are left alone.
-     *
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
-    private function normalizeArtFraming(array $validated): array
-    {
-        foreach (['card_art_x' => 50, 'card_art_y' => 50, 'card_art_zoom' => 100, 'card_art_dx' => 0, 'card_art_dy' => 0] as $key => $default) {
-            if (array_key_exists($key, $validated)) {
-                $validated[$key] ??= $default;
-            }
-        }
-
-        // No art, no framing to keep.
-        if (array_key_exists('card_art_id', $validated) && $validated['card_art_id'] === null) {
-            $validated['card_art_x'] = 50;
-            $validated['card_art_y'] = 50;
-            $validated['card_art_zoom'] = 100;
-            $validated['card_art_dx'] = 0;
-            $validated['card_art_dy'] = 0;
-        }
-
-        return $validated;
     }
 
     private function enumOptions(): array

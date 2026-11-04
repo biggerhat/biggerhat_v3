@@ -13,6 +13,7 @@ use App\Http\Requests\Campaign\StoreLeaderRequest;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
+use App\Models\CardArt;
 use App\Models\Characteristic;
 use App\Models\CustomCharacter;
 use App\Models\Keyword;
@@ -51,7 +52,14 @@ class LeaderBuilderController extends Controller
                 'actions' => $existingLeader->actions ?? [],
                 'abilities' => $existingLeader->abilities ?? [],
                 'keywords' => $existingLeader->keywords ?? [],
+                'card_art_id' => $existingLeader->card_art_id,
+                'card_art_x' => $existingLeader->card_art_x,
+                'card_art_y' => $existingLeader->card_art_y,
+                'card_art_zoom' => $existingLeader->card_art_zoom,
+                'card_art_dx' => $existingLeader->card_art_dx,
+                'card_art_dy' => $existingLeader->card_art_dy,
             ] : null,
+            'card_arts' => CardArt::pickerOptions($existingLeader?->card_art_id),
             'archetypes' => LeaderArchetypeEnum::dataset(),
             'archetype_enum' => LeaderArchetypeEnum::toSelectOptions(),
             'tag_enum' => LeaderTagEnum::toSelectOptions(),
@@ -99,7 +107,7 @@ class LeaderBuilderController extends Controller
     {
         $this->ensureCrewOwner($request, $campaign, $crew);
 
-        $data = $request->validated();
+        $data = CardArt::normalizeFraming($request->validated());
         $archetype = LeaderArchetypeEnum::from($data['archetype']);
 
         // Tag actions with their attack/tactical category in the JSON payload
@@ -130,6 +138,15 @@ class LeaderBuilderController extends Controller
         }, $data['actions'] ?? []);
 
         DB::transaction(function () use ($crew, $archetype, $data, $actions, $request) {
+            // Saving the builder creates a fresh leader row, so a request that doesn't mention the art (an older page)
+            // must carry the previous leader's art + framing over rather than silently dropping it.
+            $artKeys = ['card_art_id', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx', 'card_art_dy'];
+            if (! array_key_exists('card_art_id', $data)) {
+                $previous = CustomCharacter::query()
+                    ->where('campaign_crew_id', $crew->id)->where('is_campaign_leader', true)->where('current', true)->first();
+                $data = array_merge($data, $previous ? $previous->only($artKeys) : []);
+            }
+
             // Demote any prior current leader to history.
             CustomCharacter::query()
                 ->where('campaign_crew_id', $crew->id)
@@ -179,6 +196,8 @@ class LeaderBuilderController extends Controller
                     ['id' => $data['keyword_2_id'], 'name' => Keyword::findOrFail($data['keyword_2_id'])->name],
                 ],
                 'characteristics' => $data['characteristics'] ?? [],
+                // Library art + framing chosen in the builder; omitted fields fall back to the column defaults.
+                ...array_intersect_key($data, array_flip($artKeys)),
             ]);
 
             // Lucky Upstart's free starter equipment (excluded from CR, pg 17).

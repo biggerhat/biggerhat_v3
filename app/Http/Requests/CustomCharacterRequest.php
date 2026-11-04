@@ -10,6 +10,7 @@ use App\Enums\CharacterStationEnum;
 use App\Enums\DefensiveAbilityTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
+use App\Models\CardArt;
 use App\Models\CustomCharacter;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -49,7 +50,7 @@ class CustomCharacterRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge(CardArt::validationRules($this->route('customCharacter')?->card_art_id), [
             // The card only has room for ~32 characters of display name; 60 leaves headroom without letting a
             // 255-character name through to break the layout on the share page and the rendered image.
             'name' => ['required', 'string', 'max:60'],
@@ -70,13 +71,6 @@ class CustomCharacterRequest extends FormRequest
             'summon_target_number' => ['nullable', 'integer', 'min:1', 'max:20'],
             'generates_stone' => ['boolean'],
             'is_unhirable' => ['boolean'],
-            // Only active library art can be picked; null clears it.
-            // A character keeps art that was retired after it was picked, so the current value is also allowed.
-            'card_art_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('card_arts', 'id')->where(fn ($q) => $q->where('is_active', true)->orWhere('id', $this->route('customCharacter')?->card_art_id)),
-            ],
             'actions' => ['nullable', 'array', 'max:20'],
             'actions.*.name' => ['required', 'string', 'max:255'],
             'actions.*.type' => ['required', 'string', Rule::enum(ActionTypeEnum::class)],
@@ -136,12 +130,6 @@ class CustomCharacterRequest extends FormRequest
             // post-creation rather than locked with the other campaign
             // invariants CustomCharacterController::update() protects.
             'tag' => ['nullable', 'string', Rule::enum(LeaderTagEnum::class)],
-            // Framing of the chosen art inside the card's art window (focus point in %, zoom in %).
-            'card_art_x' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'card_art_y' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'card_art_zoom' => ['nullable', 'integer', 'min:50', 'max:300'],
-            'card_art_dx' => ['nullable', 'integer', 'min:-100', 'max:100'],
-            'card_art_dy' => ['nullable', 'integer', 'min:-100', 'max:100'],
-        ];
+        ]);
     }
 }

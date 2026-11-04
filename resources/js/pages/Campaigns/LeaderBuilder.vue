@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AbilityLookupModal from '@/components/Campaign/AbilityLookupModal.vue';
 import ActionLookupModal from '@/components/Campaign/ActionLookupModal.vue';
+import CardArtField, { type CardArtOption } from '@/components/CardCreator/CardArtField.vue';
 import InputError from '@/components/InputError.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -116,6 +117,12 @@ interface LeaderData {
     actions: ActionData[];
     abilities: AbilityData[];
     keywords: Array<{ id: number; name: string }>;
+    card_art_id: number | null;
+    card_art_x: number;
+    card_art_y: number;
+    card_art_zoom: number;
+    card_art_dx: number;
+    card_art_dy: number;
 }
 
 const props = defineProps<{
@@ -123,6 +130,7 @@ const props = defineProps<{
     crew: CrewData;
     campaign_started: boolean;
     leader: LeaderData | null;
+    card_arts: CardArtOption[];
     archetypes: ArchetypeRow[];
     archetype_enum: SelectOpt[];
     tag_enum: SelectOpt[];
@@ -147,6 +155,13 @@ const form = ref({
     actions: props.leader?.actions ?? ([] as ActionData[]),
     abilities: props.leader?.abilities ?? ([] as AbilityData[]),
     lucky_upstart_equipment_id: props.lucky_upstart_equipment_id ?? null,
+    // Library art for the leader's card (optional) and how it is framed in the art window.
+    card_art_id: props.leader?.card_art_id ?? (null as number | null),
+    card_art_x: props.leader?.card_art_x ?? 50,
+    card_art_y: props.leader?.card_art_y ?? 50,
+    card_art_zoom: props.leader?.card_art_zoom ?? 100,
+    card_art_dx: props.leader?.card_art_dx ?? 0,
+    card_art_dy: props.leader?.card_art_dy ?? 0,
 });
 
 const archetype = computed(() => props.archetypes.find((a) => a.slug === form.value.archetype) ?? null);
@@ -422,6 +437,19 @@ const submit = async () => {
                         </SelectContent>
                     </Select>
                     <InputError :message="usePage().props.errors.base" />
+                </div>
+                <div class="md:col-span-2">
+                    <CardArtField
+                        v-model:art-id="form.card_art_id"
+                        v-model:x="form.card_art_x"
+                        v-model:y="form.card_art_y"
+                        v-model:zoom="form.card_art_zoom"
+                        v-model:dx="form.card_art_dx"
+                        v-model:dy="form.card_art_dy"
+                        :card-arts="card_arts"
+                        :faction="form.faction"
+                    />
+                    <InputError :message="usePage().props.errors.card_art_id" />
                 </div>
             </CardContent>
         </Card>

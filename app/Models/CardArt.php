@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\Rule;
 
 /**
  * One piece of admin-curated character art that Custom Card Creator characters can pick.
@@ -54,5 +55,71 @@ class CardArt extends Model
     public function customCharacters(): HasMany
     {
         return $this->hasMany(CustomCharacter::class, 'card_art_id');
+    }
+
+    /**
+     * Active library art for a picker, plus the art a card already has even if it has since been retired.
+     *
+     * @return array<int, array{id: int, name: string, image_path: string, faction: string|null, category: string|null}>
+     */
+    public static function pickerOptions(?int $currentId = null): array
+    {
+        return static::query()
+            ->where(fn ($q) => $q->where('is_active', true)->when($currentId, fn ($qq) => $qq->orWhere('id', $currentId)))
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'image_path', 'faction', 'category'])
+            ->map(fn (CardArt $a) => [
+                'id' => $a->id,
+                'name' => $a->name,
+                'image_path' => $a->image_path,
+                'faction' => $a->faction?->value,
+                'category' => $a->category,
+            ])
+            ->all();
+    }
+
+    /**
+     * Validation for the art + framing fields every card form shares. Only active art can be newly picked; null clears
+     * it; the art a card already has stays valid after it is retired.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    public static function validationRules(?int $currentId = null): array
+    {
+        return [
+            'card_art_id' => ['nullable', 'integer', Rule::exists('card_arts', 'id')->where(fn ($q) => $q->where('is_active', true)->orWhere('id', $currentId))],
+            // Framing of the chosen art inside the card's art window (focus point in %, zoom in %, free offsets in %).
+            'card_art_x' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'card_art_y' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'card_art_zoom' => ['nullable', 'integer', 'min:50', 'max:300'],
+            'card_art_dx' => ['nullable', 'integer', 'min:-100', 'max:100'],
+            'card_art_dy' => ['nullable', 'integer', 'min:-100', 'max:100'],
+        ];
+    }
+
+    /**
+     * The framing columns are NOT NULL with defaults, so a null (or clearing the art) maps back to the default
+     * framing; keys the client didn't send are left alone.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    public static function normalizeFraming(array $validated): array
+    {
+        $defaults = ['card_art_x' => 50, 'card_art_y' => 50, 'card_art_zoom' => 100, 'card_art_dx' => 0, 'card_art_dy' => 0];
+
+        foreach ($defaults as $key => $default) {
+            if (array_key_exists($key, $validated)) {
+                $validated[$key] ??= $default;
+            }
+        }
+
+        // No art, no framing to keep.
+        if (array_key_exists('card_art_id', $validated) && $validated['card_art_id'] === null) {
+            $validated = array_merge($validated, $defaults);
+        }
+
+        return $validated;
     }
 }

@@ -10,6 +10,7 @@ use App\Enums\FactionEnum;
 use App\Enums\GameModeTypeEnum;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignCrew;
+use App\Models\CardArt;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Upgrade;
@@ -39,7 +40,7 @@ class StoreLeaderRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return array_merge($this->artRules(), [
             'name' => ['required', 'string', 'max:255'],
             'archetype' => ['required', 'string', Rule::enum(LeaderArchetypeEnum::class)],
             'faction' => ['required', 'string', Rule::enum(FactionEnum::class)],
@@ -97,7 +98,18 @@ class StoreLeaderRequest extends FormRequest
             'abilities.*.description' => ['nullable', 'string'],
             'abilities.*.source_id' => ['nullable', 'integer', 'exists:abilities,id'],
             'abilities.*.source_character_id' => ['nullable', 'integer', 'exists:characters,id'],
-        ];
+        ]);
+    }
+
+    /** Art + framing, keeping art the current leader already has even if it was retired since. @return array<string, array<int, mixed>> */
+    private function artRules(): array
+    {
+        $crew = $this->route('crew');
+        $current = $crew instanceof CampaignCrew
+            ? CustomCharacter::query()->where('campaign_crew_id', $crew->id)->where('is_campaign_leader', true)->where('current', true)->value('card_art_id')
+            : null;
+
+        return CardArt::validationRules($current);
     }
 
     public function withValidator(Validator $validator): void

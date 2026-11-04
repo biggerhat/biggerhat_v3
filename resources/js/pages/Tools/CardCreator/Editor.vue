@@ -3,7 +3,7 @@ import AbilitiesPanel from '@/components/CardCreator/AbilitiesPanel.vue';
 import ActionsPanel from '@/components/CardCreator/ActionsPanel.vue';
 import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
-import ArtPositioner from '@/components/CardCreator/ArtPositioner.vue';
+import CardArtField from '@/components/CardCreator/CardArtField.vue';
 import type { AbilityData, ActionData, EnumOption } from '@/components/CardCreator/types';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
@@ -11,7 +11,6 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
@@ -26,7 +25,7 @@ import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Eye, RefreshCw, Save, Share2, X } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Copy, Download, FileText, Loader2, Eye, RefreshCw, Save, Share2, X } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 
 interface KeywordData {
@@ -326,32 +325,6 @@ const artFocus = computed(() =>
         : { x: form.card_art_x, y: form.card_art_y, zoom: form.card_art_zoom, dx: form.card_art_dx, dy: form.card_art_dy },
 );
 const characterImageSrc = computed(() => characterImagePreview.value ?? selectedArt.value?.image_path ?? null);
-
-const artPickerOpen = ref(false);
-const artSearch = ref('');
-const artCategory = ref<string | null>(null);
-const artFactionOnly = ref(true);
-const artCategories = computed(() => [...new Set(props.card_arts.map((a) => a.category).filter((c): c is string => !!c))].sort());
-const visibleArts = computed(() => {
-    const q = artSearch.value.trim().toLowerCase();
-    return props.card_arts.filter((a) => {
-        if (artFactionOnly.value && form.faction !== 'none' && a.faction && a.faction !== form.faction) return false;
-        if (artCategory.value && a.category !== artCategory.value) return false;
-        return !q || a.name.toLowerCase().includes(q);
-    });
-});
-const pickArt = (id: number | null) => {
-    // New art starts centred and unzoomed; re-picking the same piece keeps the framing the player set.
-    if (id !== form.card_art_id) {
-        form.card_art_x = 50;
-        form.card_art_y = 50;
-        form.card_art_zoom = 100;
-        form.card_art_dx = 0;
-        form.card_art_dy = 0;
-    }
-    form.card_art_id = id;
-    artPickerOpen.value = false;
-};
 
 // The live preview (CardRenderer.vue) sits in this page's 1/3-width column,
 // which routinely clamps its box below every tarotCardSize tier — there's no
@@ -757,43 +730,18 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             </div>
 
                             <!-- Character Art (library) -->
-                            <div class="border-t pt-3">
-                                <label class="mb-1.5 block text-xs text-muted-foreground">Character Art</label>
-                                <div
-                                    v-if="selectedArt"
-                                    class="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-xs"
-                                >
-                                    <span class="truncate font-medium">{{ selectedArt.name }}</span>
-                                    <span class="flex shrink-0 gap-1">
-                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="artPickerOpen = true"
-                                            >Change</Button
-                                        >
-                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="pickArt(null)"
-                                            >Remove</Button
-                                        >
-                                    </span>
-                                </div>
-                                <button
-                                    v-else
-                                    type="button"
-                                    class="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-left transition-colors hover:border-muted-foreground/50 hover:bg-muted/50"
-                                    @click="artPickerOpen = true"
-                                >
-                                    <ImagePlus class="size-5 shrink-0 text-muted-foreground" />
-                                    <span class="text-xs font-medium">Choose art from the library</span>
-                                    <span class="ml-auto text-xs text-muted-foreground">{{ card_arts.length }} available</span>
-                                </button>
-                                <ArtPositioner
-                                    v-if="selectedArt && !characterImagePreview"
-                                    v-model:x="form.card_art_x"
-                                    v-model:y="form.card_art_y"
-                                    v-model:zoom="form.card_art_zoom"
-                                    v-model:dx="form.card_art_dx"
-                                    v-model:dy="form.card_art_dy"
-                                    :src="selectedArt.image_path"
-                                    :alt="selectedArt.name"
-                                    class="mt-2"
-                                />
+                            <CardArtField
+                                v-model:art-id="form.card_art_id"
+                                v-model:x="form.card_art_x"
+                                v-model:y="form.card_art_y"
+                                v-model:zoom="form.card_art_zoom"
+                                v-model:dx="form.card_art_dx"
+                                v-model:dy="form.card_art_dy"
+                                :card-arts="card_arts"
+                                :faction="form.faction"
+                                :show-positioner="!characterImagePreview"
+                                class="border-t pt-3"
+                            >
                                 <details class="mt-2 text-xs text-muted-foreground">
                                     <summary class="cursor-pointer">Try your own image (preview only)</summary>
                                     <div class="mt-1.5 space-y-1.5">
@@ -818,7 +766,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                         </p>
                                     </div>
                                 </details>
-                            </div>
+                            </CardArtField>
                         </CardContent>
                     </Card>
 
@@ -1271,63 +1219,5 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </Button>
             </div>
         </div>
-
-        <Dialog :open="artPickerOpen" @update:open="(o: boolean) => (artPickerOpen = o)">
-            <DialogContent class="max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>Choose character art</DialogTitle>
-                    <DialogDescription>Art from the BiggerHat library. It's saved with the card and shows on the share link.</DialogDescription>
-                </DialogHeader>
-                <div class="flex flex-wrap items-center gap-2">
-                    <Input v-model="artSearch" placeholder="Search art…" class="h-8 max-w-[14rem]" aria-label="Search art" />
-                    <label v-if="form.faction !== 'none'" class="flex items-center gap-1.5 text-xs">
-                        <input v-model="artFactionOnly" type="checkbox" />
-                        Only this faction (and unrestricted art)
-                    </label>
-                </div>
-                <div v-if="artCategories.length" class="flex flex-wrap gap-1.5">
-                    <button
-                        type="button"
-                        class="rounded-full border px-2.5 py-0.5 text-xs"
-                        :class="artCategory === null ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'"
-                        @click="artCategory = null"
-                    >
-                        All
-                    </button>
-                    <button
-                        v-for="c in artCategories"
-                        :key="c"
-                        type="button"
-                        class="rounded-full border px-2.5 py-0.5 text-xs"
-                        :class="artCategory === c ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'"
-                        @click="artCategory = c"
-                    >
-                        {{ c }}
-                    </button>
-                </div>
-                <div class="max-h-[55vh] overflow-y-auto">
-                    <div v-if="card_arts.length === 0" class="py-10 text-center text-sm text-muted-foreground">
-                        The art library is empty for now — check back soon.
-                    </div>
-                    <div v-else-if="visibleArts.length === 0" class="py-10 text-center text-sm text-muted-foreground">
-                        No art matches. Try clearing the filters.
-                    </div>
-                    <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                        <button
-                            v-for="art in visibleArts"
-                            :key="art.id"
-                            type="button"
-                            class="group overflow-hidden rounded-md border text-left transition-colors hover:border-primary focus-visible:ring-2 focus-visible:ring-ring"
-                            :class="form.card_art_id === art.id ? 'border-primary ring-2 ring-primary' : ''"
-                            :aria-pressed="form.card_art_id === art.id"
-                            @click="pickArt(art.id)"
-                        >
-                            <img :src="'/storage/' + art.image_path" :alt="art.name" class="aspect-[4/3] w-full object-cover" loading="lazy" />
-                            <span class="block truncate px-2 py-1 text-xs">{{ art.name }}</span>
-                        </button>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
     </div>
 </template>

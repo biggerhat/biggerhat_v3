@@ -45,7 +45,10 @@ class LeaderCardImageGenerator
             Storage::disk('public')->path("{$dir}/combination.png"),
         );
 
+        $thumb = $this->makeThumbnail(Storage::disk('public')->path("{$dir}/front.png"), Storage::disk('public')->path("{$dir}/thumb.webp"));
+
         $character->update([
+            'thumb_image' => $thumb ? "{$dir}/thumb.webp" : null,
             'front_image' => "{$dir}/front.png",
             'back_image' => "{$dir}/back.png",
             'combination_image' => "{$dir}/combination.png",

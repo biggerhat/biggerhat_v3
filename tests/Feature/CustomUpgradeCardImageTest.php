@@ -144,3 +144,51 @@ it('only lets a limited number of renders run at once, releasing the rest', func
         // The slot is freed again once the job is done.
         ->and(Cache::lock('card-render-slot:0', 5)->get())->toBeTrue();
 });
+
+function cuiPng(): string
+{
+    $img = imagecreatetruecolor(1100, 1900);
+    ob_start();
+    imagepng($img);
+    imagedestroy($img);
+
+    return ob_get_clean();
+}
+
+it('saves a small WebP thumbnail beside a rendered front, and tolerates an unreadable render', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $upgrade = cuiUpgrade($user);
+
+    $generator = new class extends CustomUpgradeCardImageGenerator
+    {
+        protected function capture(string $url, string $selector): string
+        {
+            return cuiPng();
+        }
+
+        protected function mergeSideBySide(string $frontPath, string $backPath, string $outPath): void {}
+    };
+    $generator->generate($upgrade);
+
+    $upgrade->refresh();
+    expect($upgrade->thumb_image)->toBe("custom-upgrades/{$upgrade->id}/thumb.webp");
+    [$w, $h] = getimagesize(Storage::disk('public')->path($upgrade->thumb_image));
+    expect($w)->toBe(480)->and($h)->toBeBetween(829, 830);
+    expect(Storage::disk('public')->size($upgrade->thumb_image))->toBeLessThan(Storage::disk('public')->size("custom-upgrades/{$upgrade->id}/front.png"));
+});
+
+it('backfills thumbnails for existing saved images without re-rendering', function () {
+    Storage::fake('public');
+    Bus::fake();
+    $user = User::factory()->create();
+    $upgrade = cuiUpgrade($user);
+    Storage::disk('public')->put("custom-upgrades/{$upgrade->id}/front.png", cuiPng());
+    $upgrade->forceFill(['front_image' => "custom-upgrades/{$upgrade->id}/front.png"])->saveQuietly();
+
+    $this->artisan('app:backfill-card-thumbnails')->assertSuccessful();
+
+    expect($upgrade->fresh()->thumb_image)->toBe("custom-upgrades/{$upgrade->id}/thumb.webp");
+    Storage::disk('public')->assertExists("custom-upgrades/{$upgrade->id}/thumb.webp");
+    Bus::assertDispatchedTimes(GenerateCustomUpgradeCardImage::class, 1); // only the creation one
+});

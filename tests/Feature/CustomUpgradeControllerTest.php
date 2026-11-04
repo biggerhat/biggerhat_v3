@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Campaign\CampaignStatusEnum;
+use App\Models\Ability;
 use App\Models\Campaign\Campaign;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignCrew;
@@ -8,6 +9,7 @@ use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use App\Models\Token;
+use App\Models\Upgrade;
 use App\Models\User;
 
 function cuValidPayload(array $overrides = []): array
@@ -386,4 +388,38 @@ it('does not surface the requesting user\'s custom characters or crew upgrades b
         ->getJson(route('api.card-creator.characters', ['q' => 'Secret']))
         ->assertOk()
         ->assertJsonCount(0);
+});
+
+it('searches official standard upgrades by domain for the duplicate picker, never campaign ones', function () {
+    $user = User::factory()->create();
+    Upgrade::factory()->create(['name' => 'Wicked Blade', 'domain' => 'character', 'game_mode_type' => 'standard']);
+    Upgrade::factory()->create(['name' => 'Wicked Crew Thing', 'domain' => 'crew', 'game_mode_type' => 'standard']);
+    Upgrade::factory()->create(['name' => 'Wicked Campaign Gear', 'domain' => 'character', 'game_mode_type' => 'campaign']);
+
+    $this->actingAs($user)->getJson(route('api.card-creator.upgrades', ['q' => 'Wicked', 'domain' => 'character']))
+        ->assertOk()->assertJsonCount(1)->assertJsonPath('0.name', 'Wicked Blade');
+    $this->actingAs($user)->getJson(route('api.card-creator.upgrades', ['q' => 'Wicked', 'domain' => 'crew']))
+        ->assertOk()->assertJsonCount(1)->assertJsonPath('0.name', 'Wicked Crew Thing');
+    $this->actingAs($user)->getJson(route('api.card-creator.upgrades', ['q' => 'W']))->assertOk()->assertJsonCount(0);
+});
+
+it('returns an official upgrade as editor-ready content blocks, tokens and markers', function () {
+    $user = User::factory()->create();
+    $upgrade = Upgrade::factory()->create(['name' => 'Cursed Idol', 'domain' => 'crew', 'description' => 'Intro text. {{ability=}} Outro text.', 'game_mode_type' => 'standard']);
+    $upgrade->abilities()->attach(Ability::factory()->create(['name' => 'Haunted', 'description' => 'Spooky.'])->id);
+    $upgrade->tokens()->attach(Token::factory()->create(['name' => 'Curse'])->id);
+
+    $this->actingAs($user)->getJson(route('api.card-creator.upgrade-detail', $upgrade))
+        ->assertOk()
+        ->assertJsonPath('name', 'Cursed Idol')
+        ->assertJsonPath('content_blocks.0.type', 'text')
+        ->assertJsonPath('content_blocks.0.text', 'Intro text.')
+        ->assertJsonPath('content_blocks.1.type', 'ability')
+        ->assertJsonPath('content_blocks.1.data.name', 'Haunted')
+        ->assertJsonPath('content_blocks.2.text', 'Outro text.')
+        ->assertJsonCount(3, 'content_blocks')
+        ->assertJsonPath('back_tokens.0.name', 'Curse');
+
+    $campaign = Upgrade::factory()->create(['game_mode_type' => 'campaign']);
+    $this->actingAs($user)->getJson(route('api.card-creator.upgrade-detail', $campaign))->assertNotFound();
 });

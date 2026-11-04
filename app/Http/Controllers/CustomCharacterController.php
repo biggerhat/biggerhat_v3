@@ -45,7 +45,7 @@ class CustomCharacterController extends Controller
         $characters = CustomCharacter::where('user_id', Auth::id())
             ->select([
                 'id', 'name', 'title', 'display_name', 'slug', 'faction', 'second_faction', 'station', 'cost', 'health', 'share_code',
-                'updated_at', 'front_image', 'combination_image', 'card_image_generated_at', 'card_art_id', 'is_campaign_leader',
+                'updated_at', 'front_image', 'thumb_image', 'combination_image', 'card_image_generated_at', 'card_art_id', 'is_campaign_leader',
                 'is_campaign_totem', 'campaign_crew_id',
             ])
             ->with('cardArt:id,image_path')
@@ -62,7 +62,7 @@ class CustomCharacterController extends Controller
         $upgrades = CustomUpgrade::where('user_id', Auth::id())
             ->select([
                 'id', 'name', 'display_name', 'slug', 'domain', 'type', 'faction', 'master_name', 'share_code', 'updated_at',
-                'front_image', 'combination_image', 'card_image_generated_at', 'is_campaign_crew_card', 'campaign_crew_id',
+                'front_image', 'thumb_image', 'combination_image', 'card_image_generated_at', 'is_campaign_crew_card', 'campaign_crew_id',
             ])
             ->orderBy('updated_at', 'desc')
             ->get();

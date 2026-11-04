@@ -5,6 +5,7 @@ import UpgradeBackFace from '@/components/CardCreator/UpgradeBackFace.vue';
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
 import UpgradeFrontFace from '@/components/CardCreator/UpgradeFrontFace.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
+import SuggestInput from '@/components/CardCreator/SuggestInput.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,12 +18,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useLatestFetch } from '@/composables/useLatestFetch';
 import { useToast } from '@/composables/useToast';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Download, FileText, Eye, Loader2, Plus, RefreshCw, Save, Share2, Trash2 } from 'lucide-vue-next';
+import { ArrowLeft, ChevronDown, Copy, Download, FileText, Eye, Loader2, Plus, RefreshCw, Save, Share2, Trash2 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 
 interface EnumOption {
@@ -156,7 +158,7 @@ const contentBlocks = reactive<ContentBlock[]>(props.upgrade?.content_blocks ?? 
 const backTokens = reactive<TokenData[]>(props.upgrade?.back_tokens ?? []);
 const backMarkers = reactive<MarkerData[]>(props.upgrade?.back_markers ?? []);
 
-const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+const { hasDraft, dirty, restoreDraft, discardDraft, markSaved } = useEditorDraft({
     key: `bh_draft_upgrade_${props.domain}`,
     keepDraft: !props.upgrade,
     snapshot: () => ({
@@ -287,6 +289,51 @@ const removeToken = (index: number) => backTokens.splice(index, 1);
 const addMarker = () => backMarkers.push({ name: '', description: null });
 const removeMarker = (index: number) => backMarkers.splice(index, 1);
 
+const fetchLatest = useLatestFetch();
+
+// Duplicate from an official upgrade
+const cloneSearchQuery = ref('');
+const cloneSearchResults = ref<{ id: number; name: string }[]>([]);
+const cloneLoading = ref(false);
+let cloneDebounce: ReturnType<typeof setTimeout>;
+
+const searchCloneUpgrade = (q: string) => {
+    clearTimeout(cloneDebounce);
+    if (q.length < 2) {
+        cloneSearchResults.value = [];
+        return;
+    }
+    cloneDebounce = setTimeout(async () => {
+        const data = await fetchLatest<{ id: number; name: string }[]>(
+            'clone',
+            route('api.card-creator.upgrades') + '?domain=' + props.domain + '&q=' + encodeURIComponent(q),
+        );
+        if (data) cloneSearchResults.value = data;
+    }, 300);
+};
+
+const cloneFromUpgrade = async (id: number) => {
+    cloneLoading.value = true;
+    cloneSearchResults.value = [];
+    cloneSearchQuery.value = '';
+    const data = await fetchLatest<any>('clone-detail', route('api.card-creator.upgrade-detail', id));
+    cloneLoading.value = false;
+    if (!data) {
+        toast.error('Could not load that upgrade', { description: 'Try again in a moment.' });
+        return;
+    }
+    form.name = data.name ?? '';
+    form.type = data.type ?? '';
+    form.faction = data.faction ?? 'none';
+    form.limitations = data.limitations ?? '';
+    form.plentiful = data.plentiful ?? null;
+    form.master_name = data.master_name ?? '';
+    form.keyword_name = data.keyword_name ?? '';
+    contentBlocks.splice(0, contentBlocks.length, ...(data.content_blocks ?? []));
+    backTokens.splice(0, backTokens.length, ...(isCrew.value ? (data.back_tokens ?? []) : []));
+    backMarkers.splice(0, backMarkers.length, ...(isCrew.value ? (data.back_markers ?? []) : []));
+};
+
 // Token/Marker search
 const tokenSearchResults = ref<any[]>([]);
 const markerSearchResults = ref<any[]>([]);
@@ -300,8 +347,7 @@ const searchTokens = (q: string) => {
         return;
     }
     tokenSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.tokens') + '?q=' + encodeURIComponent(q));
-        tokenSearchResults.value = await res.json();
+        tokenSearchResults.value = (await fetchLatest<any[]>('tokens', route('api.card-creator.tokens') + '?q=' + encodeURIComponent(q))) ?? [];
     }, 300);
 };
 
@@ -317,8 +363,7 @@ const searchMarkers = (q: string) => {
         return;
     }
     markerSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.markers') + '?q=' + encodeURIComponent(q));
-        markerSearchResults.value = await res.json();
+        markerSearchResults.value = (await fetchLatest<any[]>('markers', route('api.card-creator.markers') + '?q=' + encodeURIComponent(q))) ?? [];
     }, 300);
 };
 
@@ -345,8 +390,7 @@ const searchOfficial = (type: 'action' | 'ability' | 'trigger', q: string) => {
             ability: 'api.card-creator.abilities',
             trigger: 'api.card-creator.triggers',
         };
-        const res = await fetch(route(endpoints[type]) + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
+        searchResults.value = (await fetchLatest<any[]>('official', route(endpoints[type]) + '?q=' + encodeURIComponent(q))) ?? [];
     }, 300);
 };
 
@@ -524,6 +568,43 @@ const blockTypeColor = (type: string, idx: number) => {
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Form column -->
                 <div class="space-y-4 lg:col-span-2">
+                    <!-- Duplicate from an official upgrade -->
+                    <div v-if="!isEdit" class="relative rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
+                        <div class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                            <Copy class="size-3.5" />
+                            Duplicate from an official {{ isCrew ? 'crew upgrade' : 'upgrade' }}
+                        </div>
+                        <div class="relative">
+                            <Input
+                                v-model="cloneSearchQuery"
+                                :placeholder="
+                                    cloneLoading
+                                        ? 'Loading upgrade data...'
+                                        : `Search for ${isCrew ? 'a crew upgrade' : 'an upgrade'} to duplicate...`
+                                "
+                                :disabled="cloneLoading"
+                                class="h-8 text-xs"
+                                @input="searchCloneUpgrade(cloneSearchQuery)"
+                            />
+                            <div
+                                v-if="cloneSearchResults.length"
+                                class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
+                            >
+                                <button
+                                    v-for="r in cloneSearchResults"
+                                    :key="r.id"
+                                    class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                    @click="cloneFromUpgrade(r.id)"
+                                >
+                                    {{ r.name }}
+                                </button>
+                            </div>
+                        </div>
+                        <p class="mt-1 text-2xs text-muted-foreground">
+                            Fills in the text, abilities and actions from an official card. You can edit everything after.
+                        </p>
+                    </div>
+
                     <!-- Identity -->
                     <Card>
                         <CardContent class="space-y-4 p-4">
@@ -600,7 +681,19 @@ const blockTypeColor = (type: string, idx: number) => {
                             <!-- Crew-specific fields -->
                             <div v-if="isCrew">
                                 <label class="mb-1 block text-xs text-muted-foreground">Master Name</label>
-                                <Input v-model="form.master_name" placeholder="e.g. Maxine Agassiz, The Renowned" />
+                                <SuggestInput
+                                    v-model="form.master_name"
+                                    :endpoint="route('api.card-creator.characters')"
+                                    placeholder="e.g. Maxine Agassiz, The Renowned"
+                                />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs text-muted-foreground">Keyword (optional)</label>
+                                <SuggestInput
+                                    v-model="form.keyword_name"
+                                    :endpoint="route('api.card-creator.keywords')"
+                                    placeholder="e.g. Witchling"
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -1206,6 +1299,12 @@ const blockTypeColor = (type: string, idx: number) => {
         >
             <div class="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
                 <div class="min-w-0 text-xs" aria-live="polite">
+                    <div
+                        v-if="dirty && !Object.keys(errors).length"
+                        class="mb-0.5 flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400"
+                    >
+                        <span class="size-1.5 rounded-full bg-current" aria-hidden="true" /> Unsaved changes
+                    </div>
                     <div v-if="Object.keys(errors).length" class="text-destructive">Please fix validation errors above.</div>
                     <div v-else-if="!isEdit" class="text-muted-foreground">A card image is rendered after you create it.</div>
                     <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
@@ -1226,7 +1325,7 @@ const blockTypeColor = (type: string, idx: number) => {
                         </template>
                         <span v-else>No card image yet.</span>
                         <button
-                            v-if="!imagePending && !rerendering"
+                            v-if="!imagePending && !rerendering && !dirty"
                             type="button"
                             class="inline-flex items-center gap-1 underline-offset-2 hover:text-foreground hover:underline"
                             @click="rerender"

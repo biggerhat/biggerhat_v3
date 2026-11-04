@@ -59,6 +59,29 @@ trait CapturesCardImages
         imagedestroy($canvas);
     }
 
+    /**
+     * Small WebP of a rendered face for gallery tiles (a few KB instead of the 70-200 KB full render). Returns false —
+     * and leaves the tiles on the full image — when GD can't do WebP or the source can't be read.
+     */
+    public function makeThumbnail(string $sourcePath, string $outPath, int $width = 480): bool
+    {
+        if (! function_exists('imagewebp') || ! is_file($sourcePath) || ! ($src = @imagecreatefrompng($sourcePath))) {
+            return false;
+        }
+
+        $scaled = imagescale($src, $width, -1, IMG_BICUBIC);
+        imagedestroy($src);
+        if (! $scaled) {
+            return false;
+        }
+
+        imagesavealpha($scaled, true);
+        $ok = imagewebp($scaled, $outPath, 80);
+        imagedestroy($scaled);
+
+        return $ok;
+    }
+
     /** Tells the owner's open pages the render is done; a socket outage must not fail a finished render. */
     protected function announce(string $kind, int $id, ?int $userId, ?CarbonInterface $generatedAt): void
     {

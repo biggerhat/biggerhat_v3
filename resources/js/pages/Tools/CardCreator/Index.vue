@@ -32,6 +32,7 @@ interface CustomCharacter {
     updated_at: string;
     // Saved card images (rendered server-side shortly after each save) and the art fallback while one is pending.
     front_image?: string | null;
+    thumb_image?: string | null;
     combination_image?: string | null;
     card_image_generated_at?: string | null;
     card_art_path?: string | null;
@@ -58,6 +59,7 @@ interface CustomUpgrade {
     share_code: string;
     updated_at: string;
     front_image?: string | null;
+    thumb_image?: string | null;
     combination_image?: string | null;
     card_image_generated_at?: string | null;
     card_image_pending?: boolean;
@@ -370,7 +372,7 @@ const stationLabel = (station: string | null) => {
                             />
                             <img
                                 v-if="hasSavedImage(character)"
-                                :src="'/storage/' + cacheBustedImagePath(character.front_image!, character.card_image_generated_at)"
+                                :src="'/storage/' + cacheBustedImagePath(character.thumb_image || character.front_image!, character.card_image_generated_at)"
                                 :alt="character.display_name"
                                 class="h-full w-full object-contain"
                                 loading="lazy"
@@ -507,7 +509,7 @@ const stationLabel = (station: string | null) => {
                             />
                             <img
                                 v-if="hasSavedUpgradeImage(card)"
-                                :src="'/storage/' + cacheBustedImagePath(card.front_image!, card.card_image_generated_at)"
+                                :src="'/storage/' + cacheBustedImagePath(card.thumb_image || card.front_image!, card.card_image_generated_at)"
                                 :alt="card.display_name"
                                 class="h-full w-full object-contain"
                                 loading="lazy"

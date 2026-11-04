@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\API;
 
 use App\Enums\ActionTypeEnum;
+use App\Enums\GameModeTypeEnum;
+use App\Enums\UpgradeDomainTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Ability;
 use App\Models\Action;
@@ -277,38 +279,8 @@ class CardCreatorSearchController extends Controller
             'is_unhirable' => (bool) $character->is_unhirable,
             'keywords' => $character->keywords->map(fn ($k) => ['id' => $k->id, 'name' => $k->name])->values(),
             'characteristics' => $character->characteristics->pluck('name')->values(),
-            'abilities' => $character->abilities->map(fn ($a) => [
-                'name' => $a->name,
-                'suits' => $a->suits,
-                'defensive_ability_type' => $a->defensive_ability_type,
-                'costs_stone' => (bool) $a->costs_stone,
-                'description' => $a->description,
-                'source_id' => $a->id,
-            ])->values(),
-            'actions' => $character->actions->map(fn ($a) => [
-                'name' => $a->name,
-                'type' => $a->type,
-                'is_signature' => (bool) $a->pivot->is_signature_action, // @phpstan-ignore-line property.notFound (pivot from MorphToMany)
-                'stone_cost' => $a->stone_cost ?? 0,
-                'range' => $a->range,
-                'range_type' => $a->range_type,
-                'stat' => $a->stat,
-                'stat_suits' => $a->stat_suits,
-                'stat_modifier' => $a->stat_modifier,
-                'resisted_by' => $a->resisted_by,
-                'target_number' => $a->target_number,
-                'target_suits' => $a->target_suits,
-                'damage' => $a->damage,
-                'description' => $a->description,
-                'source_id' => $a->id,
-                'triggers' => $a->triggers->map(fn ($t) => [
-                    'name' => $t->name,
-                    'suits' => $t->suits,
-                    'stone_cost' => $t->stone_cost ?? 0,
-                    'description' => $t->description,
-                    'source_id' => $t->id,
-                ])->values()->toArray(),
-            ])->values(),
+            'abilities' => $character->abilities->map(fn (Ability $a) => $this->abilityPayload($a))->values(),
+            'actions' => $character->actions->map(fn (Action $a) => $this->actionPayload($a))->values(),
             'linked_crew_upgrades' => $character->crewUpgrades->map(fn ($u) => [
                 'source_type' => 'official',
                 'id' => $u->id,
@@ -320,5 +292,121 @@ class CardCreatorSearchController extends Controller
                 'name' => $character->totem->display_name,
             ]] : [],
         ]);
+    }
+
+    /** Official standard upgrades by name, for the Duplicate-from-official picker in the upgrade editor. */
+    public function upgrades(Request $request): JsonResponse
+    {
+        $q = $request->get('q', '');
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $domain = $request->get('domain') === 'crew' ? UpgradeDomainTypeEnum::Crew : UpgradeDomainTypeEnum::Character;
+
+        return response()->json(
+            Upgrade::standard()
+                ->where('domain', $domain->value)
+                ->where('name', 'LIKE', "%{$q}%")
+                ->orderBy('name')
+                ->limit(15)
+                ->get(['id', 'name', 'type', 'faction'])
+                ->map(fn (Upgrade $u) => ['id' => $u->id, 'name' => $u->name, 'type' => $u->type?->value, 'faction' => $u->faction?->value])
+                ->values(),
+        );
+    }
+
+    public function upgradeDetail(Upgrade $upgrade): JsonResponse
+    {
+        abort_unless($upgrade->game_mode_type === GameModeTypeEnum::Standard, 404);
+
+        $upgrade->load(['abilities', 'actions.triggers', 'triggers', 'tokens', 'markers', 'keywords', 'masters']);
+
+        // Official descriptions mark where each attached ability / action / trigger sits with `{{ability=}}`-style
+        // placeholders. Walk the text and swap each one for the next attached item of that kind, so the copy keeps the
+        // card's real order; anything the text never placed goes at the end.
+        $queues = [
+            'ability' => $upgrade->abilities->map(fn (Ability $a) => ['type' => 'ability', 'data' => $this->abilityPayload($a)])->all(),
+            'action' => $upgrade->actions->map(fn (Action $a) => ['type' => 'action', 'data' => $this->actionPayload($a)])->all(),
+            'trigger' => $upgrade->triggers->map(fn (Trigger $t) => ['type' => 'trigger', 'data' => [
+                'name' => $t->name,
+                'suits' => $t->suits,
+                'stone_cost' => $t->stone_cost ?? 0,
+                'description' => $t->description,
+                'source_id' => $t->id,
+            ]])->all(),
+        ];
+
+        $blocks = collect();
+        $segments = preg_split('/(\{\{(?:ability|actioni?|trigger)=\}\})/', (string) $upgrade->description, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) ?: [];
+        foreach ($segments as $segment) {
+            if (preg_match('/^\{\{(ability|action|trigger)i?=\}\}$/', $segment, $m)) {
+                if ($queues[$m[1]]) {
+                    $blocks->push(array_shift($queues[$m[1]]));
+                }
+            } elseif (filled(trim($segment))) {
+                $blocks->push(['type' => 'text', 'text' => trim($segment)]);
+            }
+        }
+        foreach ($queues as $leftover) {
+            foreach ($leftover as $block) {
+                $blocks->push($block);
+            }
+        }
+
+        return response()->json([
+            'name' => $upgrade->name,
+            'type' => $upgrade->type?->value,
+            'faction' => $upgrade->faction?->value,
+            'limitations' => $upgrade->limitations?->value,
+            'plentiful' => $upgrade->plentiful,
+            'master_name' => $upgrade->masters->first()?->display_name,
+            'keyword_name' => $upgrade->keywords->first()?->name,
+            'content_blocks' => $blocks->values(),
+            'back_tokens' => $upgrade->tokens->map(fn (Token $t) => ['name' => $t->name, 'description' => $t->description, 'source_id' => $t->id])->values(),
+            'back_markers' => $upgrade->markers->map(fn (Marker $m) => ['name' => $m->name, 'description' => $m->description, 'source_id' => $m->id])->values(),
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function abilityPayload(Ability $a): array
+    {
+        return [
+            'name' => $a->name,
+            'suits' => $a->suits,
+            'defensive_ability_type' => $a->defensive_ability_type,
+            'costs_stone' => (bool) $a->costs_stone,
+            'description' => $a->description,
+            'source_id' => $a->id,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function actionPayload(Action $a): array
+    {
+        return [
+            'name' => $a->name,
+            'type' => $a->type,
+            'is_signature' => (bool) $a->pivot->is_signature_action, // @phpstan-ignore-line property.notFound (pivot from MorphToMany)
+            'stone_cost' => $a->stone_cost ?? 0,
+            'range' => $a->range,
+            'range_type' => $a->range_type,
+            'stat' => $a->stat,
+            'stat_suits' => $a->stat_suits,
+            'stat_modifier' => $a->stat_modifier,
+            'resisted_by' => $a->resisted_by,
+            'target_number' => $a->target_number,
+            'target_suits' => $a->target_suits,
+            'damage' => $a->damage,
+            'description' => $a->description,
+            'source_id' => $a->id,
+            'triggers' => $a->triggers->map(fn ($t) => [
+                'name' => $t->name,
+                'suits' => $t->suits,
+                'stone_cost' => $t->stone_cost ?? 0,
+                'description' => $t->description,
+                'source_id' => $t->id,
+            ])->values()->toArray(),
+        ];
     }
 }

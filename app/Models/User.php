@@ -38,6 +38,7 @@ class User extends Authenticatable
         // The database cascades the user's custom cards away without firing model events, so their saved card image
         // folders have to be cleared here, while the ids can still be looked up.
         static::deleting(function (User $user) {
+            $user->deviceTokens()->delete();
             $disk = Storage::disk('public');
             CustomCharacter::withTrashed()->where('user_id', $user->id)->pluck('id')->each(fn ($id) => $disk->deleteDirectory("custom-characters/{$id}"));
             CustomUpgrade::withTrashed()->where('user_id', $user->id)->pluck('id')->each(fn ($id) => $disk->deleteDirectory("custom-upgrades/{$id}"));
@@ -160,6 +161,12 @@ class User extends Authenticatable
         return $this->belongsToMany(Asset::class, 'user_tos_assets')
             ->withPivot('quantity', 'is_built', 'is_painted')
             ->withTimestamps();
+    }
+
+    /** @return HasMany<DeviceToken, $this> */
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(DeviceToken::class);
     }
 
     /**

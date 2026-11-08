@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useNative } from '@/composables/useNative';
 import EmptyState from '@/components/EmptyState.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -30,6 +31,8 @@ import {
     Users,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+
+const { isNative } = useNative();
 
 interface RecentGame {
     uuid: string;
@@ -488,7 +491,7 @@ const visibleBadges = computed(() => (showAllBadges.value ? props.achievements?.
             </Card>
         </section>
 
-        <Card v-if="!props.is_supporter">
+        <Card v-if="!props.is_supporter && !isNative">
             <CardContent class="flex flex-col items-center justify-between gap-3 p-4 sm:flex-row">
                 <div class="flex items-center gap-3">
                     <Gift class="size-6 shrink-0 text-muted-foreground" />

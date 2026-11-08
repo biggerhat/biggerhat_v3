@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useNative } from '@/composables/useNative';
 import DefaultSeo from '@/components/DefaultSeo.vue';
 import AppLayout from '@/layouts/app/AppSidebarLayout.vue';
 import type { BreadcrumbItemType } from '@/types';
 import { Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
+
+const { isNative } = useNative();
 
 interface Props {
     breadcrumbs?: BreadcrumbItemType[];
@@ -28,7 +31,9 @@ withDefaults(defineProps<Props>(), {
                     <a href="https://discord.gg/veGzyuTvGW" target="_blank" class="inline-flex items-center gap-1 hover:underline">
                         Join Our Discord
                     </a>
-                    <a href="https://ko-fi.com/biggerhat" target="_blank" class="inline-flex items-center gap-1 hover:underline"> Donate on Ko-fi </a>
+                    <a v-if="!isNative" href="https://ko-fi.com/biggerhat" target="_blank" class="inline-flex items-center gap-1 hover:underline">
+                        Donate on Ko-fi
+                    </a>
                     <Link :href="route('supporters.index')" class="inline-flex items-center gap-1 hover:underline">Our Supporters</Link>
                     <Link :href="route('feedback.show')" class="inline-flex items-center gap-1 hover:underline">Feedback</Link>
                     <Link :href="route('privacy')" class="inline-flex items-center gap-1 hover:underline">Privacy</Link>

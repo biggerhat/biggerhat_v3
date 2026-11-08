@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openExternal } from '@/lib/native';
 import AddToWishlist from '@/components/AddToWishlist.vue';
 import AdminEditLink from '@/components/AdminEditLink.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
@@ -91,7 +92,7 @@ const factionBadgeStyle = (faction: string) => {
 const downloadPdf = () => {
     const cards = [{ card_type: 'miniature', id: props.miniature.id }];
     const options = { separate_images: false };
-    window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }), '_blank');
+    openExternal(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }));
 };
 
 const copied = ref(false);

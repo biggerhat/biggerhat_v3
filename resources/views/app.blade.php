@@ -28,7 +28,7 @@
             gtag('config', 'G-257R6ZLK1S');
         </script>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
         {{-- Inline script to detect system dark-mode preference and apply it immediately.
              The `dark` fallback matches the server-side default in HandleAppearance — the

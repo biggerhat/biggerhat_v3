@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openExternal } from '@/lib/native';
 import BonanzaCardImage from '@/components/Bonanza/BonanzaCardImage.vue';
 import BonanzaSplitCard from '@/components/Bonanza/BonanzaSplitCard.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -87,7 +88,7 @@ const generatePDF = () => {
     // but a CDN/proxy in front of the app may not honor that for a PDF
     // response — a fresh query string guarantees this click isn't served an
     // old cached copy of the exact same URL.
-    window.open(route('tools.bonanza_loot_deck.print') + '?v=' + Date.now(), '_blank');
+    openExternal(route('tools.bonanza_loot_deck.print') + '?v=' + Date.now());
 };
 
 const suitFilter = ref<'all' | 'crow' | 'mask' | 'ram' | 'tome' | 'joker'>('all');

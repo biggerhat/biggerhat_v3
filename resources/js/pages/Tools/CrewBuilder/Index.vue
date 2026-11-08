@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openExternal } from '@/lib/native';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import CrewStatsBar from '@/components/CrewStatsBar.vue';
@@ -1969,7 +1970,7 @@ const parseAndImportCrew = () => {
 
 const openQuickRef = () => {
     if (currentShareCode.value) {
-        window.open(route('tools.crew_builder.quick_ref', currentShareCode.value), '_blank');
+        openExternal(route('tools.crew_builder.quick_ref', currentShareCode.value));
     }
 };
 
@@ -2024,7 +2025,7 @@ const printCrewPDF = () => {
     if (cards.length === 0) return;
 
     const options = { separate_images: false };
-    window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }), '_blank');
+    openExternal(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }));
 };
 
 const startNewBuild = () => {

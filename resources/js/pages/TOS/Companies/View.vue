@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openExternal } from '@/lib/native';
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import CardImage from '@/components/TOS/CardImage.vue';
@@ -483,7 +484,7 @@ async function copyShareLink() {
 }
 
 function downloadPdf() {
-    window.open(route('tos.companies.pdf', props.company.slug), '_blank');
+    openExternal(route('tos.companies.pdf', props.company.slug));
 }
 
 // ── Delete ───────────────────────────────────────────────────────────────

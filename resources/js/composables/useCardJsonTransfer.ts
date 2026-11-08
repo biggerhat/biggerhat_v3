@@ -1,4 +1,5 @@
 import { useToast } from '@/composables/useToast';
+import { saveBlob } from '@/lib/native';
 
 const MAX_BYTES = 300_000;
 
@@ -20,12 +21,7 @@ export function useCardJsonTransfer<T extends object>(options: {
     const exportJson = () => {
         const data = options.scrub ? options.scrub(options.snapshot()) : options.snapshot();
         const blob = new Blob([JSON.stringify({ app: 'biggerhat', kind: options.kind, version: 1, data }, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${options.filename().replace(/[^\w-]+/g, '_') || 'card'}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        saveBlob(blob, `${options.filename().replace(/[^\w-]+/g, '_') || 'card'}.json`);
     };
 
     const importFile = async (event: Event) => {

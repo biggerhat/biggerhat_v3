@@ -1,3 +1,5 @@
+import { saveBlob, saveUrl } from '@/lib/native';
+
 export const factionColorMap: Record<string, string> = {
     arcanists: '--arcanists',
     bayou: '--bayou',
@@ -223,14 +225,9 @@ export async function exportComboAsPdf(
     pdf.addPage([CARD_WIDTH_PT, CARD_HEIGHT_PT], 'portrait');
     pdf.addImage(backDataUrl, 'PNG', back.x, back.y, back.w, back.h);
 
-    pdf.save(filename);
+    saveBlob(pdf.output('blob'), filename);
 }
 
 export function triggerDownload(dataUrl: string, filename: string): void {
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    saveUrl(dataUrl, filename);
 }

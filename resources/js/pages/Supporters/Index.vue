@@ -3,11 +3,14 @@ import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
+import { useNative } from '@/composables/useNative';
 import { useInitials } from '@/composables/useInitials';
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head } from '@inertiajs/vue3';
 import { Heart } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+
+const { isNative } = useNative();
 
 interface Supporter {
     id: number;
@@ -43,9 +46,12 @@ const supporterCount = computed(() => props.supporters.length);
 
         <div class="container mx-auto sm:px-4">
             <p class="mb-6 max-w-2xl text-sm text-muted-foreground">
-                BiggerHat is free and ad-free, kept online by folks who chip in on
-                <a href="https://ko-fi.com/biggerhat" target="_blank" rel="noopener" class="font-medium text-primary hover:underline">Ko-fi</a>. Thank
-                you.
+                BiggerHat is free and ad-free, kept online by folks who chip in<template v-if="!isNative">
+                    on
+                    <a href="https://ko-fi.com/biggerhat" target="_blank" rel="noopener" class="font-medium text-primary hover:underline"
+                        >Ko-fi</a
+                    ></template
+                >. Thank you.
             </p>
 
             <template v-if="supporters.length">

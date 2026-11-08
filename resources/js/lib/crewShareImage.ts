@@ -4,6 +4,8 @@
  * Discord, Instagram and most chat apps.
  */
 
+import { saveBlob } from '@/lib/native';
+
 export interface CrewPosterMember {
     name: string;
     cost: number;
@@ -151,11 +153,6 @@ export async function shareOrDownload(blob: Blob, filename: string, title: strin
             if ((e as DOMException).name === 'AbortError') return 'shared';
         }
     }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(blob, filename);
     return 'downloaded';
 }

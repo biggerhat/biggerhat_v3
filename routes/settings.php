@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\DeviceTokenController;
 use App\Http\Controllers\Settings\OverviewController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -17,6 +18,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/password', [PasswordController::class, 'edit'])->name('password.edit');
     Route::put('settings/password', [PasswordController::class, 'update'])->name('password.update');
+
+    // Native app push tokens (JSON, called from the Capacitor shell).
+    Route::post('settings/device-tokens', [DeviceTokenController::class, 'store'])->name('device_tokens.store');
+    Route::delete('settings/device-tokens', [DeviceTokenController::class, 'destroy'])->name('device_tokens.destroy');
 
     Route::get('settings/appearance', function () {
         return Inertia::render('Settings/Appearance');

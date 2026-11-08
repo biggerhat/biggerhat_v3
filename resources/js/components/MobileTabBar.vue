@@ -74,7 +74,7 @@ const itemClass = (key: string) => [
         v-if="visible"
         data-tabbar
         aria-label="Primary"
-        class="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-background/95 backdrop-blur-sm md:hidden print:hidden"
+        class="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden print:hidden"
     >
         <template v-for="tab in tabs" :key="tab.key">
             <Link v-if="tab.href" :href="tab.href" :class="itemClass(tab.key)" :aria-current="activeKey === tab.key ? 'page' : undefined">

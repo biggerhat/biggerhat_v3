@@ -143,11 +143,18 @@ html {
     /* Phone tab bar (components/MobileTabBar.vue): reserve its height, and expose it so other fixed bottom bars can sit above it. */
     @media (max-width: 767px) {
         :root:has([data-tabbar]) {
-            --tabbar-h: 3.5rem;
+            --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom));
         }
         body:has([data-tabbar]) {
             padding-bottom: var(--tabbar-h);
         }
+    }
+
+    /* viewport-fit=cover lets the page run under the notch / home indicator (installed PWA, native shell), so keep content clear of them. */
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
     }
 
     /* Reader text size (Settings → Appearance). Everything sized in rem scales with it. */

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openExternal } from '@/lib/native';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -190,7 +191,7 @@ const generatePDF = () => {
         id: card.card_type === 'miniature' ? card.standard_miniatures[0].id : card.id,
     }));
     const options = { separate_images: separateImages.value };
-    window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(pdfValues)), options: btoa(JSON.stringify(options)) }), '_blank');
+    openExternal(route('tools.pdf.download', { cards: btoa(JSON.stringify(pdfValues)), options: btoa(JSON.stringify(options)) }));
 };
 
 // URL params on mount

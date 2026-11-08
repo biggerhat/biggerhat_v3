@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { openExternal } from '@/lib/native';
 import BlogContent from '@/components/blog/BlogContent.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import CrewListDisplay, { type CrewMemberDisplay, type CrewUpgradeDisplay } from '@/components/CrewListDisplay.vue';
@@ -368,7 +369,7 @@ const printCrewPDF = () => {
     if (cards.length === 0) return;
 
     const options = { separate_images: false };
-    window.open(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }), '_blank');
+    openExternal(route('tools.pdf.download', { cards: btoa(JSON.stringify(cards)), options: btoa(JSON.stringify(options)) }));
 };
 
 // ─── Build crew from data ───

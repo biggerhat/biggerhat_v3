@@ -164,6 +164,14 @@ class AdminNav
                 ],
             ],
             [
+                'title' => 'Cooperative',
+                'description' => 'Index of the Untold cooperative mode: NP classes and encounters.',
+                'items' => [
+                    ['key' => 'cooperative_classes', 'title' => 'NP Classes', 'href' => route('admin.cooperative.classes.index'), 'icon' => 'Swords', 'permission' => 'view_campaign_catalog', 'external' => false, 'count' => null],
+                    ['key' => 'cooperative_encounters', 'title' => 'Encounters', 'href' => route('admin.cooperative.encounters.index'), 'icon' => 'Newspaper', 'permission' => 'view_campaign_catalog', 'external' => false, 'count' => null],
+                ],
+            ],
+            [
                 'title' => 'TOS Catalog',
                 'description' => 'Allegiances, units, cards, assets, and stratagems.',
                 'items' => [

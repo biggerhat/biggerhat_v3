@@ -2,7 +2,7 @@ import { loadEcho } from '@/lib/echo';
 import { onMounted, onUnmounted } from 'vue';
 
 export interface CardImageEvent {
-    kind: 'custom_character' | 'crew_card';
+    kind: 'custom_character' | 'custom_upgrade' | 'crew_card';
     id: number;
     generated_at: string | null;
 }

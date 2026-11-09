@@ -10,6 +10,7 @@ import TriggerCard from '@/components/TriggerCard.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import CardArtField, { type CardArtOption } from '@/components/CardCreator/CardArtField.vue';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useConfirm } from '@/composables/useConfirm';
 import { factionBackground } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
+import { csrfToken } from '@/lib/utils';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
@@ -132,10 +134,13 @@ interface CustomCharacterData {
     base: number | string;
     keywords: Array<{ id: number | null; name: string }>;
     characteristics: string[];
+    card_art_id?: number | null;
     card_art_path?: string | null;
     card_art_x?: number;
     card_art_y?: number;
     card_art_zoom?: number;
+    card_art_dx?: number;
+    card_art_dy?: number;
     // Server-rendered card images (App\Services\Campaign\LeaderCardImageGenerator),
     // regenerated automatically whenever the card-relevant fields above change.
     // Null until the first render lands — callers fall back to the live CardRenderer.
@@ -387,6 +392,7 @@ const props = defineProps<{
     crew: CrewData;
     leader: CustomCharacterData | null;
     totem: CustomCharacterData | null;
+    card_arts?: CardArtOption[];
     leader_xp_track: XpBox[] | null;
     leader_advancements: AdvancementTaken[];
     advancement_catalogs: AdvancementCatalogs | null;
@@ -1314,6 +1320,48 @@ const factionLabel = computed(() => {
 const confirmDialog = useConfirm();
 const toast = useToast();
 
+// Library art for the Leader / Totem card, changed without opening the full card editor.
+const artTarget = ref<'leader' | 'totem' | null>(null);
+const artDraft = ref({ card_art_id: null as number | null, card_art_x: 50, card_art_y: 50, card_art_zoom: 100, card_art_dx: 0, card_art_dy: 0 });
+const savingArt = ref(false);
+const openArtDialog = (which: 'leader' | 'totem') => {
+    const card = which === 'leader' ? props.leader : props.totem;
+    if (!card) return;
+    artDraft.value = {
+        card_art_id: card.card_art_id ?? null,
+        card_art_x: card.card_art_x ?? 50,
+        card_art_y: card.card_art_y ?? 50,
+        card_art_zoom: card.card_art_zoom ?? 100,
+        card_art_dx: card.card_art_dx ?? 0,
+        card_art_dy: card.card_art_dy ?? 0,
+    };
+    artTarget.value = which;
+};
+const saveArt = async () => {
+    const card = artTarget.value === 'leader' ? props.leader : props.totem;
+    if (!card || savingArt.value) return;
+    savingArt.value = true;
+    try {
+        const res = await fetch(route('tools.card_creator.art', card.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+            body: JSON.stringify(artDraft.value),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            toast.error(body?.message ?? 'Could not save the art — please try again.');
+            return;
+        }
+        artTarget.value = null;
+        toast.success('Art saved — the card image is re-rendering.');
+        router.reload({ only: ['leader', 'totem'], preserveScroll: true });
+    } catch {
+        toast.error('Could not save the art — check your connection and try again.');
+    } finally {
+        savingArt.value = false;
+    }
+};
+
 const copyShareLink = async () => {
     const url = props.view_mode.share_url;
     try {
@@ -1371,7 +1419,13 @@ const leaderRendererProps = computed(() => {
         keywords: props.leader.keywords,
         characteristics: props.leader.characteristics ?? [],
         characterImage: props.leader.card_art_path ?? null,
-        characterImageFocus: { x: props.leader.card_art_x ?? 50, y: props.leader.card_art_y ?? 50, zoom: props.leader.card_art_zoom ?? 100 },
+        characterImageFocus: {
+            x: props.leader.card_art_x ?? 50,
+            y: props.leader.card_art_y ?? 50,
+            zoom: props.leader.card_art_zoom ?? 100,
+            dx: props.leader.card_art_dx ?? 0,
+            dy: props.leader.card_art_dy ?? 0,
+        },
         actions: props.leader.actions ?? [],
         abilities: props.leader.abilities ?? [],
         linkedCrewUpgrades: props.leader.linked_crew_upgrades ?? [],
@@ -1399,7 +1453,13 @@ const totemRendererProps = computed(() => {
         keywords: props.totem.keywords,
         characteristics: props.totem.characteristics ?? [],
         characterImage: props.totem.card_art_path ?? null,
-        characterImageFocus: { x: props.totem.card_art_x ?? 50, y: props.totem.card_art_y ?? 50, zoom: props.totem.card_art_zoom ?? 100 },
+        characterImageFocus: {
+            x: props.totem.card_art_x ?? 50,
+            y: props.totem.card_art_y ?? 50,
+            zoom: props.totem.card_art_zoom ?? 100,
+            dx: props.totem.card_art_dx ?? 0,
+            dy: props.totem.card_art_dy ?? 0,
+        },
         actions: props.totem.actions ?? [],
         abilities: props.totem.abilities ?? [],
         linkedCrewUpgrades: props.totem.linked_crew_upgrades ?? [],
@@ -1568,6 +1628,12 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
                 <Link v-if="view_mode.is_owner && totem" :href="route('tools.card_creator.edit', totem.id)">
                     <Button size="sm" variant="outline">Edit Totem</Button>
                 </Link>
+                <Button v-if="view_mode.is_owner && leader && card_arts?.length" size="sm" variant="outline" @click="openArtDialog('leader')"
+                    >Leader Art</Button
+                >
+                <Button v-if="view_mode.is_owner && totem && card_arts?.length" size="sm" variant="outline" @click="openArtDialog('totem')"
+                    >Totem Art</Button
+                >
                 <Button v-if="view_mode.is_owner && leader" size="sm" variant="destructive" @click="annihilateLeader"> Annihilate </Button>
                 <Button v-if="view_mode.is_owner && !leader" size="sm" @click="startingAnew"> Starting Anew </Button>
             </div>
@@ -2996,6 +3062,30 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
             </div>
         </DrawerContent>
     </Drawer>
+
+    <Dialog :open="artTarget !== null" @update:open="(o: boolean) => !o && (artTarget = null)">
+        <DialogContent class="max-w-md">
+            <DialogHeader>
+                <DialogTitle>{{ artTarget === 'totem' ? 'Totem' : 'Leader' }} art</DialogTitle>
+                <DialogDescription>Choose library art and frame it. The card image re-renders after you save.</DialogDescription>
+            </DialogHeader>
+            <CardArtField
+                v-model:art-id="artDraft.card_art_id"
+                v-model:x="artDraft.card_art_x"
+                v-model:y="artDraft.card_art_y"
+                v-model:zoom="artDraft.card_art_zoom"
+                v-model:dx="artDraft.card_art_dx"
+                v-model:dy="artDraft.card_art_dy"
+                :card-arts="card_arts ?? []"
+                :faction="crew.faction"
+                :suggest-name="(artTarget === 'totem' ? totem?.name : leader?.name) ?? null"
+            />
+            <DialogFooter>
+                <Button variant="ghost" @click="artTarget = null">Cancel</Button>
+                <Button :disabled="savingArt" @click="saveArt">Save art</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>
 
 <style scoped>

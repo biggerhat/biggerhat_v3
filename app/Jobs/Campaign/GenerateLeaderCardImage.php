@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Campaign;
 
+use App\Jobs\Middleware\LimitConcurrentRenders;
 use App\Models\CustomCharacter;
 use App\Services\Campaign\LeaderCardImageGenerator;
 use Illuminate\Bus\Queueable;
@@ -30,6 +31,12 @@ class GenerateLeaderCardImage implements ShouldQueue
 
     public int $timeout = 120;
 
+    /** Time-based so being released (overlap, no free render slot) never counts against a try count. */
+    public function retryUntil(): \DateTimeInterface
+    {
+        return now()->addMinutes(15);
+    }
+
     public function __construct(public int $customCharacterId) {}
 
     /**
@@ -37,7 +44,15 @@ class GenerateLeaderCardImage implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping("leader-card-{$this->customCharacterId}"))->releaseAfter(2)->expireAfter(150)];
+        return [(new WithoutOverlapping("leader-card-{$this->customCharacterId}"))->releaseAfter(2)->expireAfter(150), new LimitConcurrentRenders(priority: $this->isCampaignCard())];
+    }
+
+    /** Leaders and totems jump the queue for the reserved render slot; homebrew cards wait for the shared ones. */
+    private function isCampaignCard(): bool
+    {
+        return CustomCharacter::query()->whereKey($this->customCharacterId)
+            ->where(fn ($q) => $q->where('is_campaign_leader', true)->orWhere('is_campaign_totem', true))
+            ->exists();
     }
 
     public function handle(LeaderCardImageGenerator $generator): void

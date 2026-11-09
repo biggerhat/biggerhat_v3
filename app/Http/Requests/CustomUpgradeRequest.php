@@ -26,6 +26,20 @@ class CustomUpgradeRequest extends FormRequest
             : $this->user() !== null;
     }
 
+    public const MAX_PER_USER = 200;
+
+    public function after(): array
+    {
+        return [
+            function (\Illuminate\Validation\Validator $validator) {
+                if ($this->route('customUpgrade') === null && $this->user() !== null
+                    && CustomUpgrade::where('user_id', $this->user()->id)->count() >= self::MAX_PER_USER) {
+                    $validator->errors()->add('name', 'You have reached the limit of '.self::MAX_PER_USER.' custom upgrades and crew cards. Delete one you no longer need first.');
+                }
+            },
+        ];
+    }
+
     public function rules(): array
     {
         return [

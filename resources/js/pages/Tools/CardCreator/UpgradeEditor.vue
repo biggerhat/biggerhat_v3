@@ -1,47 +1,37 @@
 <script setup lang="ts">
-import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
 import UpgradeBackFace from '@/components/CardCreator/UpgradeBackFace.vue';
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
 import UpgradeFrontFace from '@/components/CardCreator/UpgradeFrontFace.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
+import ContentBlocksPanel from '@/components/CardCreator/ContentBlocksPanel.vue';
+import TokensMarkersPanel from '@/components/CardCreator/TokensMarkersPanel.vue';
+import type { ContentBlock, MarkerData, TokenData } from '@/components/CardCreator/types';
+import SuggestInput from '@/components/CardCreator/SuggestInput.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import CardHistoryDialog, { type CardVersion } from '@/components/CardCreator/CardHistoryDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useCardJsonTransfer } from '@/composables/useCardJsonTransfer';
+import { useLatestFetch } from '@/composables/useLatestFetch';
 import { useToast } from '@/composables/useToast';
+import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Download, FileText, Loader2, Plus, Save, Trash2 } from 'lucide-vue-next';
+import type { SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowLeft, ChevronDown, Copy, Download, FileJson, History, FileText, Eye, Loader2, RefreshCw, Save, Share2, Upload } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 
 interface EnumOption {
     name: string;
     value: string;
-}
-
-interface ContentBlock {
-    type: 'text' | 'ability' | 'action' | 'trigger';
-    text?: string;
-    data?: Record<string, any>;
-}
-
-interface TokenData {
-    name: string;
-    description: string | null;
-    source_id?: number | null;
-}
-
-interface MarkerData {
-    name: string;
-    description: string | null;
-    source_id?: number | null;
 }
 
 const toast = useToast();
@@ -64,6 +54,10 @@ const props = defineProps<{
         notes: string | null;
         share_code: string;
         is_campaign_crew_card: boolean;
+        campaign_crew_id?: number | null;
+        front_image?: string | null;
+        combination_image?: string | null;
+        card_image_generated_at?: string | null;
     } | null;
     domain: string;
     enums: {
@@ -75,6 +69,8 @@ const props = defineProps<{
         range_types: EnumOption[];
     };
     campaign_back_url: string | null;
+    card_image_pending?: boolean;
+    versions?: CardVersion[];
     // Auto-calculated from the crew's arsenal (CombinedCrewCardEffects::
     // arsenalTokensAndMarkers()) — only present for an is_campaign_crew_card
     // upgrade, whose own back_tokens/back_markers columns are never read by
@@ -85,6 +81,40 @@ const props = defineProps<{
 const isEdit = computed(() => !!props.upgrade);
 const isCrew = computed(() => props.domain === 'crew');
 const domainLabel = computed(() => (isCrew.value ? 'Crew Card' : 'Upgrade'));
+
+// Saved card image: rendered server-side shortly after each save; the finished event swaps the status in.
+const imagePending = computed(() => props.card_image_pending ?? false);
+const imageUrl = computed(() =>
+    props.upgrade?.combination_image
+        ? '/storage/' + cacheBustedImagePath(props.upgrade.combination_image, props.upgrade.card_image_generated_at)
+        : null,
+);
+const rerendering = ref(false);
+useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
+    const ownEvent = event.kind === 'custom_upgrade' && event.id === props.upgrade?.id;
+    // A campaign crew card shows the crew's combined card, which finishes under its own event.
+    const crewEvent = event.kind === 'crew_card' && !!props.upgrade?.is_campaign_crew_card && event.id === props.upgrade?.campaign_crew_id;
+    if (ownEvent || crewEvent) {
+        router.reload({ only: ['upgrade', 'card_image_pending'], preserveScroll: true });
+    }
+});
+// Below lg the preview sits under the form; the save bar's Preview button jumps to it.
+const scrollToPreview = () => document.getElementById('card-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+const rerender = async () => {
+    if (!props.upgrade || rerendering.value) return;
+    rerendering.value = true;
+    const res = await fetch(route('tools.card_creator.upgrades.rerender', props.upgrade.id), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken(), Accept: 'application/json' },
+    });
+    rerendering.value = false;
+    if (!res.ok) {
+        toast.error('Could not start the render — please try again in a moment.');
+        return;
+    }
+    router.reload({ only: ['card_image_pending'], preserveScroll: true });
+};
 
 const form = reactive({
     name: props.upgrade?.name ?? '',
@@ -117,7 +147,7 @@ const contentBlocks = reactive<ContentBlock[]>(props.upgrade?.content_blocks ?? 
 const backTokens = reactive<TokenData[]>(props.upgrade?.back_tokens ?? []);
 const backMarkers = reactive<MarkerData[]>(props.upgrade?.back_markers ?? []);
 
-const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+const { hasDraft, dirty, restoreDraft, discardDraft, markSaved, currentSnapshot, applySnapshot } = useEditorDraft({
     key: `bh_draft_upgrade_${props.domain}`,
     keepDraft: !props.upgrade,
     snapshot: () => ({
@@ -127,11 +157,24 @@ const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
         backMarkers: JSON.parse(JSON.stringify(backMarkers)),
     }),
     restore: (d) => {
-        Object.assign(form, d.form);
-        contentBlocks.splice(0, contentBlocks.length, ...d.contentBlocks);
-        backTokens.splice(0, backTokens.length, ...d.backTokens);
-        backMarkers.splice(0, backMarkers.length, ...d.backMarkers);
+        // Drafts and imported files are only trusted for keys the form has and values of the right shape.
+        for (const key of Object.keys(form) as (keyof typeof form)[]) {
+            if (d.form && key in d.form) (form as Record<string, unknown>)[key] = d.form[key];
+        }
+        const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+        contentBlocks.splice(0, contentBlocks.length, ...list<ContentBlock>(d.contentBlocks));
+        backTokens.splice(0, backTokens.length, ...list<TokenData>(d.backTokens));
+        backMarkers.splice(0, backMarkers.length, ...list<MarkerData>(d.backMarkers));
     },
+});
+
+const historyOpen = ref(false);
+const { exportJson, importFile } = useCardJsonTransfer({
+    kind: 'custom-upgrade',
+    snapshot: currentSnapshot,
+    apply: applySnapshot,
+    scrub: (d) => ({ ...d, form: { ...d.form, notes: '' } }),
+    filename: () => form.name,
 });
 
 const saving = ref(false);
@@ -190,137 +233,49 @@ const noneToNull = (v: string | null | undefined) => (!v || v === 'none' ? null 
 const upgradeTypeLabel = computed(() => form.type || null);
 const limitationsLabel = computed(() => form.limitations || null);
 
-// Content block helpers
-const addTextBlock = () => contentBlocks.push({ type: 'text', text: '' });
+const fetchLatest = useLatestFetch();
 
-const addAbilityBlock = () =>
-    contentBlocks.push({
-        type: 'ability',
-        data: { name: '', suits: null, defensive_ability_type: null, costs_stone: false, description: null, source_id: null },
-    });
+// Duplicate from an official upgrade
+const cloneSearchQuery = ref('');
+const cloneSearchResults = ref<{ id: number; name: string }[]>([]);
+const cloneLoading = ref(false);
+let cloneDebounce: ReturnType<typeof setTimeout>;
 
-const addActionBlock = () =>
-    contentBlocks.push({
-        type: 'action',
-        data: {
-            name: '',
-            type: 'tactical',
-            is_signature: false,
-            stone_cost: 0,
-            range: null,
-            range_type: null,
-            stat: null,
-            stat_suits: null,
-            stat_modifier: null,
-            resisted_by: null,
-            target_number: null,
-            target_suits: null,
-            damage: null,
-            description: null,
-            source_id: null,
-            triggers: [],
-        },
-    });
-
-const addTriggerBlock = () =>
-    contentBlocks.push({
-        type: 'trigger',
-        data: { name: '', suits: null, stone_cost: 0, description: null, source_id: null },
-    });
-
-const removeBlock = (index: number) => contentBlocks.splice(index, 1);
-const moveBlockUp = (index: number) => {
-    if (index > 0) {
-        const item = contentBlocks.splice(index, 1)[0];
-        contentBlocks.splice(index - 1, 0, item);
-    }
-};
-const moveBlockDown = (index: number) => {
-    if (index < contentBlocks.length - 1) {
-        const item = contentBlocks.splice(index, 1)[0];
-        contentBlocks.splice(index + 1, 0, item);
-    }
-};
-
-// Back face helpers
-const addToken = () => backTokens.push({ name: '', description: null });
-const removeToken = (index: number) => backTokens.splice(index, 1);
-const addMarker = () => backMarkers.push({ name: '', description: null });
-const removeMarker = (index: number) => backMarkers.splice(index, 1);
-
-// Token/Marker search
-const tokenSearchResults = ref<any[]>([]);
-const markerSearchResults = ref<any[]>([]);
-let tokenSearchDebounce: ReturnType<typeof setTimeout>;
-let markerSearchDebounce: ReturnType<typeof setTimeout>;
-
-const searchTokens = (q: string) => {
-    clearTimeout(tokenSearchDebounce);
+const searchCloneUpgrade = (q: string) => {
+    clearTimeout(cloneDebounce);
     if (q.length < 2) {
-        tokenSearchResults.value = [];
+        cloneSearchResults.value = [];
         return;
     }
-    tokenSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.tokens') + '?q=' + encodeURIComponent(q));
-        tokenSearchResults.value = await res.json();
+    cloneDebounce = setTimeout(async () => {
+        const data = await fetchLatest<{ id: number; name: string }[]>(
+            'clone',
+            route('api.card-creator.upgrades') + '?domain=' + props.domain + '&q=' + encodeURIComponent(q),
+        );
+        if (data) cloneSearchResults.value = data;
     }, 300);
 };
 
-const pickToken = (official: any) => {
-    backTokens.push({ name: official.name, description: official.description, source_id: official.source_id });
-    tokenSearchResults.value = [];
-};
-
-const searchMarkers = (q: string) => {
-    clearTimeout(markerSearchDebounce);
-    if (q.length < 2) {
-        markerSearchResults.value = [];
+const cloneFromUpgrade = async (id: number) => {
+    cloneLoading.value = true;
+    cloneSearchResults.value = [];
+    cloneSearchQuery.value = '';
+    const data = await fetchLatest<any>('clone-detail', route('api.card-creator.upgrade-detail', id));
+    cloneLoading.value = false;
+    if (!data) {
+        toast.error('Could not load that upgrade', { description: 'Try again in a moment.' });
         return;
     }
-    markerSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.markers') + '?q=' + encodeURIComponent(q));
-        markerSearchResults.value = await res.json();
-    }, 300);
-};
-
-const pickMarker = (official: any) => {
-    backMarkers.push({ name: official.name, description: official.description, source_id: official.source_id });
-    markerSearchResults.value = [];
-};
-
-// Search
-const searchResults = ref<any[]>([]);
-const searchType = ref<'action' | 'ability' | 'trigger' | null>(null);
-let searchDebounce: ReturnType<typeof setTimeout>;
-
-const searchOfficial = (type: 'action' | 'ability' | 'trigger', q: string) => {
-    searchType.value = type;
-    clearTimeout(searchDebounce);
-    if (q.length < 2) {
-        searchResults.value = [];
-        return;
-    }
-    searchDebounce = setTimeout(async () => {
-        const endpoints: Record<string, string> = {
-            action: 'api.card-creator.actions',
-            ability: 'api.card-creator.abilities',
-            trigger: 'api.card-creator.triggers',
-        };
-        const res = await fetch(route(endpoints[type]) + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
-    }, 300);
-};
-
-const pickSearchResult = (official: any) => {
-    if (searchType.value === 'ability') {
-        contentBlocks.push({ type: 'ability', data: { ...official } });
-    } else if (searchType.value === 'action') {
-        contentBlocks.push({ type: 'action', data: { ...official, triggers: official.triggers ?? [] } });
-    } else if (searchType.value === 'trigger') {
-        contentBlocks.push({ type: 'trigger', data: { ...official } });
-    }
-    searchResults.value = [];
-    searchType.value = null;
+    form.name = data.name ?? '';
+    form.type = data.type ?? '';
+    form.faction = data.faction ?? 'none';
+    form.limitations = data.limitations ?? '';
+    form.plentiful = data.plentiful ?? null;
+    form.master_name = data.master_name ?? '';
+    form.keyword_name = data.keyword_name ?? '';
+    contentBlocks.splice(0, contentBlocks.length, ...(data.content_blocks ?? []));
+    backTokens.splice(0, backTokens.length, ...(isCrew.value ? (data.back_tokens ?? []) : []));
+    backMarkers.splice(0, backMarkers.length, ...(isCrew.value ? (data.back_markers ?? []) : []));
 };
 
 // Image export
@@ -420,27 +375,10 @@ const save = async () => {
         return;
     }
 
+    // Stay on the editor: pick up the "rendering" state the save just triggered.
+    router.reload({ only: ['upgrade', 'card_image_pending'], preserveScroll: true });
+
     saving.value = false;
-};
-
-const blockTypeLabel = (type: string) => {
-    const map: Record<string, string> = { text: 'Text', ability: 'Ability', action: 'Action', trigger: 'Trigger' };
-    return map[type] ?? type;
-};
-
-// Alternates a lighter/darker shade of the type's tint by list position
-// (idx, across the whole mixed-type list — same treatment CardFrontFace.vue
-// gives the rendered card face via alternatingBoxBg) so adjacent blocks are
-// visually distinguishable even when they're the same type back-to-back.
-const blockTypeColor = (type: string, idx: number) => {
-    const even = idx % 2 === 0;
-    const map: Record<string, string> = {
-        text: 'bg-muted',
-        ability: even ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-500/5 border-blue-500/15',
-        action: even ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-500/5 border-amber-500/15',
-        trigger: even ? 'bg-purple-500/10 border-purple-500/20' : 'bg-purple-500/5 border-purple-500/15',
-    };
-    return map[type] ?? 'bg-muted';
 };
 </script>
 
@@ -477,15 +415,62 @@ const blockTypeColor = (type: string, idx: number) => {
                 <Link :href="route('tools.card_creator.index')">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to List</Button>
                 </Link>
+                <div class="ml-auto flex gap-2">
+                    <label v-if="!isEdit" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm hover:bg-accent">
+                        <Upload class="size-4" /> Import JSON
+                        <input type="file" accept="application/json,.json" class="sr-only" @change="importFile" />
+                    </label>
+                    <Button v-if="isEdit && versions?.length" variant="ghost" size="sm" @click="historyOpen = true"
+                        ><History class="mr-1 size-4" /> History</Button
+                    >
+                    <Button variant="ghost" size="sm" @click="exportJson"><FileJson class="mr-1 size-4" /> Export JSON</Button>
+                </div>
             </div>
 
             <div class="grid gap-6 lg:grid-cols-3">
                 <!-- Form column -->
                 <div class="space-y-4 lg:col-span-2">
+                    <!-- Duplicate from an official upgrade -->
+                    <div v-if="!isEdit" class="relative rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
+                        <div class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                            <Copy class="size-3.5" />
+                            Duplicate from an official {{ isCrew ? 'crew upgrade' : 'upgrade' }}
+                        </div>
+                        <div class="relative">
+                            <Input
+                                v-model="cloneSearchQuery"
+                                :placeholder="
+                                    cloneLoading
+                                        ? 'Loading upgrade data...'
+                                        : `Search for ${isCrew ? 'a crew upgrade' : 'an upgrade'} to duplicate...`
+                                "
+                                :disabled="cloneLoading"
+                                class="h-8 text-xs"
+                                @input="searchCloneUpgrade(cloneSearchQuery)"
+                            />
+                            <div
+                                v-if="cloneSearchResults.length"
+                                class="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md"
+                            >
+                                <button
+                                    v-for="r in cloneSearchResults"
+                                    :key="r.id"
+                                    class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                                    @click="cloneFromUpgrade(r.id)"
+                                >
+                                    {{ r.name }}
+                                </button>
+                            </div>
+                        </div>
+                        <p class="mt-1 text-2xs text-muted-foreground">
+                            Fills in the text, abilities and actions from an official card. You can edit everything after.
+                        </p>
+                    </div>
+
                     <!-- Identity -->
                     <Card>
                         <CardContent class="space-y-4 p-4">
-                            <h3 class="text-sm font-semibold">{{ domainLabel }} Identity</h3>
+                            <h2 class="text-sm font-semibold">{{ domainLabel }} Identity</h2>
                             <div>
                                 <label class="mb-1 block text-xs text-muted-foreground">Name *</label>
                                 <Input v-model="form.name" :placeholder="`${domainLabel} name`" />
@@ -524,7 +509,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             "
                                         >
                                             {{ t.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -550,7 +535,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                             "
                                         >
                                             {{ l.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -558,420 +543,35 @@ const blockTypeColor = (type: string, idx: number) => {
                             <!-- Crew-specific fields -->
                             <div v-if="isCrew">
                                 <label class="mb-1 block text-xs text-muted-foreground">Master Name</label>
-                                <Input v-model="form.master_name" placeholder="e.g. Maxine Agassiz, The Renowned" />
+                                <SuggestInput
+                                    v-model="form.master_name"
+                                    :endpoint="route('api.card-creator.characters')"
+                                    placeholder="e.g. Maxine Agassiz, The Renowned"
+                                />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs text-muted-foreground">Keyword (optional)</label>
+                                <SuggestInput
+                                    v-model="form.keyword_name"
+                                    :endpoint="route('api.card-creator.keywords')"
+                                    placeholder="e.g. Witchling"
+                                />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <!-- Content Blocks -->
-                    <Collapsible default-open>
-                        <Card>
-                            <CardContent class="p-4">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <h2 class="text-sm font-semibold">Card Content</h2>
-                                        <Badge v-if="contentBlocks.length" variant="secondary" class="text-[10px]">{{ contentBlocks.length }}</Badge>
-                                    </div>
-                                    <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div class="mt-3 space-y-3">
-                                        <p class="text-[11px] text-muted-foreground">
-                                            Add text prefaces and game elements in the order they should appear on the card.
-                                        </p>
-
-                                        <!-- Search official -->
-                                        <div class="relative">
-                                            <Input
-                                                placeholder="Search official abilities, actions, or triggers..."
-                                                class="h-8 text-xs"
-                                                @input="(e: Event) => searchOfficial('ability', (e.target as HTMLInputElement).value)"
-                                            />
-                                            <div
-                                                v-if="searchResults.length"
-                                                class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
-                                            >
-                                                <button
-                                                    v-for="r in searchResults"
-                                                    :key="r.id"
-                                                    class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                                    @click="pickSearchResult(r)"
-                                                >
-                                                    <span class="font-medium">{{ r.name }}</span>
-                                                    <span v-if="r.description" class="ml-2 text-xs text-muted-foreground"
-                                                        >{{ r.description?.slice(0, 50) }}...</span
-                                                    >
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <!-- Add buttons -->
-                                        <div class="flex flex-wrap gap-1.5">
-                                            <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addTextBlock"
-                                                ><Plus class="mr-1 size-3" /> Text</Button
-                                            >
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                class="h-7 border-blue-500/30 text-[11px] text-blue-600 dark:text-blue-400"
-                                                @click="addAbilityBlock"
-                                                ><Plus class="mr-1 size-3" /> Ability</Button
-                                            >
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                class="h-7 border-amber-500/30 text-[11px] text-amber-800 dark:text-amber-400"
-                                                @click="addActionBlock"
-                                                ><Plus class="mr-1 size-3" /> Action</Button
-                                            >
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                class="h-7 border-purple-500/30 text-[11px] text-purple-600 dark:text-purple-400"
-                                                @click="addTriggerBlock"
-                                                ><Plus class="mr-1 size-3" /> Trigger</Button
-                                            >
-                                        </div>
-
-                                        <!-- Block list -->
-                                        <div
-                                            v-for="(block, idx) in contentBlocks"
-                                            :key="'block-' + idx"
-                                            class="rounded-lg border p-3"
-                                            :class="blockTypeColor(block.type, idx)"
-                                        >
-                                            <div class="mb-2 flex items-center justify-between">
-                                                <div class="flex items-center gap-2">
-                                                    <div class="flex flex-col">
-                                                        <button
-                                                            aria-label="Move block up"
-                                                            class="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                                            :disabled="idx === 0"
-                                                            @click="moveBlockUp(idx)"
-                                                        >
-                                                            <ChevronDown class="size-3 rotate-180" />
-                                                        </button>
-                                                        <button
-                                                            aria-label="Move block down"
-                                                            class="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                                                            :disabled="idx === contentBlocks.length - 1"
-                                                            @click="moveBlockDown(idx)"
-                                                        >
-                                                            <ChevronDown class="size-3" />
-                                                        </button>
-                                                    </div>
-                                                    <Badge variant="outline" class="text-[10px]">{{ blockTypeLabel(block.type) }}</Badge>
-                                                    <span v-if="block.data?.source_id" class="text-[10px] text-muted-foreground">(Official)</span>
-                                                </div>
-                                                <button
-                                                    aria-label="Remove block"
-                                                    class="text-muted-foreground hover:text-destructive"
-                                                    @click="removeBlock(idx)"
-                                                >
-                                                    <Trash2 class="size-3.5" />
-                                                </button>
-                                            </div>
-
-                                            <!-- Text block -->
-                                            <div v-if="block.type === 'text'">
-                                                <Input
-                                                    v-model="block.text"
-                                                    placeholder="e.g. This model gains the following ability:"
-                                                    class="h-8 text-xs italic"
-                                                />
-                                            </div>
-
-                                            <!-- Ability block -->
-                                            <div v-else-if="block.type === 'ability'" class="space-y-2">
-                                                <template v-if="block.data?.source_id">
-                                                    <div class="text-sm font-medium">{{ block.data.name }}</div>
-                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">
-                                                        {{ block.data.description }}
-                                                    </div>
-                                                </template>
-                                                <template v-else>
-                                                    <Input v-model="block.data!.name" placeholder="Ability name" class="h-7 text-sm font-medium" />
-                                                    <div class="grid gap-2 sm:grid-cols-3">
-                                                        <Select v-model="block.data!.suits">
-                                                            <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="Suit" /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="none">None</SelectItem>
-                                                                <SelectItem v-for="s in enums.suits" :key="s.value" :value="s.value">{{
-                                                                    s.name
-                                                                }}</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <Select v-model="block.data!.defensive_ability_type">
-                                                            <SelectTrigger class="h-7 text-xs"
-                                                                ><SelectValue placeholder="Defense type"
-                                                            /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="none">None</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <label class="flex items-center gap-1.5 text-xs">
-                                                            <input v-model="block.data!.costs_stone" type="checkbox" class="rounded" />
-                                                            Costs Soulstone
-                                                        </label>
-                                                    </div>
-                                                    <Textarea
-                                                        v-model="block.data!.description"
-                                                        placeholder="Ability description..."
-                                                        rows="2"
-                                                        class="text-xs"
-                                                    />
-                                                    <IconTokenPalette class="mt-1" />
-                                                </template>
-                                            </div>
-
-                                            <!-- Action block -->
-                                            <div v-else-if="block.type === 'action'" class="space-y-2">
-                                                <div class="flex items-center gap-2">
-                                                    <Input
-                                                        v-model="block.data!.name"
-                                                        placeholder="Action name"
-                                                        class="h-7 flex-1 text-sm font-medium"
-                                                    />
-                                                    <Badge v-if="block.data?.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[10px]"
-                                                        >Official</Badge
-                                                    >
-                                                </div>
-                                                <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Type</label>
-                                                        <Select v-model="block.data!.type">
-                                                            <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
-                                                                    t.name
-                                                                }}</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Range</label>
-                                                        <Input v-model="block.data!.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                        <Input v-model="block.data!.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Resisted By</label>
-                                                        <Input v-model="block.data!.resisted_by" placeholder="Df" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">TN</label>
-                                                        <Input v-model="block.data!.target_number" placeholder="e.g. 12" class="h-7 text-xs" />
-                                                    </div>
-                                                    <div>
-                                                        <label class="text-[10px] text-muted-foreground">Damage</label>
-                                                        <Input v-model="block.data!.damage" placeholder="2/3/5" class="h-7 text-xs" />
-                                                    </div>
-                                                </div>
-                                                <Textarea
-                                                    v-model="block.data!.description"
-                                                    placeholder="Action description..."
-                                                    rows="2"
-                                                    class="text-xs"
-                                                />
-                                                <IconTokenPalette class="mt-1" />
-                                                <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                                    <Checkbox
-                                                        :checked="block.data!.is_signature"
-                                                        @update:checked="(v: boolean) => (block.data!.is_signature = v)"
-                                                    />
-                                                    Signature action
-                                                </label>
-                                            </div>
-
-                                            <!-- Trigger block -->
-                                            <div v-else-if="block.type === 'trigger'" class="space-y-2">
-                                                <template v-if="block.data?.source_id">
-                                                    <div class="text-sm font-medium">
-                                                        <span v-if="block.data.suits" class="text-muted-foreground">{{ block.data.suits }}</span>
-                                                        {{ block.data.name }}
-                                                    </div>
-                                                    <div v-if="block.data.description" class="text-xs text-muted-foreground">
-                                                        {{ block.data.description }}
-                                                    </div>
-                                                </template>
-                                                <template v-else>
-                                                    <div class="flex items-center gap-2">
-                                                        <Input
-                                                            v-model="block.data!.name"
-                                                            placeholder="Trigger name"
-                                                            class="h-7 text-sm font-medium"
-                                                        />
-                                                        <Input v-model="block.data!.suits" placeholder="Suits" class="h-7 w-28 text-xs" />
-                                                    </div>
-                                                    <Input v-model="block.data!.description" placeholder="Trigger description" class="h-7 text-xs" />
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CollapsibleContent>
-                            </CardContent>
-                        </Card>
-                    </Collapsible>
+                    <ContentBlocksPanel v-model="contentBlocks" :enums="enums" />
 
                     <!-- Back Face: Tokens & Markers (crew only). Not shown for a
                          synced campaign crew card — its back face's tokens/
                          markers are auto-calculated from the crew's live
                          arsenal (see the read-only section below), so editing
                          them here would silently do nothing on the real card. -->
-                    <Collapsible v-if="isCrew && !props.upgrade?.is_campaign_crew_card" default-open>
-                        <Card>
-                            <CardContent class="p-4">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold">Back — Tokens & Markers</h3>
-                                        <Badge v-if="backTokens.length + backMarkers.length" variant="secondary" class="text-[10px]">{{
-                                            backTokens.length + backMarkers.length
-                                        }}</Badge>
-                                    </div>
-                                    <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div class="mt-3 space-y-4">
-                                        <!-- Tokens -->
-                                        <div>
-                                            <div class="mb-2 flex items-center justify-between">
-                                                <label class="text-xs font-medium text-muted-foreground">Tokens</label>
-                                                <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addToken"
-                                                    ><Plus class="mr-1 size-3" /> Custom</Button
-                                                >
-                                            </div>
-                                            <div class="relative mb-2">
-                                                <Input
-                                                    placeholder="Search official tokens..."
-                                                    class="h-8 text-xs"
-                                                    @input="(e: Event) => searchTokens((e.target as HTMLInputElement).value)"
-                                                />
-                                                <div
-                                                    v-if="tokenSearchResults.length"
-                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
-                                                >
-                                                    <button
-                                                        v-for="r in tokenSearchResults"
-                                                        :key="r.id"
-                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                                        @click="pickToken(r)"
-                                                    >
-                                                        <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[10px]">Official</Badge>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div
-                                                v-for="(token, tIdx) in backTokens"
-                                                :key="'token-' + tIdx"
-                                                class="mb-2 flex items-start gap-2 rounded-lg border p-2"
-                                            >
-                                                <div class="flex-1 space-y-1">
-                                                    <template v-if="token.source_id">
-                                                        <div class="flex items-center gap-2">
-                                                            <span class="text-xs font-medium">{{ token.name }}</span>
-                                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
-                                                        </div>
-                                                        <div v-if="token.description" class="text-xs text-muted-foreground">
-                                                            {{ token.description }}
-                                                        </div>
-                                                    </template>
-                                                    <template v-else>
-                                                        <Input
-                                                            v-model="token.name"
-                                                            placeholder="Token name (e.g. Fast, Shielded)"
-                                                            class="h-7 text-xs font-medium"
-                                                        />
-                                                        <Textarea
-                                                            v-model="token.description"
-                                                            placeholder="Token effect description..."
-                                                            rows="2"
-                                                            class="text-xs"
-                                                        />
-                                                        <IconTokenPalette class="mt-1" />
-                                                    </template>
-                                                </div>
-                                                <button
-                                                    aria-label="Remove token"
-                                                    class="mt-1 text-muted-foreground hover:text-destructive"
-                                                    @click="removeToken(tIdx)"
-                                                >
-                                                    <Trash2 class="size-3.5" />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <!-- Markers -->
-                                        <div>
-                                            <div class="mb-2 flex items-center justify-between">
-                                                <label class="text-xs font-medium text-muted-foreground">Markers</label>
-                                                <Button variant="outline" size="sm" class="h-7 text-[11px]" @click="addMarker"
-                                                    ><Plus class="mr-1 size-3" /> Custom</Button
-                                                >
-                                            </div>
-                                            <div class="relative mb-2">
-                                                <Input
-                                                    placeholder="Search official markers..."
-                                                    class="h-8 text-xs"
-                                                    @input="(e: Event) => searchMarkers((e.target as HTMLInputElement).value)"
-                                                />
-                                                <div
-                                                    v-if="markerSearchResults.length"
-                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
-                                                >
-                                                    <button
-                                                        v-for="r in markerSearchResults"
-                                                        :key="r.id"
-                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                                        @click="pickMarker(r)"
-                                                    >
-                                                        <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge variant="outline" class="ml-2 px-1 py-0 text-[10px]">Official</Badge>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div
-                                                v-for="(marker, mIdx) in backMarkers"
-                                                :key="'marker-' + mIdx"
-                                                class="mb-2 flex items-start gap-2 rounded-lg border p-2"
-                                            >
-                                                <div class="flex-1 space-y-1">
-                                                    <template v-if="marker.source_id">
-                                                        <div class="flex items-center gap-2">
-                                                            <span class="text-xs font-medium">{{ marker.name }}</span>
-                                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
-                                                        </div>
-                                                        <div v-if="marker.description" class="text-xs text-muted-foreground">
-                                                            {{ marker.description }}
-                                                        </div>
-                                                    </template>
-                                                    <template v-else>
-                                                        <Input v-model="marker.name" placeholder="Marker name" class="h-7 text-xs font-medium" />
-                                                        <Textarea
-                                                            v-model="marker.description"
-                                                            placeholder="Marker description..."
-                                                            rows="2"
-                                                            class="text-xs"
-                                                        />
-                                                        <IconTokenPalette class="mt-1" />
-                                                    </template>
-                                                </div>
-                                                <button
-                                                    aria-label="Remove marker"
-                                                    class="mt-1 text-muted-foreground hover:text-destructive"
-                                                    @click="removeMarker(mIdx)"
-                                                >
-                                                    <Trash2 class="size-3.5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CollapsibleContent>
-                            </CardContent>
-                        </Card>
-                    </Collapsible>
+                    <TokensMarkersPanel
+                        v-if="isCrew && !props.upgrade?.is_campaign_crew_card"
+                        v-model:tokens="backTokens"
+                        v-model:markers="backMarkers"
+                    />
 
                     <!-- Back Face: Tokens & Markers, read-only, for a synced
                          campaign crew card — auto-calculated from the crew's
@@ -982,7 +582,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                 <CollapsibleTrigger class="flex w-full items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <h3 class="text-sm font-semibold">Back — Tokens & Markers</h3>
-                                        <Badge v-if="props.crew_computed_tokens_markers?.length" variant="secondary" class="text-[10px]">{{
+                                        <Badge v-if="props.crew_computed_tokens_markers?.length" variant="secondary" class="text-2xs">{{
                                             props.crew_computed_tokens_markers.length
                                         }}</Badge>
                                     </div>
@@ -1002,7 +602,7 @@ const blockTypeColor = (type: string, idx: number) => {
                                     >
                                         <div class="flex items-center gap-2">
                                             <span class="text-xs font-medium">{{ item.name }}</span>
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">{{
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">{{
                                                 item.type === 'token' ? 'Token' : 'Marker'
                                             }}</Badge>
                                         </div>
@@ -1032,7 +632,7 @@ const blockTypeColor = (type: string, idx: number) => {
                 </div>
 
                 <!-- Preview -->
-                <div class="lg:col-span-1">
+                <div id="card-preview" class="scroll-mt-4 lg:col-span-1">
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <h2 class="text-sm font-semibold">Preview</h2>
@@ -1150,13 +750,48 @@ const blockTypeColor = (type: string, idx: number) => {
             </div>
         </div>
 
-        <!-- Save bar -->
-        <div class="container mx-auto mt-4 px-4 lg:px-6">
-            <div class="flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-2.5">
-                <div v-if="Object.keys(errors).length" class="text-xs text-destructive">Please fix validation errors above.</div>
-                <div v-else class="text-xs text-muted-foreground">
-                    {{ isEdit ? 'Editing ' + (form.name || domainLabel.toLowerCase()) : `New ${domainLabel.toLowerCase()}` }}
+        <!-- Save bar: sticky so Save stays in reach; shows the saved card image's state when editing. -->
+        <div
+            class="sticky bottom-[var(--tabbar-h,0px)] z-20 mt-4 border-t bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        >
+            <div class="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
+                <div class="min-w-0 text-xs" aria-live="polite">
+                    <div
+                        v-if="dirty && !Object.keys(errors).length"
+                        class="mb-0.5 flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400"
+                    >
+                        <span class="size-1.5 rounded-full bg-current" aria-hidden="true" /> Unsaved changes
+                    </div>
+                    <div v-if="Object.keys(errors).length" class="text-destructive">Please fix validation errors above.</div>
+                    <div v-else-if="!isEdit" class="text-muted-foreground">A card image is rendered after you create it.</div>
+                    <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+                        <span class="truncate">Editing {{ form.name || domainLabel.toLowerCase() }}</span>
+                        <span v-if="imagePending || rerendering" class="inline-flex items-center gap-1 text-foreground">
+                            <Loader2 class="size-3 animate-spin" /> Rendering card image…
+                        </span>
+                        <template v-else-if="imageUrl">
+                            <a :href="imageUrl" :download="`${form.name || 'card'}.png`" class="inline-flex items-center gap-1 hover:text-foreground">
+                                <Download class="size-3" /> Card image
+                            </a>
+                            <Link
+                                :href="route('tools.card_creator.upgrades.share', upgrade!.share_code)"
+                                class="inline-flex items-center gap-1 hover:text-foreground"
+                            >
+                                <Share2 class="size-3" /> Share page
+                            </Link>
+                        </template>
+                        <span v-else>No card image yet.</span>
+                        <button
+                            v-if="!imagePending && !rerendering && !dirty"
+                            type="button"
+                            class="inline-flex items-center gap-1 underline-offset-2 hover:text-foreground hover:underline"
+                            @click="rerender"
+                        >
+                            <RefreshCw class="size-3" /> Re-render
+                        </button>
+                    </div>
                 </div>
+                <Button variant="outline" size="sm" class="ml-auto lg:hidden" @click="scrollToPreview"><Eye class="mr-1.5 size-4" /> Preview</Button>
                 <Button :disabled="saving || !form.name" size="sm" @click="save">
                     <Loader2 v-if="saving" class="mr-2 size-4 animate-spin" />
                     <Save v-else class="mr-2 size-4" />
@@ -1164,5 +799,13 @@ const blockTypeColor = (type: string, idx: number) => {
                 </Button>
             </div>
         </div>
+
+        <CardHistoryDialog
+            v-if="isEdit && versions"
+            v-model:open="historyOpen"
+            :versions="versions"
+            :dirty="dirty"
+            :restore-url="(id: number) => route('tools.card_creator.upgrades.restore_version', [props.upgrade!.id, id])"
+        />
     </div>
 </template>

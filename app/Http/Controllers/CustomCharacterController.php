@@ -13,24 +13,43 @@ use App\Enums\FactionEnum;
 use App\Enums\SuitEnum;
 use App\Events\CampaignCrewUpdated;
 use App\Http\Controllers\Campaign\Concerns\BroadcastsCampaignEvents;
+use App\Http\Requests\CustomCharacterArtRequest;
 use App\Http\Requests\CustomCharacterRequest;
 use App\Jobs\Campaign\GenerateLeaderCardImage;
 use App\Models\Campaign\CampaignCrew;
 use App\Models\CardArt;
+use App\Models\CustomCardVersion;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Inertia\Response;
 
 class CustomCharacterController extends Controller
 {
+    /** @var array<int, string> */
+    private const PUBLIC_SHARE_FIELDS = [
+        'id', 'name', 'title', 'display_name', 'faction', 'second_faction', 'station', 'cost', 'health', 'defense',
+        'defense_suit', 'willpower', 'willpower_suit', 'speed', 'size', 'base', 'keywords', 'characteristics', 'actions',
+        'abilities', 'linked_crew_upgrades', 'linked_totems', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx',
+        'card_art_dy', 'front_image', 'back_image', 'combination_image', 'card_image_generated_at',
+    ];
+
     use BroadcastsCampaignEvents;
 
     public function index(): Response
     {
+        // Only what the tiles render: the full rows carry every action, ability and note, which for a user with many
+        // cards is most of the payload. (card_art_id feeds the cardArt relation; faction_color is an appended accessor
+        // that reads faction.)
         $characters = CustomCharacter::where('user_id', Auth::id())
+            ->select([
+                'id', 'name', 'title', 'display_name', 'slug', 'faction', 'second_faction', 'station', 'cost', 'health', 'share_code',
+                'updated_at', 'front_image', 'thumb_image', 'combination_image', 'card_image_generated_at', 'card_art_id', 'is_campaign_leader',
+                'is_campaign_totem', 'campaign_crew_id',
+            ])
             ->with('cardArt:id,image_path')
             ->orderBy('updated_at', 'desc')
             ->get();
@@ -43,6 +62,10 @@ class CustomCharacterController extends Controller
         }
 
         $upgrades = CustomUpgrade::where('user_id', Auth::id())
+            ->select([
+                'id', 'name', 'display_name', 'slug', 'domain', 'type', 'faction', 'master_name', 'share_code', 'updated_at',
+                'front_image', 'thumb_image', 'combination_image', 'card_image_generated_at', 'is_campaign_crew_card', 'campaign_crew_id',
+            ])
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -70,8 +93,13 @@ class CustomCharacterController extends Controller
         foreach ($characters as $c) {
             $c->campaign_still_live = $c->campaign_crew_id !== null && $liveCrewIds->contains($c->campaign_crew_id);
         }
+        $crewsById = CampaignCrew::whereIn('id', $upgrades->pluck('campaign_crew_id')->filter()->unique())->get()->keyBy('id');
         foreach ($upgrades as $u) {
+            $u->setAttribute('card_image_pending', $u->cardImagePending());
             $u->campaign_still_live = $u->campaign_crew_id !== null && $liveCrewIds->contains($u->campaign_crew_id);
+            if ($u->campaign_still_live) {
+                $u->useCombinedCrewCardImages($crewsById->get($u->campaign_crew_id));
+            }
         }
 
         return inertia('Tools/CardCreator/Index', [
@@ -85,13 +113,13 @@ class CustomCharacterController extends Controller
         return inertia('Tools/CardCreator/Editor', [
             'character' => null,
             'enums' => $this->enumOptions(),
-            'card_arts' => $this->cardArtOptions(),
+            'card_arts' => CardArt::pickerOptions(),
         ]);
     }
 
     public function store(CustomCharacterRequest $request): JsonResponse
     {
-        $validated = $this->normalizeArtFraming($request->validated());
+        $validated = CardArt::normalizeFraming($request->validated());
         $validated['user_id'] = Auth::id();
 
         $character = CustomCharacter::create($validated);
@@ -117,15 +145,31 @@ class CustomCharacterController extends Controller
         return inertia('Tools/CardCreator/Editor', [
             'character' => $customCharacter,
             'enums' => $this->enumOptions(),
-            'card_arts' => $this->cardArtOptions($customCharacter->card_art_id),
+            'card_arts' => CardArt::pickerOptions($customCharacter->card_art_id),
             'campaign_back_url' => $campaignBackUrl,
             'card_image_pending' => $customCharacter->cardImagePending(),
+            'versions' => $customCharacter->isCampaignManaged() ? [] : $customCharacter->versions()->get()->map(fn (CustomCardVersion $v) => [
+                'id' => $v->id,
+                'created_at' => $v->created_at->toIso8601String(),
+                'label' => ($v->snapshot['name'] ?? 'Card').' · '.count($v->snapshot['actions'] ?? []).' actions · '.count($v->snapshot['abilities'] ?? []).' abilities',
+            ])->values(),
         ]);
+    }
+
+    /** Puts an earlier saved state of the card back (the state it replaces becomes a version itself, so a restore can be undone). */
+    public function restoreVersion(CustomCharacter $customCharacter, CustomCardVersion $version): JsonResponse
+    {
+        $this->authorize('update', $customCharacter);
+        abort_if($customCharacter->isCampaignManaged() || $version->versionable_type !== $customCharacter->getMorphClass() || $version->versionable_id !== $customCharacter->id, 404);
+
+        $customCharacter->restoreVersion($version);
+
+        return response()->json(['success' => true, 'redirect' => route('tools.card_creator.edit', $customCharacter->id)]);
     }
 
     public function update(CustomCharacterRequest $request, CustomCharacter $customCharacter): JsonResponse
     {
-        $validated = $this->normalizeArtFraming($request->validated());
+        $validated = CardArt::normalizeFraming($request->validated());
 
         // A campaign leader can be edited here for action/ability/tag detail,
         // but the generic editor must not break its campaign invariants — it
@@ -204,6 +248,57 @@ class CustomCharacterController extends Controller
     }
 
     /**
+     * Copies one of the owner's cards into a new, plain custom character (no campaign linkage, fresh share link and
+     * saved image) and sends them to its editor. Works from an explicit field list so campaign bookkeeping, XP
+     * and injuries never come along.
+     */
+    public function duplicate(CustomCharacter $customCharacter): JsonResponse
+    {
+        $this->authorize('update', $customCharacter);
+
+        return $this->copyCard($customCharacter, keepPrivate: true);
+    }
+
+    /** Anyone signed in can copy a card from its public share link into their own cards (without the owner's private notes). */
+    public function copyShared(string $shareCode): JsonResponse
+    {
+        return $this->copyCard(CustomCharacter::where('share_code', $shareCode)->firstOrFail(), keepPrivate: false);
+    }
+
+    private function copyCard(CustomCharacter $source, bool $keepPrivate): JsonResponse
+    {
+        if (CustomCharacter::where('user_id', Auth::id())->count() >= CustomCharacterRequest::MAX_PER_USER) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have reached the limit of '.CustomCharacterRequest::MAX_PER_USER.' custom characters. Delete one you no longer need first.',
+            ], 422);
+        }
+
+        $attributes = $source->only([
+            'title', 'faction', 'second_faction', 'station', 'cost', 'health', 'size', 'base', 'defense', 'defense_suit',
+            'willpower', 'willpower_suit', 'speed', 'count', 'summon_target_number', 'generates_stone', 'is_unhirable',
+            'card_art_id', 'card_art_x', 'card_art_y', 'card_art_zoom', 'card_art_dx', 'card_art_dy', 'actions',
+            'abilities', 'keywords', 'characteristics', 'linked_crew_upgrades', 'linked_totems',
+        ]);
+
+        if ($keepPrivate) {
+            $attributes['notes'] = $source->notes;
+        } else {
+            // Links to the other person's own custom cards are meaningless (and not theirs to see) for the copier.
+            foreach (['linked_crew_upgrades', 'linked_totems'] as $links) {
+                $attributes[$links] = array_values(array_filter($attributes[$links] ?? [], fn ($l) => ($l['source_type'] ?? null) === 'official'));
+            }
+        }
+
+        $copy = CustomCharacter::create(array_merge($attributes, [
+            'user_id' => Auth::id(),
+            'name' => Str::limit($source->name, 52, '').' (Copy)',
+        ]));
+
+        return response()->json(['success' => true, 'redirect' => route('tools.card_creator.edit', $copy->id)]);
+    }
+
+    /**
      * Owner-triggered re-render of the saved card image (a failed or stale render). Same job the observer queues,
      * but immediate; the pending flag makes My Cards show "Rendering…" until CardImageGenerated arrives.
      */
@@ -219,14 +314,25 @@ class CustomCharacterController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /** Changes only the card's library art and its framing (used from the Arsenal Sheet); the render observer re-queues the image. */
+    public function updateArt(CustomCharacterArtRequest $request, CustomCharacter $customCharacter): JsonResponse
+    {
+        $customCharacter->update(CardArt::normalizeFraming($request->validated()));
+
+        return response()->json(['success' => true]);
+    }
+
     public function share(string $shareCode): Response
     {
         $character = CustomCharacter::where('share_code', $shareCode)
             ->with('user:id,name')
             ->firstOrFail();
 
+        // An explicit allow-list: the model also carries the owner's private notes, user id and campaign bookkeeping,
+        // and this page is public.
         return inertia('Tools/CardCreator/View', [
-            'character' => $character,
+            'share_code' => $shareCode,
+            'character' => $character->only(self::PUBLIC_SHARE_FIELDS),
             'card_art_path' => $character->cardArt?->image_path,
             'card_image_pending' => $character->cardImagePending(),
             'creator_name' => $character->user->name,
@@ -266,61 +372,13 @@ class CustomCharacterController extends Controller
                 'characteristics' => $characteristics,
                 // Library art the player picked (CardArt); uploads are preview-only and never reach here.
                 'characterImage' => $character->cardArt?->image_path,
-                'characterImageFocus' => ['x' => $character->card_art_x, 'y' => $character->card_art_y, 'zoom' => $character->card_art_zoom],
+                'characterImageFocus' => ['x' => $character->card_art_x, 'y' => $character->card_art_y, 'zoom' => $character->card_art_zoom, 'dx' => $character->card_art_dx, 'dy' => $character->card_art_dy],
                 'actions' => $character->actions ?? [],
                 'abilities' => $character->abilities ?? [],
                 'linkedCrewUpgrades' => $character->linked_crew_upgrades ?? [],
                 'linkedTotems' => $character->linked_totems ?? [],
             ],
         ]);
-    }
-
-    /**
-     * The art library for the picker: every active piece, plus the one currently chosen even if it has since
-     * been retired (so an existing card never silently loses its art in the editor).
-     *
-     * @return list<array{id: int, name: string, image_path: string, faction: string|null, category: string|null}>
-     */
-    private function cardArtOptions(?int $currentId = null): array
-    {
-        return CardArt::query()
-            ->where(fn ($q) => $q->where('is_active', true)->when($currentId, fn ($qq) => $qq->orWhere('id', $currentId)))
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'name', 'image_path', 'faction', 'category'])
-            ->map(fn (CardArt $a) => [
-                'id' => $a->id,
-                'name' => $a->name,
-                'image_path' => $a->image_path,
-                'faction' => $a->faction?->value,
-                'category' => $a->category,
-            ])
-            ->all();
-    }
-
-    /**
-     * The framing columns are NOT NULL with defaults, so a null (or clearing the art) maps back to the default
-     * framing; keys the client didn't send are left alone.
-     *
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
-    private function normalizeArtFraming(array $validated): array
-    {
-        foreach (['card_art_x' => 50, 'card_art_y' => 50, 'card_art_zoom' => 100] as $key => $default) {
-            if (array_key_exists($key, $validated)) {
-                $validated[$key] ??= $default;
-            }
-        }
-
-        // No art, no framing to keep.
-        if (array_key_exists('card_art_id', $validated) && $validated['card_art_id'] === null) {
-            $validated['card_art_x'] = 50;
-            $validated['card_art_y'] = 50;
-            $validated['card_art_zoom'] = 100;
-        }
-
-        return $validated;
     }
 
     private function enumOptions(): array

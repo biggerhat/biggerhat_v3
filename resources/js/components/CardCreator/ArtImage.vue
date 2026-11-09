@@ -5,11 +5,14 @@ import { computed } from 'vue';
  * Character art filling its (relative, overflow-hidden) parent, framed by a focus point and a zoom.
  *
  * x / y are 0-100: which part of the image sits at the matching edge of the window (0 = left/top, 100 = right/
- * bottom). zoom is a percentage (100 = fill the window like `object-fit: cover`). The image is drawn in a box
+ * bottom). zoom is a percentage (100 = fill the window like `object-fit: cover`; below 100 the art shrinks inside the window, positioned by the same x / y). The image is drawn in a box
  * `zoom` times the window and shifted by the same x/y percentage, then cover-positioned inside that box — so one
  * pair of numbers pans both the zoomed box and any cover overflow, and the focus point stays put as zoom changes.
  * Pure CSS (no measuring), so it renders identically in the live preview, the html-to-image export and the
  * server-side headless capture.
+ *
+ * dx / dy add a free offset (percent of the window) after that, so the art can be pulled past the window edges; the
+ * uncovered part simply shows the card behind it.
  */
 const props = withDefaults(
     defineProps<{
@@ -18,20 +21,25 @@ const props = withDefaults(
         x?: number;
         y?: number;
         zoom?: number;
+        /** Free offset on top of the pan, as a percentage of the window (negative = left/up). Can push the art past the edges. */
+        dx?: number;
+        dy?: number;
     }>(),
-    { x: 50, y: 50, zoom: 100 },
+    { x: 50, y: 50, zoom: 100, dx: 0, dy: 0 },
 );
 
 const style = computed(() => {
-    const z = Math.min(300, Math.max(100, props.zoom)) / 100;
+    const z = Math.min(300, Math.max(50, props.zoom)) / 100;
     const x = Math.min(100, Math.max(0, props.x));
     const y = Math.min(100, Math.max(0, props.y));
+    const dxPct = Math.min(100, Math.max(-100, props.dx));
+    const dyPct = Math.min(100, Math.max(-100, props.dy));
     return {
         position: 'absolute' as const,
         width: `${z * 100}%`,
         height: `${z * 100}%`,
-        left: `${-(z - 1) * x}%`,
-        top: `${-(z - 1) * y}%`,
+        left: `${-(z - 1) * x + dxPct}%`,
+        top: `${-(z - 1) * y + dyPct}%`,
         objectFit: 'cover' as const,
         objectPosition: `${x}% ${y}%`,
         maxWidth: 'none',

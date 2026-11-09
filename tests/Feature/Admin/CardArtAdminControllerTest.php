@@ -169,3 +169,42 @@ it('re-renders every card using the art when its image is replaced', function ()
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $a->id);
     Bus::assertDispatched(GenerateLeaderCardImage::class, fn ($job) => $job->customCharacterId === $b->id);
 });
+
+it('links art to an official character, shows it in the admin, and offers it to the editors', function () {
+    $admin = artSuperAdmin();
+    $character = \App\Models\Character::factory()->create(['name' => 'Lady Justice', 'display_name' => 'Lady Justice']);
+    $payload = ['name' => 'Justice Portrait', 'is_active' => 1, 'character_id' => $character->id, 'image' => UploadedFile::fake()->image('a.png', 400, 300)];
+
+    $this->actingAs($admin)->post(route('admin.card_arts.store'), $payload)->assertRedirect(route('admin.card_arts.index'));
+    $art = CardArt::where('name', 'Justice Portrait')->firstOrFail();
+    expect($art->character_id)->toBe($character->id);
+
+    $this->actingAs($admin)->get(route('admin.card_arts.index'))->assertInertia(fn ($p) => $p->where('arts.0.character', 'Lady Justice'));
+    $this->actingAs($admin)->get(route('admin.card_arts.edit', $art))
+        ->assertInertia(fn ($p) => $p->where('linked_character.id', $character->id)->where('art.character_id', $character->id));
+
+    $options = CardArt::pickerOptions();
+    expect($options[0]['character_id'])->toBe($character->id)->and($options[0]['character_name'])->toBe('Lady Justice');
+
+    // Unlinking, and an unknown character id is refused.
+    $this->actingAs($admin)->post(route('admin.card_arts.update', $art), ['name' => 'Justice Portrait', 'is_active' => 1, 'character_id' => null])->assertRedirect();
+    expect($art->fresh()->character_id)->toBeNull();
+    $this->actingAs($admin)->post(route('admin.card_arts.update', $art), ['name' => 'Justice Portrait', 'is_active' => 1, 'character_id' => 999999])->assertSessionHasErrors('character_id');
+});
+
+it('does not limit who can pick linked art: faction and character link are only used to order the picker', function () {
+    $user = User::factory()->create();
+    $character = \App\Models\Character::factory()->create(['display_name' => 'Some Model']);
+    $art = CardArt::factory()->forFaction(FactionEnum::Bayou)->create(['character_id' => $character->id]);
+
+    $this->actingAs($user)->postJson(route('tools.card_creator.store'), ccArtPayload(['faction' => 'guild', 'card_art_id' => $art->id]))->assertOk();
+    expect(CustomCharacter::where('user_id', $user->id)->first()->card_art_id)->toBe($art->id);
+});
+
+function ccArtPayload(array $overrides = []): array
+{
+    return array_merge([
+        'name' => 'Free Pick', 'faction' => 'guild', 'station' => 'minion', 'health' => 8, 'base' => 30, 'defense' => 5, 'willpower' => 5, 'speed' => 5,
+        'actions' => [], 'abilities' => [],
+    ], $overrides);
+}

@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import AbilityLookupModal from '@/components/CardCreator/AbilityLookupModal.vue';
-import ActionLookupModal from '@/components/CardCreator/ActionLookupModal.vue';
+import AbilitiesPanel from '@/components/CardCreator/AbilitiesPanel.vue';
+import ActionsPanel from '@/components/CardCreator/ActionsPanel.vue';
 import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
-import ArtPositioner from '@/components/CardCreator/ArtPositioner.vue';
+import CardArtField from '@/components/CardCreator/CardArtField.vue';
+import type { AbilityData, ActionData, EnumOption } from '@/components/CardCreator/types';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import IconTokenPalette from '@/components/CardCreator/IconTokenPalette.vue';
 import { createComboImage, exportComboAsPdf, captureCardFaces, saveCardJson, tarotCardSize, triggerDownload } from '@/components/CardCreator/utils';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import CardHistoryDialog, { type CardVersion } from '@/components/CardCreator/CardHistoryDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,56 +20,30 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCardImageEvents } from '@/composables/useCardImageEvents';
 import { useTarotGrowToFit } from '@/composables/useTarotGrowToFit';
 import { useEditorDraft } from '@/composables/useEditorDraft';
+import { useCardJsonTransfer } from '@/composables/useCardJsonTransfer';
+import { useLatestFetch } from '@/composables/useLatestFetch';
 import { useToast } from '@/composables/useToast';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { csrfToken } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, ChevronDown, Copy, Download, FileText, ImagePlus, Loader2, Plus, RefreshCw, Save, Share2, Trash2, X } from 'lucide-vue-next';
+import {
+    ArrowLeft,
+    ChevronDown,
+    Copy,
+    Download,
+    FileJson,
+    History,
+    FileText,
+    Loader2,
+    Eye,
+    RefreshCw,
+    Save,
+    Share2,
+    Upload,
+    X,
+} from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
-
-interface EnumOption {
-    name: string;
-    value: string;
-}
-
-interface TriggerData {
-    name: string;
-    suits: string | null;
-    stone_cost: number;
-    description: string | null;
-    source_id: number | null;
-}
-
-interface ActionData {
-    name: string;
-    type: string;
-    is_signature: boolean;
-    stone_cost: number | string;
-    range: number | string | null;
-    range_type: string | null;
-    stat: number | string | null;
-    stat_suits: string | null;
-    stat_modifier: string | null;
-    resisted_by: string | null;
-    target_number: number | string | null;
-    target_suits: string | null;
-    damage: string | null;
-    description: string | null;
-    source_id: number | null;
-    source_character_id?: number | null;
-    triggers: TriggerData[];
-}
-
-interface AbilityData {
-    name: string;
-    suits: string | null;
-    defensive_ability_type: string | null;
-    costs_stone: boolean;
-    description: string | null;
-    source_id: number | null;
-    source_character_id?: number | null;
-}
 
 interface KeywordData {
     id: number | null;
@@ -111,6 +84,8 @@ const props = defineProps<{
         card_art_x: number;
         card_art_y: number;
         card_art_zoom: number;
+        card_art_dx: number;
+        card_art_dy: number;
         is_campaign_leader: boolean;
         is_campaign_totem: boolean;
         archetype: string | null;
@@ -140,6 +115,7 @@ const props = defineProps<{
     card_arts: Array<{ id: number; name: string; image_path: string; faction: string | null; category: string | null }>;
     campaign_back_url: string | null;
     card_image_pending?: boolean;
+    versions?: CardVersion[];
 }>();
 
 const isEdit = computed(() => !!props.character);
@@ -169,6 +145,9 @@ useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
         router.reload({ only: ['character', 'card_image_pending'], preserveScroll: true });
     }
 });
+// Below lg the preview sits under the form; the save bar's Preview button jumps to it.
+const scrollToPreview = () => document.getElementById('card-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
 const rerender = async () => {
     if (!props.character || rerendering.value) return;
     rerendering.value = true;
@@ -216,6 +195,8 @@ const form = reactive({
     card_art_x: props.character?.card_art_x ?? 50,
     card_art_y: props.character?.card_art_y ?? 50,
     card_art_zoom: props.character?.card_art_zoom ?? 100,
+    card_art_dx: props.character?.card_art_dx ?? 0,
+    card_art_dy: props.character?.card_art_dy ?? 0,
     notes: props.character?.notes ?? '',
     // Only meaningful (and only editable — see the template) for a Campaign
     // Leader; left as whatever it already is for every other character.
@@ -238,7 +219,7 @@ const characteristics = reactive<string[]>(props.character?.characteristics ?? [
 const linkedCrewUpgrades = reactive<LinkedItem[]>(props.character?.linked_crew_upgrades ?? []);
 const linkedTotems = reactive<LinkedItem[]>(props.character?.linked_totems ?? []);
 
-const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
+const { hasDraft, dirty, restoreDraft, discardDraft, markSaved, currentSnapshot, applySnapshot } = useEditorDraft({
     key: 'bh_draft_card',
     keepDraft: !props.character,
     snapshot: () => ({
@@ -251,15 +232,36 @@ const { hasDraft, restoreDraft, discardDraft, markSaved } = useEditorDraft({
         linkedTotems: JSON.parse(JSON.stringify(linkedTotems)),
     }),
     restore: (d) => {
-        Object.assign(form, d.form);
-        actions.splice(0, actions.length, ...d.actions);
-        abilities.splice(0, abilities.length, ...d.abilities);
-        keywords.splice(0, keywords.length, ...d.keywords);
-        characteristics.splice(0, characteristics.length, ...d.characteristics);
-        linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...d.linkedCrewUpgrades);
-        linkedTotems.splice(0, linkedTotems.length, ...d.linkedTotems);
+        // Drafts and imported files are only trusted for keys the form has and values of the right shape.
+        for (const key of Object.keys(form) as (keyof typeof form)[]) {
+            if (d.form && key in d.form) (form as Record<string, unknown>)[key] = d.form[key];
+        }
+        const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+        actions.splice(0, actions.length, ...list<ActionData>(d.actions));
+        abilities.splice(0, abilities.length, ...list<AbilityData>(d.abilities));
+        keywords.splice(0, keywords.length, ...list<KeywordData>(d.keywords));
+        characteristics.splice(0, characteristics.length, ...list<string>(d.characteristics));
+        linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...list<LinkedItem>(d.linkedCrewUpgrades));
+        linkedTotems.splice(0, linkedTotems.length, ...list<LinkedItem>(d.linkedTotems));
     },
 });
+
+const historyOpen = ref(false);
+const { exportJson, importFile } = useCardJsonTransfer({
+    kind: 'custom-character',
+    snapshot: currentSnapshot,
+    apply: applySnapshot,
+    // Private notes stay home, and links to the owner's own custom cards mean nothing to anyone else.
+    scrub: (d) => ({
+        ...d,
+        form: { ...d.form, notes: '' },
+        linkedCrewUpgrades: d.linkedCrewUpgrades.filter((l: LinkedItem) => l.source_type === 'official'),
+        linkedTotems: d.linkedTotems.filter((l: LinkedItem) => l.source_type === 'official'),
+    }),
+    filename: () => form.name,
+});
+
+const fetchLatest = useLatestFetch();
 
 // Clone from official character
 const cloneSearchQuery = ref('');
@@ -275,18 +277,21 @@ const searchCloneCharacter = (q: string) => {
         return;
     }
     cloneDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
-        const data = await res.json();
-        cloneSearchResults.value = data.filter((r: any) => r.source_type === 'official');
+        const data = await fetchLatest<any>('clone', route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
+        if (data) cloneSearchResults.value = data.filter((r: any) => r.source_type === 'official');
     }, 300);
 };
+
+// The official character this card was cloned from — its linked library art is suggested (and picked if the card has none).
+const clonedCharacterId = ref<number | null>(null);
 
 const cloneFromCharacter = async (charId: number) => {
     cloneLoading.value = true;
     cloneSearchResults.value = [];
     cloneSearchQuery.value = '';
     try {
-        const res = await fetch(route('api.card-creator.character-detail', charId));
+        const res = await fetch(route('api.card-creator.character-detail', charId), { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
         form.name = data.name ?? '';
@@ -314,8 +319,22 @@ const cloneFromCharacter = async (charId: number) => {
         characteristics.splice(0, characteristics.length, ...(data.characteristics ?? []));
         linkedCrewUpgrades.splice(0, linkedCrewUpgrades.length, ...(data.linked_crew_upgrades ?? []));
         linkedTotems.splice(0, linkedTotems.length, ...(data.linked_totems ?? []));
+
+        clonedCharacterId.value = charId;
+        if (!form.card_art_id) {
+            const linkedArt = props.card_arts.find((a) => a.character_id === charId);
+            if (linkedArt) {
+                form.card_art_id = linkedArt.id;
+                form.card_art_x = 50;
+                form.card_art_y = 50;
+                form.card_art_zoom = 100;
+                form.card_art_dx = 0;
+                form.card_art_dy = 0;
+            }
+        }
     } catch (e) {
         console.error('Failed to clone character:', e);
+        toast.error('Could not load that character', { description: 'Try again in a moment.' });
     } finally {
         cloneLoading.value = false;
     }
@@ -354,33 +373,11 @@ const selectedArt = computed(() => props.card_arts.find((a) => a.id === form.car
 // An uploaded file still wins for the live preview (it's the player's own try-out); otherwise the chosen library art.
 // Framing belongs to the library art; a try-out upload is always shown centred.
 const artFocus = computed(() =>
-    characterImagePreview.value ? { x: 50, y: 50, zoom: 100 } : { x: form.card_art_x, y: form.card_art_y, zoom: form.card_art_zoom },
+    characterImagePreview.value
+        ? { x: 50, y: 50, zoom: 100 }
+        : { x: form.card_art_x, y: form.card_art_y, zoom: form.card_art_zoom, dx: form.card_art_dx, dy: form.card_art_dy },
 );
 const characterImageSrc = computed(() => characterImagePreview.value ?? selectedArt.value?.image_path ?? null);
-
-const artPickerOpen = ref(false);
-const artSearch = ref('');
-const artCategory = ref<string | null>(null);
-const artFactionOnly = ref(true);
-const artCategories = computed(() => [...new Set(props.card_arts.map((a) => a.category).filter((c): c is string => !!c))].sort());
-const visibleArts = computed(() => {
-    const q = artSearch.value.trim().toLowerCase();
-    return props.card_arts.filter((a) => {
-        if (artFactionOnly.value && form.faction !== 'none' && a.faction && a.faction !== form.faction) return false;
-        if (artCategory.value && a.category !== artCategory.value) return false;
-        return !q || a.name.toLowerCase().includes(q);
-    });
-});
-const pickArt = (id: number | null) => {
-    // New art starts centred and unzoomed; re-picking the same piece keeps the framing the player set.
-    if (id !== form.card_art_id) {
-        form.card_art_x = 50;
-        form.card_art_y = 50;
-        form.card_art_zoom = 100;
-    }
-    form.card_art_id = id;
-    artPickerOpen.value = false;
-};
 
 // The live preview (CardRenderer.vue) sits in this page's 1/3-width column,
 // which routinely clamps its box below every tarotCardSize tier — there's no
@@ -510,43 +507,6 @@ const save = async () => {
     saving.value = false;
 };
 
-// Action helpers
-const addAction = () => {
-    actions.push({
-        name: '',
-        type: 'attack',
-        is_signature: false,
-        stone_cost: 0,
-        range: null,
-        range_type: 'none',
-        stat: null,
-        stat_suits: null,
-        stat_modifier: null,
-        resisted_by: null,
-        target_number: null,
-        target_suits: null,
-        damage: null,
-        description: null,
-        source_id: null,
-        triggers: [],
-    });
-};
-
-const removeAction = (index: number) => actions.splice(index, 1);
-
-const addTrigger = (action: ActionData) => {
-    action.triggers.push({ name: '', suits: null, stone_cost: 0, description: null, source_id: null });
-};
-
-const removeTrigger = (action: ActionData, index: number) => action.triggers.splice(index, 1);
-
-// Ability helpers
-const addAbility = () => {
-    abilities.push({ name: '', suits: 'none', defensive_ability_type: 'none', costs_stone: false, description: null, source_id: null });
-};
-
-const removeAbility = (index: number) => abilities.splice(index, 1);
-
 // Keyword helpers
 const newKeyword = ref('');
 const addKeyword = () => {
@@ -569,82 +529,10 @@ const addCharacteristic = () => {
 
 const removeCharacteristic = (index: number) => characteristics.splice(index, 1);
 
-// Search existing actions/abilities from official DB
+// Keyword search results (the dropdown under the Keywords input).
 const searchResults = ref<any[]>([]);
-const searchType = ref<'action' | 'ability' | 'trigger' | null>(null);
-const searchQuery = ref('');
-const searchTargetIndex = ref<number | null>(null);
+const searchType = ref<'keyword' | null>(null);
 let searchDebounce: ReturnType<typeof setTimeout>;
-
-const searchOfficial = (type: 'action' | 'ability', q: string) => {
-    searchQuery.value = q;
-    searchType.value = type;
-    clearTimeout(searchDebounce);
-    if (q.length < 2) {
-        searchResults.value = [];
-        return;
-    }
-    searchDebounce = setTimeout(async () => {
-        const endpoint = type === 'action' ? 'api.card-creator.actions' : 'api.card-creator.abilities';
-        const res = await fetch(route(endpoint) + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
-    }, 300);
-};
-
-const pickAction = (official: any) => {
-    actions.push({ ...official, triggers: [] });
-    searchResults.value = [];
-    searchQuery.value = '';
-    searchType.value = null;
-};
-
-const pickAbility = (official: any) => {
-    abilities.push({ ...official });
-    searchResults.value = [];
-    searchQuery.value = '';
-    searchType.value = null;
-};
-
-// ───────── Browse modals (mirrors Leader Builder's Action/Ability Lookup
-// Modal, T3-32, but without keyword/cost-cap constraints — any homebrew
-// card can borrow any official action/ability as a starting point). ─────────
-const actionModalOpen = ref(false);
-const abilityModalOpen = ref(false);
-
-// Same trigger-stripping as pickAction above — triggers are added separately
-// via the per-action trigger search so they aren't tied to a single source.
-const commitActionsFromModal = (picked: ActionData[]) => {
-    for (const a of picked) actions.push({ ...a, triggers: [] });
-};
-
-const commitAbilitiesFromModal = (picked: AbilityData[]) => {
-    for (const a of picked) abilities.push({ ...a });
-};
-
-const searchTriggers = (q: string, actionIndex: number) => {
-    searchQuery.value = q;
-    searchType.value = 'trigger';
-    searchTargetIndex.value = actionIndex;
-    clearTimeout(searchDebounce);
-    if (q.length < 2) {
-        searchResults.value = [];
-        return;
-    }
-    searchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.triggers') + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
-    }, 300);
-};
-
-const pickTrigger = (official: any) => {
-    if (searchTargetIndex.value !== null && actions[searchTargetIndex.value]) {
-        actions[searchTargetIndex.value].triggers.push({ ...official });
-    }
-    searchResults.value = [];
-    searchQuery.value = '';
-    searchType.value = null;
-    searchTargetIndex.value = null;
-};
 
 const searchKeywords = (q: string) => {
     clearTimeout(searchDebounce);
@@ -653,10 +541,10 @@ const searchKeywords = (q: string) => {
         searchType.value = null;
         return;
     }
-    searchType.value = 'keyword' as any;
+    searchType.value = 'keyword';
     searchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.keywords') + '?q=' + encodeURIComponent(q));
-        searchResults.value = await res.json();
+        const data = await fetchLatest<any>('official', route('api.card-creator.keywords') + '?q=' + encodeURIComponent(q));
+        if (data) searchResults.value = data;
     }, 300);
 };
 
@@ -682,8 +570,8 @@ const searchCrewUpgrades = (q: string) => {
         return;
     }
     upgradeSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.crew-upgrades') + '?q=' + encodeURIComponent(q));
-        upgradeSearchResults.value = await res.json();
+        const data = await fetchLatest<any>('upgrade', route('api.card-creator.crew-upgrades') + '?q=' + encodeURIComponent(q));
+        if (data) upgradeSearchResults.value = data;
     }, 300);
 };
 
@@ -710,8 +598,8 @@ const searchTotems = (q: string) => {
         return;
     }
     totemSearchDebounce = setTimeout(async () => {
-        const res = await fetch(route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
-        totemSearchResults.value = await res.json();
+        const data = await fetchLatest<any>('totem', route('api.card-creator.characters') + '?q=' + encodeURIComponent(q));
+        if (data) totemSearchResults.value = data;
     }, 300);
 };
 
@@ -759,6 +647,16 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 <Link :href="route('tools.card_creator.index')">
                     <Button variant="ghost" size="sm"><ArrowLeft class="mr-1 size-4" /> Back to List</Button>
                 </Link>
+                <div class="ml-auto flex gap-2">
+                    <label v-if="!isEdit" class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm hover:bg-accent">
+                        <Upload class="size-4" /> Import JSON
+                        <input type="file" accept="application/json,.json" class="sr-only" @change="importFile" />
+                    </label>
+                    <Button v-if="isEdit && versions?.length" variant="ghost" size="sm" @click="historyOpen = true"
+                        ><History class="mr-1 size-4" /> History</Button
+                    >
+                    <Button variant="ghost" size="sm" @click="exportJson"><FileJson class="mr-1 size-4" /> Export JSON</Button>
+                </div>
             </div>
 
             <div class="grid gap-6 lg:grid-cols-3">
@@ -792,7 +690,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 </button>
                             </div>
                         </div>
-                        <p class="mt-1 text-[10px] text-muted-foreground">
+                        <p class="mt-1 text-2xs text-muted-foreground">
                             Populates all fields from an official character. You can edit everything after cloning.
                         </p>
                     </div>
@@ -895,41 +793,20 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             </div>
 
                             <!-- Character Art (library) -->
-                            <div class="border-t pt-3">
-                                <label class="mb-1.5 block text-xs text-muted-foreground">Character Art</label>
-                                <div
-                                    v-if="selectedArt"
-                                    class="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5 text-xs"
-                                >
-                                    <span class="truncate font-medium">{{ selectedArt.name }}</span>
-                                    <span class="flex shrink-0 gap-1">
-                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="artPickerOpen = true"
-                                            >Change</Button
-                                        >
-                                        <Button type="button" variant="ghost" size="sm" class="h-6 px-2 text-xs" @click="pickArt(null)"
-                                            >Remove</Button
-                                        >
-                                    </span>
-                                </div>
-                                <button
-                                    v-else
-                                    type="button"
-                                    class="flex w-full items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-left transition-colors hover:border-muted-foreground/50 hover:bg-muted/50"
-                                    @click="artPickerOpen = true"
-                                >
-                                    <ImagePlus class="size-5 shrink-0 text-muted-foreground" />
-                                    <span class="text-xs font-medium">Choose art from the library</span>
-                                    <span class="ml-auto text-xs text-muted-foreground">{{ card_arts.length }} available</span>
-                                </button>
-                                <ArtPositioner
-                                    v-if="selectedArt && !characterImagePreview"
-                                    v-model:x="form.card_art_x"
-                                    v-model:y="form.card_art_y"
-                                    v-model:zoom="form.card_art_zoom"
-                                    :src="selectedArt.image_path"
-                                    :alt="selectedArt.name"
-                                    class="mt-2"
-                                />
+                            <CardArtField
+                                v-model:art-id="form.card_art_id"
+                                v-model:x="form.card_art_x"
+                                v-model:y="form.card_art_y"
+                                v-model:zoom="form.card_art_zoom"
+                                v-model:dx="form.card_art_dx"
+                                v-model:dy="form.card_art_dy"
+                                :card-arts="card_arts"
+                                :faction="form.faction"
+                                :suggest-character-id="clonedCharacterId"
+                                :suggest-name="form.name"
+                                :show-positioner="!characterImagePreview"
+                                class="border-t pt-3"
+                            >
                                 <details class="mt-2 text-xs text-muted-foreground">
                                     <summary class="cursor-pointer">Try your own image (preview only)</summary>
                                     <div class="mt-1.5 space-y-1.5">
@@ -948,13 +825,13 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             class="text-xs"
                                             @change="onImageSelected"
                                         />
-                                        <p class="text-[10px]">
+                                        <p class="text-2xs">
                                             Your own image is never saved and won't appear on exports from a later visit or on the public share link.
                                             Pick library art to keep it on the card.
                                         </p>
                                     </div>
                                 </details>
-                            </div>
+                            </CardArtField>
                         </CardContent>
                     </Card>
 
@@ -965,34 +842,34 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             <!-- Row 1: Core -->
                             <div class="grid grid-cols-4 gap-2">
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Cost</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Cost</label>
                                     <Input v-model.number="form.cost" type="number" min="0" max="99" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Health *</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Health *</label>
                                     <Input v-model.number="form.health" type="number" min="1" max="99" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Df</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Df</label>
                                     <Input v-model.number="form.defense" type="number" min="0" max="20" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Wp</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Wp</label>
                                     <Input v-model.number="form.willpower" type="number" min="0" max="20" class="h-8" />
                                 </div>
                             </div>
                             <!-- Row 2: Physical -->
                             <div class="grid grid-cols-5 gap-2">
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Mv</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Mv</label>
                                     <Input v-model.number="form.speed" type="number" min="0" max="20" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Sz</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Sz</label>
                                     <Input v-model.number="form.size" type="number" min="0" max="10" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Base</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Base</label>
                                     <Select v-model="form.base">
                                         <SelectTrigger class="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>
@@ -1001,11 +878,11 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                     </Select>
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Count</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Count</label>
                                     <Input v-model.number="form.count" type="number" min="1" max="10" class="h-8" />
                                 </div>
                                 <div>
-                                    <label class="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Summon</label>
+                                    <label class="mb-1 block text-2xs uppercase tracking-wider text-muted-foreground">Summon</label>
                                     <Input v-model.number="form.summon_target_number" type="number" min="1" max="20" placeholder="—" class="h-8" />
                                 </div>
                             </div>
@@ -1034,7 +911,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="keywords.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(kw, i) in keywords" :key="'kw-' + i" variant="secondary" class="gap-1">
                                         {{ kw.name }}
-                                        <Badge v-if="kw.id" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]">Official</Badge>
+                                        <Badge v-if="kw.id" variant="outline" class="ml-0.5 px-1 py-0 text-2xs">Official</Badge>
                                         <button
                                             aria-label="Remove keyword"
                                             v-if="!isCampaignManaged"
@@ -1064,7 +941,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickKeyword(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge variant="outline" class="px-1 py-0 text-[10px]">Official</Badge>
+                                            <Badge variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
                                         </button>
                                     </div>
                                 </div>
@@ -1099,10 +976,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedCrewUpgrades.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(u, i) in linkedCrewUpgrades" :key="'cu-' + i" variant="secondary" class="gap-1">
                                         {{ u.name }}
-                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]"
+                                        <Badge v-if="u.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-2xs"
                                             >Official</Badge
                                         >
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                             >Custom</Badge
                                         >
                                         <button aria-label="Remove crew upgrade" class="ml-0.5 hover:text-destructive" @click="removeCrewUpgrade(i)">
@@ -1128,10 +1005,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickCrewUpgrade(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[10px]"
-                                                >Official</Badge
-                                            >
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                                 >Custom</Badge
                                             >
                                         </button>
@@ -1145,10 +1020,10 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                 <div v-if="linkedTotems.length" class="mb-2 flex flex-wrap gap-1.5">
                                     <Badge v-for="(t, i) in linkedTotems" :key="'totem-' + i" variant="secondary" class="gap-1">
                                         {{ t.name }}
-                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-[10px]"
+                                        <Badge v-if="t.source_type === 'official'" variant="outline" class="ml-0.5 px-1 py-0 text-2xs"
                                             >Official</Badge
                                         >
-                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                        <Badge v-else variant="outline" class="ml-0.5 border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                             >Custom</Badge
                                         >
                                         <button aria-label="Remove totem" class="ml-0.5 hover:text-destructive" @click="removeTotem(i)">
@@ -1174,10 +1049,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                                             @click="pickTotem(r)"
                                         >
                                             {{ r.name }}
-                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-[10px]"
-                                                >Official</Badge
-                                            >
-                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-[10px] text-purple-500"
+                                            <Badge v-if="r.source_type === 'official'" variant="outline" class="px-1 py-0 text-2xs">Official</Badge>
+                                            <Badge v-else variant="outline" class="border-purple-400 px-1 py-0 text-2xs text-purple-500"
                                                 >Custom</Badge
                                             >
                                         </button>
@@ -1187,343 +1060,8 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                         </CardContent>
                     </Card>
 
-                    <!-- ═══ ABILITIES (collapsible) ═══ -->
-                    <Collapsible default-open>
-                        <Card>
-                            <CardContent class="p-4">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold">Abilities</h3>
-                                        <Badge v-if="abilities.length" variant="secondary" class="text-[10px]">{{ abilities.length }}</Badge>
-                                    </div>
-                                    <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div class="mt-3 space-y-3">
-                                        <div class="flex items-center gap-2">
-                                            <div class="relative flex-1">
-                                                <Input
-                                                    placeholder="Search official abilities..."
-                                                    class="h-8 text-xs"
-                                                    @input="(e: Event) => searchOfficial('ability', (e.target as HTMLInputElement).value)"
-                                                />
-                                                <div
-                                                    v-if="searchType === 'ability' && searchResults.length"
-                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
-                                                >
-                                                    <button
-                                                        v-for="r in searchResults"
-                                                        :key="r.id"
-                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                                        @click="pickAbility(r)"
-                                                    >
-                                                        <span class="font-medium">{{ r.name }}</span>
-                                                        <span class="ml-2 text-xs text-muted-foreground"
-                                                            >{{ r.description?.slice(0, 60) }}{{ r.description?.length > 60 ? '...' : '' }}</span
-                                                        >
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="abilityModalOpen = true"
-                                                ><Plus class="mr-1 size-3" /> Browse</Button
-                                            >
-                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAbility"
-                                                ><Plus class="mr-1 size-3" /> Custom</Button
-                                            >
-                                        </div>
-
-                                        <!-- Same per-type tint as the Custom Upgrade editor's Card Content
-                                             blocks (blockTypeColor in UpgradeEditor.vue) — breaks up the
-                                             Abilities/Actions/Triggers sections visually instead of every
-                                             block looking identical. Alternates a lighter/darker shade of
-                                             that tint by list position so adjacent entries are distinguishable. -->
-                                        <div
-                                            v-for="(ability, aIdx) in abilities"
-                                            :key="'ability-' + aIdx"
-                                            class="space-y-2 rounded-lg border p-3"
-                                            :class="aIdx % 2 === 0 ? 'border-blue-500/20 bg-blue-500/10' : 'border-blue-500/15 bg-blue-500/5'"
-                                        >
-                                            <template v-if="ability.source_id">
-                                                <div class="flex items-center justify-between">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="text-sm font-medium">{{ ability.name }}</span>
-                                                        <Badge variant="outline" class="shrink-0 px-1 py-0 text-[10px]">Official</Badge>
-                                                    </div>
-                                                    <button
-                                                        aria-label="Remove ability"
-                                                        class="text-muted-foreground hover:text-destructive"
-                                                        @click="removeAbility(aIdx)"
-                                                    >
-                                                        <Trash2 class="size-3.5" />
-                                                    </button>
-                                                </div>
-                                                <div v-if="ability.description" class="text-xs text-muted-foreground">{{ ability.description }}</div>
-                                            </template>
-                                            <template v-else>
-                                                <div class="flex items-center justify-between">
-                                                    <Input v-model="ability.name" placeholder="Ability name" class="h-7 text-sm font-medium" />
-                                                    <button
-                                                        aria-label="Remove ability"
-                                                        class="ml-2 text-muted-foreground hover:text-destructive"
-                                                        @click="removeAbility(aIdx)"
-                                                    >
-                                                        <Trash2 class="size-3.5" />
-                                                    </button>
-                                                </div>
-                                                <div class="grid gap-2 sm:grid-cols-3">
-                                                    <Select v-model="ability.suits">
-                                                        <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="Suit" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="none">None</SelectItem>
-                                                            <SelectItem v-for="s in enums.suits" :key="s.value" :value="s.value">{{
-                                                                s.name
-                                                            }}</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <Select v-model="ability.defensive_ability_type">
-                                                        <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="Defense type" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="none">None</SelectItem>
-                                                            <SelectItem v-for="d in enums.defensive_ability_types" :key="d.value" :value="d.value">{{
-                                                                d.name
-                                                            }}</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <label class="flex items-center gap-1.5 text-xs">
-                                                        <input v-model="ability.costs_stone" type="checkbox" class="rounded" />
-                                                        Costs Soulstone
-                                                    </label>
-                                                </div>
-                                                <Textarea
-                                                    v-model="ability.description"
-                                                    placeholder="Ability description..."
-                                                    rows="2"
-                                                    class="text-xs"
-                                                />
-                                                <IconTokenPalette class="mt-1" />
-                                            </template>
-                                        </div>
-                                    </div>
-                                </CollapsibleContent>
-                            </CardContent>
-                        </Card>
-                    </Collapsible>
-
-                    <!-- ═══ ACTIONS (collapsible) ═══ -->
-                    <Collapsible default-open>
-                        <Card>
-                            <CardContent class="p-4">
-                                <CollapsibleTrigger class="flex w-full items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <h3 class="text-sm font-semibold">Actions</h3>
-                                        <Badge v-if="actions.length" variant="secondary" class="text-[10px]">{{ actions.length }}</Badge>
-                                    </div>
-                                    <ChevronDown class="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div class="mt-3 space-y-3">
-                                        <div class="flex items-center gap-2">
-                                            <div class="relative flex-1">
-                                                <Input
-                                                    placeholder="Search official actions..."
-                                                    class="h-8 text-xs"
-                                                    @input="(e: Event) => searchOfficial('action', (e.target as HTMLInputElement).value)"
-                                                />
-                                                <div
-                                                    v-if="searchType === 'action' && searchResults.length"
-                                                    class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
-                                                >
-                                                    <button
-                                                        v-for="r in searchResults"
-                                                        :key="r.id"
-                                                        class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                                        @click="pickAction(r)"
-                                                    >
-                                                        <span class="font-medium">{{ r.name }}</span>
-                                                        <Badge class="ml-2 text-[10px]">{{ r.type }}</Badge>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="actionModalOpen = true"
-                                                ><Plus class="mr-1 size-3" /> Browse</Button
-                                            >
-                                            <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs" @click="addAction"
-                                                ><Plus class="mr-1 size-3" /> Custom</Button
-                                            >
-                                        </div>
-
-                                        <!-- Alternates a lighter/darker amber shade by list position — see the
-                                             matching comment on the Abilities boxes above. -->
-                                        <div
-                                            v-for="(action, idx) in actions"
-                                            :key="'action-' + idx"
-                                            class="space-y-3 rounded-lg border p-3"
-                                            :class="idx % 2 === 0 ? 'border-amber-500/20 bg-amber-500/10' : 'border-amber-500/15 bg-amber-500/5'"
-                                        >
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex flex-1 items-center gap-2">
-                                                    <Input v-model="action.name" placeholder="Action name" class="h-7 text-sm font-medium" />
-                                                    <Badge v-if="action.source_id" variant="outline" class="shrink-0 px-1 py-0 text-[10px]"
-                                                        >Official</Badge
-                                                    >
-                                                </div>
-                                                <button
-                                                    aria-label="Remove action"
-                                                    class="ml-2 shrink-0 text-muted-foreground hover:text-destructive"
-                                                    @click="removeAction(idx)"
-                                                >
-                                                    <Trash2 class="size-3.5" />
-                                                </button>
-                                            </div>
-                                            <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Type</label>
-                                                    <Select v-model="action.type">
-                                                        <SelectTrigger class="h-7 text-xs"><SelectValue /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem v-for="t in enums.action_types" :key="t.value" :value="t.value">{{
-                                                                t.name
-                                                            }}</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Range</label>
-                                                    <Input v-model="action.range" placeholder="e.g. 2, *, X" class="h-7 text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Range Type</label>
-                                                    <Select v-model="action.range_type">
-                                                        <SelectTrigger class="h-7 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="none">None</SelectItem>
-                                                            <SelectItem v-for="r in enums.range_types" :key="r.value" :value="r.value">{{
-                                                                r.name
-                                                            }}</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Stat</label>
-                                                    <Input v-model="action.stat" placeholder="e.g. 5, X" class="h-7 text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Resisted By</label>
-                                                    <Input v-model="action.resisted_by" placeholder="Df" class="h-7 text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Damage</label>
-                                                    <Input v-model="action.damage" placeholder="2/3/5" class="h-7 text-xs" />
-                                                </div>
-                                            </div>
-                                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Stat Suits</label>
-                                                    <Input v-model="action.stat_suits" placeholder="e.g. crow ram" class="h-7 text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Stat Modifier</label>
-                                                    <Input v-model="action.stat_modifier" placeholder="e.g. crow" class="h-7 text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Target #</label>
-                                                    <Input v-model="action.target_number" placeholder="e.g. 13" class="h-7 text-xs" />
-                                                </div>
-                                                <div>
-                                                    <label class="text-[10px] text-muted-foreground">Target Suits</label>
-                                                    <Input v-model="action.target_suits" placeholder="e.g. crow" class="h-7 text-xs" />
-                                                </div>
-                                            </div>
-                                            <Textarea v-model="action.description" placeholder="Action description..." rows="2" class="text-xs" />
-                                            <IconTokenPalette class="mt-1" />
-                                            <label class="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                                                <Checkbox
-                                                    :checked="action.is_signature"
-                                                    @update:checked="(v: boolean) => (action.is_signature = v)"
-                                                />
-                                                Signature action
-                                            </label>
-
-                                            <!-- Triggers (always shown) -->
-                                            <div class="space-y-2 border-t pt-2">
-                                                <div class="flex items-center justify-between">
-                                                    <span class="text-[11px] font-medium text-muted-foreground">Triggers</span>
-                                                    <Button variant="ghost" size="sm" class="h-5 px-1.5 text-[10px]" @click="addTrigger(action)"
-                                                        ><Plus class="mr-0.5 size-2.5" /> Add</Button
-                                                    >
-                                                </div>
-                                                <div class="relative">
-                                                    <Input
-                                                        placeholder="Search official triggers..."
-                                                        class="h-7 text-xs"
-                                                        @input="(e: Event) => searchTriggers((e.target as HTMLInputElement).value, idx)"
-                                                    />
-                                                    <div
-                                                        v-if="searchType === 'trigger' && searchTargetIndex === idx && searchResults.length"
-                                                        class="absolute z-10 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
-                                                    >
-                                                        <button
-                                                            v-for="r in searchResults"
-                                                            :key="r.id"
-                                                            class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                                                            @click="pickTrigger(r)"
-                                                        >
-                                                            <span class="font-medium">{{ r.name }}</span>
-                                                            <span v-if="r.suits" class="ml-1 text-xs text-muted-foreground">({{ r.suits }})</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <!-- Alternates a lighter/darker purple shade by list position — see
-                                                     the matching comment on the Abilities boxes above. -->
-                                                <div
-                                                    v-for="(trigger, tIdx) in action.triggers"
-                                                    :key="'trigger-' + tIdx"
-                                                    class="flex items-start gap-2 rounded border p-2"
-                                                    :class="
-                                                        tIdx % 2 === 0
-                                                            ? 'border-purple-500/20 bg-purple-500/10'
-                                                            : 'border-purple-500/15 bg-purple-500/5'
-                                                    "
-                                                >
-                                                    <template v-if="trigger.source_id">
-                                                        <div class="flex-1 text-xs">
-                                                            <span class="font-medium">{{ trigger.suits }} {{ trigger.name }}:</span>
-                                                            <span class="text-muted-foreground"> {{ trigger.description }}</span>
-                                                            <Badge variant="outline" class="ml-1 px-1 py-0 text-[10px]">Official</Badge>
-                                                        </div>
-                                                    </template>
-                                                    <template v-else>
-                                                        <div class="flex-1 space-y-1">
-                                                            <div class="flex items-center gap-2">
-                                                                <Input
-                                                                    v-model="trigger.name"
-                                                                    placeholder="Trigger name"
-                                                                    class="h-6 text-xs font-medium"
-                                                                />
-                                                                <Input v-model="trigger.suits" placeholder="Suits" class="h-6 w-24 text-xs" />
-                                                            </div>
-                                                            <Input
-                                                                v-model="trigger.description"
-                                                                placeholder="Trigger description"
-                                                                class="h-6 text-xs"
-                                                            />
-                                                        </div>
-                                                    </template>
-                                                    <button
-                                                        aria-label="Remove trigger"
-                                                        class="mt-1 text-muted-foreground hover:text-destructive"
-                                                        @click="removeTrigger(action, tIdx)"
-                                                    >
-                                                        <X class="size-3" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CollapsibleContent>
-                            </CardContent>
-                        </Card>
-                    </Collapsible>
+                    <AbilitiesPanel v-model="abilities" :enums="enums" />
+                    <ActionsPanel v-model="actions" :enums="enums" />
 
                     <!-- ═══ NOTES (collapsible) ═══ -->
                     <Collapsible>
@@ -1544,10 +1082,9 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                 </div>
 
                 <!-- ═══ LIVE PREVIEW ═══ -->
-                <!-- order-first below lg so the preview leads on mobile/tablet (users get live
-                     feedback while filling in the form instead of scrolling past it entirely);
-                     lg:order-none restores normal DOM order (form left, preview right) at desktop. -->
-                <div class="order-first lg:order-none lg:col-span-1">
+                <!-- Below lg the preview follows the form (it is a screen-tall card, and leading with it pushed the
+                     fields out of view); the save bar's Preview button jumps to it. Side by side at desktop. -->
+                <div id="card-preview" class="scroll-mt-4 lg:col-span-1">
                     <div class="sticky top-4 space-y-3">
                         <div class="flex items-center justify-between">
                             <h3 class="text-sm font-semibold">Preview</h3>
@@ -1704,10 +1241,14 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
         >
             <div class="container mx-auto flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6">
                 <div class="min-w-0 text-xs" aria-live="polite">
-                    <div v-if="Object.keys(errors).length" class="text-destructive">Please fix validation errors above.</div>
-                    <div v-else-if="!isEdit" class="text-muted-foreground">
-                        New character — a shareable card image is rendered automatically after you create it.
+                    <div
+                        v-if="dirty && !Object.keys(errors).length"
+                        class="mb-0.5 flex items-center gap-1.5 font-medium text-amber-700 dark:text-amber-400"
+                    >
+                        <span class="size-1.5 rounded-full bg-current" aria-hidden="true" /> Unsaved changes
                     </div>
+                    <div v-if="Object.keys(errors).length" class="text-destructive">Please fix validation errors above.</div>
+                    <div v-else-if="!isEdit" class="text-muted-foreground">A card image is rendered after you create it.</div>
                     <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                         <span class="truncate">Editing {{ form.name || 'character' }}</span>
                         <span v-if="imagePending || rerendering" class="inline-flex items-center gap-1 text-foreground">
@@ -1726,7 +1267,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                         </template>
                         <span v-else>No card image yet.</span>
                         <button
-                            v-if="!imagePending && !rerendering"
+                            v-if="!imagePending && !rerendering && !dirty"
                             type="button"
                             class="inline-flex items-center gap-1 underline-offset-2 hover:text-foreground hover:underline"
                             @click="rerender"
@@ -1735,6 +1276,7 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                         </button>
                     </div>
                 </div>
+                <Button variant="outline" size="sm" class="ml-auto lg:hidden" @click="scrollToPreview"><Eye class="mr-1.5 size-4" /> Preview</Button>
                 <Button :disabled="saving || !form.name || form.faction === 'none'" size="sm" @click="save">
                     <Loader2 v-if="saving" class="mr-2 size-4 animate-spin" />
                     <Save v-else class="mr-2 size-4" />
@@ -1743,65 +1285,12 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
             </div>
         </div>
 
-        <Dialog :open="artPickerOpen" @update:open="(o: boolean) => (artPickerOpen = o)">
-            <DialogContent class="max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>Choose character art</DialogTitle>
-                    <DialogDescription>Art from the BiggerHat library. It's saved with the card and shows on the share link.</DialogDescription>
-                </DialogHeader>
-                <div class="flex flex-wrap items-center gap-2">
-                    <Input v-model="artSearch" placeholder="Search art…" class="h-8 max-w-[14rem]" aria-label="Search art" />
-                    <label v-if="form.faction !== 'none'" class="flex items-center gap-1.5 text-xs">
-                        <input v-model="artFactionOnly" type="checkbox" />
-                        Only this faction (and unrestricted art)
-                    </label>
-                </div>
-                <div v-if="artCategories.length" class="flex flex-wrap gap-1.5">
-                    <button
-                        type="button"
-                        class="rounded-full border px-2.5 py-0.5 text-xs"
-                        :class="artCategory === null ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'"
-                        @click="artCategory = null"
-                    >
-                        All
-                    </button>
-                    <button
-                        v-for="c in artCategories"
-                        :key="c"
-                        type="button"
-                        class="rounded-full border px-2.5 py-0.5 text-xs"
-                        :class="artCategory === c ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'"
-                        @click="artCategory = c"
-                    >
-                        {{ c }}
-                    </button>
-                </div>
-                <div class="max-h-[55vh] overflow-y-auto">
-                    <div v-if="card_arts.length === 0" class="py-10 text-center text-sm text-muted-foreground">
-                        The art library is empty for now — check back soon.
-                    </div>
-                    <div v-else-if="visibleArts.length === 0" class="py-10 text-center text-sm text-muted-foreground">
-                        No art matches. Try clearing the filters.
-                    </div>
-                    <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                        <button
-                            v-for="art in visibleArts"
-                            :key="art.id"
-                            type="button"
-                            class="group overflow-hidden rounded-md border text-left transition-colors hover:border-primary focus-visible:ring-2 focus-visible:ring-ring"
-                            :class="form.card_art_id === art.id ? 'border-primary ring-2 ring-primary' : ''"
-                            :aria-pressed="form.card_art_id === art.id"
-                            @click="pickArt(art.id)"
-                        >
-                            <img :src="'/storage/' + art.image_path" :alt="art.name" class="aspect-[4/3] w-full object-cover" loading="lazy" />
-                            <span class="block truncate px-2 py-1 text-xs">{{ art.name }}</span>
-                        </button>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-
-        <ActionLookupModal v-model:open="actionModalOpen" @commit="commitActionsFromModal" />
-        <AbilityLookupModal v-model:open="abilityModalOpen" @commit="commitAbilitiesFromModal" />
+        <CardHistoryDialog
+            v-if="isEdit && versions"
+            v-model:open="historyOpen"
+            :versions="versions"
+            :dirty="dirty"
+            :restore-url="(id: number) => route('tools.card_creator.restore_version', [props.character!.id, id])"
+        />
     </div>
 </template>

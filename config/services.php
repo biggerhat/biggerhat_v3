@@ -51,6 +51,8 @@ return [
         'node_binary' => env('BROWSERSHOT_NODE_BINARY'),
         'npm_binary' => env('BROWSERSHOT_NPM_BINARY'),
         'chrome_path' => env('BROWSERSHOT_CHROME_PATH'),
+        // Most headless-Chrome card renders allowed at once across all queue workers (see LimitConcurrentRenders).
+        'max_concurrent_renders' => (int) env('BROWSERSHOT_MAX_CONCURRENT_RENDERS', 2),
     ],
 
 ];

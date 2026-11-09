@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
 import CardFrontFace from '@/components/CardCreator/CardFrontFace.vue';
-import { tarotCardSize } from '@/components/CardCreator/utils';
+import { useTarotFit } from '@/composables/useTarotFit';
 import { Head } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { ref } from 'vue';
 
 // Headless-capture-only page — no sidebar/header/cookie-banner chrome.
 // app.ts defaults every page to AppLayout unless it opts out here; without
@@ -58,7 +58,7 @@ interface LinkedItem {
     name: string;
 }
 
-const props = defineProps<{
+defineProps<{
     card: {
         name: string;
         title: string | null;
@@ -77,7 +77,7 @@ const props = defineProps<{
         keywords: KeywordData[];
         characteristics: string[];
         characterImage: string | null;
-        characterImageFocus?: { x: number; y: number; zoom: number } | null;
+        characterImageFocus?: { x: number; y: number; zoom: number; dx?: number; dy?: number } | null;
         actions: ActionData[];
         abilities: AbilityData[];
         linkedCrewUpgrades: LinkedItem[];
@@ -85,27 +85,12 @@ const props = defineProps<{
     };
 }>();
 
-// CardFrontFace/CardBackFace are also embedded in CardRenderer.vue's
-// responsive, fixed-aspect-ratio live flip-preview elsewhere, so they only
-// pick their own pixel size (cardWidth/cardMinHeight props) when explicitly
-// given one — computed here, in the one place that's capture-only. Front and
-// back size independently since their content (abilities vs. actions/
-// triggers) is unrelated. min-height (not height) on the face's own root,
-// same as CombinedCrewCardFace, means content past even the top tier grows
-// the card further instead of clipping — Puppeteer's element screenshot
-// captures the element's actual laid-out box, not a fixed crop, so this
-// works as long as nothing between here and the face's root has its own
-// competing fixed size (see the wrapper divs' `display: inline-block` below,
-// matching CaptureCombinedCrewCard.vue's identical pattern).
-const frontSize = computed(() => tarotCardSize(props.card.abilities.reduce((sum, a) => sum + (a.description?.length ?? 0) + a.name.length, 0)));
-const backSize = computed(() =>
-    tarotCardSize(
-        props.card.actions.reduce((sum, a) => {
-            const triggerChars = a.triggers.reduce((ts, t) => ts + (t.description?.length ?? 0) + t.name.length, 0);
-            return sum + (a.description?.length ?? 0) + a.name.length + triggerChars;
-        }, 0),
-    ),
-);
+// Both faces share one exact tarot size, stepped up until the taller face's content fits (see useTarotFit). The faces
+// only pick their own pixel size when explicitly given one (cardWidth / cardMinHeight) because they are also embedded
+// in CardRenderer.vue's responsive live preview — so the sizing lives here, in the capture-only page.
+const frontEl = ref<HTMLElement | null>(null);
+const backEl = ref<HTMLElement | null>(null);
+const { width: cardWidth, height: cardHeight, ready } = useTarotFit(frontEl, backEl);
 </script>
 
 <template>
@@ -118,8 +103,8 @@ const backSize = computed(() =>
          CardFrontFace/CardBackFace pick their own width/min-height directly
          (cardWidth/cardMinHeight below) so the card grows to fit content
          instead of the face shrinking its own text into a fixed box. -->
-    <div class="flex items-start gap-8 bg-transparent p-8">
-        <div id="card-front" style="display: inline-block">
+    <div class="flex items-start gap-8 bg-transparent p-8" :data-capture-ready="ready ? 'true' : 'false'">
+        <div id="card-front" ref="frontEl" style="display: inline-block">
             <CardFrontFace
                 :name="card.name"
                 :title="card.title"
@@ -142,11 +127,11 @@ const backSize = computed(() =>
                 :abilities="card.abilities"
                 :linked-crew-upgrades="card.linkedCrewUpgrades"
                 :linked-totems="card.linkedTotems"
-                :card-width="frontSize.width"
-                :card-min-height="frontSize.height"
+                :card-width="cardWidth"
+                :card-min-height="cardHeight"
             />
         </div>
-        <div id="card-back" style="display: inline-block">
+        <div id="card-back" ref="backEl" style="display: inline-block">
             <CardBackFace
                 :name="card.name"
                 :title="card.title"
@@ -154,8 +139,8 @@ const backSize = computed(() =>
                 :second-faction="card.secondFaction"
                 :actions="card.actions"
                 :abilities="card.abilities"
-                :card-width="backSize.width"
-                :card-min-height="backSize.height"
+                :card-width="cardWidth"
+                :card-min-height="cardHeight"
             />
         </div>
     </div>

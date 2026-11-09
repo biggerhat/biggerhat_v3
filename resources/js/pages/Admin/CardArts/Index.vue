@@ -17,6 +17,7 @@ interface ArtRow {
     name: string;
     faction: string | null;
     category: string | null;
+    character: string | null;
     image_path: string;
     is_active: boolean;
     sort_order: number;
@@ -34,7 +35,7 @@ const factionLabel = (value: string | null) => props.factions.find((f) => f.valu
 const visible = computed(() => {
     const q = search.value.trim().toLowerCase();
     if (!q) return props.arts;
-    return props.arts.filter((a) => [a.name, a.category ?? '', factionLabel(a.faction)].some((t) => t.toLowerCase().includes(q)));
+    return props.arts.filter((a) => [a.name, a.category ?? '', a.character ?? '', factionLabel(a.faction)].some((t) => t.toLowerCase().includes(q)));
 });
 
 const remove = async (art: ArtRow) => {
@@ -60,7 +61,7 @@ const remove = async (art: ArtRow) => {
     </PageBanner>
 
     <div class="container mx-auto space-y-4 pb-10">
-        <Input v-model="search" placeholder="Search by name, category or faction…" class="max-w-sm" aria-label="Search card art" />
+        <Input v-model="search" placeholder="Search by name, character, category or faction…" class="max-w-sm" aria-label="Search card art" />
 
         <EmptyState
             v-if="arts.length === 0"
@@ -87,6 +88,7 @@ const remove = async (art: ArtRow) => {
                         <div class="flex flex-wrap gap-1 pt-1">
                             <Badge variant="outline" class="text-2xs">{{ factionLabel(art.faction) }}</Badge>
                             <Badge v-if="art.category" variant="secondary" class="text-2xs">{{ art.category }}</Badge>
+                            <Badge v-if="art.character" variant="outline" class="text-2xs">{{ art.character }}</Badge>
                             <Badge v-if="!art.is_active" variant="destructive" class="text-2xs">Inactive</Badge>
                         </div>
                         <div class="pt-1 text-2xs text-muted-foreground">Used on {{ art.in_use }} {{ art.in_use === 1 ? 'card' : 'cards' }}</div>

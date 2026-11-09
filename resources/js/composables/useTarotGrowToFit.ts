@@ -15,7 +15,8 @@ import { nextTick, ref } from 'vue';
  * taller of front/back's real scrollHeight fits within that tier's
  * proportioned height at the ACTUAL rendered width (which can be narrower
  * than the tier itself in a constrained embedding — read via
- * getBoundingClientRect rather than assumed). Stops at the first tier that
+ * offsetWidth rather than assumed; unlike getBoundingClientRect it ignores CSS
+ * scaling, so scaled-down previews measure at their real layout size). Stops at the first tier that
  * fits. If content still doesn't fit at the largest tier (a pathologically
  * dense card, or a very narrow embedding), height grows past the tarot
  * proportion as a last resort rather than clip.
@@ -46,7 +47,7 @@ export function useTarotGrowToFit(
             height.value = Math.round(width.value * TAROT_RATIO);
             await nextTick();
             const neededHeight = Math.max(getFrontEl()?.scrollHeight ?? 0, getBackEl()?.scrollHeight ?? 0);
-            const actualWidth = getFrontEl()?.getBoundingClientRect().width || width.value;
+            const actualWidth = getFrontEl()?.offsetWidth || width.value;
             const availableHeight = actualWidth * TAROT_RATIO;
             if (neededHeight <= availableHeight + 1) {
                 height.value = Math.round(availableHeight);

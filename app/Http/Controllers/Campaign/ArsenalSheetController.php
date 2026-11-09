@@ -32,6 +32,7 @@ use App\Models\Campaign\CampaignCrew;
 use App\Models\Campaign\CampaignEquipment;
 use App\Models\Campaign\CampaignLeaderAdvancement;
 use App\Models\Campaign\LuckyMiss;
+use App\Models\CardArt;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\CustomUpgrade;
@@ -695,6 +696,8 @@ class ArsenalSheetController extends Controller
         ]);
 
         return inertia('Campaigns/ArsenalSheet', [
+            // Library art the owner can choose for the Leader / Totem card.
+            'card_arts' => fn () => CardArt::pickerOptions(),
             'campaign' => $campaign->only(['id', 'name', 'status', 'length_weeks', 'current_week']),
             // Deduplicated union of every unit's qualifying Crew Card
             // upgrades (pg 15-16) — the per-model badges below only ever show

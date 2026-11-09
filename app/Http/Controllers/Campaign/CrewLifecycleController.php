@@ -126,6 +126,8 @@ class CrewLifecycleController extends Controller
                 // regenerates them (StartingArsenalController::store()).
                 'crew_card_front_image' => null,
                 'crew_card_back_image' => null,
+                'crew_card_combination_image' => null,
+                'crew_card_thumb_image' => null,
             ]);
         });
 

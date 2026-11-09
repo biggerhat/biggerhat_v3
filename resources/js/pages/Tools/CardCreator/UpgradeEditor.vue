@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onDownloadClick } from '@/lib/native';
 import UpgradeBackFace from '@/components/CardCreator/UpgradeBackFace.vue';
 import UpgradeCardRenderer from '@/components/CardCreator/UpgradeCardRenderer.vue';
 import UpgradeFrontFace from '@/components/CardCreator/UpgradeFrontFace.vue';
@@ -770,7 +771,12 @@ const save = async () => {
                             <Loader2 class="size-3 animate-spin" /> Rendering card image…
                         </span>
                         <template v-else-if="imageUrl">
-                            <a :href="imageUrl" :download="`${form.name || 'card'}.png`" class="inline-flex items-center gap-1 hover:text-foreground">
+                            <a
+                                :href="imageUrl"
+                                :download="`${form.name || 'card'}.png`"
+                                @click="onDownloadClick($event, imageUrl, `${form.name || 'card'}.png`)"
+                                class="inline-flex items-center gap-1 hover:text-foreground"
+                            >
                                 <Download class="size-3" /> Card image
                             </a>
                             <Link

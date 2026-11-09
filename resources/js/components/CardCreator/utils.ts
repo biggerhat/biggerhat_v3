@@ -1,4 +1,4 @@
-import { saveBlob, saveUrl } from '@/lib/native';
+import { isWebKit, saveBlob, saveUrl } from '@/lib/native';
 
 export const factionColorMap: Record<string, string> = {
     arcanists: '--arcanists',
@@ -80,6 +80,16 @@ export async function fetchFontEmbedCSS(): Promise<string> {
 }
 
 /**
+ * html-to-image's toPng() with a WebKit workaround: Safari (and everything on iOS) often paints images/backgrounds as
+ * blank on the first render of an element, so the first pass there is a throwaway that warms the image cache.
+ */
+export async function renderPng(el: HTMLElement, options: Parameters<typeof import('html-to-image').toPng>[1]): Promise<string> {
+    const { toPng } = await import('html-to-image');
+    if (isWebKit()) await toPng(el, options).catch(() => undefined);
+    return toPng(el, options);
+}
+
+/**
  * Captures both card faces as PNG data URLs. Any `blob:` image (an uploaded portrait that hasn't been saved
  * yet) is inlined as a data URL for the capture and always restored afterwards — even when the capture throws.
  */
@@ -88,7 +98,6 @@ export async function captureCardFaces(
     backEl: HTMLElement | null | undefined,
 ): Promise<{ frontData: string; backData: string; frontEl: HTMLElement; backEl: HTMLElement } | null> {
     if (!frontEl || !backEl) return null;
-    const { toPng } = await import('html-to-image');
     const fontEmbedCSS = await fetchFontEmbedCSS();
     const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
 
@@ -101,8 +110,8 @@ export async function captureCardFaces(
             swapped.push({ el: img, src: img.src });
             img.src = await blobToDataURL(img.src);
         }
-        const frontData = await toPng(frontEl, opts);
-        const backData = await toPng(backEl, opts);
+        const frontData = await renderPng(frontEl, opts);
+        const backData = await renderPng(backEl, opts);
         return { frontData, backData, frontEl, backEl };
     } finally {
         for (const { el, src } of swapped) el.src = src;

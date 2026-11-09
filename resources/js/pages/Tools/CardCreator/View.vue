@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onDownloadClick } from '@/lib/native';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
 import CopyToMyCards from '@/components/CardCreator/CopyToMyCards.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
@@ -106,6 +107,13 @@ const signedIn = !!usePage<SharedData>().props.auth.user;
                     v-else-if="character.combination_image"
                     :href="'/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at)"
                     :download="`${character.display_name}.png`"
+                    @click="
+                        onDownloadClick(
+                            $event,
+                            '/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at),
+                            `${character.display_name}.png`,
+                        )
+                    "
                     class="mr-2 inline-flex h-9 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent [@media(pointer:coarse)]:h-11"
                 >
                     <Download class="size-4" /> Download card

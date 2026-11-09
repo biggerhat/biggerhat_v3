@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onDownloadClick } from '@/lib/native';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -548,6 +549,13 @@ const stationLabel = (station: string | null) => {
                                     v-if="character.combination_image"
                                     :href="'/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at)"
                                     :download="`${character.display_name}.png`"
+                                    @click="
+                                        onDownloadClick(
+                                            $event,
+                                            '/storage/' + cacheBustedImagePath(character.combination_image, character.card_image_generated_at),
+                                            `${character.display_name}.png`,
+                                        )
+                                    "
                                     class="inline-flex size-8 shrink-0 items-center justify-center rounded-md border text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:size-10"
                                     :aria-label="`Download ${character.display_name} card image`"
                                     title="Download card image (front and back)"
@@ -700,6 +708,13 @@ const stationLabel = (station: string | null) => {
                                     v-if="card.combination_image"
                                     :href="'/storage/' + cacheBustedImagePath(card.combination_image, card.card_image_generated_at)"
                                     :download="`${card.display_name}.png`"
+                                    @click="
+                                        onDownloadClick(
+                                            $event,
+                                            '/storage/' + cacheBustedImagePath(card.combination_image, card.card_image_generated_at),
+                                            `${card.display_name}.png`,
+                                        )
+                                    "
                                     class="inline-flex size-8 shrink-0 items-center justify-center rounded-md border text-xs transition-colors hover:bg-accent [@media(pointer:coarse)]:size-10"
                                     :aria-label="`Download ${card.display_name} card image`"
                                     title="Download card image (front and back)"

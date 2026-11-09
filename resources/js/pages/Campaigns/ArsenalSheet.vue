@@ -2,7 +2,7 @@
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import CardRenderer from '@/components/CardCreator/CardRenderer.vue';
-import { blobToDataURL, createComboImage, fetchFontEmbedCSS, triggerDownload } from '@/components/CardCreator/utils';
+import { blobToDataURL, createComboImage, fetchFontEmbedCSS, renderPng, triggerDownload } from '@/components/CardCreator/utils';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import GameText from '@/components/GameText.vue';
@@ -1488,7 +1488,6 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         const backEl = rendererRef.backRef;
         if (!frontEl || !backEl) return;
 
-        const { toPng } = await import('html-to-image');
         const fontEmbedCSS = await fetchFontEmbedCSS();
         const opts = { pixelRatio: 2, skipFonts: true, fontEmbedCSS };
 
@@ -1501,7 +1500,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
 
         const origFrontBackface = frontEl.style.backfaceVisibility;
         frontEl.style.backfaceVisibility = 'visible';
-        const frontData = await toPng(frontEl, opts);
+        const frontData = await renderPng(frontEl, opts);
         frontEl.style.backfaceVisibility = origFrontBackface;
 
         for (const { el, src } of origSrcs) {
@@ -1512,7 +1511,7 @@ const exportCardImage = async (which: 'leader' | 'totem') => {
         const origBackface = backEl.style.backfaceVisibility;
         backEl.style.transform = 'none';
         backEl.style.backfaceVisibility = 'visible';
-        const backData = await toPng(backEl, opts);
+        const backData = await renderPng(backEl, opts);
         backEl.style.transform = origTransform;
         backEl.style.backfaceVisibility = origBackface;
 

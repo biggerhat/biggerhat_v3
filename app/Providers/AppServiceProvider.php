@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Enums\MessageTypeEnum;
 use App\Listeners\LogImpersonation;
+use App\Services\Push\NullPushSender;
+use App\Services\Push\PushSender;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
@@ -27,6 +29,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Swap for a real provider (FCM) when the native app launches; until then pushes are accepted and dropped.
+        $this->app->bind(PushSender::class, NullPushSender::class);
+
         Event::listen(TakeImpersonation::class, [LogImpersonation::class, 'onTake']);
         Event::listen(LeaveImpersonation::class, [LogImpersonation::class, 'onLeave']);
 

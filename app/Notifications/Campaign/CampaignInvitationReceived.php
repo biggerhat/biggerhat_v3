@@ -3,6 +3,7 @@
 namespace App\Notifications\Campaign;
 
 use App\Models\Campaign\CampaignInvitation;
+use App\Notifications\Channels\PushChannel;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
@@ -17,7 +18,7 @@ class CampaignInvitationReceived extends Notification
     /** @return array<int, string> */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', PushChannel::class];
     }
 
     /** @return array<string, mixed> */

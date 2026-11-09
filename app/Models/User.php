@@ -118,6 +118,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'supporter_since' => 'date',
             'show_on_supporters_page' => 'boolean',
+            'push_notifications' => 'boolean',
         ];
     }
 

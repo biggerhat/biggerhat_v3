@@ -43,3 +43,26 @@ export function saveUrl(url: string, filename: string): void {
 export function openExternal(url: string): void {
     window.open(url, '_blank', 'noopener');
 }
+
+/**
+ * Click handler for `<a :href="serverUrl" :download="name">` links. The web keeps the browser's own download; the native
+ * shell can't (WKWebView ignores `download`), so it fetches the file and hands it to saveBlob.
+ */
+export async function onDownloadClick(event: Event, url: string, filename: string): Promise<void> {
+    if (!isNative()) return;
+    event.preventDefault();
+    try {
+        const res = await fetch(url, { credentials: 'same-origin' });
+        if (!res.ok) throw new Error(String(res.status));
+        saveBlob(await res.blob(), filename);
+    } catch {
+        openExternal(url);
+    }
+}
+
+/** Safari, and every browser on iOS (they all run WebKit). Not Chrome/Edge/Android. */
+export function isWebKit(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent;
+    return /iPad|iPhone|iPod/.test(ua) || (/Safari/.test(ua) && !/Chrome|Chromium|Android|Edg/.test(ua));
+}

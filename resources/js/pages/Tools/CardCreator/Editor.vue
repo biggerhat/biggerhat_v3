@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onDownloadClick } from '@/lib/native';
 import AbilitiesPanel from '@/components/CardCreator/AbilitiesPanel.vue';
 import ActionsPanel from '@/components/CardCreator/ActionsPanel.vue';
 import CardBackFace from '@/components/CardCreator/CardBackFace.vue';
@@ -1255,7 +1256,12 @@ const removeTotem = (index: number) => linkedTotems.splice(index, 1);
                             <Loader2 class="size-3 animate-spin" /> Rendering card image…
                         </span>
                         <template v-else-if="imageUrl">
-                            <a :href="imageUrl" :download="`${form.name || 'card'}.png`" class="inline-flex items-center gap-1 hover:text-foreground">
+                            <a
+                                :href="imageUrl"
+                                :download="`${form.name || 'card'}.png`"
+                                @click="onDownloadClick($event, imageUrl, `${form.name || 'card'}.png`)"
+                                class="inline-flex items-center gap-1 hover:text-foreground"
+                            >
                                 <Download class="size-3" /> Card image
                             </a>
                             <Link

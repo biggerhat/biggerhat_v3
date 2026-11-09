@@ -46,5 +46,10 @@ Total ≈ 2–3 weeks work + review time. Push is the largest piece.
 - Deleted the stale `public/site.webmanifest` (the generated `/build/manifest.webmanifest` is the real one).
 - Dormant push backend: `device_tokens` table, `DeviceToken` model/factory, `POST|DELETE settings/device-tokens` (JSON), tests. Nothing sends yet.
 
-Still to do in prep: remaining `<a download>` links (server image URLs) → `saveUrl` via fetch when native; notification preferences + notification classes; iOS Safari check of `html-to-image` captures; CORS on art images; `Games/Show.vue` profiling.
-At launch: add a push-token bullet to `Privacy.vue` (left out now so the policy doesn't describe something that isn't live).
+Also done (second pass):
+- Server-image `<a download>` links on the Card Creator pages use `onDownloadClick` (web unchanged; native fetches + saves).
+- `renderPng()` wraps `html-to-image` with a WebKit warm-up render (first paint of images is often blank in Safari/iOS); used by card export, Arsenal Sheet export and loot card capture. Art is same-origin `/storage/…`, so no CORS issue as long as the shell loads the production host (keep APP_URL = the served host).
+- Push plumbing: `PushChannel` (reuses each notification's `toArray()` message + `action_url`), `PushSender` interface bound to `NullPushSender`, `users.push_notifications` switch, all 8 user-facing notifications include the channel. Dead tokens reported by a sender are deleted. At launch: write the FCM `PushSender`, bind it, add a settings toggle (shown only when native).
+- `Games/Show.vue` static check: chunk 275 kB (61 kB gzip), 12 watchers, no deep watchers. A real mid-range-Android profile still needs a device.
+
+Still to do before launch: iOS Safari/device verification of exports (needs a device), real-device Game Tracker profile, notification settings toggle UI, FCM sender, privacy-policy push-token bullet.

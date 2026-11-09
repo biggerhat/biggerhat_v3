@@ -4,6 +4,7 @@ namespace App\Notifications\Tournament;
 
 use App\Models\Tournament;
 use App\Models\TournamentRound;
+use App\Notifications\Channels\PushChannel;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
@@ -20,7 +21,7 @@ class TournamentRoundPaired extends Notification
     /** @return array<int, string> */
     public function via(object $notifiable): array
     {
-        return ['database', 'broadcast'];
+        return ['database', 'broadcast', PushChannel::class];
     }
 
     /** @return array<string, mixed> */

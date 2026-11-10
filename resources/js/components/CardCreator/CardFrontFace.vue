@@ -65,10 +65,9 @@ const props = defineProps<{
      *  flip-container owns sizing instead. */
     cardWidth?: number;
     cardMinHeight?: number;
-    /** Print-only light theme (saves ink) + moves Hp out of the stat grid
-     *  into its own bottom pip line, matching the official M4E card layout.
-     *  Only the dedicated hidden print-capture instance in Editor.vue sets
-     *  this — the live/digital card everywhere else is unaffected. */
+    /** Print-only light theme (saves ink). Hp is the same on every card: max
+     *  Hp number in the stat grid, pips along the bottom edge. Only the
+     *  dedicated hidden print-capture instance in Editor.vue sets this. */
     printMode?: boolean;
 }>();
 
@@ -205,11 +204,10 @@ defineExpose({ rootRef });
             </div>
         </div>
 
-        <!-- Stats bar — Hp drops out of this grid in print mode, moving to
-             its own bottom pip line (see below) matching official M4E cards. -->
+        <!-- Stats bar — Hp shows the max number; the pips live in the bottom line. -->
         <div
-            class="grid text-center"
-            :class="[printMode ? 'grid-cols-5' : 'grid-cols-6', 'divide-x', printMode ? 'divide-neutral-200' : 'divide-white/10']"
+            class="grid grid-cols-6 divide-x text-center"
+            :class="printMode ? 'divide-neutral-200' : 'divide-white/10'"
             :style="{ background: `hsl(var(${factionVar}) / 0.2)` }"
         >
             <div class="py-1.5">
@@ -236,11 +234,10 @@ defineExpose({ rootRef });
                 <div class="text-[10px] uppercase" :class="printMode ? 'text-neutral-500' : 'text-white/50'">Base</div>
                 <div class="text-xs font-bold">{{ base }}mm</div>
             </div>
-            <div v-if="!printMode" class="py-1.5">
-                <div class="text-[10px] uppercase text-white/50">Hp</div>
-                <div class="flex flex-wrap items-center justify-center gap-0.5 px-1">
-                    <span v-for="n in health" :key="'hp-' + n" class="size-2 shrink-0 rounded-full border border-red-400 bg-red-400" />
-                    <GameIcon type="soulstone" class-name="ml-0.5 text-xs shrink-0" :size-em="1.0" />
+            <div class="py-1.5">
+                <div class="text-[10px] uppercase" :class="printMode ? 'text-neutral-500' : 'text-white/50'">Hp</div>
+                <div class="flex items-center justify-center gap-0.5 text-lg font-bold">
+                    {{ health }}<GameIcon type="soulstone" class-name="text-xs" :size-em="1.0" />
                 </div>
             </div>
         </div>
@@ -310,16 +307,19 @@ defineExpose({ rootRef });
             </div>
         </div>
 
-        <!-- Print-only Hp pip line — mirrors the official M4E card layout
-             (health as a row of pips along the bottom edge) instead of the
-             stat-grid cell used in the live/digital card. -->
+        <!-- Hp pip line along the bottom edge, like the official M4E card layout. -->
         <div
-            v-if="printMode"
-            class="flex items-center justify-center gap-1.5 border-t border-neutral-200 px-3 py-1.5"
-            :style="{ background: `hsl(var(${factionVar}) / 0.08)` }"
+            class="flex flex-wrap items-center justify-center gap-1.5 border-t px-3 py-1.5"
+            :class="printMode ? 'border-neutral-200' : 'border-white/10'"
+            :style="{ background: `hsl(var(${factionVar}) / ${printMode ? 0.08 : 0.2})` }"
         >
-            <span class="mr-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Hp</span>
-            <span v-for="n in health" :key="'print-hp-' + n" class="size-2.5 shrink-0 rounded-full border-2 border-red-500" />
+            <span class="mr-1 text-[10px] font-semibold uppercase tracking-wider" :class="printMode ? 'text-neutral-400' : 'text-white/50'">Hp</span>
+            <span
+                v-for="n in health"
+                :key="'hp-' + n"
+                class="size-2.5 shrink-0 rounded-full border-2"
+                :class="printMode ? 'border-red-500' : 'border-red-400 bg-red-400'"
+            />
         </div>
 
         <!-- Faction border bottom -->

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatGameSize, tosOperationText, type TosDeploymentInfo, type TosOperationInfo, type TournamentRuleset } from '@/types/tournament';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
@@ -64,6 +65,8 @@ interface ViewRound {
     deployment: { value: string; label: string; description: string; image_url: string | null } | null;
     strategy: { id: number; name: string; image_url: string | null } | null;
     schemes: { id: number; name: string; image_url: string | null; prerequisite: string | null; reveal: string | null; scoring: string | null }[];
+    /** TOS-style scenario resolved from reference data (null for Malifaux rulesets). */
+    tos_scenario: { operation: TosOperationInfo | null; deployment: TosDeploymentInfo | null } | null;
     games: ViewGame[];
 }
 
@@ -114,6 +117,7 @@ const props = defineProps<{
         organizers: { id: number; name: string }[];
         rsvps?: Rsvp[];
     };
+    ruleset: TournamentRuleset;
     rounds: ViewRound[];
     standings: StandingEntry[];
     factions: Record<string, FactionInfo>;
@@ -324,8 +328,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                 : 'Draft'
                     }}</Badge>
                     <span v-if="currentRoundNumber !== null">Round {{ currentRoundNumber }} of {{ tournament.planned_rounds }}</span>
-                    <span>{{ tournament.season_label }}</span>
-                    <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
+                    <span v-if="ruleset.uses_season">{{ tournament.season_label }}</span>
+                    <span
+                        >{{ formatGameSize(ruleset, tournament.encounter_size)
+                        }}{{ ruleset.uses_encounter_type ? ' ' + encounterTypeLabel : '' }}</span
+                    >
                     <span v-if="tournament.event_date" class="flex items-center gap-1"
                         ><CalendarDays class="size-3" />{{ formatDate(tournament.event_date) }}</span
                     >
@@ -457,7 +464,10 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     </div>
                     <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
                     <!-- Compact Scenario -->
-                    <div v-if="round.deployment || round.strategy || round.schemes.length" class="mb-4 rounded-lg border bg-muted/30 p-3">
+                    <div
+                        v-if="round.deployment || round.strategy || round.schemes.length || round.tos_scenario"
+                        class="mb-4 rounded-lg border bg-muted/30 p-3"
+                    >
                         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                             <span v-if="round.deployment" class="flex items-center gap-1">
                                 <span class="text-muted-foreground">Deploy:</span>
@@ -466,6 +476,36 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)"
                                 >
                                     {{ round.deployment.label }}
+                                </button>
+                            </span>
+                            <span v-if="round.tos_scenario?.operation" class="flex items-center gap-1">
+                                <span class="text-muted-foreground">Operation:</span>
+                                <button
+                                    class="font-medium hover:text-primary"
+                                    @click="
+                                        openCard(
+                                            round.tos_scenario.operation.name,
+                                            round.tos_scenario.operation.image_url,
+                                            tosOperationText(round.tos_scenario.operation),
+                                        )
+                                    "
+                                >
+                                    {{ round.tos_scenario.operation.name }}
+                                </button>
+                            </span>
+                            <span v-if="round.tos_scenario?.deployment" class="flex items-center gap-1">
+                                <span class="text-muted-foreground">Deploy:</span>
+                                <button
+                                    class="font-medium hover:text-primary"
+                                    @click="
+                                        openCard(
+                                            round.tos_scenario.deployment.name,
+                                            round.tos_scenario.deployment.image_url,
+                                            round.tos_scenario.deployment.description,
+                                        )
+                                    "
+                                >
+                                    {{ round.tos_scenario.deployment.name }}
                                 </button>
                             </span>
                             <span v-if="round.strategy" class="flex items-center gap-1">

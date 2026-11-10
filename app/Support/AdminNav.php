@@ -11,6 +11,8 @@ use App\Models\TOS\Ability as TosAbility;
 use App\Models\TOS\Allegiance as TosAllegiance;
 use App\Models\TOS\AllegianceCard as TosAllegianceCard;
 use App\Models\TOS\Asset as TosAsset;
+use App\Models\TOS\Deployment as TosDeployment;
+use App\Models\TOS\Operation as TosOperation;
 use App\Models\TOS\SpecialUnitRule as TosSpecialUnitRule;
 use App\Models\TOS\Stratagem as TosStratagem;
 use App\Models\TOS\Unit as TosUnit;
@@ -177,6 +179,8 @@ class AdminNav
                     ['key' => 'tos_catalog_allegiance_cards', 'title' => 'Allegiance Cards', 'href' => route('admin.tos.allegiance_cards.index'), 'icon' => 'BookOpen', 'permission' => 'view_tos_allegiance_card', 'external' => false, 'count' => fn () => TosAllegianceCard::count()],
                     ['key' => 'tos_catalog_assets', 'title' => 'Assets', 'href' => route('admin.tos.assets.index'), 'icon' => 'Package', 'permission' => 'view_tos_asset', 'external' => false, 'count' => fn () => TosAsset::count()],
                     ['key' => 'tos_catalog_stratagems', 'title' => 'Stratagems', 'href' => route('admin.tos.stratagems.index'), 'icon' => 'Newspaper', 'permission' => 'view_tos_stratagem', 'external' => false, 'count' => fn () => TosStratagem::count()],
+                    ['key' => 'tos_catalog_operations', 'title' => 'Operations', 'href' => route('admin.tos.operations.index'), 'icon' => 'Newspaper', 'permission' => 'view_tos_operation', 'external' => false, 'count' => fn () => TosOperation::count()],
+                    ['key' => 'tos_catalog_deployments', 'title' => 'Deployments', 'href' => route('admin.tos.deployments.index'), 'icon' => 'Newspaper', 'permission' => 'view_tos_deployment', 'external' => false, 'count' => fn () => TosDeployment::count()],
                 ],
             ],
             [

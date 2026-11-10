@@ -29,6 +29,10 @@ class TournamentTrackerGameFactory
      */
     public function createForRound(Tournament $tournament, TournamentRound $round): void
     {
+        if (! $tournament->rulesetDefinition()->supportsTracker) {
+            return;
+        }
+
         $games = $round->games()
             ->where('is_bye', false)
             ->whereNull('game_id')

@@ -20,6 +20,8 @@ use App\Models\Strategy;
 use App\Models\Token;
 use App\Models\TOS\Ability as TosAbility;
 use App\Models\TOS\Allegiance as TosAllegiance;
+use App\Models\TOS\Deployment as TosDeployment;
+use App\Models\TOS\Operation as TosOperation;
 use App\Models\TOS\Stratagem as TosStratagem;
 use App\Models\TOS\Unit as TosUnit;
 use App\Models\Trigger;
@@ -112,6 +114,8 @@ class AdminSearchController extends Controller
             ['type' => 'TOS Ability', 'model' => TosAbility::class, 'columns' => ['name'], 'route' => 'admin.tos.abilities.edit', 'permission' => 'view_tos_ability'],
             ['type' => 'TOS Allegiance', 'model' => TosAllegiance::class, 'columns' => ['name'], 'route' => 'admin.tos.allegiances.edit', 'permission' => 'view_tos_allegiance'],
             ['type' => 'TOS Stratagem', 'model' => TosStratagem::class, 'columns' => ['name'], 'route' => 'admin.tos.stratagems.edit', 'permission' => 'view_tos_stratagem'],
+            ['type' => 'TOS Operation', 'model' => TosOperation::class, 'columns' => ['name'], 'route' => 'admin.tos.operations.edit', 'permission' => 'view_tos_operation'],
+            ['type' => 'TOS Deployment', 'model' => TosDeployment::class, 'columns' => ['name'], 'route' => 'admin.tos.deployments.edit', 'permission' => 'view_tos_deployment'],
         ];
     }
 }

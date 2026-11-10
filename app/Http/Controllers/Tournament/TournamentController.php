@@ -16,6 +16,8 @@ use App\Http\Requests\Tournaments\TournamentUpdateStatusRequest;
 use App\Models\Character;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\TOS\Deployment;
+use App\Models\TOS\Operation;
 use App\Models\Tournament;
 use App\Models\TournamentRound;
 use App\Services\TournamentStandingsService;
@@ -95,6 +97,9 @@ class TournamentController extends Controller
             ? collect()
             : Scheme::whereIn('id', $allSchemeIds)->get()->keyBy('id');
 
+        // TOS-style scenarios: resolve operation/deployment ids with two queries for the whole event.
+        $tosScenario = $this->resolveTosScenarios($tournament->rounds);
+
         $roundsData = [];
         foreach ($tournament->rounds as $round) {
             /** @var TournamentRound $round */
@@ -148,6 +153,7 @@ class TournamentController extends Controller
                 'deployment' => $deployment,
                 'strategy' => $strategy,
                 'schemes' => $schemes,
+                'tos_scenario' => $tosScenario[$round->id] ?? null,
                 'games' => $round->games,
             ];
         }
@@ -378,6 +384,12 @@ class TournamentController extends Controller
             'seasons' => $seasons,
             'factions' => fn () => FactionEnum::buildDetails(),
             'encounter_types' => collect(EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
+            'tos_operations' => $tournament->rulesetDefinition()->usesScenarioField('tos_operation')
+                ? Operation::orderBy('sort_order')->orderBy('name')->get()->map(fn (Operation $o) => $this->operationPayload($o))->values()
+                : [],
+            'tos_deployments' => $tournament->rulesetDefinition()->usesScenarioField('tos_deployment')
+                ? Deployment::orderBy('sort_order')->orderBy('name')->get()->map(fn (Deployment $d) => $this->deploymentPayload($d))->values()
+                : [],
             'all_deployments' => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()]),
             // Deferred below — page renders without these, a follow-up request
             // fills them in. Grouping means strategies + schemes batch into one
@@ -400,6 +412,60 @@ class TournamentController extends Controller
      *
      * @return array<string, mixed>
      */
+    /**
+     * Resolve each round's TOS scenario ids to display payloads.
+     *
+     * @param  iterable<TournamentRound>  $rounds
+     * @return array<int, array{operation: array<string, mixed>|null, deployment: array<string, mixed>|null}>
+     */
+    private function resolveTosScenarios(iterable $rounds): array
+    {
+        $rounds = collect($rounds);
+        $operations = Operation::whereIn('id', $rounds->map(fn ($r) => $r->scenario['operation_id'] ?? null)->filter()->unique())->get()->keyBy('id');
+        $deployments = Deployment::whereIn('id', $rounds->map(fn ($r) => $r->scenario['deployment_id'] ?? null)->filter()->unique())->get()->keyBy('id');
+
+        $out = [];
+        foreach ($rounds as $round) {
+            $op = $operations->get($round->scenario['operation_id'] ?? null);
+            $dep = $deployments->get($round->scenario['deployment_id'] ?? null);
+            if ($op || $dep) {
+                $out[$round->id] = [
+                    'operation' => $op ? $this->operationPayload($op) : null,
+                    'deployment' => $dep ? $this->deploymentPayload($dep) : null,
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, mixed> */
+    private function operationPayload(Operation $o): array
+    {
+        return [
+            'id' => $o->id,
+            'name' => $o->name,
+            'source' => $o->source,
+            'flavor' => $o->flavor,
+            'additional_setup' => $o->additional_setup,
+            'special_rules' => $o->special_rules,
+            'victory_conditions' => $o->victory_conditions,
+            'image_url' => $o->image_path ? '/storage/'.$o->image_path : null,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function deploymentPayload(Deployment $d): array
+    {
+        return [
+            'id' => $d->id,
+            'name' => $d->name,
+            'suit' => $d->suit,
+            'description' => $d->description,
+            'image_url' => $d->image_path ? '/storage/'.$d->image_path : null,
+        ];
+    }
+
     private function rulesetPayload(Tournament $tournament): array
     {
         return [

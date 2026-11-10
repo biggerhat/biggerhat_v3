@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Enums\TournamentGameResultEnum;
 use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
+use App\Models\TOS\Deployment;
+use App\Models\TOS\Operation;
 use App\Models\Tournament;
 use App\Models\TournamentRound;
 
@@ -129,10 +131,17 @@ class TournamentStateMachine
                 'strategy' => ! $round->strategy_id,
                 'deployment' => ! $round->deployment,
                 'scheme_pool' => empty($round->scheme_pool) || count((array) $round->scheme_pool) < 3,
+                'tos_operation' => ! ($id = $round->scenario['operation_id'] ?? null) || ! Operation::whereKey($id)->exists(),
+                'tos_deployment' => ! ($id = $round->scenario['deployment_id'] ?? null) || ! Deployment::whereKey($id)->exists(),
                 default => false,
             };
             if ($isMissing) {
-                $missing[] = $field === 'scheme_pool' ? 'scheme pool' : $field;
+                $missing[] = match ($field) {
+                    'scheme_pool' => 'scheme pool',
+                    'tos_operation' => 'operation',
+                    'tos_deployment' => 'deployment',
+                    default => $field,
+                };
             }
         }
 

@@ -129,7 +129,7 @@ export interface RulesetInfo {
     tiebreaker_toggle: boolean;
     suggested_rounds: [number, number | null, number][];
     default_round_time_limit: number | null;
-    game_size: { label: string; default: number; min: number; max: number; step: number };
+    game_size: { label: string; unit: string; default: number; min: number; max: number; step: number };
     uses_season: boolean;
     uses_encounter_type: boolean;
     /** Components a player's score is entered as; their sum is the player's VP. */
@@ -137,6 +137,7 @@ export interface RulesetInfo {
     /** Scenario components required on a round before pairing ('strategy' | 'deployment' | 'scheme_pool'). */
     scenario_fields: string[];
     requires_faction: boolean;
+    supports_tracker: boolean;
 }
 
 /** A tournament's ruleset: `scoring`/`tiebreakers` are effective values, `default_scoring` the ruleset's own. */
@@ -145,3 +146,41 @@ export interface TournamentRuleset extends RulesetInfo {
 }
 
 export const TIEBREAKER_LABELS: Record<string, string> = { sos: 'Strength of Schedule', diff: 'Differential', vp: 'Victory Points' };
+
+/** TOS Operation / Deployment reference rows shown on a round (mirrors TournamentController payloads). */
+export interface TosOperationInfo {
+    id: number;
+    name: string;
+    source: string | null;
+    flavor: string | null;
+    additional_setup: string | null;
+    special_rules: string | null;
+    victory_conditions: string | null;
+    image_url: string | null;
+}
+
+export interface TosDeploymentInfo {
+    id: number;
+    name: string;
+    suit: string | null;
+    description: string | null;
+    image_url: string | null;
+}
+
+/** Plain-text body for the reference drawer: each non-empty section under a heading. */
+export function tosOperationText(o: TosOperationInfo): string {
+    return [
+        o.flavor,
+        o.additional_setup ? `Additional Setup\n${o.additional_setup}` : '',
+        o.special_rules ? `Special Rules\n${o.special_rules}` : '',
+        o.victory_conditions ? `Victory Conditions\n${o.victory_conditions}` : '',
+    ]
+        .filter(Boolean)
+        .join('\n\n');
+}
+
+/** "50ss" for Malifaux, "40 Scrip" for TOS: short units attach, word units get a space. */
+export function formatGameSize(ruleset: Pick<RulesetInfo, 'game_size'>, size: number): string {
+    const unit = ruleset.game_size.unit;
+    return unit.length <= 2 ? `${size}${unit}` : `${size} ${unit}`;
+}

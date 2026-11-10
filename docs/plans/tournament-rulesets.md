@@ -1,6 +1,6 @@
 # Tournament Rulesets — game-agnostic tournament tracking
 
-Status: **Phases 1–3 and 4a done** on branch `tournament-rulesets-nov10` (uncommitted); Phase 4b (scenario as data) and Phases 5–6 not started.
+Status: **Phases 1–3 and 4 done** on branch `tournament-rulesets-nov10` (uncommitted); Phases 5–6 not started.
 Notes from implementation: rulesets are config-only (`config/tournaments.php`, no per-game classes); `tournaments.bye_*` columns are now nullable overrides (null = ruleset value); `ruleset` is a plain string column, unknown keys fall back to the default ruleset.
 
 ## Goal
@@ -79,12 +79,13 @@ rather than hard-coded Malifaux forms.
 Ruleset `scenario_fields` / `requires_faction` now drive the state machine, so a Fields of Glory event can pair and start rounds without a Malifaux
 strategy/deployment/scheme pool or faction (it simply has no scenario UI yet).
 
-**4b (not started):**
-- `tournament_games`: replace `player_*_strategy_vp` / `player_*_scheme_vp` with a JSON `score_breakdown`
-  (migrate existing values); ruleset declares the score fields (label, min, max). Total VP stays a real column.
-- `tournament_rounds`: `strategy_id` / `deployment` / `scheme_pool` → JSON `scenario` described by a ruleset
-  scenario schema (Malifaux: deployment + strategy + schemes; TOS: operation + deployment; others: free text).
-- Manage/View render scenario and score entry from the descriptor.
+**4b (done, not browser-tested):** TOS Operations and Deployments are database reference data (`tos_operations`, `tos_deployments`; admin CRUD under
+`/admin/tos/operations|deployments`, permissions `view/edit/delete_tos_operation|deployment`, idempotent `OperationSeeder` / `DeploymentSeeder` with the four
+Fields of Glory Operations and four suit-keyed Deployments). A round's ruleset-defined scenario lives in `tournament_rounds.scenario` JSON
+(`{"operation_id": 1, "deployment_id": 2}`); ruleset `scenario_fields` accepts `tos_operation` / `tos_deployment`. **Deviation from the original plan:** Malifaux keeps
+its `strategy_id` / `deployment` / `scheme_pool` columns (FK + Game Tracker depend on them) instead of moving into the JSON. Ruleset `supports_tracker` stops
+Fields of Glory rounds from spawning Malifaux tracker games. Manage gets Operation/Deployment pickers (autosave, reference drawer), View shows them on the round.
+Known gaps: Core Rulebook Operations must be added through the admin UI; Deployment diagrams/images are not seeded.
 
 ### Phase 5 — Player declaration and tracker integration
 - Replace the hard-wired "faction required" rule with a ruleset-declared check (Malifaux: faction; TOS:

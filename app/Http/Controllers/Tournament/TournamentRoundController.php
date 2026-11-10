@@ -10,6 +10,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentRoundUpdateRequest;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\TOS\Deployment;
+use App\Models\TOS\Operation;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentRound;
@@ -141,7 +143,7 @@ class TournamentRoundController extends Controller
 
             // Scenario edits gated by the state machine. Only checked when the
             // user actually included scenario fields in the request.
-            $scenarioFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
+            $scenarioFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool', 'scenario']));
             if (! empty($scenarioFields)) {
                 if ($error = $this->stateMachine->canEditScenario($tournament, $round)) {
                     return response()->json(['error' => $error], 422);
@@ -152,6 +154,10 @@ class TournamentRoundController extends Controller
             // plus server-set side-effects (started_at / completed_at) when status
             // transitions across InProgress / Completed.
             $userFields = array_intersect_key($validated, array_flip(['deployment', 'strategy_id', 'scheme_pool']));
+            if (isset($validated['scenario'])) {
+                // Partial update: keep components the request didn't mention.
+                $userFields['scenario'] = array_merge((array) $round->scenario, $validated['scenario']);
+            }
 
             if (isset($validated['status'])) {
                 $newStatus = TournamentRoundStatusEnum::from($validated['status']);
@@ -209,6 +215,18 @@ class TournamentRoundController extends Controller
     public function randomize(Tournament $tournament, TournamentRound $round): JsonResponse
     {
         $this->authorize('manage', $tournament);
+
+        // Rulesets with TOS-style scenarios pick a random Operation + Deployment from the reference data.
+        $scenarioFields = $tournament->rulesetDefinition()->scenarioFields;
+        if (in_array('tos_operation', $scenarioFields, true) || in_array('tos_deployment', $scenarioFields, true)) {
+            $round->update(['scenario' => array_merge((array) $round->scenario, array_filter([
+                'operation_id' => Operation::inRandomOrder()->value('id'),
+                'deployment_id' => Deployment::inRandomOrder()->value('id'),
+            ]))]);
+            $this->broadcastUpdate($tournament, 'round_updated');
+
+            return response()->json(['success' => true]);
+        }
 
         /** @var \App\Enums\PoolSeasonEnum $season */
         $season = $tournament->season;

@@ -19,6 +19,8 @@ class ImageHealthAdminController extends Controller
         ['table' => 'tos_allegiance_cards', 'columns' => ['image_path']],
         ['table' => 'tos_assets', 'columns' => ['image_path']],
         ['table' => 'tos_stratagems', 'columns' => ['image_path']],
+        ['table' => 'tos_operations', 'columns' => ['image_path']],
+        ['table' => 'tos_deployments', 'columns' => ['image_path']],
         ['table' => 'blog_posts', 'columns' => ['featured_image']],
         ['table' => 'miniatures', 'columns' => ['front_image', 'back_image', 'combination_image']],
         ['table' => 'packages', 'columns' => ['front_image', 'back_image', 'combination_image']],

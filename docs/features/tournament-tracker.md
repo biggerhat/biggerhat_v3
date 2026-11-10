@@ -57,3 +57,11 @@ The real logic lives in services, not the controllers:
 `tests/Feature/Tournament/` — incl. `PairingServiceTest`, `StandingsServiceTest`,
 `StateMachineTest`, `RoundLifecycleTest`, `RsvpTest`, `DropPlayerTest`,
 `ScenarioPropagationTest`, `PublicViewPageTest`.
+
+## Rulesets (game-agnostic tournaments)
+Tournaments run under a **ruleset** (`tournaments.ruleset`, config in `config/tournaments.php`, plan in
+[docs/plans/tournament-rulesets.md](../plans/tournament-rulesets.md)). A ruleset is data: scoring parameters
+(`App\Tournaments\ScoringConfig` / `ScoringEngine`), ordered tiebreakers, score fields, scenario fields, planning defaults.
+Standings, score entry, the state machine and the Create/Manage/View pages read the ruleset; nothing special-cases a game.
+Adding a game = adding a config entry. Rulesets today: `malifaux_gaining_grounds` (default) and `tos_fields_of_glory`.
+TOS rounds pick an Operation + Deployment from `tos_operations` / `tos_deployments` (stored in `tournament_rounds.scenario`).

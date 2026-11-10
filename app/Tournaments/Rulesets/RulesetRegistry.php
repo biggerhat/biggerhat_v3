@@ -68,13 +68,14 @@ final class RulesetRegistry
             suggestedRounds: array_values((array) ($def['suggested_rounds'] ?? [])),
             defaultRoundTimeLimit: isset($def['default_round_time_limit']) ? (int) $def['default_round_time_limit'] : null,
             gameSize: array_merge(
-                ['label' => 'Encounter Size (SS)', 'default' => 50, 'min' => 20, 'max' => 100, 'step' => 5],
+                ['label' => 'Encounter Size (SS)', 'unit' => 'ss', 'default' => 50, 'min' => 20, 'max' => 100, 'step' => 5],
                 (array) ($def['game_size'] ?? []),
             ),
             usesSeason: (bool) ($def['uses_season'] ?? true),
             usesEncounterType: (bool) ($def['uses_encounter_type'] ?? true),
             scenarioFields: array_values((array) ($def['scenario_fields'] ?? ['strategy', 'deployment', 'scheme_pool'])),
             requiresFaction: (bool) ($def['requires_faction'] ?? true),
+            supportsTracker: (bool) ($def['supports_tracker'] ?? true),
             scoreFields: array_values(array_map(
                 fn (array $f) => ['key' => (string) $f['key'], 'label' => (string) $f['label'], 'min' => (int) ($f['min'] ?? 0), 'max' => (int) $f['max']],
                 (array) ($def['score_fields'] ?? [['key' => 'vp', 'label' => 'Victory Points', 'min' => 0, 'max' => 30]]),

@@ -29,7 +29,7 @@ return [
             'tiebreaker_toggle' => true,
             'suggested_rounds' => [[4, 15, 3], [16, 32, 4], [33, null, 5]],
             'default_round_time_limit' => 135,
-            'game_size' => ['label' => 'Encounter Size (SS)', 'default' => 50, 'min' => 20, 'max' => 100, 'step' => 5],
+            'game_size' => ['label' => 'Encounter Size (SS)', 'unit' => 'ss', 'default' => 50, 'min' => 20, 'max' => 100, 'step' => 5],
             'uses_season' => true,
             'uses_encounter_type' => true,
             // A Malifaux score is strategy VP (max 5) + scheme VP (max 6) = up to 11.
@@ -40,6 +40,7 @@ return [
             // Each round needs a strategy, a deployment and a 3-scheme pool before it can be paired.
             'scenario_fields' => ['strategy', 'deployment', 'scheme_pool'],
             'requires_faction' => true,
+            'supports_tracker' => true,
         ],
 
         // The Other Side — Fields of Glory v3.0. 10 base TP + capped DIFF + 2 for a win; TP → SoS.
@@ -58,7 +59,7 @@ return [
             // 1 Commander: 90 min, 2 Commanders: 135 min (both including setup).
             'default_round_time_limit' => 90,
             // Garrison pools are 40-75 Scrip (One Commander 40 … Two Commanders 75).
-            'game_size' => ['label' => 'Game Size (Scrip)', 'default' => 40, 'min' => 20, 'max' => 100, 'step' => 5],
+            'game_size' => ['label' => 'Game Size (Scrip)', 'unit' => 'Scrip', 'default' => 40, 'min' => 20, 'max' => 100, 'step' => 5],
             // Season/encounter type are Malifaux strategy-pool concepts; TOS uses Operations (Phase 4).
             'uses_season' => false,
             'uses_encounter_type' => false,
@@ -66,8 +67,10 @@ return [
             'score_fields' => [
                 ['key' => 'vp', 'label' => 'Victory Points', 'min' => 0, 'max' => 30],
             ],
-            // Operations/deployments aren't modelled yet (docs/plans/tournament-rulesets.md, Phase 4b).
-            'scenario_fields' => [],
+            // Each round picks an Operation and a Deployment from the TOS reference data.
+            'scenario_fields' => ['tos_operation', 'tos_deployment'],
+            // The Game Tracker is Malifaux-only.
+            'supports_tracker' => false,
             // Players declare an Allegiance/Garrison instead of a Malifaux faction (Phase 5).
             'requires_faction' => false,
         ],

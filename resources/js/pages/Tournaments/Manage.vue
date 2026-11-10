@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { TIEBREAKER_LABELS, type TournamentRuleset } from '@/types/tournament';
+import {
+    formatGameSize,
+    TIEBREAKER_LABELS,
+    tosOperationText,
+    type TosDeploymentInfo,
+    type TosOperationInfo,
+    type TournamentRuleset,
+} from '@/types/tournament';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
@@ -116,6 +123,8 @@ interface TournamentRound {
     deployment: string | null;
     strategy: { id: number; name: string } | null;
     scheme_pool: number[] | null;
+    /** Ruleset-defined scenario ids (TOS: operation_id + deployment_id). */
+    scenario?: { operation_id?: number; deployment_id?: number } | null;
     status: string;
     started_at: string | null;
     games: TournamentGame[];
@@ -205,6 +214,9 @@ const props = defineProps<{
           }[]
         | null;
     all_deployments: { value: string; label: string; description: string | null; image_url: string | null }[];
+    /** TOS reference data; empty unless the ruleset's scenario uses it. */
+    tos_operations: TosOperationInfo[];
+    tos_deployments: TosDeploymentInfo[];
 }>();
 
 // Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
@@ -770,6 +782,8 @@ const pairBlockReason = (round: TournamentRound): string | null => {
     if (required.includes('strategy') && !round.strategy) missing.push('strategy');
     if (required.includes('deployment') && !round.deployment) missing.push('deployment');
     if (required.includes('scheme_pool') && (!round.scheme_pool || round.scheme_pool.length < 3)) missing.push('scheme pool');
+    if (required.includes('tos_operation') && !round.scenario?.operation_id) missing.push('operation');
+    if (required.includes('tos_deployment') && !round.scenario?.deployment_id) missing.push('deployment');
     if (missing.length) return `Set the round scenario before pairing (missing: ${missing.join(', ')})`;
     return null;
 };
@@ -980,6 +994,10 @@ const expandedScenarioRoundId = ref<number | null>(null);
 const editDeployment = ref<string | null>(null);
 const editStrategy = ref<string | null>(null);
 const editSchemePool = ref<(string | null)[]>([null, null, null]);
+// TOS-style scenario (Operation + Deployment from reference data) instead of Malifaux strategy/deployment/schemes.
+const usesTosScenario = computed(() => props.ruleset.scenario_fields.some((f) => f.startsWith('tos_')));
+const editTosOperation = ref<string | null>(null);
+const editTosDeployment = ref<string | null>(null);
 // Live indicator: 'idle' | 'saving' | 'saved'. Used by the editor's status pill.
 const scenarioSaveState = ref<'idle' | 'saving' | 'saved'>('idle');
 let scenarioSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -998,6 +1016,8 @@ const toggleScenarioEdit = (round: TournamentRound) => {
     editDeployment.value = round.deployment;
     editStrategy.value = round.strategy ? String(round.strategy.id) : null;
     editSchemePool.value = round.scheme_pool ? round.scheme_pool.map(String) : [null, null, null];
+    editTosOperation.value = round.scenario?.operation_id ? String(round.scenario.operation_id) : null;
+    editTosDeployment.value = round.scenario?.deployment_id ? String(round.scenario.deployment_id) : null;
     scenarioSaveState.value = 'idle';
     // Re-enable the watcher on the next tick so hydration assignments don't fire it.
     setTimeout(() => {
@@ -1010,11 +1030,23 @@ const saveRoundScenario = async (roundId: number) => {
     // Use doModalAction so validation errors show local to the pane (we'll
     // route them into the save-state indicator) rather than raising the
     // page-level toast behind the open editor.
-    const { ok, error } = await doModalAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', {
-        deployment: editDeployment.value,
-        strategy_id: editStrategy.value ? Number(editStrategy.value) : null,
-        scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
-    });
+    const payload = usesTosScenario.value
+        ? {
+              scenario: {
+                  operation_id: editTosOperation.value ? Number(editTosOperation.value) : null,
+                  deployment_id: editTosDeployment.value ? Number(editTosDeployment.value) : null,
+              },
+          }
+        : {
+              deployment: editDeployment.value,
+              strategy_id: editStrategy.value ? Number(editStrategy.value) : null,
+              scheme_pool: editSchemePool.value.filter(Boolean).map(Number),
+          };
+    const { ok, error } = await doModalAction(
+        route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }),
+        'PUT',
+        payload,
+    );
     if (ok) {
         scenarioSaveState.value = 'saved';
         if (savedFlashTimer) clearTimeout(savedFlashTimer);
@@ -1039,6 +1071,7 @@ const saveRoundScenario = async (roundId: number) => {
 // server returns 422 on every partial field change, which used to spam the
 // error toast and force redundant reloads.
 const scenarioIsComplete = (): boolean => {
+    if (usesTosScenario.value) return !!editTosOperation.value && !!editTosDeployment.value;
     if (!editDeployment.value) return false;
     if (!editStrategy.value) return false;
     const schemes = editSchemePool.value.filter(Boolean) as string[];
@@ -1058,7 +1091,7 @@ const availableSchemesForSlot = (idx: number) => {
 };
 
 watch(
-    [editDeployment, editStrategy, editSchemePool],
+    [editDeployment, editStrategy, editSchemePool, editTosOperation, editTosDeployment],
     () => {
         if (suppressScenarioSave || expandedScenarioRoundId.value === null) return;
         if (!scenarioIsComplete()) return;
@@ -1189,6 +1222,13 @@ const saveSettings = async () => {
 
 // ─── Randomize Scenario ───
 const randomizeInDialog = () => {
+    if (usesTosScenario.value) {
+        const ops = props.tos_operations;
+        const deps = props.tos_deployments;
+        if (ops.length) editTosOperation.value = String(ops[Math.floor(Math.random() * ops.length)].id);
+        if (deps.length) editTosDeployment.value = String(deps[Math.floor(Math.random() * deps.length)].id);
+        return;
+    }
     // Randomize locally in the form fields. Deferred props may still be loading
     // when the user clicks Random; silently skip fields whose data isn't in yet.
     const strats = props.all_strategies ?? [];
@@ -1220,6 +1260,19 @@ const viewDeployment = (value: string | null) => {
     const d = props.all_deployments.find((x) => x.value === value);
     if (d) openViewDrawer(d.label, d.image_url, d.description ?? undefined);
 };
+
+const viewTosOperation = (idStr: string | null) => {
+    const o = props.tos_operations.find((x) => String(x.id) === idStr);
+    if (o) openViewDrawer(o.name, o.image_url, tosOperationText(o));
+};
+
+const viewTosDeployment = (idStr: string | null) => {
+    const d = props.tos_deployments.find((x) => String(x.id) === idStr);
+    if (d) openViewDrawer(d.name, d.image_url, d.description ?? undefined);
+};
+
+const tosOperationName = (id?: number) => props.tos_operations.find((o) => o.id === id)?.name;
+const tosDeploymentName = (id?: number) => props.tos_deployments.find((d) => d.id === id)?.name;
 
 const viewStrategy = (idStr: string | null) => {
     if (!idStr) return;
@@ -1453,10 +1506,13 @@ const titlesForMaster = (masterName: string | null) => {
                     }}</Badge>
                     <span class="flex items-center gap-1"><CalendarDays class="size-3" /> {{ formatDate(tournament.event_date) }}</span>
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ tournament.location }}</span>
-                    <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
+                    <span
+                        >{{ formatGameSize(ruleset, tournament.encounter_size)
+                        }}{{ ruleset.uses_encounter_type ? ' ' + encounterTypeLabel : '' }}</span
+                    >
                     <span v-if="currentRoundNumber !== null">Round {{ currentRoundNumber }} of {{ tournament.planned_rounds }}</span>
                     <span v-else>{{ tournament.planned_rounds }} rounds</span>
-                    <span>{{ tournament.season_label }}</span>
+                    <span v-if="ruleset.uses_season">{{ tournament.season_label }}</span>
                 </div>
             </template>
         </PageBanner>
@@ -1925,7 +1981,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             {{
                                                 expandedScenarioRoundId === round.id
                                                     ? 'Hide Scenario'
-                                                    : round.strategy || round.deployment
+                                                    : round.strategy || round.deployment || round.scenario?.operation_id
                                                       ? 'Scenario'
                                                       : 'Set Scenario'
                                             }}
@@ -1980,7 +2036,7 @@ const titlesForMaster = (masterName: string | null) => {
                                             <Dices class="size-3" /> Random
                                         </Button>
                                     </div>
-                                    <div class="space-y-1.5">
+                                    <div v-if="!usesTosScenario" class="space-y-1.5">
                                         <div class="flex gap-1">
                                             <Select v-model="editDeployment">
                                                 <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue placeholder="Deployment..." /></SelectTrigger>
@@ -2043,6 +2099,44 @@ const titlesForMaster = (masterName: string | null) => {
                                             </button>
                                         </div>
                                     </div>
+                                    <div v-else class="space-y-1.5">
+                                        <div class="flex gap-1">
+                                            <Select v-model="editTosOperation">
+                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue placeholder="Operation..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem v-for="o in tos_operations" :key="o.id" :value="String(o.id)">{{
+                                                        o.name
+                                                    }}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <button
+                                                v-if="editTosOperation"
+                                                aria-label="View operation"
+                                                class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                @click="viewTosOperation(editTosOperation)"
+                                            >
+                                                <Eye class="size-3" />
+                                            </button>
+                                        </div>
+                                        <div class="flex gap-1">
+                                            <Select v-model="editTosDeployment">
+                                                <SelectTrigger class="h-8 flex-1 text-xs"><SelectValue placeholder="Deployment..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem v-for="d in tos_deployments" :key="d.id" :value="String(d.id)">{{
+                                                        d.name
+                                                    }}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <button
+                                                v-if="editTosDeployment"
+                                                aria-label="View deployment"
+                                                class="shrink-0 rounded-md border px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                                @click="viewTosDeployment(editTosDeployment)"
+                                            >
+                                                <Eye class="size-3" />
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div class="flex items-center justify-between text-2xs">
                                         <span class="text-muted-foreground">
                                             <span v-if="scenarioSaveState === 'saving'" class="inline-flex items-center gap-1"
@@ -2061,6 +2155,13 @@ const titlesForMaster = (masterName: string | null) => {
                                     </div>
                                 </div>
                                 <!-- Scenario summary (when not editing) -->
+                                <div
+                                    v-else-if="usesTosScenario && round.scenario"
+                                    class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-muted-foreground"
+                                >
+                                    <span v-if="round.scenario.operation_id">{{ tosOperationName(round.scenario.operation_id) }}</span>
+                                    <span v-if="round.scenario.deployment_id">{{ tosDeploymentName(round.scenario.deployment_id) }}</span>
+                                </div>
                                 <div
                                     v-else-if="round.strategy || round.deployment"
                                     class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-muted-foreground"
@@ -2448,7 +2549,10 @@ const titlesForMaster = (masterName: string | null) => {
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Encounter Size</span>
-                                    <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
+                                    <span
+                                        >{{ formatGameSize(ruleset, tournament.encounter_size)
+                                        }}{{ ruleset.uses_encounter_type ? ' ' + encounterTypeLabel : '' }}</span
+                                    >
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Planned Rounds</span>
@@ -2458,7 +2562,7 @@ const titlesForMaster = (masterName: string | null) => {
                                     <span class="text-muted-foreground">Round Time Limit</span>
                                     <span>{{ tournament.round_time_limit }} min</span>
                                 </div>
-                                <div class="flex justify-between">
+                                <div v-if="ruleset.uses_season" class="flex justify-between">
                                     <span class="text-muted-foreground">Season</span>
                                     <span>{{ tournament.season_label }}</span>
                                 </div>

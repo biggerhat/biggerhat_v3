@@ -248,11 +248,32 @@ describe('ruleset-driven requirements', function () {
             ->toBe('Set the round scenario before pairing (missing: strategy, deployment, scheme pool)');
     });
 
-    it('does not require a Malifaux scenario to pair a Fields of Glory round', function () {
+    it('requires an operation and deployment, not Malifaux strategy data, to pair a Fields of Glory round', function () {
         $t = Tournament::factory()->active()->create(['ruleset' => 'tos_fields_of_glory']);
         $round = TournamentRound::factory()->for($t)->create();
 
-        expect(app(TournamentStateMachine::class)->canPairRound($t, $round))->toBeNull();
+        expect(app(TournamentStateMachine::class)->canPairRound($t, $round))
+            ->toBe('Set the round scenario before pairing (missing: operation, deployment)');
+
+        $round->update(['scenario' => [
+            'operation_id' => \App\Models\TOS\Operation::factory()->create()->id,
+            'deployment_id' => \App\Models\TOS\Deployment::factory()->create()->id,
+        ]]);
+
+        expect(app(TournamentStateMachine::class)->canPairRound($t, $round->fresh()))->toBeNull();
+    });
+
+    it('treats a scenario pointing at a deleted operation as missing', function () {
+        $t = Tournament::factory()->active()->create(['ruleset' => 'tos_fields_of_glory']);
+        $op = \App\Models\TOS\Operation::factory()->create();
+        $round = TournamentRound::factory()->for($t)->create(['scenario' => [
+            'operation_id' => $op->id,
+            'deployment_id' => \App\Models\TOS\Deployment::factory()->create()->id,
+        ]]);
+        $op->delete();
+
+        expect(app(TournamentStateMachine::class)->canPairRound($t, $round->fresh()))
+            ->toBe('Set the round scenario before pairing (missing: operation)');
     });
 
     it('lets a Fields of Glory tournament start without Malifaux factions', function () {

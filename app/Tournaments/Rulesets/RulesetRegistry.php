@@ -73,6 +73,12 @@ final class RulesetRegistry
             ),
             usesSeason: (bool) ($def['uses_season'] ?? true),
             usesEncounterType: (bool) ($def['uses_encounter_type'] ?? true),
+            scenarioFields: array_values((array) ($def['scenario_fields'] ?? ['strategy', 'deployment', 'scheme_pool'])),
+            requiresFaction: (bool) ($def['requires_faction'] ?? true),
+            scoreFields: array_values(array_map(
+                fn (array $f) => ['key' => (string) $f['key'], 'label' => (string) $f['label'], 'min' => (int) ($f['min'] ?? 0), 'max' => (int) $f['max']],
+                (array) ($def['score_fields'] ?? [['key' => 'vp', 'label' => 'Victory Points', 'min' => 0, 'max' => 30]]),
+            )),
         );
     }
 }

@@ -421,7 +421,10 @@ class TournamentController extends Controller
 
         $filename = 'tournament-'.$tournament->uuid.'-'.now()->format('Ymd-His').'.csv';
 
-        return response()->streamDownload(function () use ($tournament) {
+        // Score components (beyond the VP total) are ruleset-defined, e.g. strategy + scheme for Malifaux.
+        $componentKeys = array_values(array_filter($tournament->rulesetDefinition()->scoreFieldKeys(), fn (string $k) => $k !== 'vp'));
+
+        return response()->streamDownload(function () use ($tournament, $componentKeys) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'round',
@@ -430,14 +433,12 @@ class TournamentController extends Controller
                 'player_one_faction',
                 'player_one_master',
                 'player_one_vp',
-                'player_one_strategy_vp',
-                'player_one_scheme_vp',
+                ...array_map(fn (string $k) => "player_one_{$k}_vp", $componentKeys),
                 'player_two',
                 'player_two_faction',
                 'player_two_master',
                 'player_two_vp',
-                'player_two_strategy_vp',
-                'player_two_scheme_vp',
+                ...array_map(fn (string $k) => "player_two_{$k}_vp", $componentKeys),
                 'result',
                 'is_bye',
                 'is_forfeit',
@@ -457,14 +458,12 @@ class TournamentController extends Controller
                         $game->player_one_faction ?: ($p1 ? $p1->getRawOriginal('faction') : null),
                         $game->player_one_title ?: $game->player_one_master,
                         $game->player_one_vp,
-                        $game->player_one_strategy_vp,
-                        $game->player_one_scheme_vp,
+                        ...array_map(fn (string $k) => $game->breakdownFor('player_one')[$k] ?? null, $componentKeys),
                         $p2 ? $p2->display_name : null,
                         $game->player_two_faction ?: ($p2 ? $p2->getRawOriginal('faction') : null),
                         $game->player_two_title ?: $game->player_two_master,
                         $game->player_two_vp,
-                        $game->player_two_strategy_vp,
-                        $game->player_two_scheme_vp,
+                        ...array_map(fn (string $k) => $game->breakdownFor('player_two')[$k] ?? null, $componentKeys),
                         $game->result->value,
                         $game->is_bye ? 'true' : 'false',
                         $game->is_forfeit ? 'true' : 'false',

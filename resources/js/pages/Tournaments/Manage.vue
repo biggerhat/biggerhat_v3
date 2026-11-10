@@ -87,14 +87,12 @@ interface TournamentGame {
     player_one_master: string | null;
     player_one_title: string | null;
     player_one_vp: number | null;
-    player_one_strategy_vp: number | null;
-    player_one_scheme_vp: number | null;
     player_two_faction: string | null;
     player_two_master: string | null;
     player_two_title: string | null;
     player_two_vp: number | null;
-    player_two_strategy_vp: number | null;
-    player_two_scheme_vp: number | null;
+    /** Per-side score components keyed by the ruleset's score-field keys. */
+    score_breakdown: { player_one?: Record<string, number>; player_two?: Record<string, number> } | null;
     is_bye: boolean;
     is_forfeit: boolean;
     forfeit_player_id: number | null;
@@ -767,10 +765,11 @@ const pairBlockReason = (round: TournamentRound): string | null => {
             return `Round ${round.round_number - 1} must be completed first`;
         }
     }
+    const required = props.ruleset.scenario_fields;
     const missing: string[] = [];
-    if (!round.strategy) missing.push('strategy');
-    if (!round.deployment) missing.push('deployment');
-    if (!round.scheme_pool || round.scheme_pool.length < 3) missing.push('scheme pool');
+    if (required.includes('strategy') && !round.strategy) missing.push('strategy');
+    if (required.includes('deployment') && !round.deployment) missing.push('deployment');
+    if (required.includes('scheme_pool') && (!round.scheme_pool || round.scheme_pool.length < 3)) missing.push('scheme pool');
     if (missing.length) return `Set the round scenario before pairing (missing: ${missing.join(', ')})`;
     return null;
 };
@@ -836,19 +835,20 @@ const removeGame = async (gameId: number) => {
 const editingGame = ref<TournamentGame | null>(null);
 const editP1Master = ref<string | null>(null);
 const editP1Title = ref<string | null>(null);
-const editP1StrategyVp = ref(0);
-const editP1SchemeVp = ref(0);
+const editP1Score = ref<Record<string, number>>({});
 const editP2Master = ref<string | null>(null);
 const editP2Title = ref<string | null>(null);
-const editP2StrategyVp = ref(0);
-const editP2SchemeVp = ref(0);
+const editP2Score = ref<Record<string, number>>({});
 // Optional: drop a player after submitting their score for this round.
 const editDropP1 = ref(false);
 const editDropP2 = ref(false);
 const scoreError = ref<string | null>(null);
 
-const editP1Vp = computed(() => editP1StrategyVp.value + editP1SchemeVp.value);
-const editP2Vp = computed(() => editP2StrategyVp.value + editP2SchemeVp.value);
+const sumScore = (score: Record<string, number>) => props.ruleset.score_fields.reduce((sum, f) => sum + (Number(score[f.key]) || 0), 0);
+const editP1Vp = computed(() => sumScore(editP1Score.value));
+const editP2Vp = computed(() => sumScore(editP2Score.value));
+// One input per ruleset score field (Malifaux: strategy + scheme; Fields of Glory: a single VP total).
+const scoreGridClass = computed(() => (props.ruleset.score_fields.length > 1 ? 'grid-cols-2' : 'grid-cols-1'));
 
 const editP1Faction = computed(
     () => editingGame.value?.player_one_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_one_id)?.faction ?? null,
@@ -857,16 +857,17 @@ const editP2Faction = computed(
     () => editingGame.value?.player_two_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_two_id)?.faction ?? null,
 );
 
+const scoreFromGame = (game: TournamentGame, side: 'player_one' | 'player_two'): Record<string, number> =>
+    Object.fromEntries(props.ruleset.score_fields.map((f) => [f.key, game.score_breakdown?.[side]?.[f.key] ?? 0]));
+
 const openScoreEdit = (game: TournamentGame) => {
     editingGame.value = game;
     editP1Master.value = game.player_one_master;
     editP1Title.value = game.player_one_title;
-    editP1StrategyVp.value = game.player_one_strategy_vp ?? 0;
-    editP1SchemeVp.value = game.player_one_scheme_vp ?? 0;
+    editP1Score.value = scoreFromGame(game, 'player_one');
     editP2Master.value = game.player_two_master;
     editP2Title.value = game.player_two_title;
-    editP2StrategyVp.value = game.player_two_strategy_vp ?? 0;
-    editP2SchemeVp.value = game.player_two_scheme_vp ?? 0;
+    editP2Score.value = scoreFromGame(game, 'player_two');
     editDropP1.value = false;
     editDropP2.value = false;
     scoreError.value = null;
@@ -914,19 +915,17 @@ const saveScore = async () => {
     if (!editingGame.value) return;
     submitting.value = true;
     scoreError.value = null;
-    // Total VP is recomputed server-side from strategy + scheme.
+    // Total VP is recomputed server-side from the ruleset's score components.
     const scoreResult = await doModalAction(
         route('tournaments.games.update', { tournament: props.tournament.uuid, game: editingGame.value.id }),
         'PUT',
         {
             player_one_master: editP1Master.value,
             player_one_title: editP1Title.value,
-            player_one_strategy_vp: editP1StrategyVp.value,
-            player_one_scheme_vp: editP1SchemeVp.value,
+            player_one_score: editP1Score.value,
             player_two_master: editP2Master.value,
             player_two_title: editP2Title.value,
-            player_two_strategy_vp: editP2StrategyVp.value,
-            player_two_scheme_vp: editP2SchemeVp.value,
+            player_two_score: editP2Score.value,
             // Pre-acknowledge the "tracker still InProgress" guard — the banner
             // above the save button has already warned the TO.
             ...(trackerInProgress.value ? { confirm_override: true } : {}),
@@ -1914,7 +1913,10 @@ const titlesForMaster = (masterName: string | null) => {
                                     </div>
                                     <div class="flex items-center gap-1">
                                         <Button
-                                            v-if="tournament.status !== 'completed' || round.strategy || round.deployment"
+                                            v-if="
+                                                ruleset.scenario_fields.length &&
+                                                (tournament.status !== 'completed' || round.strategy || round.deployment)
+                                            "
                                             variant="ghost"
                                             size="sm"
                                             class="h-7 px-2 text-2xs sm:text-xs"
@@ -2604,25 +2606,16 @@ const titlesForMaster = (masterName: string | null) => {
                             </Select>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
+                    <div class="grid gap-2" :class="scoreGridClass">
+                        <div v-for="field in ruleset.score_fields" :key="field.key" class="space-y-1">
+                            <Label class="text-2xs"
+                                >{{ field.label }} <span class="text-muted-foreground">/ {{ field.max }}</span></Label
+                            >
                             <Input
-                                v-model.number="editP1StrategyVp"
+                                v-model.number="editP1Score[field.key]"
                                 type="number"
-                                min="0"
-                                max="5"
-                                class="h-8 text-center text-sm font-bold"
-                                @focus="($event.target as HTMLInputElement).select()"
-                            />
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
-                            <Input
-                                v-model.number="editP1SchemeVp"
-                                type="number"
-                                min="0"
-                                max="6"
+                                :min="field.min"
+                                :max="field.max"
                                 class="h-8 text-center text-sm font-bold"
                                 @focus="($event.target as HTMLInputElement).select()"
                             />
@@ -2662,25 +2655,16 @@ const titlesForMaster = (masterName: string | null) => {
                             </Select>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Strategy VP <span class="text-muted-foreground">/ 5</span></Label>
+                    <div class="grid gap-2" :class="scoreGridClass">
+                        <div v-for="field in ruleset.score_fields" :key="field.key" class="space-y-1">
+                            <Label class="text-2xs"
+                                >{{ field.label }} <span class="text-muted-foreground">/ {{ field.max }}</span></Label
+                            >
                             <Input
-                                v-model.number="editP2StrategyVp"
+                                v-model.number="editP2Score[field.key]"
                                 type="number"
-                                min="0"
-                                max="5"
-                                class="h-8 text-center text-sm font-bold"
-                                @focus="($event.target as HTMLInputElement).select()"
-                            />
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Scheme VP <span class="text-muted-foreground">/ 6</span></Label>
-                            <Input
-                                v-model.number="editP2SchemeVp"
-                                type="number"
-                                min="0"
-                                max="6"
+                                :min="field.min"
+                                :max="field.max"
                                 class="h-8 text-center text-sm font-bold"
                                 @focus="($event.target as HTMLInputElement).select()"
                             />

@@ -109,7 +109,7 @@ class TournamentStateMachine
         // Scenario must be fully configured before pairings are generated —
         // the scenario drives tracker-game creation when the round starts,
         // and TOs expect to see the matchup scenario at pair time.
-        if ($missing = $this->missingScenarioFields($round)) {
+        if ($missing = $this->missingScenarioFields($tournament, $round)) {
             return 'Set the round scenario before pairing (missing: '.$missing.')';
         }
 
@@ -117,21 +117,23 @@ class TournamentStateMachine
     }
 
     /**
-     * Comma-separated list of missing scenario fields (strategy / deployment /
-     * scheme pool), or null when the scenario is fully configured. Shared by
+     * Comma-separated list of missing scenario fields, or null when the scenario is fully
+     * configured. Which fields are required comes from the tournament's ruleset. Shared by
      * canPairRound + guardStartRound.
      */
-    private function missingScenarioFields(TournamentRound $round): ?string
+    private function missingScenarioFields(Tournament $tournament, TournamentRound $round): ?string
     {
         $missing = [];
-        if (! $round->strategy_id) {
-            $missing[] = 'strategy';
-        }
-        if (! $round->deployment) {
-            $missing[] = 'deployment';
-        }
-        if (empty($round->scheme_pool) || count((array) $round->scheme_pool) < 3) {
-            $missing[] = 'scheme pool';
+        foreach ($tournament->rulesetDefinition()->scenarioFields as $field) {
+            $isMissing = match ($field) {
+                'strategy' => ! $round->strategy_id,
+                'deployment' => ! $round->deployment,
+                'scheme_pool' => empty($round->scheme_pool) || count((array) $round->scheme_pool) < 3,
+                default => false,
+            };
+            if ($isMissing) {
+                $missing[] = $field === 'scheme_pool' ? 'scheme pool' : $field;
+            }
         }
 
         return empty($missing) ? null : implode(', ', $missing);
@@ -139,9 +141,11 @@ class TournamentStateMachine
 
     private function guardStartTournament(Tournament $tournament): ?string
     {
-        $missingFaction = $tournament->players()->whereNull('faction')->count();
-        if ($missingFaction > 0) {
-            return "{$missingFaction} player(s) missing faction selection";
+        if ($tournament->rulesetDefinition()->requiresFaction) {
+            $missingFaction = $tournament->players()->whereNull('faction')->count();
+            if ($missingFaction > 0) {
+                return "{$missingFaction} player(s) missing faction selection";
+            }
         }
 
         if ($tournament->players()->count() < 2) {
@@ -179,7 +183,7 @@ class TournamentStateMachine
 
         // Scenario must be fully configured before the round starts — otherwise
         // the per-pairing Game tracker games are missing strategy/deployment/schemes.
-        if ($missing = $this->missingScenarioFields($round)) {
+        if ($missing = $this->missingScenarioFields($round->tournament, $round)) {
             return 'Set the round scenario before starting (missing: '.$missing.')';
         }
 

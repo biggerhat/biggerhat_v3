@@ -32,6 +32,14 @@ return [
             'game_size' => ['label' => 'Encounter Size (SS)', 'default' => 50, 'min' => 20, 'max' => 100, 'step' => 5],
             'uses_season' => true,
             'uses_encounter_type' => true,
+            // A Malifaux score is strategy VP (max 5) + scheme VP (max 6) = up to 11.
+            'score_fields' => [
+                ['key' => 'strategy', 'label' => 'Strategy VP', 'min' => 0, 'max' => 5],
+                ['key' => 'scheme', 'label' => 'Scheme VP', 'min' => 0, 'max' => 6],
+            ],
+            // Each round needs a strategy, a deployment and a 3-scheme pool before it can be paired.
+            'scenario_fields' => ['strategy', 'deployment', 'scheme_pool'],
+            'requires_faction' => true,
         ],
 
         // The Other Side — Fields of Glory v3.0. 10 base TP + capped DIFF + 2 for a win; TP → SoS.
@@ -54,6 +62,14 @@ return [
             // Season/encounter type are Malifaux strategy-pool concepts; TOS uses Operations (Phase 4).
             'uses_season' => false,
             'uses_encounter_type' => false,
+            // Fields of Glory records a single VP total per player.
+            'score_fields' => [
+                ['key' => 'vp', 'label' => 'Victory Points', 'min' => 0, 'max' => 30],
+            ],
+            // Operations/deployments aren't modelled yet (docs/plans/tournament-rulesets.md, Phase 4b).
+            'scenario_fields' => [],
+            // Players declare an Allegiance/Garrison instead of a Malifaux faction (Phase 5).
+            'requires_faction' => false,
         ],
     ],
 ];

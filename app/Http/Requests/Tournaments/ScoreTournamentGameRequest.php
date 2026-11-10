@@ -22,20 +22,40 @@ class ScoreTournamentGameRequest extends FormRequest
         $validFactions = collect(FactionEnum::cases())->pluck('value')->all();
 
         return [
+            ...$this->scoreRules(),
             'player_one_faction' => ['nullable', 'string', Rule::in($validFactions)],
             'player_one_master' => ['nullable', 'string', 'max:255'],
             'player_one_title' => ['nullable', 'string', 'max:255'],
             'player_one_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_one_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
-            'player_one_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
             'player_two_faction' => ['nullable', 'string', Rule::in($validFactions)],
             'player_two_master' => ['nullable', 'string', 'max:255'],
             'player_two_title' => ['nullable', 'string', 'max:255'],
             'player_two_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_two_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
-            'player_two_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
             // Opt-in override for when the tracker game is still in progress.
             'confirm_override' => ['sometimes', 'boolean'],
         ];
+    }
+
+    /**
+     * Score components come from the tournament's ruleset (e.g. strategy + scheme VP for Malifaux,
+     * a single VP total for Fields of Glory): `player_one_score.<key>` / `player_two_score.<key>`.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function scoreRules(): array
+    {
+        /** @var Tournament|null $tournament */
+        $tournament = $this->route('tournament');
+        $fields = $tournament?->rulesetDefinition()->scoreFields ?? [];
+
+        $rules = [];
+        foreach (['player_one_score', 'player_two_score'] as $side) {
+            $rules[$side] = ['required', 'array'];
+            foreach ($fields as $field) {
+                $rules["{$side}.{$field['key']}"] = ['required', 'integer', 'min:'.$field['min'], 'max:'.$field['max']];
+            }
+        }
+
+        return $rules;
     }
 }

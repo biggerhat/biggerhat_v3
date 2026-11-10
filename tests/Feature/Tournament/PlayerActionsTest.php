@@ -129,10 +129,8 @@ it('rejects scoring a game before the round is started', function () {
 
     $this->actingAs($this->creator)
         ->putJson(route('tournaments.games.update', [$this->tournament->uuid, $game]), [
-            'player_one_strategy_vp' => 3,
-            'player_one_scheme_vp' => 2,
-            'player_two_strategy_vp' => 1,
-            'player_two_scheme_vp' => 1,
+            'player_one_score' => ['strategy' => 3, 'scheme' => 2],
+            'player_two_score' => ['strategy' => 1, 'scheme' => 1],
         ])
         ->assertStatus(422)
         ->assertJsonFragment(['error' => 'Start the round before entering scores']);

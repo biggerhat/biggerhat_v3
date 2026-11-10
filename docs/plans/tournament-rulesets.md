@@ -1,6 +1,6 @@
 # Tournament Rulesets — game-agnostic tournament tracking
 
-Status: **Phases 1–3 done** on branch `tournament-rulesets-nov10` (uncommitted); Phases 4–6 scoped, not started.
+Status: **Phases 1–3 and 4a done** on branch `tournament-rulesets-nov10` (uncommitted); Phase 4b (scenario as data) and Phases 5–6 not started.
 Notes from implementation: rulesets are config-only (`config/tournaments.php`, no per-game classes); `tournaments.bye_*` columns are now nullable overrides (null = ruleset value); `ruleset` is a plain string column, unknown keys fall back to the default ruleset.
 
 ## Goal
@@ -72,6 +72,14 @@ rather than hard-coded Malifaux forms.
 - Player-count → suggested-rounds hint (both packets use 3/4/5).
 
 ### Phase 4 — Score breakdown and scenario as data
+
+**4a (done):** `tournament_games.score_breakdown` JSON (`{"player_one": {"strategy": 3, "scheme": 2}, ...}`) replaces the four strategy/scheme VP columns
+(migration backfills and is reversible, round-trip tested). Ruleset `score_fields` define the components, min/max and labels; the score request validates
+`player_one_score.<key>` / `player_two_score.<key>`, the controller sums them into `player_*_vp`, the Manage score dialog and CSV export render from them.
+Ruleset `scenario_fields` / `requires_faction` now drive the state machine, so a Fields of Glory event can pair and start rounds without a Malifaux
+strategy/deployment/scheme pool or faction (it simply has no scenario UI yet).
+
+**4b (not started):**
 - `tournament_games`: replace `player_*_strategy_vp` / `player_*_scheme_vp` with a JSON `score_breakdown`
   (migrate existing values); ruleset declares the score fields (label, min, max). Total VP stays a real column.
 - `tournament_rounds`: `strategy_id` / `deployment` / `scheme_pool` → JSON `scenario` described by a ruleset

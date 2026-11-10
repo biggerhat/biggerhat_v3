@@ -30,7 +30,28 @@ final class Ruleset
         /** Whether the Malifaux-style season / encounter-type pickers apply (removed once scenarios are data-driven, Phase 4). */
         public readonly bool $usesSeason = true,
         public readonly bool $usesEncounterType = true,
+        /**
+         * Components a player's score is entered as; their sum is the player's VP. Order is display order.
+         *
+         * @var list<array{key: string, label: string, min: int, max: int}> $scoreFields
+         */
+        public readonly array $scoreFields = [['key' => 'vp', 'label' => 'Victory Points', 'min' => 0, 'max' => 30]],
+        /**
+         * Scenario components a TO must set on a round before pairing/starting it. Subset of
+         * 'strategy', 'deployment', 'scheme_pool'. Empty = this ruleset has no round scenario yet.
+         *
+         * @var list<string> $scenarioFields
+         */
+        public readonly array $scenarioFields = ['strategy', 'deployment', 'scheme_pool'],
+        /** Whether every player needs a Malifaux-style faction before the event can start. */
+        public readonly bool $requiresFaction = true,
     ) {}
+
+    /** @return list<string> */
+    public function scoreFieldKeys(): array
+    {
+        return array_column($this->scoreFields, 'key');
+    }
 
     /**
      * Frontend descriptor (Create form, Manage settings).
@@ -51,6 +72,9 @@ final class Ruleset
             'game_size' => $this->gameSize,
             'uses_season' => $this->usesSeason,
             'uses_encounter_type' => $this->usesEncounterType,
+            'score_fields' => $this->scoreFields,
+            'scenario_fields' => $this->scenarioFields,
+            'requires_faction' => $this->requiresFaction,
         ];
     }
 

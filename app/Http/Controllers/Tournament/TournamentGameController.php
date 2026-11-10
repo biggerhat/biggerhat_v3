@@ -94,8 +94,13 @@ class TournamentGameController extends Controller
         }
 
         unset($validated['confirm_override']);
-        $validated['player_one_vp'] = $validated['player_one_strategy_vp'] + $validated['player_one_scheme_vp'];
-        $validated['player_two_vp'] = $validated['player_two_strategy_vp'] + $validated['player_two_scheme_vp'];
+        // Score components are ruleset-defined; the player's VP is their sum.
+        $one = $validated['player_one_score'];
+        $two = $validated['player_two_score'];
+        unset($validated['player_one_score'], $validated['player_two_score']);
+        $validated['player_one_vp'] = array_sum($one);
+        $validated['player_two_vp'] = array_sum($two);
+        $validated['score_breakdown'] = ['player_one' => $one, 'player_two' => $two];
 
         $game->update([
             ...$validated,

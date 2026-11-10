@@ -22,7 +22,20 @@ class TournamentGame extends Model
             'result' => TournamentGameResultEnum::class,
             'is_bye' => 'boolean',
             'is_forfeit' => 'boolean',
+            'score_breakdown' => 'array',
         ];
+    }
+
+    /**
+     * Score components for one side, keyed by the ruleset's score-field keys
+     * (e.g. ['strategy' => 3, 'scheme' => 2]). Empty when none were recorded.
+     *
+     * @param  'player_one'|'player_two'  $side
+     * @return array<string, int>
+     */
+    public function breakdownFor(string $side): array
+    {
+        return (array) (((array) $this->score_breakdown)[$side] ?? []);
     }
 
     public function round(): BelongsTo

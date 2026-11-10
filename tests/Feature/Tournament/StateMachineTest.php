@@ -238,3 +238,27 @@ describe('pairing guards', function () {
             ->toBe('Set the round scenario before pairing (missing: strategy, deployment, scheme pool)');
     });
 });
+
+describe('ruleset-driven requirements', function () {
+    it('requires scenario fields and player factions for Gaining Grounds', function () {
+        $t = Tournament::factory()->active()->create();
+        $round = TournamentRound::factory()->for($t)->create();
+
+        expect(app(TournamentStateMachine::class)->canPairRound($t, $round))
+            ->toBe('Set the round scenario before pairing (missing: strategy, deployment, scheme pool)');
+    });
+
+    it('does not require a Malifaux scenario to pair a Fields of Glory round', function () {
+        $t = Tournament::factory()->active()->create(['ruleset' => 'tos_fields_of_glory']);
+        $round = TournamentRound::factory()->for($t)->create();
+
+        expect(app(TournamentStateMachine::class)->canPairRound($t, $round))->toBeNull();
+    });
+
+    it('lets a Fields of Glory tournament start without Malifaux factions', function () {
+        $t = Tournament::factory()->inRegistration()->create(['ruleset' => 'tos_fields_of_glory']);
+        TournamentPlayer::factory()->for($t)->count(2)->create(['faction' => null]);
+
+        expect(app(TournamentStateMachine::class)->canTransitionTournamentTo($t, TournamentStatusEnum::Active))->toBeNull();
+    });
+});

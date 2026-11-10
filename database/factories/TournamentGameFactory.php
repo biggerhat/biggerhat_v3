@@ -40,11 +40,11 @@ class TournamentGameFactory extends Factory
     public function withScore(int $p1Vp, int $p2Vp): self
     {
         return $this->state([
-            'player_one_strategy_vp' => min($p1Vp, 4),
-            'player_one_scheme_vp' => max(0, $p1Vp - 4),
+            'score_breakdown' => [
+                'player_one' => ['strategy' => min($p1Vp, 4), 'scheme' => max(0, $p1Vp - 4)],
+                'player_two' => ['strategy' => min($p2Vp, 4), 'scheme' => max(0, $p2Vp - 4)],
+            ],
             'player_one_vp' => $p1Vp,
-            'player_two_strategy_vp' => min($p2Vp, 4),
-            'player_two_scheme_vp' => max(0, $p2Vp - 4),
             'player_two_vp' => $p2Vp,
             'result' => TournamentGameResultEnum::Completed->value,
         ]);

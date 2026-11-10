@@ -31,14 +31,12 @@ export interface TournamentGame {
     player_one_master: string | null;
     player_one_title: string | null;
     player_one_vp: number | null;
-    player_one_strategy_vp: number | null;
-    player_one_scheme_vp: number | null;
     player_two_faction: string | null;
     player_two_master: string | null;
     player_two_title: string | null;
     player_two_vp: number | null;
-    player_two_strategy_vp: number | null;
-    player_two_scheme_vp: number | null;
+    /** Per-side score components keyed by the ruleset's score-field keys. */
+    score_breakdown: { player_one?: Record<string, number>; player_two?: Record<string, number> } | null;
     is_bye: boolean;
     is_forfeit: boolean;
     forfeit_player_id: number | null;
@@ -134,6 +132,11 @@ export interface RulesetInfo {
     game_size: { label: string; default: number; min: number; max: number; step: number };
     uses_season: boolean;
     uses_encounter_type: boolean;
+    /** Components a player's score is entered as; their sum is the player's VP. */
+    score_fields: { key: string; label: string; min: number; max: number }[];
+    /** Scenario components required on a round before pairing ('strategy' | 'deployment' | 'scheme_pool'). */
+    scenario_fields: string[];
+    requires_faction: boolean;
 }
 
 /** A tournament's ruleset: `scoring`/`tiebreakers` are effective values, `default_scoring` the ruleset's own. */

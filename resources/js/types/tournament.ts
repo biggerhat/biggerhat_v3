@@ -104,3 +104,41 @@ export interface MasterOption {
 }
 
 export type TiebreakerMode = 'diff_vp' | 'sos';
+
+/** Scoring parameters for a ruleset (mirrors App\Tournaments\ScoringConfig::toArray()). */
+export interface RulesetScoring {
+    base_tp: number;
+    win_tp: number;
+    tie_tp: number;
+    loss_tp: number;
+    diff_adds_to_tp: boolean;
+    diff_cap: number | null;
+    bye_tp: number;
+    bye_diff: number;
+    bye_vp: number;
+    forfeit_vp: number;
+    forfeit_loser_tp: number;
+}
+
+/** Ruleset descriptor (mirrors App\Tournaments\Rulesets\Ruleset::toArray()). */
+export interface RulesetInfo {
+    key: string;
+    label: string;
+    game_system: string;
+    scoring: RulesetScoring;
+    /** Ordered standings keys applied after TP. */
+    tiebreakers: ('sos' | 'diff' | 'vp')[];
+    tiebreaker_toggle: boolean;
+    suggested_rounds: [number, number | null, number][];
+    default_round_time_limit: number | null;
+    game_size: { label: string; default: number; min: number; max: number; step: number };
+    uses_season: boolean;
+    uses_encounter_type: boolean;
+}
+
+/** A tournament's ruleset: `scoring`/`tiebreakers` are effective values, `default_scoring` the ruleset's own. */
+export interface TournamentRuleset extends RulesetInfo {
+    default_scoring: RulesetScoring;
+}
+
+export const TIEBREAKER_LABELS: Record<string, string> = { sos: 'Strength of Schedule', diff: 'Differential', vp: 'Victory Points' };

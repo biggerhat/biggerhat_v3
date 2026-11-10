@@ -36,9 +36,9 @@ class TournamentUpdateRequest extends FormRequest
             'event_date' => ['sometimes', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            'bye_tp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:30'],
+            'bye_diff' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
+            'bye_vp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
 
         ];

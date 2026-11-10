@@ -20,6 +20,8 @@ use App\Models\Tournament;
 use App\Models\TournamentRound;
 use App\Services\TournamentStandingsService;
 use App\Services\TournamentStateMachine;
+use App\Tournaments\Rulesets\Ruleset;
+use App\Tournaments\Rulesets\RulesetRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -198,6 +200,7 @@ class TournamentController extends Controller
 
         return inertia('Tournaments/View', [
             'tournament' => $tournament,
+            'ruleset' => $this->rulesetPayload($tournament),
             'rounds' => $roundsData,
             'standings' => $standings,
             'factions' => FactionEnum::buildDetails(),
@@ -232,6 +235,7 @@ class TournamentController extends Controller
                 /** @var \App\Enums\TournamentTiebreakerEnum $tiebreaker */
                 $tiebreaker = $source->tiebreaker_mode;
                 $template = [
+                    'ruleset' => $source->rulesetDefinition()->key,
                     'name' => $source->name.' (copy)',
                     'description' => $source->description,
                     'location' => $source->location,
@@ -248,7 +252,11 @@ class TournamentController extends Controller
             }
         }
 
+        $registry = app(RulesetRegistry::class);
+
         return inertia('Tournaments/Create', [
+            'rulesets' => array_values(array_map(fn (Ruleset $r) => $r->toArray(), $registry->all())),
+            'default_ruleset' => $registry->default()->key,
             'seasons' => $seasons,
             'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_types' => $encounterTypes,
@@ -365,6 +373,7 @@ class TournamentController extends Controller
 
         return inertia('Tournaments/Manage', [
             'tournament' => $tournament,
+            'ruleset' => $this->rulesetPayload($tournament),
             'standings' => $standings,
             'seasons' => $seasons,
             'factions' => fn () => FactionEnum::buildDetails(),
@@ -384,6 +393,23 @@ class TournamentController extends Controller
      * manually transcribe results into Longshanks (no public API exists), or
      * just as an event archive. Round-major sort, one row per pairing.
      */
+    /**
+     * The tournament's ruleset descriptor, with `scoring`/`tiebreakers` replaced by the
+     * EFFECTIVE values (ruleset defaults + this tournament's overrides) so the UI never
+     * has to re-derive them.
+     *
+     * @return array<string, mixed>
+     */
+    private function rulesetPayload(Tournament $tournament): array
+    {
+        return [
+            ...$tournament->rulesetDefinition()->toArray(),
+            'default_scoring' => $tournament->rulesetDefinition()->scoring->toArray(),
+            'scoring' => $tournament->scoringConfig()->toArray(),
+            'tiebreakers' => $tournament->tiebreakerKeys(),
+        ];
+    }
+
     public function exportCsv(Tournament $tournament): \Symfony\Component\HttpFoundation\StreamedResponse
     {
         $this->authorize('manage', $tournament);

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { TIEBREAKER_LABELS, type TournamentRuleset } from '@/types/tournament';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
@@ -172,9 +173,9 @@ interface TournamentData {
     event_date: string;
     location: string | null;
     round_time_limit: number;
-    bye_tp?: number;
-    bye_diff?: number;
-    bye_vp?: number;
+    bye_tp?: number | null;
+    bye_diff?: number | null;
+    bye_vp?: number | null;
     tiebreaker_mode?: 'diff_vp' | 'sos';
     creator_id: number;
     players: TournamentPlayer[];
@@ -185,6 +186,7 @@ interface TournamentData {
 
 const props = defineProps<{
     tournament: TournamentData;
+    ruleset: TournamentRuleset;
     standings: StandingEntry[];
     seasons: { value: string; label: string }[];
     factions: Record<string, FactionInfo>;
@@ -1152,9 +1154,9 @@ const openSettingsEdit = () => {
     editEncounterType.value = props.tournament.encounter_type ?? 'traditional';
     editPlannedRounds.value = props.tournament.planned_rounds;
     editRoundTimeLimit.value = props.tournament.round_time_limit;
-    editByeTp.value = props.tournament.bye_tp ?? 3;
-    editByeDiff.value = props.tournament.bye_diff ?? 4;
-    editByeVp.value = props.tournament.bye_vp ?? 6;
+    editByeTp.value = props.ruleset.scoring.bye_tp;
+    editByeDiff.value = props.ruleset.scoring.bye_diff;
+    editByeVp.value = props.ruleset.scoring.bye_vp;
     editAdvancedOpen.value = false;
     settingsError.value = null;
     editingSettings.value = true;
@@ -1172,9 +1174,10 @@ const saveSettings = async () => {
         encounter_type: editEncounterType.value,
         planned_rounds: editPlannedRounds.value,
         round_time_limit: editRoundTimeLimit.value,
-        bye_tp: editByeTp.value,
-        bye_diff: editByeDiff.value,
-        bye_vp: editByeVp.value,
+        // Only store a bye value when it differs from the ruleset's own, so rulesets stay the source of truth.
+        bye_tp: editByeTp.value === props.ruleset.default_scoring.bye_tp ? null : editByeTp.value,
+        bye_diff: editByeDiff.value === props.ruleset.default_scoring.bye_diff ? null : editByeDiff.value,
+        bye_vp: editByeVp.value === props.ruleset.default_scoring.bye_vp ? null : editByeVp.value,
     });
     submitting.value = false;
     if (ok) {
@@ -1553,8 +1556,9 @@ const titlesForMaster = (masterName: string | null) => {
 
                 <!-- ═══ STANDINGS ═══ -->
                 <TabsContent value="standings">
-                    <!-- TO-only quick toggle for tiebreaker mode (changes can be made any time, even mid-tournament). -->
-                    <div class="mb-2 flex items-center justify-end gap-2 text-xs">
+                    <!-- TO-only quick toggle for tiebreaker mode (changes can be made any time, even mid-tournament).
+                         Only rulesets that allow it (Gaining Grounds) show the toggle; others state their fixed order. -->
+                    <div v-if="ruleset.tiebreaker_toggle" class="mb-2 flex items-center justify-end gap-2 text-xs">
                         <Label class="text-muted-foreground">Tiebreaker:</Label>
                         <Select :model-value="liveTiebreaker" @update:model-value="updateTiebreaker">
                             <SelectTrigger class="h-7 w-44 text-xs"><SelectValue /></SelectTrigger>
@@ -1564,6 +1568,9 @@ const titlesForMaster = (masterName: string | null) => {
                             </SelectContent>
                         </Select>
                     </div>
+                    <p v-else class="mb-2 text-right text-xs text-muted-foreground">
+                        Ranked by TP → {{ ruleset.tiebreakers.map((k) => TIEBREAKER_LABELS[k]).join(' → ') }}
+                    </p>
                     <StandingsTable :standings="standings" />
                 </TabsContent>
 
@@ -2364,7 +2371,7 @@ const titlesForMaster = (masterName: string | null) => {
                                         <div class="grid gap-2 sm:grid-cols-3">
                                             <div class="space-y-1">
                                                 <Label class="text-2xs">TP</Label>
-                                                <NumberField v-model="editByeTp" :min="0" :max="5">
+                                                <NumberField v-model="editByeTp" :min="0" :max="30">
                                                     <NumberFieldContent
                                                         ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
                                                     /></NumberFieldContent>
@@ -2456,7 +2463,7 @@ const titlesForMaster = (masterName: string | null) => {
                                 <div class="flex justify-between">
                                     <span class="text-muted-foreground">Bye Scoring</span>
                                     <span class="tabular-nums"
-                                        >{{ tournament.bye_tp ?? 3 }} TP / {{ tournament.bye_diff ?? 4 }} DIFF / {{ tournament.bye_vp ?? 6 }} VP</span
+                                        >{{ ruleset.scoring.bye_tp }} TP / {{ ruleset.scoring.bye_diff }} DIFF / {{ ruleset.scoring.bye_vp }} VP</span
                                     >
                                 </div>
                             </div>

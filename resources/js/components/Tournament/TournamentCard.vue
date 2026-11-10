@@ -18,6 +18,7 @@ export interface TournamentSummary {
     encounter_type: string;
     planned_rounds: number;
     season_label: string;
+    ruleset_label?: string;
     players_count: number;
     creator: { id: number; name: string };
 }
@@ -60,6 +61,7 @@ const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
                         </button>
                     </div>
                 </div>
+                <div v-if="tournament.ruleset_label" class="mb-1 truncate text-2xs text-muted-foreground">{{ tournament.ruleset_label }}</div>
                 <div class="mb-2 flex items-center gap-2">
                     <Trophy class="size-4 text-muted-foreground" />
                     <span class="text-sm font-medium">{{ tournament.name }}</span>

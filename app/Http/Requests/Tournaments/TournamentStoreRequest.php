@@ -8,6 +8,7 @@ use App\Enums\RoleEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
 use App\Models\Tournament;
+use App\Tournaments\Rulesets\RulesetRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -31,6 +32,7 @@ class TournamentStoreRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'ruleset' => ['sometimes', Rule::in(app(RulesetRegistry::class)->keys())],
             'description' => ['nullable', 'string'],
             'encounter_size' => ['required', 'integer', 'min:20', 'max:100'],
             'encounter_type' => ['sometimes', Rule::enum(EncounterTypeEnum::class)],
@@ -39,10 +41,10 @@ class TournamentStoreRequest extends FormRequest
             'event_date' => ['required', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'round_time_limit' => ['sometimes', 'integer', 'min:30', 'max:300'],
-            // Bye-game scoring (defaults to Gaining Grounds 3 / +4 / 6).
-            'bye_tp' => ['sometimes', 'integer', 'min:0', 'max:5'],
-            'bye_diff' => ['sometimes', 'integer', 'min:0', 'max:20'],
-            'bye_vp' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            // Bye-game scoring overrides; null/absent = use the ruleset's values.
+            'bye_tp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:30'],
+            'bye_diff' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
+            'bye_vp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
 
         ];

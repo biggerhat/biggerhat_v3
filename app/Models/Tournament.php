@@ -7,6 +7,9 @@ use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
+use App\Tournaments\Rulesets\Ruleset;
+use App\Tournaments\Rulesets\RulesetRegistry;
+use App\Tournaments\ScoringConfig;
 use App\Traits\LogsCreationActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,7 +32,7 @@ class Tournament extends Model
 
     protected $guarded = ['id'];
 
-    protected $appends = ['season_label'];
+    protected $appends = ['season_label', 'ruleset_label'];
 
     public function casts(): array
     {
@@ -39,6 +42,7 @@ class Tournament extends Model
             'encounter_type' => EncounterTypeEnum::class,
             'tiebreaker_mode' => TournamentTiebreakerEnum::class,
             'event_date' => 'date',
+            'scoring_config' => 'array',
         ];
     }
 
@@ -56,6 +60,58 @@ class Tournament extends Model
     public function getRouteKeyName(): string
     {
         return 'uuid';
+    }
+
+    /** The format this tournament is run under (unknown/missing keys fall back to the default ruleset). */
+    public function rulesetDefinition(): Ruleset
+    {
+        return app(RulesetRegistry::class)->resolve($this->attributes['ruleset'] ?? null);
+    }
+
+    /**
+     * Effective scoring parameters: ruleset defaults, then the per-tournament bye
+     * overrides (legacy bye_* columns, null = use the ruleset's), then any
+     * `scoring_config` JSON overrides.
+     */
+    public function scoringConfig(): ScoringConfig
+    {
+        return $this->rulesetDefinition()->scoring
+            ->with([
+                'bye_tp' => $this->attributes['bye_tp'] ?? null,
+                'bye_diff' => $this->attributes['bye_diff'] ?? null,
+                'bye_vp' => $this->attributes['bye_vp'] ?? null,
+            ])
+            ->with((array) ($this->scoring_config ?? []));
+    }
+
+    /**
+     * Ordered standings tiebreaker keys after TP. A ruleset that lets the TO choose
+     * (Gaining Grounds) follows `tiebreaker_mode`; otherwise the ruleset's own order
+     * applies. A `scoring_config.tiebreakers` list overrides both.
+     *
+     * @return list<string>
+     */
+    public function tiebreakerKeys(): array
+    {
+        $override = ((array) ($this->scoring_config ?? []))['tiebreakers'] ?? null;
+        if (is_array($override) && $override !== []) {
+            return array_values(array_intersect(['sos', 'diff', 'vp'], $override));
+        }
+
+        $ruleset = $this->rulesetDefinition();
+        if ($ruleset->tiebreakerToggle) {
+            /** @var TournamentTiebreakerEnum $mode */
+            $mode = $this->tiebreaker_mode ?? TournamentTiebreakerEnum::DiffVp;
+
+            return $mode->keys();
+        }
+
+        return $ruleset->tiebreakers;
+    }
+
+    public function getRulesetLabelAttribute(): string
+    {
+        return $this->rulesetDefinition()->label;
     }
 
     public function getSeasonLabelAttribute(): string

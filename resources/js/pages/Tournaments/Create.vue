@@ -9,16 +9,20 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { TIEBREAKER_LABELS, type RulesetInfo } from '@/types/tournament';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, ChevronDown, Copy, Loader2, Settings2, Trophy } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
+    rulesets: RulesetInfo[];
+    default_ruleset: string;
     seasons: { value: string; label: string }[];
     default_season: string;
     encounter_types: { value: string; label: string }[];
     /** Settings copied from a previous event (`?copy=<uuid>`), or null for a blank form. */
     template: {
+        ruleset: string;
         name: string;
         description: string | null;
         location: string | null;
@@ -27,30 +31,54 @@ const props = defineProps<{
         planned_rounds: number;
         season: string;
         round_time_limit: number;
-        bye_tp: number;
-        bye_diff: number;
-        bye_vp: number;
+        bye_tp: number | null;
+        bye_diff: number | null;
+        bye_vp: number | null;
         tiebreaker_mode: 'diff_vp' | 'sos';
     } | null;
     previous_events: { uuid: string; name: string; event_date: string }[];
 }>();
 
-// Bye-scoring defaults match Gaining Grounds (3 TP / +4 DIFF / 6 VP).
+const rulesetByKey = computed(() => Object.fromEntries(props.rulesets.map((r) => [r.key, r])));
+const initialRuleset = rulesetByKey.value[props.template?.ruleset ?? props.default_ruleset] ?? props.rulesets[0];
+
+// Scoring, game size and round time default from the chosen ruleset; a copied event's own overrides win.
 const form = useForm({
+    ruleset: initialRuleset.key,
     name: props.template?.name ?? '',
     description: props.template?.description ?? '',
     event_date: '',
     location: props.template?.location ?? '',
-    encounter_size: props.template?.encounter_size ?? 50,
+    encounter_size: props.template?.encounter_size ?? initialRuleset.game_size.default,
     encounter_type: props.template?.encounter_type ?? 'traditional',
     planned_rounds: props.template?.planned_rounds ?? 3,
     season: props.template?.season ?? props.default_season,
-    round_time_limit: props.template?.round_time_limit ?? 135,
-    bye_tp: props.template?.bye_tp ?? 3,
-    bye_diff: props.template?.bye_diff ?? 4,
-    bye_vp: props.template?.bye_vp ?? 6,
+    round_time_limit: props.template?.round_time_limit ?? initialRuleset.default_round_time_limit ?? 135,
+    bye_tp: props.template?.bye_tp ?? initialRuleset.scoring.bye_tp,
+    bye_diff: props.template?.bye_diff ?? initialRuleset.scoring.bye_diff,
+    bye_vp: props.template?.bye_vp ?? initialRuleset.scoring.bye_vp,
     tiebreaker_mode: (props.template?.tiebreaker_mode ?? 'diff_vp') as 'diff_vp' | 'sos',
 });
+
+const ruleset = computed(() => rulesetByKey.value[form.ruleset] ?? initialRuleset);
+
+// Switching ruleset re-seeds the fields the ruleset owns (game size, round time, bye scoring).
+watch(
+    () => form.ruleset,
+    () => {
+        const r = ruleset.value;
+        form.encounter_size = r.game_size.default;
+        form.round_time_limit = r.default_round_time_limit ?? form.round_time_limit;
+        form.bye_tp = r.scoring.bye_tp;
+        form.bye_diff = r.scoring.bye_diff;
+        form.bye_vp = r.scoring.bye_vp;
+    },
+);
+
+const tiebreakerSummary = computed(() => ['TP', ...ruleset.value.tiebreakers.map((k) => TIEBREAKER_LABELS[k])].join(' → '));
+const suggestedRoundsHint = computed(() =>
+    ruleset.value.suggested_rounds.map(([min, max, rounds]) => `${max === null ? `${min}+` : `${min}–${max}`} players: ${rounds}`).join(' · '),
+);
 
 const copyFrom = (uuid: string) => router.get(route('tournaments.create'), uuid === '__none__' ? {} : { copy: uuid });
 
@@ -69,10 +97,15 @@ const submitDisabledReason = computed(() => {
 });
 
 const submit = () => {
+    const defaults = ruleset.value.scoring;
     form.transform((data) => ({
         ...data,
         description: data.description.trim() || null,
         location: data.location.trim() || null,
+        // Store bye values only when they differ from the ruleset's, so the ruleset stays the source of truth.
+        bye_tp: data.bye_tp === defaults.bye_tp ? null : data.bye_tp,
+        bye_diff: data.bye_diff === defaults.bye_diff ? null : data.bye_diff,
+        bye_vp: data.bye_vp === defaults.bye_vp ? null : data.bye_vp,
     })).post(route('tournaments.store'));
 };
 </script>
@@ -88,7 +121,7 @@ const submit = () => {
         <PageBanner title="Create Tournament" class="mb-2">
             <template #subtitle>
                 <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
-                    Set up a new Gaining Grounds event
+                    Set up a new {{ ruleset.label }} event
                 </div>
             </template>
         </PageBanner>
@@ -127,6 +160,18 @@ const submit = () => {
                                 </div>
                             </header>
 
+                            <div v-if="rulesets.length > 1" class="space-y-2">
+                                <Label for="t-ruleset">Game &amp; Format</Label>
+                                <Select v-model="form.ruleset">
+                                    <SelectTrigger id="t-ruleset"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="r in rulesets" :key="r.key" :value="r.key">{{ r.label }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p class="text-2xs text-muted-foreground">Sets the scoring, tiebreakers and defaults for the event.</p>
+                                <InputError :message="form.errors.ruleset" />
+                            </div>
+
                             <div class="space-y-2">
                                 <Label for="t-name">Tournament Name</Label>
                                 <Input id="t-name" v-model="form.name" placeholder="e.g. Spring Showdown 2026" />
@@ -162,8 +207,13 @@ const submit = () => {
 
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div class="space-y-2">
-                                    <Label>Encounter Size (SS)</Label>
-                                    <NumberField v-model="form.encounter_size" :min="20" :max="100" :step="5">
+                                    <Label>{{ ruleset.game_size.label }}</Label>
+                                    <NumberField
+                                        v-model="form.encounter_size"
+                                        :min="ruleset.game_size.min"
+                                        :max="ruleset.game_size.max"
+                                        :step="ruleset.game_size.step"
+                                    >
                                         <NumberFieldContent>
                                             <NumberFieldDecrement />
                                             <NumberFieldInput />
@@ -181,12 +231,13 @@ const submit = () => {
                                             <NumberFieldIncrement />
                                         </NumberFieldContent>
                                     </NumberField>
+                                    <p v-if="suggestedRoundsHint" class="text-2xs text-muted-foreground">Suggested — {{ suggestedRoundsHint }}</p>
                                     <InputError :message="form.errors.planned_rounds" />
                                 </div>
                             </div>
 
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <div class="space-y-2">
+                            <div v-if="ruleset.uses_season || ruleset.uses_encounter_type" class="grid gap-4 sm:grid-cols-2">
+                                <div v-if="ruleset.uses_encounter_type" class="space-y-2">
                                     <Label>Encounter Type</Label>
                                     <Select v-model="form.encounter_type">
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -196,7 +247,7 @@ const submit = () => {
                                     </Select>
                                     <InputError :message="form.errors.encounter_type" />
                                 </div>
-                                <div class="space-y-2">
+                                <div v-if="ruleset.uses_season" class="space-y-2">
                                     <Label>Season</Label>
                                     <Select v-model="form.season">
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -228,7 +279,7 @@ const submit = () => {
                                     <span class="flex items-center gap-2 text-sm font-medium">
                                         <Settings2 class="size-4 text-muted-foreground" />
                                         Advanced Scoring
-                                        <span class="text-xs font-normal text-muted-foreground">Defaults match Gaining Grounds</span>
+                                        <span class="text-xs font-normal text-muted-foreground">Defaults follow {{ ruleset.label }}</span>
                                     </span>
                                     <ChevronDown
                                         class="size-4 shrink-0 text-muted-foreground transition-transform"
@@ -237,7 +288,12 @@ const submit = () => {
                                 </button>
                             </CollapsibleTrigger>
                             <CollapsibleContent class="space-y-4 pt-4">
-                                <div class="space-y-2">
+                                <div v-if="!ruleset.tiebreaker_toggle" class="space-y-1">
+                                    <Label>Tiebreaker</Label>
+                                    <p class="text-sm">{{ tiebreakerSummary }}</p>
+                                    <p class="text-2xs text-muted-foreground">Fixed by this format.</p>
+                                </div>
+                                <div v-else class="space-y-2">
                                     <Label>Tiebreaker</Label>
                                     <Select v-model="form.tiebreaker_mode">
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -259,7 +315,7 @@ const submit = () => {
                                     <div class="grid gap-2 sm:grid-cols-3">
                                         <div class="space-y-1">
                                             <Label class="text-2xs">TP</Label>
-                                            <NumberField v-model="form.bye_tp" :min="0" :max="5">
+                                            <NumberField v-model="form.bye_tp" :min="0" :max="30">
                                                 <NumberFieldContent
                                                     ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
                                                 /></NumberFieldContent>

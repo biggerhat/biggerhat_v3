@@ -142,3 +142,7 @@ Not done for F7: awards on the shareable results image and on the profile histor
 
 F15 (scorer-only role) is built on the same branch: `tournament_scorers`, the `score` policy ability, a scoring desk page and a Scorekeepers card. Browser flow 19 covers adding one, entering a score from the desk,
 the 403 on organizer pages and the desk at phone width. The desk includes the master/title pickers. Not done: scorers cannot complete tracker games or do anything beyond scores, leaders and forfeits. **Deploy: run the new migration.**
+
+F12 (top cut) is built on the same branch: single elimination of 2/4/8/16 after the Swiss rounds, seeded from the standings, stage-named rounds, bracket advance, cut placings in the standings and PDF. Browser flow 20 covers
+starting a cut, the public stage tab, advancing and the finalize guard. Not done: round-robin pools, double elimination, a bracket diagram, and seeding from anything but the Swiss standings. **Deploy: run the new migration.**
+Harness: the seed's two cut events are created by another account (an organizer may own at most 5 unfinished events), and `run.sh` sets `TELESCOPE_ENABLED=false` (the harness DB has no telescope tables, and the errors had grown `storage/logs/laravel.log` to several GB).

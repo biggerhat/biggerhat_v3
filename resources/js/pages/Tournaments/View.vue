@@ -4,6 +4,8 @@ import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
 import {
     formatGameSize,
     tosOperationText,
+    roundName,
+    roundShortName,
     type TableDetails,
     type TournamentAward,
     type TosDeploymentInfo,
@@ -84,6 +86,8 @@ interface ViewGame {
 interface ViewRound {
     id: number;
     round_number: number;
+    label?: string;
+    short_label?: string;
     status: string;
     started_at: string | null;
     deployment: { value: string; label: string; description: string; image_url: string | null } | null;
@@ -711,7 +715,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             {{ isCompleted ? 'Final Standings' : 'Standings' }}
                         </TabsTrigger>
                         <TabsTrigger v-for="round in rounds" :key="'tab-' + round.id" :value="'r' + round.round_number" class="text-xs sm:text-sm">
-                            R{{ round.round_number }}
+                            {{ roundShortName(round) }}
                         </TabsTrigger>
                         <TabsTrigger v-if="tournament.rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
                             RSVPs
@@ -748,7 +752,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <Printer class="size-3.5" /> Print pairings
                                 </Button>
                             </div>
-                            <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
+                            <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — {{ roundName(round) }}</h2>
                             <!-- Compact Scenario -->
                             <div
                                 v-if="round.deployment || round.strategy || round.schemes.length || round.tos_scenario"

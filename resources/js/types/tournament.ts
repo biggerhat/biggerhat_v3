@@ -87,6 +87,12 @@ export interface TournamentGame {
 export interface TournamentRound {
     id: number;
     round_number: number;
+    /** Top-cut (single elimination) round. */
+    is_cut?: boolean;
+    /** "Round 3", or the cut stage: Finals / Semifinals / Quarterfinals. */
+    label?: string;
+    /** "R3", or F / SF / QF for the cut. */
+    short_label?: string;
     /** The raw enum value on the Manage page (the public View payload hydrates it into an object). */
     deployment: string | null;
     strategy: { id: number; name: string } | null;
@@ -118,6 +124,8 @@ export interface ScenarioOptions {
 }
 
 export interface StandingEntry {
+    /** Final top-cut result once the cut is decided: Champion, Finalist, "Top 4", ... */
+    cut_finish?: string | null;
     rank: number | null;
     player_id: number;
     display_name: string;
@@ -342,4 +350,22 @@ export type TableDetails = Record<string, TableDetail>;
 export function tableLabel(number: number, details: TableDetails | undefined): string {
     const name = details?.[number]?.name;
     return name ? `Table ${number} — ${name}` : `Table ${number}`;
+}
+
+/** A round's display name; cut rounds are named for their stage ("Semifinals"). */
+export function roundName(round: { round_number: number; label?: string }): string {
+    return round.label ?? `Round ${round.round_number}`;
+}
+
+/** Compact round name for tabs and chips ("R3", "SF"). */
+export function roundShortName(round: { round_number: number; short_label?: string }): string {
+    return round.short_label ?? `R${round.round_number}`;
+}
+
+/** Where the top cut stands (Manage payload). */
+export interface CutState {
+    size: number | null;
+    started: boolean;
+    available_sizes: number[];
+    block_reason: string | null;
 }

@@ -51,6 +51,8 @@ interface MatchGame {
 
 interface MatchRound {
     round_number: number;
+    label?: string;
+    is_cut?: boolean;
     status: string;
     started_at: string | null;
     deployment: { label: string } | null;
@@ -169,7 +171,7 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-primary">Your match</h2>
                 <span class="text-sm text-muted-foreground">
-                    Round {{ round.round_number }}<template v-if="game.table_number"> · Table {{ game.table_number }}</template
+                    {{ round.label ?? `Round ${round.round_number}` }}<template v-if="game.table_number"> · Table {{ game.table_number }}</template
                     ><template v-if="tableDetail?.name"> — {{ tableDetail.name }}</template>
                 </span>
                 <RoundClock v-if="inProgress" :started-at="round.started_at" :limit-minutes="roundTimeLimit" class="ml-auto" />
@@ -228,7 +230,8 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                 </Button>
                 <p v-else-if="game.is_bye" class="text-xs text-muted-foreground">Nothing to do until the next round is paired.</p>
                 <p v-else-if="!inProgress" class="text-xs text-muted-foreground">
-                    Round {{ round.round_number }} hasn't started yet — find your table and get set up.
+                    {{ round.label ?? `Round ${round.round_number}` }} {{ round.is_cut ? 'have' : 'has' }}n't started yet — find your table and get
+                    set up.
                 </p>
                 <p v-else-if="!finished" class="text-xs text-muted-foreground">
                     {{ canReport ? 'Play your game, then report the result below.' : 'Play your game, then give your scores to the organizer.' }}

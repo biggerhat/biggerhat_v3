@@ -7,6 +7,7 @@ import {
     type TournamentRuleset,
     type MasterOption,
     type StandingEntry,
+    type CutState,
     type TableDetails,
     type TournamentAward,
     type TournamentGame,
@@ -105,6 +106,8 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     /** The organizer's per-table notes, keyed by table number. */
     tables: TableDetails;
+    /** Where the top cut stands (size, whether it started, which sizes are open now). */
+    cut: CutState;
     /** Side awards, including ones not yet given to anyone. */
     awards: TournamentAward[];
     standings: StandingEntry[];
@@ -197,7 +200,7 @@ watch(activeTab, (tab) => {
 });
 
 // Reload Inertia props after a mutation while preserving local UI state.
-const reloadPage = () => reloadProps(['tournament', 'standings']);
+const reloadPage = () => reloadProps(['tournament', 'standings', 'cut']);
 const announcementOpen = ref(false);
 const playersTab = ref<InstanceType<typeof ManagePlayersTab> | null>(null);
 const waitlistCount = computed(() => props.tournament.rsvps?.filter((r) => r.waitlist_position).length ?? 0);
@@ -370,6 +373,8 @@ const canFinalize = computed(() => {
     if (props.tournament.status !== 'active') return false;
     if (!isLastRound.value) return false;
     if (!latestRound.value) return false;
+    // A top cut has to reach its final before the event can be finalized.
+    if (latestRound.value.is_cut && latestRound.value.games.filter((g) => !g.is_bye).length > 1) return false;
     return latestRound.value.status === 'completed';
 });
 // ─── Next step guidance (logic in useTournamentNextStep, rendering in NextStepCard) ───
@@ -395,6 +400,8 @@ const { nextStep } = useTournamentNextStep(() => ({
         roundsTab.value?.editScenario(round);
     },
     showRounds: () => (activeTab.value = 'rounds'),
+    advanceCut: () => roundsTab.value?.advanceCut(),
+    cutAvailable: () => roundsTab.value?.cutAvailable() ?? false,
 }));
 
 const formatDate = (d: string) => formatDateOnly(d, { month: 'long', day: 'numeric', year: 'numeric' });
@@ -607,6 +614,7 @@ const isEditable = computed(() => !isLocked.value);
                     :checked-in-count="checkedInCount"
                     :unchecked-players="uncheckedPlayers"
                     :can-finalize="canFinalize"
+                    :cut="cut"
                     @edit-score="openScoreEdit"
                     @finalize="confirmFinalizeDialog = true"
                 />

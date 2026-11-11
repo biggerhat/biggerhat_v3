@@ -104,6 +104,7 @@
                     <td>{{ $entry['is_ringer'] ? '—' : $entry['rank'] }}</td>
                     <td>
                         <strong>{{ $entry['display_name'] }}</strong>
+                        @if (! empty($entry['cut_finish'])) <span class="tag">{{ $entry['cut_finish'] }}</span> @endif
                         @if ($entry['is_ringer']) <span class="tag">ringer</span> @endif
                         @if ($entry['is_dropped']) <span class="tag">dropped</span> @endif
                         <span class="muted">

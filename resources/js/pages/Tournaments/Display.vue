@@ -41,6 +41,8 @@ interface DisplayGame {
 interface DisplayRound {
     id: number;
     round_number: number;
+    label?: string;
+    is_cut?: boolean;
     status: string;
     started_at: string | null;
     deployment: { label: string } | null;
@@ -104,7 +106,9 @@ const roundLabel = computed(() => {
               : r.games.length
                 ? 'paired — find your table'
                 : 'being set up';
-    return `Round ${r.round_number} of ${props.tournament.planned_rounds} · ${state}`;
+    return r.label && r.label !== `Round ${r.round_number}`
+        ? `${r.label} · ${state}`
+        : `Round ${r.round_number} of ${props.tournament.planned_rounds} · ${state}`;
 });
 
 const scenario = computed(() => {
@@ -256,7 +260,7 @@ const setMode = (m: Mode) => {
                 v-if="round && round.status === 'setup' && round.games.length"
                 class="mb-6 rounded-xl bg-primary/15 px-5 py-3 text-2xl font-semibold text-primary sm:text-3xl"
             >
-                Round {{ round.round_number }} is paired — find your table
+                {{ round.label ?? `Round ${round.round_number}` }} {{ round.is_cut ? 'are' : 'is' }} paired — find your table
             </p>
 
             <p v-if="!round || !round.games.length" class="py-24 text-center text-3xl text-muted-foreground">Pairings will appear here.</p>

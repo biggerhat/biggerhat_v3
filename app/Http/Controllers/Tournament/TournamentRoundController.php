@@ -118,6 +118,11 @@ class TournamentRoundController extends Controller
         $this->trackerGames->destroyForRound($round);
         $round->delete();
 
+        // Deleting the whole cut takes the cut size with it.
+        if ($round->is_cut && ! $tournament->rounds()->where('is_cut', true)->exists()) {
+            $tournament->update(['cut_size' => null]);
+        }
+
         // If we deleted the last round, drop planned_rounds back to match.
         $maxRound = (int) ($tournament->rounds()->max('round_number') ?? 0);
         if ($maxRound < $tournament->planned_rounds) {

@@ -8,6 +8,8 @@ import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournament } from '@/composables/useTournament';
 import {
     isScoredResult,
+    roundName,
+    roundShortName,
     tableLabel,
     type MasterOption,
     type StandingEntry,
@@ -103,7 +105,7 @@ const scoreLabel = (g: TournamentGame) => (g.player_one_vp !== null && isScoredR
                     :aria-pressed="r.round_number === roundNumber"
                     @click="roundNumber = r.round_number"
                 >
-                    R{{ r.round_number }}
+                    {{ roundShortName(r) }}
                 </Button>
             </div>
         </div>
@@ -113,7 +115,7 @@ const scoreLabel = (g: TournamentGame) => (g.player_one_vp !== null && isScoredR
         </Card>
         <template v-else>
             <div class="flex flex-wrap items-center gap-2 text-sm">
-                <span class="font-semibold">Round {{ round.round_number }}</span>
+                <span class="font-semibold">{{ roundName(round) }}</span>
                 <Badge variant="outline" class="text-2xs">{{ games.length ? `${reported} of ${games.length} reported` : 'No pairings' }}</Badge>
             </div>
             <p v-if="lock" class="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{{ lock }}</p>

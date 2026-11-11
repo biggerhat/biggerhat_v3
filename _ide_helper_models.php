@@ -3603,6 +3603,7 @@ namespace App\Models{
  * @property int $team_size
  * @property bool $require_crew_lists
  * @property array<array-key, mixed>|null $details
+ * @property int|null $cut_size
  * @property int|null $max_players
  * @property \Illuminate\Support\Carbon|null $registration_closes_at
  * @property string|null $announcement

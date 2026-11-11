@@ -47,6 +47,7 @@ use App\Http\Controllers\Tournament\TournamentAwardController;
 use App\Http\Controllers\Tournament\TournamentCalendarController;
 use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
+use App\Http\Controllers\Tournament\TournamentCutController;
 use App\Http\Controllers\Tournament\TournamentDetailsController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentGameCrewController;
@@ -496,6 +497,8 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
 
     // Rounds
     Route::post('/{tournament}/rounds', [TournamentRoundController::class, 'store'])->name('rounds.create');
+    Route::post('/{tournament}/cut', [TournamentCutController::class, 'start'])->name('cut.start');
+    Route::post('/{tournament}/cut/advance', [TournamentCutController::class, 'advance'])->name('cut.advance');
     Route::post('/{tournament}/rounds/generate-all', [TournamentRoundController::class, 'generateAll'])->name('rounds.generate_all');
     Route::put('/{tournament}/rounds/{round}', [TournamentRoundController::class, 'update'])->name('rounds.update');
     Route::delete('/{tournament}/rounds/{round}', [TournamentRoundController::class, 'destroy'])->name('rounds.delete');

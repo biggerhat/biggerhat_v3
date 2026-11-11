@@ -50,6 +50,7 @@ class Tournament extends Model
             'registration_closes_at' => 'datetime',
             'require_crew_lists' => 'boolean',
             'details' => 'array',
+            'cut_size' => 'integer',
         ];
     }
 
@@ -204,6 +205,7 @@ class Tournament extends Model
         return $this->hasMany(TournamentPlayer::class);
     }
 
+    /** @return HasMany<TournamentRound, $this> */
     public function rounds(): HasMany
     {
         return $this->hasMany(TournamentRound::class)->orderBy('round_number');

@@ -117,6 +117,17 @@ organizer pages. `Tournament::canScore()` = can manage, or is a scorer, and the 
 games, standings, ruleset, table names): a round switcher, one card per pairing with Enter/Edit score, and the same `ScoreEntryDialog` the Manage page uses, including the optional master/title pickers (the `masters` list is the same deferred prop,
 `TournamentPagePayloads::mastersDeferred()`, and is only sent for rulesets that track leaders). The public event page shows a "Scoring desk" link while the event is active to anyone who `can_score`.
 
+## Top cut (single elimination)
+After the Swiss rounds an organizer can run a cut of 2, 4, 8 or 16 players (`TournamentCutService`, `TournamentCutController`, `tournaments.cut.start|advance`, the `TopCutCard` on the Rounds tab and a next-step
+guide entry). `start()` seeds the best Swiss players (not dropped, disqualified or ringers) and creates the first cut round already paired in bracket order (8 => 1v8, 4v5, 2v7, 3v6), so game k of a round feeds
+game floor(k/2) of the next; `advance()` pairs the winners of the finished cut round the same way. Cut rounds are ordinary `tournament_rounds` rows with `is_cut = true`, so scenarios, scoring, the tracker, self-reporting
+and the scoring desk all work; `tournaments.cut_size` records the size. Rounds name themselves by stage (`TournamentRound::$label` / `$short_label`: Finals, Semifinals, Quarterfinals, "Round of 16"; "R3" / "SF" in tabs).
+Rules: pairing cannot be regenerated for a cut round; a cut round starts without every player being paired; `TournamentScoreRecorder` refuses a tied score in a cut game (a forfeit's non-forfeiting player advances; if a tie
+somehow exists the better seed advances); the tournament cannot be finalized until the final is played; deleting the last cut round clears `cut_size`.
+**Standings:** `TournamentStandingsService::computeSwiss()` leaves cut rounds out (seeds never move), and `compute()` applies `CutPlacings` once the final has a winner: champion 1st, finalist 2nd, each earlier
+round's losers share the next place (semifinal losers joint 3rd, quarterfinal losers joint 5th), everyone outside the cut ranks after. Rows get `cut_finish` ("Champion", "Finalist", "Top 4"), shown as a badge and on the PDF.
+Note `Tournament::rounds()` is already ordered by `round_number`, so use `reorder()` to get the latest one.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

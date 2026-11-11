@@ -19,6 +19,7 @@ use App\Models\Tournament;
 use App\Models\TournamentAward;
 use App\Models\TournamentRound;
 use App\Models\TournamentTable;
+use App\Services\TournamentCutService;
 use App\Services\TournamentStandingsService;
 use App\Tournaments\CrewListCheck;
 use Inertia\DeferProp;
@@ -126,6 +127,9 @@ class TournamentPagePayloads
             $roundsData[] = [
                 'id' => $round->id,
                 'round_number' => $round->round_number,
+                'is_cut' => $round->is_cut,
+                'label' => $round->label,
+                'short_label' => $round->short_label,
                 'status' => $roundStatus->value,
                 'started_at' => $round->started_at?->toIso8601String(),
                 'deployment' => $deployment,
@@ -198,6 +202,23 @@ class TournamentPagePayloads
             'factions' => FactionEnum::buildDetails(),
             'scheme_stats' => $schemeStats,
             'crew_lists' => $crewLists,
+        ];
+    }
+
+    /**
+     * Where the top cut stands, for the organizer's Rounds tab.
+     *
+     * @return array{size: int|null, started: bool, available_sizes: list<int>, block_reason: string|null}
+     */
+    private function cutState(Tournament $tournament): array
+    {
+        $cut = app(TournamentCutService::class);
+
+        return [
+            'size' => $tournament->cut_size,
+            'started' => $tournament->rounds()->where('is_cut', true)->exists(),
+            'available_sizes' => $cut->availableSizes($tournament),
+            'block_reason' => $cut->blockReason($tournament),
         ];
     }
 
@@ -371,6 +392,7 @@ class TournamentPagePayloads
             'ruleset' => $this->ruleset($tournament),
             'tables' => $this->tableDetails($tournament),
             'awards' => $this->awardList($tournament, true),
+            'cut' => $this->cutState($tournament),
             'allegiances' => $this->allegianceOptions($tournament),
             'standings' => $standings,
             'seasons' => $seasons,

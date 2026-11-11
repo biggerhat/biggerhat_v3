@@ -127,3 +127,8 @@ Ranked by value for a real event, with effort.
 - axe contrast / landmark results on the tournament pages (harness exists, not run).
 - MySQL behaviour of the new migrations (all browser work was SQLite).
 - Large-field performance (> 64 players) — only the pairing search budget (50,000 nodes) was reasoned about, not measured.
+
+## 7. Follow-up branch: tables and waitlist notices (tournament-tables-notify-nov12)
+
+F5 (partial): auto-paired games avoid tables a player already used (`assignTables`); named tables and terrain sets are not built. F16 (partial): waitlisted RSVPs are notified when
+they move under the player limit (`WaitlistPromotions`); "you're on table N" was already in `TournamentRoundPaired`. Clock warnings ("10 minutes left") need a scheduled job and are not built.

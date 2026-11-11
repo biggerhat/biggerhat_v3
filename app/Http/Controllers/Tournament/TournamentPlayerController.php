@@ -14,6 +14,7 @@ use App\Models\TournamentPlayer;
 use App\Models\TournamentPlayerMember;
 use App\Models\User;
 use App\Notifications\Tournament\TournamentPlayerRegistered;
+use App\Tournaments\WaitlistPromotions;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -175,7 +176,9 @@ class TournamentPlayerController extends Controller
             ], 422);
         }
 
+        $waiting = WaitlistPromotions::snapshot($tournament);
         $player->delete();
+        WaitlistPromotions::notify($tournament, $waiting);
 
         $this->broadcastUpdate($tournament, 'player_removed');
 

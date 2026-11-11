@@ -239,3 +239,30 @@ it('keeps players on a joint rank in random order', function () {
 
     expect(count($seen))->toBeGreaterThan(1);
 });
+
+it('keeps a player off a table they already played on when the free tables allow it', function () {
+    $t = Tournament::factory()->active()->create();
+    [$a, $b, $c, $d] = TournamentPlayer::factory()->for($t)->count(4)->create()->all();
+    $gone = TournamentPlayer::factory()->for($t)->create(['dropped_after_round' => 1]);
+    $one = TournamentRound::factory()->for($t)->create(['round_number' => 1, 'status' => 'completed']);
+    TournamentGame::factory()->for($one, 'round')->create(['player_one_id' => $a->id, 'player_two_id' => $gone->id, 'table_number' => 1]);
+    $two = TournamentRound::factory()->for($t)->create(['round_number' => 2]);
+
+    $this->service->regeneratePairings($t->fresh('players'), $two);
+
+    $games = TournamentGame::where('tournament_round_id', $two->id)->get();
+    expect($games)->toHaveCount(2)
+        ->and($games->pluck('table_number')->sort()->values()->all())->toBe([1, 2])
+        ->and($games->first(fn ($g) => in_array($a->id, [$g->player_one_id, $g->player_two_id], true))->table_number)->toBe(2);
+});
+
+it('numbers tables from 1 and skips tables held by manual pairings', function () {
+    $t = Tournament::factory()->active()->create();
+    [$a, $b, $c, $d] = TournamentPlayer::factory()->for($t)->count(4)->create()->all();
+    $round = TournamentRound::factory()->for($t)->create(['round_number' => 1]);
+    TournamentGame::factory()->for($round, 'round')->create(['player_one_id' => $a->id, 'player_two_id' => $b->id, 'table_number' => 1, 'is_manual' => true]);
+
+    $this->service->regeneratePairings($t->fresh('players'), $round);
+
+    expect(TournamentGame::where('tournament_round_id', $round->id)->where('is_manual', false)->value('table_number'))->toBe(2);
+});

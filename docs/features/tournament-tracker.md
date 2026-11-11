@@ -85,6 +85,14 @@ RSVP is a person while the limit counts teams). `TournamentPagePayloads` stamps 
 `TournamentSelfDropController` (`tournaments.withdraw`): a linked player in an individual event removes their seat and RSVP before the start, or is dropped after the round they are in
 (else the last finished round) once it runs; organizers get a `TournamentPlayerWithdrew` notification. Team events stay with the organizer.
 
+When a seat frees (a self-withdrawal before the start, an organizer removing a player, or a raised limit) `WaitlistPromotions::snapshot()` is taken before the change and `notify()` after it:
+whoever was on the waitlist before and is not now gets a `TournamentWaitlistPromoted` notification. A waitlisted user cancelling their own RSVP does not trigger it.
+
+## Tables
+`TournamentPairingService::assignTables()` numbers the auto-paired games from the lowest table numbers not held by a manual pairing, and keeps each player off tables they sat at in earlier
+rounds where the free tables allow it (most constrained pairing first; when no clean table is left the lowest free one is used). Table names and terrain sets are not modelled.
+The `TournamentRoundPaired` notification already carries the table number.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

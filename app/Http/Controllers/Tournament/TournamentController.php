@@ -19,6 +19,7 @@ use App\Services\TournamentStateMachine;
 use App\Tournaments\Payloads\TournamentPagePayloads;
 use App\Tournaments\Rulesets\Ruleset;
 use App\Tournaments\Rulesets\RulesetRegistry;
+use App\Tournaments\WaitlistPromotions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -329,7 +330,9 @@ class TournamentController extends Controller
             return response()->json(['error' => "Already {$tournament->competitorCount()} registered — the limit can't be lower than that."], 422);
         }
 
+        $waiting = WaitlistPromotions::snapshot($tournament);
         $tournament->update($validated);
+        WaitlistPromotions::notify($tournament, $waiting);
 
         $this->broadcastUpdate($tournament, 'settings_updated');
 

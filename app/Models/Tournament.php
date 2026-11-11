@@ -232,6 +232,23 @@ class Tournament extends Model
     }
 
     /**
+     * User ids of the RSVPs currently waiting for a seat, in waitlist order.
+     *
+     * @return array<int, int>
+     */
+    public function waitlistedUserIds(): array
+    {
+        $positions = $this->waitlistPositions();
+        if ($positions === []) {
+            return [];
+        }
+
+        $userIds = $this->rsvps()->whereIn('id', array_keys($positions))->pluck('user_id', 'id');
+
+        return collect($positions)->sort()->keys()->map(fn ($rsvpId) => (int) $userIds->get($rsvpId))->values()->all();
+    }
+
+    /**
      * Waitlist position (1 = next in) for each RSVP that doesn't fit under the player limit, keyed by RSVP id.
      * RSVPs are taken oldest first, and users who are already registered don't count as waiting. Individual events only:
      * in team events an RSVP is a person while the limit counts teams.

@@ -28,6 +28,12 @@ keyboard flow is not done), U5 (faction-spine player rows), U6 (Meta folded away
 round setup: `POST .../rounds/{round}/swap` and `/swap-tables`, rematch warnings, touched pairings become manual) and U8 (results CSV on the Standings tab) are done.
 Still open from this group: U9 (phone Rounds-tab action row).
 
+**Status of the spectator/player pass (branch `tournament-spectator-ux-nov11`):** U10 (status chip per pairing — Paired / Playing · turn / Final — winner emphasis, "vs" instead of dashes),
+U11 (2xl screens show the standings beside the pairings), U12 (display mode: bigger controls that fade when idle, per-side scores with winner emphasis, "Round N is paired — find your table",
+a roster instead of a table of zeros before round 1, a scan-to-follow QR), U13 (the opponent's proposed result is a large You – Them score with the component breakdown, one tap to confirm),
+F2 (organizer announcements: `tournaments.announcement` column pair, `PUT /tournaments/{t}/announcement`, banner on View and Display, live-region), F17 ("Live now" strip of in-progress tracker games on View)
+and U16 for announcements (polite live region) are done. **Deploy: run the new migration.** Not browser-tested: the Live-now strip (the seed has no in-progress tracker game).
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

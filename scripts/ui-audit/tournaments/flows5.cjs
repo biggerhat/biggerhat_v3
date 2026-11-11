@@ -31,7 +31,7 @@ const L = require('./lib.cjs');
     });
     await L.step('team event: carol (other team) confirms; standings update for teams', carol, async () => {
         await L.visit(carol, `/tournaments/${ids.t4}/view`);
-        await L.expectText(carol, /Alpha Squad reported the result as\s*3\s*–\s*9/i);
+        await L.expectText(carol, /Alpha Squad reported this result[\s\S]*3[\s\S]*9/i);
         await L.clickText(carol, /^Confirm$/i);
         await L.sleep(1500);
         await L.clickText(carol, /^Standings/i, '[role=tab]');

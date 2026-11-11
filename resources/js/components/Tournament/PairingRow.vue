@@ -41,9 +41,14 @@ const props = defineProps<{
     game: RowGame;
     players: RowPlayer[];
     myPlayerId: number | null;
+    /** The round's status, so a pairing can say whether it is waiting, in play or final. */
+    roundStatus?: string;
 }>();
 
 const byId = computed(() => new Map(props.players.map((p) => [p.id, p])));
+
+// A result is official once it is scored (self-reports that are still pending don't count).
+const played = computed(() => ['completed', 'agreed', 'forfeited'].includes(props.game.result));
 
 const sides = computed(() =>
     (['one', 'two'] as const).map((key) => {
@@ -61,7 +66,8 @@ const sides = computed(() =>
             garrison: p?.garrison?.share_code ? route('tos.garrisons.shared', p.garrison.share_code) : null,
             leader: props.game[`player_${key}_title`] || props.game[`player_${key}_master`] || null,
             vp,
-            winning: (vp ?? 0) > (other ?? 0),
+            winning: played.value && (vp ?? 0) > (other ?? 0),
+            losing: played.value && (vp ?? 0) < (other ?? 0),
             isMe: props.myPlayerId !== null && id === props.myPlayerId,
         };
     }),
@@ -80,6 +86,25 @@ const tracker = computed(() => {
         t.status === 'in_progress' ? `T${t.current_turn}/${t.max_turns ?? 5}` : t.status === 'abandoned' ? 'Abandoned' : t.status.replace('_', ' ');
     return { tone, label };
 });
+
+// One chip says where this match is: waiting for the round to start, being played, or final.
+const status = computed<{ label: string; tone: string } | null>(() => {
+    if (props.game.is_bye) return null;
+    if (played.value) return { label: 'Final', tone: 'border-emerald-500/50 text-emerald-700 dark:text-emerald-400' };
+    if (props.roundStatus === 'in_progress') {
+        return tracker.value
+            ? { label: `Playing · ${tracker.value.label}`, tone: tracker.value.tone }
+            : { label: 'Playing', tone: 'border-amber-400/70 text-amber-700 dark:text-amber-300' };
+    }
+    if (props.roundStatus === 'setup') return { label: 'Paired', tone: 'text-muted-foreground' };
+    return null;
+});
+const hasScores = computed(() => props.game.player_one_vp !== null || props.game.player_two_vp !== null);
+const nameTone = (s: { isMe: boolean; winning: boolean; losing: boolean }) => [
+    s.isMe ? 'text-primary' : '',
+    s.winning ? 'font-semibold' : '',
+    s.losing ? 'text-muted-foreground' : '',
+];
 const observeUrl = computed(() => (props.game.tracker_game?.uuid ? route('games.observe', props.game.tracker_game.uuid) : null));
 const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dark:text-green-400' : '');
 </script>
@@ -93,19 +118,21 @@ const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dar
                 <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-2xs">BYE</Badge>
                 <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-2xs">Forfeit</Badge>
                 <Badge v-else-if="game.result === 'agreed'" variant="outline" class="ml-auto px-1 py-0 text-2xs">Agreed</Badge>
-                <Badge v-if="tracker" variant="outline" class="ml-auto px-1 py-0 text-2xs" :class="tracker.tone">{{ tracker.label }}</Badge>
+                <Badge v-if="status" variant="outline" class="ml-auto px-1 py-0 text-2xs" :class="status.tone">{{ status.label }}</Badge>
             </div>
 
             <div v-for="s in game.is_bye ? sides.slice(0, 1) : sides" :key="s.key" class="flex items-center gap-2">
                 <FactionLogo v-if="s.faction" :faction="s.faction" class-name="size-5 shrink-0" />
                 <AllegianceLogo v-else-if="s.allegiance" :allegiance="s.allegiance" class-name="size-5 shrink-0" />
                 <div class="min-w-0 flex-1">
-                    <div class="truncate font-medium" :class="s.isMe ? 'text-primary' : ''">{{ s.name }}</div>
+                    <div class="truncate font-medium" :class="nameTone(s)">{{ s.name }}</div>
                     <div v-if="s.members" class="truncate text-2xs text-muted-foreground">{{ s.members }}</div>
                     <div v-if="s.leader" class="truncate text-2xs text-muted-foreground">{{ s.leader }}</div>
                     <a v-if="s.garrison" :href="s.garrison" target="_blank" rel="noopener" class="text-2xs text-primary hover:underline">Garrison</a>
                 </div>
-                <span v-if="!game.is_bye" class="shrink-0 font-mono text-base tabular-nums" :class="scoreTone(s.winning)">{{ s.vp ?? '–' }}</span>
+                <span v-if="!game.is_bye && hasScores" class="shrink-0 font-mono text-base tabular-nums" :class="scoreTone(s.winning)">{{
+                    s.vp ?? '–'
+                }}</span>
             </div>
 
             <a
@@ -126,9 +153,7 @@ const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dar
             <div class="flex min-w-0 flex-1 items-center gap-1.5">
                 <FactionLogo v-if="sides[0].faction" :faction="sides[0].faction" class-name="size-4 shrink-0" />
                 <AllegianceLogo v-else-if="sides[0].allegiance" :allegiance="sides[0].allegiance" class-name="size-4 shrink-0" />
-                <span class="truncate font-medium" :class="sides[0].isMe ? 'text-primary' : ''" :title="sides[0].members ?? undefined">{{
-                    sides[0].name
-                }}</span>
+                <span class="truncate font-medium" :class="nameTone(sides[0])" :title="sides[0].members ?? undefined">{{ sides[0].name }}</span>
                 <a
                     v-if="sides[0].garrison"
                     :href="sides[0].garrison"
@@ -142,17 +167,16 @@ const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dar
 
             <Badge v-if="game.is_bye" variant="outline" class="shrink-0 text-2xs">BYE</Badge>
             <template v-else>
-                <div class="flex shrink-0 items-center gap-1 font-mono text-xs tabular-nums">
+                <div v-if="hasScores" class="flex shrink-0 items-center gap-1 font-mono text-xs tabular-nums">
                     <span :class="scoreTone(sides[0].winning)">{{ sides[0].vp ?? '–' }}</span>
                     <span class="text-muted-foreground">-</span>
                     <span :class="scoreTone(sides[1].winning)">{{ sides[1].vp ?? '–' }}</span>
                 </div>
+                <span v-else class="shrink-0 text-2xs uppercase tracking-wide text-muted-foreground">vs</span>
 
                 <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
                     <span v-if="sides[1].leader" class="truncate text-2xs text-muted-foreground">{{ sides[1].leader }} ·</span>
-                    <span class="truncate font-medium" :class="sides[1].isMe ? 'text-primary' : ''" :title="sides[1].members ?? undefined">{{
-                        sides[1].name
-                    }}</span>
+                    <span class="truncate font-medium" :class="nameTone(sides[1])" :title="sides[1].members ?? undefined">{{ sides[1].name }}</span>
                     <a
                         v-if="sides[1].garrison"
                         :href="sides[1].garrison"
@@ -167,7 +191,7 @@ const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dar
 
                 <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-2xs">Forfeit</Badge>
                 <Badge v-else-if="game.result === 'agreed'" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Agreed</Badge>
-                <Badge v-if="tracker" variant="outline" class="shrink-0 px-1 py-0 text-2xs" :class="tracker.tone">{{ tracker.label }}</Badge>
+                <Badge v-if="status" variant="outline" class="shrink-0 px-1 py-0 text-2xs" :class="status.tone">{{ status.label }}</Badge>
                 <a
                     v-if="observeUrl"
                     :href="observeUrl"

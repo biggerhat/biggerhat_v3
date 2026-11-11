@@ -65,7 +65,7 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                 isMe(entry.player_id) ? 'ring-2 ring-inset ring-primary/60' : '',
                             ]"
                         >
-                            <td class="px-2 py-2 font-bold tabular-nums sm:px-3">{{ rankLabel(entry.rank) }}</td>
+                            <td class="whitespace-nowrap px-2 py-2 font-bold tabular-nums sm:px-3">{{ rankLabel(entry.rank) }}</td>
                             <td class="px-2 py-2 sm:px-3">
                                 <div class="flex items-center gap-1.5">
                                     <FactionLogo
@@ -107,7 +107,7 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                 </div>
                             </td>
                             <td class="px-1 py-2 text-center font-bold tabular-nums sm:px-3">{{ entry.total_tp }}</td>
-                            <td class="hidden px-1 py-2 text-center font-medium tabular-nums sm:table-cell sm:px-3">
+                            <td class="hidden whitespace-nowrap px-1 py-2 text-center font-medium tabular-nums sm:table-cell sm:px-3">
                                 {{ entry.wins ?? 0 }}-{{ entry.losses ?? 0 }}-{{ entry.ties ?? 0 }}
                             </td>
                             <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_sos }}</td>

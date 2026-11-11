@@ -2,6 +2,7 @@
 import FactionLogo from '@/components/FactionLogo.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -238,18 +239,33 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                 </template>
 
                 <template v-else-if="game.report_status === 'pending' && proposedMineTheirs">
-                    <p class="text-xs">
-                        <template v-if="iReported">
-                            You reported
-                            <span class="font-bold tabular-nums">{{ total(proposedMineTheirs.mine) }} – {{ total(proposedMineTheirs.theirs) }}</span>
-                            <span v-if="proposal?.agreed"> (agreed result)</span>. Waiting for {{ opponentName }} to confirm.
-                        </template>
-                        <template v-else>
-                            {{ opponentName }} reported the result as
-                            <span class="font-bold tabular-nums">{{ total(proposedMineTheirs.mine) }} – {{ total(proposedMineTheirs.theirs) }}</span>
-                            (you – them)<span v-if="proposal?.agreed">, as an agreed result</span>. Is that right?
-                        </template>
+                    <p v-if="iReported" class="text-xs">
+                        You reported
+                        <span class="font-bold tabular-nums">{{ total(proposedMineTheirs.mine) }} – {{ total(proposedMineTheirs.theirs) }}</span>
+                        <span v-if="proposal?.agreed"> (agreed result)</span>. Waiting for {{ opponentName }} to confirm.
                     </p>
+                    <div
+                        v-else
+                        class="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3"
+                        role="group"
+                        aria-label="Result to confirm"
+                    >
+                        <p class="text-xs font-medium">
+                            {{ opponentName }} reported this result<span v-if="proposal?.agreed"> (an agreed result)</span> — is it right?
+                        </p>
+                        <div class="flex items-center justify-center gap-4 text-3xl font-bold tabular-nums">
+                            <span><span class="mr-1 text-xs font-normal text-muted-foreground">You</span>{{ total(proposedMineTheirs.mine) }}</span>
+                            <span class="text-muted-foreground" aria-hidden="true">–</span>
+                            <span
+                                >{{ total(proposedMineTheirs.theirs) }}<span class="ml-1 text-xs font-normal text-muted-foreground">Them</span></span
+                            >
+                        </div>
+                        <ul v-if="fields.length > 1" class="flex flex-wrap justify-center gap-x-4 gap-y-0.5 text-2xs text-muted-foreground">
+                            <li v-for="f in fields" :key="'p-' + f.key">
+                                {{ f.label }}: {{ proposedMineTheirs.mine[f.key] ?? 0 }} – {{ proposedMineTheirs.theirs[f.key] ?? 0 }}
+                            </li>
+                        </ul>
+                    </div>
                     <div v-if="iReported" class="flex gap-2">
                         <Button size="sm" variant="outline" :disabled="busy" @click="withdrawReport">Withdraw</Button>
                     </div>
@@ -307,7 +323,7 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                         </fieldset>
                     </div>
                     <label class="flex items-start gap-2 text-xs">
-                        <input v-model="agreed" type="checkbox" class="mt-0.5 size-3.5" />
+                        <Checkbox :checked="agreed" class="mt-0.5" @update:checked="(on) => (agreed = on === true)" />
                         <span>The game wasn't played out — we agreed this is the likely result as it stands.</span>
                     </label>
                     <div class="flex gap-2">

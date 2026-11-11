@@ -42,6 +42,7 @@ use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SupportersController;
+use App\Http\Controllers\Tournament\TournamentAnnouncementController;
 use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentGameController;
@@ -449,6 +450,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::put('/{tournament}', [TournamentController::class, 'update'])->name('update');
     Route::delete('/{tournament}', [TournamentController::class, 'destroy'])->name('destroy');
     Route::put('/{tournament}/status', [TournamentController::class, 'updateStatus'])->name('status');
+    Route::put('/{tournament}/announcement', [TournamentAnnouncementController::class, 'update'])->name('announcement');
 
     // Organizers
     Route::post('/{tournament}/organizers', [TournamentOrganizerController::class, 'store'])->name('organizers.add');

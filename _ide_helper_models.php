@@ -3601,6 +3601,8 @@ namespace App\Models{
  * @property int $bye_diff
  * @property int $bye_vp
  * @property int $team_size
+ * @property string|null $announcement
+ * @property \Illuminate\Support\Carbon|null $announced_at
  * @property \App\Enums\TournamentTiebreakerEnum $tiebreaker_mode
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at

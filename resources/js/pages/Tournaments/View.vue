@@ -5,6 +5,7 @@ import { formatGameSize, tosOperationText, type TosDeploymentInfo, type TosOpera
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
+import AnnouncementBanner from '@/components/Tournament/AnnouncementBanner.vue';
 import PairingRow from '@/components/Tournament/PairingRow.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
@@ -124,6 +125,8 @@ const props = defineProps<{
         location: string | null;
         round_time_limit: number;
         allow_self_report?: boolean;
+        announcement?: string | null;
+        announced_at?: string | null;
         team_size?: number;
         players: TournamentPlayer[];
         organizers: { id: number; name: string }[];
@@ -191,6 +194,22 @@ const toggleCheckIn = () => {
 };
 const canCheckIn = computed(() => ['registration', 'active'].includes(props.tournament.status));
 
+// Tracker games being played right now, across all rounds, so spectators can jump straight into one.
+const liveGames = computed(() =>
+    props.rounds.flatMap((r) =>
+        r.games
+            .filter((g) => g.tracker_game?.status === 'in_progress' && !g.is_bye)
+            .map((g) => ({
+                id: g.id,
+                uuid: g.tracker_game!.uuid,
+                table: g.table_number,
+                turn: g.tracker_game!.current_turn ?? null,
+                maxTurns: g.tracker_game!.max_turns ?? 5,
+                one: props.tournament.players.find((p) => p.id === g.player_one_id)?.display_name ?? 'TBD',
+                two: props.tournament.players.find((p) => p.id === g.player_two_id)?.display_name ?? 'TBD',
+            })),
+    ),
+);
 const myPlayerId = computed(() => props.tournament.players.find(playsFor)?.id ?? null);
 
 // The user's pairing in the newest round that isn't finished yet — the "where do I sit, who do I play" answer.
@@ -371,6 +390,13 @@ const openCard = (title: string, image?: string | null, description?: string | n
         </PageBanner>
 
         <div class="container mx-auto pb-8 sm:px-4" data-print-area>
+            <AnnouncementBanner
+                v-if="tournament.announcement"
+                :text="tournament.announcement"
+                :announced-at="tournament.announced_at"
+                class="mb-4"
+                data-no-print
+            />
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
             <details class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-no-print>
                 <summary class="cursor-pointer text-sm font-medium">
@@ -499,6 +525,27 @@ const openCard = (title: string, image?: string | null, description?: string | n
             />
 
             <!-- Main Tabs -->
+            <section v-if="liveGames.length" class="mb-4 rounded-lg border bg-muted/20 p-3" aria-label="Games in progress" data-no-print>
+                <h2 class="mb-2 flex items-center gap-2 text-sm font-semibold">
+                    <span class="size-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" /> Live now
+                </h2>
+                <ul class="grid gap-1.5 sm:grid-cols-2">
+                    <li v-for="g in liveGames" :key="g.id">
+                        <a
+                            :href="route('games.observe', g.uuid)"
+                            target="_blank"
+                            rel="noopener"
+                            class="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-accent"
+                        >
+                            <span v-if="g.table" class="text-2xs text-muted-foreground">T{{ g.table }}</span>
+                            <span class="min-w-0 flex-1 truncate font-medium">{{ g.one }} vs {{ g.two }}</span>
+                            <span v-if="g.turn" class="shrink-0 text-2xs text-muted-foreground">Turn {{ g.turn }}/{{ g.maxTurns }}</span>
+                            <span class="shrink-0 text-xs font-medium text-primary">Watch →</span>
+                        </a>
+                    </li>
+                </ul>
+            </section>
+
             <Tabs v-model="activeTab">
                 <!-- Horizontal scroll on mobile instead of wrapping — keeps a single tidy row
                      even for tournaments with many rounds. Wraps normally on sm+. -->
@@ -523,117 +570,139 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
                 <!-- Round Tabs -->
                 <TabsContent v-for="round in rounds" :key="'rc-' + round.id" :value="'r' + round.round_number">
-                    <div class="mb-3 flex flex-wrap items-center justify-end gap-2" data-no-print>
-                        <RoundClock
-                            v-if="round.status === 'in_progress' && round.started_at && myMatch?.round.round_number !== round.round_number"
-                            :started-at="round.started_at"
-                            :limit-minutes="tournament.round_time_limit"
-                        />
-                        <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
-                            <a :href="route('tournaments.display', tournament.uuid)" target="_blank" rel="noopener"
-                                ><MonitorPlay class="size-3.5" /> Display mode</a
-                            >
-                        </Button>
-                        <Button v-if="round.games.length" variant="outline" size="sm" class="h-8 gap-1.5" @click="printRound(round.round_number)">
-                            <Printer class="size-3.5" /> Print pairings
-                        </Button>
-                    </div>
-                    <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
-                    <!-- Compact Scenario -->
-                    <div
-                        v-if="round.deployment || round.strategy || round.schemes.length || round.tos_scenario"
-                        class="mb-4 rounded-lg border bg-muted/30 p-3"
-                    >
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                            <span v-if="round.deployment" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Deploy:</span>
-                                <button
-                                    class="font-medium hover:text-primary"
-                                    @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)"
-                                >
-                                    {{ round.deployment.label }}
-                                </button>
-                            </span>
-                            <span v-if="round.tos_scenario?.operation" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Operation:</span>
-                                <button
-                                    class="font-medium hover:text-primary"
-                                    @click="
-                                        openCard(
-                                            round.tos_scenario.operation.name,
-                                            round.tos_scenario.operation.image_url,
-                                            tosOperationText(round.tos_scenario.operation),
-                                        )
-                                    "
-                                >
-                                    {{ round.tos_scenario.operation.name }}
-                                </button>
-                            </span>
-                            <span v-if="round.tos_scenario?.deployment" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Deploy:</span>
-                                <button
-                                    class="font-medium hover:text-primary"
-                                    @click="
-                                        openCard(
-                                            round.tos_scenario.deployment.name,
-                                            round.tos_scenario.deployment.image_url,
-                                            round.tos_scenario.deployment.description,
-                                        )
-                                    "
-                                >
-                                    {{ round.tos_scenario.deployment.name }}
-                                </button>
-                            </span>
-                            <span v-if="round.strategy" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Strategy:</span>
-                                <button class="font-medium hover:text-primary" @click="openCard(round.strategy.name, round.strategy.image_url)">
-                                    {{ round.strategy.name }}
-                                </button>
-                            </span>
-                            <span v-if="round.schemes.length" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Schemes:</span>
-                                <span v-for="(scheme, idx) in round.schemes" :key="scheme.id">
-                                    <span v-if="idx > 0" class="text-muted-foreground">, </span>
-                                    <button
-                                        class="font-medium hover:text-primary"
-                                        @click="
-                                            openCard(
-                                                scheme.name,
-                                                scheme.image_url,
-                                                [
-                                                    scheme.prerequisite ? 'Prerequisite: ' + scheme.prerequisite : '',
-                                                    scheme.reveal ? 'Reveal: ' + scheme.reveal : '',
-                                                    scheme.scoring ? 'Scoring: ' + scheme.scoring : '',
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join('\n\n'),
-                                            )
-                                        "
+                    <div class="2xl:grid 2xl:grid-cols-[minmax(0,1fr)_30rem] 2xl:items-start 2xl:gap-6">
+                        <div class="min-w-0">
+                            <div class="mb-3 flex flex-wrap items-center justify-end gap-2" data-no-print>
+                                <RoundClock
+                                    v-if="round.status === 'in_progress' && round.started_at && myMatch?.round.round_number !== round.round_number"
+                                    :started-at="round.started_at"
+                                    :limit-minutes="tournament.round_time_limit"
+                                />
+                                <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
+                                    <a :href="route('tournaments.display', tournament.uuid)" target="_blank" rel="noopener"
+                                        ><MonitorPlay class="size-3.5" /> Display mode</a
                                     >
-                                        {{ scheme.name }}
-                                    </button>
-                                </span>
-                            </span>
-                        </div>
-                    </div>
-                    <div v-else class="mb-4 rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-                        Scenario not yet announced
-                    </div>
+                                </Button>
+                                <Button
+                                    v-if="round.games.length"
+                                    variant="outline"
+                                    size="sm"
+                                    class="h-8 gap-1.5"
+                                    @click="printRound(round.round_number)"
+                                >
+                                    <Printer class="size-3.5" /> Print pairings
+                                </Button>
+                            </div>
+                            <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
+                            <!-- Compact Scenario -->
+                            <div
+                                v-if="round.deployment || round.strategy || round.schemes.length || round.tos_scenario"
+                                class="mb-4 rounded-lg border bg-muted/30 p-3"
+                            >
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                                    <span v-if="round.deployment" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Deploy:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)"
+                                        >
+                                            {{ round.deployment.label }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.tos_scenario?.operation" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Operation:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="
+                                                openCard(
+                                                    round.tos_scenario.operation.name,
+                                                    round.tos_scenario.operation.image_url,
+                                                    tosOperationText(round.tos_scenario.operation),
+                                                )
+                                            "
+                                        >
+                                            {{ round.tos_scenario.operation.name }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.tos_scenario?.deployment" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Deploy:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="
+                                                openCard(
+                                                    round.tos_scenario.deployment.name,
+                                                    round.tos_scenario.deployment.image_url,
+                                                    round.tos_scenario.deployment.description,
+                                                )
+                                            "
+                                        >
+                                            {{ round.tos_scenario.deployment.name }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.strategy" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Strategy:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="openCard(round.strategy.name, round.strategy.image_url)"
+                                        >
+                                            {{ round.strategy.name }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.schemes.length" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Schemes:</span>
+                                        <span v-for="(scheme, idx) in round.schemes" :key="scheme.id">
+                                            <span v-if="idx > 0" class="text-muted-foreground">, </span>
+                                            <button
+                                                class="font-medium hover:text-primary"
+                                                @click="
+                                                    openCard(
+                                                        scheme.name,
+                                                        scheme.image_url,
+                                                        [
+                                                            scheme.prerequisite ? 'Prerequisite: ' + scheme.prerequisite : '',
+                                                            scheme.reveal ? 'Reveal: ' + scheme.reveal : '',
+                                                            scheme.scoring ? 'Scoring: ' + scheme.scoring : '',
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join('\n\n'),
+                                                    )
+                                                "
+                                            >
+                                                {{ scheme.name }}
+                                            </button>
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div v-else class="mb-4 rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+                                Scenario not yet announced
+                            </div>
 
-                    <!-- Pairings / Results —
+                            <!-- Pairings / Results —
                          On mobile, each pairing is a 2-line card: top = P1 line, bottom = P2 line,
                          with the score centered between. Cleaner hierarchy, no truncation surprises.
                          On sm+ screens we keep the original single-row layout for density. -->
-                    <div v-if="round.games.length" class="space-y-2 sm:space-y-1.5">
-                        <PairingRow
-                            v-for="game in round.games"
-                            :key="game.id"
-                            :game="game"
-                            :players="tournament.players"
-                            :my-player-id="myPlayerId"
-                        />
+                            <div v-if="round.games.length" class="space-y-2 sm:space-y-1.5">
+                                <PairingRow
+                                    v-for="game in round.games"
+                                    :key="game.id"
+                                    :game="game"
+                                    :players="tournament.players"
+                                    :my-player-id="myPlayerId"
+                                    :round-status="round.status"
+                                />
+                            </div>
+                            <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>
+                        </div>
+                        <!-- Wide screens: keep the standings in view next to the pairings -->
+                        <aside class="sticky top-4 hidden self-start 2xl:block" data-no-print aria-label="Current standings">
+                            <div class="mb-3 flex items-center gap-2 px-1">
+                                <Trophy class="size-4" />
+                                <h2 class="text-lg font-semibold">{{ isCompleted ? 'Final Standings' : 'Current Standings' }}</h2>
+                            </div>
+                            <StandingsTable :standings="standings" :highlight-player-id="myPlayerId" />
+                        </aside>
                     </div>
-                    <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>
                 </TabsContent>
 
                 <!-- Standings Tab -->

@@ -19,7 +19,7 @@ const L = require('./lib.cjs');
         await L.expectText(guest, /Table/i);
         await L.shot(guest, '02-display-pairings');
         await L.clickText(guest, /^standings$/i);
-        await L.expectText(guest, /Strength|SoS|TP/i);
+        await L.expectText(guest, /First results will appear here|Strength|SoS|TP/i);
         await L.shot(guest, '03-display-standings');
     });
 
@@ -50,7 +50,7 @@ const L = require('./lib.cjs');
     });
     await L.step('bob: sees the proposal and confirms it', bob, async () => {
         await L.visit(bob, `/tournaments/${ids.t1}/view`);
-        await L.expectText(bob, /Alice reported the result as\s*3\s*–\s*7/i, 'bob should see the proposal from his side (3 – 7)');
+        await L.expectText(bob, /Alice reported this result[\s\S]*3[\s\S]*7/i, 'bob should see the proposal from his side (3 – 7)');
         await L.shot(bob, '07-bob-proposal');
         await L.clickText(bob, /^Confirm$/i);
         await L.sleep(1200);

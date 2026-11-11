@@ -13,6 +13,7 @@ import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import ManagePlayersTab from '@/components/Tournament/ManagePlayersTab.vue';
 import NextStepCard from '@/components/Tournament/NextStepCard.vue';
+import AnnouncementDialog from '@/components/Tournament/AnnouncementDialog.vue';
 import ScoreEntryDialog from '@/components/Tournament/ScoreEntryDialog.vue';
 import TournamentSettingsForm from '@/components/Tournament/TournamentSettingsForm.vue';
 import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
@@ -41,6 +42,7 @@ import {
     ArrowLeft,
     CalendarDays,
     Check,
+    Megaphone,
     MonitorPlay,
     Copy,
     Dices,
@@ -181,6 +183,8 @@ interface TournamentData {
     tiebreaker_mode?: 'diff_vp' | 'sos';
     variants?: Record<string, boolean | number> | null;
     allow_self_report?: boolean;
+    announcement?: string | null;
+    announced_at?: string | null;
     team_size?: number;
     scoring_config?: Record<string, unknown> | null;
     creator_id: number;
@@ -286,6 +290,7 @@ watch(activeTab, (tab) => {
 
 // Reload Inertia props after a mutation while preserving local UI state.
 const reloadPage = () => reloadProps(['tournament', 'standings']);
+const announcementOpen = ref(false);
 const playersTab = ref<InstanceType<typeof ManagePlayersTab> | null>(null);
 
 // Subscribe to the public tournament broadcast channel so collaborating TOs
@@ -982,6 +987,9 @@ const isEditable = computed(() => !isLocked.value);
                             ><MonitorPlay class="size-3" /> Display</a
                         >
                     </Button>
+                    <Button variant="outline" size="sm" class="gap-1 text-xs" @click="announcementOpen = true">
+                        <Megaphone class="size-3" /> {{ tournament.announcement ? 'Edit announcement' : 'Announce' }}
+                    </Button>
                     <Button aria-label="Show QR code" variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
                         <QrCode class="size-3" />
                     </Button>
@@ -999,6 +1007,8 @@ const isEditable = computed(() => !isLocked.value);
                     </Button>
                 </div>
             </div>
+
+            <AnnouncementDialog v-model:open="announcementOpen" :tournament="tournament" @saved="reloadPage" />
 
             <NextStepCard v-if="nextStep" :step="nextStep" />
 

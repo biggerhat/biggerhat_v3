@@ -120,6 +120,10 @@ standings first, 50k-node budget per level). **Agreed results:** the score dialo
 a played game, badge on the pairings, never overwritten by tracker sync). **Round clock:** rulesets carry `time_rules`; the clock labels the last turn and its tooltip
 shows the format's last-turn / time-called wording.
 
+### Player-facing follow-ups (done, not browser-tested)
+Self-reporting with opponent confirmation, check-in, big-screen display mode, and the first cut of splitting `Manage.vue` (score dialog and settings form extracted;
+3,349 → ~2,730 lines). Not done: extracting the player dialogs / next-step guide from Manage, and de-duplicating the mobile/desktop pairing rows in `View.vue`.
+
 ## Deliberately out of scope for now
 Per-game scenario content tables for non-Wyrd games, round-robin/elimination pairing (pairing stays Swiss;
 a `pairing` strategy hook is left for later), importing results from other tournament software.

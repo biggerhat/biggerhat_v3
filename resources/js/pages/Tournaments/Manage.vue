@@ -12,15 +12,14 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import DeclarationFields from '@/components/Tournament/DeclarationFields.vue';
-import ScoringEditor from '@/components/Tournament/ScoringEditor.vue';
+import ScoreEntryDialog from '@/components/Tournament/ScoreEntryDialog.vue';
+import TournamentSettingsForm from '@/components/Tournament/TournamentSettingsForm.vue';
 import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
-import VariantPicker from '@/components/Tournament/VariantPicker.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
     Combobox,
     ComboboxAnchor,
@@ -37,10 +36,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import { useTournament } from '@/composables/useTournament';
@@ -55,7 +52,6 @@ import {
     CalendarDays,
     Check,
     MonitorPlay,
-    ChevronDown,
     ChevronsUpDown,
     Copy,
     Dices,
@@ -70,7 +66,6 @@ import {
     Pencil,
     Plus,
     QrCode,
-    Settings2,
     Shield,
     Star,
     Trophy,
@@ -929,175 +924,10 @@ const removeGame = async (gameId: number) => {
 };
 
 // ─── Game Scores ───
-const editingGame = ref<TournamentGame | null>(null);
-const editP1Master = ref<string | null>(null);
-const editP1Title = ref<string | null>(null);
-const editP1Score = ref<Record<string, number>>({});
-const editP2Master = ref<string | null>(null);
-const editP2Title = ref<string | null>(null);
-const editP2Score = ref<Record<string, number>>({});
-// Optional: drop a player after submitting their score for this round.
-// Agreed result: the game ended by agreement (concession / ran out of time) and the entered scores are the agreed outcome.
-const editAgreed = ref(false);
-const editDropP1 = ref(false);
-const editDropP2 = ref(false);
-const scoreError = ref<string | null>(null);
-
-const sumScore = (score: Record<string, number>) => props.ruleset.score_fields.reduce((sum, f) => sum + (Number(score[f.key]) || 0), 0);
-const editP1Vp = computed(() => sumScore(editP1Score.value));
-const editP2Vp = computed(() => sumScore(editP2Score.value));
-// One input per ruleset score field (Malifaux: strategy + scheme; Fields of Glory: a single VP total).
-const scoreGridClass = computed(() => (props.ruleset.score_fields.length > 1 ? 'grid-cols-2' : 'grid-cols-1'));
-
-const editP1Faction = computed(
-    () => editingGame.value?.player_one_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_one_id)?.faction ?? null,
-);
-const editP2Faction = computed(
-    () => editingGame.value?.player_two_faction ?? props.tournament.players.find((p) => p.id === editingGame.value?.player_two_id)?.faction ?? null,
-);
-
-const scoreFromGame = (game: TournamentGame, side: 'player_one' | 'player_two'): Record<string, number> =>
-    Object.fromEntries(props.ruleset.score_fields.map((f) => [f.key, game.score_breakdown?.[side]?.[f.key] ?? 0]));
-
+// The score-entry dialog (and all its form state) lives in ScoreEntryDialog; the page only says which game is open.
+const scoreGame = ref<TournamentGame | null>(null);
 const openScoreEdit = (game: TournamentGame) => {
-    editingGame.value = game;
-    editP1Master.value = game.player_one_master;
-    editP1Title.value = game.player_one_title;
-    // A pending / disputed player report pre-fills the form, so approving it is one click.
-    const proposal = game.report_status ? game.reported_score : null;
-    editP1Score.value = proposal ? { ...proposal.player_one } : scoreFromGame(game, 'player_one');
-    editP2Master.value = game.player_two_master;
-    editP2Title.value = game.player_two_title;
-    editP2Score.value = proposal ? { ...proposal.player_two } : scoreFromGame(game, 'player_two');
-    editAgreed.value = proposal ? proposal.agreed : game.result === 'agreed';
-    editDropP1.value = false;
-    editDropP2.value = false;
-    scoreError.value = null;
-};
-
-// Round number this game belongs to — used when the TO checks "drop after this round".
-// Alternating Leaders variant: a master (by title) can't be hired again in a later round of the same event.
-const leaderReuseWarning = (playerId: number, master: string | null, title: string | null): string | null => {
-    if (!props.ruleset.active_variants.alternating_leaders || !master || !editingGame.value) return null;
-    const editingId = editingGame.value.id;
-    const thisRound = editingRoundNumber.value;
-    const key = title || master;
-    for (const round of props.tournament.rounds) {
-        if (thisRound !== null && round.round_number >= thisRound) continue;
-        for (const g of round.games) {
-            if (g.id === editingId) continue;
-            const used =
-                g.player_one_id === playerId
-                    ? g.player_one_title || g.player_one_master
-                    : g.player_two_id === playerId
-                      ? g.player_two_title || g.player_two_master
-                      : null;
-            if (used && used === key) return `${key} was already played in Round ${round.round_number} (Alternating Leaders is on).`;
-        }
-    }
-    return null;
-};
-
-const editingRoundNumber = computed(() => {
-    if (!editingGame.value) return null;
-    for (const r of props.tournament.rounds) {
-        if (r.games.some((g: any) => g.id === editingGame.value!.id)) return r.round_number;
-    }
-    return null;
-});
-
-// Tracker surface: is the linked tracker game still being played? Drives a
-// warning banner in the score dialog + an auto-included override flag so the
-// TO's confirm lands through the backend's InProgress guard in one round-trip.
-const trackerInProgress = computed(() => editingGame.value?.tracker_game?.status === 'in_progress');
-const trackerComplete = computed(() => editingGame.value?.tracker_game?.status === 'completed');
-const trackerAbandoned = computed(() => editingGame.value?.tracker_game?.status === 'abandoned');
-
-// Force-complete a stuck tracker game from the TO side. Used when players
-// walked away mid-game and never marked the tracker complete, leaving it
-// blocking on their dashboards forever.
-const completingTracker = ref(false);
-const completeTrackerGame = async () => {
-    if (!editingGame.value) return;
-    if (
-        !(await confirm({
-            title: 'Force complete tracker game?',
-            message:
-                'Marks the tracker game as Completed without recording a winner. The tournament score below is the source of truth — use this to clean up games players left in progress.',
-            confirmLabel: 'Complete',
-        }))
-    )
-        return;
-    completingTracker.value = true;
-    if (await doAction(route('tournaments.games.complete_tracker', { tournament: props.tournament.uuid, game: editingGame.value.id }), 'POST')) {
-        reloadPage();
-    }
-    completingTracker.value = false;
-};
-
-const saveScore = async () => {
-    if (!editingGame.value) return;
-    submitting.value = true;
-    scoreError.value = null;
-    // Total VP is recomputed server-side from the ruleset's score components.
-    const scoreResult = await doModalAction(
-        route('tournaments.games.update', { tournament: props.tournament.uuid, game: editingGame.value.id }),
-        'PUT',
-        {
-            player_one_master: editP1Master.value,
-            player_one_title: editP1Title.value,
-            player_one_score: editP1Score.value,
-            player_two_master: editP2Master.value,
-            player_two_title: editP2Title.value,
-            player_two_score: editP2Score.value,
-            agreed: editAgreed.value,
-            // Pre-acknowledge the "tracker still InProgress" guard — the banner
-            // above the save button has already warned the TO.
-            ...(trackerInProgress.value ? { confirm_override: true } : {}),
-        },
-    );
-    if (!scoreResult.ok) {
-        submitting.value = false;
-        scoreError.value =
-            scoreResult.error === 'tracker_in_progress'
-                ? 'The tracker game is still in progress. Refresh and try again to confirm.'
-                : scoreResult.error;
-        return;
-    }
-
-    // Apply post-score drops if requested. Done sequentially so we surface
-    // any error before clearing the dialog.
-    const dropAfter = editingRoundNumber.value;
-    if (dropAfter !== null) {
-        if (editDropP1.value && editingGame.value.player_one_id) {
-            const dropResult = await doModalAction(
-                route('tournaments.players.update', { tournament: props.tournament.uuid, player: editingGame.value.player_one_id }),
-                'PUT',
-                { dropped_after_round: dropAfter },
-            );
-            if (!dropResult.ok) {
-                submitting.value = false;
-                scoreError.value = dropResult.error;
-                return;
-            }
-        }
-        if (editDropP2.value && editingGame.value.player_two_id) {
-            const dropResult = await doModalAction(
-                route('tournaments.players.update', { tournament: props.tournament.uuid, player: editingGame.value.player_two_id }),
-                'PUT',
-                { dropped_after_round: dropAfter },
-            );
-            if (!dropResult.ok) {
-                submitting.value = false;
-                scoreError.value = dropResult.error;
-                return;
-            }
-        }
-    }
-
-    submitting.value = false;
-    editingGame.value = null;
-    reloadPage();
+    scoreGame.value = game;
 };
 
 // ─── Round Scenario (inline editing — auto-saves on change) ───
@@ -1265,23 +1095,8 @@ const advanceStatus = async () => {
 // statusColor / statusLabel come from useTournamentStatus() above
 
 // ─── Settings Edit ───
+// The edit form lives in TournamentSettingsForm; the page only toggles it.
 const editingSettings = ref(false);
-const editName = ref('');
-const editDescription = ref('');
-const editEventDate = ref('');
-const editLocation = ref('');
-const editEncounterSize = ref(50);
-const editEncounterType = ref('traditional');
-const editPlannedRounds = ref(3);
-const editRoundTimeLimit = ref(135);
-const editByeTp = ref(3);
-const editByeDiff = ref(4);
-const editByeVp = ref(6);
-const editAllowSelfReport = ref(false);
-const editAdvancedOpen = ref(false);
-const editVariants = ref<Record<string, boolean | number>>({});
-const editScoringConfig = ref<Record<string, unknown>>({});
-const settingsError = ref<string | null>(null);
 // Live tiebreaker toggle on the standings tab — distinct from the Settings
 // edit form so TOs can flip it any time, even after the tournament starts.
 const liveTiebreaker = computed(() => props.tournament.tiebreaker_mode ?? 'diff_vp');
@@ -1292,52 +1107,7 @@ const updateTiebreaker = async (mode: string) => {
 };
 
 const openSettingsEdit = () => {
-    editName.value = props.tournament.name;
-    editDescription.value = props.tournament.description ?? '';
-    editEventDate.value = toDateInput(props.tournament.event_date);
-    editLocation.value = props.tournament.location ?? '';
-    editEncounterSize.value = props.tournament.encounter_size;
-    editEncounterType.value = props.tournament.encounter_type ?? 'traditional';
-    editPlannedRounds.value = props.tournament.planned_rounds;
-    editRoundTimeLimit.value = props.tournament.round_time_limit;
-    editByeTp.value = props.ruleset.scoring.bye_tp;
-    editByeDiff.value = props.ruleset.scoring.bye_diff;
-    editByeVp.value = props.ruleset.scoring.bye_vp;
-    editAllowSelfReport.value = !!props.tournament.allow_self_report;
-    editAdvancedOpen.value = false;
-    editVariants.value = { ...props.ruleset.active_variants };
-    editScoringConfig.value = { ...(props.tournament.scoring_config ?? {}) };
-    settingsError.value = null;
     editingSettings.value = true;
-};
-
-const saveSettings = async () => {
-    submitting.value = true;
-    settingsError.value = null;
-    const { ok, error } = await doModalAction(route('tournaments.update', props.tournament.uuid), 'PUT', {
-        name: editName.value.trim(),
-        description: editDescription.value.trim() || null,
-        event_date: editEventDate.value,
-        location: editLocation.value.trim() || null,
-        encounter_size: editEncounterSize.value,
-        encounter_type: editEncounterType.value,
-        planned_rounds: editPlannedRounds.value,
-        round_time_limit: editRoundTimeLimit.value,
-        // Only store a bye value when it differs from the ruleset's own, so rulesets stay the source of truth.
-        bye_tp: editByeTp.value === props.ruleset.default_scoring.bye_tp ? null : editByeTp.value,
-        bye_diff: editByeDiff.value === props.ruleset.default_scoring.bye_diff ? null : editByeDiff.value,
-        bye_vp: editByeVp.value === props.ruleset.default_scoring.bye_vp ? null : editByeVp.value,
-        variants: editVariants.value,
-        allow_self_report: editAllowSelfReport.value,
-        scoring_config: editScoringConfig.value,
-    });
-    submitting.value = false;
-    if (ok) {
-        editingSettings.value = false;
-        reloadPage();
-    } else {
-        settingsError.value = error;
-    }
 };
 
 // ─── Randomize Scenario ───
@@ -1598,20 +1368,7 @@ const stageState = (key: StepStage): 'done' | 'current' | 'upcoming' => {
 };
 
 const formatDate = (d: string) => formatDateOnly(d, { month: 'long', day: 'numeric', year: 'numeric' });
-const toDateInput = (d: string) => (d ? d.split('T')[0] : '');
 const isEditable = computed(() => !isLocked.value);
-
-// Masters filtered by faction. Returns [] while the deferred prop is still loading.
-const mastersForFaction = (faction: string | null) => {
-    if (!faction || !props.masters) return [];
-    return props.masters.filter((m) => m.faction === faction || m.second_faction === faction);
-};
-
-const titlesForMaster = (masterName: string | null) => {
-    if (!masterName || !props.masters) return [];
-    const master = props.masters.find((m) => m.name === masterName);
-    return master?.titles ?? [];
-};
 </script>
 
 <template>
@@ -2534,168 +2291,17 @@ const titlesForMaster = (masterName: string | null) => {
                     </Card>
 
                     <!-- Edit Mode -->
-                    <Card v-if="editingSettings" class="mb-4">
-                        <CardContent class="space-y-6 p-4 sm:p-6">
-                            <!-- Event Info -->
-                            <section class="space-y-3">
-                                <header>
-                                    <h3 class="text-sm font-semibold">Event Info</h3>
-                                    <p class="text-xs text-muted-foreground">The basics — what, when, where.</p>
-                                </header>
-                                <div class="space-y-1">
-                                    <Label class="text-xs" for="settings-name">Name</Label>
-                                    <Input id="settings-name" v-model="editName" class="h-9 text-sm" />
-                                </div>
-                                <div class="space-y-1">
-                                    <Label class="text-xs" for="settings-description">Description</Label>
-                                    <Textarea id="settings-description" v-model="editDescription" rows="3" class="text-sm" placeholder="Optional" />
-                                </div>
-                                <div class="grid gap-3 sm:grid-cols-2">
-                                    <div class="space-y-1">
-                                        <Label class="text-xs" for="settings-date">Event Date</Label>
-                                        <Input id="settings-date" v-model="editEventDate" type="date" class="h-9 text-sm" />
-                                    </div>
-                                    <div class="space-y-1">
-                                        <Label class="text-xs" for="settings-location">Location</Label>
-                                        <Input id="settings-location" v-model="editLocation" class="h-9 text-sm" placeholder="Optional" />
-                                    </div>
-                                </div>
-                            </section>
-
-                            <!-- Format -->
-                            <section class="space-y-3 border-t pt-5">
-                                <header>
-                                    <h3 class="text-sm font-semibold">Format</h3>
-                                    <p class="text-xs text-muted-foreground">Game size, rounds, and encounter type.</p>
-                                </header>
-                                <div class="grid gap-3 sm:grid-cols-3">
-                                    <div class="space-y-1">
-                                        <Label class="text-xs">Encounter Size</Label>
-                                        <NumberField v-model="editEncounterSize" :min="20" :max="100" :step="5">
-                                            <NumberFieldContent
-                                                ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
-                                            /></NumberFieldContent>
-                                        </NumberField>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <Label class="text-xs">Encounter Type</Label>
-                                        <Select v-model="editEncounterType">
-                                            <SelectTrigger class="h-9 text-xs"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem v-for="et in encounter_types" :key="et.value" :value="et.value">{{
-                                                    et.label
-                                                }}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div class="space-y-1">
-                                        <Label class="text-xs">Planned Rounds</Label>
-                                        <NumberField v-model="editPlannedRounds" :min="1" :max="7">
-                                            <NumberFieldContent
-                                                ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
-                                            /></NumberFieldContent>
-                                        </NumberField>
-                                    </div>
-                                </div>
-                                <div class="space-y-1">
-                                    <Label class="text-xs">Round Time Limit (minutes)</Label>
-                                    <NumberField v-model="editRoundTimeLimit" :min="30" :max="300" :step="5">
-                                        <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
-                                    </NumberField>
-                                </div>
-                                <label class="flex items-start gap-2 text-sm">
-                                    <input v-model="editAllowSelfReport" type="checkbox" class="mt-1 size-3.5" />
-                                    <span>
-                                        <span class="font-medium">Let players report their own results</span>
-                                        <span class="block text-2xs text-muted-foreground">
-                                            One player submits the score, the opponent confirms or disputes it. Nothing counts until confirmed; you
-                                            can always correct it.
-                                        </span>
-                                    </span>
-                                </label>
-                            </section>
-
-                            <!-- Advanced Scoring (collapsed by default) -->
-                            <div v-if="ruleset.variants.length" class="space-y-2 border-t pt-4">
-                                <h3 class="text-sm font-semibold">Rule Variants</h3>
-                                <VariantPicker v-model="editVariants" :variants="ruleset.variants" />
-                            </div>
-
-                            <Collapsible v-model:open="editAdvancedOpen" class="border-t pt-4">
-                                <CollapsibleTrigger as-child>
-                                    <button
-                                        type="button"
-                                        class="flex w-full items-center justify-between rounded-md py-1 text-left hover:bg-accent/40"
-                                    >
-                                        <span class="flex items-center gap-2 text-sm font-medium">
-                                            <Settings2 class="size-4 text-muted-foreground" />
-                                            Advanced Scoring
-                                            <span class="text-xs font-normal text-muted-foreground">Bye scoring</span>
-                                        </span>
-                                        <ChevronDown
-                                            class="size-4 shrink-0 text-muted-foreground transition-transform"
-                                            :class="editAdvancedOpen ? 'rotate-180' : ''"
-                                        />
-                                    </button>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent class="space-y-3 pt-3">
-                                    <div class="space-y-2 rounded-md border border-dashed p-3">
-                                        <Label class="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Bye Scoring <span class="ml-1 text-2xs normal-case opacity-60">(awarded to whoever sits out)</span>
-                                        </Label>
-                                        <div class="grid gap-2 sm:grid-cols-3">
-                                            <div class="space-y-1">
-                                                <Label class="text-2xs">TP</Label>
-                                                <NumberField v-model="editByeTp" :min="0" :max="30">
-                                                    <NumberFieldContent
-                                                        ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
-                                                    /></NumberFieldContent>
-                                                </NumberField>
-                                            </div>
-                                            <div class="space-y-1">
-                                                <Label class="text-2xs">Differential</Label>
-                                                <NumberField v-model="editByeDiff" :min="0" :max="20">
-                                                    <NumberFieldContent
-                                                        ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
-                                                    /></NumberFieldContent>
-                                                </NumberField>
-                                            </div>
-                                            <div class="space-y-1">
-                                                <Label class="text-2xs">VP</Label>
-                                                <NumberField v-model="editByeVp" :min="0" :max="20">
-                                                    <NumberFieldContent
-                                                        ><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement
-                                                    /></NumberFieldContent>
-                                                </NumberField>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="space-y-2 rounded-md border border-dashed p-3">
-                                        <Label class="text-xs uppercase tracking-wide text-muted-foreground">Customize scoring</Label>
-                                        <ScoringEditor
-                                            v-model="editScoringConfig"
-                                            :defaults="ruleset.default_scoring"
-                                            :default-tiebreakers="ruleset.default_tiebreakers"
-                                            :show-tiebreakers="!ruleset.tiebreaker_toggle"
-                                        />
-                                    </div>
-                                    <p v-if="ruleset.tiebreaker_toggle" class="text-2xs text-muted-foreground">
-                                        Tiebreaker mode toggle lives on the Standings tab so you can flip it any time, even mid-tournament.
-                                    </p>
-                                </CollapsibleContent>
-                            </Collapsible>
-
-                            <p v-if="settingsError" class="text-xs text-destructive">{{ settingsError }}</p>
-
-                            <div class="flex gap-2">
-                                <Button variant="outline" class="flex-1" :disabled="submitting" @click="editingSettings = false">Cancel</Button>
-                                <Button class="flex-1" :disabled="!editName.trim() || !editEventDate || submitting" @click="saveSettings">
-                                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                                    Save Changes
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <TournamentSettingsForm
+                        v-if="editingSettings"
+                        :tournament="tournament"
+                        :ruleset="ruleset"
+                        :encounter-types="encounter_types"
+                        @cancel="editingSettings = false"
+                        @saved="
+                            editingSettings = false;
+                            reloadPage();
+                        "
+                    />
 
                     <!-- View Mode -->
                     <Card v-else>
@@ -2799,234 +2405,7 @@ const titlesForMaster = (masterName: string | null) => {
         </div>
     </div>
 
-    <!-- Score Entry Dialog -->
-    <Dialog
-        :open="!!editingGame"
-        @update:open="
-            (v) => {
-                if (!v) editingGame = null;
-            }
-        "
-    >
-        <DialogContent class="max-w-md">
-            <DialogHeader>
-                <DialogTitle>Game Score</DialogTitle>
-                <DialogDescription v-if="editingGame">
-                    {{ playerName(editingGame.player_one_id) }} vs {{ playerName(editingGame.player_two_id) }}
-                </DialogDescription>
-            </DialogHeader>
-            <div v-if="editingGame" class="space-y-4">
-                <!-- Tracker status — visible whenever this tournament game is linked to a live tracker game. -->
-                <div
-                    v-if="editingGame.tracker_game"
-                    class="flex flex-wrap items-start gap-2 rounded-md border p-2.5 text-xs"
-                    :class="
-                        trackerInProgress
-                            ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200'
-                            : trackerComplete
-                              ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-200'
-                              : trackerAbandoned
-                                ? 'border-destructive/40 bg-destructive/10 text-destructive dark:text-destructive'
-                                : 'border-muted-foreground/20 bg-muted/50 text-muted-foreground'
-                    "
-                >
-                    <div class="min-w-48 flex-1 space-y-0.5">
-                        <div class="font-semibold">
-                            <template v-if="trackerInProgress">
-                                Tracker game in progress (turn {{ editingGame.tracker_game.current_turn }} of
-                                {{ editingGame.tracker_game.max_turns ?? 5 }})
-                            </template>
-                            <template v-else-if="trackerComplete">Tracker game finalized</template>
-                            <template v-else-if="trackerAbandoned">Tracker game was abandoned</template>
-                            <template v-else>Tracker linked ({{ editingGame.tracker_game.status.replace('_', ' ') }})</template>
-                        </div>
-                        <div class="text-2xs opacity-90">
-                            <template v-if="trackerInProgress">
-                                Scores below are the live tracker totals. Saving here locks this tournament record even if the tracker hasn't been
-                                marked complete.
-                            </template>
-                            <template v-else-if="trackerComplete">Scores below were pulled from the tracker.</template>
-                            <template v-else-if="trackerAbandoned">
-                                The players ended the tracker game early. Enter a final score below or mark a forfeit from the round list.
-                            </template>
-                            <template v-else>Scores below may be pre-filled from the linked tracker.</template>
-                        </div>
-                    </div>
-                    <div class="flex shrink-0 flex-wrap gap-1.5 sm:flex-col">
-                        <a
-                            :href="route('games.show', editingGame.tracker_game.uuid)"
-                            target="_blank"
-                            rel="noopener"
-                            class="border-current/30 hover:bg-current/10 rounded border px-2.5 py-1.5 text-center text-xs font-medium"
-                        >
-                            Open tracker
-                        </a>
-                        <button
-                            v-if="trackerInProgress"
-                            type="button"
-                            class="border-current/30 hover:bg-current/10 rounded border px-2.5 py-1.5 text-xs font-medium"
-                            :disabled="completingTracker"
-                            @click="completeTrackerGame"
-                        >
-                            {{ completingTracker ? 'Closing…' : 'Force complete' }}
-                        </button>
-                    </div>
-                </div>
-                <div
-                    v-if="editingGame.report_status"
-                    class="rounded-md border p-2 text-xs"
-                    :class="
-                        editingGame.report_status === 'disputed' ? 'border-destructive/50 bg-destructive/5' : 'border-amber-500/50 bg-amber-500/5'
-                    "
-                >
-                    <template v-if="editingGame.report_status === 'pending'">
-                        <span class="font-medium">{{ playerName(editingGame.reported_by_player_id ?? 0) }}</span> reported these scores; the opponent
-                        hasn't confirmed. Saving makes them official.
-                    </template>
-                    <template v-else>
-                        <span class="font-medium">Disputed.</span> {{ playerName(editingGame.reported_by_player_id ?? 0) }} reported these scores and
-                        the opponent disagrees<span v-if="editingGame.report_note">: “{{ editingGame.report_note }}”</span>. Enter the correct result.
-                    </template>
-                </div>
-
-                <label class="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs">
-                    <input v-model="editAgreed" type="checkbox" class="mt-0.5 size-3.5" />
-                    <span>
-                        <span class="font-medium">Agreed result</span>
-                        <span class="block text-2xs text-muted-foreground">
-                            The game wasn't played to its end. Both players and you agree these scores are a likely outcome as the game stands — no
-                            inducements, no guessing at future turns. Scored like a normal result.
-                        </span>
-                    </span>
-                </label>
-
-                <!-- Player 1 -->
-                <div class="space-y-2 rounded-lg border p-3">
-                    <div class="text-xs font-semibold">{{ playerName(editingGame.player_one_id) }}</div>
-                    <div v-if="ruleset.tracks_leaders" class="grid grid-cols-2 gap-2">
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Master</Label>
-                            <Select v-model="editP1Master">
-                                <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select master..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="m in mastersForFaction(editP1Faction)" :key="m.name" :value="m.name">{{ m.name }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Title</Label>
-                            <Select v-model="editP1Title" :disabled="!editP1Master">
-                                <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Title..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="t in titlesForMaster(editP1Master)" :key="t.id" :value="t.display_name">{{
-                                        t.title || t.display_name
-                                    }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <p
-                        v-if="editingGame.player_one_id && leaderReuseWarning(editingGame.player_one_id, editP1Master, editP1Title)"
-                        class="text-2xs text-amber-600 dark:text-amber-400"
-                    >
-                        {{ leaderReuseWarning(editingGame.player_one_id, editP1Master, editP1Title) }}
-                    </p>
-                    <div class="grid gap-2" :class="scoreGridClass">
-                        <div v-for="field in ruleset.score_fields" :key="field.key" class="space-y-1">
-                            <Label class="text-2xs"
-                                >{{ field.label }} <span class="text-muted-foreground">/ {{ field.max }}</span></Label
-                            >
-                            <Input
-                                v-model.number="editP1Score[field.key]"
-                                type="number"
-                                :min="field.min"
-                                :max="field.max"
-                                class="h-8 text-center text-sm font-bold"
-                                @focus="($event.target as HTMLInputElement).select()"
-                            />
-                        </div>
-                    </div>
-                    <div class="text-right text-xs text-muted-foreground">
-                        Total: <span class="font-bold text-foreground">{{ editP1Vp }}</span> VP
-                    </div>
-                    <label class="flex items-center gap-2 pt-1 text-2xs text-amber-700 dark:text-amber-400">
-                        <input v-model="editDropP1" type="checkbox" class="size-3.5" />
-                        Drop {{ playerName(editingGame.player_one_id) }} after this round
-                    </label>
-                </div>
-
-                <!-- Player 2 -->
-                <div class="space-y-2 rounded-lg border p-3">
-                    <div class="text-xs font-semibold">{{ playerName(editingGame.player_two_id) }}</div>
-                    <div v-if="ruleset.tracks_leaders" class="grid grid-cols-2 gap-2">
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Master</Label>
-                            <Select v-model="editP2Master">
-                                <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Select master..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="m in mastersForFaction(editP2Faction)" :key="m.name" :value="m.name">{{ m.name }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-2xs">Title</Label>
-                            <Select v-model="editP2Title" :disabled="!editP2Master">
-                                <SelectTrigger class="h-8 text-xs"><SelectValue placeholder="Title..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="t in titlesForMaster(editP2Master)" :key="t.id" :value="t.display_name">{{
-                                        t.title || t.display_name
-                                    }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <p
-                        v-if="editingGame.player_two_id && leaderReuseWarning(editingGame.player_two_id, editP2Master, editP2Title)"
-                        class="text-2xs text-amber-600 dark:text-amber-400"
-                    >
-                        {{ leaderReuseWarning(editingGame.player_two_id, editP2Master, editP2Title) }}
-                    </p>
-                    <div class="grid gap-2" :class="scoreGridClass">
-                        <div v-for="field in ruleset.score_fields" :key="field.key" class="space-y-1">
-                            <Label class="text-2xs"
-                                >{{ field.label }} <span class="text-muted-foreground">/ {{ field.max }}</span></Label
-                            >
-                            <Input
-                                v-model.number="editP2Score[field.key]"
-                                type="number"
-                                :min="field.min"
-                                :max="field.max"
-                                class="h-8 text-center text-sm font-bold"
-                                @focus="($event.target as HTMLInputElement).select()"
-                            />
-                        </div>
-                    </div>
-                    <div class="text-right text-xs text-muted-foreground">
-                        Total: <span class="font-bold text-foreground">{{ editP2Vp }}</span> VP
-                    </div>
-                    <label v-if="editingGame.player_two_id" class="flex items-center gap-2 pt-1 text-2xs text-amber-700 dark:text-amber-400">
-                        <input v-model="editDropP2" type="checkbox" class="size-3.5" />
-                        Drop {{ playerName(editingGame.player_two_id) }} after this round
-                    </label>
-                </div>
-
-                <!-- Score summary -->
-                <div class="flex items-center justify-center gap-3 text-lg font-bold">
-                    <span>{{ editP1Vp }}</span>
-                    <span class="text-sm text-muted-foreground">-</span>
-                    <span>{{ editP2Vp }}</span>
-                </div>
-            </div>
-            <p v-if="scoreError" class="text-xs text-destructive">{{ scoreError }}</p>
-            <DialogFooter class="gap-2 sm:gap-0">
-                <Button variant="outline" @click="editingGame = null">Cancel</Button>
-                <Button :disabled="submitting" @click="saveScore">
-                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                    Save Score
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <ScoreEntryDialog :game="scoreGame" :tournament="tournament" :ruleset="ruleset" :masters="masters" @close="scoreGame = null" />
 
     <!-- View Drawer (Strategy / Scheme / Deployment details) -->
     <Drawer v-model:open="viewDrawerOpen">

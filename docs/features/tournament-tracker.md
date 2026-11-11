@@ -65,3 +65,20 @@ Tournaments run under a **ruleset** (`tournaments.ruleset`, config in `config/to
 Standings, score entry, the state machine and the Create/Manage/View pages read the ruleset; nothing special-cases a game.
 Adding a game = adding a config entry. Rulesets today: `malifaux_gaining_grounds` (default) and `tos_fields_of_glory`.
 TOS rounds pick an Operation + Deployment from `tos_operations` / `tos_deployments` (stored in `tournament_rounds.scenario`).
+
+## Player-facing features
+- **Self-reporting** (`tournaments.allow_self_report`, off by default): a linked player submits their game's score
+  (`TournamentGameReportController`), the opponent confirms (official, via `TournamentScoreRecorder`) or disputes (the TO decides). Pending
+  reports never count toward standings; the TO's score entry always supersedes them and the dialog pre-fills from the proposal.
+  UI: `components/Tournament/MyMatchCard.vue`.
+- **Check-in** (`tournament_players.checked_in_at`): players check themselves in on the public page, the TO from Manage (single or all);
+  pairing asks for confirmation when some active players haven't arrived.
+- **Display mode** (`/tournaments/{uuid}/display`, `pages/Tournaments/Display.vue`, no app chrome): current round's pairings + scenario + clock,
+  rotating with standings, live via the tournament channel. Shares its payload with the view page (`TournamentController::viewProps`).
+- **Agreed results**: `result = agreed`, scored like a played game.
+
+## Manage page structure
+`pages/Tournaments/Manage.vue` is still the orchestrator, but two big self-contained pieces now live in `components/Tournament/`:
+`ScoreEntryDialog.vue` (all score-entry form state; the page only says which game is open) and `TournamentSettingsForm.vue` (mounted fresh per edit).
+Template-level identifier mistakes aren't caught by the build — there is no vue-tsc here — so after moving code around, compile the templates with
+`@vue/compiler-sfc` and look for `_ctx.<name>` accesses that aren't bindings.

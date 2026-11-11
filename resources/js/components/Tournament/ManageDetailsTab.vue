@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import TipTapEditor from '@/components/blog/TipTapEditor.vue';
+import AwardsEditor from '@/components/Tournament/AwardsEditor.vue';
 import TableEditor from '@/components/Tournament/TableEditor.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/composables/useToast';
 import { useTournament } from '@/composables/useTournament';
-import type { TableDetails, TournamentRuleset } from '@/types/tournament';
+import type { TableDetails, TournamentAward, TournamentRuleset } from '@/types/tournament';
 import { Loader2, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
@@ -18,11 +19,12 @@ const props = defineProps<{
     tournament: {
         uuid: string;
         details?: Record<string, unknown> | null;
-        players: { dropped_after_round: number | null; is_disqualified?: boolean }[];
+        players: { id: number; display_name: string; is_ringer?: boolean; dropped_after_round: number | null; is_disqualified?: boolean }[];
         rounds: { games: { table_number: number | null }[] }[];
     };
     ruleset: TournamentRuleset;
     tables: TableDetails;
+    awards: TournamentAward[];
 }>();
 const emit = defineEmits<{ (e: 'saved'): void }>();
 
@@ -94,6 +96,8 @@ const tableCount = computed(() => {
                 </div>
             </CardContent>
         </Card>
+
+        <AwardsEditor :tournament="tournament" :awards="awards" :players="tournament.players" @saved="emit('saved')" />
 
         <Card v-if="ruleset.supports_table_details">
             <CardContent class="space-y-3 p-4 sm:p-5">

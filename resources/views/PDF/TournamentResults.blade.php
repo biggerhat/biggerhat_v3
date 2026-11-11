@@ -71,6 +71,20 @@
         </table>
     @endif
 
+    @if ($awards->isNotEmpty())
+        <h2>Awards</h2>
+        <table class="standings">
+            <tbody>
+                @foreach ($awards as $award)
+                    <tr>
+                        <td style="width: 35%"><strong>{{ $award->name }}</strong></td>
+                        <td>{{ $award->player?->display_name }}@if ($award->note) <span style="color: #666"> — {{ $award->note }}</span>@endif</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
     <h2>Final standings</h2>
     <table class="standings">
         <thead>

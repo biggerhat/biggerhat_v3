@@ -16,6 +16,7 @@ use App\Models\TOS\Allegiance;
 use App\Models\TOS\Deployment;
 use App\Models\TOS\Operation;
 use App\Models\Tournament;
+use App\Models\TournamentAward;
 use App\Models\TournamentRound;
 use App\Models\TournamentTable;
 use App\Services\TournamentStandingsService;
@@ -187,6 +188,7 @@ class TournamentPagePayloads
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
             'tables' => $this->tableDetails($tournament),
+            'awards' => $this->awardList($tournament, false),
             'allegiances' => $this->allegianceOptions($tournament),
             'rounds' => $roundsData,
             'standings' => $standings,
@@ -194,6 +196,27 @@ class TournamentPagePayloads
             'scheme_stats' => $schemeStats,
             'crew_lists' => $crewLists,
         ];
+    }
+
+    /**
+     * Side awards in display order. The public sees only those that have a recipient; organizers see them all.
+     *
+     * @return list<array{id: int, name: string, note: string|null, player_id: int|null, player_name: string|null}>
+     */
+    private function awardList(Tournament $tournament, bool $includeUnassigned): array
+    {
+        $awards = $tournament->awards()->with('player')->get();
+        if (! $includeUnassigned) {
+            $awards = $awards->filter(fn (TournamentAward $a) => $a->player_id !== null);
+        }
+
+        return $awards->map(fn (TournamentAward $a) => [
+            'id' => $a->id,
+            'name' => $a->name,
+            'note' => $a->note,
+            'player_id' => $a->player_id,
+            'player_name' => $a->player?->display_name,
+        ])->values()->all();
     }
 
     /**
@@ -312,6 +335,7 @@ class TournamentPagePayloads
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
             'tables' => $this->tableDetails($tournament),
+            'awards' => $this->awardList($tournament, true),
             'allegiances' => $this->allegianceOptions($tournament),
             'standings' => $standings,
             'seasons' => $seasons,

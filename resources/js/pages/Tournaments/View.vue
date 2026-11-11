@@ -5,11 +5,13 @@ import {
     formatGameSize,
     tosOperationText,
     type TableDetails,
+    type TournamentAward,
     type TosDeploymentInfo,
     type TosOperationInfo,
     type TournamentRuleset,
 } from '@/types/tournament';
 import BlogContent from '@/components/blog/BlogContent.vue';
+import AwardsCard from '@/components/Tournament/AwardsCard.vue';
 import TableTerrain from '@/components/Tournament/TableTerrain.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -153,6 +155,8 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     /** The organizer's per-table notes, keyed by table number (empty unless the ruleset uses them). */
     tables: TableDetails;
+    /** Side awards that have a recipient. */
+    awards: TournamentAward[];
     /** Allegiances a player can declare when RSVPing (empty unless the ruleset uses them). */
     allegiances: { id: number; slug: string; name: string }[];
     rounds: ViewRound[];
@@ -470,6 +474,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :pdf-url="route('tournaments.results_pdf', tournament.uuid)"
                 :page-url="route('tournaments.view', tournament.uuid)"
             />
+            <AwardsCard :awards="awards ?? []" />
             <AnnouncementBanner
                 v-if="tournament.announcement"
                 :text="tournament.announcement"

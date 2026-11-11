@@ -136,3 +136,6 @@ they move under the player limit (`WaitlistPromotions`); "you're on table N" was
 Same branch, requested feature (not from the audit): a rich-text event description (`tournaments.details`, sanitised through `RichText`) and per-table name / terrain notes / photo for Malifaux (`tournament_tables`,
 ruleset flag `supports_table_details`). Browser flow 17 covers writing details, describing a table with a photo upload, and what players and spectators see. **Deploy: run the new migration; `php artisan storage:link` must exist for images.**
 The harness fix that came with it: `run.sh` now `exec`s PHP (the old `trap` left a stale server holding the port) and serves `/storage` through `router.php`; `FLOWS="flows17.cjs"` runs a subset.
+
+F7 (side awards) is built on the same branch: `tournament_awards`, an editor on the Details tab, a public Awards card, a line on the results PDF and a notification to the winner. Browser flow 18 covers it.
+Not done for F7: awards on the shareable results image and on the profile history card. **Deploy: run the new migration.**

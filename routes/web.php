@@ -43,6 +43,7 @@ use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SupportersController;
 use App\Http\Controllers\Tournament\TournamentAnnouncementController;
+use App\Http\Controllers\Tournament\TournamentAwardController;
 use App\Http\Controllers\Tournament\TournamentCalendarController;
 use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
@@ -459,6 +460,9 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}', [TournamentController::class, 'destroy'])->name('destroy');
     Route::put('/{tournament}/status', [TournamentController::class, 'updateStatus'])->name('status');
     Route::put('/{tournament}/announcement', [TournamentAnnouncementController::class, 'update'])->name('announcement');
+    Route::post('/{tournament}/awards', [TournamentAwardController::class, 'store'])->name('awards.store');
+    Route::put('/{tournament}/awards/{award}', [TournamentAwardController::class, 'update'])->name('awards.update');
+    Route::delete('/{tournament}/awards/{award}', [TournamentAwardController::class, 'destroy'])->name('awards.destroy');
     Route::put('/{tournament}/details', [TournamentDetailsController::class, 'update'])->name('details');
     Route::post('/{tournament}/details/image', [TournamentDetailsController::class, 'uploadImage'])->name('details.image')->middleware('throttle:30,60');
     Route::post('/{tournament}/tables/{number}', [TournamentTableController::class, 'save'])->name('tables.save')->whereNumber('number')->middleware('throttle:60,60');

@@ -182,6 +182,12 @@ class Tournament extends Model
         return $this->belongsToMany(User::class, 'tournament_organizers');
     }
 
+    /** @return HasMany<TournamentAward, $this> */
+    public function awards(): HasMany
+    {
+        return $this->hasMany(TournamentAward::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     /** @return HasMany<TournamentTable, $this> */
     public function tables(): HasMany
     {

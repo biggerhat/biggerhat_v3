@@ -319,6 +319,15 @@ export interface TournamentHistory {
     })[];
 }
 
+/** A side award (best painted, sportsmanship, ...). Public pages only receive the ones that have a recipient. */
+export interface TournamentAward {
+    id: number;
+    name: string;
+    note: string | null;
+    player_id: number | null;
+    player_name: string | null;
+}
+
 /** What the organizer says about one table (keyed by table number in the page payload; `[]` when the ruleset has none). */
 export interface TableDetail {
     number: number;

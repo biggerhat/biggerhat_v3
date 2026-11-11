@@ -8,6 +8,7 @@ import {
     type MasterOption,
     type StandingEntry,
     type TableDetails,
+    type TournamentAward,
     type TournamentGame,
     type TournamentPlayer,
     type TournamentRound,
@@ -102,6 +103,8 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     /** The organizer's per-table notes, keyed by table number. */
     tables: TableDetails;
+    /** Side awards, including ones not yet given to anyone. */
+    awards: TournamentAward[];
     standings: StandingEntry[];
     seasons: { value: string; label: string }[];
     factions: Record<string, FactionInfo>;
@@ -607,7 +610,13 @@ const isEditable = computed(() => !isLocked.value);
                 />
 
                 <!-- ═══ DETAILS ═══ -->
-                <ManageDetailsTab :tournament="tournament" :ruleset="ruleset" :tables="tables" @saved="reloadProps(['tournament', 'tables'])" />
+                <ManageDetailsTab
+                    :tournament="tournament"
+                    :ruleset="ruleset"
+                    :tables="tables"
+                    :awards="awards"
+                    @saved="reloadProps(['tournament', 'tables', 'awards'])"
+                />
 
                 <!-- ═══ SETTINGS ═══ -->
                 <TabsContent value="settings">

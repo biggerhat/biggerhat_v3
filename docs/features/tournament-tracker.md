@@ -103,6 +103,12 @@ a row exists only while it has something on it (`TournamentTableController@save`
 Players see the name and terrain on their match card and the pairing rows; spectators get a collapsible "Tables & terrain" list; display mode shows the name next to the table number.
 Uploads live on the public disk under `tournaments/{id}/` and are not removed when an event is soft-deleted.
 
+## Side awards
+`tournament_awards` (name, optional note, optional `player_id`) are the organizer's side prizes. They are managed on the Manage page's **Details** tab (`AwardsEditor`, up to 12 per event) through
+`TournamentAwardController` (`tournaments.awards.store|update|destroy`). Giving an award to a competitor (or changing the recipient) sends `TournamentAwardGiven` to that player, or every member of a
+team; renaming or re-saving does not. The public payload (`awards`) carries only awards that have a recipient, so an unassigned one is organizer-only; the Manage payload has them all. The public
+page shows `AwardsCard`, and the results PDF lists them under the podium. Deleting a player leaves the award unassigned (`nullOnDelete`).
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

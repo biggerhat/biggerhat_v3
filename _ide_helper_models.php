@@ -3624,6 +3624,8 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentRound> $rounds
  * @property-read int|null $rounds_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentRsvp> $rsvps
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentAward> $awards
+ * @property-read int|null $awards_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentTable> $tables
  * @property-read int|null $tables_count
  * @property-read int|null $rsvps_count

@@ -188,6 +188,8 @@ class TournamentPagePayloads
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
             'tables' => $this->tableDetails($tournament),
+            // Shows the scoring-desk link to organizers and scorekeepers.
+            'can_score' => request()->user()?->can('score', $tournament) ?? false,
             'awards' => $this->awardList($tournament, false),
             'allegiances' => $this->allegianceOptions($tournament),
             'rounds' => $roundsData,
@@ -239,6 +241,29 @@ class TournamentPagePayloads
     }
 
     /**
+     * Props for the scoring desk: the pairings of every round with the score-entry fields, the standings and the
+     * ruleset. Nothing from the organizer's setup tools (players' accounts, RSVPs, crews, reference data).
+     *
+     * @return array<string, mixed>
+     */
+    public function forScoring(Tournament $tournament): array
+    {
+        $tournament->load([
+            'players',
+            'rounds.games.playerOne:id,display_name,faction,user_id',
+            'rounds.games.playerTwo:id,display_name,faction,user_id',
+            'rounds.games.trackerGame',
+        ]);
+
+        return [
+            'tournament' => $tournament,
+            'ruleset' => $this->ruleset($tournament),
+            'standings' => $this->standings->compute($tournament),
+            'tables' => $this->tableDetails($tournament),
+        ];
+    }
+
+    /**
      * Props for the organizer's Manage page (the heavy reference data is deferred).
      *
      * @return array<string, mixed>
@@ -267,6 +292,7 @@ class TournamentPagePayloads
             'rounds.games.trackerGame',
             'rounds.strategy:id,name',
             'organizers:id,name',
+            'scorers:id,name',
         ]);
 
         $standings = $this->standings->compute($tournament);

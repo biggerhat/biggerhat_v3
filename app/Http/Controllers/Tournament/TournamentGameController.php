@@ -329,7 +329,7 @@ class TournamentGameController extends Controller
 
     public function toggleForfeit(TournamentGameToggleForfeitRequest $request, Tournament $tournament, TournamentGame $game): JsonResponse
     {
-        $this->authorize('manage', $tournament);
+        $this->authorize('score', $tournament);
 
         if ($game->round->status !== TournamentRoundStatusEnum::InProgress) {
             return response()->json([

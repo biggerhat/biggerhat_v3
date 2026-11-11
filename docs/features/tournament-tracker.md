@@ -109,6 +109,14 @@ Uploads live on the public disk under `tournaments/{id}/` and are not removed wh
 team; renaming or re-saving does not. The public payload (`awards`) carries only awards that have a recipient, so an unassigned one is organizer-only; the Manage payload has them all. The public
 page shows `AwardsCard`, and the results PDF lists them under the podium. Deleting a player leaves the award unassigned (`nullOnDelete`).
 
+## Scorekeepers and the scoring desk
+`tournament_scorers` (a plain pivot) lists accounts an organizer lets enter results without running the event; they are separate from `organizers`, so they never receive organizer notifications or reach
+organizer pages. `Tournament::canScore()` = can manage, or is a scorer, and the policy ability `score` gates **entering/correcting a score** (`ScoreTournamentGameRequest`) and **forfeits**
+(`TournamentGameToggleForfeitRequest`); everything else stays on `manage`. Organizers add and remove scorekeepers from the **Scorekeepers** card on the Settings tab (`TournamentScorerController`,
+`tournaments.scorers.add|remove`, they get a `TournamentScorerAdded` notification linking to the desk). The desk is `Tournaments/Score.vue` (`tournaments.score`, `forScoring()` payload: players, every round's
+games, standings, ruleset, table names): a round switcher, one card per pairing with Enter/Edit score, and the same `ScoreEntryDialog` the Manage page uses (without master/title pickers, which need the deferred
+reference data). The public event page shows a "Scoring desk" link while the event is active to anyone who `can_score`.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

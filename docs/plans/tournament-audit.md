@@ -139,3 +139,6 @@ The harness fix that came with it: `run.sh` now `exec`s PHP (the old `trap` left
 
 F7 (side awards) is built on the same branch: `tournament_awards`, an editor on the Details tab, a public Awards card, a line on the results PDF and a notification to the winner. Browser flow 18 covers it.
 Not done for F7: awards on the shareable results image and on the profile history card. **Deploy: run the new migration.**
+
+F15 (scorer-only role) is built on the same branch: `tournament_scorers`, the `score` policy ability, a scoring desk page and a Scorekeepers card. Browser flow 19 covers adding one, entering a score from the desk,
+the 403 on organizer pages and the desk at phone width. Not done: scorers cannot record masters/titles (they are optional), complete tracker games or resolve nothing beyond scores and forfeits. **Deploy: run the new migration.**

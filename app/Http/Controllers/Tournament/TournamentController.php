@@ -100,6 +100,14 @@ class TournamentController extends Controller
         return inertia('Tournaments/Display', $props);
     }
 
+    /** The scoring desk: enter and correct results. Organizers and the event's scorekeepers. */
+    public function score(Tournament $tournament): Response|ResponseFactory
+    {
+        $this->authorize('score', $tournament);
+
+        return inertia('Tournaments/Score', $this->payloads->forScoring($tournament));
+    }
+
     public function manage(Tournament $tournament): Response|ResponseFactory
     {
         $this->authorize('manage', $tournament);

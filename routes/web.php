@@ -56,6 +56,7 @@ use App\Http\Controllers\Tournament\TournamentPlayerController;
 use App\Http\Controllers\Tournament\TournamentResultsController;
 use App\Http\Controllers\Tournament\TournamentRoundController;
 use App\Http\Controllers\Tournament\TournamentRsvpController;
+use App\Http\Controllers\Tournament\TournamentScorerController;
 use App\Http\Controllers\Tournament\TournamentSelfDropController;
 use App\Http\Controllers\Tournament\TournamentTableController;
 use App\Http\Controllers\Tournament\TournamentUserSearchController;
@@ -456,6 +457,9 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     // Open to any signed-in user; throttled so it can't be used to mass-create events.
     Route::post('/', [TournamentController::class, 'store'])->name('store')->middleware('throttle:20,60');
     Route::get('/{tournament}', [TournamentController::class, 'manage'])->name('manage');
+    Route::get('/{tournament}/score', [TournamentController::class, 'score'])->name('score');
+    Route::post('/{tournament}/scorers', [TournamentScorerController::class, 'store'])->name('scorers.add');
+    Route::delete('/{tournament}/scorers/{userId}', [TournamentScorerController::class, 'destroy'])->name('scorers.remove')->whereNumber('userId');
     Route::put('/{tournament}', [TournamentController::class, 'update'])->name('update');
     Route::delete('/{tournament}', [TournamentController::class, 'destroy'])->name('destroy');
     Route::put('/{tournament}/status', [TournamentController::class, 'updateStatus'])->name('status');

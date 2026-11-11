@@ -22,6 +22,7 @@ import ManagePlayersTab from '@/components/Tournament/ManagePlayersTab.vue';
 import ManageRoundsTab from '@/components/Tournament/ManageRoundsTab.vue';
 import NextStepCard from '@/components/Tournament/NextStepCard.vue';
 import AnnouncementDialog from '@/components/Tournament/AnnouncementDialog.vue';
+import ScorersCard from '@/components/Tournament/ScorersCard.vue';
 import ScoreEntryDialog from '@/components/Tournament/ScoreEntryDialog.vue';
 import TournamentSettingsForm from '@/components/Tournament/TournamentSettingsForm.vue';
 import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
@@ -95,6 +96,7 @@ interface TournamentData {
     players: TournamentPlayer[];
     rounds: TournamentRound[];
     organizers: { id: number; name: string }[];
+    scorers?: { id: number; name: string }[];
     rsvps?: Rsvp[];
 }
 
@@ -640,6 +642,8 @@ const isEditable = computed(() => !isLocked.value);
                             </a>
                         </CardContent>
                     </Card>
+
+                    <ScorersCard :tournament="tournament" @saved="reloadPage" />
 
                     <!-- Edit Mode -->
                     <TournamentSettingsForm

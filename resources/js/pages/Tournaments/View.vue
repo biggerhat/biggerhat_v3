@@ -32,8 +32,8 @@ import { useConfirm } from '@/composables/useConfirm';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, CalendarPlus, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { BarChart3, CalendarDays, CalendarPlus, ClipboardCheck, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
 import { computed, nextTick, ref } from 'vue';
 
 interface TournamentPlayer {
@@ -155,6 +155,8 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     /** The organizer's per-table notes, keyed by table number (empty unless the ruleset uses them). */
     tables: TableDetails;
+    /** Whether the viewer may enter results (organizer or scorekeeper): shows the scoring-desk link. */
+    can_score?: boolean;
     /** Side awards that have a recipient. */
     awards: TournamentAward[];
     /** Allegiances a player can declare when RSVPing (empty unless the ruleset uses them). */
@@ -497,6 +499,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <TableTerrain v-for="t in describedTables" :key="t.number" :detail="t" />
                 </div>
             </details>
+            <div v-if="can_score && tournament.status === 'active'" class="mb-4" data-no-print>
+                <Button as-child size="sm" class="h-8 gap-1.5">
+                    <Link :href="route('tournaments.score', tournament.uuid)"><ClipboardCheck class="size-3.5" /> Scoring desk</Link>
+                </Button>
+            </div>
             <div v-if="tournament.status !== 'completed'" class="mb-4" data-no-print>
                 <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
                     <a :href="route('tournaments.calendar', tournament.uuid)" download><CalendarPlus class="size-3.5" /> Add to calendar</a>

@@ -12,7 +12,7 @@ class TournamentGameToggleForfeitRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        Gate::authorize('manage', $this->route('tournament'));
+        Gate::authorize('score', $this->route('tournament'));
 
         return true;
     }

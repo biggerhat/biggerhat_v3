@@ -305,6 +305,23 @@ class Tournament extends Model
         return $this->players()->where('is_ringer', true)->first(); // @phpstan-ignore return.type
     }
 
+    /** Scorekeepers: may enter and correct results from the scoring desk, nothing else. */
+    public function scorers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'tournament_scorers')->withTimestamps();
+    }
+
+    public function isScorer(int $userId): bool
+    {
+        return $this->scorers()->where('user_id', $userId)->exists();
+    }
+
+    /** Can this user enter results? Everyone who can manage the event, plus its scorekeepers. */
+    public function canScore(?int $userId): bool
+    {
+        return $userId !== null && ($this->canManage($userId) || $this->isScorer($userId));
+    }
+
     public function isOrganizer(int $userId): bool
     {
         return $this->creator_id === $userId

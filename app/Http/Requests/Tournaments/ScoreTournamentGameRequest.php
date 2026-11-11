@@ -17,7 +17,7 @@ class ScoreTournamentGameRequest extends FormRequest
         /** @var Tournament|null $tournament */
         $tournament = $this->route('tournament');
 
-        return $tournament !== null && $this->user()?->can('manage', $tournament) === true;
+        return $tournament !== null && $this->user()?->can('score', $tournament) === true;
     }
 
     public function rules(): array

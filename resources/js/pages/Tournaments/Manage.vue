@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 import { useTournament } from '@/composables/useTournament';
 import { useTournamentNextStep } from '@/composables/useTournamentNextStep';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
@@ -221,7 +222,8 @@ const props = defineProps<{
 
 // Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
 const tournamentRef = computed(() => props.tournament);
-const { submitting, showError, doAction, doModalAction, reloadProps, playerName, playerFaction } = useTournament(tournamentRef);
+const { submitting, showError, doAction, doActionWithData, doModalAction, reloadProps, playerName, playerFaction } = useTournament(tournamentRef);
+const toast = useToast();
 
 const { statusColor, statusLabel } = useTournamentStatus();
 const confirm = useConfirm();
@@ -546,6 +548,60 @@ const removeGame = async (gameId: number) => {
     if (await doAction(route('tournaments.games.delete', { tournament: props.tournament.uuid, game: gameId }), 'DELETE')) {
         reloadPage();
     }
+};
+
+// ─── Fix pairings: click one player (or table, or unpaired player), then another, to swap them ───
+type Slot = 'player_one' | 'player_two';
+type SwapPick =
+    | { kind: 'slot'; roundId: number; gameId: number; slot: Slot }
+    | { kind: 'unpaired'; roundId: number; playerId: number }
+    | { kind: 'table'; roundId: number; gameId: number };
+const swapPick = ref<SwapPick | null>(null);
+const slotPicked = (gameId: number, slot: Slot) =>
+    swapPick.value?.kind === 'slot' && swapPick.value.gameId === gameId && swapPick.value.slot === slot;
+const tablePicked = (gameId: number) => swapPick.value?.kind === 'table' && swapPick.value.gameId === gameId;
+const unpairedPicked = (playerId: number) => swapPick.value?.kind === 'unpaired' && swapPick.value.playerId === playerId;
+
+const runSwap = async (round: TournamentRound, body: Record<string, unknown>, tables = false) => {
+    swapPick.value = null;
+    submitting.value = true;
+    const { ok, data } = await doActionWithData(
+        route(tables ? 'tournaments.games.swap_tables' : 'tournaments.games.swap', { tournament: props.tournament.uuid, round: round.id }),
+        'POST',
+        body,
+    );
+    submitting.value = false;
+    if (ok) {
+        for (const warning of (data?.warnings ?? []) as string[]) toast.warning(warning);
+        reloadPage();
+    }
+};
+
+const pickSlot = async (round: TournamentRound, game: TournamentGame, slot: Slot) => {
+    const pick = swapPick.value;
+    if (pick?.roundId === round.id && pick.kind === 'slot' && pick.gameId !== game.id) {
+        return runSwap(round, { game_id: pick.gameId, slot: pick.slot, other_game_id: game.id, other_slot: slot });
+    }
+    if (pick?.roundId === round.id && pick.kind === 'unpaired') {
+        return runSwap(round, { game_id: game.id, slot, player_id: pick.playerId });
+    }
+    swapPick.value = slotPicked(game.id, slot) ? null : { kind: 'slot', roundId: round.id, gameId: game.id, slot };
+};
+
+const pickUnpaired = async (round: TournamentRound, playerId: number) => {
+    const pick = swapPick.value;
+    if (pick?.roundId === round.id && pick.kind === 'slot') {
+        return runSwap(round, { game_id: pick.gameId, slot: pick.slot, player_id: playerId });
+    }
+    swapPick.value = unpairedPicked(playerId) ? null : { kind: 'unpaired', roundId: round.id, playerId };
+};
+
+const pickTable = async (round: TournamentRound, game: TournamentGame) => {
+    const pick = swapPick.value;
+    if (pick?.roundId === round.id && pick.kind === 'table' && pick.gameId !== game.id) {
+        return runSwap(round, { game_id: pick.gameId, other_game_id: game.id }, true);
+    }
+    swapPick.value = tablePicked(game.id) ? null : { kind: 'table', roundId: round.id, gameId: game.id };
 };
 
 // ─── Game Scores ───
@@ -1348,8 +1404,23 @@ const isEditable = computed(() => !isLocked.value);
                                     >
                                         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                                             <div class="flex min-w-0 flex-1 items-center gap-2">
+                                                <button
+                                                    v-if="game.table_number && round.status === 'setup'"
+                                                    type="button"
+                                                    class="shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-muted-foreground hover:bg-accent"
+                                                    :class="tablePicked(game.id) ? 'ring-2 ring-primary' : ''"
+                                                    :aria-pressed="tablePicked(game.id)"
+                                                    :title="
+                                                        tablePicked(game.id)
+                                                            ? 'Pick another table to swap'
+                                                            : 'Click, then another table, to swap tables'
+                                                    "
+                                                    @click="pickTable(round, game)"
+                                                >
+                                                    Table {{ game.table_number }}
+                                                </button>
                                                 <span
-                                                    v-if="game.table_number"
+                                                    v-else-if="game.table_number"
                                                     class="shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-muted-foreground"
                                                     >Table {{ game.table_number }}</span
                                                 >
@@ -1360,7 +1431,17 @@ const isEditable = computed(() => !isLocked.value);
                                                             :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
                                                             class-name="size-4 shrink-0"
                                                         />
-                                                        <span class="truncate font-medium">{{ playerName(game.player_one_id) }}</span>
+                                                        <button
+                                                            v-if="round.status === 'setup'"
+                                                            type="button"
+                                                            class="truncate rounded px-1 font-medium hover:bg-accent"
+                                                            :class="slotPicked(game.id, 'player_one') ? 'bg-primary/15 ring-1 ring-primary' : ''"
+                                                            :aria-pressed="slotPicked(game.id, 'player_one')"
+                                                            @click="pickSlot(round, game, 'player_one')"
+                                                        >
+                                                            {{ playerName(game.player_one_id) }}
+                                                        </button>
+                                                        <span v-else class="truncate font-medium">{{ playerName(game.player_one_id) }}</span>
                                                     </span>
                                                     <template v-if="!game.is_bye">
                                                         <span class="hidden shrink-0 text-2xs text-muted-foreground sm:inline">vs</span>
@@ -1370,7 +1451,17 @@ const isEditable = computed(() => !isLocked.value);
                                                                 :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
                                                                 class-name="size-4 shrink-0"
                                                             />
-                                                            <span class="truncate font-medium">{{ playerName(game.player_two_id) }}</span>
+                                                            <button
+                                                                v-if="round.status === 'setup'"
+                                                                type="button"
+                                                                class="truncate rounded px-1 font-medium hover:bg-accent"
+                                                                :class="slotPicked(game.id, 'player_two') ? 'bg-primary/15 ring-1 ring-primary' : ''"
+                                                                :aria-pressed="slotPicked(game.id, 'player_two')"
+                                                                @click="pickSlot(round, game, 'player_two')"
+                                                            >
+                                                                {{ playerName(game.player_two_id) }}
+                                                            </button>
+                                                            <span v-else class="truncate font-medium">{{ playerName(game.player_two_id) }}</span>
                                                         </span>
                                                     </template>
                                                 </div>
@@ -1442,6 +1533,37 @@ const isEditable = computed(() => !isLocked.value);
                                     <Loader2 class="size-3 animate-spin" />
                                     {{ round.games.filter((g: any) => g.result === 'pending').length }} of {{ round.games.length }} games still need a
                                     result — End Round unlocks once every game has one
+                                </div>
+
+                                <!-- Fix pairings -->
+                                <div
+                                    v-if="round.status === 'setup' && round.games.length"
+                                    class="mt-2 space-y-1.5 text-xs text-muted-foreground"
+                                    role="status"
+                                >
+                                    <p>
+                                        <template v-if="swapPick && swapPick.roundId === round.id">
+                                            Now pick the player to swap with{{ swapPick.kind === 'table' ? ' (a table number)' : '' }}.
+                                            <button type="button" class="underline underline-offset-2 hover:text-foreground" @click="swapPick = null">
+                                                Cancel
+                                            </button>
+                                        </template>
+                                        <template v-else>To fix a pairing, click a player (or a table number), then the one to swap with.</template>
+                                    </p>
+                                    <div v-if="unpairedPlayers(round.id).length" class="flex flex-wrap items-center gap-1.5">
+                                        <span>Unpaired:</span>
+                                        <button
+                                            v-for="p in unpairedPlayers(round.id)"
+                                            :key="p.id"
+                                            type="button"
+                                            class="rounded-full border px-2 py-0.5 hover:bg-accent"
+                                            :class="unpairedPicked(p.id) ? 'bg-primary/15 ring-1 ring-primary' : ''"
+                                            :aria-pressed="unpairedPicked(p.id)"
+                                            @click="pickUnpaired(round, p.id)"
+                                        >
+                                            {{ p.display_name }}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <!-- Manual Pairing -->

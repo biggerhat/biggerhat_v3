@@ -481,6 +481,8 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
 
     // Games / Scores
     Route::post('/{tournament}/rounds/{round}/games', [TournamentGameController::class, 'store'])->name('games.create');
+    Route::post('/{tournament}/rounds/{round}/swap', [TournamentGameController::class, 'swapPlayers'])->name('games.swap');
+    Route::post('/{tournament}/rounds/{round}/swap-tables', [TournamentGameController::class, 'swapTables'])->name('games.swap_tables');
     Route::put('/{tournament}/games/{game}', [TournamentGameController::class, 'updateScore'])->name('games.update');
     Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
     Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');

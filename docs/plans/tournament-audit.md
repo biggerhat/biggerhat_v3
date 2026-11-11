@@ -22,6 +22,12 @@ public payload redacts report details / crew build ids / tracker settings / play
 `useTournamentChannel` exposes `connected`, polls every 30 s while down, and Display shows Live / Reconnecting). C5 was checked: "Gaining Grounds 0" is a real
 season name (`PoolSeasonEnum::GainingGrounds0`), so only the "50ss" jargon remains.
 
+**Status of the organizer pass (branch `tournament-organizer-ux-nov11`):** U1 (one Start button, in the next-step card), U2 (Manage opens on Players while setting up,
+Rounds while the event runs, Standings when it is over), U3 (End Round reason shown inline), U4 (radix checkboxes, masters/titles folded away, Enter saves; the "next game"
+keyboard flow is not done), U5 (faction-spine player rows), U6 (Meta folded away in the add form), U7/F1 (click-to-swap players, unpaired players and table numbers during
+round setup: `POST .../rounds/{round}/swap` and `/swap-tables`, rematch warnings, touched pairings become manual) and U8 (results CSV on the Standings tab) are done.
+Still open from this group: U9 (phone Rounds-tab action row).
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

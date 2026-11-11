@@ -47,5 +47,15 @@ $tA = $mkTeam('Alpha Squad', [[$alice, 'arcanists'], [$bob, 'guild']]);
 $tB = $mkTeam('Bravo Crew', [[$carol, 'bayou'], [$dave, 'neverborn']]);
 $r4 = TournamentRound::factory()->for($t4)->inProgress()->create(['round_number' => 1, 'started_at' => now()->subMinutes(5)]);
 TournamentGame::factory()->for($r4, 'round')->create(['player_one_id' => $tA->id, 'player_two_id' => $tB->id, 'table_number' => 1]);
+// --- T5 (created by Carol so the organizer stays under the 5-unfinished-events cap): active event, round 1 in setup with two pairings and one unpaired player (for the swap flows)
+$t5 = Tournament::factory()->active()->create(['name' => 'Swap Cup', 'creator_id' => $carol->id, 'planned_rounds' => 2]);
+$t5->organizers()->attach($org->id);
+$sp = [];
+foreach (['Ann', 'Ben', 'Cat', 'Dan', 'Eve'] as $i => $n) {
+    $sp[$n] = TournamentPlayer::factory()->for($t5)->create(['display_name' => $n, 'faction' => ['arcanists', 'guild', 'bayou', 'neverborn', 'outcasts'][$i]]);
+}
+$r5 = TournamentRound::factory()->for($t5)->create(['round_number' => 1]);
+TournamentGame::factory()->for($r5, 'round')->create(['player_one_id' => $sp['Ann']->id, 'player_two_id' => $sp['Ben']->id, 'table_number' => 1]);
+TournamentGame::factory()->for($r5, 'round')->create(['player_one_id' => $sp['Cat']->id, 'player_two_id' => $sp['Dan']->id, 'table_number' => 2]);
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 'g1' => $r1->games()->first()->id]));

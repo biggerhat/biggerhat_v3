@@ -16,6 +16,7 @@ use App\Http\Requests\Tournaments\TournamentUpdateStatusRequest;
 use App\Models\Character;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\TOS\Allegiance;
 use App\Models\TOS\Deployment;
 use App\Models\TOS\Operation;
 use App\Models\Tournament;
@@ -74,7 +75,10 @@ class TournamentController extends Controller
             'players.user:id,name,meta_id',
             'players.user.meta:id,name',
             'players.meta:id,name',
+            'players.allegiance:id,slug,name',
+            'players.garrison:id,name,share_code,is_public',
             'rsvps.user:id,name',
+            'rsvps.allegiance:id,slug,name',
             'rounds.games.playerOne:id,display_name,faction,user_id',
             'rounds.games.playerTwo:id,display_name,faction,user_id',
             // Don't column-restrict trackerGame — Game has appended attributes
@@ -85,6 +89,7 @@ class TournamentController extends Controller
         ]);
 
         $standings = $this->standings->compute($tournament);
+        $this->hidePrivateGarrisonCodes($tournament);
 
         // Fetch every scheme referenced by any round in a single query instead
         // of one query per round (previously N+1).
@@ -207,6 +212,7 @@ class TournamentController extends Controller
         return inertia('Tournaments/View', [
             'tournament' => $tournament,
             'ruleset' => $this->rulesetPayload($tournament),
+            'allegiances' => $this->allegianceOptions($tournament),
             'rounds' => $roundsData,
             'standings' => $standings,
             'factions' => FactionEnum::buildDetails(),
@@ -306,7 +312,10 @@ class TournamentController extends Controller
             'players.user:id,name,meta_id',
             'players.user.meta:id,name',
             'players.meta:id,name',
+            'players.allegiance:id,slug,name',
+            'players.garrison:id,name,share_code,is_public',
             'rsvps.user:id,name',
+            'rsvps.allegiance:id,slug,name',
             'rounds.games.playerOne:id,display_name,faction,user_id',
             'rounds.games.playerTwo:id,display_name,faction,user_id',
             // Don't column-restrict trackerGame — Game appends `season_label`,
@@ -319,6 +328,7 @@ class TournamentController extends Controller
         ]);
 
         $standings = $this->standings->compute($tournament);
+        $this->hidePrivateGarrisonCodes($tournament);
 
         $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
@@ -380,6 +390,7 @@ class TournamentController extends Controller
         return inertia('Tournaments/Manage', [
             'tournament' => $tournament,
             'ruleset' => $this->rulesetPayload($tournament),
+            'allegiances' => $this->allegianceOptions($tournament),
             'standings' => $standings,
             'seasons' => $seasons,
             'factions' => fn () => FactionEnum::buildDetails(),
@@ -466,6 +477,31 @@ class TournamentController extends Controller
         ];
     }
 
+    /**
+     * Allegiances a player can declare, only for rulesets that use them.
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, slug: string, name: string}>
+     */
+    private function allegianceOptions(Tournament $tournament): \Illuminate\Support\Collection
+    {
+        if ($tournament->rulesetDefinition()->declaration !== 'allegiance') {
+            return collect();
+        }
+
+        return Allegiance::orderBy('name')->get(['id', 'slug', 'name'])
+            ->map(fn (Allegiance $a) => ['id' => $a->id, 'slug' => $a->slug, 'name' => $a->name])->values();
+    }
+
+    /** A Garrison is public information at the event, but its share link only works when the owner made it public. */
+    private function hidePrivateGarrisonCodes(Tournament $tournament): void
+    {
+        foreach ($tournament->players as $player) {
+            if ($player->garrison && ! $player->garrison->is_public) {
+                $player->garrison->makeHidden('share_code');
+            }
+        }
+    }
+
     private function rulesetPayload(Tournament $tournament): array
     {
         return [
@@ -481,16 +517,19 @@ class TournamentController extends Controller
         $this->authorize('manage', $tournament);
 
         $tournament->load([
-            'rounds.games.playerOne:id,display_name,faction',
-            'rounds.games.playerTwo:id,display_name,faction',
+            'rounds.games.playerOne:id,display_name,faction,allegiance_id',
+            'rounds.games.playerTwo:id,display_name,faction,allegiance_id',
+            'rounds.games.playerOne.allegiance:id,name',
+            'rounds.games.playerTwo.allegiance:id,name',
         ]);
+        $declaresAllegiance = $tournament->rulesetDefinition()->declaration === 'allegiance';
 
         $filename = 'tournament-'.$tournament->uuid.'-'.now()->format('Ymd-His').'.csv';
 
         // Score components (beyond the VP total) are ruleset-defined, e.g. strategy + scheme for Malifaux.
         $componentKeys = array_values(array_filter($tournament->rulesetDefinition()->scoreFieldKeys(), fn (string $k) => $k !== 'vp'));
 
-        return response()->streamDownload(function () use ($tournament, $componentKeys) {
+        return response()->streamDownload(function () use ($tournament, $componentKeys, $declaresAllegiance) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'round',
@@ -521,12 +560,12 @@ class TournamentController extends Controller
                         $round->round_number,
                         $game->table_number,
                         $p1 ? $p1->display_name : null,
-                        $game->player_one_faction ?: ($p1 ? $p1->getRawOriginal('faction') : null),
+                        $declaresAllegiance ? ($p1 ? $p1->allegiance?->name : null) : ($game->player_one_faction ?: ($p1 ? $p1->getRawOriginal('faction') : null)),
                         $game->player_one_title ?: $game->player_one_master,
                         $game->player_one_vp,
                         ...array_map(fn (string $k) => $game->breakdownFor('player_one')[$k] ?? null, $componentKeys),
                         $p2 ? $p2->display_name : null,
-                        $game->player_two_faction ?: ($p2 ? $p2->getRawOriginal('faction') : null),
+                        $declaresAllegiance ? ($p2 ? $p2->allegiance?->name : null) : ($game->player_two_faction ?: ($p2 ? $p2->getRawOriginal('faction') : null)),
                         $game->player_two_title ?: $game->player_two_master,
                         $game->player_two_vp,
                         ...array_map(fn (string $k) => $game->breakdownFor('player_two')[$k] ?? null, $componentKeys),

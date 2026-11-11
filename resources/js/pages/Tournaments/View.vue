@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import { formatGameSize, tosOperationText, type TosDeploymentInfo, type TosOperationInfo, type TournamentRuleset } from '@/types/tournament';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -75,6 +76,7 @@ interface StandingEntry {
     player_id: number;
     display_name: string;
     faction: string | null;
+    allegiance?: { slug: string; name: string } | null;
     is_ringer: boolean;
     is_dropped: boolean;
     total_tp: number;
@@ -118,6 +120,8 @@ const props = defineProps<{
         rsvps?: Rsvp[];
     };
     ruleset: TournamentRuleset;
+    /** Allegiances a player can declare when RSVPing (empty unless the ruleset uses them). */
+    allegiances: { id: number; slug: string; name: string }[];
     rounds: ViewRound[];
     standings: StandingEntry[];
     factions: Record<string, FactionInfo>;
@@ -194,18 +198,24 @@ const rsvping = ref(false);
 // Optional faction the user intends to play. Stays null when they don't pick
 // one — the TO can still finalize without it.
 const rsvpFaction = ref<string | null>(null);
+const rsvpAllegiance = ref<string | null>(null);
 
 // Use Inertia's router rather than raw fetch: CSRF + progress bar come for
 // free, and the preserveScroll reload keeps the user's position on the page.
 const submitRsvp = () => {
-    router.post(route('tournaments.rsvp', props.tournament.uuid), rsvpFaction.value ? { faction: rsvpFaction.value } : {}, {
-        preserveScroll: true,
-        onStart: () => (rsvping.value = true),
-        onFinish: () => {
-            rsvping.value = false;
-            rsvpFaction.value = null;
+    router.post(
+        route('tournaments.rsvp', props.tournament.uuid),
+        rsvpFaction.value ? { faction: rsvpFaction.value } : rsvpAllegiance.value ? { allegiance_id: Number(rsvpAllegiance.value) } : {},
+        {
+            preserveScroll: true,
+            onStart: () => (rsvping.value = true),
+            onFinish: () => {
+                rsvping.value = false;
+                rsvpFaction.value = null;
+                rsvpAllegiance.value = null;
+            },
         },
-    });
+    );
 };
 
 const cancelRsvp = () => {
@@ -295,6 +305,15 @@ const tournamentStats = computed(() => {
 });
 
 // Drawer
+// TOS rulesets: show the declared Allegiance (and a link to the player's public Garrison) beside names.
+const playerById = (id: number | null) => (id === null ? undefined : props.tournament.players.find((p) => p.id === id));
+const playerAllegianceSlug = (id: number | null) =>
+    (playerById(id) as { allegiance?: { slug: string } | null } | undefined)?.allegiance?.slug ?? null;
+const garrisonUrl = (id: number | null) => {
+    const code = (playerById(id) as { garrison?: { share_code?: string | null } | null } | undefined)?.garrison?.share_code;
+    return code ? route('tos.garrisons.shared', code) : null;
+};
+
 const drawerOpen = ref(false);
 const drawerTitle = ref('');
 const drawerImage = ref<string | null>(null);
@@ -365,6 +384,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         <!-- Optional intended faction. Empty string sentinel because
                              Reka's Select can't bind to literal null on its value prop. -->
                         <Select
+                            v-if="ruleset.declaration !== 'allegiance'"
                             :model-value="rsvpFaction ?? '__none__'"
                             @update:model-value="rsvpFaction = $event === '__none__' ? null : ($event as string)"
                         >
@@ -377,6 +397,24 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <div class="flex items-center gap-2">
                                         <FactionLogo :faction="String(key)" class-name="size-4 shrink-0" />
                                         <span>{{ info.name }}</span>
+                                    </div>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select
+                            v-else
+                            :model-value="rsvpAllegiance ?? '__none__'"
+                            @update:model-value="rsvpAllegiance = $event === '__none__' ? null : ($event as string)"
+                        >
+                            <SelectTrigger class="h-8 w-full min-w-[180px] text-xs sm:w-auto">
+                                <SelectValue placeholder="Allegiance (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">No allegiance yet</SelectItem>
+                                <SelectItem v-for="a in allegiances" :key="a.id" :value="String(a.id)">
+                                    <div class="flex items-center gap-2">
+                                        <AllegianceLogo :allegiance="a.slug" class-name="size-4 shrink-0" />
+                                        <span>{{ a.name }}</span>
                                     </div>
                                 </SelectItem>
                             </SelectContent>
@@ -588,10 +626,23 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
                                         class-name="size-5 shrink-0"
                                     />
+                                    <AllegianceLogo
+                                        v-else-if="playerAllegianceSlug(game.player_one_id)"
+                                        :allegiance="playerAllegianceSlug(game.player_one_id)!"
+                                        class-name="size-5 shrink-0"
+                                    />
                                     <div class="min-w-0 flex-1">
                                         <div class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">
                                             {{ playerName(game.player_one_id) }}
                                         </div>
+                                        <a
+                                            v-if="garrisonUrl(game.player_one_id)"
+                                            :href="garrisonUrl(game.player_one_id)!"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="text-2xs text-primary hover:underline"
+                                            >Garrison</a
+                                        >
                                         <div v-if="game.player_one_master" class="truncate text-2xs text-muted-foreground">
                                             {{ game.player_one_title || game.player_one_master }}
                                         </div>
@@ -615,10 +666,23 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
                                         class-name="size-5 shrink-0"
                                     />
+                                    <AllegianceLogo
+                                        v-else-if="playerAllegianceSlug(game.player_two_id)"
+                                        :allegiance="playerAllegianceSlug(game.player_two_id)!"
+                                        class-name="size-5 shrink-0"
+                                    />
                                     <div class="min-w-0 flex-1">
                                         <div class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">
                                             {{ playerName(game.player_two_id) }}
                                         </div>
+                                        <a
+                                            v-if="garrisonUrl(game.player_two_id)"
+                                            :href="garrisonUrl(game.player_two_id)!"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="text-2xs text-primary hover:underline"
+                                            >Garrison</a
+                                        >
                                         <div v-if="game.player_two_master" class="truncate text-2xs text-muted-foreground">
                                             {{ game.player_two_title || game.player_two_master }}
                                         </div>
@@ -655,9 +719,22 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
                                         class-name="size-4 shrink-0"
                                     />
+                                    <AllegianceLogo
+                                        v-else-if="playerAllegianceSlug(game.player_one_id)"
+                                        :allegiance="playerAllegianceSlug(game.player_one_id)!"
+                                        class-name="size-4 shrink-0"
+                                    />
                                     <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{
                                         playerName(game.player_one_id)
                                     }}</span>
+                                    <a
+                                        v-if="garrisonUrl(game.player_one_id)"
+                                        :href="garrisonUrl(game.player_one_id)!"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="shrink-0 text-2xs text-primary hover:underline"
+                                        >Garrison</a
+                                    >
                                     <span v-if="game.player_one_master" class="truncate text-2xs text-muted-foreground"
                                         >· {{ game.player_one_title || game.player_one_master }}</span
                                     >
@@ -694,9 +771,22 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{
                                             playerName(game.player_two_id)
                                         }}</span>
+                                        <a
+                                            v-if="garrisonUrl(game.player_two_id)"
+                                            :href="garrisonUrl(game.player_two_id)!"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="shrink-0 text-2xs text-primary hover:underline"
+                                            >Garrison</a
+                                        >
                                         <FactionLogo
                                             v-if="game.player_two_faction || playerFaction(game.player_two_id)"
                                             :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
+                                            class-name="size-4 shrink-0"
+                                        />
+                                        <AllegianceLogo
+                                            v-else-if="playerAllegianceSlug(game.player_two_id)"
+                                            :allegiance="playerAllegianceSlug(game.player_two_id)!"
                                             class-name="size-4 shrink-0"
                                         />
                                     </div>

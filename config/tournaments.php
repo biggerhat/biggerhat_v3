@@ -39,7 +39,10 @@ return [
             ],
             // Each round needs a strategy, a deployment and a 3-scheme pool before it can be paired.
             'scenario_fields' => ['strategy', 'deployment', 'scheme_pool'],
-            'requires_faction' => true,
+            // Players declare one Malifaux faction for the whole event (Gaining Grounds is fixed-faction).
+            'declaration' => 'faction',
+            'requires_declaration' => true,
+            'tracks_leaders' => true,
             'supports_tracker' => true,
         ],
 
@@ -71,8 +74,11 @@ return [
             'scenario_fields' => ['tos_operation', 'tos_deployment'],
             // The Game Tracker is Malifaux-only.
             'supports_tracker' => false,
-            // Players declare an Allegiance/Garrison instead of a Malifaux faction (Phase 5).
-            'requires_faction' => false,
+            // Players declare an Allegiance (fixed for every round) and may link their public Garrison.
+            'declaration' => 'allegiance',
+            'requires_declaration' => true,
+            // Commanders come from the Garrison and aren't recorded per game.
+            'tracks_leaders' => false,
         ],
     ],
 ];

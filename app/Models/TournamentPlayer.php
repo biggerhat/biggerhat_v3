@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\FactionEnum;
+use App\Models\TOS\Allegiance;
+use App\Models\TOS\Garrison;
 use App\Traits\LogsCreationActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -36,6 +38,18 @@ class TournamentPlayer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** TOS rulesets: the Allegiance this player declared for the whole event. */
+    public function allegiance(): BelongsTo
+    {
+        return $this->belongsTo(Allegiance::class, 'allegiance_id');
+    }
+
+    /** TOS rulesets: the Garrison (public pool) this player linked for the event. */
+    public function garrison(): BelongsTo
+    {
+        return $this->belongsTo(Garrison::class, 'garrison_id');
     }
 
     public function meta(): BelongsTo

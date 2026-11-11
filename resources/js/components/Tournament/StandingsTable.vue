@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -71,6 +72,12 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                         v-if="entry.faction"
                                         :faction="entry.faction"
                                         class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                                    />
+                                    <AllegianceLogo
+                                        v-else-if="entry.allegiance"
+                                        :allegiance="entry.allegiance.slug"
+                                        class-name="size-4 shrink-0"
+                                        :title="entry.allegiance.name"
                                     />
                                     <Crown
                                         v-if="entry.rank === 1 && entry.rounds_played > 0 && !entry.is_ringer"

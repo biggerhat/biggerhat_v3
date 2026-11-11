@@ -276,9 +276,15 @@ describe('ruleset-driven requirements', function () {
             ->toBe('Set the round scenario before pairing (missing: operation)');
     });
 
-    it('lets a Fields of Glory tournament start without Malifaux factions', function () {
+    it('asks Fields of Glory players for an Allegiance, not a Malifaux faction', function () {
         $t = Tournament::factory()->inRegistration()->create(['ruleset' => 'tos_fields_of_glory']);
         TournamentPlayer::factory()->for($t)->count(2)->create(['faction' => null]);
+
+        expect(app(TournamentStateMachine::class)->canTransitionTournamentTo($t, TournamentStatusEnum::Active))
+            ->toBe('2 player(s) missing allegiance selection');
+
+        $allegiance = \App\Models\TOS\Allegiance::factory()->create();
+        $t->players()->update(['allegiance_id' => $allegiance->id]);
 
         expect(app(TournamentStateMachine::class)->canTransitionTournamentTo($t, TournamentStatusEnum::Active))->toBeNull();
     });

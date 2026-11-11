@@ -150,10 +150,12 @@ class TournamentStateMachine
 
     private function guardStartTournament(Tournament $tournament): ?string
     {
-        if ($tournament->rulesetDefinition()->requiresFaction) {
-            $missingFaction = $tournament->players()->whereNull('faction')->count();
-            if ($missingFaction > 0) {
-                return "{$missingFaction} player(s) missing faction selection";
+        $ruleset = $tournament->rulesetDefinition();
+        if ($ruleset->requiresDeclaration && $ruleset->declaration !== 'none') {
+            $column = $ruleset->declaration === 'allegiance' ? 'allegiance_id' : 'faction';
+            $missing = $tournament->players()->whereNull($column)->count();
+            if ($missing > 0) {
+                return "{$missing} player(s) missing ".($ruleset->declaration === 'allegiance' ? 'allegiance' : 'faction').' selection';
             }
         }
 

@@ -7,9 +7,11 @@ import {
     type TosOperationInfo,
     type TournamentRuleset,
 } from '@/types/tournament';
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import DeclarationFields from '@/components/Tournament/DeclarationFields.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +79,9 @@ interface TournamentPlayer {
     id: number;
     display_name: string;
     faction: string | null;
+    allegiance_id?: number | null;
+    allegiance?: { id: number; slug: string; name: string } | null;
+    garrison?: { name: string; share_code?: string | null; is_public: boolean } | null;
     user: { id: number; name: string; meta?: { id: number; name: string } | null } | null;
     meta?: { id: number; name: string } | null;
     is_ringer: boolean;
@@ -164,6 +169,8 @@ interface Rsvp {
     /** Optional intended faction the user picked at RSVP time. Pre-fills the
      *  TO's add-player dialog so they don't have to ask again. */
     faction: string | null;
+    allegiance?: { id: number; slug: string; name: string } | null;
+    allegiance_id?: number | null;
     user: { id: number; name: string } | null;
 }
 
@@ -197,6 +204,8 @@ const props = defineProps<{
     standings: StandingEntry[];
     seasons: { value: string; label: string }[];
     factions: Record<string, FactionInfo>;
+    /** Allegiances a player can declare (empty unless the ruleset uses them). */
+    allegiances: { id: number; slug: string; name: string }[];
     encounter_types: { value: string; label: string }[];
     // `masters`, `all_strategies`, `all_schemes` are Inertia::defer() props —
     // null on initial render, populated by the follow-up request.
@@ -222,6 +231,19 @@ const props = defineProps<{
 // Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
 const tournamentRef = computed(() => props.tournament);
 const { submitting, showError, doAction, doModalAction, reloadProps, playerName, playerFaction, factionBackground } = useTournament(tournamentRef);
+
+// What players declare at check-in (Malifaux faction vs TOS Allegiance + Garrison) comes from the ruleset.
+const declaration = computed(() => props.ruleset.declaration);
+const isDeclared = (faction: string | null, allegiance: string | null) =>
+    declaration.value === 'none' || (declaration.value === 'allegiance' ? !!allegiance : !!faction);
+const declarationPayload = (faction: string | null, allegiance: string | null, garrisonCode?: string) =>
+    declaration.value === 'allegiance'
+        ? {
+              allegiance_id: allegiance ? Number(allegiance) : null,
+              ...(garrisonCode === undefined ? {} : { garrison_share_code: garrisonCode.trim() }),
+          }
+        : { faction };
+const declarationLabel = computed(() => (declaration.value === 'allegiance' ? 'allegiance' : 'faction'));
 const { statusColor, statusLabel } = useTournamentStatus();
 const confirm = useConfirm();
 
@@ -286,6 +308,7 @@ useTournamentChannel(props.tournament.uuid, () => reloadPage());
 
 // ─── RSVP → Player conversion ───
 const rsvpPlayerFaction = ref<string | null>(null);
+const rsvpPlayerAllegiance = ref<string | null>(null);
 const rsvpPlayerDialogOpen = ref(false);
 const rsvpPlayerTarget = ref<any>(null);
 const rsvpPlayerError = ref<string | null>(null);
@@ -295,21 +318,22 @@ const openRsvpPlayerDialog = (rsvp: Rsvp) => {
     // Pre-fill with the faction the user picked at RSVP time so the TO can
     // accept without re-typing. They're free to change it before submit.
     rsvpPlayerFaction.value = rsvp.faction ?? null;
+    rsvpPlayerAllegiance.value = rsvp.allegiance_id ? String(rsvp.allegiance_id) : null;
     rsvpPlayerError.value = null;
     rsvpPlayerDialogOpen.value = true;
 };
 
 const confirmAddRsvpAsPlayer = async () => {
     const rsvp = rsvpPlayerTarget.value;
-    if (!rsvp || !rsvpPlayerFaction.value) {
-        rsvpPlayerError.value = 'Choose a faction before adding this player.';
+    if (!rsvp || !isDeclared(rsvpPlayerFaction.value, rsvpPlayerAllegiance.value)) {
+        rsvpPlayerError.value = `Choose a ${declarationLabel.value} before adding this player.`;
         return;
     }
     rsvpPlayerError.value = null;
     const { ok, error } = await doModalAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
         display_name: rsvp.user?.name ?? 'Unknown',
         user_id: rsvp.user_id,
-        faction: rsvpPlayerFaction.value,
+        ...declarationPayload(rsvpPlayerFaction.value, rsvpPlayerAllegiance.value),
     });
     if (ok) {
         rsvpPlayerDialogOpen.value = false;
@@ -330,6 +354,8 @@ interface MetaOption {
 const toast = useToast();
 const newPlayerName = ref('');
 const newPlayerFaction = ref<string | null>(null);
+const newPlayerAllegiance = ref<string | null>(null);
+const newPlayerGarrison = ref('');
 const newPlayerMeta = ref<MetaOption | null>(null);
 
 // ── Edit player dialog ──
@@ -339,6 +365,10 @@ const editPlayerDialogOpen = ref(false);
 const editingPlayer = ref<TournamentPlayer | null>(null);
 const editPlayerName = ref('');
 const editPlayerFaction = ref<string | null>(null);
+const editPlayerAllegiance = ref<string | null>(null);
+const editPlayerGarrison = ref('');
+// A private Garrison's code is hidden from the payload, so only send the field when the TO actually changed it.
+let editPlayerGarrisonOriginal = '';
 const editPlayerMeta = ref<MetaOption | null>(null);
 const editPlayerMetaSearch = ref('');
 const editPlayerSubmitting = ref(false);
@@ -348,6 +378,9 @@ const openEditPlayerDialog = (player: TournamentPlayer) => {
     editingPlayer.value = player;
     editPlayerName.value = player.display_name;
     editPlayerFaction.value = player.faction ?? null;
+    editPlayerAllegiance.value = player.allegiance_id ? String(player.allegiance_id) : null;
+    editPlayerGarrisonOriginal = player.garrison?.share_code ?? '';
+    editPlayerGarrison.value = editPlayerGarrisonOriginal;
     // The player's meta lives either directly on the TournamentPlayer or on
     // the linked User account. Edit overrides via the player record only.
     editPlayerMeta.value = (player.meta ?? player.user?.meta ?? null) as MetaOption | null;
@@ -357,7 +390,7 @@ const openEditPlayerDialog = (player: TournamentPlayer) => {
 };
 
 const submitEditPlayer = async () => {
-    if (!editingPlayer.value || !editPlayerName.value.trim() || !editPlayerFaction.value) return;
+    if (!editingPlayer.value || !editPlayerName.value.trim() || !isDeclared(editPlayerFaction.value, editPlayerAllegiance.value)) return;
     editPlayerSubmitting.value = true;
     editPlayerError.value = null;
 
@@ -366,7 +399,11 @@ const submitEditPlayer = async () => {
         'PUT',
         {
             display_name: editPlayerName.value.trim(),
-            faction: editPlayerFaction.value,
+            ...declarationPayload(
+                editPlayerFaction.value,
+                editPlayerAllegiance.value,
+                editPlayerGarrison.value !== editPlayerGarrisonOriginal ? editPlayerGarrison.value : undefined,
+            ),
             meta_id: editPlayerMeta.value?.id ?? null,
         },
     );
@@ -496,17 +533,19 @@ const quickAddMeta = async (target: 'new' | 'edit') => {
 };
 
 const addPlayer = async () => {
-    if (!newPlayerName.value.trim() || !newPlayerFaction.value) return;
+    if (!newPlayerName.value.trim() || !isDeclared(newPlayerFaction.value, newPlayerAllegiance.value)) return;
     submitting.value = true;
     const ok = await doAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
         display_name: newPlayerName.value.trim(),
-        faction: newPlayerFaction.value,
+        ...declarationPayload(newPlayerFaction.value, newPlayerAllegiance.value, newPlayerGarrison.value),
         meta_id: newPlayerMeta.value?.id ?? null,
     });
     submitting.value = false;
     if (ok) {
         newPlayerName.value = '';
         newPlayerFaction.value = null;
+        newPlayerAllegiance.value = null;
+        newPlayerGarrison.value = '';
         newPlayerMeta.value = null;
         reloadPage();
     }
@@ -1649,9 +1688,13 @@ const titlesForMaster = (masterName: string | null) => {
                             >
                                 <div class="flex min-w-0 items-center gap-2">
                                     <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
+                                    <AllegianceLogo v-else-if="rsvp.allegiance" :allegiance="rsvp.allegiance.slug" class-name="size-4 shrink-0" />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
                                     <span v-if="rsvp.faction" class="text-2xs text-muted-foreground sm:text-xs">{{
                                         factions[rsvp.faction]?.name ?? rsvp.faction
+                                    }}</span>
+                                    <span v-else-if="rsvp.allegiance" class="text-2xs text-muted-foreground sm:text-xs">{{
+                                        rsvp.allegiance.name
                                     }}</span>
                                 </div>
                                 <div class="flex items-center gap-1">
@@ -1767,25 +1810,19 @@ const titlesForMaster = (masterName: string | null) => {
                                         </Button>
                                     </div>
                                 </div>
-                                <div class="space-y-1">
-                                    <Label class="text-xs">Faction</Label>
-                                    <Select v-model="newPlayerFaction">
-                                        <SelectTrigger class="h-9 w-full text-xs sm:w-40"
-                                            ><SelectValue placeholder="Select faction..."
-                                        /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem v-for="(f, key) in factions" :key="key" :value="key as string">
-                                                <span class="flex items-center gap-1.5"
-                                                    ><img :src="f.logo" :alt="f.name" class="size-4" /> {{ f.name }}</span
-                                                >
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                <DeclarationFields
+                                    v-model:faction="newPlayerFaction"
+                                    v-model:allegiance="newPlayerAllegiance"
+                                    v-model:garrison-code="newPlayerGarrison"
+                                    :declaration="declaration"
+                                    :factions="factions"
+                                    :allegiances="allegiances"
+                                    trigger-class="h-9 w-full text-xs sm:w-40"
+                                />
                                 <Button
                                     size="sm"
                                     class="h-9 shrink-0 gap-1"
-                                    :disabled="!newPlayerName.trim() || !newPlayerFaction || submitting"
+                                    :disabled="!newPlayerName.trim() || !isDeclared(newPlayerFaction, newPlayerAllegiance) || submitting"
                                     @click="addPlayer"
                                 >
                                     <Plus class="size-3.5" /> Add
@@ -1820,7 +1857,18 @@ const titlesForMaster = (masterName: string | null) => {
                                         :faction="player.faction"
                                         class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
                                     />
+                                    <AllegianceLogo v-else-if="player.allegiance" :allegiance="player.allegiance.slug" class-name="size-4 shrink-0" />
                                     <span class="truncate text-xs font-medium sm:text-sm">{{ player.display_name }}</span>
+                                    <span v-if="player.allegiance" class="shrink-0 text-2xs opacity-70">{{ player.allegiance.name }}</span>
+                                    <a
+                                        v-if="player.garrison?.share_code"
+                                        :href="route('tos.garrisons.shared', player.garrison.share_code)"
+                                        target="_blank"
+                                        rel="noopener"
+                                        class="shrink-0 text-2xs font-medium underline-offset-2 hover:underline"
+                                        >Garrison</a
+                                    >
+                                    <span v-else-if="player.garrison" class="shrink-0 text-2xs opacity-70">{{ player.garrison.name }}</span>
                                     <Badge
                                         v-if="player.is_ringer"
                                         variant="outline"
@@ -2688,7 +2736,7 @@ const titlesForMaster = (masterName: string | null) => {
                 <!-- Player 1 -->
                 <div class="space-y-2 rounded-lg border p-3">
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_one_id) }}</div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div v-if="ruleset.tracks_leaders" class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
                             <Label class="text-2xs">Master</Label>
                             <Select v-model="editP1Master">
@@ -2737,7 +2785,7 @@ const titlesForMaster = (masterName: string | null) => {
                 <!-- Player 2 -->
                 <div class="space-y-2 rounded-lg border p-3">
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_two_id) }}</div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div v-if="ruleset.tracks_leaders" class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
                             <Label class="text-2xs">Master</Label>
                             <Select v-model="editP2Master">
@@ -2900,18 +2948,22 @@ const titlesForMaster = (masterName: string | null) => {
         <DialogContent class="max-w-xs">
             <DialogHeader>
                 <DialogTitle>Register {{ rsvpPlayerTarget?.user?.name ?? 'Player' }}</DialogTitle>
-                <DialogDescription>Select a faction to register this player.</DialogDescription>
+                <DialogDescription>Select a {{ declarationLabel }} to register this player.</DialogDescription>
             </DialogHeader>
-            <Select v-model="rsvpPlayerFaction">
-                <SelectTrigger class="h-9 text-sm"><SelectValue placeholder="Select Faction" /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem v-for="(f, slug) in factions" :key="slug" :value="slug">{{ f.name }}</SelectItem>
-                </SelectContent>
-            </Select>
+            <DeclarationFields
+                v-model:faction="rsvpPlayerFaction"
+                v-model:allegiance="rsvpPlayerAllegiance"
+                :declaration="declaration"
+                :factions="factions"
+                :allegiances="allegiances"
+                hide-garrison
+            />
             <p v-if="rsvpPlayerError" class="text-xs text-destructive">{{ rsvpPlayerError }}</p>
             <DialogFooter>
                 <Button variant="outline" @click="rsvpPlayerDialogOpen = false">Cancel</Button>
-                <Button :disabled="!rsvpPlayerFaction || submitting" @click="confirmAddRsvpAsPlayer">Register</Button>
+                <Button :disabled="!isDeclared(rsvpPlayerFaction, rsvpPlayerAllegiance) || submitting" @click="confirmAddRsvpAsPlayer"
+                    >Register</Button
+                >
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -2940,22 +2992,21 @@ const titlesForMaster = (masterName: string | null) => {
         <DialogContent class="max-w-md">
             <DialogHeader>
                 <DialogTitle>Edit Player</DialogTitle>
-                <DialogDescription>Fix typos, change faction, or reassign their meta.</DialogDescription>
+                <DialogDescription>Fix typos, change {{ declarationLabel }}, or reassign their meta.</DialogDescription>
             </DialogHeader>
             <div class="space-y-3">
                 <div class="space-y-1">
                     <Label class="text-xs">Player Name</Label>
                     <Input v-model="editPlayerName" placeholder="Enter player name..." class="h-9 text-sm" />
                 </div>
-                <div class="space-y-1">
-                    <Label class="text-xs">Faction</Label>
-                    <Select v-model="editPlayerFaction">
-                        <SelectTrigger class="h-9 w-full text-xs"><SelectValue placeholder="Select faction..." /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem v-for="(f, key) in factions" :key="key" :value="key as string">{{ f.name }}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                <DeclarationFields
+                    v-model:faction="editPlayerFaction"
+                    v-model:allegiance="editPlayerAllegiance"
+                    v-model:garrison-code="editPlayerGarrison"
+                    :declaration="declaration"
+                    :factions="factions"
+                    :allegiances="allegiances"
+                />
                 <div class="space-y-1">
                     <Label class="text-xs">Meta <span class="text-muted-foreground">(optional)</span></Label>
                     <div class="flex gap-1">

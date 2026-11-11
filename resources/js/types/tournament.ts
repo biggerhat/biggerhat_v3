@@ -81,6 +81,8 @@ export interface StandingEntry {
     player_id: number;
     display_name: string;
     faction: string | null;
+    /** TOS rulesets: the player's declared Allegiance. */
+    allegiance?: { slug: string; name: string } | null;
     is_ringer: boolean;
     is_dropped: boolean;
     total_tp: number;
@@ -136,7 +138,11 @@ export interface RulesetInfo {
     score_fields: { key: string; label: string; min: number; max: number }[];
     /** Scenario components required on a round before pairing ('strategy' | 'deployment' | 'scheme_pool'). */
     scenario_fields: string[];
-    requires_faction: boolean;
+    /** 'faction' (Malifaux), 'allegiance' (TOS, optional Garrison) or 'none'. */
+    declaration: 'faction' | 'allegiance' | 'none';
+    requires_declaration: boolean;
+    /** Whether score entry records each side's leader (Malifaux master + title). */
+    tracks_leaders: boolean;
     supports_tracker: boolean;
 }
 

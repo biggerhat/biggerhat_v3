@@ -27,6 +27,9 @@ class TournamentPlayerUpdateRequest extends FormRequest
         return [
             'display_name' => ['sometimes', 'string', 'max:255'],
             'faction' => ['nullable', 'string', Rule::enum(FactionEnum::class)],
+            'allegiance_id' => ['sometimes', 'nullable', 'integer', 'exists:tos_allegiances,id'],
+            // Empty string / null clears the linked Garrison.
+            'garrison_share_code' => ['sometimes', 'nullable', 'string', 'max:24'],
             'is_ringer' => ['sometimes', 'boolean'],
             'is_disqualified' => ['sometimes', 'boolean'],
             'dropped_after_round' => ['sometimes', 'nullable', 'integer', 'min:0'],

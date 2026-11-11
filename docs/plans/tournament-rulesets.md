@@ -1,6 +1,6 @@
 # Tournament Rulesets — game-agnostic tournament tracking
 
-Status: **Phases 1–3 and 4 done** on branch `tournament-rulesets-nov10` (uncommitted); Phases 5–6 not started.
+Status: **Phases 1–5 done** on branch `tournament-rulesets-nov10` (uncommitted); Phase 6 not started.
 Notes from implementation: rulesets are config-only (`config/tournaments.php`, no per-game classes); `tournaments.bye_*` columns are now nullable overrides (null = ruleset value); `ruleset` is a plain string column, unknown keys fall back to the default ruleset.
 
 ## Goal
@@ -87,11 +87,14 @@ its `strategy_id` / `deployment` / `scheme_pool` columns (FK + Game Tracker depe
 Fields of Glory rounds from spawning Malifaux tracker games. Manage gets Operation/Deployment pickers (autosave, reference drawer), View shows them on the round.
 Known gaps: Core Rulebook Operations must be added through the admin UI; Deployment diagrams/images are not seeded.
 
-### Phase 5 — Player declaration and tracker integration
-- Replace the hard-wired "faction required" rule with a ruleset-declared check (Malifaux: faction; TOS:
-  allegiance + Garrison; other games: none/free text).
-- TOS: link a player's Garrison; show it on the pairing (it is public information in Fields of Glory).
-- Tracker link (`TournamentTrackerGameFactory`) becomes a ruleset capability (`supports_tracker`).
+### Phase 5 — Player declaration and tracker integration (done, not browser-tested)
+Ruleset `declaration` (`faction` | `allegiance` | `none`), `requires_declaration` and `tracks_leaders` replace the old `requires_faction`.
+`tournament_players` gets `allegiance_id` + `garrison_id` (and RSVPs `allegiance_id`). Fields of Glory players declare an Allegiance (fixed for the event) and may
+link a Garrison by share code — public Garrisons, or the linked user's own, matching the declared Allegiance; the share link is only exposed when the Garrison is
+public. The state machine checks the right column before the event starts, the Manage add/edit/RSVP flows use a shared `DeclarationFields` component, standings, the
+player list, the public pairings and the CSV show the Allegiance, and the score dialog hides master/title when `tracks_leaders` is false. The tracker opt-out
+(`supports_tracker`) landed with Phase 4b. Also fixed: registering a user-linked player returned a 500 (the notification left a column-restricted `tournament` on the
+returned player).
 
 ### Phase 6 — Variants, teams, custom rulesets
 - `variants` JSON of named optional rules (Close Objectives, Decisive Victory, Alternating Leaders, Bans …)

@@ -3737,6 +3737,8 @@ namespace App\Models{
  * @property int|null $meta_id
  * @property string $display_name
  * @property \App\Enums\FactionEnum|null $faction
+ * @property int|null $allegiance_id
+ * @property int|null $garrison_id
  * @property bool $is_ringer
  * @property bool $is_disqualified
  * @property \Illuminate\Support\Carbon|null $disqualified_at
@@ -3745,6 +3747,8 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
  * @property-read int|null $activities_count
+ * @property-read \App\Models\TOS\Allegiance|null $allegiance
+ * @property-read \App\Models\TOS\Garrison|null $garrison
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerOne
  * @property-read int|null $games_as_player_one_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerTwo

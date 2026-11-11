@@ -44,8 +44,15 @@ final class Ruleset
          * @var list<string> $scenarioFields
          */
         public readonly array $scenarioFields = ['strategy', 'deployment', 'scheme_pool'],
-        /** Whether every player needs a Malifaux-style faction before the event can start. */
-        public readonly bool $requiresFaction = true,
+        /**
+         * What a player declares at check-in: 'faction' (Malifaux faction), 'allegiance' (TOS Allegiance,
+         * optionally with a shared Garrison) or 'none'.
+         */
+        public readonly string $declaration = 'faction',
+        /** Whether every player must have made their declaration before the event can start. */
+        public readonly bool $requiresDeclaration = true,
+        /** Whether score entry records each side's leader (Malifaux master + title). */
+        public readonly bool $tracksLeaders = true,
         /** Whether pairings spawn Game Tracker games (the tracker only understands Malifaux). */
         public readonly bool $supportsTracker = true,
     ) {}
@@ -82,7 +89,9 @@ final class Ruleset
             'uses_encounter_type' => $this->usesEncounterType,
             'score_fields' => $this->scoreFields,
             'scenario_fields' => $this->scenarioFields,
-            'requires_faction' => $this->requiresFaction,
+            'declaration' => $this->declaration,
+            'requires_declaration' => $this->requiresDeclaration,
+            'tracks_leaders' => $this->tracksLeaders,
             'supports_tracker' => $this->supportsTracker,
         ];
     }

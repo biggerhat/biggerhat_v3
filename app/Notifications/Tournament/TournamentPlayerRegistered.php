@@ -24,13 +24,15 @@ class TournamentPlayerRegistered extends Notification
     /** @return array<string, mixed> */
     public function toArray(object $notifiable): array
     {
-        $this->player->loadMissing('tournament:id,uuid,name,creator_id', 'tournament.creator:id,name');
+        // Load on a copy: a column-restricted `tournament` left on the caller's player breaks
+        // serializing it afterwards (Tournament appends season_label, which needs `season`).
+        $player = $this->player->withoutRelations()->load('tournament:id,uuid,name,creator_id', 'tournament.creator:id,name');
 
         return [
             'type' => 'tournament_player_registered',
-            'message' => "You were registered for the tournament \"{$this->player->tournament->name}\".",
-            'actor' => ['id' => $this->player->tournament->creator_id, 'name' => $this->player->tournament->creator->name],
-            'action_url' => route('tournaments.view', $this->player->tournament),
+            'message' => "You were registered for the tournament \"{$player->tournament->name}\".",
+            'actor' => ['id' => $player->tournament->creator_id, 'name' => $player->tournament->creator->name],
+            'action_url' => route('tournaments.view', $player->tournament),
         ];
     }
 

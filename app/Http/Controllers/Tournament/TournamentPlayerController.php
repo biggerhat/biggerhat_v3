@@ -8,6 +8,7 @@ use App\Http\Controllers\Concerns\ResolvesMeta;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentPlayerStoreRequest;
 use App\Http\Requests\Tournaments\TournamentPlayerUpdateRequest;
+use App\Models\TOS\Garrison;
 use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use App\Models\User;
@@ -46,6 +47,10 @@ class TournamentPlayerController extends Controller
 
         $this->resolveMetaFromName($validated);
 
+        if ($error = $this->resolveGarrison($validated, $validated['user_id'] ?? null)) {
+            return $error;
+        }
+
         if (! empty($validated['is_ringer']) && $tournament->players()->where('is_ringer', true)->exists()) {
             return response()->json(['error' => 'Tournament already has a ringer'], 422);
         }
@@ -61,6 +66,8 @@ class TournamentPlayerController extends Controller
             'user_id' => $validated['user_id'] ?? null,
             'meta_id' => $validated['meta_id'] ?? null,
             'faction' => $validated['faction'] ?? null,
+            'allegiance_id' => $validated['allegiance_id'] ?? null,
+            'garrison_id' => $validated['garrison_id'] ?? null,
             'is_ringer' => $validated['is_ringer'] ?? false,
         ]);
 
@@ -80,6 +87,10 @@ class TournamentPlayerController extends Controller
         $validated = $request->validated();
 
         $this->resolveMetaFromName($validated);
+
+        if ($error = $this->resolveGarrison($validated, $validated['user_id'] ?? $player->user_id, $player->allegiance_id)) {
+            return $error;
+        }
 
         if (array_key_exists('user_id', $validated) && $validated['user_id'] !== null) {
             $conflict = $tournament->players()
@@ -128,5 +139,46 @@ class TournamentPlayerController extends Controller
         $this->broadcastUpdate($tournament, 'player_removed');
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Turn a submitted `garrison_share_code` into `garrison_id` (and the Garrison's Allegiance).
+     * A Garrison is linkable when it is shared publicly or owned by the linked user, and must
+     * belong to the declared Allegiance. Absent key = leave as is; empty value = unlink.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolveGarrison(array &$validated, ?int $userId, ?int $currentAllegianceId = null): ?JsonResponse
+    {
+        if (! array_key_exists('garrison_share_code', $validated)) {
+            return null;
+        }
+
+        $code = trim((string) $validated['garrison_share_code']);
+        unset($validated['garrison_share_code']);
+
+        if ($code === '') {
+            $validated['garrison_id'] = null;
+
+            return null;
+        }
+
+        $garrison = Garrison::where('share_code', $code)
+            ->where(fn ($q) => $q->where('is_public', true)->when($userId, fn ($qq) => $qq->orWhere('user_id', $userId)))
+            ->first();
+
+        if (! $garrison) {
+            return response()->json(['error' => 'That Garrison code was not found, or the Garrison is not shared publicly.'], 422);
+        }
+
+        $declared = $validated['allegiance_id'] ?? $currentAllegianceId;
+        if ($declared !== null && (int) $declared !== $garrison->allegiance_id) {
+            return response()->json(['error' => 'That Garrison belongs to a different Allegiance than the player declared.'], 422);
+        }
+
+        $validated['garrison_id'] = $garrison->id;
+        $validated['allegiance_id'] = $garrison->allegiance_id;
+
+        return null;
     }
 }

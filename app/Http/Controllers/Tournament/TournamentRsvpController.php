@@ -47,6 +47,7 @@ class TournamentRsvpController extends Controller
             'tournament_id' => $tournament->id,
             'user_id' => $userId,
             'faction' => $validated['faction'] ?? null,
+            'allegiance_id' => $validated['allegiance_id'] ?? null,
         ]);
 
         $this->broadcastUpdate($tournament, 'rsvp_added');

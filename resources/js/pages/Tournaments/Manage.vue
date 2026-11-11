@@ -82,6 +82,7 @@ interface TournamentPlayer {
     id: number;
     display_name: string;
     faction: string | null;
+    checked_in_at?: string | null;
     allegiance_id?: number | null;
     allegiance?: { id: number; slug: string; name: string } | null;
     garrison?: { name: string; share_code?: string | null; is_public: boolean } | null;
@@ -568,6 +569,27 @@ const removePlayer = async (playerId: number) => {
     }
 };
 
+// ─── Check-in ───
+const checkedInCount = computed(() => props.tournament.players.filter((p) => !p.is_disqualified && p.checked_in_at).length);
+const uncheckedPlayers = computed(() =>
+    props.tournament.players.filter((p) => !p.is_disqualified && p.dropped_after_round === null && !p.checked_in_at),
+);
+const canCheckIn = computed(() => ['registration', 'active'].includes(props.tournament.status));
+
+const toggleCheckIn = async (player: TournamentPlayer) => {
+    if (
+        await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', {
+            checked_in: !player.checked_in_at,
+        })
+    ) {
+        reloadPage();
+    }
+};
+
+const checkInAll = async () => {
+    if (await doAction(route('tournaments.players.check_in_all', props.tournament.uuid), 'POST')) reloadPage();
+};
+
 const toggleRinger = async (player: TournamentPlayer) => {
     if (
         await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', {
@@ -839,6 +861,16 @@ const pairBlockReason = (round: TournamentRound): string | null => {
 };
 
 const generatePairings = async (roundId: number) => {
+    // If check-in is being used and some active players haven't arrived, make the TO decide on purpose.
+    if (checkedInCount.value > 0 && uncheckedPlayers.value.length > 0) {
+        const names = uncheckedPlayers.value.map((p) => p.display_name).join(', ');
+        const proceed = await confirm({
+            title: `${uncheckedPlayers.value.length} player(s) haven't checked in`,
+            message: `${names} would still be paired. Check them in, drop them, or pair anyway?`,
+            confirmLabel: 'Pair anyway',
+        });
+        if (!proceed) return;
+    }
     submitting.value = true;
     const ok = await doAction(route('tournaments.rounds.pair', { tournament: props.tournament.uuid, round: roundId }), 'POST');
     submitting.value = false;
@@ -1888,6 +1920,12 @@ const titlesForMaster = (masterName: string | null) => {
                         <Users class="size-4" />
                         {{ activePlayers.length }} active players
                         <span v-if="tournament.players.length !== activePlayers.length">({{ tournament.players.length }} total)</span>
+                        <template v-if="canCheckIn && tournament.players.length">
+                            · {{ checkedInCount }} checked in
+                            <Button v-if="uncheckedPlayers.length" variant="outline" size="sm" class="ml-1 h-7 px-2 text-xs" @click="checkInAll">
+                                Check in all
+                            </Button>
+                        </template>
                     </div>
 
                     <!-- Player List -->
@@ -1921,6 +1959,12 @@ const titlesForMaster = (masterName: string | null) => {
                                         >Garrison</a
                                     >
                                     <span v-else-if="player.garrison" class="shrink-0 text-2xs opacity-70">{{ player.garrison.name }}</span>
+                                    <Check
+                                        v-if="player.checked_in_at"
+                                        class="size-3.5 shrink-0 text-emerald-300"
+                                        aria-label="Checked in"
+                                        title="Checked in"
+                                    />
                                     <Badge
                                         v-if="player.is_ringer"
                                         variant="outline"
@@ -1978,6 +2022,9 @@ const titlesForMaster = (masterName: string | null) => {
                                         <DropdownMenuItem v-if="tournament.status === 'active'" @select="toggleDrop(player)">
                                             <LogOut class="mr-2 size-4" />
                                             {{ player.dropped_after_round !== null ? 'Undo drop' : 'Drop from tournament' }}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem v-if="canCheckIn" @select="toggleCheckIn(player)">
+                                            <Check class="mr-2 size-4" /> {{ player.checked_in_at ? 'Undo check-in' : 'Check in' }}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem @select="toggleRinger(player)">
                                             <Star class="mr-2 size-4" /> {{ player.is_ringer ? 'Remove ringer status' : 'Make ringer' }}

@@ -172,6 +172,21 @@ const canRsvp = computed(
         !hasRsvped.value &&
         !isRegistered.value,
 );
+const myPlayerRecord = computed(
+    () =>
+        props.tournament.players.find((p) => p.user?.id === currentUserId.value) as
+            | ({ checked_in_at?: string | null } & TournamentPlayer)
+            | undefined,
+);
+const checkingIn = ref(false);
+const toggleCheckIn = () => {
+    checkingIn.value = true;
+    const opts = { preserveScroll: true, onFinish: () => (checkingIn.value = false) };
+    if (myPlayerRecord.value?.checked_in_at) router.delete(route('tournaments.check_in.cancel', props.tournament.uuid), opts);
+    else router.post(route('tournaments.check_in', props.tournament.uuid), {}, opts);
+};
+const canCheckIn = computed(() => ['registration', 'active'].includes(props.tournament.status));
+
 const myPlayerId = computed(() => props.tournament.players.find((p) => p.user?.id === currentUserId.value)?.id ?? null);
 
 // The user's pairing in the newest round that isn't finished yet — the "where do I sit, who do I play" answer.
@@ -465,6 +480,16 @@ const openCard = (title: string, image?: string | null, description?: string | n
             >
                 <CardContent class="p-4 text-sm">
                     <div class="font-semibold text-green-700 dark:text-green-400">You're registered for this tournament.</div>
+                    <div v-if="canCheckIn" class="mt-2 flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            :variant="myPlayerRecord?.checked_in_at ? 'outline' : 'default'"
+                            :disabled="checkingIn"
+                            @click="toggleCheckIn"
+                        >
+                            {{ myPlayerRecord?.checked_in_at ? 'Checked in ✓ (undo)' : "I've arrived — check in" }}
+                        </Button>
+                    </div>
                     <p class="mt-0.5 text-muted-foreground">
                         {{
                             tournament.status === 'registration'

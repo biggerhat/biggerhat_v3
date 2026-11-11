@@ -111,11 +111,31 @@ class TournamentPlayerController extends Controller
             $validated['disqualified_at'] = now();
         }
 
+        if (array_key_exists('checked_in', $validated)) {
+            $validated['checked_in_at'] = $validated['checked_in'] ? ($player->checked_in_at ?? now()) : null;
+            unset($validated['checked_in']);
+        }
+
         $player->update($validated);
 
         $this->broadcastUpdate($tournament, 'player_updated');
 
         return response()->json(['success' => true]);
+    }
+
+    /** Check in every player who hasn't arrived yet (disqualified players are skipped). */
+    public function checkInAll(Tournament $tournament): JsonResponse
+    {
+        $this->authorize('manage', $tournament);
+
+        $count = $tournament->players()
+            ->whereNull('checked_in_at')
+            ->where('is_disqualified', false)
+            ->update(['checked_in_at' => now()]);
+
+        $this->broadcastUpdate($tournament, 'players_checked_in');
+
+        return response()->json(['success' => true, 'checked_in' => $count]);
     }
 
     public function destroy(Tournament $tournament, TournamentPlayer $player): JsonResponse

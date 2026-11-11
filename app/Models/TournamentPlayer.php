@@ -27,6 +27,7 @@ class TournamentPlayer extends Model
             'is_ringer' => 'boolean',
             'is_disqualified' => 'boolean',
             'disqualified_at' => 'datetime',
+            'checked_in_at' => 'datetime',
         ];
     }
 

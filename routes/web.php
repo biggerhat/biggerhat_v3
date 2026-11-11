@@ -42,6 +42,7 @@ use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SupportersController;
+use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
@@ -456,12 +457,17 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::post('/{tournament}/rsvp', [TournamentRsvpController::class, 'store'])->name('rsvp');
     Route::delete('/{tournament}/rsvp', [TournamentRsvpController::class, 'destroy'])->name('rsvp.cancel');
 
+    // Check-in (players check themselves in; the TO does it from Manage)
+    Route::post('/{tournament}/check-in', [TournamentCheckInController::class, 'store'])->name('check_in');
+    Route::delete('/{tournament}/check-in', [TournamentCheckInController::class, 'destroy'])->name('check_in.cancel');
+
     // User search (used by Add Organizer + Link Player dialogs)
     Route::get('/{tournament}/users/search', TournamentUserSearchController::class)->name('users.search');
 
     // Players
     Route::post('/{tournament}/players', [TournamentPlayerController::class, 'store'])->name('players.add');
     Route::put('/{tournament}/players/{player}', [TournamentPlayerController::class, 'update'])->name('players.update');
+    Route::post('/{tournament}/players/check-in-all', [TournamentPlayerController::class, 'checkInAll'])->name('players.check_in_all');
     Route::delete('/{tournament}/players/{player}', [TournamentPlayerController::class, 'destroy'])->name('players.remove');
 
     // Rounds

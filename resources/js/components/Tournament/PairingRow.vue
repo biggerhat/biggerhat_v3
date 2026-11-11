@@ -2,6 +2,7 @@
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
+import { isScoredResult } from '@/types/tournament';
 import { computed } from 'vue';
 
 /**
@@ -48,7 +49,7 @@ const props = defineProps<{
 const byId = computed(() => new Map(props.players.map((p) => [p.id, p])));
 
 // A result is official once it is scored (self-reports that are still pending don't count).
-const played = computed(() => ['completed', 'agreed', 'forfeited'].includes(props.game.result));
+const played = computed(() => isScoredResult(props.game.result));
 
 const sides = computed(() =>
     (['one', 'two'] as const).map((key) => {

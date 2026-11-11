@@ -1,4 +1,5 @@
-import { computed, type ComputedRef, type Ref } from 'vue';
+import { isScoredResult, type TournamentRound } from '@/types/tournament';
+import { computed, type ComputedRef } from 'vue';
 
 /**
  * One obvious "what do I do now" for the tournament organizer, derived from the tournament and its latest round,
@@ -22,13 +23,6 @@ export const STEP_STAGES: { key: StepStage; label: string }[] = [
     { key: 'results', label: 'Results' },
 ];
 
-interface StepRound {
-    id: number;
-    round_number: number;
-    status: string;
-    games: { is_bye: boolean; result: string | null }[];
-}
-
 interface StepTournament {
     status: string;
     team_size?: number | null;
@@ -39,20 +33,22 @@ interface StepTournament {
 /** Everything the guidance reads from or triggers on the Manage page. */
 export interface NextStepContext {
     tournament: StepTournament;
-    latestRound: ComputedRef<StepRound | null>;
+    latestRound: ComputedRef<TournamentRound | null>;
     activePlayerCount: ComputedRef<number>;
     canFinalize: ComputedRef<boolean>;
-    submitting: Ref<boolean>;
+    submitting: { readonly value: boolean };
     transitionLabel: (status: string) => string | undefined;
-    pairBlockReason: (round: any) => string | null;
-    canEndRound: (round: any) => boolean;
+    pairBlockReason: (round: TournamentRound) => string | null;
+    scenarioBlockReason: (round: TournamentRound) => string | null;
+    startBlockReason: (round: TournamentRound) => string | null;
+    canEndRound: (round: TournamentRound) => boolean;
     openStatusDialog: () => void;
     openFinalizeDialog: () => void;
     createRound: () => void;
     generatePairings: (roundId: number) => void;
     startRound: (roundId: number) => void;
     endRound: (roundId: number) => void;
-    editScenario: (round: any) => void;
+    editScenario: (round: TournamentRound) => void;
     showRounds: () => void;
 }
 
@@ -115,6 +111,27 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
             };
         }
         if (round.status === 'setup') {
+            // The server refuses to start a round whose scenario is incomplete, so say so instead of offering Start.
+            const scenarioReason = c.scenarioBlockReason(round);
+            if (scenarioReason) {
+                return {
+                    stage: 'pairing',
+                    title: `Set up Round ${round.round_number}`,
+                    detail: scenarioReason.replace('before pairing', 'before starting'),
+                    actionLabel: 'Set scenario',
+                    action: () => c.editScenario(round),
+                };
+            }
+            const startReason = c.startBlockReason(round);
+            if (startReason) {
+                return {
+                    stage: 'pairing',
+                    title: `Finish pairing Round ${round.round_number}`,
+                    detail: startReason,
+                    actionLabel: 'Fix pairings',
+                    action: c.showRounds,
+                };
+            }
             return {
                 stage: 'pairing',
                 title: `Round ${round.round_number} is paired`,
@@ -126,7 +143,7 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
         }
         if (round.status === 'in_progress') {
             const total = round.games.filter((g) => !g.is_bye).length;
-            const done = round.games.filter((g) => !g.is_bye && ['completed', 'agreed', 'forfeited'].includes(g.result ?? '')).length;
+            const done = round.games.filter((g) => !g.is_bye && isScoredResult(g.result)).length;
             if (c.canEndRound(round)) {
                 return {
                     stage: 'play',

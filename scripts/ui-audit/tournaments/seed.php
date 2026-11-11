@@ -50,6 +50,9 @@ TournamentGame::factory()->for($r4, 'round')->create(['player_one_id' => $tA->id
 // --- T5 (created by Carol so the organizer stays under the 5-unfinished-events cap): active event, round 1 in setup with two pairings and one unpaired player (for the swap flows)
 $t5 = Tournament::factory()->active()->create(['name' => 'Swap Cup', 'creator_id' => $carol->id, 'planned_rounds' => 2]);
 $t5->organizers()->attach($org->id);
+// scenario pickers list only the event's own season, so give it a few strategies and schemes to pick from
+Strategy::factory()->count(2)->create(['season' => $t5->season->value]);
+Scheme::factory()->count(4)->create(['season' => $t5->season->value]);
 $sp = [];
 foreach (['Ann', 'Ben', 'Cat', 'Dan', 'Eve'] as $i => $n) {
     $sp[$n] = TournamentPlayer::factory()->for($t5)->create(['display_name' => $n, 'faction' => ['arcanists', 'guild', 'bayou', 'neverborn', 'outcasts'][$i]]);

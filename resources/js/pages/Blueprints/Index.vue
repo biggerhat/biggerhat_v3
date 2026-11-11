@@ -82,21 +82,11 @@ const formatVersion = (version: string) => {
                 <div class="grid gap-4">
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Character</label>
-                        <SearchableSelect
-                            v-model="filterParams.character"
-                            placeholder="Any Character"
-                            :options="props.characters"
-                           
-                        />
+                        <SearchableSelect v-model="filterParams.character" placeholder="Any Character" :options="props.characters" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Sculpt Version</label>
-                        <ClearableSelect
-                            v-model="filterParams.sculpt_version"
-                            placeholder="Any Version"
-                            :options="props.sculpt_versions"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.sculpt_version" placeholder="Any Version" :options="props.sculpt_versions" />
                     </div>
                 </div>
             </template>

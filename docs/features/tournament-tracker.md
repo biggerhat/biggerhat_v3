@@ -78,10 +78,21 @@ TOS rounds pick an Operation + Deployment from `tos_operations` / `tos_deploymen
 - **Agreed results**: `result = agreed`, scored like a played game.
 
 ## Manage page structure
-`pages/Tournaments/Manage.vue` is still the orchestrator, but two big self-contained pieces now live in `components/Tournament/`:
-`ScoreEntryDialog.vue` (all score-entry form state; the page only says which game is open) and `TournamentSettingsForm.vue` (mounted fresh per edit).
+`pages/Tournaments/Manage.vue` (~880 lines) is the shell: header, next-step card, announcement dialog, the standings / RSVP / settings tabs, and the score and
+finalize dialogs. Its tabs live in `components/Tournament/`: `ManagePlayersTab.vue`, `ManageRoundsTab.vue` (round lifecycle, scenario editor, manual pairing,
+click-to-swap pairing fixes, forfeits, the card drawer), `ScoreEntryDialog.vue` and `TournamentSettingsForm.vue`. A tab component's root is its own `TabsContent`, so
+its script stays mounted when another tab is showing; the page reaches in through `defineExpose` (the next-step guide calls `createRound`, `generatePairings`,
+`startRound`, `endRound`, `editScenario`, and the `*BlockReason` helpers on `roundsTab`). `composables/useTournamentNextStep.ts` decides what the guide says.
+Shared TS types (players, games, rounds, `isScoredResult`) live in `types/tournament.ts`.
 Template-level identifier mistakes aren't caught by the build — there is no vue-tsc here — so after moving code around, compile the templates with
-`@vue/compiler-sfc` and look for `_ctx.<name>` accesses that aren't bindings.
+`@vue/compiler-sfc` and look for `_ctx.<name>` accesses that aren't bindings, and run a TypeScript "Cannot find name" (TS2304) pass over the `<script setup>` block.
+A row menu (`DropdownMenu`) that opens a dialog must be `:modal="false"`, or closing the dialog leaves `body { pointer-events: none }` and the page frozen.
+
+## Page payloads
+`App\Tournaments\Payloads\TournamentPagePayloads` builds the Inertia props: `forView()` (public; redacts report notes, crew build ids, tracker settings and meta for
+people who aren't in the game or organizing), `forManage()` (organizer; heavy reference data deferred), plus the ruleset / allegiance descriptors.
+`TournamentController` authorizes and renders. Pairing fixes: `TournamentGameController::swapPlayers` / `swapTables` (round setup only, round-locked).
+Announcements: `TournamentAnnouncementController` (`tournaments.announcement`). The browser pass for all of this is `scripts/ui-audit/tournaments/run.sh` (see [ui-audit.md](../ui-audit.md)).
 
 ## Team events
 `tournaments.team_size` > 1 makes each competitor a team: a `tournament_players` row (named by `display_name`) plus `tournament_player_members` for the people on it.

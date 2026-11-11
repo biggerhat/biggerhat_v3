@@ -222,7 +222,7 @@ const canCheckIn = computed(() => ['registration', 'active'].includes(props.tour
 const rsvpPlayerFaction = ref<string | null>(null);
 const rsvpPlayerAllegiance = ref<string | null>(null);
 const rsvpPlayerDialogOpen = ref(false);
-const rsvpPlayerTarget = ref<any>(null);
+const rsvpPlayerTarget = ref<Rsvp | null>(null);
 const rsvpPlayerError = ref<string | null>(null);
 
 const openRsvpPlayerDialog = (rsvp: Rsvp) => {
@@ -500,8 +500,8 @@ const toggleRinger = async (player: TournamentPlayer) => {
 
 const toggleDrop = async (player: TournamentPlayer) => {
     // Use the highest completed round number, not total rounds created
-    const completedRounds = props.tournament.rounds.filter((r: any) => r.status === 'completed');
-    const lastCompletedRound = completedRounds.length > 0 ? Math.max(...completedRounds.map((r: any) => r.round_number)) : 0;
+    const completedRounds = props.tournament.rounds.filter((r) => r.status === 'completed');
+    const lastCompletedRound = completedRounds.length > 0 ? Math.max(...completedRounds.map((r) => r.round_number)) : 0;
     if (
         await doAction(route('tournaments.players.update', { tournament: props.tournament.uuid, player: player.id }), 'PUT', {
             dropped_after_round: player.dropped_after_round !== null ? null : lastCompletedRound,
@@ -800,7 +800,7 @@ defineExpose({ openRsvpPlayerDialog });
                         <Pencil class="size-3.5" /> <span class="hidden sm:inline">Edit</span>
                         <span class="sr-only sm:hidden">Edit {{ player.display_name }}</span>
                     </Button>
-                    <DropdownMenu>
+                    <DropdownMenu :modal="false">
                         <DropdownMenuTrigger as-child>
                             <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${player.display_name}`">
                                 <MoreHorizontal class="size-4" />

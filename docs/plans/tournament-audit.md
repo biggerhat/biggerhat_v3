@@ -34,6 +34,13 @@ a roster instead of a table of zeros before round 1, a scan-to-follow QR), U13 (
 F2 (organizer announcements: `tournaments.announcement` column pair, `PUT /tournaments/{t}/announcement`, banner on View and Display, live-region), F17 ("Live now" strip of in-progress tracker games on View)
 and U16 for announcements (polite live region) are done. **Deploy: run the new migration.** Not browser-tested: the Live-now strip (the seed has no in-progress tracker game).
 
+**Status of the structure pass (branch `tournament-structure-nov11`):** Q1 (the Rounds tab is `ManageRoundsTab.vue`; `Manage.vue` 1,933 -> ~880 lines; payload builders moved out of
+`TournamentController` into `TournamentPagePayloads`, 783 -> ~365 lines), Q2 (resolved by that move: view and manage never shared round-building), Q3 (the tournament pages' `any`s replaced with
+the shared types; what remains is the websocket plumbing) and Q6 (`isScoredResult` / `TournamentGameResult`) are done. Q5 (standings caching) was measured and deliberately skipped: the page loads every player,
+round and game anyway to build its payload, so a cache keyed on their state saves almost nothing while adding an invalidation risk. Found and fixed on the way: a row menu that opened a dialog left
+the page unclickable (`pointer-events: none` on `body`) after the dialog closed; the next-step guide offered "Start Round" while the server would refuse (scenario incomplete or a player unpaired) and
+now says what's missing; the "games still need a result" count included byes.
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

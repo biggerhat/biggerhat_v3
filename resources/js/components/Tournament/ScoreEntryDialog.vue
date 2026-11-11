@@ -138,7 +138,7 @@ const leaderReuseWarning = (playerId: number, master: string | null, title: stri
 const editingRoundNumber = computed(() => {
     if (!editingGame.value) return null;
     for (const r of props.tournament.rounds) {
-        if (r.games.some((g: any) => g.id === editingGame.value!.id)) return r.round_number;
+        if (r.games.some((g) => g.id === editingGame.value!.id)) return r.round_number;
     }
     return null;
 });

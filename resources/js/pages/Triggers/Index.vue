@@ -117,30 +117,15 @@ const uniqueCharactersForTrigger = (trigger: any) => {
                 <div class="grid gap-4">
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Name</label>
-                        <ClearableSelect
-                            v-model="filterParams.name"
-                            placeholder="Select Trigger"
-                            :options="props.trigger_names"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.name" placeholder="Select Trigger" :options="props.trigger_names" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Suit</label>
-                        <ClearableSelect
-                            v-model="filterParams.suits"
-                            placeholder="Any Suit"
-                            :options="props.suits"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.suits" placeholder="Any Suit" :options="props.suits" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Costs Soulstone</label>
-                        <ClearableSelect
-                            v-model="filterParams.costs_stone"
-                            placeholder="Any"
-                            :options="booleanOptions"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.costs_stone" placeholder="Any" :options="booleanOptions" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Description</label>

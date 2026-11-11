@@ -346,12 +346,7 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-2">
                                             <label class="text-sm font-medium">Special Rule</label>
-                                            <ClearableSelect
-                                                v-model="filterParams.special_rule"
-                                                placeholder="Any Rule"
-                                                :options="special_rules"
-                                               
-                                            />
+                                            <ClearableSelect v-model="filterParams.special_rule" placeholder="Any Rule" :options="special_rules" />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>
@@ -365,21 +360,11 @@ const ruleChips = computed(() => props.statistics.by_rule);
                                     <CollapsibleContent class="space-y-3 px-1 pt-2">
                                         <div class="space-y-2">
                                             <label class="text-sm font-medium">Sort By</label>
-                                            <ClearableSelect
-                                                v-model="filterParams.sort"
-                                                placeholder="Sort By"
-                                                :options="sort_options"
-                                               
-                                            />
+                                            <ClearableSelect v-model="filterParams.sort" placeholder="Sort By" :options="sort_options" />
                                         </div>
                                         <div class="space-y-2">
                                             <label class="text-sm font-medium">Direction</label>
-                                            <ClearableSelect
-                                                v-model="filterParams.sort_type"
-                                                placeholder="Direction"
-                                                :options="sort_types"
-                                               
-                                            />
+                                            <ClearableSelect v-model="filterParams.sort_type" placeholder="Direction" :options="sort_types" />
                                         </div>
                                     </CollapsibleContent>
                                 </Collapsible>

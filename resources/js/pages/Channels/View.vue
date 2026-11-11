@@ -134,48 +134,23 @@ const formatDate = (dateStr: string) => formatDateOnly(dateStr, { year: 'numeric
                 <div class="grid gap-4">
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Platform</label>
-                        <ClearableSelect
-                            v-model="filterParams.transmission_type"
-                            placeholder="All Platforms"
-                            :options="transmission_types"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.transmission_type" placeholder="All Platforms" :options="transmission_types" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Content Type</label>
-                        <ClearableSelect
-                            v-model="filterParams.content_type"
-                            placeholder="All Content"
-                            :options="content_types"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.content_type" placeholder="All Content" :options="content_types" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Faction</label>
-                        <ClearableSelect
-                            v-model="filterParams.faction"
-                            placeholder="All Factions"
-                            :options="factions"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.faction" placeholder="All Factions" :options="factions" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Keyword</label>
-                        <ClearableSelect
-                            v-model="filterParams.keyword"
-                            placeholder="All Keywords"
-                            :options="keywords"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.keyword" placeholder="All Keywords" :options="keywords" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Character</label>
-                        <ClearableSelect
-                            v-model="filterParams.character"
-                            placeholder="All Characters"
-                            :options="characters"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.character" placeholder="All Characters" :options="characters" />
                     </div>
                 </div>
             </template>

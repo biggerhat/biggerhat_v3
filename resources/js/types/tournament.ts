@@ -10,10 +10,20 @@ export interface TournamentMeta {
     slug?: string;
 }
 
+/** How a game's result is recorded. Only the first three count toward standings. */
+export type TournamentGameResult = 'pending' | 'completed' | 'agreed' | 'forfeited';
+const SCORED_RESULTS: readonly string[] = ['completed', 'agreed', 'forfeited'];
+/** Whether a result is official (scored, agreed or forfeited) rather than still waiting. */
+export const isScoredResult = (result: string | null | undefined): boolean => SCORED_RESULTS.includes(result ?? '');
+
 export interface TournamentPlayer {
     id: number;
     display_name: string;
     faction: string | null;
+    checked_in_at?: string | null;
+    allegiance_id?: number | null;
+    allegiance?: { id: number; slug: string; name: string } | null;
+    garrison?: { name: string; share_code?: string | null; is_public: boolean } | null;
     user: { id: number; name: string; meta?: TournamentMeta | null } | null;
     meta?: TournamentMeta | null;
     is_ringer: boolean;
@@ -25,8 +35,8 @@ export interface TournamentGame {
     id: number;
     player_one_id: number;
     player_two_id: number | null;
-    player_one?: TournamentPlayer;
-    player_two?: TournamentPlayer | null;
+    player_one: TournamentPlayer;
+    player_two: TournamentPlayer | null;
     player_one_faction: string | null;
     player_one_master: string | null;
     player_one_title: string | null;
@@ -35,18 +45,23 @@ export interface TournamentGame {
     player_two_master: string | null;
     player_two_title: string | null;
     player_two_vp: number | null;
+    /** A player-submitted result that isn't official yet (self-reporting). */
+    report_status?: 'pending' | 'disputed' | null;
+    reported_by_player_id?: number | null;
+    reported_score?: { player_one: Record<string, number>; player_two: Record<string, number>; agreed: boolean } | null;
+    report_note?: string | null;
     /** Per-side score components keyed by the ruleset's score-field keys. */
     score_breakdown: { player_one?: Record<string, number>; player_two?: Record<string, number> } | null;
     is_bye: boolean;
     is_forfeit: boolean;
     forfeit_player_id: number | null;
-    result: 'pending' | 'completed' | 'agreed' | 'forfeited';
+    result: TournamentGameResult;
     table_number: number | null;
     is_manual?: boolean;
     tracker_game?: {
         id: number;
         uuid: string;
-        status: 'setup' | 'faction_select' | 'master_select' | 'crew_select' | 'scheme_select' | 'in_progress' | 'completed' | 'abandoned';
+        status: string;
         is_solo: boolean;
         current_turn: number | null;
         max_turns: number | null;
@@ -55,25 +70,37 @@ export interface TournamentGame {
     } | null;
 }
 
-export interface Deployment {
-    value: string;
-    label: string;
-    description: string;
-    image_url: string | null;
-}
-
 export interface TournamentRound {
     id: number;
     round_number: number;
-    /**
-     * Raw enum value on Manage; hydrated object on the public View endpoint.
-     * Consumers should narrow at point-of-use.
-     */
-    deployment: string | Deployment | null;
+    /** The raw enum value on the Manage page (the public View payload hydrates it into an object). */
+    deployment: string | null;
     strategy: { id: number; name: string } | null;
     scheme_pool: number[] | null;
+    /** Ruleset-defined scenario ids (TOS: operation_id + deployment_id). */
+    scenario?: { operation_id?: number; deployment_id?: number } | null;
     status: 'setup' | 'in_progress' | 'completed';
+    started_at: string | null;
     games: TournamentGame[];
+}
+
+/** The reference lists the organizer's scenario pickers read (strategies/schemes arrive deferred, hence null). */
+export interface ScenarioOptions {
+    strategies: { id: number; name: string; slug: string; image_url: string | null }[] | null;
+    schemes:
+        | {
+              id: number;
+              name: string;
+              slug: string;
+              image_url: string | null;
+              prerequisite: string | null;
+              reveal: string | null;
+              scoring: string | null;
+          }[]
+        | null;
+    deployments: { value: string; label: string; description: string | null; image_url: string | null }[];
+    tosOperations: TosOperationInfo[];
+    tosDeployments: TosDeploymentInfo[];
 }
 
 export interface StandingEntry {

@@ -139,30 +139,15 @@ const formatPrice = (cents: number | null) => {
                 <div class="grid gap-4">
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Character</label>
-                        <SearchableSelect
-                            v-model="filterParams.character"
-                            placeholder="Any Character"
-                            :options="props.characters"
-                           
-                        />
+                        <SearchableSelect v-model="filterParams.character" placeholder="Any Character" :options="props.characters" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Category</label>
-                        <ClearableSelect
-                            v-model="filterParams.category"
-                            placeholder="Any Category"
-                            :options="props.categories"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.category" placeholder="Any Category" :options="props.categories" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Edition</label>
-                        <ClearableSelect
-                            v-model="filterParams.sculpt_version"
-                            placeholder="Any Edition"
-                            :options="props.sculpt_versions"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.sculpt_version" placeholder="Any Edition" :options="props.sculpt_versions" />
                     </div>
                 </div>
             </template>

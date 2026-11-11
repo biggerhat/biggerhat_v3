@@ -17,6 +17,11 @@ Severity: **P1** wrong behaviour / data exposure, **P2** clear UX or maintainabi
 | C5 | P3 | Header reads "Gaining Grounds 0" and "50ss Traditional" — `season_label` for a ruleset that `uses_season` shows the raw season name with an unexplained number; "50ss" is unexplained jargon (50 soulstones). Check what `PoolSeasonEnum::label()` returns for current data; spell out "50 Soulstones". (to verify with real season data — seed data may be the cause) | `Tournament::getSeasonLabelAttribute`, headers on View/Manage |
 | C6 | P3 | No tests assert the public payload's *shape* (only that it renders), which is how C2 slipped in. | `PublicViewPageTest` |
 
+**Status (branch `tournament-audit-fixes-nov11`):** C1, C2, C3, C4 and C6 are fixed with tests (pairing now orders by standings `rank`;
+public payload redacts report details / crew build ids / tracker settings / player meta; score save re-checks the round under its lock;
+`useTournamentChannel` exposes `connected`, polls every 30 s while down, and Display shows Live / Reconnecting). C5 was checked: "Gaining Grounds 0" is a real
+season name (`PoolSeasonEnum::GainingGrounds0`), so only the "50ss" jargon remains.
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

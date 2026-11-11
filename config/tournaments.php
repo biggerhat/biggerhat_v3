@@ -32,6 +32,8 @@ return [
             'game_size' => ['label' => 'Encounter Size (SS)', 'unit' => 'ss', 'default' => 50, 'min' => 20, 'max' => 100, 'step' => 5],
             'uses_season' => true,
             'uses_encounter_type' => true,
+            // Terrain matters in Malifaux: the TO can name each table, describe its terrain and attach a photo/layout.
+            'supports_table_details' => true,
             // A Malifaux score is strategy VP (max 5) + scheme VP (max 6) = up to 11.
             'score_fields' => [
                 ['key' => 'strategy', 'label' => 'Strategy VP', 'min' => 0, 'max' => 5],

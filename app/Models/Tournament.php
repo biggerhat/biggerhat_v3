@@ -49,6 +49,7 @@ class Tournament extends Model
             'announced_at' => 'datetime',
             'registration_closes_at' => 'datetime',
             'require_crew_lists' => 'boolean',
+            'details' => 'array',
         ];
     }
 
@@ -179,6 +180,12 @@ class Tournament extends Model
     public function organizers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'tournament_organizers');
+    }
+
+    /** @return HasMany<TournamentTable, $this> */
+    public function tables(): HasMany
+    {
+        return $this->hasMany(TournamentTable::class)->orderBy('number');
     }
 
     public function rsvps(): HasMany

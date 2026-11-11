@@ -70,6 +70,8 @@ final class Ruleset
         public readonly array $timeRules = ['last_turn_minutes' => 15, 'last_turn' => null, 'time_called' => null],
         /** Whether events under this ruleset can be run as team events (teams of 2–4 playing together). */
         public readonly bool $supportsTeams = true,
+        /** Whether the TO can describe each table (name, terrain notes, a photo or layout). */
+        public readonly bool $supportsTableDetails = false,
     ) {}
 
     /** @return array<string, array{key: string, label: string, description: string, param: array{label: string, min: int, max: int, default: int}|null}> */
@@ -117,6 +119,7 @@ final class Ruleset
             'variants' => $this->variants,
             'time_rules' => $this->timeRules,
             'supports_teams' => $this->supportsTeams,
+            'supports_table_details' => $this->supportsTableDetails,
         ];
     }
 

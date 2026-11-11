@@ -7,6 +7,7 @@ import {
     type TournamentRuleset,
     type MasterOption,
     type StandingEntry,
+    type TableDetails,
     type TournamentGame,
     type TournamentPlayer,
     type TournamentRound,
@@ -15,6 +16,7 @@ import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import ManageDetailsTab from '@/components/Tournament/ManageDetailsTab.vue';
 import ManagePlayersTab from '@/components/Tournament/ManagePlayersTab.vue';
 import ManageRoundsTab from '@/components/Tournament/ManageRoundsTab.vue';
 import NextStepCard from '@/components/Tournament/NextStepCard.vue';
@@ -66,6 +68,7 @@ interface TournamentData {
     uuid: string;
     name: string;
     description: string | null;
+    details?: Record<string, unknown> | null;
     status: string;
     encounter_size: number;
     encounter_type: string;
@@ -97,6 +100,8 @@ interface TournamentData {
 const props = defineProps<{
     tournament: TournamentData;
     ruleset: TournamentRuleset;
+    /** The organizer's per-table notes, keyed by table number. */
+    tables: TableDetails;
     standings: StandingEntry[];
     seasons: { value: string; label: string }[];
     factions: Record<string, FactionInfo>;
@@ -132,7 +137,7 @@ const { statusColor, statusLabel } = useTournamentStatus();
 
 // Restore tab from URL hash. Only allow tabs that are actually rendered for this tournament.
 const visibleTabs = computed(() => {
-    const t = ['standings', 'players', 'rounds', 'settings'];
+    const t = ['standings', 'players', 'rounds', 'details', 'settings'];
     if (props.tournament.rsvps?.length || props.tournament.status === 'draft') {
         t.push('rsvps');
     }
@@ -479,6 +484,7 @@ const isEditable = computed(() => !isLocked.value);
                             tournament.rounds.length
                         }}</Badge>
                     </TabsTrigger>
+                    <TabsTrigger value="details" class="text-xs sm:text-sm">Details</TabsTrigger>
                     <TabsTrigger value="settings" class="text-xs sm:text-sm">Settings</TabsTrigger>
                 </TabsList>
 
@@ -599,6 +605,9 @@ const isEditable = computed(() => !isLocked.value);
                     @edit-score="openScoreEdit"
                     @finalize="confirmFinalizeDialog = true"
                 />
+
+                <!-- ═══ DETAILS ═══ -->
+                <ManageDetailsTab :tournament="tournament" :ruleset="ruleset" :tables="tables" @saved="reloadProps(['tournament', 'tables'])" />
 
                 <!-- ═══ SETTINGS ═══ -->
                 <TabsContent value="settings">

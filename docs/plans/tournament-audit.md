@@ -132,3 +132,7 @@ Ranked by value for a real event, with effort.
 
 F5 (partial): auto-paired games avoid tables a player already used (`assignTables`); named tables and terrain sets are not built. F16 (partial): waitlisted RSVPs are notified when
 they move under the player limit (`WaitlistPromotions`); "you're on table N" was already in `TournamentRoundPaired`. Clock warnings ("10 minutes left") need a scheduled job and are not built.
+
+Same branch, requested feature (not from the audit): a rich-text event description (`tournaments.details`, sanitised through `RichText`) and per-table name / terrain notes / photo for Malifaux (`tournament_tables`,
+ruleset flag `supports_table_details`). Browser flow 17 covers writing details, describing a table with a photo upload, and what players and spectators see. **Deploy: run the new migration; `php artisan storage:link` must exist for images.**
+The harness fix that came with it: `run.sh` now `exec`s PHP (the old `trap` left a stale server holding the port) and serves `/storage` through `router.php`; `FLOWS="flows17.cjs"` runs a subset.

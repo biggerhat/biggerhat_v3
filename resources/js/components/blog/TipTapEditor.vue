@@ -16,10 +16,17 @@ import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/vue-3';
 import { onBeforeUnmount, ref, watch } from 'vue';
 
-const props = defineProps<{
-    modelValue?: Record<string, unknown> | null;
-    uploadImageRoute?: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        modelValue?: Record<string, unknown> | null;
+        uploadImageRoute?: string;
+        placeholder?: string;
+        ariaLabel?: string;
+        /** Offer the entity link/embed buttons (blog posts). Off for tournaments, whose documents cannot hold them. */
+        entities?: boolean;
+    }>(),
+    { placeholder: 'Start writing your blog post...', ariaLabel: 'Post content', entities: true },
+);
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: Record<string, unknown>): void;
@@ -37,7 +44,7 @@ const editor = useEditor({
         Highlight,
         Image,
         Link.configure({ openOnClick: false }),
-        Placeholder.configure({ placeholder: 'Start writing your blog post...' }),
+        Placeholder.configure({ placeholder: props.placeholder }),
         Table.configure({ resizable: false }),
         TableRow,
         TableHeader,
@@ -47,7 +54,7 @@ const editor = useEditor({
     ],
     content: props.modelValue ?? { type: 'doc', content: [] },
     // ProseMirror renders a bare role="textbox" div; give it a name (axe: aria-input-field-name).
-    editorProps: { attributes: { 'aria-label': 'Post content', 'aria-multiline': 'true' } },
+    editorProps: { attributes: { 'aria-label': props.ariaLabel, 'aria-multiline': 'true' } },
     onUpdate({ editor }) {
         emit('update:modelValue', editor.getJSON());
     },
@@ -115,6 +122,7 @@ onBeforeUnmount(() => {
     <div v-if="editor" class="rounded-md border">
         <EditorToolbar
             :editor="editor"
+            :entities="entities"
             @open-entity-search="entitySearchOpen = true"
             @open-entity-embed-search="entityEmbedSearchOpen = true"
             @upload-image="handleImageUpload"

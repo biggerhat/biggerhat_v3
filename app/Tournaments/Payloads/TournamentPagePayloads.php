@@ -17,6 +17,7 @@ use App\Models\TOS\Deployment;
 use App\Models\TOS\Operation;
 use App\Models\Tournament;
 use App\Models\TournamentRound;
+use App\Models\TournamentTable;
 use App\Services\TournamentStandingsService;
 use App\Tournaments\CrewListCheck;
 use Inertia\Inertia;
@@ -185,6 +186,7 @@ class TournamentPagePayloads
         return [
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
+            'tables' => $this->tableDetails($tournament),
             'allegiances' => $this->allegianceOptions($tournament),
             'rounds' => $roundsData,
             'standings' => $standings,
@@ -192,6 +194,25 @@ class TournamentPagePayloads
             'scheme_stats' => $schemeStats,
             'crew_lists' => $crewLists,
         ];
+    }
+
+    /**
+     * The organizer's table notes, keyed by table number (empty for rulesets without table details).
+     *
+     * @return array<int, array{number: int, name: string|null, description: string|null, image_url: string|null}>
+     */
+    private function tableDetails(Tournament $tournament): array
+    {
+        if (! $tournament->rulesetDefinition()->supportsTableDetails) {
+            return [];
+        }
+
+        return $tournament->tables()->get()->mapWithKeys(fn (TournamentTable $t) => [$t->number => [
+            'number' => $t->number,
+            'name' => $t->name,
+            'description' => $t->description,
+            'image_url' => $t->image_url,
+        ]])->all();
     }
 
     /**
@@ -290,6 +311,7 @@ class TournamentPagePayloads
         return [
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
+            'tables' => $this->tableDetails($tournament),
             'allegiances' => $this->allegianceOptions($tournament),
             'standings' => $standings,
             'seasons' => $seasons,

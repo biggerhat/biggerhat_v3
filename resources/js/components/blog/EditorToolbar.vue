@@ -43,9 +43,14 @@ import {
     Undo2,
 } from 'lucide-vue-next';
 
-const props = defineProps<{
-    editor: Editor;
-}>();
+const props = withDefaults(
+    defineProps<{
+        editor: Editor;
+        /** Show the Link Entity / Embed Entity buttons (blog only: they need the entity search API). */
+        entities?: boolean;
+    }>(),
+    { entities: true },
+);
 
 const prompt = usePrompt();
 
@@ -503,29 +508,38 @@ const addLink = async () => {
                 <TooltipContent>Image</TooltipContent>
             </Tooltip>
 
-            <Separator orientation="vertical" class="mx-1 h-6" />
+            <template v-if="entities">
+                <Separator orientation="vertical" class="mx-1 h-6" />
 
-            <!-- Entity Reference -->
-            <Tooltip>
-                <TooltipTrigger as-child>
-                    <Button aria-label="Link Entity" type="button" variant="ghost" size="sm" class="gap-1" @click="emit('openEntitySearch')">
-                        <AtSign class="h-4 w-4" />
-                        <span class="hidden text-xs sm:inline">Link Entity</span>
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>Insert entity reference (character, keyword, faction, etc.)</TooltipContent>
-            </Tooltip>
+                <!-- Entity Reference -->
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <Button aria-label="Link Entity" type="button" variant="ghost" size="sm" class="gap-1" @click="emit('openEntitySearch')">
+                            <AtSign class="h-4 w-4" />
+                            <span class="hidden text-xs sm:inline">Link Entity</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Insert entity reference (character, keyword, faction, etc.)</TooltipContent>
+                </Tooltip>
 
-            <!-- Entity Embed -->
-            <Tooltip>
-                <TooltipTrigger as-child>
-                    <Button aria-label="Embed Entity" type="button" variant="ghost" size="sm" class="gap-1" @click="emit('openEntityEmbedSearch')">
-                        <SquareCode class="h-4 w-4" />
-                        <span class="hidden text-xs sm:inline">Embed Entity</span>
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>Embed entity as block preview (card images, info boxes)</TooltipContent>
-            </Tooltip>
+                <!-- Entity Embed -->
+                <Tooltip>
+                    <TooltipTrigger as-child>
+                        <Button
+                            aria-label="Embed Entity"
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            class="gap-1"
+                            @click="emit('openEntityEmbedSearch')"
+                        >
+                            <SquareCode class="h-4 w-4" />
+                            <span class="hidden text-xs sm:inline">Embed Entity</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Embed entity as block preview (card images, info boxes)</TooltipContent>
+                </Tooltip>
+            </template>
 
             <!-- Game Icons -->
             <DropdownMenu>

@@ -93,6 +93,16 @@ whoever was on the waitlist before and is not now gets a `TournamentWaitlistProm
 rounds where the free tables allow it (most constrained pairing first; when no clean table is left the lowest free one is used). Table names and terrain sets are not modelled.
 The `TournamentRoundPaired` notification already carries the table number.
 
+## Event details and table terrain
+**Details** — `tournaments.details` is a TipTap JSON document (the long version: venue, schedule, house rules, prizes) next to the one-line `description`. The organizer edits it on the Manage page's
+**Details** tab with the blog's `TipTapEditor` (`:entities="false"`: no entity link/embed buttons) and saves through `TournamentDetailsController@update` (`tournaments.details`). Organizers are ordinary users,
+so `App\Tournaments\RichText::sanitize()` rebuilds the document from an allow-list before it is stored: known node and mark types only, link targets must be http(s) or mailto, images must be files under
+`/storage/tournaments/` (uploaded through `tournaments.details.image`, 5 MB, throttled), the whole document at most 100 KB. The public page renders it with `BlogContent` (structured JSON, never raw HTML).
+**Tables** — rulesets opt in with `supports_table_details` (Malifaux only for now; `Ruleset::$supportsTableDetails`). `tournament_tables` rows hold a name, notes (2000 chars) and a photo/layout for a table number;
+a row exists only while it has something on it (`TournamentTableController@save` / `destroy`, numbers 1-200, 404 for other rulesets). The payloads carry `tables` keyed by number (`[]` when unsupported).
+Players see the name and terrain on their match card and the pairing rows; spectators get a collapsible "Tables & terrain" list; display mode shows the name next to the table number.
+Uploads live on the public disk under `tournaments/{id}/` and are not removed when an event is soft-deleted.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

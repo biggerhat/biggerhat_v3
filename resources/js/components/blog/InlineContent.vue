@@ -9,6 +9,7 @@ defineProps<{
 const isEntityReference = (node: Record<string, unknown>) => node.type === 'entityReference';
 const isGameIcon = (node: Record<string, unknown>) => node.type === 'gameIcon';
 const isText = (node: Record<string, unknown>) => node.type === 'text';
+const isHardBreak = (node: Record<string, unknown>) => node.type === 'hardBreak';
 
 const getMarks = (node: Record<string, unknown>): string[] => {
     return ((node.marks as Array<{ type: string }>) ?? []).map((m) => m.type);
@@ -48,6 +49,7 @@ const isLink = (node: Record<string, unknown>) => getMarks(node).includes('link'
             :type="(child.attrs as Record<string, string>).iconType"
             class-name="h-5 mx-0.5 inline-block align-text-bottom"
         />
+        <br v-else-if="isHardBreak(child)" />
         <template v-else-if="isText(child)">
             <a v-if="isLink(child)" :href="getLinkHref(child)" target="_blank" rel="noopener" :class="textClass(child)">
                 <GameText :text="child.text as string" />

@@ -198,6 +198,8 @@ export interface RulesetInfo {
     variants: RulesetVariant[];
     /** Whether events can be run as team events (teams of 2–4). */
     supports_teams: boolean;
+    /** Whether the TO can describe each table (name, terrain notes, photo). */
+    supports_table_details: boolean;
     /** Round-clock wording shown to players; null = the format has no such rule. */
     time_rules: { last_turn_minutes: number; last_turn: string | null; time_called: string | null };
 }
@@ -315,4 +317,20 @@ export interface TournamentHistory {
         tp: number;
         faction: string | null;
     })[];
+}
+
+/** What the organizer says about one table (keyed by table number in the page payload; `[]` when the ruleset has none). */
+export interface TableDetail {
+    number: number;
+    name: string | null;
+    description: string | null;
+    image_url: string | null;
+}
+
+export type TableDetails = Record<string, TableDetail>;
+
+/** "Table 3 — The Mill" / "Table 3". */
+export function tableLabel(number: number, details: TableDetails | undefined): string {
+    const name = details?.[number]?.name;
+    return name ? `Table ${number} — ${name}` : `Table ${number}`;
 }

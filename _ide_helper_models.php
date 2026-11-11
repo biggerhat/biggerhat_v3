@@ -3602,6 +3602,7 @@ namespace App\Models{
  * @property int $bye_vp
  * @property int $team_size
  * @property bool $require_crew_lists
+ * @property array<array-key, mixed>|null $details
  * @property int|null $max_players
  * @property \Illuminate\Support\Carbon|null $registration_closes_at
  * @property string|null $announcement
@@ -3623,6 +3624,8 @@ namespace App\Models{
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentRound> $rounds
  * @property-read int|null $rounds_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentRsvp> $rsvps
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentTable> $tables
+ * @property-read int|null $tables_count
  * @property-read int|null $rsvps_count
  * @method static \Database\Factories\TournamentFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Tournament forOrganizer(int $userId)

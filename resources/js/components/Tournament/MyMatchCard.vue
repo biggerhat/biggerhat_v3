@@ -6,6 +6,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import TableTerrain from '@/components/Tournament/TableTerrain.vue';
+import type { TableDetail } from '@/types/tournament';
 import { Textarea } from '@/components/ui/textarea';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Gamepad2, Loader2, Swords } from 'lucide-vue-next';
@@ -69,6 +71,8 @@ const props = defineProps<{
     allowSelfReport?: boolean;
     /** The ruleset's score components (e.g. strategy + scheme VP), one input each. */
     scoreFields?: { key: string; label: string; min: number; max: number }[];
+    /** The organizer's notes for this game's table (name, terrain, photo). */
+    tableDetail?: TableDetail | null;
 }>();
 
 const iAmOne = computed(() => props.game.player_one_id === props.myPlayerId);
@@ -165,10 +169,17 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-primary">Your match</h2>
                 <span class="text-sm text-muted-foreground">
-                    Round {{ round.round_number }}<template v-if="game.table_number"> · Table {{ game.table_number }}</template>
+                    Round {{ round.round_number }}<template v-if="game.table_number"> · Table {{ game.table_number }}</template
+                    ><template v-if="tableDetail?.name"> — {{ tableDetail.name }}</template>
                 </span>
                 <RoundClock v-if="inProgress" :started-at="round.started_at" :limit-minutes="roundTimeLimit" class="ml-auto" />
             </div>
+
+            <TableTerrain
+                v-if="!game.is_bye && tableDetail && (tableDetail.description || tableDetail.image_url)"
+                :detail="tableDetail"
+                :show-title="false"
+            />
 
             <div v-if="game.is_bye" class="text-sm">You have a bye this round — a free win. Enjoy the break.</div>
             <div v-else class="flex flex-wrap items-center gap-3">

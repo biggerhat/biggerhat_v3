@@ -92,7 +92,8 @@ const L = require('./lib.cjs');
         await L.shot(org, '25-fog-created');
     });
     await L.step('fog: public view lists the variant and scoring in "Format & rules"', org, async () => {
-        const url = org.page.url().replace(L.BASE, '');
+        // drop the tab hash: a hash-only change would not reload the page
+        const url = org.page.url().replace(L.BASE, '').split('#')[0];
         await L.visit(org, url.replace(/\/?$/, '/view'));
         await L.clickText(org, /Format & rules/i, 'summary');
         await L.expectText(org, /Close Objectives/i);

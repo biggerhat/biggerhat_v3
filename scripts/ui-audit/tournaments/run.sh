@@ -24,15 +24,19 @@ reset_db
 
 # public/hot points assets at a dead Vite server; a plain `php -S` from public/ keeps the DB_* env (artisan serve drops it)
 [ -e public/hot ] && { echo "public/hot exists - move it aside and run npm run build first" >&2; exit 1; }
-(cd public && APP_ENV=local php -S "127.0.0.1:$PORT" ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php > "$WORKDIR/serve.log" 2>&1) &
+(cd public && APP_ENV=local exec php -S "127.0.0.1:$PORT" ../scripts/ui-audit/tournaments/router.php > "$WORKDIR/serve.log" 2>&1) &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null || true' EXIT
 sleep 2
 
 status=0
-for f in scripts/ui-audit/tournaments/flows*.cjs; do
+# FLOWS="flows17.cjs flows2.cjs" runs only those files (default: all, in name order).
+FILES=$(for n in ${FLOWS:-$(cd scripts/ui-audit/tournaments && ls flows*.cjs)}; do echo "scripts/ui-audit/tournaments/$n"; done)
+first=1
+for f in $FILES; do
     echo "== $(basename "$f")"
-    [ "$f" = "$(ls scripts/ui-audit/tournaments/flows*.cjs | head -1)" ] || reset_db > /dev/null
+    [ "$first" = 1 ] || reset_db > /dev/null
+    first=0
     node "$f" || status=1
 done
 echo "screenshots: $SHOTS"

@@ -44,6 +44,8 @@ const props = defineProps<{
     myPlayerId: number | null;
     /** The round's status, so a pairing can say whether it is waiting, in play or final. */
     roundStatus?: string;
+    /** The organizer's name for this game's table, if any. */
+    tableName?: string | null;
 }>();
 
 const byId = computed(() => new Map(props.players.map((p) => [p.id, p])));
@@ -115,7 +117,9 @@ const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dar
         <!-- Phones: a stacked card, one line per side -->
         <div class="flex flex-col gap-1 p-2.5 sm:hidden">
             <div class="flex items-center gap-2 text-2xs text-muted-foreground">
-                <span v-if="game.table_number">Table {{ game.table_number }}</span>
+                <span v-if="game.table_number"
+                    >Table {{ game.table_number }}<template v-if="tableName"> · {{ tableName }}</template></span
+                >
                 <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-2xs">BYE</Badge>
                 <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-2xs">Forfeit</Badge>
                 <Badge v-else-if="game.result === 'agreed'" variant="outline" class="ml-auto px-1 py-0 text-2xs">Agreed</Badge>
@@ -149,7 +153,9 @@ const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dar
 
         <!-- sm and up: one row — side one, score, side two -->
         <div class="hidden items-center gap-2 px-2 py-1.5 sm:flex">
-            <span v-if="game.table_number" class="shrink-0 text-2xs text-muted-foreground">T{{ game.table_number }}</span>
+            <span v-if="game.table_number" class="shrink-0 text-2xs text-muted-foreground" :title="tableName ?? undefined"
+                >T{{ game.table_number }}</span
+            >
 
             <div class="flex min-w-0 flex-1 items-center gap-1.5">
                 <FactionLogo v-if="sides[0].faction" :faction="sides[0].faction" class-name="size-4 shrink-0" />

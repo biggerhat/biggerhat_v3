@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
-import { formatGameSize, tosOperationText, type TosDeploymentInfo, type TosOperationInfo, type TournamentRuleset } from '@/types/tournament';
+import {
+    formatGameSize,
+    tosOperationText,
+    type TableDetails,
+    type TosDeploymentInfo,
+    type TosOperationInfo,
+    type TournamentRuleset,
+} from '@/types/tournament';
+import BlogContent from '@/components/blog/BlogContent.vue';
+import TableTerrain from '@/components/Tournament/TableTerrain.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
@@ -121,6 +130,7 @@ const props = defineProps<{
         uuid: string;
         name: string;
         description: string | null;
+        details?: Record<string, unknown> | null;
         status: string;
         encounter_size: number;
         encounter_type: string;
@@ -141,6 +151,8 @@ const props = defineProps<{
         rsvps?: Rsvp[];
     };
     ruleset: TournamentRuleset;
+    /** The organizer's per-table notes, keyed by table number (empty unless the ruleset uses them). */
+    tables: TableDetails;
     /** Allegiances a player can declare when RSVPing (empty unless the ruleset uses them). */
     allegiances: { id: number; slug: string; name: string }[];
     rounds: ViewRound[];
@@ -270,6 +282,8 @@ const liveGames = computed(() =>
 const myPlayerId = computed(() => props.tournament.players.find(playsFor)?.id ?? null);
 
 // The user's pairing in the newest round that isn't finished yet — the "where do I sit, who do I play" answer.
+const describedTables = computed(() => Object.values(props.tables ?? {}).filter((t) => t.name || t.description || t.image_url));
+
 const myMatch = computed(() => {
     if (!myPlayerId.value) return null;
     const newestFirst = [...props.rounds].sort((a, b) => b.round_number - a.round_number);
@@ -464,6 +478,20 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 data-no-print
             />
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
+            <Card v-if="tournament.details" class="mb-4" data-testid="event-details">
+                <CardContent class="p-4 sm:p-5">
+                    <BlogContent :content="tournament.details" class="text-sm [&_.prose]:max-w-none" />
+                </CardContent>
+            </Card>
+            <details v-if="describedTables.length" class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-testid="tables-terrain">
+                <summary class="cursor-pointer text-sm font-medium">
+                    Tables &amp; terrain
+                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ describedTables.length }} described</span>
+                </summary>
+                <div class="mt-3 grid gap-4 pb-1 sm:grid-cols-2">
+                    <TableTerrain v-for="t in describedTables" :key="t.number" :detail="t" />
+                </div>
+            </details>
             <div v-if="tournament.status !== 'completed'" class="mb-4" data-no-print>
                 <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
                     <a :href="route('tournaments.calendar', tournament.uuid)" download><CalendarPlus class="size-3.5" /> Add to calendar</a>
@@ -615,6 +643,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :my-player-id="myPlayerId"
                 :round-time-limit="tournament.round_time_limit"
                 :tournament-uuid="tournament.uuid"
+                :table-detail="tables[myMatch.game.table_number ?? 0] ?? null"
                 :players="tournament.players"
                 :allow-self-report="tournament.allow_self_report"
                 :score-fields="ruleset.score_fields"
@@ -804,6 +833,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     :players="tournament.players"
                                     :my-player-id="myPlayerId"
                                     :round-status="round.status"
+                                    :table-name="tables[game.table_number ?? 0]?.name ?? null"
                                 />
                             </div>
                             <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>

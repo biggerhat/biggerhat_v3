@@ -51,6 +51,8 @@ interface DisplayRound {
 }
 
 const props = defineProps<{
+    /** The organizer's table names, keyed by table number. */
+    tables?: Record<string, { name: string | null }>;
     tournament: {
         uuid: string;
         name: string;
@@ -265,6 +267,9 @@ const setMode = (m: Mode) => {
                         <span class="text-3xl font-bold tabular-nums">{{ g.table_number ?? '–' }}</span>
                     </div>
                     <div class="min-w-0 flex-1 space-y-1 text-xl font-semibold sm:text-2xl">
+                        <div v-if="tables?.[g.table_number ?? 0]?.name" class="truncate text-base font-normal text-muted-foreground">
+                            {{ tables[g.table_number ?? 0].name }}
+                        </div>
                         <div
                             v-for="side in [
                                 ['player_one_id', 'player_one_faction'],

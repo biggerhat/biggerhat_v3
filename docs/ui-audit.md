@@ -78,3 +78,5 @@ with self-report, a team event in registration, a Fields of Glory event, a runni
 Each flows file mutates what it works on, so the database is re-seeded before every file. Output is PASS / WARN / FAIL per step (WARN = page errors,
 console errors or 5xx during an otherwise passing step); failure screenshots and numbered shots land in `$SHOTS` (default `$WORKDIR/shots`).
 Helpers in `lib.cjs` (`clickText`, `pickSelect`, `pickByTrigger`, `expectText`) encode the Reka/radix quirks above. Local use only.
+`FLOWS="flows17.cjs flows2.cjs"` runs just those files. The server runs through `router.php` so uploaded images under `/storage` are served from the repo's `storage/app/public`
+(uploads made by the flows land there; delete `storage/app/public/tournaments` afterwards). Reading screenshots: they are not cleared between runs, so check the file's timestamp before trusting one.

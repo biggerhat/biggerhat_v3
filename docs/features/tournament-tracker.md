@@ -77,6 +77,14 @@ TOS rounds pick an Operation + Deployment from `tos_operations` / `tos_deploymen
   rotating with standings, live via the tournament channel. Shares its payload with the view page (`TournamentController::viewProps`).
 - **Agreed results**: `result = agreed`, scored like a played game.
 
+## Capacity, waitlist and withdrawing
+`tournaments.max_players` (null = unlimited; competitors = players, or teams) and `registration_closes_at`. RSVPs are always accepted while registration is open and past the
+deadline are refused (cancelling still works). The waitlist is **computed, not stored**: `Tournament::waitlistPositions()` takes RSVPs oldest first, skips users who already
+have a seat, and gives everyone past `max_players - competitors` a position, so a freed seat promotes the next RSVP with no job to run (individual events only — in team events an
+RSVP is a person while the limit counts teams). `TournamentPagePayloads` stamps `waitlist_position` on each RSVP. An organizer adding a (non-ringer) player past the limit gets a 422.
+`TournamentSelfDropController` (`tournaments.withdraw`): a linked player in an individual event removes their seat and RSVP before the start, or is dropped after the round they are in
+(else the last finished round) once it runs; organizers get a `TournamentPlayerWithdrew` notification. Team events stay with the organizer.
+
 ## Manage page structure
 `pages/Tournaments/Manage.vue` (~880 lines) is the shell: header, next-step card, announcement dialog, the standings / RSVP / settings tabs, and the score and
 finalize dialogs. Its tabs live in `components/Tournament/`: `ManagePlayersTab.vue`, `ManageRoundsTab.vue` (round lifecycle, scenario editor, manual pairing,

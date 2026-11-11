@@ -77,6 +77,7 @@ const props = defineProps<{
         players: TournamentPlayer[];
         rsvps?: Rsvp[];
         team_size?: number;
+        max_players?: number | null;
         [key: string]: unknown;
     };
     ruleset: TournamentRuleset;
@@ -722,7 +723,7 @@ defineExpose({ openRsvpPlayerDialog });
         <!-- Player Count -->
         <div class="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
             <Users class="size-4" />
-            {{ activePlayers.length }} active {{ unitLabel }}s
+            {{ activePlayers.length }} active {{ unitLabel }}s<span v-if="tournament.max_players"> (limit {{ tournament.max_players }})</span>
             <span v-if="tournament.players.length !== activePlayers.length">({{ tournament.players.length }} total)</span>
             <template v-if="canCheckIn && tournament.players.length">
                 · {{ checkedInCount }} checked in

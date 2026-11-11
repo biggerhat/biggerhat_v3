@@ -33,7 +33,7 @@ class Tournament extends Model
 
     protected $guarded = ['id'];
 
-    protected $appends = ['season_label', 'ruleset_label'];
+    protected $appends = ['season_label', 'ruleset_label', 'registration_closed'];
 
     public function casts(): array
     {
@@ -47,6 +47,7 @@ class Tournament extends Model
             'variants' => 'array',
             'allow_self_report' => 'boolean',
             'announced_at' => 'datetime',
+            'registration_closes_at' => 'datetime',
         ];
     }
 
@@ -210,6 +211,59 @@ class Tournament extends Model
     }
 
     /** A team event pairs and ranks teams of `team_size` people instead of individuals. */
+    /** Registered competitors (players, or teams in team events); the ringer doesn't take a seat. */
+    public function competitorCount(): int
+    {
+        return $this->players()->where('is_ringer', false)->count();
+    }
+
+    /** True once the organizer's registration deadline has passed (new RSVPs are refused; cancelling stays possible). */
+    public function getRegistrationClosedAttribute(): bool
+    {
+        $closes = $this->registration_closes_at;
+
+        return $closes !== null && $closes->isPast();
+    }
+
+    public function isFull(): bool
+    {
+        return $this->max_players !== null && $this->competitorCount() >= $this->max_players;
+    }
+
+    /**
+     * Waitlist position (1 = next in) for each RSVP that doesn't fit under the player limit, keyed by RSVP id.
+     * RSVPs are taken oldest first, and users who are already registered don't count as waiting. Individual events only:
+     * in team events an RSVP is a person while the limit counts teams.
+     *
+     * @return array<int, int>
+     */
+    public function waitlistPositions(): array
+    {
+        if ($this->max_players === null || $this->isTeamEvent()) {
+            return [];
+        }
+
+        $registeredUserIds = $this->players()->whereNotNull('user_id')->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+        $remaining = max(0, $this->max_players - $this->competitorCount());
+        $positions = [];
+        $position = 0;
+
+        foreach ($this->rsvps()->orderBy('created_at')->orderBy('id')->get(['id', 'user_id']) as $rsvp) {
+            /** @var TournamentRsvp $rsvp */
+            if (in_array((int) $rsvp->user_id, $registeredUserIds, true)) {
+                continue;
+            }
+            if ($remaining > 0) {
+                $remaining--;
+
+                continue;
+            }
+            $positions[(int) $rsvp->id] = ++$position;
+        }
+
+        return $positions;
+    }
+
     public function isTeamEvent(): bool
     {
         return (int) ($this->attributes['team_size'] ?? 1) > 1;

@@ -60,5 +60,13 @@ foreach (['Ann', 'Ben', 'Cat', 'Dan', 'Eve'] as $i => $n) {
 $r5 = TournamentRound::factory()->for($t5)->create(['round_number' => 1]);
 TournamentGame::factory()->for($r5, 'round')->create(['player_one_id' => $sp['Ann']->id, 'player_two_id' => $sp['Ben']->id, 'table_number' => 1]);
 TournamentGame::factory()->for($r5, 'round')->create(['player_one_id' => $sp['Cat']->id, 'player_two_id' => $sp['Dan']->id, 'table_number' => 2]);
+// --- T6: registration open, two seats, both taken (Alice and Zed), Bob RSVPed (waitlist #1), Carol RSVPed (waitlist #2)
+$t6 = Tournament::factory()->inRegistration()->create(['name' => 'Capped Open', 'creator_id' => $dave->id, 'max_players' => 2]);
+$t6->organizers()->attach($org->id);
+TournamentPlayer::factory()->for($t6)->create(['display_name' => 'Alice', 'user_id' => $alice->id, 'faction' => 'arcanists']);
+TournamentPlayer::factory()->for($t6)->create(['display_name' => 'Zed', 'faction' => 'guild']);
+foreach ([[$alice, 0], [$bob, 1], [$carol, 2]] as [$u, $min]) {
+    TournamentRsvp::create(['tournament_id' => $t6->id, 'user_id' => $u->id, 'created_at' => now()->addMinutes($min)]);
+}
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 'g1' => $r1->games()->first()->id]));

@@ -40,6 +40,7 @@ const props = defineProps<{
         variants: Record<string, boolean | number> | null;
         allow_self_report: boolean;
         team_size: number;
+        max_players: number | null;
         scoring_config: Record<string, unknown> | null;
     } | null;
     previous_events: { uuid: string; name: string; event_date: string }[];
@@ -66,6 +67,8 @@ const form = useForm({
     tiebreaker_mode: (props.template?.tiebreaker_mode ?? 'diff_vp') as 'diff_vp' | 'sos',
     allow_self_report: props.template?.allow_self_report ?? false,
     team_size: props.template?.team_size ?? 1,
+    max_players: (props.template?.max_players ?? '') as number | '',
+    registration_closes_at: '',
     variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
     // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
     scoring_config: (props.template?.scoring_config ?? {}) as Record<string, unknown>,
@@ -121,6 +124,8 @@ const submit = () => {
         bye_tp: data.bye_tp === defaults.bye_tp ? null : data.bye_tp,
         bye_diff: data.bye_diff === defaults.bye_diff ? null : data.bye_diff,
         bye_vp: data.bye_vp === defaults.bye_vp ? null : data.bye_vp,
+        max_players: data.max_players === '' ? null : data.max_players,
+        registration_closes_at: data.registration_closes_at ? new Date(data.registration_closes_at).toISOString() : null,
     })).post(route('tournaments.store'));
 };
 </script>
@@ -301,6 +306,21 @@ const submit = () => {
                                     {{ ruleset.declaration === 'allegiance' ? 'allegiance' : 'faction' }}.
                                 </p>
                                 <InputError :message="form.errors.team_size" />
+                            </div>
+
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="space-y-1.5">
+                                    <Label for="t-max-players">Player limit <span class="text-muted-foreground">(optional)</span></Label>
+                                    <Input id="t-max-players" v-model="form.max_players" type="number" min="2" max="512" placeholder="No limit" />
+                                    <p class="text-2xs text-muted-foreground">RSVPs beyond the limit join a waitlist and move up as seats free.</p>
+                                    <InputError :message="form.errors.max_players" />
+                                </div>
+                                <div class="space-y-1.5">
+                                    <Label for="t-closes-at">Registration closes <span class="text-muted-foreground">(optional)</span></Label>
+                                    <Input id="t-closes-at" v-model="form.registration_closes_at" type="datetime-local" />
+                                    <p class="text-2xs text-muted-foreground">After this, new RSVPs are refused.</p>
+                                    <InputError :message="form.errors.registration_closes_at" />
+                                </div>
                             </div>
 
                             <label class="flex items-start gap-2 text-sm">

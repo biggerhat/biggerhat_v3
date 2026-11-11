@@ -41,6 +41,9 @@ round and game anyway to build its payload, so a cache keyed on their state save
 the page unclickable (`pointer-events: none` on `body`) after the dialog closed; the next-step guide offered "Start Round" while the server would refuse (scenario incomplete or a player unpaired) and
 now says what's missing; the "games still need a result" count included byes.
 
+**Status of the first features (branch `tournament-capacity-nov11`):** F3 (player limit, registration deadline, computed waitlist with positions shown to players and organizers) and F4 (self-withdrawal for
+individual events, with organizer notification) are done. **Deploy: run the new migration** (`2026_11_16_100000_add_capacity_to_tournaments`). Not done from F3: notifying someone when they move up the waitlist.
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

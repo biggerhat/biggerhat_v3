@@ -20,6 +20,7 @@ export interface TournamentSummary {
     season_label: string;
     ruleset_label?: string;
     players_count: number;
+    max_players?: number | null;
     creator: { id: number; name: string };
 }
 
@@ -72,7 +73,8 @@ const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
                     >
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ tournament.location }}</span>
                     <span class="flex items-center gap-1 tabular-nums"
-                        ><Users class="size-3" /> {{ tournament.players_count }} {{ tournament.players_count === 1 ? 'player' : 'players' }}</span
+                        ><Users class="size-3" /> {{ tournament.players_count }}{{ tournament.max_players ? `/${tournament.max_players}` : '' }}
+                        {{ tournament.players_count === 1 && !tournament.max_players ? 'player' : 'players' }}</span
                     >
                     <span v-if="meta === 'rounds'" class="tabular-nums">{{ tournament.planned_rounds }} rounds</span>
                     <span v-else>by {{ tournament.creator.name }}</span>

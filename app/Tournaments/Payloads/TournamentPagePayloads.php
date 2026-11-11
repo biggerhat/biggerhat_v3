@@ -54,6 +54,7 @@ class TournamentPagePayloads
 
         $standings = $this->standings->compute($tournament);
         $this->hidePrivateGarrisonCodes($tournament);
+        $this->markWaitlist($tournament);
         $this->redactPublicPayload($tournament);
 
         // Fetch every scheme referenced by any round in a single query instead
@@ -216,6 +217,7 @@ class TournamentPagePayloads
 
         $standings = $this->standings->compute($tournament);
         $this->hidePrivateGarrisonCodes($tournament);
+        $this->markWaitlist($tournament);
 
         $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
@@ -432,6 +434,15 @@ class TournamentPagePayloads
     }
 
     /** A Garrison is public information at the event, but its share link only works when the owner made it public. */
+    /** Tell each RSVP where it stands under the player limit (null = has a seat). */
+    private function markWaitlist(Tournament $tournament): void
+    {
+        $positions = $tournament->waitlistPositions();
+        foreach ($tournament->rsvps as $rsvp) {
+            $rsvp->setAttribute('waitlist_position', $positions[$rsvp->id] ?? null);
+        }
+    }
+
     private function hidePrivateGarrisonCodes(Tournament $tournament): void
     {
         foreach ($tournament->players as $player) {

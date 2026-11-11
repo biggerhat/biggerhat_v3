@@ -46,6 +46,9 @@ class TournamentUpdateRequest extends FormRequest
             'bye_vp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
             'allow_self_report' => ['sometimes', 'boolean'],
+            // Capacity: null = unlimited; RSVPs past it are waitlisted. Registration can also close at a set time.
+            'max_players' => ['sometimes', 'nullable', 'integer', 'min:2', 'max:512'],
+            'registration_closes_at' => ['sometimes', 'nullable', 'date'],
             // 1 = individuals; 2–4 = teams of that size (the ruleset must support teams).
             'team_size' => ['sometimes', 'integer', 'min:1', 'max:4'],
             ...$this->customizationRules(),

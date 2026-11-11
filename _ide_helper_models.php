@@ -3601,6 +3601,8 @@ namespace App\Models{
  * @property int $bye_diff
  * @property int $bye_vp
  * @property int $team_size
+ * @property int|null $max_players
+ * @property \Illuminate\Support\Carbon|null $registration_closes_at
  * @property string|null $announcement
  * @property \Illuminate\Support\Carbon|null $announced_at
  * @property \App\Enums\TournamentTiebreakerEnum $tiebreaker_mode

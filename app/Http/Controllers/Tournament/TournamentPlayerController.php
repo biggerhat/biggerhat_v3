@@ -46,6 +46,11 @@ class TournamentPlayerController extends Controller
             ], 422);
         }
 
+        // The ringer is a stand-in, not a seat; everyone else counts against the player limit.
+        if (empty($request->validated()['is_ringer']) && $tournament->isFull()) {
+            return response()->json(['error' => "The tournament is full ({$tournament->max_players}). Raise the player limit in Settings before adding more."], 422);
+        }
+
         $validated = $request->validated();
         $members = $validated['members'] ?? null;
         unset($validated['members']);

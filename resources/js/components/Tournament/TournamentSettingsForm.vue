@@ -32,6 +32,8 @@ const props = defineProps<{
         round_time_limit: number;
         allow_self_report?: boolean;
         team_size?: number;
+        max_players?: number | null;
+        registration_closes_at?: string | null;
         scoring_config?: Record<string, unknown> | null;
         [key: string]: unknown;
     };
@@ -60,6 +62,15 @@ const editByeDiff = ref(props.ruleset.scoring.bye_diff);
 const editByeVp = ref(props.ruleset.scoring.bye_vp);
 const editAllowSelfReport = ref(!!props.tournament.allow_self_report);
 const editTeamSize = ref(props.tournament.team_size ?? 1);
+// <input type=datetime-local> wants local "YYYY-MM-DDTHH:mm"; the server speaks UTC ISO strings.
+const toLocalInput = (iso?: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const editMaxPlayers = ref(props.tournament.max_players ? String(props.tournament.max_players) : '');
+const editClosesAt = ref(toLocalInput(props.tournament.registration_closes_at));
 const editAdvancedOpen = ref(false);
 const editVariants = ref<Record<string, boolean | number>>({ ...props.ruleset.active_variants });
 const editScoringConfig = ref<Record<string, unknown>>({ ...(props.tournament.scoring_config ?? {}) });
@@ -83,6 +94,8 @@ const saveSettings = async () => {
         bye_vp: editByeVp.value === props.ruleset.default_scoring.bye_vp ? null : editByeVp.value,
         variants: editVariants.value,
         allow_self_report: editAllowSelfReport.value,
+        max_players: editMaxPlayers.value.trim() === '' ? null : Number(editMaxPlayers.value),
+        registration_closes_at: editClosesAt.value ? new Date(editClosesAt.value).toISOString() : null,
         ...(props.canChangeTeamSize ? { team_size: editTeamSize.value } : {}),
         scoring_config: editScoringConfig.value,
     });
@@ -172,6 +185,28 @@ const saveSettings = async () => {
                     <p v-if="!canChangeTeamSize" class="text-2xs text-muted-foreground">
                         Remove the registered players first to switch between individual and team play.
                     </p>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="space-y-1">
+                        <Label class="text-xs" for="settings-max-players">Player limit <span class="text-muted-foreground">(optional)</span></Label>
+                        <Input
+                            id="settings-max-players"
+                            v-model="editMaxPlayers"
+                            type="number"
+                            min="2"
+                            max="512"
+                            class="h-9 text-sm"
+                            placeholder="No limit"
+                        />
+                        <p class="text-2xs text-muted-foreground">RSVPs beyond the limit join a waitlist and move up as seats free.</p>
+                    </div>
+                    <div class="space-y-1">
+                        <Label class="text-xs" for="settings-closes-at"
+                            >Registration closes <span class="text-muted-foreground">(optional)</span></Label
+                        >
+                        <Input id="settings-closes-at" v-model="editClosesAt" type="datetime-local" class="h-9 text-sm" />
+                        <p class="text-2xs text-muted-foreground">After this, new RSVPs are refused (cancelling still works).</p>
+                    </div>
                 </div>
                 <label class="flex items-start gap-2 text-sm">
                     <input v-model="editAllowSelfReport" type="checkbox" class="mt-1 size-3.5" />

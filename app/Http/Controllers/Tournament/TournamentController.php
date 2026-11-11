@@ -129,6 +129,7 @@ class TournamentController extends Controller
                     'variants' => $source->activeVariants(),
                     'allow_self_report' => (bool) $source->allow_self_report,
                     'team_size' => (int) $source->team_size,
+                    'max_players' => $source->max_players,
                     'scoring_config' => $source->scoring_config,
                 ];
             }
@@ -301,6 +302,10 @@ class TournamentController extends Controller
 
         if (isset($validated['team_size']) && (int) $validated['team_size'] !== (int) $tournament->team_size && $tournament->players()->exists()) {
             return response()->json(['error' => 'Remove the existing players before switching between individual and team play.'], 422);
+        }
+
+        if (isset($validated['max_players']) && $validated['max_players'] < $tournament->competitorCount()) {
+            return response()->json(['error' => "Already {$tournament->competitorCount()} registered — the limit can't be lower than that."], 422);
         }
 
         $tournament->update($validated);

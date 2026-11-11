@@ -57,6 +57,8 @@ interface Rsvp {
     allegiance?: { id: number; slug: string; name: string } | null;
     allegiance_id?: number | null;
     user: { id: number; name: string } | null;
+    /** 1 = next in line when the player limit is reached; null = has a seat. */
+    waitlist_position?: number | null;
 }
 
 interface TournamentData {
@@ -81,6 +83,9 @@ interface TournamentData {
     announcement?: string | null;
     announced_at?: string | null;
     team_size?: number;
+    max_players?: number | null;
+    registration_closes_at?: string | null;
+    registration_closed?: boolean;
     scoring_config?: Record<string, unknown> | null;
     creator_id: number;
     players: TournamentPlayer[];
@@ -185,6 +190,7 @@ watch(activeTab, (tab) => {
 const reloadPage = () => reloadProps(['tournament', 'standings']);
 const announcementOpen = ref(false);
 const playersTab = ref<InstanceType<typeof ManagePlayersTab> | null>(null);
+const waitlistCount = computed(() => props.tournament.rsvps?.filter((r) => r.waitlist_position).length ?? 0);
 const roundsTab = ref<InstanceType<typeof ManageRoundsTab> | null>(null);
 
 // Subscribe to the public tournament broadcast channel so collaborating TOs
@@ -508,7 +514,12 @@ const isEditable = computed(() => !isLocked.value);
                     </div>
                     <template v-else>
                         <div class="mb-4">
-                            <h3 class="text-sm font-semibold">{{ tournament.rsvps.length }} RSVPs</h3>
+                            <h3 class="text-sm font-semibold">
+                                {{ tournament.rsvps.length }} RSVPs
+                                <span v-if="tournament.max_players" class="font-normal text-muted-foreground">
+                                    · limit {{ tournament.max_players }}<template v-if="waitlistCount"> · {{ waitlistCount }} waitlisted</template>
+                                </span>
+                            </h3>
                             <p v-if="tournament.status === 'draft'" class="text-xs text-muted-foreground">
                                 Open registration to turn these RSVPs into players.
                             </p>
@@ -544,6 +555,12 @@ const isEditable = computed(() => !isLocked.value);
                                     >
                                         <Plus class="size-2.5" /> Register
                                     </Button>
+                                    <Badge
+                                        v-if="rsvp.waitlist_position"
+                                        variant="outline"
+                                        class="px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
+                                        >Waitlist #{{ rsvp.waitlist_position }}</Badge
+                                    >
                                     <Badge
                                         v-else-if="tournament.players.some((p) => p.user?.id === rsvp.user_id)"
                                         variant="outline"

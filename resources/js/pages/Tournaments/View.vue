@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useConfirm } from '@/composables/useConfirm';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
@@ -109,6 +110,8 @@ interface Rsvp {
      *  / meta balance before the player list is finalized. */
     faction: string | null;
     user?: { id: number; name: string } | null;
+    /** 1 = next in line when the player limit is reached; null = has a seat. */
+    waitlist_position?: number | null;
 }
 
 const props = defineProps<{
@@ -125,6 +128,9 @@ const props = defineProps<{
         location: string | null;
         round_time_limit: number;
         allow_self_report?: boolean;
+        max_players?: number | null;
+        registration_closes_at?: string | null;
+        registration_closed?: boolean;
         announcement?: string | null;
         announced_at?: string | null;
         team_size?: number;
@@ -177,9 +183,25 @@ const playsFor = (p: TournamentPlayer) =>
     p.user?.id === currentUserId.value || !!p.members?.some((m) => !!currentUserId.value && m.user_id === currentUserId.value);
 const isRegistered = computed(() => props.tournament.players.some(playsFor));
 const hasRsvped = computed(() => props.tournament.rsvps?.some((r) => r.user_id === currentUserId.value) ?? false);
+const myRsvp = computed(() => props.tournament.rsvps?.find((r) => r.user_id === currentUserId.value) ?? null);
+const myWaitlistPosition = computed(() => myRsvp.value?.waitlist_position ?? null);
+const isTeamEvent = computed(() => (props.tournament.team_size ?? 1) > 1);
+// Seats: registered competitors (the ringer is a stand-in, not a seat) against the organizer's limit.
+const seatsTaken = computed(() => props.tournament.players.filter((p) => !p.is_ringer).length);
+const seatsLeft = computed(() => (props.tournament.max_players ? Math.max(0, props.tournament.max_players - seatsTaken.value) : null));
+const closesAt = computed(() =>
+    props.tournament.registration_closes_at
+        ? new Date(props.tournament.registration_closes_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+        : null,
+);
+const registrationOpenPhase = computed(() => props.tournament.status === 'draft' || props.tournament.status === 'registration');
+const registrationClosedForMe = computed(
+    () => isLoggedIn.value && registrationOpenPhase.value && !!props.tournament.registration_closed && !hasRsvped.value && !isRegistered.value,
+);
 const canRsvp = computed(
     () =>
         isLoggedIn.value &&
+        !props.tournament.registration_closed &&
         (props.tournament.status === 'draft' || props.tournament.status === 'registration') &&
         !hasRsvped.value &&
         !isRegistered.value,
@@ -191,6 +213,29 @@ const toggleCheckIn = () => {
     const opts = { preserveScroll: true, onFinish: () => (checkingIn.value = false) };
     if (myPlayerRecord.value?.checked_in_at) router.delete(route('tournaments.check_in.cancel', props.tournament.uuid), opts);
     else router.post(route('tournaments.check_in', props.tournament.uuid), {}, opts);
+};
+const confirm = useConfirm();
+const dropped = computed(() => myPlayerRecord.value?.dropped_after_round != null);
+const canWithdraw = computed(
+    () => isRegistered.value && !isTeamEvent.value && !dropped.value && ['registration', 'active'].includes(props.tournament.status),
+);
+const withdrawing = ref(false);
+const withdraw = async () => {
+    const started = props.tournament.status === 'active';
+    const ok = await confirm({
+        title: 'Withdraw from this tournament?',
+        message: started
+            ? 'The organizer will be told. You will be dropped after the round you are in and will not be paired again.'
+            : 'You will lose your place. You can RSVP again later if registration is still open.',
+        confirmLabel: 'Withdraw',
+        destructive: true,
+    });
+    if (!ok) return;
+    router.post(
+        route('tournaments.withdraw', props.tournament.uuid),
+        {},
+        { preserveScroll: true, onStart: () => (withdrawing.value = true), onFinish: () => (withdrawing.value = false) },
+    );
 };
 const canCheckIn = computed(() => ['registration', 'active'].includes(props.tournament.status));
 
@@ -419,6 +464,17 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             <UserPlus class="size-4 text-blue-600 dark:text-blue-400" />
                             {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
                         </div>
+                        <p
+                            v-if="tournament.max_players"
+                            class="mt-1 text-xs font-medium"
+                            :class="seatsLeft === 0 ? 'text-amber-700 dark:text-amber-400' : ''"
+                        >
+                            <template v-if="seatsLeft === 0">
+                                All {{ tournament.max_players }} spots are taken — new RSVPs join the waitlist and move up if someone drops out.
+                            </template>
+                            <template v-else>{{ seatsTaken }} of {{ tournament.max_players }} spots taken.</template>
+                        </p>
+                        <p v-if="closesAt" class="text-xs text-muted-foreground">Registration closes {{ closesAt }}.</p>
                         <p class="mt-1 text-xs text-muted-foreground">
                             Express your interest in playing. Optionally pick
                             {{ ruleset.declaration === 'allegiance' ? 'an allegiance' : 'a faction' }} so the organizer can plan accordingly — you can
@@ -475,7 +531,10 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 class="mb-6 border-blue-500/30 bg-blue-500/5"
             >
                 <CardContent class="flex items-center justify-between p-4">
-                    <span class="text-sm text-blue-700 dark:text-blue-400">
+                    <span v-if="myWaitlistPosition" class="text-sm text-amber-700 dark:text-amber-400">
+                        You're #{{ myWaitlistPosition }} on the waitlist — you move up automatically if a spot opens.
+                    </span>
+                    <span v-else class="text-sm text-blue-700 dark:text-blue-400">
                         {{
                             tournament.status === 'registration'
                                 ? "You've signed up. Waiting for the organizer to confirm you in the player list."
@@ -485,9 +544,15 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <Button variant="ghost" size="sm" class="text-xs text-muted-foreground" @click="cancelRsvp">Cancel RSVP</Button>
                 </CardContent>
             </Card>
+            <Card v-else-if="registrationClosedForMe" class="mb-6 border-muted-foreground/30 bg-muted/30">
+                <CardContent class="p-4 text-sm text-muted-foreground">
+                    Registration for this tournament has closed<template v-if="closesAt"> ({{ closesAt }})</template>. Contact the organizer if you
+                    still want in.
+                </CardContent>
+            </Card>
             <!-- Registration confirmation: say what happens next instead of just "registered". -->
             <Card
-                v-else-if="isRegistered && (tournament.status === 'registration' || (tournament.status === 'active' && !myMatch))"
+                v-else-if="isRegistered && !dropped && (tournament.status === 'registration' || (tournament.status === 'active' && !myMatch))"
                 class="mb-6 border-green-500/30 bg-green-500/5"
             >
                 <CardContent class="p-4 text-sm">
@@ -512,6 +577,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 </CardContent>
             </Card>
 
+            <p v-if="dropped && isRegistered" class="mb-6 rounded-lg border border-muted-foreground/30 bg-muted/30 p-3 text-sm text-muted-foreground">
+                You've withdrawn from this tournament<template v-if="myPlayerRecord?.dropped_after_round">
+                    after round {{ myPlayerRecord.dropped_after_round }}</template
+                >.
+            </p>
             <MyMatchCard
                 v-if="myMatch && myPlayerId && tournament.status === 'active'"
                 :round="myMatch.round"
@@ -523,6 +593,17 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :allow-self-report="tournament.allow_self_report"
                 :score-fields="ruleset.score_fields"
             />
+            <div v-if="canWithdraw" class="-mt-3 mb-6 text-right" data-no-print>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    class="text-xs text-muted-foreground hover:text-destructive"
+                    :disabled="withdrawing"
+                    @click="withdraw"
+                >
+                    Withdraw from this tournament
+                </Button>
+            </div>
 
             <!-- Main Tabs -->
             <section v-if="liveGames.length" class="mb-4 rounded-lg border bg-muted/20 p-3" aria-label="Games in progress" data-no-print>
@@ -730,6 +811,12 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
                                     <UserPlus v-else class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="font-medium">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
+                                    <Badge
+                                        v-if="rsvp.waitlist_position"
+                                        variant="outline"
+                                        class="px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
+                                        >Waitlist #{{ rsvp.waitlist_position }}</Badge
+                                    >
                                     <span v-if="rsvp.faction" class="text-xs text-muted-foreground">{{
                                         factions[rsvp.faction]?.name ?? rsvp.faction
                                     }}</span>

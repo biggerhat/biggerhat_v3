@@ -51,6 +51,7 @@ use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
 use App\Http\Controllers\Tournament\TournamentRoundController;
 use App\Http\Controllers\Tournament\TournamentRsvpController;
+use App\Http\Controllers\Tournament\TournamentSelfDropController;
 use App\Http\Controllers\Tournament\TournamentUserSearchController;
 use App\Http\Controllers\TransmissionController;
 use App\Http\Controllers\UserSearchController;
@@ -461,6 +462,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}/rsvp', [TournamentRsvpController::class, 'destroy'])->name('rsvp.cancel');
 
     // Check-in (players check themselves in; the TO does it from Manage)
+    Route::post('/{tournament}/withdraw', [TournamentSelfDropController::class, 'store'])->name('withdraw');
     Route::post('/{tournament}/check-in', [TournamentCheckInController::class, 'store'])->name('check_in');
     Route::delete('/{tournament}/check-in', [TournamentCheckInController::class, 'destroy'])->name('check_in.cancel');
 

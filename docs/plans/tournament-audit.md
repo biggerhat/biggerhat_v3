@@ -48,6 +48,8 @@ individual events, with organizer notification) are done. **Deploy: run the new 
 
 **Status of crew lists (branch `tournament-crew-lists-nov11`):** F10 is done for Malifaux-style individual events — players attach a saved Crew Builder crew, organizers see it with size/faction flags and can open it, and starting warns about missing lists. **Deploy: run the new migration** (`2026_11_17_100000_add_crew_lists_to_tournaments`). Not done: a full legality check against the Crew Builder's own rules (the flags here are advisory), showing opponents each other's lists, TOS Garrison parity (it already links by share code) and team events.
 
+**Status of player history (branch `tournament-history-nov11`):** F9 is done — a Tournament history card on the public stats page (events with placing, overall and per-faction record, most-played opponents). No migration. The older achievement tiles still ignore team events.
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

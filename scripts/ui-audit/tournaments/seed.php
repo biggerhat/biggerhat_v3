@@ -72,8 +72,8 @@ foreach ([[$alice, 0], [$bob, 1], [$carol, 2]] as [$u, $min]) {
 $t7 = Tournament::factory()->create(['name' => 'Spring Showdown', 'status' => 'completed', 'creator_id' => $dave->id, 'planned_rounds' => 2]);
 $t7->organizers()->attach($org->id);
 $rp = [];
-foreach ([['Alice', 'arcanists'], ['Bob', 'guild'], ['Carol', 'bayou'], ['Dave', 'neverborn'], ['Eve', 'outcasts']] as [$n, $f]) {
-    $rp[$n] = TournamentPlayer::factory()->for($t7)->create(['display_name' => $n, 'faction' => $f]);
+foreach ([['Alice', 'arcanists', $alice], ['Bob', 'guild', $bob], ['Carol', 'bayou', $carol], ['Dave', 'neverborn', $dave], ['Eve', 'outcasts', null]] as [$n, $f, $u]) {
+    $rp[$n] = TournamentPlayer::factory()->for($t7)->create(['display_name' => $n, 'faction' => $f, 'user_id' => $u?->id]);
 }
 $q1 = TournamentRound::factory()->for($t7)->create(['round_number' => 1, 'status' => 'completed']);
 TournamentGame::factory()->for($q1, 'round')->withScore(9, 3)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Bob']->id, 'result' => 'completed', 'table_number' => 1]);

@@ -9,12 +9,13 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\User;
 use App\Services\AchievementService;
+use App\Tournaments\TournamentHistory;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 
 class StatsController extends Controller
 {
-    public function __construct(private readonly AchievementService $achievements) {}
+    public function __construct(private readonly AchievementService $achievements, private readonly TournamentHistory $tournamentHistory) {}
 
     public function myStats(): \Illuminate\Http\RedirectResponse
     {
@@ -37,6 +38,7 @@ class StatsController extends Controller
                 'user' => ['name' => $user->name, 'slug' => $user->slug],
                 'stats' => $this->emptyStats(),
                 'profile' => fn () => $this->buildProfile($user, 0, 0, []),
+                'tournament_history' => fn () => $this->tournamentHistory->forUser($user),
                 'is_own_profile' => Auth::id() === $user->id,
             ]);
         }
@@ -174,6 +176,7 @@ class StatsController extends Controller
                 'recent_games' => $recentGames,
             ],
             'profile' => fn () => $this->buildProfile($user, $totalGames, $wins, $factionStats),
+            'tournament_history' => fn () => $this->tournamentHistory->forUser($user),
             'is_own_profile' => Auth::id() === $user->id,
         ]);
     }

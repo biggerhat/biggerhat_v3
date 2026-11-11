@@ -291,3 +291,27 @@ export interface TeamMember {
     garrison?: { name: string; share_code?: string | null; is_public: boolean } | null;
     position: number;
 }
+
+/** A player's tournament record for their public profile (App\Tournaments\TournamentHistory). */
+interface HistoryRecord {
+    won: number;
+    lost: number;
+    tied: number;
+}
+export interface TournamentHistory {
+    summary: HistoryRecord & { events: number; wins: number; podiums: number; games: number; win_rate: number | null; best_finish: number | null };
+    by_faction: (HistoryRecord & { faction: string; label: string; games: number })[];
+    rivals: (HistoryRecord & { name: string; slug: string | null; games: number })[];
+    events: (HistoryRecord & {
+        uuid: string;
+        name: string;
+        event_date: string;
+        ruleset: string;
+        is_team: boolean;
+        team_name: string | null;
+        rank: number | null;
+        of: number;
+        tp: number;
+        faction: string | null;
+    })[];
+}

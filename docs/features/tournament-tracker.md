@@ -99,6 +99,12 @@ declared (a player with no faction takes the crew's), and it locks when the tour
 `crew_build_id`. Attaching a private build shares it with that tournament's organizers: `CrewBuildPolicy::viewShare` allows an organizer to open it. Starting the tournament warns who hasn't submitted one.
 TOS events use the Garrison link from the declaration instead; team events don't use lists.
 
+## Tournament history on profiles
+`App\Tournaments\TournamentHistory::forUser()` builds a person's record from every **completed** event they played (as a player or a team member): placing and field size, W-L-T from the games (byes and unfinished games don't
+count; a forfeit counts for the player who didn't forfeit), per-faction results from each game's faction snapshot, and the opponents met at least twice (linked to their stats pages when they have an account).
+It is a closure prop `tournament_history` on `StatsController::show` (the public `/stats/{slug}` page) rendered by `TournamentHistoryCard.vue`; the card is absent for someone with no finished events.
+`AchievementService::tournamentRecordForUser` (the Tournaments/Best-finish tiles and badges) is separate and still counts individual entries only.
+
 ## Manage page structure
 `pages/Tournaments/Manage.vue` (~880 lines) is the shell: header, next-step card, announcement dialog, the standings / RSVP / settings tabs, and the score and
 finalize dialogs. Its tabs live in `components/Tournament/`: `ManagePlayersTab.vue`, `ManageRoundsTab.vue` (round lifecycle, scenario editor, manual pairing,

@@ -24,6 +24,8 @@ use App\Http\Controllers\Admin\CardArtAdminController;
 use App\Http\Controllers\Admin\ChannelAdminController;
 use App\Http\Controllers\Admin\CharacterAdminController;
 use App\Http\Controllers\Admin\CharacteristicAdminController;
+use App\Http\Controllers\Admin\Cooperative\CoopClassAdminController;
+use App\Http\Controllers\Admin\Cooperative\CoopEncounterAdminController;
 use App\Http\Controllers\Admin\CrewAdminController;
 use App\Http\Controllers\Admin\CustomCardModerationAdminController;
 use App\Http\Controllers\Admin\DashboardAdminController;
@@ -574,5 +576,22 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
         $crud(TacticalModAdvancementAdminController::class, 'advancement-tactical-mod', 'advancement-tactical-mod', 'advancement');
         $crud(AdvancementActionAdminController::class, 'advancement-action', 'advancement-action', 'advancementAction');
         $crud(AdvancementAbilityAdminController::class, 'advancement-ability', 'advancement-ability', 'advancementAbility');
+    });
+
+    // M4E Cooperative Mode catalogs (same book as Campaign, so they share the campaign-catalog permission trio).
+    Route::prefix('cooperative')->name('cooperative.')->group(function () {
+        $crud = function (string $controller, string $prefix, string $name, string $binding) {
+            Route::controller($controller)->prefix($prefix)->name("$name.")->group(function () use ($binding) {
+                Route::get('/', 'index')->name('index')->middleware('permission:view_campaign_catalog');
+                Route::get("/edit/{{$binding}}", 'edit')->name('edit')->middleware('permission:view_campaign_catalog');
+                Route::get('/create', 'create')->name('create')->middleware('permission:edit_campaign_catalog');
+                Route::post('/store', 'store')->name('store')->middleware('permission:edit_campaign_catalog');
+                Route::post("/update/{{$binding}}", 'update')->name('update')->middleware('permission:edit_campaign_catalog');
+                Route::post("/delete/{{$binding}}", 'delete')->name('delete')->middleware('permission:delete_campaign_catalog');
+            });
+        };
+
+        $crud(CoopClassAdminController::class, 'classes', 'classes', 'coopClass');
+        $crud(CoopEncounterAdminController::class, 'encounters', 'encounters', 'coopEncounter');
     });
 });

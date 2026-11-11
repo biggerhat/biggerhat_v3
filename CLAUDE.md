@@ -18,6 +18,7 @@ file locations, models/enums, conventions, and gotchas (saves re-discovery):
 - [crew-builder.md](docs/features/crew-builder.md) — `CrewBuild` + references payload
 - [custom-card-creator.md](docs/features/custom-card-creator.md) — homebrew cards, client-side render
 - [campaign-mode.md](docs/features/campaign-mode.md) — feature-flagged multi-week campaign
+- [cooperative-mode.md](docs/features/cooperative-mode.md) — NP classes + encounters reference data (play tracker not built yet)
 - [lore-linking.md](docs/features/lore-linking.md) — Lore ↔ Characters/TOS Units pivots
 - [aethervox-channels.md](docs/features/aethervox-channels.md) — "Across the Aethervox" channels/transmissions
 

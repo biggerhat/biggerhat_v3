@@ -72,6 +72,14 @@ const BUILDERS: Record<string, Builder> = {
     'TOS/Stratagems/View': listDetail('Stratagems', () => route('tos.stratagems.index'), 'stratagem'),
     'TOS/AllegianceCards/View': listDetail('Allegiance Cards', () => route('tos.allegiance_cards.index'), 'card'),
 
+    'Cooperative/Encounter': (props) =>
+        props.encounter?.name
+            ? [
+                  { title: 'Cooperative', href: route('cooperative.index') },
+                  { title: props.encounter.name, href: '' },
+              ]
+            : null,
+
     'Campaigns/Show': (props) =>
         props.campaign?.name
             ? [

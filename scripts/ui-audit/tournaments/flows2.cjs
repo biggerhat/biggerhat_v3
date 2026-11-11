@@ -85,6 +85,9 @@ const L = require('./lib.cjs');
         await L.clickText(org, /^Create Tournament$/i);
         await L.expectText(org, /FoG Browser Cup/i);
         await L.expectText(org, /40 Scrip/i);
+        // a new event opens on the Players tab (the next step lives there); the ranking rule is on Standings
+        await L.expectText(org, /Registration is open|Set up your tournament/i);
+        await L.clickText(org, /^Standings$/i, '[role=tab]');
         await L.expectText(org, /Ranked by TP → Strength of Schedule/i);
         await L.shot(org, '25-fog-created');
     });

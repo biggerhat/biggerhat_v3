@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -93,6 +94,7 @@ const scoreFromGame = (game: ScoreEntryGame, side: 'player_one' | 'player_two'):
 
 const hydrate = (game: ScoreEntryGame) => {
     editingGame.value = game;
+    showLeaders.value = !!(game.player_one_master || game.player_two_master);
     editP1Master.value = game.player_one_master;
     editP1Title.value = game.player_one_title;
     // A pending / disputed player report pre-fills the form, so approving it is one click.
@@ -106,6 +108,9 @@ const hydrate = (game: ScoreEntryGame) => {
     editDropP2.value = false;
     scoreError.value = null;
 };
+
+// Masters and titles are optional record-keeping; most organizers only type scores, so they stay folded away until asked for.
+const showLeaders = ref(false);
 
 // Round number this game belongs to — used when the TO checks "drop after this round".
 // Alternating Leaders variant: a master (by title) can't be hired again in a later round of the same event.
@@ -351,7 +356,7 @@ watch(
                 </div>
 
                 <label class="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs">
-                    <input v-model="editAgreed" type="checkbox" class="mt-0.5 size-3.5" />
+                    <Checkbox :checked="editAgreed" class="mt-0.5" @update:checked="(on) => (editAgreed = on === true)" />
                     <span>
                         <span class="font-medium">Agreed result</span>
                         <span class="block text-2xs text-muted-foreground">
@@ -361,10 +366,21 @@ watch(
                     </span>
                 </label>
 
+                <Button
+                    v-if="ruleset.tracks_leaders && !showLeaders"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="h-7 text-xs"
+                    @click="showLeaders = true"
+                >
+                    Add masters &amp; titles (optional)
+                </Button>
+
                 <!-- Player 1 -->
                 <div class="space-y-2 rounded-lg border p-3">
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_one_id) }}</div>
-                    <div v-if="ruleset.tracks_leaders" class="grid grid-cols-2 gap-2">
+                    <div v-if="ruleset.tracks_leaders && showLeaders" class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
                             <Label class="text-2xs">Master</Label>
                             <Select v-model="editP1Master">
@@ -404,14 +420,15 @@ watch(
                                 :max="field.max"
                                 class="h-8 text-center text-sm font-bold"
                                 @focus="($event.target as HTMLInputElement).select()"
+                                @keydown.enter.prevent="saveScore"
                             />
                         </div>
                     </div>
                     <div class="text-right text-xs text-muted-foreground">
                         Total: <span class="font-bold text-foreground">{{ editP1Vp }}</span> VP
                     </div>
-                    <label class="flex items-center gap-2 pt-1 text-2xs text-amber-700 dark:text-amber-400">
-                        <input v-model="editDropP1" type="checkbox" class="size-3.5" />
+                    <label class="flex items-center gap-2 pt-1 text-xs text-amber-700 dark:text-amber-400">
+                        <Checkbox :checked="editDropP1" @update:checked="(on) => (editDropP1 = on === true)" />
                         Drop {{ playerName(editingGame.player_one_id) }} after this round
                     </label>
                 </div>
@@ -419,7 +436,7 @@ watch(
                 <!-- Player 2 -->
                 <div class="space-y-2 rounded-lg border p-3">
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_two_id) }}</div>
-                    <div v-if="ruleset.tracks_leaders" class="grid grid-cols-2 gap-2">
+                    <div v-if="ruleset.tracks_leaders && showLeaders" class="grid grid-cols-2 gap-2">
                         <div class="space-y-1">
                             <Label class="text-2xs">Master</Label>
                             <Select v-model="editP2Master">
@@ -459,14 +476,15 @@ watch(
                                 :max="field.max"
                                 class="h-8 text-center text-sm font-bold"
                                 @focus="($event.target as HTMLInputElement).select()"
+                                @keydown.enter.prevent="saveScore"
                             />
                         </div>
                     </div>
                     <div class="text-right text-xs text-muted-foreground">
                         Total: <span class="font-bold text-foreground">{{ editP2Vp }}</span> VP
                     </div>
-                    <label v-if="editingGame.player_two_id" class="flex items-center gap-2 pt-1 text-2xs text-amber-700 dark:text-amber-400">
-                        <input v-model="editDropP2" type="checkbox" class="size-3.5" />
+                    <label v-if="editingGame.player_two_id" class="flex items-center gap-2 pt-1 text-xs text-amber-700 dark:text-amber-400">
+                        <Checkbox :checked="editDropP2" @update:checked="(on) => (editDropP2 = on === true)" />
                         Drop {{ playerName(editingGame.player_two_id) }} after this round
                     </label>
                 </div>

@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { csrfToken } from '@/lib/utils';
+import { factionSpine } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
 import { useTournament } from '@/composables/useTournament';
 import type { TeamMember, TeamMemberDraft, TournamentRuleset } from '@/types/tournament';
@@ -88,7 +89,7 @@ const props = defineProps<{
 }>();
 
 const tournamentRef = computed(() => props.tournament);
-const { submitting, doAction, doModalAction, reloadProps, factionBackground } = useTournament(tournamentRef);
+const { submitting, doAction, doModalAction, reloadProps } = useTournament(tournamentRef);
 const reloadPage = () => reloadProps(['tournament', 'standings']);
 
 // What players declare at check-in (Malifaux faction vs TOS Allegiance + Garrison) comes from the ruleset.
@@ -268,6 +269,8 @@ const newPlayerFaction = ref<string | null>(null);
 const newPlayerAllegiance = ref<string | null>(null);
 const newPlayerGarrison = ref('');
 const newPlayerMeta = ref<MetaOption | null>(null);
+// Meta is rarely needed, so the add form keeps it folded away until asked for.
+const showNewMeta = ref(false);
 
 // ── Edit player dialog ──
 // TOs need to fix typos / change faction / re-assign meta after a player has
@@ -615,12 +618,15 @@ defineExpose({ openRsvpPlayerDialog });
         <!-- Add Player Form -->
         <Card v-else class="mb-4">
             <CardContent class="p-3 sm:p-4">
-                <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                <div
+                    class="grid gap-2 sm:items-end"
+                    :class="showNewMeta || newPlayerMeta ? 'sm:grid-cols-[1fr_1fr_auto_auto]' : 'sm:grid-cols-[1fr_auto_auto]'"
+                >
                     <div class="space-y-1">
                         <Label class="text-xs">Player Name</Label>
                         <Input v-model="newPlayerName" placeholder="Enter player name..." class="h-9 text-sm" @keydown.enter="addPlayer" />
                     </div>
-                    <div class="space-y-1">
+                    <div v-if="showNewMeta || newPlayerMeta" class="space-y-1">
                         <Label class="text-xs">Meta <span class="text-muted-foreground">(optional)</span></Label>
                         <div class="flex gap-1">
                             <Combobox v-model="newPlayerMeta" v-model:open="newMetaPickerOpen" by="id" class="flex-1">
@@ -702,6 +708,14 @@ defineExpose({ openRsvpPlayerDialog });
                         <Plus class="size-3.5" /> Add
                     </Button>
                 </div>
+                <button
+                    v-if="!showNewMeta && !newPlayerMeta"
+                    type="button"
+                    class="mt-2 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    @click="showNewMeta = true"
+                >
+                    Add a meta (optional)
+                </button>
             </CardContent>
         </Card>
 
@@ -724,8 +738,8 @@ defineExpose({ openRsvpPlayerDialog });
                 v-for="player in tournament.players"
                 :key="player.id"
                 :class="[
-                    factionBackground(player.faction),
-                    player.faction ? 'text-white' : 'border',
+                    factionSpine(player.faction),
+                    'border bg-card',
                     player.is_disqualified ? 'line-through opacity-40' : player.dropped_after_round !== null ? 'opacity-60' : '',
                 ]"
                 class="flex items-start justify-between gap-2 rounded-lg px-2 py-2 sm:px-3"
@@ -749,11 +763,16 @@ defineExpose({ openRsvpPlayerDialog });
                             >Garrison</a
                         >
                         <span v-else-if="player.garrison" class="shrink-0 text-2xs opacity-70">{{ player.garrison.name }}</span>
-                        <Check v-if="player.checked_in_at" class="size-3.5 shrink-0 text-emerald-300" aria-label="Checked in" title="Checked in" />
+                        <Check
+                            v-if="player.checked_in_at"
+                            class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                            aria-label="Checked in"
+                            title="Checked in"
+                        />
                         <Badge
                             v-if="player.is_ringer"
                             variant="outline"
-                            class="hidden shrink-0 border-white/40 px-1 py-0 text-2xs text-white/80 sm:inline-flex"
+                            class="hidden shrink-0 px-1 py-0 text-2xs text-muted-foreground sm:inline-flex"
                             >Ringer</Badge
                         >
                         <Star v-if="player.is_ringer" class="size-3 shrink-0 fill-amber-300 text-amber-300 sm:hidden" />
@@ -763,12 +782,9 @@ defineExpose({ openRsvpPlayerDialog });
                             class="shrink-0 bg-amber-700/80 px-1 py-0 text-2xs font-semibold uppercase tracking-wide text-white"
                             >Dropped after R{{ player.dropped_after_round }}</Badge
                         >
-                        <Badge
-                            v-if="player.meta || player.user?.meta"
-                            variant="outline"
-                            class="shrink-0 border-white/40 px-1 py-0 text-2xs text-white/90"
-                            >{{ player.meta?.name || player.user?.meta?.name }}</Badge
-                        >
+                        <Badge v-if="player.meta || player.user?.meta" variant="outline" class="shrink-0 px-1 py-0 text-2xs text-muted-foreground">{{
+                            player.meta?.name || player.user?.meta?.name
+                        }}</Badge>
                     </div>
                     <div v-if="player.members?.length" class="mt-0.5 pl-5 text-2xs opacity-80">
                         <span v-for="(m, i) in player.members" :key="m.id">
@@ -780,25 +796,13 @@ defineExpose({ openRsvpPlayerDialog });
                     <div v-if="opponents[player.id]?.length" class="mt-0.5 pl-5 text-2xs opacity-70">vs: {{ opponents[player.id].join(' · ') }}</div>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        class="h-8 gap-1 px-2 text-white hover:bg-white/20 hover:text-white"
-                        :class="player.faction ? '' : 'text-foreground hover:bg-accent hover:text-foreground'"
-                        @click="openEditPlayerDialog(player)"
-                    >
+                    <Button variant="ghost" size="sm" class="h-8 gap-1 px-2" @click="openEditPlayerDialog(player)">
                         <Pencil class="size-3.5" /> <span class="hidden sm:inline">Edit</span>
                         <span class="sr-only sm:hidden">Edit {{ player.display_name }}</span>
                     </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger as-child>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                class="size-8 text-white hover:bg-white/20 hover:text-white"
-                                :class="player.faction ? '' : 'text-foreground hover:bg-accent hover:text-foreground'"
-                                :aria-label="`More actions for ${player.display_name}`"
-                            >
+                            <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${player.display_name}`">
                                 <MoreHorizontal class="size-4" />
                             </Button>
                         </DropdownMenuTrigger>

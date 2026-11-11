@@ -235,11 +235,13 @@ const visibleTabs = computed(() => {
     return t;
 });
 const initialTab = typeof window !== 'undefined' && window.location.hash ? window.location.hash.slice(1) : null;
-// No hash to restore — default to Rounds when a round is actively being
-// played (the organizer's most likely next task: pairing/scoring/ending it),
-// else Standings.
-const activeRoundInProgress = props.tournament.rounds.some((r) => r.status === 'in_progress');
-const defaultTab = activeRoundInProgress ? 'rounds' : 'standings';
+// No hash to restore — open on the tab the organizer's next task lives on: Players while setting up,
+// Rounds while running the event (pair / score / end), Standings once it is over.
+const defaultTab = ['draft', 'registration'].includes(props.tournament.status)
+    ? 'players'
+    : props.tournament.status === 'active'
+      ? 'rounds'
+      : 'standings';
 const activeTab = ref(initialTab && visibleTabs.value.includes(initialTab) ? initialTab : defaultTab);
 
 // Which round the tournament is currently at, for the "Round X of Y" header
@@ -936,7 +938,7 @@ const isEditable = computed(() => !isLocked.value);
                     >
                         Back to Draft
                     </Button>
-                    <Button v-if="statusTransitions[tournament.status]" size="sm" @click="confirmStatusDialog = true">
+                    <Button v-if="statusTransitions[tournament.status] && !nextStep" size="sm" @click="confirmStatusDialog = true">
                         {{ statusTransitions[tournament.status].label }}
                     </Button>
                 </div>
@@ -986,6 +988,11 @@ const isEditable = computed(() => !isLocked.value);
                         Ranked by TP → {{ ruleset.tiebreakers.map((k) => TIEBREAKER_LABELS[k]).join(' → ') }}
                     </p>
                     <StandingsTable :standings="standings" />
+                    <div class="mt-3 flex justify-end">
+                        <Button as-child variant="outline" size="sm" class="gap-1.5 text-xs">
+                            <a :href="route('tournaments.export_csv', tournament.uuid)"><Download class="size-3.5" /> Download results (CSV)</a>
+                        </Button>
+                    </div>
                 </TabsContent>
 
                 <!-- ═══ RSVPs ═══ -->
@@ -1430,9 +1437,11 @@ const isEditable = computed(() => !isLocked.value);
                                 <div
                                     v-if="round.status === 'in_progress' && round.games.length > 0 && !roundAllScored(round)"
                                     class="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"
+                                    role="status"
                                 >
                                     <Loader2 class="size-3 animate-spin" />
-                                    {{ round.games.filter((g: any) => g.result === 'pending').length }} game(s) pending scores
+                                    {{ round.games.filter((g: any) => g.result === 'pending').length }} of {{ round.games.length }} games still need a
+                                    result — End Round unlocks once every game has one
                                 </div>
 
                                 <!-- Manual Pairing -->

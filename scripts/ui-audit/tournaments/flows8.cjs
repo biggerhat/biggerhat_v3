@@ -39,6 +39,42 @@ const L = require('./lib.cjs');
         await L.shot(org, '84-display-status');
     });
 
+    await L.step('organizer UX: tabs open where the next step lives, no duplicate Start button, export on Standings', org, async () => {
+        await L.visit(org, `/tournaments/${ids.t2}`);
+        await L.expectText(org, /Registration is open/i);
+        const active = await org.page.$eval('[role=tab][data-state=active]', (e) => e.innerText.trim());
+        if (!/^Players/.test(active)) throw new Error(`expected the Players tab to be open, got "${active}"`);
+        const starts = await org.page.$$eval('button', (bs) => bs.filter((b) => /^Start Tournament/.test(b.innerText.trim())).length);
+        if (starts !== 1) throw new Error(`expected exactly one Start Tournament button, found ${starts}`);
+        await L.clickText(org, /^Standings$/i, '[role=tab]');
+        await L.expectText(org, /Download results \(CSV\)/i);
+    });
+    await L.step('organizer UX: add form hides Meta until asked; player rows use the faction spine', org, async () => {
+        await L.visit(org, `/tournaments/${ids.t1}`);
+        await L.clickText(org, /^Players/i, '[role=tab]');
+        const meta = await L.text(org);
+        if (/Select meta/.test(meta)) throw new Error('meta picker should start folded away');
+        await L.clickText(org, /Add a meta/i, 'button');
+        await L.expectText(org, /Select meta/i);
+        const spines = await org.page.$$eval('.faction-spine', (els) => els.length);
+        if (spines < 4) throw new Error(`expected faction-spine player rows, found ${spines}`);
+        await L.shot(org, '85-players-spine');
+    });
+    await L.step('organizer UX: score dialog folds masters away, Enter saves', org, async () => {
+        await L.visit(org, `/tournaments/${ids.t1}`);
+        await L.clickText(org, /^Enter score$/i, 'button');
+        await L.expectText(org, /Game Score/i);
+        const dlg = await L.text(org);
+        if (/Select master/.test(dlg)) throw new Error('master pickers should be folded away');
+        await L.clickText(org, /Add masters/i, 'button');
+        await L.expectText(org, /Select master/i);
+        await org.page.click('input[type=number]', { clickCount: 3 });
+        await org.page.type('input[type=number]', '3');
+        await org.page.keyboard.press('Enter');
+        await L.expectText(org, /Reported|3 – 0|3 - 0/i);
+        await L.shot(org, '86-score-saved');
+    });
+
     const phone = await L.session(browser, 'org@example.test', { width: 390, height: 800 });
     await L.step('next step: card fits at phone width', phone, async () => {
         await L.visit(phone, `/tournaments/${ids.t1}`);

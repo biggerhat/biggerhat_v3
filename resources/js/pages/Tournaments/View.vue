@@ -26,6 +26,8 @@ interface TournamentPlayer {
     display_name: string;
     faction: string | null;
     user: { id: number; name: string } | null;
+    /** Team events: the people on this team (their accounts count as playing for it). */
+    members?: { id: number; display_name: string; user_id: number | null }[];
     is_ringer: boolean;
     is_disqualified: boolean;
     dropped_after_round: number | null;
@@ -164,7 +166,10 @@ const currentRoundNumber = computed(() => {
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
 const currentUserId = computed(() => page.props.auth.user?.id);
-const isRegistered = computed(() => props.tournament.players.some((p) => p.user?.id === currentUserId.value));
+// A user plays either as an individual player or as a member of a team.
+const playsFor = (p: TournamentPlayer) =>
+    p.user?.id === currentUserId.value || !!p.members?.some((m) => !!currentUserId.value && m.user_id === currentUserId.value);
+const isRegistered = computed(() => props.tournament.players.some(playsFor));
 const hasRsvped = computed(() => props.tournament.rsvps?.some((r) => r.user_id === currentUserId.value) ?? false);
 const canRsvp = computed(
     () =>
@@ -173,12 +178,7 @@ const canRsvp = computed(
         !hasRsvped.value &&
         !isRegistered.value,
 );
-const myPlayerRecord = computed(
-    () =>
-        props.tournament.players.find((p) => p.user?.id === currentUserId.value) as
-            | ({ checked_in_at?: string | null } & TournamentPlayer)
-            | undefined,
-);
+const myPlayerRecord = computed(() => props.tournament.players.find(playsFor) as ({ checked_in_at?: string | null } & TournamentPlayer) | undefined);
 const checkingIn = ref(false);
 const toggleCheckIn = () => {
     checkingIn.value = true;
@@ -188,7 +188,7 @@ const toggleCheckIn = () => {
 };
 const canCheckIn = computed(() => ['registration', 'active'].includes(props.tournament.status));
 
-const myPlayerId = computed(() => props.tournament.players.find((p) => p.user?.id === currentUserId.value)?.id ?? null);
+const myPlayerId = computed(() => props.tournament.players.find(playsFor)?.id ?? null);
 
 // The user's pairing in the newest round that isn't finished yet — the "where do I sit, who do I play" answer.
 const myMatch = computed(() => {

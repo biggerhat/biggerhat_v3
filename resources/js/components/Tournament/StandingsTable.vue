@@ -83,7 +83,9 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                         v-if="entry.rank === 1 && entry.rounds_played > 0 && !entry.is_ringer"
                                         class="size-3.5 shrink-0 text-amber-600 dark:text-amber-300"
                                     />
-                                    <span class="truncate text-xs font-medium sm:text-sm">{{ entry.display_name }}</span>
+                                    <span class="truncate text-xs font-medium sm:text-sm" :title="entry.members?.join(' · ')">{{
+                                        entry.display_name
+                                    }}</span>
                                     <Badge
                                         v-if="isMe(entry.player_id)"
                                         variant="outline"

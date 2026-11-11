@@ -82,3 +82,8 @@ TOS rounds pick an Operation + Deployment from `tos_operations` / `tos_deploymen
 `ScoreEntryDialog.vue` (all score-entry form state; the page only says which game is open) and `TournamentSettingsForm.vue` (mounted fresh per edit).
 Template-level identifier mistakes aren't caught by the build — there is no vue-tsc here — so after moving code around, compile the templates with
 `@vue/compiler-sfc` and look for `_ctx.<name>` accesses that aren't bindings.
+
+## Team events
+`tournaments.team_size` > 1 makes each competitor a team: a `tournament_players` row (named by `display_name`) plus `tournament_player_members` for the people on it.
+Everything that pairs/scores/ranks works on the competitor row unchanged; anything about *people* (declaration, linked accounts, notifications, check-in, self-report)
+goes through the members — see `TournamentPlayer::forUser()` / `linkedUserIds()`. UI: `ManagePlayersTab` (team mode) + `TeamForm`.

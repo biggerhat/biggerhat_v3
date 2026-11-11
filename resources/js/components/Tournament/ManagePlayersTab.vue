@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import DeclarationFields from '@/components/Tournament/DeclarationFields.vue';
+import TeamForm from '@/components/Tournament/TeamForm.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { csrfToken } from '@/lib/utils';
 import { useToast } from '@/composables/useToast';
 import { useTournament } from '@/composables/useTournament';
-import type { TournamentRuleset } from '@/types/tournament';
+import type { TeamMember, TeamMemberDraft, TournamentRuleset } from '@/types/tournament';
 
 /**
  * The organizer's Players tab: add / edit / drop / disqualify / check in players, set metas, link accounts,
@@ -61,6 +62,8 @@ interface TournamentPlayer {
     is_ringer: boolean;
     is_disqualified: boolean;
     dropped_after_round: number | null;
+    /** Team events: the people on this team. */
+    members?: TeamMember[];
 }
 
 // A fragment (the tab plus its dialogs): nothing should fall through onto the first root.
@@ -72,6 +75,7 @@ const props = defineProps<{
         status: string;
         players: TournamentPlayer[];
         rsvps?: Rsvp[];
+        team_size?: number;
         [key: string]: unknown;
     };
     ruleset: TournamentRuleset;
@@ -99,6 +103,99 @@ const declarationPayload = (faction: string | null, allegiance: string | null, g
           }
         : { faction };
 const declarationLabel = computed(() => (declaration.value === 'allegiance' ? 'allegiance' : 'faction'));
+
+// ─── Team events: a team is one competitor made of `team_size` people, each declaring for themself ───
+const teamSize = computed(() => Number(props.tournament.team_size ?? 1));
+const isTeamEvent = computed(() => teamSize.value > 1);
+const unitLabel = computed(() => (isTeamEvent.value ? 'team' : 'player'));
+
+const blankMember = (): TeamMemberDraft => ({
+    id: null,
+    display_name: '',
+    user_id: null,
+    user_name: null,
+    faction: null,
+    allegiance: null,
+    garrison_code: '',
+    garrison_original: '',
+});
+const draftFrom = (m: TeamMember): TeamMemberDraft => ({
+    id: m.id,
+    display_name: m.display_name,
+    user_id: m.user_id,
+    user_name: m.user?.name ?? null,
+    faction: m.faction,
+    allegiance: m.allegiance_id ? String(m.allegiance_id) : null,
+    garrison_code: m.garrison?.share_code ?? '',
+    garrison_original: m.garrison?.share_code ?? '',
+});
+// Accounts that RSVPed and aren't on a team yet, offered when linking a member.
+const availableUsers = computed(() => {
+    const taken = new Set(
+        props.tournament.players.flatMap((p) => [p.user?.id, ...(p.members ?? []).map((m) => m.user_id)]).filter((id): id is number => !!id),
+    );
+    return (props.tournament.rsvps ?? []).filter((r) => r.user && !taken.has(r.user_id)).map((r) => ({ id: r.user_id, name: r.user!.name }));
+});
+const memberPayload = (m: TeamMemberDraft) => ({
+    ...(m.id ? { id: m.id } : {}),
+    display_name: m.display_name.trim(),
+    user_id: m.user_id,
+    // A private Garrison's code is hidden from the payload, so only send it when the TO changed it.
+    ...declarationPayload(m.faction, m.allegiance, m.garrison_code !== m.garrison_original ? m.garrison_code : undefined),
+});
+const membersReady = (members: TeamMemberDraft[]) =>
+    members.length === teamSize.value && members.every((m) => m.display_name.trim() && isDeclared(m.faction, m.allegiance));
+
+const newTeamName = ref('');
+const newTeamMembers = ref<TeamMemberDraft[]>(Array.from({ length: teamSize.value }, blankMember));
+const addTeam = async () => {
+    if (!newTeamName.value.trim() || !membersReady(newTeamMembers.value)) return;
+    submitting.value = true;
+    const ok = await doAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
+        display_name: newTeamName.value.trim(),
+        members: newTeamMembers.value.map(memberPayload),
+    });
+    submitting.value = false;
+    if (ok) {
+        newTeamName.value = '';
+        newTeamMembers.value = Array.from({ length: teamSize.value }, blankMember);
+        reloadPage();
+    }
+};
+
+const teamDialogOpen = ref(false);
+const teamEditing = ref<TournamentPlayer | null>(null);
+const teamName = ref('');
+const teamMembers = ref<TeamMemberDraft[]>([]);
+const teamError = ref<string | null>(null);
+const teamSaving = ref(false);
+const openTeamDialog = (team: TournamentPlayer) => {
+    teamEditing.value = team;
+    teamName.value = team.display_name;
+    const drafts = (team.members ?? []).map(draftFrom);
+    while (drafts.length < teamSize.value) drafts.push(blankMember());
+    teamMembers.value = drafts;
+    teamError.value = null;
+    teamDialogOpen.value = true;
+};
+const submitTeam = async () => {
+    if (!teamEditing.value || !teamName.value.trim() || !membersReady(teamMembers.value)) return;
+    teamSaving.value = true;
+    teamError.value = null;
+    const { ok, error } = await doModalAction(
+        route('tournaments.players.update', { tournament: props.tournament.uuid, player: teamEditing.value.id }),
+        'PUT',
+        { display_name: teamName.value.trim(), members: teamMembers.value.map(memberPayload) },
+    );
+    teamSaving.value = false;
+    if (ok) {
+        teamDialogOpen.value = false;
+        teamEditing.value = null;
+        reloadPage();
+    } else {
+        teamError.value = error;
+    }
+};
 
 const activePlayers = computed(() => props.tournament.players.filter((p) => !p.is_disqualified && p.dropped_after_round === null));
 
@@ -178,6 +275,7 @@ const editPlayerSubmitting = ref(false);
 const editPlayerError = ref<string | null>(null);
 
 const openEditPlayerDialog = (player: TournamentPlayer) => {
+    if (isTeamEvent.value) return openTeamDialog(player);
     editingPlayer.value = player;
     editPlayerName.value = player.display_name;
     editPlayerFaction.value = player.faction ?? null;
@@ -466,8 +564,28 @@ defineExpose({ openRsvpPlayerDialog });
 
 <template>
     <TabsContent value="players">
+        <!-- Add Team Form (team events) -->
+        <Card v-if="isTeamEvent" class="mb-4">
+            <CardContent class="space-y-3 p-3 sm:p-4">
+                <div class="space-y-1">
+                    <Label class="text-xs">Team name</Label>
+                    <Input v-model="newTeamName" placeholder="Enter team name..." class="h-9 text-sm" />
+                </div>
+                <TeamForm
+                    v-model="newTeamMembers"
+                    :declaration="declaration"
+                    :factions="factions"
+                    :allegiances="allegiances"
+                    :available-users="availableUsers"
+                />
+                <Button size="sm" class="h-9 gap-1" :disabled="!newTeamName.trim() || !membersReady(newTeamMembers) || submitting" @click="addTeam">
+                    <Plus class="size-3.5" /> Add team
+                </Button>
+            </CardContent>
+        </Card>
+
         <!-- Add Player Form -->
-        <Card class="mb-4">
+        <Card v-else class="mb-4">
             <CardContent class="p-3 sm:p-4">
                 <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
                     <div class="space-y-1">
@@ -562,7 +680,7 @@ defineExpose({ openRsvpPlayerDialog });
         <!-- Player Count -->
         <div class="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
             <Users class="size-4" />
-            {{ activePlayers.length }} active players
+            {{ activePlayers.length }} active {{ unitLabel }}s
             <span v-if="tournament.players.length !== activePlayers.length">({{ tournament.players.length }} total)</span>
             <template v-if="canCheckIn && tournament.players.length">
                 · {{ checkedInCount }} checked in
@@ -623,6 +741,13 @@ defineExpose({ openRsvpPlayerDialog });
                             class="shrink-0 border-white/40 px-1 py-0 text-2xs text-white/90"
                             >{{ player.meta?.name || player.user?.meta?.name }}</Badge
                         >
+                    </div>
+                    <div v-if="player.members?.length" class="mt-0.5 pl-5 text-2xs opacity-80">
+                        <span v-for="(m, i) in player.members" :key="m.id">
+                            <template v-if="i > 0"> · </template>{{ m.display_name
+                            }}<template v-if="m.allegiance"> ({{ m.allegiance.name }})</template
+                            ><template v-else-if="m.faction && factions[m.faction]"> ({{ factions[m.faction].name }})</template>
+                        </span>
                     </div>
                     <div v-if="opponents[player.id]?.length" class="mt-0.5 pl-5 text-2xs opacity-70">vs: {{ opponents[player.id].join(' · ') }}</div>
                 </div>
@@ -726,6 +851,36 @@ defineExpose({ openRsvpPlayerDialog });
                 <Button :disabled="!newMetaName.trim() || newMetaSubmitting" @click="submitNewMeta">
                     <Loader2 v-if="newMetaSubmitting" class="mr-1.5 size-3 animate-spin" />
                     Add Meta
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <!-- Edit Team Dialog (team events) -->
+    <Dialog v-model:open="teamDialogOpen">
+        <DialogContent class="max-h-[90vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+                <DialogTitle>Edit team</DialogTitle>
+                <DialogDescription>Rename the team or change who is on it and what each person declared.</DialogDescription>
+            </DialogHeader>
+            <div class="space-y-3">
+                <div class="space-y-1">
+                    <Label class="text-xs">Team name</Label>
+                    <Input v-model="teamName" class="h-9 text-sm" />
+                </div>
+                <TeamForm
+                    v-model="teamMembers"
+                    :declaration="declaration"
+                    :factions="factions"
+                    :allegiances="allegiances"
+                    :available-users="availableUsers"
+                />
+                <p v-if="teamError" class="text-xs text-destructive">{{ teamError }}</p>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" @click="teamDialogOpen = false">Cancel</Button>
+                <Button :disabled="!teamName.trim() || !membersReady(teamMembers) || teamSaving" @click="submitTeam">
+                    <Loader2 v-if="teamSaving" class="mr-2 size-4 animate-spin" /> Save team
                 </Button>
             </DialogFooter>
         </DialogContent>

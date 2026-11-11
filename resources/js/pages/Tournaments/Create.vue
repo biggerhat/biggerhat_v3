@@ -39,6 +39,7 @@ const props = defineProps<{
         tiebreaker_mode: 'diff_vp' | 'sos';
         variants: Record<string, boolean | number> | null;
         allow_self_report: boolean;
+        team_size: number;
         scoring_config: Record<string, unknown> | null;
     } | null;
     previous_events: { uuid: string; name: string; event_date: string }[];
@@ -64,6 +65,7 @@ const form = useForm({
     bye_vp: props.template?.bye_vp ?? initialRuleset.scoring.bye_vp,
     tiebreaker_mode: (props.template?.tiebreaker_mode ?? 'diff_vp') as 'diff_vp' | 'sos',
     allow_self_report: props.template?.allow_self_report ?? false,
+    team_size: props.template?.team_size ?? 1,
     variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
     // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
     scoring_config: (props.template?.scoring_config ?? {}) as Record<string, unknown>,
@@ -84,6 +86,7 @@ watch(
         // Variants and scoring overrides belong to the ruleset they were chosen for.
         form.variants = {};
         form.scoring_config = {};
+        if (!r.supports_teams) form.team_size = 1;
     },
 );
 
@@ -281,6 +284,23 @@ const submit = () => {
                                     </NumberFieldContent>
                                 </NumberField>
                                 <InputError :message="form.errors.round_time_limit" />
+                            </div>
+
+                            <div v-if="ruleset.supports_teams" class="space-y-2">
+                                <Label for="t-team-size">Play</Label>
+                                <Select :model-value="String(form.team_size)" @update:model-value="(v) => (form.team_size = Number(v))">
+                                    <SelectTrigger id="t-team-size"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">Individually</SelectItem>
+                                        <SelectItem v-for="n in [2, 3, 4]" :key="n" :value="String(n)">Teams of {{ n }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p class="text-2xs text-muted-foreground">
+                                    A team plays one game together against another team and is paired and ranked as one. Each member declares their
+                                    own
+                                    {{ ruleset.declaration === 'allegiance' ? 'allegiance' : 'faction' }}.
+                                </p>
+                                <InputError :message="form.errors.team_size" />
                             </div>
 
                             <label class="flex items-start gap-2 text-sm">

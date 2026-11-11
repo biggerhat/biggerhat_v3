@@ -1,6 +1,6 @@
 # Tournament Rulesets — game-agnostic tournament tracking
 
-Status: **Phases 1–5 and 6a done** on branch `tournament-rulesets-nov10` (uncommitted); Phase 6b (team events) designed, not started.
+Status: **All phases done (1–6, including team events)** on branch `tournament-rulesets-nov10` (uncommitted); Nothing from phases 3+ has been browser-tested.
 Notes from implementation: rulesets are config-only (`config/tournaments.php`, no per-game classes); `tournaments.bye_*` columns are now nullable overrides (null = ruleset value); `ruleset` is a plain string column, unknown keys fall back to the default ruleset.
 
 ## Goal
@@ -107,11 +107,13 @@ returned player).
   plain language. A blank-slate `custom` ruleset (no Malifaux/TOS requirements) is the starting point for other games.
 - Fix found on the way: `tiebreakerKeys()` now keeps the TO's order for an overridden tiebreaker list.
 
-**6b (team events, not started — design only):** Fields of Glory "No Man's Land" and Gaining Grounds "Team Event"/"Double Rush" make a *team* the unit that is
-paired and ranked. Recommended shape: a `tournament_teams` table (name, tournament_id) plus `tournament_players.team_id`; pairing, byes/ringers and standings key off a
-"competitor" (team when the ruleset/variant is team-based, otherwise the player), with each player's own game results rolled up into the team's TP/DIFF/VP. The
-`TournamentGame` sides then reference competitors rather than players. This touches pairing, standings, score entry and nearly every page, so it should be its own
-reviewed PR rather than bundled with this series.
+**6b (team events, done, not browser-tested):** `tournaments.team_size` (1 = individuals, 2–4 = teams; rulesets opt in with `supports_teams`) and
+`tournament_player_members`. Departing from the first sketch (a `tournament_teams` table + a "competitor" abstraction), a **team is a `tournament_players` row** and its
+members hang off it — so pairing, byes/ringers, scoring and standings needed no changes (they already work on competitor rows). Each member has a name, an optional account,
+and their own declaration (faction, or allegiance + Garrison). Account-based features resolve through `TournamentPlayer::forUser()` / `linkedUserIds()`: any
+member can report, confirm and check in for their team, and every linked member is notified when a round is paired. One account can't play twice (as a player or
+member). The team editor (`TeamForm`) syncs members by id so an unchanged private Garrison stays linked. Team events skip the 1v1 Game Tracker and don't record a
+per-game leader. Registration guard: every team must be full and every member declared before the event starts.
 
 ### Review fixes (done, not browser-tested)
 Pairing (`TournamentPairingService::matchPlayers`): ties in the standings are now paired in random order (shuffle before the stable sort); the greedy first-fit pass

@@ -81,6 +81,8 @@ export interface StandingEntry {
     player_id: number;
     display_name: string;
     faction: string | null;
+    /** Team events: names of the people on the team. */
+    members?: string[];
     /** TOS rulesets: the player's declared Allegiance. */
     allegiance?: { slug: string; name: string } | null;
     is_ringer: boolean;
@@ -153,6 +155,8 @@ export interface RulesetInfo {
     tracks_leaders: boolean;
     supports_tracker: boolean;
     variants: RulesetVariant[];
+    /** Whether events can be run as team events (teams of 2–4). */
+    supports_teams: boolean;
     /** Round-clock wording shown to players; null = the format has no such rule. */
     time_rules: { last_turn_minutes: number; last_turn: string | null; time_called: string | null };
 }
@@ -219,3 +223,31 @@ export const TIEBREAKER_PRESETS: { value: string; label: string }[] = [
     { value: 'diff', label: 'Differential only' },
     { value: 'vp', label: 'VP only' },
 ];
+
+/** A person on a team, as the team editor holds it while being edited (declaration fields are form strings). */
+export interface TeamMemberDraft {
+    /** Present when editing an existing member, so the server updates it in place. */
+    id?: number | null;
+    display_name: string;
+    user_id: number | null;
+    user_name?: string | null;
+    faction: string | null;
+    /** Allegiance id as a string (what the select holds). */
+    allegiance: string | null;
+    garrison_code: string;
+    /** The code the form was opened with, so an unchanged (possibly hidden) private code isn't re-sent. */
+    garrison_original: string;
+}
+
+/** A team member as the server sends it (Tournament players payload). */
+export interface TeamMember {
+    id: number;
+    display_name: string;
+    user_id: number | null;
+    user?: { id: number; name: string } | null;
+    faction: string | null;
+    allegiance_id: number | null;
+    allegiance?: { id: number; slug: string; name: string } | null;
+    garrison?: { name: string; share_code?: string | null; is_public: boolean } | null;
+    position: number;
+}

@@ -31,10 +31,13 @@ const props = defineProps<{
         planned_rounds: number;
         round_time_limit: number;
         allow_self_report?: boolean;
+        team_size?: number;
         scoring_config?: Record<string, unknown> | null;
         [key: string]: unknown;
     };
     ruleset: TournamentRuleset;
+    /** Switching between individual and team play is only possible while nobody is registered. */
+    canChangeTeamSize: boolean;
     encounterTypes: { value: string; label: string }[];
 }>();
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>();
@@ -56,6 +59,7 @@ const editByeTp = ref(props.ruleset.scoring.bye_tp);
 const editByeDiff = ref(props.ruleset.scoring.bye_diff);
 const editByeVp = ref(props.ruleset.scoring.bye_vp);
 const editAllowSelfReport = ref(!!props.tournament.allow_self_report);
+const editTeamSize = ref(props.tournament.team_size ?? 1);
 const editAdvancedOpen = ref(false);
 const editVariants = ref<Record<string, boolean | number>>({ ...props.ruleset.active_variants });
 const editScoringConfig = ref<Record<string, unknown>>({ ...(props.tournament.scoring_config ?? {}) });
@@ -79,6 +83,7 @@ const saveSettings = async () => {
         bye_vp: editByeVp.value === props.ruleset.default_scoring.bye_vp ? null : editByeVp.value,
         variants: editVariants.value,
         allow_self_report: editAllowSelfReport.value,
+        ...(props.canChangeTeamSize ? { team_size: editTeamSize.value } : {}),
         scoring_config: editScoringConfig.value,
     });
     submitting.value = false;
@@ -150,6 +155,23 @@ const saveSettings = async () => {
                     <NumberField v-model="editRoundTimeLimit" :min="30" :max="300" :step="5">
                         <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
                     </NumberField>
+                </div>
+                <div v-if="ruleset.supports_teams" class="space-y-1.5">
+                    <Label class="text-xs">Play</Label>
+                    <Select
+                        :model-value="String(editTeamSize)"
+                        :disabled="!canChangeTeamSize"
+                        @update:model-value="(v) => (editTeamSize = Number(v))"
+                    >
+                        <SelectTrigger class="h-9 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">Individually</SelectItem>
+                            <SelectItem v-for="n in [2, 3, 4]" :key="n" :value="String(n)">Teams of {{ n }}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p v-if="!canChangeTeamSize" class="text-2xs text-muted-foreground">
+                        Remove the registered players first to switch between individual and team play.
+                    </p>
                 </div>
                 <label class="flex items-start gap-2 text-sm">
                     <input v-model="editAllowSelfReport" type="checkbox" class="mt-1 size-3.5" />

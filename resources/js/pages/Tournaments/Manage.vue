@@ -179,6 +179,7 @@ interface TournamentData {
     tiebreaker_mode?: 'diff_vp' | 'sos';
     variants?: Record<string, boolean | number> | null;
     allow_self_report?: boolean;
+    team_size?: number;
     scoring_config?: Record<string, unknown> | null;
     creator_id: number;
     players: TournamentPlayer[];
@@ -1166,7 +1167,9 @@ const isEditable = computed(() => !isLocked.value);
                                 <div class="flex items-center gap-1">
                                     <Button
                                         v-if="
-                                            tournament.status === 'registration' && !tournament.players.some((p: any) => p.user?.id === rsvp.user_id)
+                                            tournament.status === 'registration' &&
+                                            !(tournament.team_size && tournament.team_size > 1) &&
+                                            !tournament.players.some((p: any) => p.user?.id === rsvp.user_id)
                                         "
                                         variant="outline"
                                         size="sm"
@@ -1680,6 +1683,7 @@ const isEditable = computed(() => !isLocked.value);
                         v-if="editingSettings"
                         :tournament="tournament"
                         :ruleset="ruleset"
+                        :can-change-team-size="!tournament.players.length"
                         :encounter-types="encounter_types"
                         @cancel="editingSettings = false"
                         @saved="

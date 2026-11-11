@@ -19,6 +19,7 @@ interface DisplayPlayer {
     display_name: string;
     faction: string | null;
     allegiance?: { slug: string; name: string } | null;
+    members?: { display_name: string }[];
 }
 
 interface DisplayGame {
@@ -68,6 +69,13 @@ const round = computed<DisplayRound | null>(() => {
 const playersById = computed(() => new Map(props.tournament.players.map((p) => [p.id, p])));
 const nameOf = (id: number | null) => (id === null ? 'BYE' : (playersById.value.get(id)?.display_name ?? 'TBD'));
 const factionOf = (id: number | null, snapshot: string | null) => snapshot || (id === null ? null : (playersById.value.get(id)?.faction ?? null));
+const membersOf = (id: number | null) =>
+    id === null
+        ? null
+        : playersById.value
+              .get(id)
+              ?.members?.map((m) => m.display_name)
+              .join(' · ') || null;
 const allegianceOf = (id: number | null) => (id === null ? null : (playersById.value.get(id)?.allegiance?.slug ?? null));
 
 const roundLabel = computed(() => {
@@ -192,6 +200,9 @@ const setMode = (m: Mode) => {
                                 class-name="size-6 shrink-0"
                             />
                             <span class="truncate">{{ g.is_bye && side[0] === 'player_two_id' ? 'BYE' : nameOf(g[side[0]]) }}</span>
+                            <span v-if="membersOf(g[side[0]])" class="truncate text-base font-normal text-muted-foreground">{{
+                                membersOf(g[side[0]])
+                            }}</span>
                         </div>
                     </div>
                     <div class="shrink-0 text-right text-2xl font-bold tabular-nums">{{ scoreText(g) }}</div>

@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $max_health
  * @property int|null $elite_max_health
  * @property list<array{name: string, text: string}>|null $abilities
- * @property list<array<string, mixed>>|null $actions  kind attack|tactical, name, rg, skl, rst, tn, dmg, text, triggers[]
+ * @property list<array<string, mixed>>|null $actions kind attack|tactical, name, rg, skl, rst, tn, dmg, text, triggers[]
  * @property list<array{flip_min: int|null, flip_max: int|null, ideal_range: string, effects: list<string>}>|null $behavior
  * @property list<string>|null $target_preference
  * @property string|null $elite_modifications

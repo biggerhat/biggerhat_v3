@@ -171,3 +171,19 @@ it('shows a pending report to the public page so the opponent’s card can offer
             ->where('rounds.0.games.0.reported_by_player_id', $this->pa->id)
             ->where('rounds.0.games.0.reported_score.player_one.strategy', 4));
 });
+
+it('refuses a score save that races End Round: the locked re-check sees the round already completed', function () {
+    // The early status check passes (round in progress); by the time the save takes the round lock, End Round has won.
+    $reads = 0;
+    TournamentRound::retrieved(function (TournamentRound $round) use (&$reads) {
+        if (++$reads === 2) {
+            $round->status = \App\Enums\TournamentRoundStatusEnum::Completed;
+        }
+    });
+
+    $this->actingAs($this->owner)->putJson(route('tournaments.games.update', [$this->tournament, $this->game]), [
+        'player_one_score' => ['strategy' => 2, 'scheme' => 2], 'player_two_score' => ['strategy' => 3, 'scheme' => 3],
+    ])->assertStatus(422)->assertJsonFragment(['error' => 'Scores are locked after the round is completed']);
+
+    expect($this->game->fresh())->result->toBe(TournamentGameResultEnum::Pending)->player_one_vp->toBeNull();
+});

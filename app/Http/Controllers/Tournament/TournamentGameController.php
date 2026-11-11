@@ -101,9 +101,25 @@ class TournamentGameController extends Controller
         $two = $validated['player_two_score'];
         unset($validated['agreed'], $validated['player_one_score'], $validated['player_two_score']);
 
-        // Score components are ruleset-defined; the player's VP is their sum. Entering a score here
-        // also supersedes any pending or disputed player report.
-        $this->scores->record($game, $one, $two, $agreed, $validated);
+        // The status check above is a UX guard. Ending a round locks the round row, so take the same lock and
+        // look again: a save racing "End Round" must not write a score into a round that just completed.
+        $stale = false;
+        DB::transaction(function () use ($game, $one, $two, $agreed, $validated, &$stale) {
+            $round = TournamentRound::lockForUpdate()->find($game->tournament_round_id);
+            if (! $round || $round->status !== TournamentRoundStatusEnum::InProgress) {
+                $stale = true;
+
+                return;
+            }
+
+            // Score components are ruleset-defined; the player's VP is their sum. Entering a score here
+            // also supersedes any pending or disputed player report.
+            $this->scores->record($game, $one, $two, $agreed, $validated);
+        });
+
+        if ($stale) {
+            return response()->json(['error' => 'Scores are locked after the round is completed'], 422);
+        }
 
         $this->broadcastUpdate($tournament, 'score_updated');
 

@@ -1,0 +1,445 @@
+<?php
+
+namespace App\Tournaments\Payloads;
+
+use App\Enums\DeploymentEnum;
+use App\Enums\EncounterTypeEnum;
+use App\Enums\FactionEnum;
+use App\Enums\PoolSeasonEnum;
+use App\Models\Character;
+use App\Models\Scheme;
+use App\Models\Strategy;
+use App\Models\TOS\Allegiance;
+use App\Models\TOS\Deployment;
+use App\Models\TOS\Operation;
+use App\Models\Tournament;
+use App\Models\TournamentRound;
+use App\Services\TournamentStandingsService;
+use Inertia\Inertia;
+
+/**
+ * Builds the Inertia props for the tournament pages: the public view/display payload (with what only the people
+ * involved may see redacted) and the organizer's Manage payload. Controllers authorize and render; the shaping lives here.
+ */
+class TournamentPagePayloads
+{
+    public function __construct(private readonly TournamentStandingsService $standings) {}
+
+    /**
+     * The public tournament payload shared by the view page and display mode.
+     *
+     * @return array<string, mixed>
+     */
+    public function forView(Tournament $tournament): array
+    {
+        $tournament->load([
+            'players.user:id,name,meta_id',
+            'players.user.meta:id,name',
+            'players.meta:id,name',
+            'players.allegiance:id,slug,name',
+            'players.garrison:id,name,share_code,is_public',
+            'players.members.user:id,name',
+            'players.members.allegiance:id,slug,name',
+            'players.members.garrison:id,name,share_code,is_public',
+            'rsvps.user:id,name',
+            'rsvps.allegiance:id,slug,name',
+            'rounds.games.playerOne:id,display_name,faction,user_id',
+            'rounds.games.playerTwo:id,display_name,faction,user_id',
+            // Don't column-restrict trackerGame — Game has appended attributes
+            // (season_label) that need other columns to compute.
+            'rounds.games.trackerGame',
+            'rounds.strategy',
+            'organizers:id,name',
+        ]);
+
+        $standings = $this->standings->compute($tournament);
+        $this->hidePrivateGarrisonCodes($tournament);
+        $this->redactPublicPayload($tournament);
+
+        // Fetch every scheme referenced by any round in a single query instead
+        // of one query per round (previously N+1).
+        $allSchemeIds = collect($tournament->rounds)
+            ->flatMap(fn (TournamentRound $r) => is_array($r->scheme_pool) ? $r->scheme_pool : [])
+            ->unique()
+            ->values()
+            ->all();
+        $schemesById = empty($allSchemeIds)
+            ? collect()
+            : Scheme::whereIn('id', $allSchemeIds)->get()->keyBy('id');
+
+        // TOS-style scenarios: resolve operation/deployment ids with two queries for the whole event.
+        $tosScenario = $this->resolveTosScenarios($tournament->rounds);
+
+        $roundsData = [];
+        foreach ($tournament->rounds as $round) {
+            /** @var TournamentRound $round */
+            $deployment = null;
+            /** @var \App\Enums\DeploymentEnum|null $deployEnum */
+            $deployEnum = $round->deployment;
+            if ($deployEnum) {
+                $deployment = [
+                    'value' => $deployEnum->value,
+                    'label' => $deployEnum->label(),
+                    'description' => $deployEnum->description(),
+                    'image_url' => $deployEnum->imageUrl(),
+                ];
+            }
+
+            /** @var Strategy|null $strategyModel */
+            $strategyModel = $round->strategy;
+            $strategy = null;
+            if ($strategyModel) {
+                $strategyModel->append('image_url');
+                $strategy = [
+                    'id' => $strategyModel->id,
+                    'name' => $strategyModel->name,
+                    'image_url' => $strategyModel->image_url,
+                ];
+            }
+
+            $schemes = [];
+            foreach ((array) $round->scheme_pool as $id) {
+                /** @var Scheme|null $s */
+                $s = $schemesById->get($id);
+                if ($s) {
+                    $schemes[] = [
+                        'id' => $s->id,
+                        'name' => $s->name,
+                        'image_url' => $s->image_url,
+                        'prerequisite' => $s->prerequisite,
+                        'reveal' => $s->reveal,
+                        'scoring' => $s->scoring,
+                    ];
+                }
+            }
+
+            /** @var \App\Enums\TournamentRoundStatusEnum $roundStatus */
+            $roundStatus = $round->status;
+            $roundsData[] = [
+                'id' => $round->id,
+                'round_number' => $round->round_number,
+                'status' => $roundStatus->value,
+                'started_at' => $round->started_at?->toIso8601String(),
+                'deployment' => $deployment,
+                'strategy' => $strategy,
+                'schemes' => $schemes,
+                'tos_scenario' => $tosScenario[$round->id] ?? null,
+                'games' => $round->games,
+            ];
+        }
+
+        // Most-scored scheme across all tracker-linked games. Tournament-side
+        // scoring records strategy/scheme as a sum, not per-pick — so the only
+        // place the scheme breakdown lives is in GameTurn rows on the linked
+        // tracker games. Coverage is partial (games where neither player has a
+        // BiggerHat account aren't tracked), but it's enough to surface the
+        // most-popular scheme of the event.
+        $trackerGameIds = collect($roundsData)
+            ->flatMap(fn ($r) => collect($r['games'])->pluck('game_id'))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $schemeStats = null;
+        if ($trackerGameIds && $schemesById->isNotEmpty()) {
+            // Use the table query builder (not Eloquent) so PHPStan doesn't try
+            // to map the SUM/COUNT projections back onto GameTurn properties.
+            $top = \DB::table('game_turns')
+                ->whereIn('game_id', $trackerGameIds)
+                ->where('scheme_action', 'scored')
+                ->where('scheme_points', '>', 0)
+                ->whereNotNull('scheme_id')
+                ->selectRaw('scheme_id, SUM(scheme_points) as total_points, COUNT(*) as scoring_turns')
+                ->groupBy('scheme_id')
+                ->orderByDesc('total_points')
+                ->first();
+
+            if ($top) {
+                /** @var Scheme|null $scheme */
+                $scheme = $schemesById->get($top->scheme_id);
+                if ($scheme) {
+                    $schemeStats = [
+                        'most_scored' => [
+                            'id' => $scheme->id,
+                            'name' => $scheme->name,
+                            'total_points' => (int) $top->total_points,
+                            'scoring_turns' => (int) $top->scoring_turns,
+                        ],
+                    ];
+                }
+            }
+        }
+
+        // Unset loaded rounds to avoid double-serializing alongside roundsData.
+        $tournament->unsetRelation('rounds');
+
+        return [
+            'tournament' => $tournament,
+            'ruleset' => $this->ruleset($tournament),
+            'allegiances' => $this->allegianceOptions($tournament),
+            'rounds' => $roundsData,
+            'standings' => $standings,
+            'factions' => FactionEnum::buildDetails(),
+            'scheme_stats' => $schemeStats,
+        ];
+    }
+
+    /**
+     * Props for the organizer's Manage page (the heavy reference data is deferred).
+     *
+     * @return array<string, mixed>
+     */
+    public function forManage(Tournament $tournament): array
+    {
+        $tournament->load([
+            'players.user:id,name,meta_id',
+            'players.user.meta:id,name',
+            'players.meta:id,name',
+            'players.allegiance:id,slug,name',
+            'players.garrison:id,name,share_code,is_public',
+            'players.members.user:id,name',
+            'players.members.allegiance:id,slug,name',
+            'players.members.garrison:id,name,share_code,is_public',
+            'rsvps.user:id,name',
+            'rsvps.allegiance:id,slug,name',
+            'rounds.games.playerOne:id,display_name,faction,user_id',
+            'rounds.games.playerTwo:id,display_name,faction,user_id',
+            // Don't column-restrict trackerGame — Game appends `season_label`,
+            // whose accessor reads `$this->season`. A restricted select that
+            // omits `season` crashes under strict-attribute mode the moment
+            // Inertia serializes the model. Same comment as `view()`.
+            'rounds.games.trackerGame',
+            'rounds.strategy:id,name',
+            'organizers:id,name',
+        ]);
+
+        $standings = $this->standings->compute($tournament);
+        $this->hidePrivateGarrisonCodes($tournament);
+
+        $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
+            'value' => $s->value,
+            'label' => $s->label(),
+        ]);
+
+        // Reference data needed for editing (scenario picker, score dialog, master
+        // dropdown) — deferred so the page renders immediately and these batch
+        // in a follow-up request. Grouped under "scenario" so the Inertia client
+        // fires one extra request for all three instead of three separate ones.
+        $strategiesDeferred = Inertia::defer(function () use ($tournament) {
+            /** @var \App\Enums\PoolSeasonEnum $season */
+            $season = $tournament->season;
+            $results = [];
+            foreach (Strategy::forSeason($season)->orderBy('name')->get() as $s) {
+                $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url];
+            }
+
+            return $results;
+        }, 'scenario');
+
+        $schemesDeferred = Inertia::defer(function () use ($tournament) {
+            /** @var \App\Enums\PoolSeasonEnum $season */
+            $season = $tournament->season;
+            $results = [];
+            foreach (Scheme::forSeason($season)->orderBy('name')->get() as $s) {
+                $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite, 'reveal' => $s->reveal, 'scoring' => $s->scoring];
+            }
+
+            return $results;
+        }, 'scenario');
+
+        // Masters grouped by name with titles — only used in the score-entry
+        // dialog, so defer under its own group.
+        $mastersDeferred = Inertia::defer(function () {
+            $characters = Character::standard()->where('station', 'master')
+                ->where('is_hidden', false)
+                ->orderBy('name')->orderBy('title')
+                ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
+
+            $grouped = [];
+            foreach ($characters->groupBy('name') as $name => $group) {
+                $first = $group->first();
+                $grouped[] = [
+                    'name' => $name,
+                    'faction' => $first->getRawOriginal('faction'),
+                    'second_faction' => $first->getRawOriginal('second_faction'),
+                    'titles' => $group->map(fn ($c) => [
+                        'id' => $c->id,
+                        'display_name' => $c->display_name,
+                        'title' => $c->title,
+                    ])->values(),
+                ];
+            }
+
+            return $grouped; // @phpstan-ignore return.type
+        }, 'masters');
+
+        return [
+            'tournament' => $tournament,
+            'ruleset' => $this->ruleset($tournament),
+            'allegiances' => $this->allegianceOptions($tournament),
+            'standings' => $standings,
+            'seasons' => $seasons,
+            'factions' => fn () => FactionEnum::buildDetails(),
+            'encounter_types' => collect(EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
+            'tos_operations' => $tournament->rulesetDefinition()->usesScenarioField('tos_operation')
+                ? Operation::orderBy('sort_order')->orderBy('name')->get()->map(fn (Operation $o) => $this->operationPayload($o))->values()
+                : [],
+            'tos_deployments' => $tournament->rulesetDefinition()->usesScenarioField('tos_deployment')
+                ? Deployment::orderBy('sort_order')->orderBy('name')->get()->map(fn (Deployment $d) => $this->deploymentPayload($d))->values()
+                : [],
+            'all_deployments' => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()]),
+            // Deferred below — page renders without these, a follow-up request
+            // fills them in. Grouping means strategies + schemes batch into one
+            // request, masters into another.
+            'all_strategies' => $strategiesDeferred,
+            'all_schemes' => $schemesDeferred,
+            'masters' => $mastersDeferred,
+        ];
+    }
+
+    /**
+     * The tournament's ruleset descriptor, with `scoring`/`tiebreakers` replaced by the EFFECTIVE values
+     * (ruleset defaults + this tournament's overrides) so the UI never has to re-derive them.
+     *
+     * @return array<string, mixed>
+     */
+    public function ruleset(Tournament $tournament): array
+    {
+        return [
+            ...$tournament->rulesetDefinition()->toArray(),
+            'default_scoring' => $tournament->rulesetDefinition()->scoring->toArray(),
+            // One leader per side makes no sense when a side is a team.
+            'tracks_leaders' => $tournament->rulesetDefinition()->tracksLeaders && ! $tournament->isTeamEvent(),
+            'default_tiebreakers' => $tournament->rulesetDefinition()->tiebreakers,
+            'active_variants' => $tournament->activeVariants(),
+            // True when the TO changed the format's scoring (shown to players so nobody is surprised).
+            'scoring_customized' => $this->scoringIsCustomized($tournament),
+            'scoring' => $tournament->scoringConfig()->toArray(),
+            'tiebreakers' => $tournament->tiebreakerKeys(),
+        ];
+    }
+
+    /**
+     * Allegiances a player can declare, only for rulesets that use them.
+     *
+     * @return \Illuminate\Support\Collection<int, array{id: int, slug: string, name: string}>
+     */
+    public function allegianceOptions(Tournament $tournament): \Illuminate\Support\Collection
+    {
+        if ($tournament->rulesetDefinition()->declaration !== 'allegiance') {
+            return collect();
+        }
+
+        return Allegiance::orderBy('name')->get(['id', 'slug', 'name'])
+            ->map(fn (Allegiance $a) => ['id' => $a->id, 'slug' => $a->slug, 'name' => $a->name])->values();
+    }
+
+    /**
+     * Resolve each round's TOS scenario ids to display payloads.
+     *
+     * @param  iterable<TournamentRound>  $rounds
+     * @return array<int, array{operation: array<string, mixed>|null, deployment: array<string, mixed>|null}>
+     */
+    private function resolveTosScenarios(iterable $rounds): array
+    {
+        $rounds = collect($rounds);
+        $operations = Operation::whereIn('id', $rounds->map(fn ($r) => $r->scenario['operation_id'] ?? null)->filter()->unique())->get()->keyBy('id');
+        $deployments = Deployment::whereIn('id', $rounds->map(fn ($r) => $r->scenario['deployment_id'] ?? null)->filter()->unique())->get()->keyBy('id');
+
+        $out = [];
+        foreach ($rounds as $round) {
+            $op = $operations->get($round->scenario['operation_id'] ?? null);
+            $dep = $deployments->get($round->scenario['deployment_id'] ?? null);
+            if ($op || $dep) {
+                $out[$round->id] = [
+                    'operation' => $op ? $this->operationPayload($op) : null,
+                    'deployment' => $dep ? $this->deploymentPayload($dep) : null,
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, mixed> */
+    private function operationPayload(Operation $o): array
+    {
+        return [
+            'id' => $o->id,
+            'name' => $o->name,
+            'source' => $o->source,
+            'flavor' => $o->flavor,
+            'additional_setup' => $o->additional_setup,
+            'special_rules' => $o->special_rules,
+            'victory_conditions' => $o->victory_conditions,
+            'image_url' => $o->image_path ? '/storage/'.$o->image_path : null,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function deploymentPayload(Deployment $d): array
+    {
+        return [
+            'id' => $d->id,
+            'name' => $d->name,
+            'suit' => $d->suit,
+            'description' => $d->description,
+            'image_url' => $d->image_path ? '/storage/'.$d->image_path : null,
+        ];
+    }
+
+    /** Whether the event's effective scoring or tiebreaker order differs from its ruleset's (legacy bye columns equal to the default don't count). */
+    private function scoringIsCustomized(Tournament $tournament): bool
+    {
+        $ruleset = $tournament->rulesetDefinition();
+        $scoringDiffers = $tournament->scoringConfig()->toArray() !== $ruleset->scoring->toArray();
+        $override = ((array) ($tournament->scoring_config ?? []))['tiebreakers'] ?? null;
+
+        return $scoringDiffers || (is_array($override) && $override !== [] && array_values($override) !== $ruleset->tiebreakers);
+    }
+
+    /**
+     * The view/display pages are public and serialise whole models, so strip what only the people involved should see:
+     * the players' report details (score proposal, dispute note) go to the two sides and the organizers, and nothing
+     * public needs crew-build ids, tracker settings/loot state, or players' meta/profile columns.
+     */
+    private function redactPublicPayload(Tournament $tournament): void
+    {
+        $viewer = request()->user();
+        $isOrganizer = $viewer !== null && $viewer->can('manage', $tournament);
+        $playersById = $tournament->players->keyBy('id');
+
+        foreach ($tournament->players as $player) {
+            $player->makeHidden('meta');
+            $player->user?->makeHidden(['meta', 'meta_id']);
+        }
+
+        foreach ($tournament->rounds as $round) {
+            foreach ($round->games as $game) {
+                $game->makeHidden(['player_one_crew_build_id', 'player_two_crew_build_id']);
+
+                $involved = $isOrganizer || ($viewer !== null && collect([$game->player_one_id, $game->player_two_id])
+                    ->filter()
+                    ->contains(fn (int $id) => in_array($viewer->id, $playersById->get($id)?->linkedUserIds() ?? [], true)));
+                if (! $involved) {
+                    $game->makeHidden(['report_note', 'reported_score', 'reported_by_player_id', 'reported_at']);
+                }
+
+                $game->trackerGame?->makeHidden(['settings', 'loot_state', 'creator_id']);
+            }
+        }
+    }
+
+    /** A Garrison is public information at the event, but its share link only works when the owner made it public. */
+    private function hidePrivateGarrisonCodes(Tournament $tournament): void
+    {
+        foreach ($tournament->players as $player) {
+            foreach ([$player, ...$player->members] as $competitor) {
+                if ($competitor->garrison && ! $competitor->garrison->is_public) {
+                    $competitor->garrison->makeHidden('share_code');
+                }
+            }
+        }
+    }
+}

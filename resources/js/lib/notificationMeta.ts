@@ -7,6 +7,7 @@ const ICONS: Record<string, LucideIcon> = {
     game_opponent_joined: Swords,
     tournament_organizer_added: Trophy,
     tournament_player_registered: Users,
+    tournament_player_withdrew: Users,
     tournament_round_paired: Flag,
     campaign_invitation_received: CalendarCheck,
     campaign_game_started: Swords,

@@ -238,48 +238,23 @@ const formatRangeType = (rangeType: string) => {
                         <CollapsibleContent class="space-y-3 px-1 pt-2">
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Name</label>
-                                <ClearableSelect
-                                    v-model="filterParams.name"
-                                    placeholder="Select Action"
-                                    :options="props.action_names"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.name" placeholder="Select Action" :options="props.action_names" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Type</label>
-                                <ClearableSelect
-                                    v-model="filterParams.type"
-                                    placeholder="Any Type"
-                                    :options="props.action_types"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.type" placeholder="Any Type" :options="props.action_types" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Trigger</label>
-                                <ClearableSelect
-                                    v-model="filterParams.trigger"
-                                    placeholder="Any Trigger"
-                                    :options="props.trigger_names"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.trigger" placeholder="Any Trigger" :options="props.trigger_names" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Signature</label>
-                                <ClearableSelect
-                                    v-model="filterParams.is_signature"
-                                    placeholder="Any"
-                                    :options="booleanOptions"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.is_signature" placeholder="Any" :options="booleanOptions" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Costs Soulstone</label>
-                                <ClearableSelect
-                                    v-model="filterParams.costs_stone"
-                                    placeholder="Any"
-                                    :options="booleanOptions"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.costs_stone" placeholder="Any" :options="booleanOptions" />
                             </div>
                         </CollapsibleContent>
                     </Collapsible>
@@ -295,12 +270,7 @@ const formatRangeType = (rangeType: string) => {
                         <CollapsibleContent class="space-y-3 px-1 pt-2">
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Range Type</label>
-                                <ClearableSelect
-                                    v-model="filterParams.range_type"
-                                    placeholder="Any Range Type"
-                                    :options="props.action_range_types"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.range_type" placeholder="Any Range Type" :options="props.action_range_types" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Range</label>
@@ -338,21 +308,11 @@ const formatRangeType = (rangeType: string) => {
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Stat Suit</label>
-                                <ClearableSelect
-                                    v-model="filterParams.stat_suits"
-                                    placeholder="Any Suit"
-                                    :options="props.suits"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.stat_suits" placeholder="Any Suit" :options="props.suits" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Stat Modifier</label>
-                                <ClearableSelect
-                                    v-model="filterParams.stat_modifier"
-                                    placeholder="Any Modifier"
-                                    :options="props.stat_modifiers"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.stat_modifier" placeholder="Any Modifier" :options="props.stat_modifiers" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Damage</label>
@@ -386,12 +346,7 @@ const formatRangeType = (rangeType: string) => {
                         <CollapsibleContent class="space-y-3 px-1 pt-2">
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Resisted By</label>
-                                <ClearableSelect
-                                    v-model="filterParams.resisted_by"
-                                    placeholder="Any"
-                                    :options="props.resistance_types"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.resisted_by" placeholder="Any" :options="props.resistance_types" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Target Number</label>
@@ -412,12 +367,7 @@ const formatRangeType = (rangeType: string) => {
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Target Suit</label>
-                                <ClearableSelect
-                                    v-model="filterParams.target_suits"
-                                    placeholder="Any Suit"
-                                    :options="props.suits"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.target_suits" placeholder="Any Suit" :options="props.suits" />
                             </div>
                         </CollapsibleContent>
                     </Collapsible>

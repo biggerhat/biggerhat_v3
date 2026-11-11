@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers\Tournament;
 
-use App\Enums\DeploymentEnum;
 use App\Enums\EncounterTypeEnum;
-use App\Enums\FactionEnum;
 use App\Enums\PermissionEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentRoundStatusEnum;
@@ -13,18 +11,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentStoreRequest;
 use App\Http\Requests\Tournaments\TournamentUpdateRequest;
 use App\Http\Requests\Tournaments\TournamentUpdateStatusRequest;
-use App\Models\Character;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
 use App\Models\TournamentRound;
-use App\Services\TournamentStandingsService;
 use App\Services\TournamentStateMachine;
+use App\Tournaments\Payloads\TournamentPagePayloads;
+use App\Tournaments\Rulesets\Ruleset;
+use App\Tournaments\Rulesets\RulesetRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -33,13 +31,22 @@ class TournamentController extends Controller
     use BroadcastsTournamentUpdates;
 
     public function __construct(
-        private readonly TournamentStandingsService $standings,
         private readonly TournamentStateMachine $stateMachine,
+        private readonly TournamentPagePayloads $payloads,
     ) {}
 
-    public function index(): Response|ResponseFactory
+    public function index(Request $request): Response|ResponseFactory
     {
         $userId = Auth::id();
+        $registry = app(RulesetRegistry::class);
+
+        // Find-an-event filters for the public list: free text (name or place), game format, and upcoming / past.
+        $filters = [
+            'q' => mb_substr(trim((string) $request->query('q', '')), 0, 100),
+            'ruleset' => in_array($request->query('ruleset'), $registry->keys(), true) ? (string) $request->query('ruleset') : '',
+            'when' => in_array($request->query('when'), ['upcoming', 'past'], true) ? (string) $request->query('when') : '',
+        ];
+        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
 
         $myTournaments = $userId
             ? Tournament::forOrganizer($userId)
@@ -54,155 +61,49 @@ class TournamentController extends Controller
             ->when($userId, fn ($q) => $q->where('creator_id', '!=', $userId))
             ->with('creator:id,name')
             ->withCount('players')
-            ->latest('event_date')
-            ->take(20)
-            ->get();
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('location', 'like', $like)))
+            ->when($filters['ruleset'] !== '', fn ($q) => $q->where('ruleset', $filters['ruleset']))
+            ->when($filters['when'] === 'upcoming', fn ($q) => $q->where('status', '!=', TournamentStatusEnum::Completed->value)->orderBy('event_date'))
+            ->when($filters['when'] === 'past', fn ($q) => $q->where('status', TournamentStatusEnum::Completed->value)->latest('event_date'))
+            ->when($filters['when'] === '', fn ($q) => $q->latest('event_date'))
+            ->paginate(20)
+            ->withQueryString();
 
         return inertia('Tournaments/Index', [
             'my_tournaments' => $myTournaments,
-            'public_tournaments' => $publicTournaments,
+            'public_tournaments' => $publicTournaments->items(),
+            'public_pagination' => [
+                'current_page' => $publicTournaments->currentPage(),
+                'last_page' => $publicTournaments->lastPage(),
+                'total' => $publicTournaments->total(),
+            ],
+            'filters' => $filters,
+            'ruleset_options' => collect($registry->all())->map(fn (Ruleset $r) => ['key' => $r->key, 'label' => $r->label])->values(),
         ]);
     }
 
     public function view(Tournament $tournament): Response|ResponseFactory
     {
-        $tournament->load([
-            'players.user:id,name,meta_id',
-            'players.user.meta:id,name',
-            'players.meta:id,name',
-            'rsvps.user:id,name',
-            'rounds.games.playerOne:id,display_name,faction,user_id',
-            'rounds.games.playerTwo:id,display_name,faction,user_id',
-            // Don't column-restrict trackerGame — Game has appended attributes
-            // (season_label) that need other columns to compute.
-            'rounds.games.trackerGame',
-            'rounds.strategy',
-            'organizers:id,name',
-        ]);
+        return inertia('Tournaments/View', $this->payloads->forView($tournament));
+    }
 
-        $standings = $this->standings->compute($tournament);
+    /**
+     * Big-screen mode for a projector / TV at the venue: current round's pairings, scenario and clock,
+     * rotating with the standings. Public, like the view page, and fed by the same props.
+     */
+    public function display(Tournament $tournament): Response|ResponseFactory
+    {
+        $props = $this->payloads->forView($tournament);
+        unset($props['scheme_stats'], $props['allegiances'], $props['crew_lists']);
 
-        // Fetch every scheme referenced by any round in a single query instead
-        // of one query per round (previously N+1).
-        $allSchemeIds = collect($tournament->rounds)
-            ->flatMap(fn (TournamentRound $r) => is_array($r->scheme_pool) ? $r->scheme_pool : [])
-            ->unique()
-            ->values()
-            ->all();
-        $schemesById = empty($allSchemeIds)
-            ? collect()
-            : Scheme::whereIn('id', $allSchemeIds)->get()->keyBy('id');
+        return inertia('Tournaments/Display', $props);
+    }
 
-        $roundsData = [];
-        foreach ($tournament->rounds as $round) {
-            /** @var TournamentRound $round */
-            $deployment = null;
-            /** @var \App\Enums\DeploymentEnum|null $deployEnum */
-            $deployEnum = $round->deployment;
-            if ($deployEnum) {
-                $deployment = [
-                    'value' => $deployEnum->value,
-                    'label' => $deployEnum->label(),
-                    'description' => $deployEnum->description(),
-                    'image_url' => $deployEnum->imageUrl(),
-                ];
-            }
+    public function manage(Tournament $tournament): Response|ResponseFactory
+    {
+        $this->authorize('manage', $tournament);
 
-            /** @var Strategy|null $strategyModel */
-            $strategyModel = $round->strategy;
-            $strategy = null;
-            if ($strategyModel) {
-                $strategyModel->append('image_url');
-                $strategy = [
-                    'id' => $strategyModel->id,
-                    'name' => $strategyModel->name,
-                    'image_url' => $strategyModel->image_url,
-                ];
-            }
-
-            $schemes = [];
-            foreach ((array) $round->scheme_pool as $id) {
-                /** @var Scheme|null $s */
-                $s = $schemesById->get($id);
-                if ($s) {
-                    $schemes[] = [
-                        'id' => $s->id,
-                        'name' => $s->name,
-                        'image_url' => $s->image_url,
-                        'prerequisite' => $s->prerequisite,
-                        'reveal' => $s->reveal,
-                        'scoring' => $s->scoring,
-                    ];
-                }
-            }
-
-            /** @var \App\Enums\TournamentRoundStatusEnum $roundStatus */
-            $roundStatus = $round->status;
-            $roundsData[] = [
-                'id' => $round->id,
-                'round_number' => $round->round_number,
-                'status' => $roundStatus->value,
-                'started_at' => $round->started_at?->toIso8601String(),
-                'deployment' => $deployment,
-                'strategy' => $strategy,
-                'schemes' => $schemes,
-                'games' => $round->games,
-            ];
-        }
-
-        // Most-scored scheme across all tracker-linked games. Tournament-side
-        // scoring records strategy/scheme as a sum, not per-pick — so the only
-        // place the scheme breakdown lives is in GameTurn rows on the linked
-        // tracker games. Coverage is partial (games where neither player has a
-        // BiggerHat account aren't tracked), but it's enough to surface the
-        // most-popular scheme of the event.
-        $trackerGameIds = collect($roundsData)
-            ->flatMap(fn ($r) => collect($r['games'])->pluck('game_id'))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        $schemeStats = null;
-        if ($trackerGameIds && $schemesById->isNotEmpty()) {
-            // Use the table query builder (not Eloquent) so PHPStan doesn't try
-            // to map the SUM/COUNT projections back onto GameTurn properties.
-            $top = \DB::table('game_turns')
-                ->whereIn('game_id', $trackerGameIds)
-                ->where('scheme_action', 'scored')
-                ->where('scheme_points', '>', 0)
-                ->whereNotNull('scheme_id')
-                ->selectRaw('scheme_id, SUM(scheme_points) as total_points, COUNT(*) as scoring_turns')
-                ->groupBy('scheme_id')
-                ->orderByDesc('total_points')
-                ->first();
-
-            if ($top) {
-                /** @var Scheme|null $scheme */
-                $scheme = $schemesById->get($top->scheme_id);
-                if ($scheme) {
-                    $schemeStats = [
-                        'most_scored' => [
-                            'id' => $scheme->id,
-                            'name' => $scheme->name,
-                            'total_points' => (int) $top->total_points,
-                            'scoring_turns' => (int) $top->scoring_turns,
-                        ],
-                    ];
-                }
-            }
-        }
-
-        // Unset loaded rounds to avoid double-serializing alongside roundsData.
-        $tournament->unsetRelation('rounds');
-
-        return inertia('Tournaments/View', [
-            'tournament' => $tournament,
-            'rounds' => $roundsData,
-            'standings' => $standings,
-            'factions' => FactionEnum::buildDetails(),
-            'scheme_stats' => $schemeStats,
-        ]);
+        return inertia('Tournaments/Manage', $this->payloads->forManage($tournament));
     }
 
     public function create(Request $request): Response|ResponseFactory
@@ -232,6 +133,7 @@ class TournamentController extends Controller
                 /** @var \App\Enums\TournamentTiebreakerEnum $tiebreaker */
                 $tiebreaker = $source->tiebreaker_mode;
                 $template = [
+                    'ruleset' => $source->rulesetDefinition()->key,
                     'name' => $source->name.' (copy)',
                     'description' => $source->description,
                     'location' => $source->location,
@@ -244,11 +146,21 @@ class TournamentController extends Controller
                     'bye_diff' => $source->bye_diff,
                     'bye_vp' => $source->bye_vp,
                     'tiebreaker_mode' => $tiebreaker->value,
+                    'variants' => $source->activeVariants(),
+                    'allow_self_report' => (bool) $source->allow_self_report,
+                    'team_size' => (int) $source->team_size,
+                    'max_players' => $source->max_players,
+                    'require_crew_lists' => (bool) $source->require_crew_lists,
+                    'scoring_config' => $source->scoring_config,
                 ];
             }
         }
 
+        $registry = app(RulesetRegistry::class);
+
         return inertia('Tournaments/Create', [
+            'rulesets' => array_values(array_map(fn (Ruleset $r) => $r->toArray(), $registry->all())),
+            'default_ruleset' => $registry->default()->key,
             'seasons' => $seasons,
             'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_types' => $encounterTypes,
@@ -263,6 +175,7 @@ class TournamentController extends Controller
     public function store(TournamentStoreRequest $request)
     {
         $validated = $request->validated();
+        $validated = $this->normalizeCustomizations($validated, app(RulesetRegistry::class)->resolve($validated['ruleset'] ?? null));
 
         $tournament = Tournament::create([
             ...$validated,
@@ -284,99 +197,33 @@ class TournamentController extends Controller
         return redirect()->route('tournaments.manage', $tournament);
     }
 
-    public function manage(Tournament $tournament): Response|ResponseFactory
+    /**
+     * Store only what's switched on / actually overridden: off variants and empty override arrays are dropped,
+     * boolean variants become true and parameterised ones keep their number.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function normalizeCustomizations(array $validated, Ruleset $ruleset): array
     {
-        $this->authorize('manage', $tournament);
-
-        $tournament->load([
-            'players.user:id,name,meta_id',
-            'players.user.meta:id,name',
-            'players.meta:id,name',
-            'rsvps.user:id,name',
-            'rounds.games.playerOne:id,display_name,faction,user_id',
-            'rounds.games.playerTwo:id,display_name,faction,user_id',
-            // Don't column-restrict trackerGame — Game appends `season_label`,
-            // whose accessor reads `$this->season`. A restricted select that
-            // omits `season` crashes under strict-attribute mode the moment
-            // Inertia serializes the model. Same comment as `view()`.
-            'rounds.games.trackerGame',
-            'rounds.strategy:id,name',
-            'organizers:id,name',
-        ]);
-
-        $standings = $this->standings->compute($tournament);
-
-        $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
-            'value' => $s->value,
-            'label' => $s->label(),
-        ]);
-
-        // Reference data needed for editing (scenario picker, score dialog, master
-        // dropdown) — deferred so the page renders immediately and these batch
-        // in a follow-up request. Grouped under "scenario" so the Inertia client
-        // fires one extra request for all three instead of three separate ones.
-        $strategiesDeferred = Inertia::defer(function () use ($tournament) {
-            /** @var \App\Enums\PoolSeasonEnum $season */
-            $season = $tournament->season;
-            $results = [];
-            foreach (Strategy::forSeason($season)->orderBy('name')->get() as $s) {
-                $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url];
+        if (array_key_exists('variants', $validated)) {
+            $catalog = $ruleset->variantsByKey();
+            $variants = [];
+            foreach ((array) $validated['variants'] as $key => $value) {
+                $param = $catalog[$key]['param'] ?? null;
+                if ($param !== null) {
+                    $variants[$key] = (int) $value;
+                } elseif ($value) {
+                    $variants[$key] = true;
+                }
             }
+            $validated['variants'] = $variants === [] ? null : $variants;
+        }
+        if (array_key_exists('scoring_config', $validated) && empty($validated['scoring_config'])) {
+            $validated['scoring_config'] = null;
+        }
 
-            return $results;
-        }, 'scenario');
-
-        $schemesDeferred = Inertia::defer(function () use ($tournament) {
-            /** @var \App\Enums\PoolSeasonEnum $season */
-            $season = $tournament->season;
-            $results = [];
-            foreach (Scheme::forSeason($season)->orderBy('name')->get() as $s) {
-                $results[] = ['id' => $s->id, 'name' => $s->name, 'slug' => $s->slug, 'image_url' => $s->image_url, 'prerequisite' => $s->prerequisite, 'reveal' => $s->reveal, 'scoring' => $s->scoring];
-            }
-
-            return $results;
-        }, 'scenario');
-
-        // Masters grouped by name with titles — only used in the score-entry
-        // dialog, so defer under its own group.
-        $mastersDeferred = Inertia::defer(function () {
-            $characters = Character::standard()->where('station', 'master')
-                ->where('is_hidden', false)
-                ->orderBy('name')->orderBy('title')
-                ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
-
-            $grouped = [];
-            foreach ($characters->groupBy('name') as $name => $group) {
-                $first = $group->first();
-                $grouped[] = [
-                    'name' => $name,
-                    'faction' => $first->getRawOriginal('faction'),
-                    'second_faction' => $first->getRawOriginal('second_faction'),
-                    'titles' => $group->map(fn ($c) => [
-                        'id' => $c->id,
-                        'display_name' => $c->display_name,
-                        'title' => $c->title,
-                    ])->values(),
-                ];
-            }
-
-            return $grouped; // @phpstan-ignore return.type
-        }, 'masters');
-
-        return inertia('Tournaments/Manage', [
-            'tournament' => $tournament,
-            'standings' => $standings,
-            'seasons' => $seasons,
-            'factions' => fn () => FactionEnum::buildDetails(),
-            'encounter_types' => collect(EncounterTypeEnum::cases())->map(fn ($e) => ['value' => $e->value, 'label' => $e->label()]),
-            'all_deployments' => collect(DeploymentEnum::cases())->map(fn (DeploymentEnum $d) => ['value' => $d->value, 'label' => $d->label(), 'description' => $d->description(), 'image_url' => $d->imageUrl()]),
-            // Deferred below — page renders without these, a follow-up request
-            // fills them in. Grouping means strategies + schemes batch into one
-            // request, masters into another.
-            'all_strategies' => $strategiesDeferred,
-            'all_schemes' => $schemesDeferred,
-            'masters' => $mastersDeferred,
-        ]);
+        return $validated;
     }
 
     /**
@@ -389,13 +236,19 @@ class TournamentController extends Controller
         $this->authorize('manage', $tournament);
 
         $tournament->load([
-            'rounds.games.playerOne:id,display_name,faction',
-            'rounds.games.playerTwo:id,display_name,faction',
+            'rounds.games.playerOne:id,display_name,faction,allegiance_id',
+            'rounds.games.playerTwo:id,display_name,faction,allegiance_id',
+            'rounds.games.playerOne.allegiance:id,name',
+            'rounds.games.playerTwo.allegiance:id,name',
         ]);
+        $declaresAllegiance = $tournament->rulesetDefinition()->declaration === 'allegiance';
 
         $filename = 'tournament-'.$tournament->uuid.'-'.now()->format('Ymd-His').'.csv';
 
-        return response()->streamDownload(function () use ($tournament) {
+        // Score components (beyond the VP total) are ruleset-defined, e.g. strategy + scheme for Malifaux.
+        $componentKeys = array_values(array_filter($tournament->rulesetDefinition()->scoreFieldKeys(), fn (string $k) => $k !== 'vp'));
+
+        return response()->streamDownload(function () use ($tournament, $componentKeys, $declaresAllegiance) {
             $out = fopen('php://output', 'w');
             fputcsv($out, [
                 'round',
@@ -404,14 +257,12 @@ class TournamentController extends Controller
                 'player_one_faction',
                 'player_one_master',
                 'player_one_vp',
-                'player_one_strategy_vp',
-                'player_one_scheme_vp',
+                ...array_map(fn (string $k) => "player_one_{$k}_vp", $componentKeys),
                 'player_two',
                 'player_two_faction',
                 'player_two_master',
                 'player_two_vp',
-                'player_two_strategy_vp',
-                'player_two_scheme_vp',
+                ...array_map(fn (string $k) => "player_two_{$k}_vp", $componentKeys),
                 'result',
                 'is_bye',
                 'is_forfeit',
@@ -428,17 +279,15 @@ class TournamentController extends Controller
                         $round->round_number,
                         $game->table_number,
                         $p1 ? $p1->display_name : null,
-                        $game->player_one_faction ?: ($p1 ? $p1->getRawOriginal('faction') : null),
+                        $declaresAllegiance ? ($p1 ? $p1->allegiance?->name : null) : ($game->player_one_faction ?: ($p1 ? $p1->getRawOriginal('faction') : null)),
                         $game->player_one_title ?: $game->player_one_master,
                         $game->player_one_vp,
-                        $game->player_one_strategy_vp,
-                        $game->player_one_scheme_vp,
+                        ...array_map(fn (string $k) => $game->breakdownFor('player_one')[$k] ?? null, $componentKeys),
                         $p2 ? $p2->display_name : null,
-                        $game->player_two_faction ?: ($p2 ? $p2->getRawOriginal('faction') : null),
+                        $declaresAllegiance ? ($p2 ? $p2->allegiance?->name : null) : ($game->player_two_faction ?: ($p2 ? $p2->getRawOriginal('faction') : null)),
                         $game->player_two_title ?: $game->player_two_master,
                         $game->player_two_vp,
-                        $game->player_two_strategy_vp,
-                        $game->player_two_scheme_vp,
+                        ...array_map(fn (string $k) => $game->breakdownFor('player_two')[$k] ?? null, $componentKeys),
                         $game->result->value,
                         $game->is_bye ? 'true' : 'false',
                         $game->is_forfeit ? 'true' : 'false',
@@ -470,7 +319,15 @@ class TournamentController extends Controller
             $request->replace(['tiebreaker_mode' => $request->input('tiebreaker_mode')]);
         }
 
-        $validated = $request->validated();
+        $validated = $this->normalizeCustomizations($request->validated(), $tournament->rulesetDefinition());
+
+        if (isset($validated['team_size']) && (int) $validated['team_size'] !== (int) $tournament->team_size && $tournament->players()->exists()) {
+            return response()->json(['error' => 'Remove the existing players before switching between individual and team play.'], 422);
+        }
+
+        if (isset($validated['max_players']) && $validated['max_players'] < $tournament->competitorCount()) {
+            return response()->json(['error' => "Already {$tournament->competitorCount()} registered — the limit can't be lower than that."], 422);
+        }
 
         $tournament->update($validated);
 

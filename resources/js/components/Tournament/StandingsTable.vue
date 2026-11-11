@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -64,7 +65,7 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                 isMe(entry.player_id) ? 'ring-2 ring-inset ring-primary/60' : '',
                             ]"
                         >
-                            <td class="px-2 py-2 font-bold tabular-nums sm:px-3">{{ rankLabel(entry.rank) }}</td>
+                            <td class="whitespace-nowrap px-2 py-2 font-bold tabular-nums sm:px-3">{{ rankLabel(entry.rank) }}</td>
                             <td class="px-2 py-2 sm:px-3">
                                 <div class="flex items-center gap-1.5">
                                     <FactionLogo
@@ -72,11 +73,19 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                         :faction="entry.faction"
                                         class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
                                     />
+                                    <AllegianceLogo
+                                        v-else-if="entry.allegiance"
+                                        :allegiance="entry.allegiance.slug"
+                                        class-name="size-4 shrink-0"
+                                        :title="entry.allegiance.name"
+                                    />
                                     <Crown
                                         v-if="entry.rank === 1 && entry.rounds_played > 0 && !entry.is_ringer"
                                         class="size-3.5 shrink-0 text-amber-600 dark:text-amber-300"
                                     />
-                                    <span class="truncate text-xs font-medium sm:text-sm">{{ entry.display_name }}</span>
+                                    <span class="truncate text-xs font-medium sm:text-sm" :title="entry.members?.join(' · ')">{{
+                                        entry.display_name
+                                    }}</span>
                                     <Badge
                                         v-if="isMe(entry.player_id)"
                                         variant="outline"
@@ -98,7 +107,7 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                 </div>
                             </td>
                             <td class="px-1 py-2 text-center font-bold tabular-nums sm:px-3">{{ entry.total_tp }}</td>
-                            <td class="hidden px-1 py-2 text-center font-medium tabular-nums sm:table-cell sm:px-3">
+                            <td class="hidden whitespace-nowrap px-1 py-2 text-center font-medium tabular-nums sm:table-cell sm:px-3">
                                 {{ entry.wins ?? 0 }}-{{ entry.losses ?? 0 }}-{{ entry.ties ?? 0 }}
                             </td>
                             <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_sos }}</td>

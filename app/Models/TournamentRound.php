@@ -25,6 +25,7 @@ class TournamentRound extends Model
             'status' => TournamentRoundStatusEnum::class,
             'deployment' => DeploymentEnum::class,
             'scheme_pool' => 'array',
+            'scenario' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];

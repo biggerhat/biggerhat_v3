@@ -6,6 +6,7 @@ use App\Enums\TournamentGameResultEnum;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
+use App\Tournaments\ScoringEngine;
 
 /**
  * Computes per-player stats: TP, DIFF, VP, rounds played, opponent IDs.
@@ -17,7 +18,6 @@ class PlayerStatsCalculator
 {
     /**
      * @param  iterable<TournamentGame>  $allGames  any traversable of games involving the player
-     * @param  array{tp: int, diff: int, vp: int}  $byeScoring
      * @param  array<int, TournamentRound>  $completedRounds
      * @param  array<int, int>  $completedRoundNumbers  round_id => round_number lookup
      * @return array{tp: int, diff: int, vp: int, rounds: int, has_bye: bool, wins: int, losses: int, ties: int, opponents: int[]}
@@ -25,7 +25,7 @@ class PlayerStatsCalculator
     public function compute(
         TournamentPlayer $player,
         iterable $allGames,
-        array $byeScoring,
+        ScoringEngine $scoring,
         array $completedRounds,
         array $completedRoundNumbers,
     ): array {
@@ -58,9 +58,10 @@ class PlayerStatsCalculator
             $rounds++;
 
             if ($game->is_bye) {
-                $tp += $byeScoring['tp'];
-                $diff += $byeScoring['diff'];
-                $vp += $byeScoring['vp'];
+                $bye = $scoring->bye();
+                $tp += $bye['tp'];
+                $diff += $bye['diff'];
+                $vp += $bye['vp'];
                 $hasBye = true;
                 // A bye scores 3 TP — count it as a win for the W column.
                 // NOTE: a player who took a bye in round N then dropped in
@@ -78,15 +79,16 @@ class PlayerStatsCalculator
                 $opponents[] = $oppId;
             }
 
-            // Forfeit: large fixed swing — winner gets 3 TP / +11 / 11 VP, loser -11 DIFF only.
+            // Forfeit: fixed swing defined by the ruleset's scoring config.
             if ($game->is_forfeit && $game->forfeit_player_id) {
-                if ($game->forfeit_player_id === $playerId) {
-                    $diff -= 11;
+                $forfeiter = $game->forfeit_player_id === $playerId;
+                $forfeit = $forfeiter ? $scoring->forfeitLoss() : $scoring->forfeitWin();
+                $tp += $forfeit['tp'];
+                $diff += $forfeit['diff'];
+                $vp += $forfeit['vp'];
+                if ($forfeiter) {
                     $losses++;
                 } else {
-                    $tp += 3;
-                    $diff += 11;
-                    $vp += 11;
                     $wins++;
                 }
 
@@ -97,18 +99,16 @@ class PlayerStatsCalculator
             $myVp = $isPlayerOne ? ($game->player_one_vp ?? 0) : ($game->player_two_vp ?? 0);
             $oppVp = $isPlayerOne ? ($game->player_two_vp ?? 0) : ($game->player_one_vp ?? 0);
 
-            $vp += $myVp;
-            $diff += ($myVp - $oppVp);
+            $result = $scoring->game($myVp, $oppVp);
+            $tp += $result['tp'];
+            $diff += $result['diff'];
+            $vp += $result['vp'];
 
-            if ($myVp > $oppVp) {
-                $tp += 3;
-                $wins++;
-            } elseif ($myVp === $oppVp) {
-                $tp += 1;
-                $ties++;
-            } else {
-                $losses++;
-            }
+            match ($result['outcome']) {
+                'win' => $wins++,
+                'tie' => $ties++,
+                'loss' => $losses++,
+            };
         }
 
         // Missed-round penalty: one loss (-bye_diff DIFF, 0 TP) for every completed
@@ -129,7 +129,7 @@ class PlayerStatsCalculator
             if (! $wasActive) {
                 continue;
             }
-            $diff -= $byeScoring['diff'];
+            $diff -= $scoring->missedRoundDiff();
             $rounds++;
         }
 

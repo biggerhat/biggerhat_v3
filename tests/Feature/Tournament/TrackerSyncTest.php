@@ -76,11 +76,11 @@ it('syncs live VP to the linked tournament game on each turn submit (duel)', fun
     ])->assertOk();
 
     $this->tgame->refresh();
-    expect($this->tgame->player_one_strategy_vp)->toBe(1);
-    expect($this->tgame->player_one_scheme_vp)->toBe(2);
+    expect($this->tgame->breakdownFor('player_one')['strategy'])->toBe(1);
+    expect($this->tgame->breakdownFor('player_one')['scheme'])->toBe(2);
     expect($this->tgame->player_one_vp)->toBe(3);
     // Untouched slot 2 stays at zero until that player submits.
-    expect($this->tgame->player_two_strategy_vp)->toBe(0);
+    expect($this->tgame->breakdownFor('player_two')['strategy'])->toBe(0);
     // Result stays Pending — only the TO confirms.
     expect($this->tgame->result)->toBe(TournamentGameResultEnum::Pending);
 });
@@ -109,11 +109,11 @@ it('accumulates VP across multiple turns', function () {
     ])->assertOk();
 
     $this->tgame->refresh();
-    expect($this->tgame->player_one_strategy_vp)->toBe(2);
-    expect($this->tgame->player_one_scheme_vp)->toBe(2);
+    expect($this->tgame->breakdownFor('player_one')['strategy'])->toBe(2);
+    expect($this->tgame->breakdownFor('player_one')['scheme'])->toBe(2);
     expect($this->tgame->player_one_vp)->toBe(4);
-    expect($this->tgame->player_two_strategy_vp)->toBe(1);
-    expect($this->tgame->player_two_scheme_vp)->toBe(2);
+    expect($this->tgame->breakdownFor('player_two')['strategy'])->toBe(1);
+    expect($this->tgame->breakdownFor('player_two')['scheme'])->toBe(2);
     expect($this->tgame->player_two_vp)->toBe(3);
 });
 
@@ -133,8 +133,8 @@ it('syncs VP for a solo tracker game where slot 2 has no user', function () {
     ])->assertOk();
 
     $this->tgame->refresh();
-    expect($this->tgame->player_one_strategy_vp)->toBe(2);
-    expect($this->tgame->player_one_scheme_vp)->toBe(1);
+    expect($this->tgame->breakdownFor('player_one')['strategy'])->toBe(2);
+    expect($this->tgame->breakdownFor('player_one')['scheme'])->toBe(1);
     expect($this->tgame->player_one_vp)->toBe(3);
 });
 
@@ -164,11 +164,11 @@ it('syncs solo VP into player_two when the user is the tournament P2', function 
     $this->tgame->refresh();
     // The user's points landed in tournament player_two_vp (because they're TP2),
     // not player_one_vp — even though tracker-side they were slot 1.
-    expect($this->tgame->player_two_strategy_vp)->toBe(2);
-    expect($this->tgame->player_two_scheme_vp)->toBe(1);
+    expect($this->tgame->breakdownFor('player_two')['strategy'])->toBe(2);
+    expect($this->tgame->breakdownFor('player_two')['scheme'])->toBe(1);
     expect($this->tgame->player_two_vp)->toBe(3);
     // Untouched tournament P1 (the unlinked Jane) stays at zero.
-    expect($this->tgame->player_one_strategy_vp)->toBe(0);
+    expect($this->tgame->breakdownFor('player_one')['strategy'])->toBe(0);
 });
 
 // ─── Completed / forfeited tournament games are never overwritten ───
@@ -177,8 +177,7 @@ it('does not overwrite a tournament game whose TO has already confirmed', functi
     $this->tgame->update([
         'result' => TournamentGameResultEnum::Completed,
         'player_one_vp' => 5,
-        'player_one_strategy_vp' => 2,
-        'player_one_scheme_vp' => 3,
+        'score_breakdown' => ['player_one' => ['strategy' => 2, 'scheme' => 3]],
     ]);
 
     $this->actingAs($this->creator)->postJson(route('games.play.turns.store', $this->trackerGame->uuid), [
@@ -190,7 +189,7 @@ it('does not overwrite a tournament game whose TO has already confirmed', functi
 
     $this->tgame->refresh();
     expect($this->tgame->player_one_vp)->toBe(5);
-    expect($this->tgame->player_one_strategy_vp)->toBe(2);
+    expect($this->tgame->breakdownFor('player_one')['strategy'])->toBe(2);
 });
 
 // ─── TO confirm flow: warning when tracker still InProgress ───
@@ -198,10 +197,8 @@ it('does not overwrite a tournament game whose TO has already confirmed', functi
 it('blocks TO confirm with a warning while the tracker is InProgress', function () {
     $this->actingAs($this->creator)
         ->putJson(route('tournaments.games.update', [$this->tournament->uuid, $this->tgame->id]), [
-            'player_one_strategy_vp' => 2,
-            'player_one_scheme_vp' => 3,
-            'player_two_strategy_vp' => 1,
-            'player_two_scheme_vp' => 2,
+            'player_one_score' => ['strategy' => 2, 'scheme' => 3],
+            'player_two_score' => ['strategy' => 1, 'scheme' => 2],
         ])
         ->assertStatus(422)
         ->assertJson(['error' => 'tracker_in_progress']);
@@ -213,10 +210,8 @@ it('blocks TO confirm with a warning while the tracker is InProgress', function 
 it('allows TO confirm when override flag is passed even with InProgress tracker', function () {
     $this->actingAs($this->creator)
         ->putJson(route('tournaments.games.update', [$this->tournament->uuid, $this->tgame->id]), [
-            'player_one_strategy_vp' => 2,
-            'player_one_scheme_vp' => 3,
-            'player_two_strategy_vp' => 1,
-            'player_two_scheme_vp' => 2,
+            'player_one_score' => ['strategy' => 2, 'scheme' => 3],
+            'player_two_score' => ['strategy' => 1, 'scheme' => 2],
             'confirm_override' => true,
         ])
         ->assertOk();
@@ -232,10 +227,8 @@ it('lets TO confirm without override once the tracker is Completed', function ()
 
     $this->actingAs($this->creator)
         ->putJson(route('tournaments.games.update', [$this->tournament->uuid, $this->tgame->id]), [
-            'player_one_strategy_vp' => 2,
-            'player_one_scheme_vp' => 3,
-            'player_two_strategy_vp' => 1,
-            'player_two_scheme_vp' => 2,
+            'player_one_score' => ['strategy' => 2, 'scheme' => 3],
+            'player_two_score' => ['strategy' => 1, 'scheme' => 2],
         ])
         ->assertOk();
 

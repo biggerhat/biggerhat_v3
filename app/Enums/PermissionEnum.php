@@ -251,6 +251,18 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     case EditTosStratagem = 'edit_tos_stratagem';
     #[PermissionGroup(PermissionGroupEnum::TosStratagem)]
     case DeleteTosStratagem = 'delete_tos_stratagem';
+    #[PermissionGroup(PermissionGroupEnum::TosOperation)]
+    case ViewTosOperation = 'view_tos_operation';
+    #[PermissionGroup(PermissionGroupEnum::TosOperation)]
+    case EditTosOperation = 'edit_tos_operation';
+    #[PermissionGroup(PermissionGroupEnum::TosOperation)]
+    case DeleteTosOperation = 'delete_tos_operation';
+    #[PermissionGroup(PermissionGroupEnum::TosDeployment)]
+    case ViewTosDeployment = 'view_tos_deployment';
+    #[PermissionGroup(PermissionGroupEnum::TosDeployment)]
+    case EditTosDeployment = 'edit_tos_deployment';
+    #[PermissionGroup(PermissionGroupEnum::TosDeployment)]
+    case DeleteTosDeployment = 'delete_tos_deployment';
 
     // Pre-release access gate for M4E Campaign Mode. While the
     // `m4e-campaign-mode` feature flag is off, users holding this permission

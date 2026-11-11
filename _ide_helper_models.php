@@ -3215,6 +3215,76 @@ namespace App\Models\TOS{
  * @property int $id
  * @property string $slug
  * @property string $name
+ * @property string|null $source
+ * @property string|null $flavor
+ * @property string|null $additional_setup
+ * @property string|null $special_rules
+ * @property string|null $victory_conditions
+ * @property string|null $image_path
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\TOS\OperationFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereAdditionalSetup($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereFlavor($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereImagePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereSource($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereSpecialRules($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Operation whereVictoryConditions($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperOperation {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $suit
+ * @property string|null $description
+ * @property string|null $image_path
+ * @property int $sort_order
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Database\Factories\TOS\DeploymentFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereImagePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereSuit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Deployment whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperDeployment {}
+}
+
+namespace App\Models\TOS{
+/**
+ * 
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
  * @property int|null $allegiance_id
  * @property \App\Enums\TOS\AllegianceTypeEnum|null $allegiance_type
  * @property int $tactical_cost
@@ -3530,6 +3600,12 @@ namespace App\Models{
  * @property int $bye_tp
  * @property int $bye_diff
  * @property int $bye_vp
+ * @property int $team_size
+ * @property bool $require_crew_lists
+ * @property int|null $max_players
+ * @property \Illuminate\Support\Carbon|null $registration_closes_at
+ * @property string|null $announcement
+ * @property \Illuminate\Support\Carbon|null $announced_at
  * @property \App\Enums\TournamentTiebreakerEnum $tiebreaker_mode
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -3662,11 +3738,41 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property int $tournament_player_id
+ * @property string $display_name
+ * @property int|null $user_id
+ * @property \App\Enums\FactionEnum|null $faction
+ * @property int|null $allegiance_id
+ * @property int|null $garrison_id
+ * @property int $position
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Allegiance|null $allegiance
+ * @property-read \App\Models\TOS\Garrison|null $garrison
+ * @property-read \App\Models\TournamentPlayer $team
+ * @property-read \App\Models\User|null $user
+ * @method static \Database\Factories\TournamentPlayerMemberFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayerMember newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayerMember newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayerMember query()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTournamentPlayerMember {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
  * @property int $tournament_id
  * @property int|null $user_id
  * @property int|null $meta_id
  * @property string $display_name
  * @property \App\Enums\FactionEnum|null $faction
+ * @property int|null $allegiance_id
+ * @property int|null $garrison_id
  * @property bool $is_ringer
  * @property bool $is_disqualified
  * @property \Illuminate\Support\Carbon|null $disqualified_at
@@ -3675,6 +3781,10 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Activitylog\Models\Activity> $activities
  * @property-read int|null $activities_count
+ * @property-read \App\Models\TOS\Allegiance|null $allegiance
+ * @property-read \App\Models\TOS\Garrison|null $garrison
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentPlayerMember> $members
+ * @property-read int|null $members_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerOne
  * @property-read int|null $games_as_player_one_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerTwo

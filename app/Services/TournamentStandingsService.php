@@ -3,11 +3,11 @@
 namespace App\Services;
 
 use App\Enums\TournamentRoundStatusEnum;
-use App\Enums\TournamentTiebreakerEnum;
 use App\Models\Tournament;
 use App\Services\Standings\PlayerStatsCalculator;
 use App\Services\Standings\StandingsRanker;
 use App\Services\Standings\StrengthOfScheduleCalculator;
+use App\Tournaments\ScoringEngine;
 
 /**
  * Orchestrates the standings pipeline:
@@ -33,17 +33,13 @@ class TournamentStandingsService
      */
     public function compute(Tournament $tournament): array
     {
-        $tournament->loadMissing(['players', 'rounds.games']);
+        $tournament->loadMissing(['players.allegiance:id,slug,name', 'players.members:id,tournament_player_id,display_name,position', 'rounds.games']);
 
         $players = $tournament->players->where('is_disqualified', false);
         $allGames = $tournament->rounds->flatMap(fn ($round) => $round->games);
 
-        // Bye scoring is configurable per tournament (defaults to 3/4/6).
-        $byeScoring = [
-            'tp' => (int) ($tournament->bye_tp ?? 3),
-            'diff' => (int) ($tournament->bye_diff ?? 4),
-            'vp' => (int) ($tournament->bye_vp ?? 6),
-        ];
+        // Scoring comes from the tournament's ruleset (plus any per-tournament overrides).
+        $scoring = new ScoringEngine($tournament->scoringConfig());
 
         // Completed rounds drive the missed-round penalty. Build an id→number
         // lookup once so per-player stats can translate game.tournament_round_id
@@ -73,12 +69,14 @@ class TournamentStandingsService
         $opponentsByPlayer = [];
         foreach ($players as $player) {
             $playerGames = $gamesByPlayer[$player->id] ?? [];
-            $stats = $this->stats->compute($player, $playerGames, $byeScoring, $completedRounds, $completedRoundNumbers);
+            $stats = $this->stats->compute($player, $playerGames, $scoring, $completedRounds, $completedRoundNumbers);
             $standings[] = [
                 'player_id' => $player->id,
                 'display_name' => $player->display_name,
                 'user_id' => $player->user_id,
                 'faction' => $player->getRawOriginal('faction'),
+                'members' => $player->members->pluck('display_name')->values()->all(),
+                'allegiance' => $player->allegiance ? ['slug' => $player->allegiance->slug, 'name' => $player->allegiance->name] : null,
                 'is_ringer' => $player->is_ringer,
                 'is_dropped' => $player->dropped_after_round !== null,
                 'total_tp' => $stats['tp'],
@@ -96,9 +94,7 @@ class TournamentStandingsService
         // Pass 2: SoS annotation.
         $standings = $this->sos->annotate($standings, $opponentsByPlayer);
 
-        // Pass 3: sort + joint placing per the tournament's tiebreaker mode.
-        $tiebreaker = $tournament->tiebreaker_mode ?? TournamentTiebreakerEnum::DiffVp;
-
-        return $this->ranker->rank($standings, $tiebreaker);
+        // Pass 3: sort + joint placing per the ruleset's tiebreaker order.
+        return $this->ranker->rank($standings, $tournament->tiebreakerKeys());
     }
 }

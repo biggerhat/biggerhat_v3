@@ -1261,7 +1261,7 @@ class GamePlayController extends Controller
         if (! $tg) {
             return;
         }
-        if (in_array($tg->result, [TournamentGameResultEnum::Completed, TournamentGameResultEnum::Forfeited])) {
+        if (in_array($tg->result, [TournamentGameResultEnum::Completed, TournamentGameResultEnum::Agreed, TournamentGameResultEnum::Forfeited])) {
             return;
         }
 
@@ -1295,11 +1295,12 @@ class GamePlayController extends Controller
         $pTwoTurns = $turns->get($pTwo->id, collect());
 
         $tg->update([
-            'player_one_strategy_vp' => (int) $pOneTurns->sum('strategy_points'),
-            'player_one_scheme_vp' => (int) $pOneTurns->sum('scheme_points'),
+            // The Game Tracker is Malifaux-only, so the breakdown uses that ruleset's strategy/scheme fields.
+            'score_breakdown' => [
+                'player_one' => ['strategy' => (int) $pOneTurns->sum('strategy_points'), 'scheme' => (int) $pOneTurns->sum('scheme_points')],
+                'player_two' => ['strategy' => (int) $pTwoTurns->sum('strategy_points'), 'scheme' => (int) $pTwoTurns->sum('scheme_points')],
+            ],
             'player_one_vp' => (int) $pOne->total_points,
-            'player_two_strategy_vp' => (int) $pTwoTurns->sum('strategy_points'),
-            'player_two_scheme_vp' => (int) $pTwoTurns->sum('scheme_points'),
             'player_two_vp' => (int) $pTwo->total_points,
             // Only back-fill master/title/faction when the TO hasn't entered them —
             // preserves manual corrections (typo fixes, alt title pick, etc.).

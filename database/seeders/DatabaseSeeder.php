@@ -6,6 +6,8 @@ use Database\Seeders\TOS\AbilitySeeder as TosAbilitySeeder;
 use Database\Seeders\TOS\AllegianceCardSeeder as TosAllegianceCardSeeder;
 use Database\Seeders\TOS\AllegianceSeeder as TosAllegianceSeeder;
 use Database\Seeders\TOS\AssetSeeder as TosAssetSeeder;
+use Database\Seeders\TOS\DeploymentSeeder as TosDeploymentSeeder;
+use Database\Seeders\TOS\OperationSeeder as TosOperationSeeder;
 use Database\Seeders\TOS\SpecialUnitRuleSeeder as TosSpecialUnitRuleSeeder;
 use Database\Seeders\TOS\StratagemSeeder as TosStratagemSeeder;
 use Database\Seeders\TOS\UnitSeeder as TosUnitSeeder;
@@ -29,6 +31,8 @@ class DatabaseSeeder extends Seeder
             TosAllegianceCardSeeder::class,
             TosAssetSeeder::class,
             TosStratagemSeeder::class,
+            TosOperationSeeder::class,
+            TosDeploymentSeeder::class,
             LootCardSeeder::class,
         ]);
 

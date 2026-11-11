@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FactionEnum;
+use App\Models\TOS\Allegiance;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,6 +19,11 @@ class TournamentRsvp extends Model
         return [
             'faction' => FactionEnum::class,
         ];
+    }
+
+    public function allegiance(): BelongsTo
+    {
+        return $this->belongsTo(Allegiance::class, 'allegiance_id');
     }
 
     public function tournament(): BelongsTo

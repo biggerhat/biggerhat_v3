@@ -61,6 +61,8 @@ use App\Http\Controllers\TOS\Admin\ActionAdminController as TosActionAdminContro
 use App\Http\Controllers\TOS\Admin\AllegianceAdminController as TosAllegianceAdminController;
 use App\Http\Controllers\TOS\Admin\AllegianceCardAdminController as TosAllegianceCardAdminController;
 use App\Http\Controllers\TOS\Admin\AssetAdminController as TosAssetAdminController;
+use App\Http\Controllers\TOS\Admin\DeploymentAdminController as TosDeploymentAdminController;
+use App\Http\Controllers\TOS\Admin\OperationAdminController as TosOperationAdminController;
 use App\Http\Controllers\TOS\Admin\SculptAdminController as TosSculptAdminController;
 use App\Http\Controllers\TOS\Admin\SpecialUnitRuleAdminController as TosSpecialUnitRuleAdminController;
 use App\Http\Controllers\TOS\Admin\StratagemAdminController as TosStratagemAdminController;
@@ -521,6 +523,24 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
             Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_stratagem');
             Route::post('/update/{stratagem}', 'update')->name('update')->middleware('permission:edit_tos_stratagem');
             Route::post('/delete/{stratagem}', 'delete')->name('delete')->middleware('permission:delete_tos_stratagem');
+        });
+
+        Route::controller(TosOperationAdminController::class)->prefix('operations')->name('operations.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_operation');
+            Route::get('/edit/{operation}', 'edit')->name('edit')->middleware('permission:view_tos_operation');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_operation');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_operation');
+            Route::post('/update/{operation}', 'update')->name('update')->middleware('permission:edit_tos_operation');
+            Route::post('/delete/{operation}', 'delete')->name('delete')->middleware('permission:delete_tos_operation');
+        });
+
+        Route::controller(TosDeploymentAdminController::class)->prefix('deployments')->name('deployments.')->group(function () {
+            Route::get('/', 'index')->name('index')->middleware('permission:view_tos_deployment');
+            Route::get('/edit/{deployment}', 'edit')->name('edit')->middleware('permission:view_tos_deployment');
+            Route::get('/create', 'create')->name('create')->middleware('permission:edit_tos_deployment');
+            Route::post('/store', 'store')->name('store')->middleware('permission:edit_tos_deployment');
+            Route::post('/update/{deployment}', 'update')->name('update')->middleware('permission:edit_tos_deployment');
+            Route::post('/delete/{deployment}', 'delete')->name('delete')->middleware('permission:delete_tos_deployment');
         });
     });
 

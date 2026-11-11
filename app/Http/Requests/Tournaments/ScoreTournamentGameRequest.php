@@ -3,12 +3,15 @@
 namespace App\Http\Requests\Tournaments;
 
 use App\Enums\FactionEnum;
+use App\Http\Requests\Tournaments\Concerns\ValidatesRulesetScore;
 use App\Models\Tournament;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ScoreTournamentGameRequest extends FormRequest
 {
+    use ValidatesRulesetScore;
+
     public function authorize(): bool
     {
         /** @var Tournament|null $tournament */
@@ -22,18 +25,17 @@ class ScoreTournamentGameRequest extends FormRequest
         $validFactions = collect(FactionEnum::cases())->pluck('value')->all();
 
         return [
+            ...$this->scoreRules(),
             'player_one_faction' => ['nullable', 'string', Rule::in($validFactions)],
             'player_one_master' => ['nullable', 'string', 'max:255'],
             'player_one_title' => ['nullable', 'string', 'max:255'],
             'player_one_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_one_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
-            'player_one_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
             'player_two_faction' => ['nullable', 'string', Rule::in($validFactions)],
             'player_two_master' => ['nullable', 'string', 'max:255'],
             'player_two_title' => ['nullable', 'string', 'max:255'],
             'player_two_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
-            'player_two_strategy_vp' => ['required', 'integer', 'min:0', 'max:5'],
-            'player_two_scheme_vp' => ['required', 'integer', 'min:0', 'max:6'],
+            // Agreed result: the game wasn't played to its end; the scores entered are the agreed outcome (TO-approved).
+            'agreed' => ['sometimes', 'boolean'],
             // Opt-in override for when the tracker game is still in progress.
             'confirm_override' => ['sometimes', 'boolean'],
         ];

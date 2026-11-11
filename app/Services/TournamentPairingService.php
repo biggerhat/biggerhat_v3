@@ -65,24 +65,12 @@ class TournamentPairingService
 
         // Pair the remaining players.
         $unpaired = $playersToRank->filter(fn (TournamentPlayer $p) => ! isset($paired[$p->id]))->values();
-        $used = [];
-
-        for ($i = 0; $i < $unpaired->count(); $i++) {
-            if (isset($used[$i])) {
-                continue;
-            }
-            $playerA = $unpaired[$i];
-            $j = $this->pickOpponentIndex($playerA, $unpaired, $used, $i + 1, $previousOpponents, $isFirstRound);
-            if ($j === null) {
-                continue; // genuinely unpairable (e.g. last player, no candidates)
-            }
+        foreach ($this->matchPlayers($unpaired, $previousOpponents, $isFirstRound) as [$playerA, $playerB]) {
             $pairings[] = [
                 'player_one_id' => $playerA->id,
-                'player_two_id' => $unpaired[$j]->id,
+                'player_two_id' => $playerB->id,
                 'is_bye' => false,
             ];
-            $used[$i] = true;
-            $used[$j] = true;
         }
 
         return $isFirstRound ? $this->separateSameMeta($pairings, $playersToRank->keyBy('id')) : $pairings;
@@ -197,58 +185,88 @@ class TournamentPairingService
         return count($pairings);
     }
 
+    /** Search-node budget per strictness level; keeps worst-case pairing time bounded on big fields. */
+    private const MATCH_NODE_BUDGET = 50000;
+
     /**
-     * Pick the index of the best available opponent for $playerA, applying
-     * constraints in priority order. Strictness drops one constraint at a
-     * time when no candidate satisfies the full set, so the absolute fallback
-     * is "any unpaired player" (rematch acceptable).
+     * Pair the (standings-ordered) players into a perfect matching, preferring opponents close in
+     * the standings but never at the price of a rematch when a rematch-free pairing exists.
      *
-     * @param  Collection<int, TournamentPlayer>  $unpaired
-     * @param  array<int, true>  $used  index => true
+     * A greedy "first legal opponent" pass can strand the last players with each other even though
+     * swapping an earlier choice would avoid it, so this backtracks. Constraints are relaxed one
+     * level at a time (no rematch + no same meta → no rematch → anything); the first level with a
+     * complete matching wins, and the search order keeps pairings as close in rank as possible.
+     * With an odd count the lowest-ranked player is left unpaired (as before).
+     *
+     * @param  Collection<int, TournamentPlayer>  $players  best standing first
      * @param  array<int, int[]>  $previousOpponents  player_id => [opponent_ids]
+     * @return list<array{0: TournamentPlayer, 1: TournamentPlayer}>
      */
-    private function pickOpponentIndex(
-        TournamentPlayer $playerA,
-        Collection $unpaired,
-        array $used,
-        int $startFrom,
-        array $previousOpponents,
-        bool $isFirstRound,
-    ): ?int {
-        $aOpponents = $previousOpponents[$playerA->id] ?? [];
-        $aMeta = $playerA->effectiveMetaId();
+    private function matchPlayers(Collection $players, array $previousOpponents, bool $isFirstRound): array
+    {
+        $list = $players->values()->all();
+        $count = count($list) - (count($list) % 2);
+        $list = array_slice($list, 0, $count);
 
-        // Constraints in priority order — most-preferred first. PASS 1 applies all,
-        // PASS 2 drops the LAST constraint, PASS 3 drops the next-to-last, etc.
-        // Index 0 is always the highest-priority "no rematch" rule.
-        $constraints = [
-            // Avoid rematches.
-            fn (TournamentPlayer $b): bool => ! in_array($b->id, $aOpponents, true),
-        ];
-        if ($isFirstRound && $aMeta !== null) {
-            // Same-meta avoidance — only meaningful in Round 1.
-            $constraints[] = fn (TournamentPlayer $b): bool => $b->effectiveMetaId() !== $aMeta;
-        }
+        $noRematch = fn (TournamentPlayer $a, TournamentPlayer $b): bool => ! in_array($b->id, $previousOpponents[$a->id] ?? [], true);
+        $differentMeta = fn (TournamentPlayer $a, TournamentPlayer $b): bool => $a->effectiveMetaId() === null || $a->effectiveMetaId() !== $b->effectiveMetaId();
 
-        for ($strictness = count($constraints); $strictness >= 0; $strictness--) {
-            $active = array_slice($constraints, 0, $strictness);
-            for ($j = $startFrom; $j < $unpaired->count(); $j++) {
-                if (isset($used[$j])) {
-                    continue;
-                }
-                $b = $unpaired[$j];
-                $passes = true;
-                foreach ($active as $c) {
-                    if (! $c($b)) {
-                        $passes = false;
-                        break;
-                    }
-                }
-                if ($passes) {
-                    return $j;
-                }
+        $levels = $isFirstRound
+            ? [fn ($a, $b) => $noRematch($a, $b) && $differentMeta($a, $b), $noRematch]
+            : [$noRematch];
+        $levels[] = fn () => true;
+
+        foreach ($levels as $allowed) {
+            $budget = self::MATCH_NODE_BUDGET;
+            $used = [];
+            $pairs = $this->searchMatching($list, $used, $allowed, $budget);
+            if ($pairs !== null) {
+                return $pairs;
             }
         }
+
+        return []; // unreachable: the last level allows every pairing
+    }
+
+    /**
+     * @param  list<TournamentPlayer>  $list
+     * @param  array<int, true>  $used  index => true
+     * @param  callable(TournamentPlayer, TournamentPlayer): bool  $allowed
+     * @return list<array{0: TournamentPlayer, 1: TournamentPlayer}>|null
+     */
+    private function searchMatching(array $list, array &$used, callable $allowed, int &$budget): ?array
+    {
+        if ($budget-- <= 0) {
+            return null;
+        }
+
+        $i = null;
+        foreach (array_keys($list) as $k) {
+            if (! isset($used[$k])) {
+                $i = $k;
+                break;
+            }
+        }
+        if ($i === null) {
+            return [];
+        }
+
+        $used[$i] = true;
+        for ($j = $i + 1; $j < count($list); $j++) {
+            if (isset($used[$j]) || ! $allowed($list[$i], $list[$j])) {
+                continue;
+            }
+            $used[$j] = true;
+            $rest = $this->searchMatching($list, $used, $allowed, $budget);
+            unset($used[$j]);
+            if ($rest !== null) {
+                return [[$list[$i], $list[$j]], ...$rest];
+            }
+            if ($budget <= 0) {
+                break;
+            }
+        }
+        unset($used[$i]);
 
         return null;
     }
@@ -306,17 +324,14 @@ class TournamentPairingService
      */
     private function sortByStandings(Tournament $tournament, Collection $players): Collection
     {
-        $standingsMap = collect($this->standings->compute($tournament))->keyBy('player_id');
+        // `rank` already follows the ruleset's tiebreaker order (TP then SoS/DIFF/VP as the ruleset says) and gives
+        // level players a joint rank, so pairing orders by it instead of assuming Gaining Grounds' TP → DIFF → VP.
+        $rankByPlayer = collect($this->standings->compute($tournament))->pluck('rank', 'player_id');
+        $unranked = $rankByPlayer->count() + 1;
 
-        return $players->sortBy(function (TournamentPlayer $p) use ($standingsMap) {
-            $s = $standingsMap->get($p->id);
-            if (! $s) {
-                return [0, 0, 0];
-            }
-
-            // Negative for descending sort
-            return [-$s['total_tp'], -$s['total_diff'], -$s['total_vp']];
-        })->values();
+        // Shuffle first: the sort is stable, so players level on every tiebreaker end up in random order
+        // (the Gaining Grounds / Fields of Glory packets pair ties randomly).
+        return $players->shuffle()->sortBy(fn (TournamentPlayer $p) => $rankByPlayer->get($p->id) ?? $unranked)->values();
     }
 
     /**

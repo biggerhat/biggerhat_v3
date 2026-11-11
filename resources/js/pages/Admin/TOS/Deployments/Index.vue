@@ -1,0 +1,105 @@
+<script setup lang="ts">
+import AdminActions from '@/components/AdminActions.vue';
+import TosSuits from '@/components/TosSuits.vue';
+import PageBanner from '@/components/PageBanner.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { valueUpdater } from '@/lib/utils';
+import { Head, router } from '@inertiajs/vue3';
+import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
+import { FlexRender, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useVueTable } from '@tanstack/vue-table';
+import { h, ref } from 'vue';
+
+interface DeploymentRow {
+    id: number;
+    slug: string;
+    name: string;
+    suit: string | null;
+}
+
+const columns: ColumnDef<DeploymentRow>[] = [
+    { accessorKey: 'name', header: () => h('div', {}, 'Name'), cell: ({ row }) => h('div', { class: 'font-medium' }, row.getValue('name')) },
+    { id: 'suit', header: () => h('div', {}, 'Suit'), cell: ({ row }) => h(TosSuits, { suits: row.original.suit }) },
+    {
+        id: 'actions',
+        enableHiding: false,
+        header: () => h('div', { class: 'text-right' }, 'Actions'),
+        cell: ({ row }) =>
+            h(AdminActions, {
+                name: row.original.name,
+                editRoute: route('admin.tos.deployments.edit', row.original.slug),
+                deleteRoute: route('admin.tos.deployments.delete', row.original.slug),
+            }),
+    },
+];
+
+const props = defineProps<{ deployments: DeploymentRow[] }>();
+const columnFilters = ref<ColumnFiltersState>([]);
+
+const table = useVueTable({
+    get data() {
+        return props.deployments;
+    },
+    get columns() {
+        return columns;
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 50 } },
+    onColumnFiltersChange: (u) => valueUpdater(u, columnFilters),
+    getFilteredRowModel: getFilteredRowModel(),
+    state: {
+        get columnFilters() {
+            return columnFilters.value;
+        },
+    },
+});
+</script>
+
+<template>
+    <Head title="TOS Deployments — Admin" />
+    <PageBanner title="TOS Deployments" class="mb-2">
+        <template #actions>
+            <Button class="my-auto mr-2" @click="router.get(route('admin.tos.deployments.create'))">Create Deployment</Button>
+        </template>
+    </PageBanner>
+    <div class="container mx-auto mt-6 h-full">
+        <div class="flex items-center justify-between py-4">
+            <Input
+                class="max-w-sm"
+                placeholder="Filter by name"
+                :model-value="table.getColumn('name')?.getFilterValue() as string"
+                @update:model-value="table.getColumn('name')?.setFilterValue($event)"
+            />
+        </div>
+        <div class="rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow v-for="hg in table.getHeaderGroups()" :key="hg.id">
+                        <TableHead v-for="header in hg.headers" :key="header.id">
+                            <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+                        </TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <template v-if="table.getRowModel().rows?.length">
+                        <TableRow v-for="row in table.getRowModel().rows" :key="row.id">
+                            <TableCell v-for="cell in row.getVisibleCells()" :key="cell.id">
+                                <FlexRender :render="cell.column.columnDef.cell" :props="cell.getContext()" />
+                            </TableCell>
+                        </TableRow>
+                    </template>
+                    <template v-else
+                        ><TableRow><TableCell :colspan="columns.length" class="h-24 text-center">No results.</TableCell></TableRow></template
+                    >
+                </TableBody>
+            </Table>
+        </div>
+        <div class="flex items-center justify-end space-x-2 py-4">
+            <Button variant="outline" size="sm" :disabled="!table.getCanPreviousPage()" @click="table.previousPage()">Previous</Button>
+            <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()">Next</Button>
+        </div>
+    </div>
+</template>

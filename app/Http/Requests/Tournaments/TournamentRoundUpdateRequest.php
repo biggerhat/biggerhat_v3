@@ -33,6 +33,10 @@ class TournamentRoundUpdateRequest extends FormRequest
             // accidentally picking the same scheme twice, which left the spawned
             // game with only 2 distinct picks.
             'scheme_pool.*' => ['integer', 'exists:schemes,id', 'distinct'],
+            // Ruleset-defined components stored in the round's `scenario` JSON (TOS: operation + deployment).
+            'scenario' => ['nullable', 'array'],
+            'scenario.operation_id' => ['nullable', 'integer', 'exists:tos_operations,id'],
+            'scenario.deployment_id' => ['nullable', 'integer', 'exists:tos_deployments,id'],
             'status' => ['sometimes', 'string', Rule::enum(TournamentRoundStatusEnum::class)],
         ];
     }

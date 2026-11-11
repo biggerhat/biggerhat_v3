@@ -45,10 +45,23 @@ const frontRef = ref<HTMLElement | null>(null);
 const backRef = ref<HTMLElement | null>(null);
 
 // Faces render at the real tarot size the saved image would use and are scaled down to the column (see the composable).
-const { rootEl, width: cardWidth, height: containerHeight, scale } = useScaledTarotPreview(
+const {
+    rootEl,
+    width: cardWidth,
+    height: containerHeight,
+    scale,
+} = useScaledTarotPreview(
     () => frontRef.value,
     () => backRef.value,
-    [() => props.contentBlocks, () => props.backTokens, () => props.backMarkers, () => props.name, () => props.limitations, () => props.masterName, () => props.keywordName],
+    [
+        () => props.contentBlocks,
+        () => props.backTokens,
+        () => props.backMarkers,
+        () => props.name,
+        () => props.limitations,
+        () => props.masterName,
+        () => props.keywordName,
+    ],
 );
 
 defineExpose({ frontRef, backRef });

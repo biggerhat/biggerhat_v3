@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TournamentGameResultEnum;
+use App\Enums\TournamentReportStatusEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +23,23 @@ class TournamentGame extends Model
             'result' => TournamentGameResultEnum::class,
             'is_bye' => 'boolean',
             'is_forfeit' => 'boolean',
+            'score_breakdown' => 'array',
+            'report_status' => TournamentReportStatusEnum::class,
+            'reported_score' => 'array',
+            'reported_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Score components for one side, keyed by the ruleset's score-field keys
+     * (e.g. ['strategy' => 3, 'scheme' => 2]). Empty when none were recorded.
+     *
+     * @param  'player_one'|'player_two'  $side
+     * @return array<string, int>
+     */
+    public function breakdownFor(string $side): array
+    {
+        return (array) (((array) $this->score_breakdown)[$side] ?? []);
     }
 
     public function round(): BelongsTo
@@ -43,6 +60,11 @@ class TournamentGame extends Model
     public function forfeitPlayer(): BelongsTo
     {
         return $this->belongsTo(TournamentPlayer::class, 'forfeit_player_id');
+    }
+
+    public function reportedBy(): BelongsTo
+    {
+        return $this->belongsTo(TournamentPlayer::class, 'reported_by_player_id');
     }
 
     public function playerOneCrewBuild(): BelongsTo

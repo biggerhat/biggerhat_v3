@@ -51,3 +51,30 @@ The `campaign` role signs in as `alpha@biggerhat.test` (from `CampaignSeeder`; r
 `php scripts/ui-audit/profile.php <guest|admin|member> urls.txt [--props]` replays paths in-process as Inertia
 requests and prints query counts, the most-repeated query shape (N+1 signature) and props size. See
 [performance.md](performance.md) for baselines and what has been fixed.
+
+## 5. Driving real flows (puppeteer)
+
+For flows that need clicking, not just visiting (forms, dialogs, tabs, two accounts at once), write a puppeteer script against the same local
+server. Gotchas learned the hard way:
+- `php artisan serve` does **not** forward `DB_*` env vars; start `php -S 127.0.0.1:8765 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`
+  **from `public/`** with the env vars set (a wrong cwd returns 200 with a PHP warning page).
+- Reka/radix tabs and selects react to real pointer events: use `page.click()` on a handle, not `el.click()` in `evaluate`.
+- The radix-vue `Checkbox` is `checked` / `update:checked`, not `modelValue`.
+- The dev server is single-threaded and Inertia visits finish asynchronously, so poll for text instead of sleeping a fixed time.
+- Need a Chrome with no sudo? `apt-get download` the missing libs, `dpkg -x` them into a private dir and set `LD_LIBRARY_PATH`.
+
+## 6. Tournament flows (`scripts/ui-audit/tournaments/`)
+
+The 42-step tournament browser pass (guest / player / organizer sessions, self-report between two accounts, check-in, team events,
+Fields of Glory create + scenario, scoring editor, phone-width layouts) lives in the repo so it can be re-run after tournament UI changes.
+
+```bash
+npm run build
+CHROME=/path/to/chrome-headless-shell [LD_LIBRARY_PATH=...] scripts/ui-audit/tournaments/run.sh
+```
+
+`run.sh` builds a throwaway SQLite database (`$WORKDIR`, default `/tmp/ui-audit-tournaments`), seeds it with `seed.php` (a running Gaining Grounds event
+with self-report, a team event in registration, a Fields of Glory event, a running team event), starts `php -S` from `public/`, and runs each `flows*.cjs`.
+Each flows file mutates what it works on, so the database is re-seeded before every file. Output is PASS / WARN / FAIL per step (WARN = page errors,
+console errors or 5xx during an otherwise passing step); failure screenshots and numbered shots land in `$SHOTS` (default `$WORKDIR/shots`).
+Helpers in `lib.cjs` (`clickText`, `pickSelect`, `pickByTrigger`, `expectText`) encode the Reka/radix quirks above. Local use only.

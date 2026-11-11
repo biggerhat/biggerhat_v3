@@ -23,6 +23,7 @@ class TournamentRsvpStoreRequest extends FormRequest
     {
         return [
             'faction' => ['nullable', 'string', Rule::in(array_column(FactionEnum::cases(), 'value'))],
+            'allegiance_id' => ['nullable', 'integer', 'exists:tos_allegiances,id'],
 
         ];
     }

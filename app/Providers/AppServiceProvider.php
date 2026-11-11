@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Enums\MessageTypeEnum;
 use App\Listeners\LogImpersonation;
+use App\Tournaments\Rulesets\RulesetRegistry;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
@@ -27,6 +28,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(RulesetRegistry::class, fn () => new RulesetRegistry(
+            (array) config('tournaments.rulesets'),
+            (string) config('tournaments.default'),
+        ));
+
         Event::listen(TakeImpersonation::class, [LogImpersonation::class, 'onTake']);
         Event::listen(LeaveImpersonation::class, [LogImpersonation::class, 'onLeave']);
 

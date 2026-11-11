@@ -2115,12 +2115,7 @@ onUnmounted(() => {
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Station</label>
-                                <ClearableSelect
-                                    v-model="filterParams.station"
-                                    placeholder="Any Station"
-                                    :options="props.stations"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.station" placeholder="Any Station" :options="props.stations" />
                             </div>
                             <div class="space-y-2">
                                 <div class="flex items-center justify-between">
@@ -2297,34 +2292,14 @@ onUnmounted(() => {
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Base Size</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.base"
-                                            placeholder="Any Base"
-                                            :options="props.base_sizes"
-                                           
-                                        />
+                                        <ClearableSelect v-model="filterParams.base" placeholder="Any Base" :options="props.base_sizes" />
                                     </div>
                                     <div class="space-y-1">
                                         <label class="text-sm font-medium">Stat Comparison</label>
                                         <div class="flex items-center gap-1">
-                                            <ClearableSelect
-                                                v-model="statCompareLeft"
-                                                placeholder="Stat"
-                                                :options="statCompareOptions"
-                                               
-                                            />
-                                            <ClearableSelect
-                                                v-model="statCompareOp"
-                                                placeholder="Op"
-                                                :options="statCompareOps"
-                                               
-                                            />
-                                            <ClearableSelect
-                                                v-model="statCompareRight"
-                                                placeholder="Stat"
-                                                :options="statCompareOptions"
-                                               
-                                            />
+                                            <ClearableSelect v-model="statCompareLeft" placeholder="Stat" :options="statCompareOptions" />
+                                            <ClearableSelect v-model="statCompareOp" placeholder="Op" :options="statCompareOps" />
+                                            <ClearableSelect v-model="statCompareRight" placeholder="Stat" :options="statCompareOptions" />
                                         </div>
                                     </div>
                                 </CollapsibleContent>
@@ -2371,12 +2346,7 @@ onUnmounted(() => {
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Type</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.action_type"
-                                            placeholder="Any Type"
-                                            :options="props.action_types"
-                                           
-                                        />
+                                        <ClearableSelect v-model="filterParams.action_type" placeholder="Any Type" :options="props.action_types" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Range Type</label>
@@ -2384,7 +2354,6 @@ onUnmounted(() => {
                                             v-model="filterParams.action_range_type"
                                             placeholder="Any Range Type"
                                             :options="props.action_range_types"
-                                           
                                         />
                                     </div>
                                     <div class="space-y-1">
@@ -2423,12 +2392,7 @@ onUnmounted(() => {
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Stat Suit</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.action_stat_suits"
-                                            placeholder="Any Suit"
-                                            :options="props.suits"
-                                           
-                                        />
+                                        <ClearableSelect v-model="filterParams.action_stat_suits" placeholder="Any Suit" :options="props.suits" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Stat Modifier</label>
@@ -2436,7 +2400,6 @@ onUnmounted(() => {
                                             v-model="filterParams.action_stat_modifier"
                                             placeholder="Any Modifier"
                                             :options="props.stat_modifiers"
-                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -2445,7 +2408,6 @@ onUnmounted(() => {
                                             v-model="filterParams.action_resisted_by"
                                             placeholder="Any"
                                             :options="props.resistance_types"
-                                           
                                         />
                                     </div>
                                     <div class="space-y-1">
@@ -2467,12 +2429,7 @@ onUnmounted(() => {
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Target Suit</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.action_target_suits"
-                                            placeholder="Any Suit"
-                                            :options="props.suits"
-                                           
-                                        />
+                                        <ClearableSelect v-model="filterParams.action_target_suits" placeholder="Any Suit" :options="props.suits" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Damage</label>
@@ -2494,12 +2451,7 @@ onUnmounted(() => {
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Costs Soulstone</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.action_costs_stone"
-                                            placeholder="Any"
-                                            :options="booleanOptions"
-                                           
-                                        />
+                                        <ClearableSelect v-model="filterParams.action_costs_stone" placeholder="Any" :options="booleanOptions" />
                                     </div>
                                 </CollapsibleContent>
                             </Collapsible>
@@ -2553,17 +2505,11 @@ onUnmounted(() => {
                                             v-model="filterParams.ability_defensive_type"
                                             placeholder="Any Type"
                                             :options="props.defensive_ability_types"
-                                           
                                         />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Costs Soulstone</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.ability_costs_stone"
-                                            placeholder="Any"
-                                            :options="booleanOptions"
-                                           
-                                        />
+                                        <ClearableSelect v-model="filterParams.ability_costs_stone" placeholder="Any" :options="booleanOptions" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Description</label>
@@ -2612,12 +2558,7 @@ onUnmounted(() => {
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Suit</label>
-                                        <ClearableSelect
-                                            v-model="filterParams.trigger_suits"
-                                            placeholder="Any Suit"
-                                            :options="props.suits"
-                                           
-                                        />
+                                        <ClearableSelect v-model="filterParams.trigger_suits" placeholder="Any Suit" :options="props.suits" />
                                     </div>
                                     <div class="space-y-2">
                                         <label class="text-sm font-medium">Description</label>
@@ -2705,21 +2646,11 @@ onUnmounted(() => {
                             <div class="border-t pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sorting</div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Sort By</label>
-                                <ClearableSelect
-                                    v-model="filterParams.sort"
-                                    placeholder="Sort Options"
-                                    :options="props.sort_options"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.sort" placeholder="Sort Options" :options="props.sort_options" />
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-medium">Sort Direction</label>
-                                <ClearableSelect
-                                    v-model="filterParams.sort_type"
-                                    placeholder="Sort Type"
-                                    :options="props.sort_types"
-                                   
-                                />
+                                <ClearableSelect v-model="filterParams.sort_type" placeholder="Sort Type" :options="props.sort_types" />
                             </div>
                         </div>
                     </FilterPanel>

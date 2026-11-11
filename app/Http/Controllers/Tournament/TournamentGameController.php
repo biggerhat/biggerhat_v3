@@ -8,12 +8,15 @@ use App\Enums\TournamentRoundStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\ScoreTournamentGameRequest;
 use App\Http\Requests\Tournaments\TournamentGameStoreRequest;
+use App\Http\Requests\Tournaments\TournamentGameSwapRequest;
+use App\Http\Requests\Tournaments\TournamentGameSwapTablesRequest;
 use App\Http\Requests\Tournaments\TournamentGameToggleForfeitRequest;
 use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
+use App\Services\TournamentScoreRecorder;
 use App\Services\TournamentTrackerGameFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +28,7 @@ class TournamentGameController extends Controller
 
     public function __construct(
         private readonly TournamentTrackerGameFactory $trackerGames,
+        private readonly TournamentScoreRecorder $scores,
     ) {}
 
     public function store(TournamentGameStoreRequest $request, Tournament $tournament, TournamentRound $round): JsonResponse
@@ -68,6 +72,144 @@ class TournamentGameController extends Controller
         return response()->json(['success' => true, 'game' => $game]);
     }
 
+    /**
+     * Fix a pairing during round setup: swap two players between pairings, or put an unpaired player in a slot
+     * (the replaced player becomes unpaired). Touched pairings become manual so Auto Pair keeps them.
+     * Returns a warning for any new pairing that is a rematch.
+     */
+    public function swapPlayers(TournamentGameSwapRequest $request, Tournament $tournament, TournamentRound $round): JsonResponse
+    {
+        $this->authorize('manage', $tournament);
+
+        $validated = $request->validated();
+        $slotId = fn (string $slot): string => $slot.'_id';
+        $slotFaction = fn (string $slot): string => $slot.'_faction';
+
+        $result = DB::transaction(function () use ($tournament, $round, $validated, $slotId, $slotFaction): array {
+            $locked = TournamentRound::lockForUpdate()->find($round->id);
+            if (! $locked || $locked->status !== TournamentRoundStatusEnum::Setup) {
+                return ['error' => 'Pairings can only be changed while the round is in setup'];
+            }
+
+            $a = TournamentGame::where('tournament_round_id', $round->id)->find($validated['game_id']);
+            $slotA = $validated['slot'];
+            if (! $a || $a->{$slotId($slotA)} === null) {
+                return ['error' => 'That pairing slot is empty'];
+            }
+
+            if (isset($validated['other_game_id'])) {
+                $b = TournamentGame::where('tournament_round_id', $round->id)->find($validated['other_game_id']);
+                $slotB = $validated['other_slot'];
+                if (! $b || $b->{$slotId($slotB)} === null) {
+                    return ['error' => 'That pairing slot is empty'];
+                }
+                if ($a->id === $b->id) {
+                    return ['error' => 'Pick a player from a different pairing'];
+                }
+
+                [$a->{$slotId($slotA)}, $b->{$slotId($slotB)}] = [$b->{$slotId($slotB)}, $a->{$slotId($slotA)}];
+                [$a->{$slotFaction($slotA)}, $b->{$slotFaction($slotB)}] = [$b->{$slotFaction($slotB)}, $a->{$slotFaction($slotA)}];
+                $changed = [$a, $b];
+            } else {
+                $incoming = TournamentPlayer::where('tournament_id', $tournament->id)->find($validated['player_id']);
+                if (! $incoming || $incoming->is_disqualified || $incoming->dropped_after_round !== null) {
+                    return ['error' => 'That player is not available to pair'];
+                }
+                $alreadyPaired = TournamentGame::where('tournament_round_id', $round->id)
+                    ->where(fn ($q) => $q->where('player_one_id', $incoming->id)->orWhere('player_two_id', $incoming->id))
+                    ->exists();
+                if ($alreadyPaired) {
+                    return ['error' => 'That player is already paired this round'];
+                }
+
+                $a->{$slotId($slotA)} = $incoming->id;
+                $a->{$slotFaction($slotA)} = $incoming->getRawOriginal('faction');
+                $changed = [$a];
+            }
+
+            foreach ($changed as $game) {
+                $game->is_manual = true;
+                $game->save();
+            }
+
+            return ['games' => $changed];
+        });
+
+        if (isset($result['error'])) {
+            return response()->json(['error' => $result['error']], 422);
+        }
+
+        $this->broadcastUpdate($tournament, 'pairings_changed');
+
+        return response()->json(['success' => true, 'warnings' => $this->rematchWarnings($tournament, $round, $result['games'])]);
+    }
+
+    /**
+     * Swap the table numbers of two pairings during round setup.
+     */
+    public function swapTables(TournamentGameSwapTablesRequest $request, Tournament $tournament, TournamentRound $round): JsonResponse
+    {
+        $this->authorize('manage', $tournament);
+
+        $validated = $request->validated();
+
+        $error = DB::transaction(function () use ($round, $validated): ?string {
+            $locked = TournamentRound::lockForUpdate()->find($round->id);
+            if (! $locked || $locked->status !== TournamentRoundStatusEnum::Setup) {
+                return 'Tables can only be changed while the round is in setup';
+            }
+
+            $a = TournamentGame::where('tournament_round_id', $round->id)->find($validated['game_id']);
+            $b = TournamentGame::where('tournament_round_id', $round->id)->find($validated['other_game_id']);
+            if (! $a || ! $b) {
+                return 'Both pairings must belong to this round';
+            }
+
+            [$a->table_number, $b->table_number] = [$b->table_number, $a->table_number];
+            $a->is_manual = true;
+            $b->is_manual = true;
+            $a->save();
+            $b->save();
+
+            return null;
+        });
+
+        if ($error) {
+            return response()->json(['error' => $error], 422);
+        }
+
+        $this->broadcastUpdate($tournament, 'pairings_changed');
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * @param  list<TournamentGame>  $games
+     * @return list<string>
+     */
+    private function rematchWarnings(Tournament $tournament, TournamentRound $round, array $games): array
+    {
+        $warnings = [];
+        foreach ($games as $game) {
+            if ($game->player_one_id === null || $game->player_two_id === null) {
+                continue;
+            }
+            $previous = TournamentGame::query()
+                ->whereHas('round', fn ($q) => $q->where('tournament_id', $tournament->id)->where('id', '!=', $round->id))
+                ->where(fn ($q) => $q
+                    ->where(fn ($w) => $w->where('player_one_id', $game->player_one_id)->where('player_two_id', $game->player_two_id))
+                    ->orWhere(fn ($w) => $w->where('player_one_id', $game->player_two_id)->where('player_two_id', $game->player_one_id)))
+                ->with('round:id,round_number')
+                ->first();
+            if ($previous) {
+                $names = TournamentPlayer::whereIn('id', [$game->player_one_id, $game->player_two_id])->pluck('display_name');
+                $warnings[] = $names->join(' and ').' already played in Round '.$previous->round->round_number.'.';
+            }
+        }
+
+        return $warnings;
+    }
+
     public function updateScore(ScoreTournamentGameRequest $request, Tournament $tournament, TournamentGame $game): JsonResponse
     {
         if ($game->round->status !== TournamentRoundStatusEnum::InProgress) {
@@ -94,13 +236,30 @@ class TournamentGameController extends Controller
         }
 
         unset($validated['confirm_override']);
-        $validated['player_one_vp'] = $validated['player_one_strategy_vp'] + $validated['player_one_scheme_vp'];
-        $validated['player_two_vp'] = $validated['player_two_strategy_vp'] + $validated['player_two_scheme_vp'];
+        $agreed = (bool) ($validated['agreed'] ?? false);
+        $one = $validated['player_one_score'];
+        $two = $validated['player_two_score'];
+        unset($validated['agreed'], $validated['player_one_score'], $validated['player_two_score']);
 
-        $game->update([
-            ...$validated,
-            'result' => TournamentGameResultEnum::Completed,
-        ]);
+        // The status check above is a UX guard. Ending a round locks the round row, so take the same lock and
+        // look again: a save racing "End Round" must not write a score into a round that just completed.
+        $stale = false;
+        DB::transaction(function () use ($game, $one, $two, $agreed, $validated, &$stale) {
+            $round = TournamentRound::lockForUpdate()->find($game->tournament_round_id);
+            if (! $round || $round->status !== TournamentRoundStatusEnum::InProgress) {
+                $stale = true;
+
+                return;
+            }
+
+            // Score components are ruleset-defined; the player's VP is their sum. Entering a score here
+            // also supersedes any pending or disputed player report.
+            $this->scores->record($game, $one, $two, $agreed, $validated);
+        });
+
+        if ($stale) {
+            return response()->json(['error' => 'Scores are locked after the round is completed'], 422);
+        }
 
         $this->broadcastUpdate($tournament, 'score_updated');
 
@@ -192,6 +351,7 @@ class TournamentGameController extends Controller
             $validated = $request->validated();
 
             $game->update([
+                ...$this->scores->clearedReport(),
                 'is_forfeit' => true,
                 'forfeit_player_id' => $validated['forfeit_player_id'],
                 'result' => TournamentGameResultEnum::Forfeited,

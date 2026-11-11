@@ -46,7 +46,11 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
      * doModalAction. Returns { ok, error } where error is a user-facing string
      * on failure. Callers decide whether to surface the error globally.
      */
-    const runAction = async (url: string, method: string, body?: Record<string, unknown>): Promise<{ ok: boolean; error: string | null }> => {
+    const runAction = async (
+        url: string,
+        method: string,
+        body?: Record<string, unknown>,
+    ): Promise<{ ok: boolean; error: string | null; data?: any }> => {
         try {
             // Include the Echo socket id so `broadcast(...)->toOthers()` can
             // exclude this client from its own TournamentUpdated event. Without
@@ -69,7 +73,7 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
                 const err = await res.json().catch(() => ({}));
                 return { ok: false, error: err.error ?? err.message ?? 'Action failed.' };
             }
-            return { ok: true, error: null };
+            return { ok: true, error: null, data: await res.json().catch(() => null) };
         } catch {
             return { ok: false, error: 'Network error. Please try again.' };
         }
@@ -88,6 +92,15 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
         const { ok, error } = await runAction(url, method, body);
         if (!ok && error) showError(error);
         return ok;
+    };
+
+    /**
+     * doAction for endpoints whose JSON reply matters (e.g. warnings): shows the error toast on failure and hands back the parsed body.
+     */
+    const doActionWithData = async (url: string, method: string = 'POST', body?: Record<string, unknown>): Promise<{ ok: boolean; data: any }> => {
+        const { ok, error, data } = await runAction(url, method, body);
+        if (!ok && error) showError(error);
+        return { ok, data };
     };
 
     /**
@@ -137,6 +150,7 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
         actionError,
         showError,
         doAction,
+        doActionWithData,
         doModalAction,
         reloadProps,
         playerMap,

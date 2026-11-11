@@ -18,7 +18,9 @@ export interface TournamentSummary {
     encounter_type: string;
     planned_rounds: number;
     season_label: string;
+    ruleset_label?: string;
     players_count: number;
+    max_players?: number | null;
     creator: { id: number; name: string };
 }
 
@@ -60,6 +62,7 @@ const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
                         </button>
                     </div>
                 </div>
+                <div v-if="tournament.ruleset_label" class="mb-1 truncate text-2xs text-muted-foreground">{{ tournament.ruleset_label }}</div>
                 <div class="mb-2 flex items-center gap-2">
                     <Trophy class="size-4 text-muted-foreground" />
                     <span class="text-sm font-medium">{{ tournament.name }}</span>
@@ -70,7 +73,8 @@ const { statusColor, publicStatusLabel: statusLabel } = useTournamentStatus();
                     >
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" /> {{ tournament.location }}</span>
                     <span class="flex items-center gap-1 tabular-nums"
-                        ><Users class="size-3" /> {{ tournament.players_count }} {{ tournament.players_count === 1 ? 'player' : 'players' }}</span
+                        ><Users class="size-3" /> {{ tournament.players_count }}{{ tournament.max_players ? `/${tournament.max_players}` : '' }}
+                        {{ tournament.players_count === 1 && !tournament.max_players ? 'player' : 'players' }}</span
                     >
                     <span v-if="meta === 'rounds'" class="tabular-nums">{{ tournament.planned_rounds }} rounds</span>
                     <span v-else>by {{ tournament.creator.name }}</span>

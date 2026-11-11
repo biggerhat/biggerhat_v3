@@ -42,12 +42,19 @@ use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SupportersController;
+use App\Http\Controllers\Tournament\TournamentAnnouncementController;
+use App\Http\Controllers\Tournament\TournamentCalendarController;
+use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentGameController;
+use App\Http\Controllers\Tournament\TournamentGameCrewController;
+use App\Http\Controllers\Tournament\TournamentGameReportController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
+use App\Http\Controllers\Tournament\TournamentResultsController;
 use App\Http\Controllers\Tournament\TournamentRoundController;
 use App\Http\Controllers\Tournament\TournamentRsvpController;
+use App\Http\Controllers\Tournament\TournamentSelfDropController;
 use App\Http\Controllers\Tournament\TournamentUserSearchController;
 use App\Http\Controllers\TransmissionController;
 use App\Http\Controllers\UserSearchController;
@@ -438,6 +445,9 @@ Route::middleware('auth')->group(function () {
 // Tournaments
 Route::get('/tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
+Route::get('/tournaments/{tournament}/display', [TournamentController::class, 'display'])->name('tournaments.display');
+Route::get('/tournaments/{tournament}/event.ics', [TournamentCalendarController::class, 'ics'])->name('tournaments.calendar');
+Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController::class, 'pdf'])->name('tournaments.results_pdf');
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
     Route::get('/create', [TournamentController::class, 'create'])->name('create');
     // Open to any signed-in user; throttled so it can't be used to mass-create events.
@@ -446,6 +456,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::put('/{tournament}', [TournamentController::class, 'update'])->name('update');
     Route::delete('/{tournament}', [TournamentController::class, 'destroy'])->name('destroy');
     Route::put('/{tournament}/status', [TournamentController::class, 'updateStatus'])->name('status');
+    Route::put('/{tournament}/announcement', [TournamentAnnouncementController::class, 'update'])->name('announcement');
 
     // Organizers
     Route::post('/{tournament}/organizers', [TournamentOrganizerController::class, 'store'])->name('organizers.add');
@@ -455,12 +466,18 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::post('/{tournament}/rsvp', [TournamentRsvpController::class, 'store'])->name('rsvp');
     Route::delete('/{tournament}/rsvp', [TournamentRsvpController::class, 'destroy'])->name('rsvp.cancel');
 
+    // Check-in (players check themselves in; the TO does it from Manage)
+    Route::post('/{tournament}/withdraw', [TournamentSelfDropController::class, 'store'])->name('withdraw');
+    Route::post('/{tournament}/check-in', [TournamentCheckInController::class, 'store'])->name('check_in');
+    Route::delete('/{tournament}/check-in', [TournamentCheckInController::class, 'destroy'])->name('check_in.cancel');
+
     // User search (used by Add Organizer + Link Player dialogs)
     Route::get('/{tournament}/users/search', TournamentUserSearchController::class)->name('users.search');
 
     // Players
     Route::post('/{tournament}/players', [TournamentPlayerController::class, 'store'])->name('players.add');
     Route::put('/{tournament}/players/{player}', [TournamentPlayerController::class, 'update'])->name('players.update');
+    Route::post('/{tournament}/players/check-in-all', [TournamentPlayerController::class, 'checkInAll'])->name('players.check_in_all');
     Route::delete('/{tournament}/players/{player}', [TournamentPlayerController::class, 'destroy'])->name('players.remove');
 
     // Rounds
@@ -473,9 +490,17 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
 
     // Games / Scores
     Route::post('/{tournament}/rounds/{round}/games', [TournamentGameController::class, 'store'])->name('games.create');
+    Route::post('/{tournament}/rounds/{round}/swap', [TournamentGameController::class, 'swapPlayers'])->name('games.swap');
+    Route::post('/{tournament}/rounds/{round}/swap-tables', [TournamentGameController::class, 'swapTables'])->name('games.swap_tables');
     Route::put('/{tournament}/games/{game}', [TournamentGameController::class, 'updateScore'])->name('games.update');
     Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
     Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');
+    // Player self-reporting (the opponent confirms or disputes; the TO's score entry always wins)
+    Route::put('/{tournament}/games/{game}/crew', [TournamentGameCrewController::class, 'update'])->name('games.crew');
+    Route::post('/{tournament}/games/{game}/report', [TournamentGameReportController::class, 'store'])->name('games.report');
+    Route::post('/{tournament}/games/{game}/report/confirm', [TournamentGameReportController::class, 'confirm'])->name('games.report.confirm');
+    Route::post('/{tournament}/games/{game}/report/dispute', [TournamentGameReportController::class, 'dispute'])->name('games.report.dispute');
+    Route::delete('/{tournament}/games/{game}/report', [TournamentGameReportController::class, 'destroy'])->name('games.report.withdraw');
     Route::post('/{tournament}/games/{game}/complete-tracker', [TournamentGameController::class, 'completeTrackerGame'])->name('games.complete_tracker');
     Route::get('/{tournament}/export.csv', [\App\Http\Controllers\Tournament\TournamentController::class, 'exportCsv'])->name('export_csv');
 });

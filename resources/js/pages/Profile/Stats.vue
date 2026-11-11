@@ -3,6 +3,8 @@ import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import HeadingEyebrow from '@/components/HeadingEyebrow.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import TournamentHistoryCard from '@/components/Tournament/TournamentHistoryCard.vue';
+import type { TournamentHistory } from '@/types/tournament';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -88,6 +90,7 @@ defineProps<{
         badges: { icon: string; label: string; description: string }[];
     };
     is_own_profile: boolean;
+    tournament_history?: TournamentHistory;
 }>();
 
 const badgeIcon = (icon: string) => {
@@ -225,6 +228,8 @@ const winRateColor = (rate: number) => {
                     </div>
                 </CardContent>
             </Card>
+
+            <TournamentHistoryCard v-if="tournament_history" :history="tournament_history" />
 
             <!-- No games -->
             <EmptyState

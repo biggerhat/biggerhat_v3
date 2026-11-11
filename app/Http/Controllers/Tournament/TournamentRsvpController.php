@@ -29,6 +29,10 @@ class TournamentRsvpController extends Controller
             return back()->withErrors(['rsvp' => 'RSVP is not open for this tournament']);
         }
 
+        if ($tournament->registration_closed) {
+            return back()->withErrors(['rsvp' => 'Registration for this tournament has closed']);
+        }
+
         $userId = Auth::id();
         if (! $userId) {
             abort(401);
@@ -47,6 +51,7 @@ class TournamentRsvpController extends Controller
             'tournament_id' => $tournament->id,
             'user_id' => $userId,
             'faction' => $validated['faction'] ?? null,
+            'allegiance_id' => $validated['allegiance_id'] ?? null,
         ]);
 
         $this->broadcastUpdate($tournament, 'rsvp_added');

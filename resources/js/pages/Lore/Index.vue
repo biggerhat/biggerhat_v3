@@ -79,30 +79,15 @@ const { delays } = useStaggeredEntry(loreCount);
                 <div class="grid gap-4">
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Character</label>
-                        <SearchableSelect
-                            v-model="filterParams.character"
-                            placeholder="Any Character"
-                            :options="props.characters"
-                           
-                        />
+                        <SearchableSelect v-model="filterParams.character" placeholder="Any Character" :options="props.characters" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Media Type</label>
-                        <ClearableSelect
-                            v-model="filterParams.media_type"
-                            placeholder="Any Type"
-                            :options="props.media_types"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.media_type" placeholder="Any Type" :options="props.media_types" />
                     </div>
                     <div class="space-y-2">
                         <label class="text-sm font-medium">Media Source</label>
-                        <ClearableSelect
-                            v-model="filterParams.lore_media"
-                            placeholder="Any Source"
-                            :options="props.lore_media"
-                           
-                        />
+                        <ClearableSelect v-model="filterParams.lore_media" placeholder="Any Source" :options="props.lore_media" />
                     </div>
                 </div>
             </template>

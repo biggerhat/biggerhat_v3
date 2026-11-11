@@ -2,8 +2,6 @@
 
 namespace App\Services\Standings;
 
-use App\Enums\TournamentTiebreakerEnum;
-
 /**
  * Sorts standings rows by the tournament's tiebreaker mode and assigns ranks
  * with joint placing (ties share the same rank). Ringers are kept unranked
@@ -13,28 +11,26 @@ class StandingsRanker
 {
     /**
      * @param  array<int, array<string, mixed>>  $standings
+     * @param  list<string>  $tiebreakers  ordered keys applied after TP: 'sos', 'diff', 'vp'
      * @return array<int, array<string, mixed>>
      */
-    public function rank(array $standings, TournamentTiebreakerEnum $mode): array
+    public function rank(array $standings, array $tiebreakers): array
     {
         $rankable = array_values(array_filter($standings, fn ($s) => ! $s['is_ringer']));
         $ringers = array_values(array_filter($standings, fn ($s) => $s['is_ringer']));
 
-        $useSos = $mode === TournamentTiebreakerEnum::Sos;
-        usort($rankable, function ($a, $b) use ($useSos) {
-            $cmp = $b['total_tp'] <=> $a['total_tp'];
-            if ($cmp !== 0) {
-                return $cmp;
-            }
-            if ($useSos) {
-                $sosCmp = $b['total_sos'] <=> $a['total_sos'];
-                if ($sosCmp !== 0) {
-                    return $sosCmp;
+        // Every sort key is a higher-is-better total_* column: TP first, then the ruleset's tiebreakers.
+        $columns = array_map(fn (string $key) => 'total_'.$key, ['tp', ...$tiebreakers]);
+
+        usort($rankable, function ($a, $b) use ($columns) {
+            foreach ($columns as $col) {
+                $cmp = $b[$col] <=> $a[$col];
+                if ($cmp !== 0) {
+                    return $cmp;
                 }
             }
 
-            return ($b['total_diff'] <=> $a['total_diff'])
-                ?: ($b['total_vp'] <=> $a['total_vp']);
+            return 0;
         });
 
         // Joint placing: identical sort keys share a rank.
@@ -42,10 +38,13 @@ class StandingsRanker
         foreach ($rankable as $i => &$entry) {
             if ($i > 0) {
                 $prev = $rankable[$i - 1];
-                $sameKeys = $entry['total_tp'] === $prev['total_tp']
-                    && $entry['total_diff'] === $prev['total_diff']
-                    && $entry['total_vp'] === $prev['total_vp']
-                    && (! $useSos || $entry['total_sos'] === $prev['total_sos']);
+                $sameKeys = true;
+                foreach ($columns as $col) {
+                    if ($entry[$col] !== $prev[$col]) {
+                        $sameKeys = false;
+                        break;
+                    }
+                }
                 if (! $sameKeys) {
                     $rank = $i + 1;
                 }

@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
+import { formatGameSize, tosOperationText, type TosDeploymentInfo, type TosOperationInfo, type TournamentRuleset } from '@/types/tournament';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
+import AnnouncementBanner from '@/components/Tournament/AnnouncementBanner.vue';
+import CrewListPicker from '@/components/Tournament/CrewListPicker.vue';
+import ResultsCard from '@/components/Tournament/ResultsCard.vue';
+import PairingRow from '@/components/Tournament/PairingRow.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +17,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useConfirm } from '@/composables/useConfirm';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, MapPin, Printer, Trophy, UserPlus } from 'lucide-vue-next';
+import { BarChart3, CalendarDays, CalendarPlus, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
 import { computed, nextTick, ref } from 'vue';
 
 interface TournamentPlayer {
@@ -22,6 +30,8 @@ interface TournamentPlayer {
     display_name: string;
     faction: string | null;
     user: { id: number; name: string } | null;
+    /** Team events: the people on this team (their accounts count as playing for it). */
+    members?: { id: number; display_name: string; user_id: number | null }[];
     is_ringer: boolean;
     is_disqualified: boolean;
     dropped_after_round: number | null;
@@ -29,6 +39,10 @@ interface TournamentPlayer {
 
 interface ViewGame {
     id: number;
+    report_status?: 'pending' | 'disputed' | null;
+    reported_by_player_id?: number | null;
+    reported_score?: { player_one: Record<string, number>; player_two: Record<string, number>; agreed: boolean } | null;
+    report_note?: string | null;
     player_one_id: number;
     player_two_id: number | null;
     player_one: TournamentPlayer;
@@ -64,6 +78,8 @@ interface ViewRound {
     deployment: { value: string; label: string; description: string; image_url: string | null } | null;
     strategy: { id: number; name: string; image_url: string | null } | null;
     schemes: { id: number; name: string; image_url: string | null; prerequisite: string | null; reveal: string | null; scoring: string | null }[];
+    /** TOS-style scenario resolved from reference data (null for Malifaux rulesets). */
+    tos_scenario: { operation: TosOperationInfo | null; deployment: TosDeploymentInfo | null } | null;
     games: ViewGame[];
 }
 
@@ -72,6 +88,7 @@ interface StandingEntry {
     player_id: number;
     display_name: string;
     faction: string | null;
+    allegiance?: { slug: string; name: string } | null;
     is_ringer: boolean;
     is_dropped: boolean;
     total_tp: number;
@@ -95,6 +112,8 @@ interface Rsvp {
      *  / meta balance before the player list is finalized. */
     faction: string | null;
     user?: { id: number; name: string } | null;
+    /** 1 = next in line when the player limit is reached; null = has a seat. */
+    waitlist_position?: number | null;
 }
 
 const props = defineProps<{
@@ -110,13 +129,33 @@ const props = defineProps<{
         event_date: string;
         location: string | null;
         round_time_limit: number;
+        allow_self_report?: boolean;
+        max_players?: number | null;
+        registration_closes_at?: string | null;
+        registration_closed?: boolean;
+        announcement?: string | null;
+        announced_at?: string | null;
+        team_size?: number;
         players: TournamentPlayer[];
         organizers: { id: number; name: string }[];
         rsvps?: Rsvp[];
     };
+    ruleset: TournamentRuleset;
+    /** Allegiances a player can declare when RSVPing (empty unless the ruleset uses them). */
+    allegiances: { id: number; slug: string; name: string }[];
     rounds: ViewRound[];
     standings: StandingEntry[];
     factions: Record<string, FactionInfo>;
+    /** The signed-in player's crew picker for their current game; null for everyone else, byes, or events that don't use crew lists. */
+    crew_lists?: {
+        game_id: number;
+        round_number: number;
+        required: boolean;
+        open: boolean;
+        selected_id: number | null;
+        declared_faction: string | null;
+        builds: { id: number; name: string; faction: string; faction_label: string; master: string | null; encounter_size: number }[];
+    } | null;
     scheme_stats: { most_scored: { id: number; name: string; total_points: number; scoring_turns: number } } | null;
 }>();
 
@@ -142,23 +181,93 @@ const activeTab = ref(activeInProgressRound ? `r${activeInProgressRound.round_nu
 const currentRoundNumber = computed(() => {
     const inProgress = props.rounds.find((r) => r.status === 'in_progress');
     if (inProgress) return inProgress.round_number;
-    if (!props.rounds.length) return null;
-    return Math.max(...props.rounds.map((r) => r.round_number));
+    // Rounds are created up front (empty, in Setup) — only count ones that have been paired or played, so a
+    // tournament that hasn't started doesn't claim to be "Round 3 of 3".
+    const started = props.rounds.filter((r) => r.status === 'completed' || r.games.length > 0);
+    return started.length ? Math.max(...started.map((r) => r.round_number)) : null;
 });
 
 const page = usePage<SharedData>();
 const isLoggedIn = computed(() => !!page.props.auth.user);
 const currentUserId = computed(() => page.props.auth.user?.id);
-const isRegistered = computed(() => props.tournament.players.some((p) => p.user?.id === currentUserId.value));
+// A user plays either as an individual player or as a member of a team.
+const playsFor = (p: TournamentPlayer) =>
+    p.user?.id === currentUserId.value || !!p.members?.some((m) => !!currentUserId.value && m.user_id === currentUserId.value);
+const isRegistered = computed(() => props.tournament.players.some(playsFor));
 const hasRsvped = computed(() => props.tournament.rsvps?.some((r) => r.user_id === currentUserId.value) ?? false);
+const myRsvp = computed(() => props.tournament.rsvps?.find((r) => r.user_id === currentUserId.value) ?? null);
+const myWaitlistPosition = computed(() => myRsvp.value?.waitlist_position ?? null);
+const isTeamEvent = computed(() => (props.tournament.team_size ?? 1) > 1);
+// Seats: registered competitors (the ringer is a stand-in, not a seat) against the organizer's limit.
+const seatsTaken = computed(() => props.tournament.players.filter((p) => !p.is_ringer).length);
+const seatsLeft = computed(() => (props.tournament.max_players ? Math.max(0, props.tournament.max_players - seatsTaken.value) : null));
+const closesAt = computed(() =>
+    props.tournament.registration_closes_at
+        ? new Date(props.tournament.registration_closes_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+        : null,
+);
+const registrationOpenPhase = computed(() => props.tournament.status === 'draft' || props.tournament.status === 'registration');
+const registrationClosedForMe = computed(
+    () => isLoggedIn.value && registrationOpenPhase.value && !!props.tournament.registration_closed && !hasRsvped.value && !isRegistered.value,
+);
 const canRsvp = computed(
     () =>
         isLoggedIn.value &&
+        !props.tournament.registration_closed &&
         (props.tournament.status === 'draft' || props.tournament.status === 'registration') &&
         !hasRsvped.value &&
         !isRegistered.value,
 );
-const myPlayerId = computed(() => props.tournament.players.find((p) => p.user?.id === currentUserId.value)?.id ?? null);
+const myPlayerRecord = computed(() => props.tournament.players.find(playsFor) as ({ checked_in_at?: string | null } & TournamentPlayer) | undefined);
+const checkingIn = ref(false);
+const toggleCheckIn = () => {
+    checkingIn.value = true;
+    const opts = { preserveScroll: true, onFinish: () => (checkingIn.value = false) };
+    if (myPlayerRecord.value?.checked_in_at) router.delete(route('tournaments.check_in.cancel', props.tournament.uuid), opts);
+    else router.post(route('tournaments.check_in', props.tournament.uuid), {}, opts);
+};
+const confirm = useConfirm();
+const dropped = computed(() => myPlayerRecord.value?.dropped_after_round != null);
+const canWithdraw = computed(
+    () => isRegistered.value && !isTeamEvent.value && !dropped.value && ['registration', 'active'].includes(props.tournament.status),
+);
+const withdrawing = ref(false);
+const withdraw = async () => {
+    const started = props.tournament.status === 'active';
+    const ok = await confirm({
+        title: 'Withdraw from this tournament?',
+        message: started
+            ? 'The organizer will be told. You will be dropped after the round you are in and will not be paired again.'
+            : 'You will lose your place. You can RSVP again later if registration is still open.',
+        confirmLabel: 'Withdraw',
+        destructive: true,
+    });
+    if (!ok) return;
+    router.post(
+        route('tournaments.withdraw', props.tournament.uuid),
+        {},
+        { preserveScroll: true, onStart: () => (withdrawing.value = true), onFinish: () => (withdrawing.value = false) },
+    );
+};
+const canCheckIn = computed(() => ['registration', 'active'].includes(props.tournament.status));
+
+// Tracker games being played right now, across all rounds, so spectators can jump straight into one.
+const liveGames = computed(() =>
+    props.rounds.flatMap((r) =>
+        r.games
+            .filter((g) => g.tracker_game?.status === 'in_progress' && !g.is_bye)
+            .map((g) => ({
+                id: g.id,
+                uuid: g.tracker_game!.uuid,
+                table: g.table_number,
+                turn: g.tracker_game!.current_turn ?? null,
+                maxTurns: g.tracker_game!.max_turns ?? 5,
+                one: props.tournament.players.find((p) => p.id === g.player_one_id)?.display_name ?? 'TBD',
+                two: props.tournament.players.find((p) => p.id === g.player_two_id)?.display_name ?? 'TBD',
+            })),
+    ),
+);
+const myPlayerId = computed(() => props.tournament.players.find(playsFor)?.id ?? null);
 
 // The user's pairing in the newest round that isn't finished yet — the "where do I sit, who do I play" answer.
 const myMatch = computed(() => {
@@ -190,18 +299,24 @@ const rsvping = ref(false);
 // Optional faction the user intends to play. Stays null when they don't pick
 // one — the TO can still finalize without it.
 const rsvpFaction = ref<string | null>(null);
+const rsvpAllegiance = ref<string | null>(null);
 
 // Use Inertia's router rather than raw fetch: CSRF + progress bar come for
 // free, and the preserveScroll reload keeps the user's position on the page.
 const submitRsvp = () => {
-    router.post(route('tournaments.rsvp', props.tournament.uuid), rsvpFaction.value ? { faction: rsvpFaction.value } : {}, {
-        preserveScroll: true,
-        onStart: () => (rsvping.value = true),
-        onFinish: () => {
-            rsvping.value = false;
-            rsvpFaction.value = null;
+    router.post(
+        route('tournaments.rsvp', props.tournament.uuid),
+        rsvpFaction.value ? { faction: rsvpFaction.value } : rsvpAllegiance.value ? { allegiance_id: Number(rsvpAllegiance.value) } : {},
+        {
+            preserveScroll: true,
+            onStart: () => (rsvping.value = true),
+            onFinish: () => {
+                rsvping.value = false;
+                rsvpFaction.value = null;
+                rsvpAllegiance.value = null;
+            },
         },
-    });
+    );
 };
 
 const cancelRsvp = () => {
@@ -211,16 +326,6 @@ const cancelRsvp = () => {
 };
 
 const formatDate = (d: string) => formatDateOnly(d);
-
-const playerName = (id: number | null): string => {
-    if (!id) return 'BYE';
-    return props.tournament.players.find((p) => p.id === id)?.display_name ?? 'Unknown';
-};
-
-const playerFaction = (id: number | null): string | null => {
-    if (!id) return null;
-    return props.tournament.players.find((p) => p.id === id)?.faction ?? null;
-};
 
 const isMyGame = (game: ViewGame): boolean => {
     if (!myPlayerId.value) return false;
@@ -324,13 +429,16 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                 : 'Draft'
                     }}</Badge>
                     <span v-if="currentRoundNumber !== null">Round {{ currentRoundNumber }} of {{ tournament.planned_rounds }}</span>
-                    <span>{{ tournament.season_label }}</span>
-                    <span>{{ tournament.encounter_size }}ss {{ encounterTypeLabel }}</span>
+                    <span v-if="ruleset.uses_season">{{ tournament.season_label }}</span>
+                    <span
+                        >{{ formatGameSize(ruleset, tournament.encounter_size)
+                        }}{{ ruleset.uses_encounter_type ? ' ' + encounterTypeLabel : '' }}</span
+                    >
                     <span v-if="tournament.event_date" class="flex items-center gap-1"
                         ><CalendarDays class="size-3" />{{ formatDate(tournament.event_date) }}</span
                     >
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" />{{ tournament.location }}</span>
-                    <span>{{ tournament.players.length }} players</span>
+                    <span>{{ tournament.players.length }} {{ (tournament.team_size ?? 1) > 1 ? 'teams' : 'players' }}</span>
                     <span v-if="(tournament.status === 'draft' || tournament.status === 'registration') && tournament.rsvps?.length"
                         >{{ tournament.rsvps.length }} RSVPs</span
                     >
@@ -339,7 +447,40 @@ const openCard = (title: string, image?: string | null, description?: string | n
         </PageBanner>
 
         <div class="container mx-auto pb-8 sm:px-4" data-print-area>
+            <ResultsCard
+                v-if="isCompleted"
+                :name="tournament.name"
+                :subtitle="[formatDate(tournament.event_date), tournament.location, ruleset.label].filter(Boolean).join(' · ')"
+                :standings="standings"
+                :factions="factions"
+                :pdf-url="route('tournaments.results_pdf', tournament.uuid)"
+                :page-url="route('tournaments.view', tournament.uuid)"
+            />
+            <AnnouncementBanner
+                v-if="tournament.announcement"
+                :text="tournament.announcement"
+                :announced-at="tournament.announced_at"
+                class="mb-4"
+                data-no-print
+            />
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
+            <div v-if="tournament.status !== 'completed'" class="mb-4" data-no-print>
+                <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
+                    <a :href="route('tournaments.calendar', tournament.uuid)" download><CalendarPlus class="size-3.5" /> Add to calendar</a>
+                </Button>
+            </div>
+            <details class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-no-print>
+                <summary class="cursor-pointer text-sm font-medium">
+                    Format &amp; rules
+                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ ruleset.label }}</span>
+                    <span v-if="ruleset.scoring_customized || Object.keys(ruleset.active_variants).length" class="ml-1 text-xs text-primary">
+                        · {{ ruleset.scoring_customized ? 'modified scoring' : ''
+                        }}{{ ruleset.scoring_customized && Object.keys(ruleset.active_variants).length ? ', ' : ''
+                        }}{{ Object.keys(ruleset.active_variants).length ? Object.keys(ruleset.active_variants).length + ' variant(s)' : '' }}
+                    </span>
+                </summary>
+                <ScoringSummary :ruleset="ruleset" class="mt-3" />
+            </details>
 
             <!-- RSVP Banner (Draft and Registration phases) -->
             <Card v-if="canRsvp" class="mb-6 border-blue-500/30 bg-blue-500/5">
@@ -349,15 +490,28 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             <UserPlus class="size-4 text-blue-600 dark:text-blue-400" />
                             {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
                         </div>
+                        <p
+                            v-if="tournament.max_players"
+                            class="mt-1 text-xs font-medium"
+                            :class="seatsLeft === 0 ? 'text-amber-700 dark:text-amber-400' : ''"
+                        >
+                            <template v-if="seatsLeft === 0">
+                                All {{ tournament.max_players }} spots are taken — new RSVPs join the waitlist and move up if someone drops out.
+                            </template>
+                            <template v-else>{{ seatsTaken }} of {{ tournament.max_players }} spots taken.</template>
+                        </p>
+                        <p v-if="closesAt" class="text-xs text-muted-foreground">Registration closes {{ closesAt }}.</p>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            Express your interest in playing. Optionally pick a faction so the organizer can plan accordingly — you can change it
-                            before the tournament starts.
+                            Express your interest in playing. Optionally pick
+                            {{ ruleset.declaration === 'allegiance' ? 'an allegiance' : 'a faction' }} so the organizer can plan accordingly — you can
+                            change it before the tournament starts.
                         </p>
                     </div>
                     <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                         <!-- Optional intended faction. Empty string sentinel because
                              Reka's Select can't bind to literal null on its value prop. -->
                         <Select
+                            v-if="ruleset.declaration !== 'allegiance'"
                             :model-value="rsvpFaction ?? '__none__'"
                             @update:model-value="rsvpFaction = $event === '__none__' ? null : ($event as string)"
                         >
@@ -374,6 +528,24 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                 </SelectItem>
                             </SelectContent>
                         </Select>
+                        <Select
+                            v-else
+                            :model-value="rsvpAllegiance ?? '__none__'"
+                            @update:model-value="rsvpAllegiance = $event === '__none__' ? null : ($event as string)"
+                        >
+                            <SelectTrigger class="h-8 w-full min-w-[180px] text-xs sm:w-auto">
+                                <SelectValue placeholder="Allegiance (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">No allegiance yet</SelectItem>
+                                <SelectItem v-for="a in allegiances" :key="a.id" :value="String(a.id)">
+                                    <div class="flex items-center gap-2">
+                                        <AllegianceLogo :allegiance="a.slug" class-name="size-4 shrink-0" />
+                                        <span>{{ a.name }}</span>
+                                    </div>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                         <Button size="sm" :disabled="rsvping" @click="submitRsvp">
                             <UserPlus class="mr-1.5 size-3.5" /> {{ tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
                         </Button>
@@ -381,11 +553,14 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 </CardContent>
             </Card>
             <Card
-                v-else-if="hasRsvped && (tournament.status === 'draft' || tournament.status === 'registration')"
+                v-else-if="hasRsvped && !isRegistered && (tournament.status === 'draft' || tournament.status === 'registration')"
                 class="mb-6 border-blue-500/30 bg-blue-500/5"
             >
                 <CardContent class="flex items-center justify-between p-4">
-                    <span class="text-sm text-blue-700 dark:text-blue-400">
+                    <span v-if="myWaitlistPosition" class="text-sm text-amber-700 dark:text-amber-400">
+                        You're #{{ myWaitlistPosition }} on the waitlist — you move up automatically if a spot opens.
+                    </span>
+                    <span v-else class="text-sm text-blue-700 dark:text-blue-400">
                         {{
                             tournament.status === 'registration'
                                 ? "You've signed up. Waiting for the organizer to confirm you in the player list."
@@ -395,13 +570,29 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <Button variant="ghost" size="sm" class="text-xs text-muted-foreground" @click="cancelRsvp">Cancel RSVP</Button>
                 </CardContent>
             </Card>
+            <Card v-else-if="registrationClosedForMe" class="mb-6 border-muted-foreground/30 bg-muted/30">
+                <CardContent class="p-4 text-sm text-muted-foreground">
+                    Registration for this tournament has closed<template v-if="closesAt"> ({{ closesAt }})</template>. Contact the organizer if you
+                    still want in.
+                </CardContent>
+            </Card>
             <!-- Registration confirmation: say what happens next instead of just "registered". -->
             <Card
-                v-else-if="isRegistered && (tournament.status === 'registration' || (tournament.status === 'active' && !myMatch))"
+                v-else-if="isRegistered && !dropped && (tournament.status === 'registration' || (tournament.status === 'active' && !myMatch))"
                 class="mb-6 border-green-500/30 bg-green-500/5"
             >
                 <CardContent class="p-4 text-sm">
                     <div class="font-semibold text-green-700 dark:text-green-400">You're registered for this tournament.</div>
+                    <div v-if="canCheckIn" class="mt-2 flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            :variant="myPlayerRecord?.checked_in_at ? 'outline' : 'default'"
+                            :disabled="checkingIn"
+                            @click="toggleCheckIn"
+                        >
+                            {{ myPlayerRecord?.checked_in_at ? 'Checked in ✓ (undo)' : "I've arrived — check in" }}
+                        </Button>
+                    </div>
                     <p class="mt-0.5 text-muted-foreground">
                         {{
                             tournament.status === 'registration'
@@ -412,15 +603,63 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 </CardContent>
             </Card>
 
+            <p v-if="dropped && isRegistered" class="mb-6 rounded-lg border border-muted-foreground/30 bg-muted/30 p-3 text-sm text-muted-foreground">
+                You've withdrawn from this tournament<template v-if="myPlayerRecord?.dropped_after_round">
+                    after round {{ myPlayerRecord.dropped_after_round }}</template
+                >.
+            </p>
             <MyMatchCard
                 v-if="myMatch && myPlayerId && tournament.status === 'active'"
                 :round="myMatch.round"
                 :game="myMatch.game"
                 :my-player-id="myPlayerId"
                 :round-time-limit="tournament.round_time_limit"
+                :tournament-uuid="tournament.uuid"
+                :players="tournament.players"
+                :allow-self-report="tournament.allow_self_report"
+                :score-fields="ruleset.score_fields"
             />
 
+            <CrewListPicker
+                v-if="crew_lists && !dropped"
+                :tournament-uuid="tournament.uuid"
+                :event-size="tournament.encounter_size"
+                :crew-lists="crew_lists"
+            />
+            <div v-if="canWithdraw" class="-mt-3 mb-6 text-right" data-no-print>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    class="text-xs text-muted-foreground hover:text-destructive"
+                    :disabled="withdrawing"
+                    @click="withdraw"
+                >
+                    Withdraw from this tournament
+                </Button>
+            </div>
+
             <!-- Main Tabs -->
+            <section v-if="liveGames.length" class="mb-4 rounded-lg border bg-muted/20 p-3" aria-label="Games in progress" data-no-print>
+                <h2 class="mb-2 flex items-center gap-2 text-sm font-semibold">
+                    <span class="size-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" /> Live now
+                </h2>
+                <ul class="grid gap-1.5 sm:grid-cols-2">
+                    <li v-for="g in liveGames" :key="g.id">
+                        <a
+                            :href="route('games.observe', g.uuid)"
+                            target="_blank"
+                            rel="noopener"
+                            class="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm hover:bg-accent"
+                        >
+                            <span v-if="g.table" class="text-2xs text-muted-foreground">T{{ g.table }}</span>
+                            <span class="min-w-0 flex-1 truncate font-medium">{{ g.one }} vs {{ g.two }}</span>
+                            <span v-if="g.turn" class="shrink-0 text-2xs text-muted-foreground">Turn {{ g.turn }}/{{ g.maxTurns }}</span>
+                            <span class="shrink-0 text-xs font-medium text-primary">Watch →</span>
+                        </a>
+                    </li>
+                </ul>
+            </section>
+
             <Tabs v-model="activeTab">
                 <!-- Horizontal scroll on mobile instead of wrapping — keeps a single tidy row
                      even for tournaments with many rounds. Wraps normally on sm+. -->
@@ -445,257 +684,139 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
                 <!-- Round Tabs -->
                 <TabsContent v-for="round in rounds" :key="'rc-' + round.id" :value="'r' + round.round_number">
-                    <div class="mb-3 flex flex-wrap items-center justify-end gap-2" data-no-print>
-                        <RoundClock
-                            v-if="round.status === 'in_progress' && round.started_at && myMatch?.round.round_number !== round.round_number"
-                            :started-at="round.started_at"
-                            :limit-minutes="tournament.round_time_limit"
-                        />
-                        <Button v-if="round.games.length" variant="outline" size="sm" class="h-8 gap-1.5" @click="printRound(round.round_number)">
-                            <Printer class="size-3.5" /> Print pairings
-                        </Button>
-                    </div>
-                    <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
-                    <!-- Compact Scenario -->
-                    <div v-if="round.deployment || round.strategy || round.schemes.length" class="mb-4 rounded-lg border bg-muted/30 p-3">
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                            <span v-if="round.deployment" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Deploy:</span>
-                                <button
-                                    class="font-medium hover:text-primary"
-                                    @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)"
-                                >
-                                    {{ round.deployment.label }}
-                                </button>
-                            </span>
-                            <span v-if="round.strategy" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Strategy:</span>
-                                <button class="font-medium hover:text-primary" @click="openCard(round.strategy.name, round.strategy.image_url)">
-                                    {{ round.strategy.name }}
-                                </button>
-                            </span>
-                            <span v-if="round.schemes.length" class="flex items-center gap-1">
-                                <span class="text-muted-foreground">Schemes:</span>
-                                <span v-for="(scheme, idx) in round.schemes" :key="scheme.id">
-                                    <span v-if="idx > 0" class="text-muted-foreground">, </span>
-                                    <button
-                                        class="font-medium hover:text-primary"
-                                        @click="
-                                            openCard(
-                                                scheme.name,
-                                                scheme.image_url,
-                                                [
-                                                    scheme.prerequisite ? 'Prerequisite: ' + scheme.prerequisite : '',
-                                                    scheme.reveal ? 'Reveal: ' + scheme.reveal : '',
-                                                    scheme.scoring ? 'Scoring: ' + scheme.scoring : '',
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join('\n\n'),
-                                            )
-                                        "
+                    <div class="2xl:grid 2xl:grid-cols-[minmax(0,1fr)_30rem] 2xl:items-start 2xl:gap-6">
+                        <div class="min-w-0">
+                            <div class="mb-3 flex flex-wrap items-center justify-end gap-2" data-no-print>
+                                <RoundClock
+                                    v-if="round.status === 'in_progress' && round.started_at && myMatch?.round.round_number !== round.round_number"
+                                    :started-at="round.started_at"
+                                    :limit-minutes="tournament.round_time_limit"
+                                />
+                                <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
+                                    <a :href="route('tournaments.display', tournament.uuid)" target="_blank" rel="noopener"
+                                        ><MonitorPlay class="size-3.5" /> Display mode</a
                                     >
-                                        {{ scheme.name }}
-                                    </button>
-                                </span>
-                            </span>
-                        </div>
-                    </div>
-                    <div v-else class="mb-4 rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-                        Scenario not yet announced
-                    </div>
+                                </Button>
+                                <Button
+                                    v-if="round.games.length"
+                                    variant="outline"
+                                    size="sm"
+                                    class="h-8 gap-1.5"
+                                    @click="printRound(round.round_number)"
+                                >
+                                    <Printer class="size-3.5" /> Print pairings
+                                </Button>
+                            </div>
+                            <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
+                            <!-- Compact Scenario -->
+                            <div
+                                v-if="round.deployment || round.strategy || round.schemes.length || round.tos_scenario"
+                                class="mb-4 rounded-lg border bg-muted/30 p-3"
+                            >
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                                    <span v-if="round.deployment" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Deploy:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)"
+                                        >
+                                            {{ round.deployment.label }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.tos_scenario?.operation" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Operation:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="
+                                                openCard(
+                                                    round.tos_scenario.operation.name,
+                                                    round.tos_scenario.operation.image_url,
+                                                    tosOperationText(round.tos_scenario.operation),
+                                                )
+                                            "
+                                        >
+                                            {{ round.tos_scenario.operation.name }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.tos_scenario?.deployment" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Deploy:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="
+                                                openCard(
+                                                    round.tos_scenario.deployment.name,
+                                                    round.tos_scenario.deployment.image_url,
+                                                    round.tos_scenario.deployment.description,
+                                                )
+                                            "
+                                        >
+                                            {{ round.tos_scenario.deployment.name }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.strategy" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Strategy:</span>
+                                        <button
+                                            class="font-medium hover:text-primary"
+                                            @click="openCard(round.strategy.name, round.strategy.image_url)"
+                                        >
+                                            {{ round.strategy.name }}
+                                        </button>
+                                    </span>
+                                    <span v-if="round.schemes.length" class="flex items-center gap-1">
+                                        <span class="text-muted-foreground">Schemes:</span>
+                                        <span v-for="(scheme, idx) in round.schemes" :key="scheme.id">
+                                            <span v-if="idx > 0" class="text-muted-foreground">, </span>
+                                            <button
+                                                class="font-medium hover:text-primary"
+                                                @click="
+                                                    openCard(
+                                                        scheme.name,
+                                                        scheme.image_url,
+                                                        [
+                                                            scheme.prerequisite ? 'Prerequisite: ' + scheme.prerequisite : '',
+                                                            scheme.reveal ? 'Reveal: ' + scheme.reveal : '',
+                                                            scheme.scoring ? 'Scoring: ' + scheme.scoring : '',
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join('\n\n'),
+                                                    )
+                                                "
+                                            >
+                                                {{ scheme.name }}
+                                            </button>
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div v-else class="mb-4 rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+                                Scenario not yet announced
+                            </div>
 
-                    <!-- Pairings / Results —
+                            <!-- Pairings / Results —
                          On mobile, each pairing is a 2-line card: top = P1 line, bottom = P2 line,
                          with the score centered between. Cleaner hierarchy, no truncation surprises.
                          On sm+ screens we keep the original single-row layout for density. -->
-                    <div v-if="round.games.length" class="space-y-2 sm:space-y-1.5">
-                        <div
-                            v-for="game in round.games"
-                            :key="game.id"
-                            class="rounded-md border text-sm"
-                            :class="isMyGame(game) ? 'border-primary/40 bg-primary/5' : ''"
-                        >
-                            <!-- Mobile layout: stacked -->
-                            <div class="flex flex-col gap-1 p-2.5 sm:hidden">
-                                <div class="flex items-center gap-2 text-2xs text-muted-foreground">
-                                    <span v-if="game.table_number">Table {{ game.table_number }}</span>
-                                    <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-2xs">BYE</Badge>
-                                    <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-2xs">Forfeit</Badge>
-                                    <Badge
-                                        v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
-                                        variant="outline"
-                                        class="ml-auto px-1 py-0 text-2xs"
-                                        :class="
-                                            game.tracker_game.status === 'in_progress'
-                                                ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
-                                                : game.tracker_game.status === 'abandoned'
-                                                  ? 'border-destructive/60 text-destructive'
-                                                  : 'text-muted-foreground'
-                                        "
-                                    >
-                                        <span v-if="game.tracker_game.status === 'in_progress'">
-                                            T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
-                                        </span>
-                                        <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
-                                        <span v-else>{{ game.tracker_game.status.replace('_', ' ') }}</span>
-                                    </Badge>
-                                </div>
-
-                                <!-- P1 line -->
-                                <div class="flex items-center gap-2">
-                                    <FactionLogo
-                                        v-if="game.player_one_faction || playerFaction(game.player_one_id)"
-                                        :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
-                                        class-name="size-5 shrink-0"
-                                    />
-                                    <div class="min-w-0 flex-1">
-                                        <div class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">
-                                            {{ playerName(game.player_one_id) }}
-                                        </div>
-                                        <div v-if="game.player_one_master" class="truncate text-2xs text-muted-foreground">
-                                            {{ game.player_one_title || game.player_one_master }}
-                                        </div>
-                                    </div>
-                                    <span
-                                        v-if="!game.is_bye"
-                                        class="shrink-0 font-mono text-base tabular-nums"
-                                        :class="
-                                            (game.player_one_vp ?? 0) > (game.player_two_vp ?? 0)
-                                                ? 'font-bold text-green-600 dark:text-green-400'
-                                                : ''
-                                        "
-                                        >{{ game.player_one_vp ?? '–' }}</span
-                                    >
-                                </div>
-
-                                <!-- P2 line -->
-                                <div v-if="!game.is_bye" class="flex items-center gap-2">
-                                    <FactionLogo
-                                        v-if="game.player_two_faction || playerFaction(game.player_two_id)"
-                                        :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
-                                        class-name="size-5 shrink-0"
-                                    />
-                                    <div class="min-w-0 flex-1">
-                                        <div class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">
-                                            {{ playerName(game.player_two_id) }}
-                                        </div>
-                                        <div v-if="game.player_two_master" class="truncate text-2xs text-muted-foreground">
-                                            {{ game.player_two_title || game.player_two_master }}
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="shrink-0 font-mono text-base tabular-nums"
-                                        :class="
-                                            (game.player_two_vp ?? 0) > (game.player_one_vp ?? 0)
-                                                ? 'font-bold text-green-600 dark:text-green-400'
-                                                : ''
-                                        "
-                                        >{{ game.player_two_vp ?? '–' }}</span
-                                    >
-                                </div>
-
-                                <a
-                                    v-if="game.tracker_game?.uuid"
-                                    :href="route('games.observe', game.tracker_game.uuid)"
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="mt-1 self-end text-xs font-medium text-primary hover:underline"
-                                >
-                                    View game →
-                                </a>
+                            <div v-if="round.games.length" class="space-y-2 sm:space-y-1.5">
+                                <PairingRow
+                                    v-for="game in round.games"
+                                    :key="game.id"
+                                    :game="game"
+                                    :players="tournament.players"
+                                    :my-player-id="myPlayerId"
+                                    :round-status="round.status"
+                                />
                             </div>
-
-                            <!-- Desktop layout: single row -->
-                            <div class="hidden items-center gap-2 px-2 py-1.5 sm:flex">
-                                <span v-if="game.table_number" class="shrink-0 text-2xs text-muted-foreground">T{{ game.table_number }}</span>
-
-                                <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                                    <FactionLogo
-                                        v-if="game.player_one_faction || playerFaction(game.player_one_id)"
-                                        :faction="(game.player_one_faction || playerFaction(game.player_one_id))!"
-                                        class-name="size-4 shrink-0"
-                                    />
-                                    <span class="truncate font-medium" :class="myPlayerId === game.player_one_id ? 'text-primary' : ''">{{
-                                        playerName(game.player_one_id)
-                                    }}</span>
-                                    <span v-if="game.player_one_master" class="truncate text-2xs text-muted-foreground"
-                                        >· {{ game.player_one_title || game.player_one_master }}</span
-                                    >
-                                </div>
-
-                                <template v-if="game.is_bye">
-                                    <Badge variant="outline" class="shrink-0 text-2xs">BYE</Badge>
-                                </template>
-                                <template v-else>
-                                    <div class="flex shrink-0 items-center gap-1 font-mono text-xs tabular-nums">
-                                        <span
-                                            :class="
-                                                (game.player_one_vp ?? 0) > (game.player_two_vp ?? 0)
-                                                    ? 'font-bold text-green-600 dark:text-green-400'
-                                                    : ''
-                                            "
-                                            >{{ game.player_one_vp ?? '–' }}</span
-                                        >
-                                        <span class="text-muted-foreground">-</span>
-                                        <span
-                                            :class="
-                                                (game.player_two_vp ?? 0) > (game.player_one_vp ?? 0)
-                                                    ? 'font-bold text-green-600 dark:text-green-400'
-                                                    : ''
-                                            "
-                                            >{{ game.player_two_vp ?? '–' }}</span
-                                        >
-                                    </div>
-
-                                    <div class="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
-                                        <span v-if="game.player_two_master" class="truncate text-2xs text-muted-foreground"
-                                            >{{ game.player_two_title || game.player_two_master }} ·</span
-                                        >
-                                        <span class="truncate font-medium" :class="myPlayerId === game.player_two_id ? 'text-primary' : ''">{{
-                                            playerName(game.player_two_id)
-                                        }}</span>
-                                        <FactionLogo
-                                            v-if="game.player_two_faction || playerFaction(game.player_two_id)"
-                                            :faction="(game.player_two_faction || playerFaction(game.player_two_id))!"
-                                            class-name="size-4 shrink-0"
-                                        />
-                                    </div>
-
-                                    <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-2xs">Forfeit</Badge>
-
-                                    <Badge
-                                        v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
-                                        variant="outline"
-                                        class="shrink-0 px-1 py-0 text-2xs"
-                                        :class="
-                                            game.tracker_game.status === 'in_progress'
-                                                ? 'border-amber-400 text-amber-700 dark:border-amber-500/70 dark:text-amber-300'
-                                                : game.tracker_game.status === 'abandoned'
-                                                  ? 'border-destructive/60 text-destructive'
-                                                  : 'text-muted-foreground'
-                                        "
-                                    >
-                                        <span v-if="game.tracker_game.status === 'in_progress'">
-                                            T{{ game.tracker_game.current_turn }}/{{ game.tracker_game.max_turns ?? 5 }}
-                                        </span>
-                                        <span v-else-if="game.tracker_game.status === 'abandoned'">Abandoned</span>
-                                        <span v-else>{{ game.tracker_game.status.replace('_', ' ') }}</span>
-                                    </Badge>
-
-                                    <a
-                                        v-if="game.tracker_game?.uuid"
-                                        :href="route('games.observe', game.tracker_game.uuid)"
-                                        target="_blank"
-                                        rel="noopener"
-                                        class="shrink-0 text-2xs font-medium text-primary hover:underline"
-                                    >
-                                        View
-                                    </a>
-                                </template>
-                            </div>
+                            <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>
                         </div>
+                        <!-- Wide screens: keep the standings in view next to the pairings -->
+                        <aside class="sticky top-4 hidden self-start 2xl:block" data-no-print aria-label="Current standings">
+                            <div class="mb-3 flex items-center gap-2 px-1">
+                                <Trophy class="size-4" />
+                                <h2 class="text-lg font-semibold">{{ isCompleted ? 'Final Standings' : 'Current Standings' }}</h2>
+                            </div>
+                            <StandingsTable :standings="standings" :highlight-player-id="myPlayerId" />
+                        </aside>
                     </div>
-                    <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>
                 </TabsContent>
 
                 <!-- Standings Tab -->
@@ -723,6 +844,12 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <FactionLogo v-if="rsvp.faction" :faction="rsvp.faction" class-name="size-4 shrink-0" />
                                     <UserPlus v-else class="size-3.5 shrink-0 text-muted-foreground" />
                                     <span class="font-medium">{{ rsvp.user?.name ?? 'Unknown User' }}</span>
+                                    <Badge
+                                        v-if="rsvp.waitlist_position"
+                                        variant="outline"
+                                        class="px-1 py-0 text-2xs text-amber-700 dark:text-amber-400"
+                                        >Waitlist #{{ rsvp.waitlist_position }}</Badge
+                                    >
                                     <span v-if="rsvp.faction" class="text-xs text-muted-foreground">{{
                                         factions[rsvp.faction]?.name ?? rsvp.faction
                                     }}</span>

@@ -24,4 +24,17 @@ enum TournamentTiebreakerEnum: string implements HasDefaultEnumMethods
             self::Sos => 'Strength of Schedule',
         };
     }
+
+    /**
+     * Ordered standings keys applied after TP (see config/tournaments.php).
+     *
+     * @return list<string>
+     */
+    public function keys(): array
+    {
+        return match ($this) {
+            self::DiffVp => ['diff', 'vp'],
+            self::Sos => ['sos', 'diff', 'vp'],
+        };
+    }
 }

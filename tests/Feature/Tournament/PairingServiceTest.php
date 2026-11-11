@@ -5,6 +5,7 @@ use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
 use App\Services\TournamentPairingService;
+use App\Services\TournamentStandingsService;
 
 beforeEach(function () {
     $this->service = app(TournamentPairingService::class);
@@ -198,4 +199,43 @@ describe('matching quality', function () {
 
         expect(count($seen))->toBeGreaterThan(1);
     });
+});
+
+it('pairs from the ruleset-ordered standings rank, not a fixed TP/DIFF/VP order', function () {
+    $t = Tournament::factory()->active()->create(['ruleset' => 'tos_fields_of_glory']);
+    [$a, $b, $c, $d] = TournamentPlayer::factory()->for($t)->count(4)->create()->all();
+    $round = TournamentRound::factory()->for($t)->create(['round_number' => 2]);
+
+    // Every raw total is level, so the old TP → DIFF → VP sort would pair at random; only `rank` (SoS-first for this
+    // ruleset) says who sits next to whom.
+    $row = fn (TournamentPlayer $p, int $rank) => ['player_id' => $p->id, 'rank' => $rank, 'total_tp' => 0, 'total_diff' => 0, 'total_vp' => 0];
+    $standings = Mockery::mock(TournamentStandingsService::class);
+    $standings->shouldReceive('compute')->andReturn([$row($d, 1), $row($b, 2), $row($a, 3), $row($c, 4)]);
+    $service = new TournamentPairingService($standings);
+
+    foreach (range(1, 12) as $_) {
+        $pairs = collect($service->generatePairings($t->fresh('players'), $round))
+            ->map(fn ($p) => collect([$p['player_one_id'], $p['player_two_id']])->sort()->values()->all())
+            ->sort()->values()->all();
+
+        expect($pairs)->toBe(collect([[$d->id, $b->id], [$a->id, $c->id]])->map(fn ($x) => collect($x)->sort()->values()->all())->sort()->values()->all());
+    }
+});
+
+it('keeps players on a joint rank in random order', function () {
+    $t = Tournament::factory()->active()->create();
+    $players = TournamentPlayer::factory()->for($t)->count(4)->create();
+    $round = TournamentRound::factory()->for($t)->create(['round_number' => 2]);
+
+    $standings = Mockery::mock(TournamentStandingsService::class);
+    $standings->shouldReceive('compute')->andReturn($players->map(fn ($p) => ['player_id' => $p->id, 'rank' => 1])->all());
+    $service = new TournamentPairingService($standings);
+
+    $seen = [];
+    foreach (range(1, 40) as $_) {
+        $first = collect($service->generatePairings($t->fresh('players'), $round))->first();
+        $seen[$first['player_one_id'].'-'.$first['player_two_id']] = true;
+    }
+
+    expect(count($seen))->toBeGreaterThan(1);
 });

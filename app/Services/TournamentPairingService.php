@@ -324,19 +324,14 @@ class TournamentPairingService
      */
     private function sortByStandings(Tournament $tournament, Collection $players): Collection
     {
-        $standingsMap = collect($this->standings->compute($tournament))->keyBy('player_id');
+        // `rank` already follows the ruleset's tiebreaker order (TP then SoS/DIFF/VP as the ruleset says) and gives
+        // level players a joint rank, so pairing orders by it instead of assuming Gaining Grounds' TP → DIFF → VP.
+        $rankByPlayer = collect($this->standings->compute($tournament))->pluck('rank', 'player_id');
+        $unranked = $rankByPlayer->count() + 1;
 
-        // Shuffle first: the sort is stable, so players level on TP/DIFF/VP end up in random order
+        // Shuffle first: the sort is stable, so players level on every tiebreaker end up in random order
         // (the Gaining Grounds / Fields of Glory packets pair ties randomly).
-        return $players->shuffle()->sortBy(function (TournamentPlayer $p) use ($standingsMap) {
-            $s = $standingsMap->get($p->id);
-            if (! $s) {
-                return [0, 0, 0];
-            }
-
-            // Negative for descending sort
-            return [-$s['total_tp'], -$s['total_diff'], -$s['total_vp']];
-        })->values();
+        return $players->shuffle()->sortBy(fn (TournamentPlayer $p) => $rankByPlayer->get($p->id) ?? $unranked)->values();
     }
 
     /**

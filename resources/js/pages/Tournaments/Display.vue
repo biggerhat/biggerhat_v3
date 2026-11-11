@@ -5,7 +5,7 @@ import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import type { StandingEntry, TosDeploymentInfo, TosOperationInfo, TournamentRuleset } from '@/types/tournament';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, computed, ref } from 'vue';
 
 /**
@@ -56,7 +56,10 @@ const props = defineProps<{
     standings: StandingEntry[];
 }>();
 
-useTournamentChannel(props.tournament.uuid);
+// Narrow reloads: the display only reads these props, and a TV refreshes on every score.
+const { connected } = useTournamentChannel(props.tournament.uuid, () =>
+    router.reload({ only: ['tournament', 'rounds', 'standings', 'ruleset'], preserveScroll: true, preserveState: true }),
+);
 
 // The round everyone cares about: the one being played, else the latest one that has pairings, else the newest.
 const round = computed<DisplayRound | null>(() => {
@@ -131,7 +134,17 @@ const setMode = (m: Mode) => {
         <header class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-4">
             <div class="min-w-0">
                 <h1 class="truncate text-3xl font-bold sm:text-5xl">{{ tournament.name }}</h1>
-                <p class="mt-1 text-lg text-muted-foreground sm:text-2xl">{{ roundLabel }}</p>
+                <p class="mt-1 text-lg text-muted-foreground sm:text-2xl">
+                    {{ roundLabel }}
+                    <span
+                        role="status"
+                        class="ml-3 inline-flex items-center gap-1.5 align-middle text-sm"
+                        :class="connected ? 'text-emerald-500' : 'text-amber-500'"
+                    >
+                        <span class="size-2 rounded-full bg-current" :class="connected ? '' : 'animate-pulse'" aria-hidden="true" />
+                        {{ connected ? 'Live' : 'Reconnecting — refreshing every 30s' }}
+                    </span>
+                </p>
             </div>
             <div class="flex items-center gap-4">
                 <RoundClock

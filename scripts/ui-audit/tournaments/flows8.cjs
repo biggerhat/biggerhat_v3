@@ -32,6 +32,13 @@ const L = require('./lib.cjs');
         await L.shot(org, '82-next-step-fog');
     });
 
+    await L.step('display: shows a live / reconnecting status (no websocket here, so it falls back to polling)', org, async () => {
+        await L.visit(org, `/tournaments/${ids.t1}/display`);
+        await org.page.waitForSelector('[role=status]', { timeout: 9000 });
+        await L.expectText(org, /Live|Reconnecting/i);
+        await L.shot(org, '84-display-status');
+    });
+
     const phone = await L.session(browser, 'org@example.test', { width: 390, height: 800 });
     await L.step('next step: card fits at phone width', phone, async () => {
         await L.visit(phone, `/tournaments/${ids.t1}`);

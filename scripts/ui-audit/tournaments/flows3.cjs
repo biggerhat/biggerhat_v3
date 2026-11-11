@@ -81,6 +81,10 @@ const L = require('./lib.cjs');
         await L.expectText(org, /Custom Cup/i);
     });
     await L.step('create: the saved custom event reports its overrides', org, async () => {
+        // the single-threaded dev server can be slow to render the manage page after create
+        await org.page.waitForFunction(() => [...document.querySelectorAll('[role=tab]')].some((e) => /^Settings$/i.test(e.innerText.trim())), {
+            timeout: 25000,
+        });
         await L.clickText(org, /^Settings$/i, '[role=tab]');
         await L.expectText(org, /Modified from|Each game is worth/i);
         await L.shot(org, '36-custom-settings');

@@ -9,6 +9,7 @@ import { useTournament } from '@/composables/useTournament';
 import {
     isScoredResult,
     tableLabel,
+    type MasterOption,
     type StandingEntry,
     type TableDetails,
     type TournamentGame,
@@ -45,6 +46,8 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     standings: StandingEntry[];
     tables: TableDetails;
+    /** Deferred: null until the follow-up request fills it in (and always null for rulesets that do not track leaders). */
+    masters: MasterOption[] | null;
 }>();
 
 const tournamentRef = computed(() => props.tournament);
@@ -148,5 +151,5 @@ const scoreLabel = (g: TournamentGame) => (g.player_one_vp !== null && isScoredR
         </template>
     </div>
 
-    <ScoreEntryDialog :game="scoreGame" :tournament="tournament" :ruleset="ruleset" :masters="null" @close="scoreGame = null" />
+    <ScoreEntryDialog :game="scoreGame" :tournament="tournament" :ruleset="ruleset" :masters="masters" @close="scoreGame = null" />
 </template>

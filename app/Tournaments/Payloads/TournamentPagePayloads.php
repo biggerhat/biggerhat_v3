@@ -21,6 +21,7 @@ use App\Models\TournamentRound;
 use App\Models\TournamentTable;
 use App\Services\TournamentStandingsService;
 use App\Tournaments\CrewListCheck;
+use Inertia\DeferProp;
 use Inertia\Inertia;
 
 /**
@@ -241,6 +242,36 @@ class TournamentPagePayloads
     }
 
     /**
+     * Masters grouped by name with their titles — only used in the score-entry dialog, so deferred under its own group.
+     */
+    private function mastersDeferred(): DeferProp
+    {
+        return Inertia::defer(function () {
+            $characters = Character::standard()->where('station', 'master')
+                ->where('is_hidden', false)
+                ->orderBy('name')->orderBy('title')
+                ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
+
+            $grouped = [];
+            foreach ($characters->groupBy('name') as $name => $group) {
+                $first = $group->first();
+                $grouped[] = [
+                    'name' => $name,
+                    'faction' => $first->getRawOriginal('faction'),
+                    'second_faction' => $first->getRawOriginal('second_faction'),
+                    'titles' => $group->map(fn ($c) => [
+                        'id' => $c->id,
+                        'display_name' => $c->display_name,
+                        'title' => $c->title,
+                    ])->values(),
+                ];
+            }
+
+            return $grouped; // @phpstan-ignore return.type
+        }, 'masters');
+    }
+
+    /**
      * Props for the scoring desk: the pairings of every round with the score-entry fields, the standings and the
      * ruleset. Nothing from the organizer's setup tools (players' accounts, RSVPs, crews, reference data).
      *
@@ -260,6 +291,8 @@ class TournamentPagePayloads
             'ruleset' => $this->ruleset($tournament),
             'standings' => $this->standings->compute($tournament),
             'tables' => $this->tableDetails($tournament),
+            // Leaders (master + title) are recorded in rulesets that track them, so the desk needs the same picker data.
+            'masters' => $tournament->rulesetDefinition()->tracksLeaders ? $this->mastersDeferred() : null,
         ];
     }
 
@@ -331,31 +364,7 @@ class TournamentPagePayloads
             return $results;
         }, 'scenario');
 
-        // Masters grouped by name with titles — only used in the score-entry
-        // dialog, so defer under its own group.
-        $mastersDeferred = Inertia::defer(function () {
-            $characters = Character::standard()->where('station', 'master')
-                ->where('is_hidden', false)
-                ->orderBy('name')->orderBy('title')
-                ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
-
-            $grouped = [];
-            foreach ($characters->groupBy('name') as $name => $group) {
-                $first = $group->first();
-                $grouped[] = [
-                    'name' => $name,
-                    'faction' => $first->getRawOriginal('faction'),
-                    'second_faction' => $first->getRawOriginal('second_faction'),
-                    'titles' => $group->map(fn ($c) => [
-                        'id' => $c->id,
-                        'display_name' => $c->display_name,
-                        'title' => $c->title,
-                    ])->values(),
-                ];
-            }
-
-            return $grouped; // @phpstan-ignore return.type
-        }, 'masters');
+        $mastersDeferred = $this->mastersDeferred();
 
         return [
             'tournament' => $tournament,

@@ -37,6 +37,20 @@ const L = require('./lib.cjs');
         await L.expectText(carol, /4 – 0|Edit score/i);
         await L.shot(carol, '192-scoring-desk-scored');
     });
+    await L.step('scorer: she adds a master and title from the desk, and they are saved', carol, async () => {
+        await L.clickText(carol, /^Edit score$/i, 'button');
+        await L.expectText(carol, /Game Score/i);
+        await L.clickText(carol, /Add masters/i, 'button');
+        await L.pickByTrigger(carol, /Select master/i, /Rasputina/);
+        await L.pickByTrigger(carol, /Title\.\.\./i, /Winter Witch/);
+        await L.shot(carol, '192b-desk-master-title');
+        await L.clickText(carol, /^Save Score$/i, 'button');
+        await carol.page.waitForFunction(() => !/Game Score/.test(document.body.innerText), { timeout: 9000 });
+        await L.sleep(800);
+        await L.clickText(carol, /^Edit score$/i, 'button');
+        await L.expectText(carol, /Rasputina/);
+        await L.clickText(carol, /^Cancel$/i, 'button');
+    });
     await L.step('scorer: the organizer pages stay closed to her', carol, async () => {
         const res = await carol.page.goto(`${L.BASE}/tournaments/${ids.t1}`, { waitUntil: 'domcontentloaded' });
         const status = res.status();

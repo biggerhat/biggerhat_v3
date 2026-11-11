@@ -114,8 +114,8 @@ page shows `AwardsCard`, and the results PDF lists them under the podium. Deleti
 organizer pages. `Tournament::canScore()` = can manage, or is a scorer, and the policy ability `score` gates **entering/correcting a score** (`ScoreTournamentGameRequest`) and **forfeits**
 (`TournamentGameToggleForfeitRequest`); everything else stays on `manage`. Organizers add and remove scorekeepers from the **Scorekeepers** card on the Settings tab (`TournamentScorerController`,
 `tournaments.scorers.add|remove`, they get a `TournamentScorerAdded` notification linking to the desk). The desk is `Tournaments/Score.vue` (`tournaments.score`, `forScoring()` payload: players, every round's
-games, standings, ruleset, table names): a round switcher, one card per pairing with Enter/Edit score, and the same `ScoreEntryDialog` the Manage page uses (without master/title pickers, which need the deferred
-reference data). The public event page shows a "Scoring desk" link while the event is active to anyone who `can_score`.
+games, standings, ruleset, table names): a round switcher, one card per pairing with Enter/Edit score, and the same `ScoreEntryDialog` the Manage page uses, including the optional master/title pickers (the `masters` list is the same deferred prop,
+`TournamentPagePayloads::mastersDeferred()`, and is only sent for rulesets that track leaders). The public event page shows a "Scoring desk" link while the event is active to anyone who `can_score`.
 
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.

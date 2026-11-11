@@ -84,3 +84,35 @@ it('tells the public page whether to show the scoring desk link', function () {
 it('lists scorekeepers to organizers on the manage page', function () {
     $this->actingAs($this->owner)->get(route('tournaments.manage', $this->tournament))->assertInertia(fn (Assert $page) => $page->where('tournament.scorers.0.id', $this->scorer->id));
 });
+
+it('gives the scoring desk the masters list for rulesets that track leaders', function () {
+    App\Models\Character::factory()->create(['name' => 'Rasputina', 'title' => 'Winter Witch', 'station' => 'master', 'faction' => 'arcanists']);
+
+    $url = route('tournaments.score', $this->tournament);
+    $this->actingAs($this->scorer)->get($url)->assertInertia(fn (Assert $page) => $page->missing('masters'));
+
+    // The masters arrive in a follow-up partial request.
+    $response = $this->withHeaders([
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => file_exists(public_path('build/manifest.json')) ? hash_file('xxh128', public_path('build/manifest.json')) : '',
+        'X-Inertia-Partial-Component' => 'Tournaments/Score',
+        'X-Inertia-Partial-Data' => 'masters',
+    ])->get($url)->assertOk();
+
+    expect($response->json('props.masters'))->toHaveCount(1)->and($response->json('props.masters.0.name'))->toBe('Rasputina');
+});
+
+it('has no masters list when the ruleset does not track leaders', function () {
+    $fog = Tournament::factory()->active()->create(['creator_id' => $this->owner->id, 'ruleset' => 'tos_fields_of_glory']);
+
+    $this->actingAs($this->owner)->get(route('tournaments.score', $fog))->assertInertia(fn (Assert $page) => $page->where('masters', null));
+});
+
+it('lets a scorekeeper record each side\'s master and title with the score', function () {
+    $this->actingAs($this->scorer)->putJson(route('tournaments.games.update', [$this->tournament, $this->game]), ($this->score)() + [
+        'player_one_faction' => 'arcanists', 'player_one_master' => 'Rasputina', 'player_one_title' => 'Winter Witch',
+        'player_two_faction' => 'guild', 'player_two_master' => 'Lady Justice', 'player_two_title' => null,
+    ])->assertOk();
+
+    expect($this->game->fresh())->player_one_master->toBe('Rasputina')->player_one_title->toBe('Winter Witch')->player_two_master->toBe('Lady Justice');
+});

@@ -115,6 +115,7 @@ class TournamentController extends Controller
 
         $standings = $this->standings->compute($tournament);
         $this->hidePrivateGarrisonCodes($tournament);
+        $this->redactPublicPayload($tournament);
 
         // Fetch every scheme referenced by any round in a single query instead
         // of one query per round (previously N+1).
@@ -565,6 +566,38 @@ class TournamentController extends Controller
     }
 
     /** A Garrison is public information at the event, but its share link only works when the owner made it public. */
+    /**
+     * The view/display pages are public and serialise whole models, so strip what only the people involved should see:
+     * the players' report details (score proposal, dispute note) go to the two sides and the organizers, and nothing
+     * public needs crew-build ids, tracker settings/loot state, or players' meta/profile columns.
+     */
+    private function redactPublicPayload(Tournament $tournament): void
+    {
+        $viewer = request()->user();
+        $isOrganizer = $viewer !== null && $viewer->can('manage', $tournament);
+        $playersById = $tournament->players->keyBy('id');
+
+        foreach ($tournament->players as $player) {
+            $player->makeHidden('meta');
+            $player->user?->makeHidden(['meta', 'meta_id']);
+        }
+
+        foreach ($tournament->rounds as $round) {
+            foreach ($round->games as $game) {
+                $game->makeHidden(['player_one_crew_build_id', 'player_two_crew_build_id']);
+
+                $involved = $isOrganizer || ($viewer !== null && collect([$game->player_one_id, $game->player_two_id])
+                    ->filter()
+                    ->contains(fn (int $id) => in_array($viewer->id, $playersById->get($id)?->linkedUserIds() ?? [], true)));
+                if (! $involved) {
+                    $game->makeHidden(['report_note', 'reported_score', 'reported_by_player_id', 'reported_at']);
+                }
+
+                $game->trackerGame?->makeHidden(['settings', 'loot_state', 'creator_id']);
+            }
+        }
+    }
+
     private function hidePrivateGarrisonCodes(Tournament $tournament): void
     {
         foreach ($tournament->players as $player) {

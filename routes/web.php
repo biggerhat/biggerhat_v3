@@ -45,6 +45,7 @@ use App\Http\Controllers\SupportersController;
 use App\Http\Controllers\Tournament\TournamentAnnouncementController;
 use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
+use App\Http\Controllers\Tournament\TournamentCrewListController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
@@ -464,6 +465,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}/rsvp', [TournamentRsvpController::class, 'destroy'])->name('rsvp.cancel');
 
     // Check-in (players check themselves in; the TO does it from Manage)
+    Route::put('/{tournament}/crew-list', [TournamentCrewListController::class, 'update'])->name('crew_list');
     Route::post('/{tournament}/withdraw', [TournamentSelfDropController::class, 'store'])->name('withdraw');
     Route::post('/{tournament}/check-in', [TournamentCheckInController::class, 'store'])->name('check_in');
     Route::delete('/{tournament}/check-in', [TournamentCheckInController::class, 'destroy'])->name('check_in.cancel');

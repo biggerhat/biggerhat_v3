@@ -91,6 +91,14 @@ A completed event leads with `ResultsCard.vue` on the public page: a podium (ran
 full standings with the ruleset's tiebreaker columns, organizer and link. **Image** — `lib/tournamentResultsImage.ts` draws a 1200x630 card on a canvas in the browser (nothing is uploaded) and the card
 downloads it; **Share** uses the native share sheet (with the image where the device allows files). The browser pass captures the download and checks it is a 1200x630 PNG.
 
+## Crew lists
+Individual events under a faction-declaring ruleset (Malifaux) can ask players for a Crew Builder list: `tournaments.require_crew_lists` (a setting) and `tournament_players.crew_build_id`.
+A registered player picks one of their own non-archived crews on the public page (`CrewListPicker`, `PUT tournaments.crew_list` -> `TournamentCrewListController`); it must match the faction they
+declared (a player with no faction takes the crew's), and it locks when the tournament starts (organizers can still ask for changes). The organizer's Manage payload carries a `crew` summary per player from
+`App\Tournaments\CrewListCheck` — master, size, and soft flags (faction mismatch, built for a different size, no master, empty crew) — while the build itself is never serialised and the public payload hides
+`crew_build_id`. Attaching a private build shares it with that tournament's organizers: `CrewBuildPolicy::viewShare` allows an organizer to open it. Starting the tournament warns who hasn't submitted one.
+TOS events use the Garrison link from the declaration instead; team events don't use lists.
+
 ## Manage page structure
 `pages/Tournaments/Manage.vue` (~880 lines) is the shell: header, next-step card, announcement dialog, the standings / RSVP / settings tabs, and the score and
 finalize dialogs. Its tabs live in `components/Tournament/`: `ManagePlayersTab.vue`, `ManageRoundsTab.vue` (round lifecycle, scenario editor, manual pairing,

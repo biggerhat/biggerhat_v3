@@ -81,5 +81,13 @@ TournamentGame::factory()->for($q1, 'round')->withScore(7, 5)->create(['player_o
 $q2 = TournamentRound::factory()->for($t7)->create(['round_number' => 2, 'status' => 'completed']);
 TournamentGame::factory()->for($q2, 'round')->withScore(8, 4)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Carol']->id, 'result' => 'completed', 'table_number' => 1]);
 TournamentGame::factory()->for($q2, 'round')->withScore(6, 6)->create(['player_one_id' => $rp['Bob']->id, 'player_two_id' => $rp['Dave']->id, 'result' => 'completed', 'table_number' => 2]);
+// --- T8: registration open and crew lists required; Alice (no faction yet) and Bob (guild) are registered, each with saved crews
+$t8 = Tournament::factory()->inRegistration()->create(['name' => 'Crew Check Open', 'creator_id' => $carol->id, 'require_crew_lists' => true, 'encounter_size' => 50]);
+$t8->organizers()->attach($org->id);
+TournamentPlayer::factory()->for($t8)->create(['display_name' => 'Alice', 'user_id' => $alice->id, 'faction' => null]);
+TournamentPlayer::factory()->for($t8)->create(['display_name' => 'Bob', 'user_id' => $bob->id, 'faction' => 'guild']);
+App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Alice Guild 50', 'faction' => 'guild', 'encounter_size' => 50]);
+App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Alice Arcanists 40', 'faction' => 'arcanists', 'encounter_size' => 40]);
+App\Models\CrewBuild::factory()->create(['user_id' => $bob->id, 'name' => 'Bob Guild 50', 'faction' => 'guild', 'encounter_size' => 50]);
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 'g1' => $r1->games()->first()->id]));

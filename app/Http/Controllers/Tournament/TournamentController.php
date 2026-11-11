@@ -74,7 +74,7 @@ class TournamentController extends Controller
     public function display(Tournament $tournament): Response|ResponseFactory
     {
         $props = $this->payloads->forView($tournament);
-        unset($props['scheme_stats'], $props['allegiances']);
+        unset($props['scheme_stats'], $props['allegiances'], $props['crew_lists']);
 
         return inertia('Tournaments/Display', $props);
     }
@@ -130,6 +130,7 @@ class TournamentController extends Controller
                     'allow_self_report' => (bool) $source->allow_self_report,
                     'team_size' => (int) $source->team_size,
                     'max_players' => $source->max_players,
+                    'require_crew_lists' => (bool) $source->require_crew_lists,
                     'scoring_config' => $source->scoring_config,
                 ];
             }

@@ -16,6 +16,17 @@ const SCORED_RESULTS: readonly string[] = ['completed', 'agreed', 'forfeited'];
 /** Whether a result is official (scored, agreed or forfeited) rather than still waiting. */
 export const isScoredResult = (result: string | null | undefined): boolean => SCORED_RESULTS.includes(result ?? '');
 
+/** An organizer's view of a player's submitted Crew Builder list, with anything worth a second look. */
+export interface CrewListSummary {
+    id: number;
+    name: string;
+    share_code: string;
+    master: string | null;
+    faction: string;
+    encounter_size: number;
+    problems: string[];
+}
+
 export interface TournamentPlayer {
     id: number;
     display_name: string;
@@ -29,6 +40,8 @@ export interface TournamentPlayer {
     is_ringer: boolean;
     is_disqualified: boolean;
     dropped_after_round: number | null;
+    /** Organizer payload only: the submitted crew list, if any. */
+    crew?: CrewListSummary | null;
 }
 
 export interface TournamentGame {

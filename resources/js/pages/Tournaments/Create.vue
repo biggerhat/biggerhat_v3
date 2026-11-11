@@ -41,6 +41,7 @@ const props = defineProps<{
         allow_self_report: boolean;
         team_size: number;
         max_players: number | null;
+        require_crew_lists: boolean;
         scoring_config: Record<string, unknown> | null;
     } | null;
     previous_events: { uuid: string; name: string; event_date: string }[];
@@ -69,6 +70,7 @@ const form = useForm({
     team_size: props.template?.team_size ?? 1,
     max_players: (props.template?.max_players ?? '') as number | '',
     registration_closes_at: '',
+    require_crew_lists: props.template?.require_crew_lists ?? false,
     variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
     // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
     scoring_config: (props.template?.scoring_config ?? {}) as Record<string, unknown>,
@@ -323,6 +325,16 @@ const submit = () => {
                                 </div>
                             </div>
 
+                            <label v-if="ruleset.declaration === 'faction' && form.team_size === 1" class="flex items-start gap-2 text-sm">
+                                <input v-model="form.require_crew_lists" type="checkbox" class="mt-1 size-3.5" />
+                                <span>
+                                    <span class="font-medium">Players submit a crew list</span>
+                                    <span class="block text-2xs text-muted-foreground">
+                                        Registered players attach one of their Crew Builder crews before the event starts; you see it, with size and
+                                        faction flags, on the Players tab.
+                                    </span>
+                                </span>
+                            </label>
                             <label class="flex items-start gap-2 text-sm">
                                 <input v-model="form.allow_self_report" type="checkbox" class="mt-1 size-3.5" />
                                 <span>

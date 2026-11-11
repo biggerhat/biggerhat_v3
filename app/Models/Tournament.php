@@ -48,6 +48,7 @@ class Tournament extends Model
             'allow_self_report' => 'boolean',
             'announced_at' => 'datetime',
             'registration_closes_at' => 'datetime',
+            'require_crew_lists' => 'boolean',
         ];
     }
 

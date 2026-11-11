@@ -46,6 +46,8 @@ individual events, with organizer notification) are done. **Deploy: run the new 
 
 **Status of the results summary (branch `tournament-results-nov11`):** F6 is done — a Final results card (podium, PDF sheet, shareable image, native share) on the public page of a completed event. Not done: side awards (F7).
 
+**Status of crew lists (branch `tournament-crew-lists-nov11`):** F10 is done for Malifaux-style individual events — players attach a saved Crew Builder crew, organizers see it with size/faction flags and can open it, and starting warns about missing lists. **Deploy: run the new migration** (`2026_11_17_100000_add_crew_lists_to_tournaments`). Not done: a full legality check against the Crew Builder's own rules (the flags here are advisory), showing opponents each other's lists, TOS Garrison parity (it already links by share code) and team events.
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

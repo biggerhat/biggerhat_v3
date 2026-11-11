@@ -84,6 +84,7 @@ interface TournamentData {
     announced_at?: string | null;
     team_size?: number;
     max_players?: number | null;
+    require_crew_lists?: boolean;
     registration_closes_at?: string | null;
     registration_closed?: boolean;
     scoring_config?: Record<string, unknown> | null;
@@ -190,6 +191,12 @@ watch(activeTab, (tab) => {
 const reloadPage = () => reloadProps(['tournament', 'standings']);
 const announcementOpen = ref(false);
 const playersTab = ref<InstanceType<typeof ManagePlayersTab> | null>(null);
+// Starting locks the lists, so this is the moment to notice who hasn't submitted one.
+const withoutCrewList = computed(() =>
+    props.tournament.require_crew_lists && props.tournament.status === 'registration'
+        ? props.tournament.players.filter((p) => !p.crew && !p.is_ringer && !p.is_disqualified)
+        : [],
+);
 const waitlistCount = computed(() => props.tournament.rsvps?.filter((r) => r.waitlist_position).length ?? 0);
 const roundsTab = ref<InstanceType<typeof ManageRoundsTab> | null>(null);
 
@@ -763,6 +770,10 @@ const isEditable = computed(() => !isLocked.value);
             <DialogHeader>
                 <DialogTitle>{{ statusTransitions[tournament.status]?.label }}</DialogTitle>
                 <DialogDescription>Are you sure? This will advance the tournament to the next phase.</DialogDescription>
+                <p v-if="withoutCrewList.length" class="text-sm text-amber-700 dark:text-amber-400" role="status">
+                    {{ withoutCrewList.length }} player(s) haven't submitted a crew list yet:
+                    {{ withoutCrewList.map((p) => p.display_name).join(', ') }}. Lists lock when the tournament starts.
+                </p>
             </DialogHeader>
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="outline" @click="confirmStatusDialog = false">Cancel</Button>

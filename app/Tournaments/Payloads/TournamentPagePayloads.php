@@ -6,7 +6,9 @@ use App\Enums\DeploymentEnum;
 use App\Enums\EncounterTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PoolSeasonEnum;
+use App\Enums\TournamentStatusEnum;
 use App\Models\Character;
+use App\Models\CrewBuild;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\TOS\Allegiance;
@@ -15,6 +17,7 @@ use App\Models\TOS\Operation;
 use App\Models\Tournament;
 use App\Models\TournamentRound;
 use App\Services\TournamentStandingsService;
+use App\Tournaments\CrewListCheck;
 use Inertia\Inertia;
 
 /**
@@ -183,6 +186,7 @@ class TournamentPagePayloads
             'standings' => $standings,
             'factions' => FactionEnum::buildDetails(),
             'scheme_stats' => $schemeStats,
+            'crew_lists' => fn () => $this->crewListsFor($tournament),
         ];
     }
 
@@ -199,6 +203,7 @@ class TournamentPagePayloads
             'players.meta:id,name',
             'players.allegiance:id,slug,name',
             'players.garrison:id,name,share_code,is_public',
+            'players.crewBuild.master:id,display_name',
             'players.members.user:id,name',
             'players.members.allegiance:id,slug,name',
             'players.members.garrison:id,name,share_code,is_public',
@@ -218,6 +223,7 @@ class TournamentPagePayloads
         $standings = $this->standings->compute($tournament);
         $this->hidePrivateGarrisonCodes($tournament);
         $this->markWaitlist($tournament);
+        $this->markCrewLists($tournament);
 
         $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
@@ -413,7 +419,7 @@ class TournamentPagePayloads
         $playersById = $tournament->players->keyBy('id');
 
         foreach ($tournament->players as $player) {
-            $player->makeHidden('meta');
+            $player->makeHidden(['meta', 'crew_build_id']);
             $player->user?->makeHidden(['meta', 'meta_id']);
         }
 
@@ -434,6 +440,58 @@ class TournamentPagePayloads
     }
 
     /** A Garrison is public information at the event, but its share link only works when the owner made it public. */
+    /** Whether this event asks for Crew Builder lists: individual play under a faction-declaring ruleset. */
+    private function usesCrewLists(Tournament $tournament): bool
+    {
+        return ! $tournament->isTeamEvent() && $tournament->rulesetDefinition()->declaration === 'faction';
+    }
+
+    /** Organizer view: each player's submitted list with its flags (the build itself stays out of the payload). */
+    private function markCrewLists(Tournament $tournament): void
+    {
+        foreach ($tournament->players as $player) {
+            $player->setAttribute('crew', $this->usesCrewLists($tournament) ? CrewListCheck::summarize($tournament, $player) : null);
+            $player->makeHidden('crewBuild');
+        }
+    }
+
+    /**
+     * What a signed-in player needs to submit a list: their own saved crews and the one currently attached.
+     * Null for everyone else (guests, spectators, events that don't use lists).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function crewListsFor(Tournament $tournament): ?array
+    {
+        $viewer = request()->user();
+        if ($viewer === null || ! $this->usesCrewLists($tournament)) {
+            return null;
+        }
+
+        $player = $tournament->players->first(fn ($p) => in_array($viewer->id, $p->linkedUserIds(), true));
+        if ($player === null) {
+            return null;
+        }
+
+        $builds = CrewBuild::where('user_id', $viewer->id)->where('is_archived', false)->with('master:id,display_name')->orderBy('name')->get()
+            ->map(fn (CrewBuild $b) => [
+                'id' => $b->id,
+                'name' => $b->name,
+                'faction' => $b->faction->value,
+                'faction_label' => $b->faction->label(),
+                'master' => data_get($b, 'master.display_name'),
+                'encounter_size' => (int) $b->encounter_size,
+            ])->values();
+
+        return [
+            'required' => (bool) $tournament->require_crew_lists,
+            'open' => in_array($tournament->status, [TournamentStatusEnum::Draft, TournamentStatusEnum::Registration], true),
+            'selected_id' => $player->getRawOriginal('crew_build_id') !== null ? (int) $player->getRawOriginal('crew_build_id') : null,
+            'declared_faction' => $player->getRawOriginal('faction'),
+            'builds' => $builds,
+        ];
+    }
+
     /** Tell each RSVP where it stands under the player limit (null = has a seat). */
     private function markWaitlist(Tournament $tournament): void
     {

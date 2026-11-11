@@ -6,6 +6,7 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
 import AnnouncementBanner from '@/components/Tournament/AnnouncementBanner.vue';
+import CrewListPicker from '@/components/Tournament/CrewListPicker.vue';
 import ResultsCard from '@/components/Tournament/ResultsCard.vue';
 import PairingRow from '@/components/Tournament/PairingRow.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
@@ -145,6 +146,14 @@ const props = defineProps<{
     rounds: ViewRound[];
     standings: StandingEntry[];
     factions: Record<string, FactionInfo>;
+    /** The signed-in player's crew picker data; null for everyone else or when the event doesn't use lists. */
+    crew_lists?: {
+        required: boolean;
+        open: boolean;
+        selected_id: number | null;
+        declared_faction: string | null;
+        builds: { id: number; name: string; faction: string; faction_label: string; master: string | null; encounter_size: number }[];
+    } | null;
     scheme_stats: { most_scored: { id: number; name: string; total_points: number; scoring_turns: number } } | null;
 }>();
 
@@ -592,6 +601,13 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     after round {{ myPlayerRecord.dropped_after_round }}</template
                 >.
             </p>
+            <CrewListPicker
+                v-if="crew_lists && !dropped"
+                :tournament-uuid="tournament.uuid"
+                :event-size="tournament.encounter_size"
+                :crew-lists="crew_lists"
+            />
+
             <MyMatchCard
                 v-if="myMatch && myPlayerId && tournament.status === 'active'"
                 :round="myMatch.round"

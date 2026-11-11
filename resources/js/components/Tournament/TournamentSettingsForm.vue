@@ -33,6 +33,7 @@ const props = defineProps<{
         allow_self_report?: boolean;
         team_size?: number;
         max_players?: number | null;
+        require_crew_lists?: boolean;
         registration_closes_at?: string | null;
         scoring_config?: Record<string, unknown> | null;
         [key: string]: unknown;
@@ -61,6 +62,7 @@ const editByeTp = ref(props.ruleset.scoring.bye_tp);
 const editByeDiff = ref(props.ruleset.scoring.bye_diff);
 const editByeVp = ref(props.ruleset.scoring.bye_vp);
 const editAllowSelfReport = ref(!!props.tournament.allow_self_report);
+const editRequireCrewLists = ref(!!props.tournament.require_crew_lists);
 const editTeamSize = ref(props.tournament.team_size ?? 1);
 // <input type=datetime-local> wants local "YYYY-MM-DDTHH:mm"; the server speaks UTC ISO strings.
 const toLocalInput = (iso?: string | null) => {
@@ -94,6 +96,7 @@ const saveSettings = async () => {
         bye_vp: editByeVp.value === props.ruleset.default_scoring.bye_vp ? null : editByeVp.value,
         variants: editVariants.value,
         allow_self_report: editAllowSelfReport.value,
+        require_crew_lists: editRequireCrewLists.value,
         max_players: editMaxPlayers.value.trim() === '' ? null : Number(editMaxPlayers.value),
         registration_closes_at: editClosesAt.value ? new Date(editClosesAt.value).toISOString() : null,
         ...(props.canChangeTeamSize ? { team_size: editTeamSize.value } : {}),
@@ -208,6 +211,16 @@ const saveSettings = async () => {
                         <p class="text-2xs text-muted-foreground">After this, new RSVPs are refused (cancelling still works).</p>
                     </div>
                 </div>
+                <label v-if="ruleset.declaration === 'faction' && editTeamSize === 1" class="flex items-start gap-2 text-sm">
+                    <input v-model="editRequireCrewLists" type="checkbox" class="mt-1 size-3.5" />
+                    <span>
+                        <span class="font-medium">Players submit a crew list</span>
+                        <span class="block text-2xs text-muted-foreground">
+                            Registered players attach one of their Crew Builder crews before the event starts; you see it (with size and faction
+                            flags) on the Players tab. Locks when you start.
+                        </span>
+                    </span>
+                </label>
                 <label class="flex items-start gap-2 text-sm">
                     <input v-model="editAllowSelfReport" type="checkbox" class="mt-1 size-3.5" />
                     <span>

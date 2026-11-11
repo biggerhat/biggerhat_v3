@@ -35,7 +35,7 @@ class TournamentCheckInController extends Controller
             return back()->withErrors(['check_in' => 'Check-in isn’t open for this tournament.']);
         }
 
-        $player = TournamentPlayer::where('tournament_id', $tournament->id)->where('user_id', Auth::id())->first();
+        $player = TournamentPlayer::where('tournament_id', $tournament->id)->forUser((int) Auth::id())->first();
         abort_if($player === null || $player->is_disqualified, 403, 'You are not a player in this tournament.');
 
         $player->update(['checked_in_at' => $checkedIn ? ($player->checked_in_at ?? now()) : null]);

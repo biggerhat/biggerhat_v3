@@ -3600,6 +3600,7 @@ namespace App\Models{
  * @property int $bye_tp
  * @property int $bye_diff
  * @property int $bye_vp
+ * @property int $team_size
  * @property \App\Enums\TournamentTiebreakerEnum $tiebreaker_mode
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -3732,6 +3733,34 @@ namespace App\Models{
  * 
  *
  * @property int $id
+ * @property int $tournament_player_id
+ * @property string $display_name
+ * @property int|null $user_id
+ * @property \App\Enums\FactionEnum|null $faction
+ * @property int|null $allegiance_id
+ * @property int|null $garrison_id
+ * @property int $position
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\TOS\Allegiance|null $allegiance
+ * @property-read \App\Models\TOS\Garrison|null $garrison
+ * @property-read \App\Models\TournamentPlayer $team
+ * @property-read \App\Models\User|null $user
+ * @method static \Database\Factories\TournamentPlayerMemberFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayerMember newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayerMember newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TournamentPlayerMember query()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperTournamentPlayerMember {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
  * @property int $tournament_id
  * @property int|null $user_id
  * @property int|null $meta_id
@@ -3749,6 +3778,8 @@ namespace App\Models{
  * @property-read int|null $activities_count
  * @property-read \App\Models\TOS\Allegiance|null $allegiance
  * @property-read \App\Models\TOS\Garrison|null $garrison
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentPlayerMember> $members
+ * @property-read int|null $members_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerOne
  * @property-read int|null $games_as_player_one_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerTwo

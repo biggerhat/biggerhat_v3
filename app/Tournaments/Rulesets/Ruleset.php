@@ -68,6 +68,8 @@ final class Ruleset
          * @var array{last_turn_minutes: int, last_turn: string|null, time_called: string|null} $timeRules
          */
         public readonly array $timeRules = ['last_turn_minutes' => 15, 'last_turn' => null, 'time_called' => null],
+        /** Whether events under this ruleset can be run as team events (teams of 2–4 playing together). */
+        public readonly bool $supportsTeams = true,
     ) {}
 
     /** @return array<string, array{key: string, label: string, description: string, param: array{label: string, min: int, max: int, default: int}|null}> */
@@ -114,6 +116,7 @@ final class Ruleset
             'supports_tracker' => $this->supportsTracker,
             'variants' => $this->variants,
             'time_rules' => $this->timeRules,
+            'supports_teams' => $this->supportsTeams,
         ];
     }
 

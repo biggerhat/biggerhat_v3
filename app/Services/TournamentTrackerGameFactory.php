@@ -29,7 +29,8 @@ class TournamentTrackerGameFactory
      */
     public function createForRound(Tournament $tournament, TournamentRound $round): void
     {
-        if (! $tournament->rulesetDefinition()->supportsTracker) {
+        // The Game Tracker is a 1v1 tool, so rulesets without it and team events never spawn tracker games.
+        if (! $tournament->rulesetDefinition()->supportsTracker || $tournament->isTeamEvent()) {
             return;
         }
 

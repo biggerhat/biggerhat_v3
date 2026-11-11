@@ -6,6 +6,7 @@ use App\Enums\FactionEnum;
 use App\Models\TOS\Allegiance;
 use App\Models\TOS\Garrison;
 use App\Traits\LogsCreationActivity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,6 +52,35 @@ class TournamentPlayer extends Model
     public function garrison(): BelongsTo
     {
         return $this->belongsTo(Garrison::class, 'garrison_id');
+    }
+
+    /**
+     * Team events: the people on this team, in seat order. Empty for individual players.
+     *
+     * @return HasMany<TournamentPlayerMember, $this>
+     */
+    public function members(): HasMany
+    {
+        return $this->hasMany(TournamentPlayerMember::class)->orderBy('position')->orderBy('id');
+    }
+
+    /** Competitors a given account plays for: as the player themself, or as a member of the team. */
+    public function scopeForUser(Builder $query, int $userId): Builder
+    {
+        return $query->where(fn ($q) => $q->where('user_id', $userId)
+            ->orWhereHas('members', fn ($m) => $m->where('user_id', $userId)));
+    }
+
+    /**
+     * Every account tied to this competitor — the player's own, plus each team member's.
+     *
+     * @return list<int>
+     */
+    public function linkedUserIds(): array
+    {
+        $ids = $this->members->pluck('user_id')->push($this->user_id)->filter()->unique()->values()->all();
+
+        return array_map('intval', $ids);
     }
 
     public function meta(): BelongsTo

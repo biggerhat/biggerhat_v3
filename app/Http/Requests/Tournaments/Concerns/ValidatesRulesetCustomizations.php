@@ -36,6 +36,20 @@ trait ValidatesRulesetCustomizations
     }
 
     /**
+     * A team size above 1 needs a ruleset that supports team events.
+     *
+     * @return callable(ValidatorContract): void
+     */
+    protected function validateTeamSize(): callable
+    {
+        return function (ValidatorContract $validator): void {
+            if ((int) $this->input('team_size', 1) > 1 && ! $this->rulesetForCustomizations()->supportsTeams) {
+                $validator->errors()->add('team_size', 'This format can’t be run as a team event.');
+            }
+        };
+    }
+
+    /**
      * Every enabled variant must exist in the ruleset's catalog; parameterised variants need a number in range.
      *
      * @return callable(ValidatorContract): void

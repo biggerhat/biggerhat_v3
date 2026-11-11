@@ -132,7 +132,8 @@ class TournamentGameReportController extends Controller
     /** The signed-in user's seat in this game, or 403. */
     private function myPlayer(TournamentGame $game): TournamentPlayer
     {
-        $player = TournamentPlayer::where('user_id', Auth::id())
+        // The competitor row the user plays for: themself, or the team they're a member of.
+        $player = TournamentPlayer::forUser((int) Auth::id())
             ->whereIn('id', array_filter([$game->player_one_id, $game->player_two_id]))
             ->first();
 

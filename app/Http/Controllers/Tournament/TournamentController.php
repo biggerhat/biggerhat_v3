@@ -99,6 +99,8 @@ class TournamentController extends Controller
             'players.meta:id,name',
             'players.allegiance:id,slug,name',
             'players.garrison:id,name,share_code,is_public',
+            'players.members.allegiance:id,slug,name',
+            'players.members.garrison:id,name,share_code,is_public',
             'rsvps.user:id,name',
             'rsvps.allegiance:id,slug,name',
             'rounds.games.playerOne:id,display_name,faction,user_id',
@@ -284,6 +286,7 @@ class TournamentController extends Controller
                     'tiebreaker_mode' => $tiebreaker->value,
                     'variants' => $source->activeVariants(),
                     'allow_self_report' => (bool) $source->allow_self_report,
+                    'team_size' => (int) $source->team_size,
                     'scoring_config' => $source->scoring_config,
                 ];
             }
@@ -340,6 +343,8 @@ class TournamentController extends Controller
             'players.meta:id,name',
             'players.allegiance:id,slug,name',
             'players.garrison:id,name,share_code,is_public',
+            'players.members.allegiance:id,slug,name',
+            'players.members.garrison:id,name,share_code,is_public',
             'rsvps.user:id,name',
             'rsvps.allegiance:id,slug,name',
             'rounds.games.playerOne:id,display_name,faction,user_id',
@@ -561,8 +566,10 @@ class TournamentController extends Controller
     private function hidePrivateGarrisonCodes(Tournament $tournament): void
     {
         foreach ($tournament->players as $player) {
-            if ($player->garrison && ! $player->garrison->is_public) {
-                $player->garrison->makeHidden('share_code');
+            foreach ([$player, ...$player->members] as $competitor) {
+                if ($competitor->garrison && ! $competitor->garrison->is_public) {
+                    $competitor->garrison->makeHidden('share_code');
+                }
             }
         }
     }
@@ -572,6 +579,8 @@ class TournamentController extends Controller
         return [
             ...$tournament->rulesetDefinition()->toArray(),
             'default_scoring' => $tournament->rulesetDefinition()->scoring->toArray(),
+            // One leader per side makes no sense when a side is a team.
+            'tracks_leaders' => $tournament->rulesetDefinition()->tracksLeaders && ! $tournament->isTeamEvent(),
             'default_tiebreakers' => $tournament->rulesetDefinition()->tiebreakers,
             'active_variants' => $tournament->activeVariants(),
             // True when the TO changed the format's scoring (shown to players so nobody is surprised).
@@ -670,6 +679,10 @@ class TournamentController extends Controller
         }
 
         $validated = $this->normalizeCustomizations($request->validated(), $tournament->rulesetDefinition());
+
+        if (isset($validated['team_size']) && (int) $validated['team_size'] !== (int) $tournament->team_size && $tournament->players()->exists()) {
+            return response()->json(['error' => 'Remove the existing players before switching between individual and team play.'], 422);
+        }
 
         $tournament->update($validated);
 

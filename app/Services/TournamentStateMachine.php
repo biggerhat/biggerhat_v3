@@ -153,9 +153,23 @@ class TournamentStateMachine
         $ruleset = $tournament->rulesetDefinition();
         if ($ruleset->requiresDeclaration && $ruleset->declaration !== 'none') {
             $column = $ruleset->declaration === 'allegiance' ? 'allegiance_id' : 'faction';
-            $missing = $tournament->players()->whereNull($column)->count();
-            if ($missing > 0) {
-                return "{$missing} player(s) missing ".($ruleset->declaration === 'allegiance' ? 'allegiance' : 'faction').' selection';
+            $noun = $ruleset->declaration === 'allegiance' ? 'allegiance' : 'faction';
+
+            if ($tournament->isTeamEvent()) {
+                // Each person on a team declares for themself; a team is ready when every seat is filled and declared.
+                $incomplete = $tournament->players()->where('is_ringer', false)->withCount('members')
+                    ->withCount(['members as undeclared_count' => fn ($q) => $q->whereNull($column)])
+                    ->get()
+                    ->filter(fn ($team) => (int) $team->getAttribute('members_count') < $tournament->team_size || (int) $team->getAttribute('undeclared_count') > 0)
+                    ->count();
+                if ($incomplete > 0) {
+                    return "{$incomplete} team(s) incomplete — every member needs a name and a {$noun}";
+                }
+            } else {
+                $missing = $tournament->players()->whereNull($column)->count();
+                if ($missing > 0) {
+                    return "{$missing} player(s) missing {$noun} selection";
+                }
             }
         }
 

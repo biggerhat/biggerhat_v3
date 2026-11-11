@@ -3,12 +3,17 @@
 namespace App\Http\Requests\Tournaments;
 
 use App\Enums\FactionEnum;
+use App\Http\Requests\Tournaments\Concerns\ValidatesTeamMembers;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class TournamentPlayerUpdateRequest extends FormRequest
 {
+    use ValidatesTeamMembers {
+        validateTeamSize as private validateMembersCount;
+    }
+
     /**
      * Ownership/policy checks run here so they precede validation (matching the old controller order).
      */
@@ -37,7 +42,14 @@ class TournamentPlayerUpdateRequest extends FormRequest
             'user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
             'meta_id' => ['sometimes', 'nullable', 'integer', 'exists:metas,id'],
             'meta_name' => ['sometimes', 'nullable', 'string', 'max:100'],
+            ...$this->memberRules(requireDeclaration: false),
 
         ];
+    }
+
+    /** @return array<int, callable(\Illuminate\Contracts\Validation\Validator): void> */
+    public function after(): array
+    {
+        return [$this->validateMembersCount()];
     }
 }

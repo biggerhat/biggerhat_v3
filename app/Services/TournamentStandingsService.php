@@ -33,7 +33,7 @@ class TournamentStandingsService
      */
     public function compute(Tournament $tournament): array
     {
-        $tournament->loadMissing(['players.allegiance:id,slug,name', 'rounds.games']);
+        $tournament->loadMissing(['players.allegiance:id,slug,name', 'players.members:id,tournament_player_id,display_name,position', 'rounds.games']);
 
         $players = $tournament->players->where('is_disqualified', false);
         $allGames = $tournament->rounds->flatMap(fn ($round) => $round->games);
@@ -75,6 +75,7 @@ class TournamentStandingsService
                 'display_name' => $player->display_name,
                 'user_id' => $player->user_id,
                 'faction' => $player->getRawOriginal('faction'),
+                'members' => $player->members->pluck('display_name')->values()->all(),
                 'allegiance' => $player->allegiance ? ['slug' => $player->allegiance->slug, 'name' => $player->allegiance->name] : null,
                 'is_ringer' => $player->is_ringer,
                 'is_dropped' => $player->dropped_after_round !== null,

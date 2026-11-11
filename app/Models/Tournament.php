@@ -208,6 +208,12 @@ class Tournament extends Model
         );
     }
 
+    /** A team event pairs and ranks teams of `team_size` people instead of individuals. */
+    public function isTeamEvent(): bool
+    {
+        return (int) ($this->attributes['team_size'] ?? 1) > 1;
+    }
+
     public function ringerPlayer(): ?TournamentPlayer
     {
         return $this->players()->where('is_ringer', true)->first(); // @phpstan-ignore return.type

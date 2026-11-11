@@ -11,9 +11,12 @@ use App\Http\Requests\Tournaments\TournamentPlayerUpdateRequest;
 use App\Models\TOS\Garrison;
 use App\Models\Tournament;
 use App\Models\TournamentPlayer;
+use App\Models\TournamentPlayerMember;
 use App\Models\User;
 use App\Notifications\Tournament\TournamentPlayerRegistered;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class TournamentPlayerController extends Controller
 {
@@ -44,6 +47,8 @@ class TournamentPlayerController extends Controller
         }
 
         $validated = $request->validated();
+        $members = $validated['members'] ?? null;
+        unset($validated['members']);
 
         $this->resolveMetaFromName($validated);
 
@@ -55,24 +60,32 @@ class TournamentPlayerController extends Controller
             return response()->json(['error' => 'Tournament already has a ringer'], 422);
         }
 
-        if (! empty($validated['user_id'])
-            && $tournament->players()->where('user_id', $validated['user_id'])->exists()) {
+        if (! empty($validated['user_id']) && $this->userAlreadyCompeting($tournament, (int) $validated['user_id'])) {
             return response()->json(['error' => 'That user is already linked to another player in this tournament'], 422);
         }
 
-        $player = TournamentPlayer::create([
-            'tournament_id' => $tournament->id,
-            'display_name' => $validated['display_name'],
-            'user_id' => $validated['user_id'] ?? null,
-            'meta_id' => $validated['meta_id'] ?? null,
-            'faction' => $validated['faction'] ?? null,
-            'allegiance_id' => $validated['allegiance_id'] ?? null,
-            'garrison_id' => $validated['garrison_id'] ?? null,
-            'is_ringer' => $validated['is_ringer'] ?? false,
-        ]);
+        // A failed member sync throws an HttpResponseException, which rolls the whole transaction back.
+        $player = DB::transaction(function () use ($tournament, $validated, $members): TournamentPlayer {
+            $player = TournamentPlayer::create([
+                'tournament_id' => $tournament->id,
+                'display_name' => $validated['display_name'],
+                'user_id' => $validated['user_id'] ?? null,
+                'meta_id' => $validated['meta_id'] ?? null,
+                'faction' => $validated['faction'] ?? null,
+                'allegiance_id' => $validated['allegiance_id'] ?? null,
+                'garrison_id' => $validated['garrison_id'] ?? null,
+                'is_ringer' => $validated['is_ringer'] ?? false,
+            ]);
 
-        if ($player->user_id) {
-            User::find($player->user_id)?->notify(new TournamentPlayerRegistered($player));
+            if ($members !== null && ($error = $this->syncMembers($tournament, $player, $members)) !== null) {
+                throw new HttpResponseException($error);
+            }
+
+            return $player;
+        });
+
+        foreach ($player->load('members')->linkedUserIds() as $userId) {
+            User::find($userId)?->notify(new TournamentPlayerRegistered($player));
         }
 
         $this->broadcastUpdate($tournament, 'player_added');
@@ -85,6 +98,8 @@ class TournamentPlayerController extends Controller
         $this->authorize('manage', $tournament);
 
         $validated = $request->validated();
+        $members = $validated['members'] ?? null;
+        unset($validated['members']);
 
         $this->resolveMetaFromName($validated);
 
@@ -92,14 +107,9 @@ class TournamentPlayerController extends Controller
             return $error;
         }
 
-        if (array_key_exists('user_id', $validated) && $validated['user_id'] !== null) {
-            $conflict = $tournament->players()
-                ->where('user_id', $validated['user_id'])
-                ->where('id', '!=', $player->id)
-                ->exists();
-            if ($conflict) {
-                return response()->json(['error' => 'That user is already linked to another player in this tournament'], 422);
-            }
+        if (array_key_exists('user_id', $validated) && $validated['user_id'] !== null
+            && $this->userAlreadyCompeting($tournament, (int) $validated['user_id'], exceptPlayerId: $player->id)) {
+            return response()->json(['error' => 'That user is already linked to another player in this tournament'], 422);
         }
 
         if (! empty($validated['is_ringer']) && ! $player->is_ringer
@@ -116,7 +126,13 @@ class TournamentPlayerController extends Controller
             unset($validated['checked_in']);
         }
 
-        $player->update($validated);
+        DB::transaction(function () use ($tournament, $player, $validated, $members): void {
+            $player->update($validated);
+
+            if ($members !== null && ($error = $this->syncMembers($tournament, $player, $members)) !== null) {
+                throw new HttpResponseException($error);
+            }
+        });
 
         $this->broadcastUpdate($tournament, 'player_updated');
 
@@ -159,6 +175,67 @@ class TournamentPlayerController extends Controller
         $this->broadcastUpdate($tournament, 'player_removed');
 
         return response()->json(['success' => true]);
+    }
+
+    /** Whether an account already plays in this event — as a player, or as a member of any team. */
+    private function userAlreadyCompeting(Tournament $tournament, int $userId, ?int $exceptPlayerId = null, ?int $exceptMemberId = null): bool
+    {
+        return $tournament->players()->where('user_id', $userId)->when($exceptPlayerId, fn ($q) => $q->where('id', '!=', $exceptPlayerId))->exists()
+            || TournamentPlayerMember::where('user_id', $userId)
+                ->whereHas('team', fn ($q) => $q->where('tournament_id', $tournament->id))
+                ->when($exceptMemberId, fn ($q) => $q->where('id', '!=', $exceptMemberId))
+                ->exists();
+    }
+
+    /**
+     * Make a team's members match the submitted list: members with an `id` are updated in place (so an
+     * unchanged private Garrison stays linked), new ones are created, and any not submitted are removed.
+     * Returns an error response (caller rolls back) or null.
+     *
+     * @param  list<array<string, mixed>>  $members
+     */
+    private function syncMembers(Tournament $tournament, TournamentPlayer $team, array $members): ?JsonResponse
+    {
+        $existing = $team->members()->get()->keyBy('id');
+        $keep = [];
+
+        foreach (array_values($members) as $position => $data) {
+            $member = isset($data['id']) ? $existing->get($data['id']) : null;
+            if (isset($data['id']) && $member === null) {
+                return response()->json(['error' => 'One of those team members no longer exists — reload and try again.'], 422);
+            }
+
+            $userId = $data['user_id'] ?? null;
+            if ($userId !== null && $this->userAlreadyCompeting($tournament, (int) $userId, exceptPlayerId: $team->id, exceptMemberId: $member?->id)) {
+                return response()->json(['error' => 'That user is already linked to another player in this tournament'], 422);
+            }
+
+            if ($error = $this->resolveGarrison($data, $userId, $data['allegiance_id'] ?? $member?->allegiance_id)) {
+                return $error;
+            }
+
+            $attributes = [
+                'display_name' => $data['display_name'],
+                'user_id' => $userId,
+                'position' => $position,
+            ];
+            foreach (['faction', 'allegiance_id', 'garrison_id'] as $field) {
+                if (array_key_exists($field, $data)) {
+                    $attributes[$field] = $data[$field];
+                }
+            }
+
+            if ($member) {
+                $member->update($attributes);
+            } else {
+                $member = $team->members()->create($attributes);
+            }
+            $keep[] = $member->id;
+        }
+
+        $team->members()->whereNotIn('id', $keep)->delete();
+
+        return null;
     }
 
     /**

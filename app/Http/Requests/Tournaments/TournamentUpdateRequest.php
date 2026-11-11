@@ -46,6 +46,8 @@ class TournamentUpdateRequest extends FormRequest
             'bye_vp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
             'allow_self_report' => ['sometimes', 'boolean'],
+            // 1 = individuals; 2–4 = teams of that size (the ruleset must support teams).
+            'team_size' => ['sometimes', 'integer', 'min:1', 'max:4'],
             ...$this->customizationRules(),
 
         ];
@@ -54,7 +56,7 @@ class TournamentUpdateRequest extends FormRequest
     /** @return array<int, callable(\Illuminate\Contracts\Validation\Validator): void> */
     public function after(): array
     {
-        return [$this->validateVariants()];
+        return [$this->validateVariants(), $this->validateTeamSize()];
     }
 
     protected function rulesetForCustomizations(): Ruleset

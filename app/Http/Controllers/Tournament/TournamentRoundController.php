@@ -275,19 +275,24 @@ class TournamentRoundController extends Controller
             ->whereNotNull('player_one_id')
             ->whereNotNull('player_two_id')
             ->where('is_bye', false)
-            ->with(['playerOne:id,user_id,display_name', 'playerTwo:id,user_id,display_name'])
+            ->with([
+                'playerOne:id,user_id,display_name', 'playerOne.members:id,tournament_player_id,user_id',
+                'playerTwo:id,user_id,display_name', 'playerTwo.members:id,tournament_player_id,user_id',
+            ])
             ->get();
 
-        // One query for every player's account instead of a find() per seat.
-        $users = User::whereIn('id', $pairedGames->flatMap(fn (TournamentGame $g) => [$g->playerOne->user_id, $g->playerTwo->user_id])->filter()->unique())
+        // One query for every account involved (players and team members) instead of a find() per seat.
+        $users = User::whereIn('id', $pairedGames->flatMap(fn (TournamentGame $g) => [...$g->playerOne->linkedUserIds(), ...$g->playerTwo->linkedUserIds()])->unique())
             ->get()
             ->keyBy('id');
 
         $pairedGames->each(function (TournamentGame $game) use ($tournament, $round, $users) {
-            $users->get($game->playerOne->user_id)
-                ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name, $game->table_number));
-            $users->get($game->playerTwo->user_id)
-                ?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name, $game->table_number));
+            foreach ($game->playerOne->linkedUserIds() as $userId) {
+                $users->get($userId)?->notify(new TournamentRoundPaired($tournament, $round, $game->playerTwo->display_name, $game->table_number));
+            }
+            foreach ($game->playerTwo->linkedUserIds() as $userId) {
+                $users->get($userId)?->notify(new TournamentRoundPaired($tournament, $round, $game->playerOne->display_name, $game->table_number));
+            }
         });
 
         $this->broadcastUpdate($tournament, 'pairings_generated');

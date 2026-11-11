@@ -6,7 +6,8 @@ use App\Enums\DeploymentEnum;
 use App\Enums\EncounterTypeEnum;
 use App\Enums\FactionEnum;
 use App\Enums\PoolSeasonEnum;
-use App\Enums\TournamentStatusEnum;
+use App\Enums\TournamentGameResultEnum;
+use App\Enums\TournamentRoundStatusEnum;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Scheme;
@@ -176,6 +177,9 @@ class TournamentPagePayloads
         }
 
         // Unset loaded rounds to avoid double-serializing alongside roundsData.
+        // Needs the rounds' games, so it is worked out before they are unset below.
+        $crewLists = $this->crewListsFor($tournament);
+
         $tournament->unsetRelation('rounds');
 
         return [
@@ -186,7 +190,7 @@ class TournamentPagePayloads
             'standings' => $standings,
             'factions' => FactionEnum::buildDetails(),
             'scheme_stats' => $schemeStats,
-            'crew_lists' => fn () => $this->crewListsFor($tournament),
+            'crew_lists' => $crewLists,
         ];
     }
 
@@ -203,7 +207,8 @@ class TournamentPagePayloads
             'players.meta:id,name',
             'players.allegiance:id,slug,name',
             'players.garrison:id,name,share_code,is_public',
-            'players.crewBuild.master:id,display_name',
+            'rounds.games.playerOneCrewBuild.master:id,name,display_name',
+            'rounds.games.playerTwoCrewBuild.master:id,name,display_name',
             'players.members.user:id,name',
             'players.members.allegiance:id,slug,name',
             'players.members.garrison:id,name,share_code,is_public',
@@ -419,7 +424,7 @@ class TournamentPagePayloads
         $playersById = $tournament->players->keyBy('id');
 
         foreach ($tournament->players as $player) {
-            $player->makeHidden(['meta', 'crew_build_id']);
+            $player->makeHidden('meta');
             $player->user?->makeHidden(['meta', 'meta_id']);
         }
 
@@ -446,18 +451,26 @@ class TournamentPagePayloads
         return ! $tournament->isTeamEvent() && $tournament->rulesetDefinition()->declaration === 'faction';
     }
 
-    /** Organizer view: each player's submitted list with its flags (the build itself stays out of the payload). */
+    /**
+     * Organizer view: the crew each side brings to each pairing, with its flags. The build itself stays out of the payload;
+     * only this summary (master, size, share link, problems) is sent.
+     */
     private function markCrewLists(Tournament $tournament): void
     {
-        foreach ($tournament->players as $player) {
-            $player->setAttribute('crew', $this->usesCrewLists($tournament) ? CrewListCheck::summarize($tournament, $player) : null);
-            $player->makeHidden('crewBuild');
+        $uses = $this->usesCrewLists($tournament);
+        foreach ($tournament->rounds as $round) {
+            foreach ($round->games as $game) {
+                $game->setAttribute('crew_one', $uses ? CrewListCheck::summarize($tournament, $game->playerOneCrewBuild, $game->player_one_faction) : null);
+                $game->setAttribute('crew_two', $uses ? CrewListCheck::summarize($tournament, $game->playerTwoCrewBuild, $game->player_two_faction) : null);
+                $game->makeHidden(['playerOneCrewBuild', 'playerTwoCrewBuild']);
+            }
         }
     }
 
     /**
-     * What a signed-in player needs to submit a list: their own saved crews and the one currently attached.
-     * Null for everyone else (guests, spectators, events that don't use lists).
+     * What a signed-in player needs to bring a crew to their current game: their own saved crews, and the one already
+     * attached. Crews change every round, so this is about the game in the round being set up or played. Null for
+     * everyone else (guests, spectators, byes, events that don't use crew lists).
      *
      * @return array<string, mixed>|null
      */
@@ -469,9 +482,27 @@ class TournamentPagePayloads
         }
 
         $player = $tournament->players->first(fn ($p) => in_array($viewer->id, $p->linkedUserIds(), true));
-        if ($player === null) {
+        if ($player === null || $player->dropped_after_round !== null) {
             return null;
         }
+
+        $current = null;
+        foreach ($tournament->rounds->sortByDesc('round_number') as $round) {
+            if ($round->status === TournamentRoundStatusEnum::Completed) {
+                continue;
+            }
+            $game = $round->games->first(fn ($g) => ! $g->is_bye && $g->player_two_id !== null && ($g->player_one_id === $player->id || $g->player_two_id === $player->id));
+            if ($game !== null) {
+                $current = [$round, $game];
+                break;
+            }
+        }
+        if ($current === null) {
+            return null;
+        }
+        [$round, $game] = $current;
+        $side = $game->player_one_id === $player->id ? 'one' : 'two';
+        $selected = $game->getRawOriginal("player_{$side}_crew_build_id");
 
         $builds = CrewBuild::where('user_id', $viewer->id)->where('is_archived', false)->with('master:id,display_name')->orderBy('name')->get()
             ->map(fn (CrewBuild $b) => [
@@ -484,10 +515,12 @@ class TournamentPagePayloads
             ])->values();
 
         return [
+            'game_id' => $game->id,
+            'round_number' => $round->round_number,
             'required' => (bool) $tournament->require_crew_lists,
-            'open' => in_array($tournament->status, [TournamentStatusEnum::Draft, TournamentStatusEnum::Registration], true),
-            'selected_id' => $player->getRawOriginal('crew_build_id') !== null ? (int) $player->getRawOriginal('crew_build_id') : null,
-            'declared_faction' => $player->getRawOriginal('faction'),
+            'open' => $game->result === TournamentGameResultEnum::Pending,
+            'selected_id' => $selected !== null ? (int) $selected : null,
+            'declared_faction' => $game->getRawOriginal("player_{$side}_faction") ?? $player->getRawOriginal('faction'),
             'builds' => $builds,
         ];
     }

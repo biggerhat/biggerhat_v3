@@ -6,8 +6,10 @@ import { router, usePage } from '@inertiajs/vue3';
 import { ClipboardList, Loader2 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
-/** A registered player attaches one of their saved Crew Builder lists for the organizers; it locks when the event starts. */
+/** A player attaches the saved Crew Builder crew they are bringing to this round's game; it can change every round and locks once the game has a result. */
 interface CrewListProps {
+    game_id: number;
+    round_number: number;
     required: boolean;
     open: boolean;
     selected_id: number | null;
@@ -34,7 +36,7 @@ const error = computed(() => (usePage().props.errors as Record<string, string> |
 const busy = ref(false);
 const send = (id: number | null) =>
     router.put(
-        route('tournaments.crew_list', props.tournamentUuid),
+        route('tournaments.games.crew', { tournament: props.tournamentUuid, game: props.crewLists.game_id }),
         { crew_build_id: id },
         { preserveScroll: true, onStart: () => (busy.value = true), onFinish: () => (busy.value = false) },
     );
@@ -44,10 +46,10 @@ const label = (b: CrewListProps['builds'][number]) => `${b.name}${b.master ? ` â
 <template>
     <Card class="mb-6" data-no-print>
         <CardContent class="space-y-3 p-4">
-            <div class="flex items-center gap-2 font-semibold"><ClipboardList class="size-4" /> Your crew list</div>
+            <div class="flex items-center gap-2 font-semibold"><ClipboardList class="size-4" /> Your crew for Round {{ crewLists.round_number }}</div>
 
             <p v-if="selected" class="text-sm">
-                Submitted: <span class="font-medium">{{ selected.name }}</span>
+                Bringing: <span class="font-medium">{{ selected.name }}</span>
                 <span v-if="selected.master" class="text-muted-foreground"> â€” {{ selected.master }}</span>
                 <span v-if="selected.encounter_size !== eventSize" class="text-amber-700 dark:text-amber-400">
                     (built for {{ selected.encounter_size }}ss; this event is {{ eventSize }}ss)
@@ -56,8 +58,8 @@ const label = (b: CrewListProps['builds'][number]) => `${b.name}${b.master ? ` â
             <p v-else class="text-sm text-muted-foreground">
                 {{
                     crewLists.required
-                        ? 'The organizer asks for your crew before the event starts.'
-                        : 'Optional â€” the organizer can see it if you share one.'
+                        ? 'The organizer asks you to pick the crew you are bringing to this game.'
+                        : 'Optional â€” the organizer can see the crew you bring if you pick one.'
                 }}
             </p>
 
@@ -71,7 +73,7 @@ const label = (b: CrewListProps['builds'][number]) => `${b.name}${b.master ? ` â
                     </Select>
                     <div class="flex gap-2">
                         <Button size="sm" :disabled="busy || !choice || !changed" @click="send(Number(choice))">
-                            <Loader2 v-if="busy" class="mr-1 size-3 animate-spin" /> {{ selected ? 'Update' : 'Submit' }}
+                            <Loader2 v-if="busy" class="mr-1 size-3 animate-spin" /> {{ selected ? 'Update' : 'Use this crew' }}
                         </Button>
                         <Button v-if="selected" size="sm" variant="ghost" :disabled="busy" @click="send(null)">Remove</Button>
                     </div>
@@ -84,7 +86,7 @@ const label = (b: CrewListProps['builds'][number]) => `${b.name}${b.master ? ` â
                 </p>
             </template>
             <p v-else class="text-xs text-muted-foreground">
-                Lists are locked now that the tournament has started. Ask the organizer if something needs to change.
+                This game has a result, so its crew is locked. Ask the organizer if something needs to change.
             </p>
 
             <p v-if="error" class="text-xs text-destructive" role="alert">{{ error }}</p>

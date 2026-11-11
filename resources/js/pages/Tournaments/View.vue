@@ -146,8 +146,10 @@ const props = defineProps<{
     rounds: ViewRound[];
     standings: StandingEntry[];
     factions: Record<string, FactionInfo>;
-    /** The signed-in player's crew picker data; null for everyone else or when the event doesn't use lists. */
+    /** The signed-in player's crew picker for their current game; null for everyone else, byes, or events that don't use crew lists. */
     crew_lists?: {
+        game_id: number;
+        round_number: number;
         required: boolean;
         open: boolean;
         selected_id: number | null;
@@ -606,13 +608,6 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     after round {{ myPlayerRecord.dropped_after_round }}</template
                 >.
             </p>
-            <CrewListPicker
-                v-if="crew_lists && !dropped"
-                :tournament-uuid="tournament.uuid"
-                :event-size="tournament.encounter_size"
-                :crew-lists="crew_lists"
-            />
-
             <MyMatchCard
                 v-if="myMatch && myPlayerId && tournament.status === 'active'"
                 :round="myMatch.round"
@@ -623,6 +618,13 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :players="tournament.players"
                 :allow-self-report="tournament.allow_self_report"
                 :score-fields="ruleset.score_fields"
+            />
+
+            <CrewListPicker
+                v-if="crew_lists && !dropped"
+                :tournament-uuid="tournament.uuid"
+                :event-size="tournament.encounter_size"
+                :crew-lists="crew_lists"
             />
             <div v-if="canWithdraw" class="-mt-3 mb-6 text-right" data-no-print>
                 <Button

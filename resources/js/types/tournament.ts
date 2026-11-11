@@ -16,7 +16,7 @@ const SCORED_RESULTS: readonly string[] = ['completed', 'agreed', 'forfeited'];
 /** Whether a result is official (scored, agreed or forfeited) rather than still waiting. */
 export const isScoredResult = (result: string | null | undefined): boolean => SCORED_RESULTS.includes(result ?? '');
 
-/** An organizer's view of a player's submitted Crew Builder list, with anything worth a second look. */
+/** An organizer's view of the Crew Builder crew a player brings to one game, with anything worth a second look. */
 export interface CrewListSummary {
     id: number;
     name: string;
@@ -40,8 +40,6 @@ export interface TournamentPlayer {
     is_ringer: boolean;
     is_disqualified: boolean;
     dropped_after_round: number | null;
-    /** Organizer payload only: the submitted crew list, if any. */
-    crew?: CrewListSummary | null;
 }
 
 export interface TournamentGame {
@@ -71,6 +69,9 @@ export interface TournamentGame {
     result: TournamentGameResult;
     table_number: number | null;
     is_manual?: boolean;
+    /** Organizer payload only: the crew each side is bringing to this game, with flags. */
+    crew_one?: CrewListSummary | null;
+    crew_two?: CrewListSummary | null;
     tracker_game?: {
         id: number;
         uuid: string;

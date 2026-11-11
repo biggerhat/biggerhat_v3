@@ -328,10 +328,10 @@ const submit = () => {
                             <label v-if="ruleset.declaration === 'faction' && form.team_size === 1" class="flex items-start gap-2 text-sm">
                                 <input v-model="form.require_crew_lists" type="checkbox" class="mt-1 size-3.5" />
                                 <span>
-                                    <span class="font-medium">Players submit a crew list</span>
+                                    <span class="font-medium">Players pick the crew they bring each round</span>
                                     <span class="block text-2xs text-muted-foreground">
-                                        Registered players attach one of their Crew Builder crews before the event starts; you see it, with size and
-                                        faction flags, on the Players tab.
+                                        Once a round is paired, players choose one of their Crew Builder crews for their game (it can change every
+                                        round); you see it, with size and faction flags, on the Rounds tab.
                                     </span>
                                 </span>
                             </label>

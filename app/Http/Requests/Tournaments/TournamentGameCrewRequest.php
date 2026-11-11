@@ -4,9 +4,9 @@ namespace App\Http\Requests\Tournaments;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class TournamentCrewListRequest extends FormRequest
+class TournamentGameCrewRequest extends FormRequest
 {
-    /** Ownership of the build and the player link are checked in the controller (they need the loaded models). */
+    /** Ownership of the build and the link to the pairing are checked in the controller (they need the loaded models). */
     public function authorize(): bool
     {
         return true;
@@ -17,7 +17,7 @@ class TournamentCrewListRequest extends FormRequest
      */
     public function rules(): array
     {
-        // null clears the submission.
+        // null clears the crew for this round.
         return ['crew_build_id' => ['present', 'nullable', 'integer']];
     }
 }

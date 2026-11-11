@@ -46,8 +46,8 @@ use App\Http\Controllers\Tournament\TournamentAnnouncementController;
 use App\Http\Controllers\Tournament\TournamentCalendarController;
 use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
-use App\Http\Controllers\Tournament\TournamentCrewListController;
 use App\Http\Controllers\Tournament\TournamentGameController;
+use App\Http\Controllers\Tournament\TournamentGameCrewController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
@@ -467,7 +467,6 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}/rsvp', [TournamentRsvpController::class, 'destroy'])->name('rsvp.cancel');
 
     // Check-in (players check themselves in; the TO does it from Manage)
-    Route::put('/{tournament}/crew-list', [TournamentCrewListController::class, 'update'])->name('crew_list');
     Route::post('/{tournament}/withdraw', [TournamentSelfDropController::class, 'store'])->name('withdraw');
     Route::post('/{tournament}/check-in', [TournamentCheckInController::class, 'store'])->name('check_in');
     Route::delete('/{tournament}/check-in', [TournamentCheckInController::class, 'destroy'])->name('check_in.cancel');
@@ -497,6 +496,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
     Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');
     // Player self-reporting (the opponent confirms or disputes; the TO's score entry always wins)
+    Route::put('/{tournament}/games/{game}/crew', [TournamentGameCrewController::class, 'update'])->name('games.crew');
     Route::post('/{tournament}/games/{game}/report', [TournamentGameReportController::class, 'store'])->name('games.report');
     Route::post('/{tournament}/games/{game}/report/confirm', [TournamentGameReportController::class, 'confirm'])->name('games.report.confirm');
     Route::post('/{tournament}/games/{game}/report/dispute', [TournamentGameReportController::class, 'dispute'])->name('games.report.dispute');

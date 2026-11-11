@@ -38,6 +38,8 @@ interface RoundsTournament {
     status: string;
     planned_rounds: number;
     round_time_limit: number;
+    team_size?: number;
+    require_crew_lists?: boolean;
     players: TournamentPlayer[];
     rounds: TournamentRound[];
 }
@@ -403,7 +405,29 @@ watch(
     { deep: true },
 );
 
+// Crews change every round, so the organizer is warned (not blocked) when someone hasn't said which one they're bringing.
+const crewNagNames = (round: TournamentRound): string[] => {
+    if (!props.tournament.require_crew_lists || props.ruleset.declaration !== 'faction' || (props.tournament.team_size ?? 1) > 1) return [];
+    const names: string[] = [];
+    for (const g of round.games) {
+        if (g.is_bye || !g.player_two) continue;
+        if (!g.crew_one) names.push(g.player_one.display_name);
+        if (!g.crew_two) names.push(g.player_two.display_name);
+    }
+    return names;
+};
+
 const startRound = async (roundId: number) => {
+    const round = props.tournament.rounds.find((r) => r.id === roundId);
+    const missing = round ? crewNagNames(round) : [];
+    if (missing.length) {
+        const proceed = await confirm({
+            title: `${missing.length} player(s) haven't chosen a crew`,
+            message: `${missing.join(', ')} ${missing.length === 1 ? "hasn't" : "haven't"} picked the crew they're bringing to Round ${round?.round_number}. They can still pick one until their game is scored.`,
+            confirmLabel: 'Start anyway',
+        });
+        if (!proceed) return;
+    }
     submitting.value = true;
     if (await doAction(route('tournaments.rounds.update', { tournament: props.tournament.uuid, round: roundId }), 'PUT', { status: 'in_progress' })) {
         reloadPage();
@@ -934,6 +958,38 @@ defineExpose({
                                     >
                                         <X class="size-3.5" />
                                     </button>
+                                </div>
+                            </div>
+                            <div
+                                v-if="game.crew_one || game.crew_two || crewNagNames(round).length"
+                                class="mt-1.5 grid gap-x-4 gap-y-0.5 border-t pt-1.5 text-2xs sm:grid-cols-2"
+                            >
+                                <div
+                                    v-for="side in [
+                                        ['crew_one', game.player_one],
+                                        ['crew_two', game.player_two],
+                                    ] as const"
+                                    :key="side[0]"
+                                    class="min-w-0"
+                                >
+                                    <template v-if="side[1] && !game.is_bye">
+                                        <a
+                                            v-if="game[side[0]]"
+                                            :href="route('tools.crew_builder.share', game[side[0]]!.share_code)"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="font-medium text-primary hover:underline"
+                                            >{{ side[1].display_name }}: {{ game[side[0]]!.master ?? game[side[0]]!.name }} ·
+                                            {{ game[side[0]]!.encounter_size }}ss</a
+                                        >
+                                        <span v-else class="text-amber-700 dark:text-amber-400">{{ side[1].display_name }}: no crew picked</span>
+                                        <span
+                                            v-for="problem in game[side[0]]?.problems ?? []"
+                                            :key="problem"
+                                            class="ml-2 text-amber-700 dark:text-amber-400"
+                                            >⚠ {{ problem }}</span
+                                        >
+                                    </template>
                                 </div>
                             </div>
                         </div>

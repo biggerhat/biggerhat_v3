@@ -37,11 +37,6 @@ class TournamentPlayer extends Model
         return $this->belongsTo(Tournament::class);
     }
 
-    public function crewBuild(): BelongsTo
-    {
-        return $this->belongsTo(CrewBuild::class);
-    }
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

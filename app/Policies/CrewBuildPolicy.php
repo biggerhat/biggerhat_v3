@@ -3,7 +3,7 @@
 namespace App\Policies;
 
 use App\Models\CrewBuild;
-use App\Models\TournamentPlayer;
+use App\Models\TournamentGame;
 use App\Models\User;
 
 /**
@@ -54,12 +54,13 @@ class CrewBuildPolicy
             || $this->isSubmittedToATournamentYouRun($user, $crewBuild);
     }
 
-    /** Attaching a list to a tournament shares it with that tournament's organizers, even when the build is private. */
+    /** Bringing a crew to a tournament game shares it with that tournament's organizers, even when the build is private. */
     private function isSubmittedToATournamentYouRun(User $user, CrewBuild $crewBuild): bool
     {
-        return TournamentPlayer::where('crew_build_id', $crewBuild->id)
-            ->with('tournament')
+        return TournamentGame::query()
+            ->where(fn ($q) => $q->where('player_one_crew_build_id', $crewBuild->id)->orWhere('player_two_crew_build_id', $crewBuild->id))
+            ->with('round.tournament')
             ->get()
-            ->contains(fn (TournamentPlayer $p) => $p->tournament !== null && $user->can('manage', $p->tournament));
+            ->contains(fn (TournamentGame $g) => $user->can('manage', $g->round->tournament));
     }
 }

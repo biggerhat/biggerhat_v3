@@ -91,13 +91,14 @@ A completed event leads with `ResultsCard.vue` on the public page: a podium (ran
 full standings with the ruleset's tiebreaker columns, organizer and link. **Image** — `lib/tournamentResultsImage.ts` draws a 1200x630 card on a canvas in the browser (nothing is uploaded) and the card
 downloads it; **Share** uses the native share sheet (with the image where the device allows files). The browser pass captures the download and checks it is a 1200x630 PNG.
 
-## Crew lists
-Individual events under a faction-declaring ruleset (Malifaux) can ask players for a Crew Builder list: `tournaments.require_crew_lists` (a setting) and `tournament_players.crew_build_id`.
-A registered player picks one of their own non-archived crews on the public page (`CrewListPicker`, `PUT tournaments.crew_list` -> `TournamentCrewListController`); it must match the faction they
-declared (a player with no faction takes the crew's), and it locks when the tournament starts (organizers can still ask for changes). The organizer's Manage payload carries a `crew` summary per player from
-`App\Tournaments\CrewListCheck` — master, size, and soft flags (faction mismatch, built for a different size, no master, empty crew) — while the build itself is never serialised and the public payload hides
-`crew_build_id`. Attaching a private build shares it with that tournament's organizers: `CrewBuildPolicy::viewShare` allows an organizer to open it. Starting the tournament warns who hasn't submitted one.
-TOS events use the Garrison link from the declaration instead; team events don't use lists.
+## Crews per round
+Gaining Grounds players bring a different crew every round, so a crew belongs to the **pairing**, not the player: `tournament_games.player_one_crew_build_id` / `player_two_crew_build_id` (the
+`require_crew_lists` setting only controls whether the organizer is nagged). Once a round is paired, a player in an individual event under a faction-declaring ruleset picks one of their own non-archived
+crews for their game (`CrewListPicker` on the public page, `PUT tournaments.games.crew` -> `TournamentGameCrewController`). It must match the faction they are playing, respects Alternating Leaders (a master
+can't be brought again in a later round), fills the pairing's master and title, and stays editable until the game has a result. The organizer's Manage payload carries `crew_one` / `crew_two` per game from
+`App\Tournaments\CrewListCheck` — master, size, and soft flags (faction mismatch, built for a different size, no master, empty crew) — shown under each pairing on the Rounds tab; the build itself is never
+serialised and the public payload hides the crew ids. Bringing a private build to a game shares it with that tournament's organizers (`CrewBuildPolicy::viewShare`). Start Round warns, without blocking, who hasn't
+picked one. TOS events use the Garrison link from the declaration instead; team events don't use crews.
 
 ## Tournament history on profiles
 `App\Tournaments\TournamentHistory::forUser()` builds a person's record from every **completed** event they played (as a player or a team member): placing and field size, W-L-T from the games (byes and unfinished games don't

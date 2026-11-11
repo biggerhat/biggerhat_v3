@@ -3773,7 +3773,6 @@ namespace App\Models{
  * @property \App\Enums\FactionEnum|null $faction
  * @property int|null $allegiance_id
  * @property int|null $garrison_id
- * @property int|null $crew_build_id
  * @property bool $is_ringer
  * @property bool $is_disqualified
  * @property \Illuminate\Support\Carbon|null $disqualified_at
@@ -3784,7 +3783,6 @@ namespace App\Models{
  * @property-read int|null $activities_count
  * @property-read \App\Models\TOS\Allegiance|null $allegiance
  * @property-read \App\Models\TOS\Garrison|null $garrison
- * @property-read \App\Models\CrewBuild|null $crewBuild
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentPlayerMember> $members
  * @property-read int|null $members_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TournamentGame> $gamesAsPlayerOne

@@ -28,7 +28,7 @@ import { csrfToken } from '@/lib/utils';
 import { factionSpine } from '@/composables/useFactionColor';
 import { useToast } from '@/composables/useToast';
 import { useTournament } from '@/composables/useTournament';
-import type { CrewListSummary, TeamMember, TeamMemberDraft, TournamentRuleset } from '@/types/tournament';
+import type { TeamMember, TeamMemberDraft, TournamentRuleset } from '@/types/tournament';
 
 /**
  * The organizer's Players tab: add / edit / drop / disqualify / check in players, set metas, link accounts,
@@ -65,7 +65,6 @@ interface TournamentPlayer {
     dropped_after_round: number | null;
     /** Team events: the people on this team. */
     members?: TeamMember[];
-    crew?: CrewListSummary | null;
 }
 
 // A fragment (the tab plus its dialogs): nothing should fall through onto the first root.
@@ -79,7 +78,6 @@ const props = defineProps<{
         rsvps?: Rsvp[];
         team_size?: number;
         max_players?: number | null;
-        require_crew_lists?: boolean;
         [key: string]: unknown;
     };
     ruleset: TournamentRuleset;
@@ -795,24 +793,6 @@ defineExpose({ openRsvpPlayerDialog });
                             }}<template v-if="m.allegiance"> ({{ m.allegiance.name }})</template
                             ><template v-else-if="m.faction && factions[m.faction]"> ({{ factions[m.faction].name }})</template>
                         </span>
-                    </div>
-                    <div v-if="player.crew" class="mt-0.5 pl-5 text-2xs">
-                        <a
-                            :href="route('tools.crew_builder.share', player.crew.share_code)"
-                            target="_blank"
-                            rel="noopener"
-                            class="font-medium text-primary hover:underline"
-                            >Crew: {{ player.crew.master ?? player.crew.name }} · {{ player.crew.encounter_size }}ss</a
-                        >
-                        <span v-for="problem in player.crew.problems" :key="problem" class="ml-2 text-amber-700 dark:text-amber-400"
-                            >⚠ {{ problem }}</span
-                        >
-                    </div>
-                    <div
-                        v-else-if="tournament.require_crew_lists && !player.is_ringer && !isTeamEvent"
-                        class="mt-0.5 pl-5 text-2xs text-amber-700 dark:text-amber-400"
-                    >
-                        No crew list submitted
                     </div>
                     <div v-if="opponents[player.id]?.length" class="mt-0.5 pl-5 text-2xs opacity-70">vs: {{ opponents[player.id].join(' · ') }}</div>
                 </div>

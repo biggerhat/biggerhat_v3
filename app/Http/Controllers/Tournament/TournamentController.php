@@ -71,6 +71,28 @@ class TournamentController extends Controller
 
     public function view(Tournament $tournament): Response|ResponseFactory
     {
+        return inertia('Tournaments/View', $this->viewProps($tournament));
+    }
+
+    /**
+     * Big-screen mode for a projector / TV at the venue: current round's pairings, scenario and clock,
+     * rotating with the standings. Public, like the view page, and fed by the same props.
+     */
+    public function display(Tournament $tournament): Response|ResponseFactory
+    {
+        $props = $this->viewProps($tournament);
+        unset($props['scheme_stats'], $props['allegiances']);
+
+        return inertia('Tournaments/Display', $props);
+    }
+
+    /**
+     * The public tournament payload shared by the view page and display mode.
+     *
+     * @return array<string, mixed>
+     */
+    private function viewProps(Tournament $tournament): array
+    {
         $tournament->load([
             'players.user:id,name,meta_id',
             'players.user.meta:id,name',
@@ -209,7 +231,7 @@ class TournamentController extends Controller
         // Unset loaded rounds to avoid double-serializing alongside roundsData.
         $tournament->unsetRelation('rounds');
 
-        return inertia('Tournaments/View', [
+        return [
             'tournament' => $tournament,
             'ruleset' => $this->rulesetPayload($tournament),
             'allegiances' => $this->allegianceOptions($tournament),
@@ -217,7 +239,7 @@ class TournamentController extends Controller
             'standings' => $standings,
             'factions' => FactionEnum::buildDetails(),
             'scheme_stats' => $schemeStats,
-        ]);
+        ];
     }
 
     public function create(Request $request): Response|ResponseFactory

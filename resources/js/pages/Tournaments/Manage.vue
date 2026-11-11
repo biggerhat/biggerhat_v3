@@ -54,6 +54,7 @@ import {
     ArrowRight,
     CalendarDays,
     Check,
+    MonitorPlay,
     ChevronDown,
     ChevronsUpDown,
     Copy,
@@ -1649,6 +1650,11 @@ const titlesForMaster = (masterName: string | null) => {
                     <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyPublicLink">
                         <Copy class="size-3" />
                         {{ linkCopied ? 'Copied!' : 'Share' }}
+                    </Button>
+                    <Button as-child variant="outline" size="sm" class="gap-1 text-xs">
+                        <a :href="route('tournaments.display', tournament.uuid)" target="_blank" rel="noopener"
+                            ><MonitorPlay class="size-3" /> Display</a
+                        >
                     </Button>
                     <Button aria-label="Show QR code" variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
                         <QrCode class="size-3" />

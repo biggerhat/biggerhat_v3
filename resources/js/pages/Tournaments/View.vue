@@ -17,7 +17,7 @@ import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, MapPin, Printer, Trophy, UserPlus } from 'lucide-vue-next';
+import { BarChart3, CalendarDays, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
 import { computed, nextTick, ref } from 'vue';
 
 interface TournamentPlayer {
@@ -542,6 +542,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             :started-at="round.started_at"
                             :limit-minutes="tournament.round_time_limit"
                         />
+                        <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
+                            <a :href="route('tournaments.display', tournament.uuid)" target="_blank" rel="noopener"
+                                ><MonitorPlay class="size-3.5" /> Display mode</a
+                            >
+                        </Button>
                         <Button v-if="round.games.length" variant="outline" size="sm" class="h-8 gap-1.5" @click="printRound(round.round_number)">
                             <Printer class="size-3.5" /> Print pairings
                         </Button>

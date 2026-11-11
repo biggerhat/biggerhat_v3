@@ -78,6 +78,20 @@ final class RulesetRegistry
             requiresDeclaration: (bool) ($def['requires_declaration'] ?? true),
             tracksLeaders: (bool) ($def['tracks_leaders'] ?? true),
             supportsTracker: (bool) ($def['supports_tracker'] ?? true),
+            variants: array_values(array_map(
+                fn (array $v) => [
+                    'key' => (string) $v['key'],
+                    'label' => (string) $v['label'],
+                    'description' => (string) ($v['description'] ?? ''),
+                    'param' => isset($v['param']) ? [
+                        'label' => (string) $v['param']['label'],
+                        'min' => (int) $v['param']['min'],
+                        'max' => (int) $v['param']['max'],
+                        'default' => (int) $v['param']['default'],
+                    ] : null,
+                ],
+                (array) ($def['variants'] ?? []),
+            )),
             scoreFields: array_values(array_map(
                 fn (array $f) => ['key' => (string) $f['key'], 'label' => (string) $f['label'], 'min' => (int) ($f['min'] ?? 0), 'max' => (int) $f['max']],
                 (array) ($def['score_fields'] ?? [['key' => 'vp', 'label' => 'Victory Points', 'min' => 0, 'max' => 30]]),

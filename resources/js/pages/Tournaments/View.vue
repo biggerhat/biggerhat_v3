@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
+import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
 import { formatGameSize, tosOperationText, type TosDeploymentInfo, type TosOperationInfo, type TournamentRuleset } from '@/types/tournament';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -366,6 +367,18 @@ const openCard = (title: string, image?: string | null, description?: string | n
 
         <div class="container mx-auto pb-8 sm:px-4" data-print-area>
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
+            <details class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-no-print>
+                <summary class="cursor-pointer text-sm font-medium">
+                    Format &amp; rules
+                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ ruleset.label }}</span>
+                    <span v-if="ruleset.scoring_customized || Object.keys(ruleset.active_variants).length" class="ml-1 text-xs text-primary">
+                        · {{ ruleset.scoring_customized ? 'modified scoring' : ''
+                        }}{{ ruleset.scoring_customized && Object.keys(ruleset.active_variants).length ? ', ' : ''
+                        }}{{ Object.keys(ruleset.active_variants).length ? Object.keys(ruleset.active_variants).length + ' variant(s)' : '' }}
+                    </span>
+                </summary>
+                <ScoringSummary :ruleset="ruleset" class="mt-3" />
+            </details>
 
             <!-- RSVP Banner (Draft and Registration phases) -->
             <Card v-if="canRsvp" class="mb-6 border-blue-500/30 bg-blue-500/5">

@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 /**
@@ -43,6 +44,7 @@ class Tournament extends Model
             'tiebreaker_mode' => TournamentTiebreakerEnum::class,
             'event_date' => 'date',
             'scoring_config' => 'array',
+            'variants' => 'array',
         ];
     }
 
@@ -93,9 +95,9 @@ class Tournament extends Model
      */
     public function tiebreakerKeys(): array
     {
-        $override = ((array) ($this->scoring_config ?? []))['tiebreakers'] ?? null;
+        $override = Arr::get((array) ($this->scoring_config ?? []), 'tiebreakers');
         if (is_array($override) && $override !== []) {
-            return array_values(array_intersect(['sos', 'diff', 'vp'], $override));
+            return self::sanitizeTiebreakers($override);
         }
 
         $ruleset = $this->rulesetDefinition();
@@ -107,6 +109,49 @@ class Tournament extends Model
         }
 
         return $ruleset->tiebreakers;
+    }
+
+    /**
+     * Variants the TO enabled, limited to the ruleset's catalog (a removed/renamed variant is ignored).
+     * Boolean variants map to true; parameterised ones to their number.
+     *
+     * @return array<string, bool|int>
+     */
+    public function activeVariants(): array
+    {
+        $catalog = $this->rulesetDefinition()->variantsByKey();
+        $active = [];
+        foreach ((array) ($this->variants ?? []) as $key => $value) {
+            $def = $catalog[$key] ?? null;
+            if ($def === null) {
+                continue;
+            }
+            if ($def['param'] !== null) {
+                $active[$key] = (int) $value;
+            } elseif ($value) {
+                $active[$key] = true;
+            }
+        }
+
+        return $active;
+    }
+
+    /**
+     * Keep the TO's order (array_intersect would reorder to the canonical sos/diff/vp), drop unknown keys and repeats.
+     *
+     * @param  array<mixed>  $keys
+     * @return list<string>
+     */
+    private static function sanitizeTiebreakers(array $keys): array
+    {
+        $out = [];
+        foreach ($keys as $key) {
+            if (is_string($key) && in_array($key, ['sos', 'diff', 'vp'], true) && ! in_array($key, $out, true)) {
+                $out[] = $key;
+            }
+        }
+
+        return $out;
     }
 
     public function getRulesetLabelAttribute(): string

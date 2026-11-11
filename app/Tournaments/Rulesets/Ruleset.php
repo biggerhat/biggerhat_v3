@@ -55,7 +55,19 @@ final class Ruleset
         public readonly bool $tracksLeaders = true,
         /** Whether pairings spawn Game Tracker games (the tracker only understands Malifaux). */
         public readonly bool $supportsTracker = true,
+        /**
+         * Optional rule variants a TO may enable. `param` (when present) makes the variant take a number.
+         *
+         * @var list<array{key: string, label: string, description: string, param: array{label: string, min: int, max: int, default: int}|null}> $variants
+         */
+        public readonly array $variants = [],
     ) {}
+
+    /** @return array<string, array{key: string, label: string, description: string, param: array{label: string, min: int, max: int, default: int}|null}> */
+    public function variantsByKey(): array
+    {
+        return array_column($this->variants, null, 'key');
+    }
 
     public function usesScenarioField(string $field): bool
     {
@@ -93,6 +105,7 @@ final class Ruleset
             'requires_declaration' => $this->requiresDeclaration,
             'tracks_leaders' => $this->tracksLeaders,
             'supports_tracker' => $this->supportsTracker,
+            'variants' => $this->variants,
         ];
     }
 

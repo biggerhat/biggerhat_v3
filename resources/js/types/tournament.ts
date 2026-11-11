@@ -120,6 +120,14 @@ export interface RulesetScoring {
     forfeit_loser_tp: number;
 }
 
+/** An optional rule variant a TO can enable (mirrors Ruleset::$variants). */
+export interface RulesetVariant {
+    key: string;
+    label: string;
+    description: string;
+    param: { label: string; min: number; max: number; default: number } | null;
+}
+
 /** Ruleset descriptor (mirrors App\Tournaments\Rulesets\Ruleset::toArray()). */
 export interface RulesetInfo {
     key: string;
@@ -144,11 +152,18 @@ export interface RulesetInfo {
     /** Whether score entry records each side's leader (Malifaux master + title). */
     tracks_leaders: boolean;
     supports_tracker: boolean;
+    variants: RulesetVariant[];
 }
 
 /** A tournament's ruleset: `scoring`/`tiebreakers` are effective values, `default_scoring` the ruleset's own. */
 export interface TournamentRuleset extends RulesetInfo {
     default_scoring: RulesetScoring;
+    /** The ruleset's own tiebreaker order (`tiebreakers` is the event's effective order). */
+    default_tiebreakers: ('sos' | 'diff' | 'vp')[];
+    /** Enabled variants: `true`, or the number for parameterised ones. */
+    active_variants: Record<string, boolean | number>;
+    /** True when scoring or tiebreakers differ from the ruleset's own. */
+    scoring_customized: boolean;
 }
 
 export const TIEBREAKER_LABELS: Record<string, string> = { sos: 'Strength of Schedule', diff: 'Differential', vp: 'Victory Points' };
@@ -190,3 +205,15 @@ export function formatGameSize(ruleset: Pick<RulesetInfo, 'game_size'>, size: nu
     const unit = ruleset.game_size.unit;
     return unit.length <= 2 ? `${size}${unit}` : `${size} ${unit}`;
 }
+
+/** Tiebreaker orders a TO can choose (after TP). Values are comma-joined keys. */
+export const TIEBREAKER_PRESETS: { value: string; label: string }[] = [
+    { value: 'diff,vp', label: 'Differential → VP' },
+    { value: 'vp,diff', label: 'VP → Differential' },
+    { value: 'sos,diff,vp', label: 'Strength of Schedule → Differential → VP' },
+    { value: 'sos,vp,diff', label: 'Strength of Schedule → VP → Differential' },
+    { value: 'sos,diff', label: 'Strength of Schedule → Differential' },
+    { value: 'sos', label: 'Strength of Schedule only' },
+    { value: 'diff', label: 'Differential only' },
+    { value: 'vp', label: 'VP only' },
+];

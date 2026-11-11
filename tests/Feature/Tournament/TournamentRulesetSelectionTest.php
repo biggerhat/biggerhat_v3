@@ -69,7 +69,7 @@ it('exposes rulesets and their defaults on the create page', function () {
         ->get(route('tournaments.create'))
         ->assertInertia(fn (Assert $page) => $page
             ->where('default_ruleset', 'malifaux_gaining_grounds')
-            ->has('rulesets', 2)
+            ->has('rulesets', 3)
             ->where('rulesets.1.key', 'tos_fields_of_glory')
             ->where('rulesets.1.scoring.bye_tp', 19));
 });

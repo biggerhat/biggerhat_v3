@@ -260,6 +260,8 @@ class TournamentController extends Controller
                     'bye_diff' => $source->bye_diff,
                     'bye_vp' => $source->bye_vp,
                     'tiebreaker_mode' => $tiebreaker->value,
+                    'variants' => $source->activeVariants(),
+                    'scoring_config' => $source->scoring_config,
                 ];
             }
         }
@@ -283,6 +285,7 @@ class TournamentController extends Controller
     public function store(TournamentStoreRequest $request)
     {
         $validated = $request->validated();
+        $validated = $this->normalizeCustomizations($validated, app(RulesetRegistry::class)->resolve($validated['ruleset'] ?? null));
 
         $tournament = Tournament::create([
             ...$validated,
@@ -492,6 +495,45 @@ class TournamentController extends Controller
             ->map(fn (Allegiance $a) => ['id' => $a->id, 'slug' => $a->slug, 'name' => $a->name])->values();
     }
 
+    /**
+     * Store only what's switched on / actually overridden: off variants and empty override arrays are dropped,
+     * boolean variants become true and parameterised ones keep their number.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function normalizeCustomizations(array $validated, Ruleset $ruleset): array
+    {
+        if (array_key_exists('variants', $validated)) {
+            $catalog = $ruleset->variantsByKey();
+            $variants = [];
+            foreach ((array) $validated['variants'] as $key => $value) {
+                $param = $catalog[$key]['param'] ?? null;
+                if ($param !== null) {
+                    $variants[$key] = (int) $value;
+                } elseif ($value) {
+                    $variants[$key] = true;
+                }
+            }
+            $validated['variants'] = $variants === [] ? null : $variants;
+        }
+        if (array_key_exists('scoring_config', $validated) && empty($validated['scoring_config'])) {
+            $validated['scoring_config'] = null;
+        }
+
+        return $validated;
+    }
+
+    /** Whether the event's effective scoring or tiebreaker order differs from its ruleset's (legacy bye columns equal to the default don't count). */
+    private function scoringIsCustomized(Tournament $tournament): bool
+    {
+        $ruleset = $tournament->rulesetDefinition();
+        $scoringDiffers = $tournament->scoringConfig()->toArray() !== $ruleset->scoring->toArray();
+        $override = ((array) ($tournament->scoring_config ?? []))['tiebreakers'] ?? null;
+
+        return $scoringDiffers || (is_array($override) && $override !== [] && array_values($override) !== $ruleset->tiebreakers);
+    }
+
     /** A Garrison is public information at the event, but its share link only works when the owner made it public. */
     private function hidePrivateGarrisonCodes(Tournament $tournament): void
     {
@@ -507,6 +549,10 @@ class TournamentController extends Controller
         return [
             ...$tournament->rulesetDefinition()->toArray(),
             'default_scoring' => $tournament->rulesetDefinition()->scoring->toArray(),
+            'default_tiebreakers' => $tournament->rulesetDefinition()->tiebreakers,
+            'active_variants' => $tournament->activeVariants(),
+            // True when the TO changed the format's scoring (shown to players so nobody is surprised).
+            'scoring_customized' => $this->scoringIsCustomized($tournament),
             'scoring' => $tournament->scoringConfig()->toArray(),
             'tiebreakers' => $tournament->tiebreakerKeys(),
         ];
@@ -600,7 +646,7 @@ class TournamentController extends Controller
             $request->replace(['tiebreaker_mode' => $request->input('tiebreaker_mode')]);
         }
 
-        $validated = $request->validated();
+        $validated = $this->normalizeCustomizations($request->validated(), $tournament->rulesetDefinition());
 
         $tournament->update($validated);
 

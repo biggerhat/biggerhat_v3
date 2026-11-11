@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
+import ScoringEditor from '@/components/Tournament/ScoringEditor.vue';
+import VariantPicker from '@/components/Tournament/VariantPicker.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +37,8 @@ const props = defineProps<{
         bye_diff: number | null;
         bye_vp: number | null;
         tiebreaker_mode: 'diff_vp' | 'sos';
+        variants: Record<string, boolean | number> | null;
+        scoring_config: Record<string, unknown> | null;
     } | null;
     previous_events: { uuid: string; name: string; event_date: string }[];
 }>();
@@ -58,6 +62,9 @@ const form = useForm({
     bye_diff: props.template?.bye_diff ?? initialRuleset.scoring.bye_diff,
     bye_vp: props.template?.bye_vp ?? initialRuleset.scoring.bye_vp,
     tiebreaker_mode: (props.template?.tiebreaker_mode ?? 'diff_vp') as 'diff_vp' | 'sos',
+    variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
+    // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
+    scoring_config: (props.template?.scoring_config ?? {}) as Record<string, unknown>,
 });
 
 const ruleset = computed(() => rulesetByKey.value[form.ruleset] ?? initialRuleset);
@@ -72,6 +79,9 @@ watch(
         form.bye_tp = r.scoring.bye_tp;
         form.bye_diff = r.scoring.bye_diff;
         form.bye_vp = r.scoring.bye_vp;
+        // Variants and scoring overrides belong to the ruleset they were chosen for.
+        form.variants = {};
+        form.scoring_config = {};
     },
 );
 
@@ -272,6 +282,16 @@ const submit = () => {
                             </div>
                         </section>
 
+                        <!-- ─── Rule variants ─── -->
+                        <section v-if="ruleset.variants.length" class="space-y-3 border-t pt-6">
+                            <header>
+                                <h2 class="text-lg font-semibold">Rule Variants</h2>
+                                <p class="text-sm text-muted-foreground">Optional rules for your community. Players see these before the event.</p>
+                            </header>
+                            <VariantPicker v-model="form.variants" :variants="ruleset.variants" />
+                            <InputError :message="form.errors.variants" />
+                        </section>
+
                         <!-- ─── Advanced Scoring (collapsed by default) ─── -->
                         <Collapsible v-model:open="advancedOpen" class="border-t pt-4">
                             <CollapsibleTrigger as-child>
@@ -338,6 +358,20 @@ const submit = () => {
                                             </NumberField>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="space-y-2 rounded-md border border-dashed p-3">
+                                    <Label class="text-xs uppercase tracking-wide text-muted-foreground">
+                                        Customize scoring
+                                        <span class="ml-1 text-2xs normal-case opacity-60">(changes are shown to players as modified)</span>
+                                    </Label>
+                                    <ScoringEditor
+                                        v-model="form.scoring_config"
+                                        :defaults="ruleset.scoring"
+                                        :default-tiebreakers="ruleset.tiebreakers"
+                                        :show-tiebreakers="!ruleset.tiebreaker_toggle"
+                                    />
+                                    <InputError :message="form.errors.scoring_config" />
                                 </div>
                             </CollapsibleContent>
                         </Collapsible>

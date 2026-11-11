@@ -44,6 +44,18 @@ return [
             'requires_declaration' => true,
             'tracks_leaders' => true,
             'supports_tracker' => true,
+            // Optional variants from the Gaining Grounds packet ("Optional Game Variants"). Crossroads, Team Event,
+            // Double Rush and Total War are covered by the Encounter Type setting instead.
+            'variants' => [
+                ['key' => 'alternating_leaders', 'label' => 'Alternating Leaders', 'description' => 'Players may not hire a master that was hired in a previous round on the same day. Two masters with the same name and different titles count as different masters.'],
+                ['key' => 'bans', 'label' => 'Bans', 'description' => 'After leaders are announced, starting with the attacker, each player may name up to X keywords not on their opponent\'s leader. The opponent may not hire models with those keywords unless they share a keyword with their leader or are versatile.', 'param' => ['label' => 'Keywords banned (X)', 'min' => 1, 'max' => 5, 'default' => 1]],
+                ['key' => 'blind_battle', 'label' => 'Blind Battle', 'description' => 'Players do not reveal their faction or leader until the Reveal Crews step of the encounter.'],
+                ['key' => 'fixed_leaders', 'label' => 'Fixed Leaders', 'description' => 'At check-in players name a model that can be a leader, and may only choose either title of that model as their leader.'],
+                ['key' => 'fixed_pool', 'label' => 'Fixed Pool', 'description' => 'At check-in players provide a pool of models costing no more than X. Other than the leader (and its totems), they may only hire from that pool.', 'param' => ['label' => 'Pool cost (X)', 'min' => 10, 'max' => 150, 'default' => 60]],
+                ['key' => 'fate_locked', 'label' => 'Fate-Locked', 'description' => 'The TO picks four schemes and an order. Each turn players may score the scheme whose order matches the turn number; players do not pick schemes as normal.'],
+                ['key' => 'beyond_time_and_space', 'label' => 'Beyond Time and Space', 'description' => 'Players bring every Gaining Grounds scheme set released for fourth edition and shuffle them together to form the scheme pool; Next Available Scheme may use any printed copy.'],
+                ['key' => 'wrench_in_the_plans', 'label' => 'Wrench in the Plans', 'description' => 'When picking new schemes, each player draws an additional random scheme, which may be selected in addition to any provided by the scheme completed or abandoned.'],
+            ],
         ],
 
         // The Other Side — Fields of Glory v3.0. 10 base TP + capped DIFF + 2 for a win; TP → SoS.
@@ -79,6 +91,39 @@ return [
             'requires_declaration' => true,
             // Commanders come from the Garrison and aren't recorded per game.
             'tracks_leaders' => false,
+            'variants' => [
+                ['key' => 'close_objectives', 'label' => 'Close Objectives', 'description' => 'If an Action gained from an Operation would require a Fireteam to be within 3" and LoS of an Objective, the Fireteam must instead be within 1" and LoS of it.'],
+                ['key' => 'strategic_alliance', 'label' => 'Strategic Alliance', 'description' => 'When creating a Stratagem Deck, players may include up to two Stratagems from an Allegiance of which they have an Envoy and a Commander. "Friendly unit/Asset/Fireteam" then only refers to those of that Stratagem\'s Allegiance.'],
+                ['key' => 'decisive_victory', 'label' => 'Decisive Victory', 'description' => 'If, at the end of any turn after the second, a player\'s VP exceeds their opponent\'s by 12 or more, the game ends immediately.'],
+            ],
+        ],
+
+        // A blank slate: pick the scoring, tiebreakers and rounds yourself ("Customize scoring" on the event).
+        'custom' => [
+            'label' => 'Custom — set your own scoring',
+            'game_system' => 'custom',
+            'scoring' => [
+                'base_tp' => 0, 'win_tp' => 3, 'tie_tp' => 1, 'loss_tp' => 0,
+                'diff_adds_to_tp' => false, 'diff_cap' => null,
+                'bye_tp' => 3, 'bye_diff' => 0, 'bye_vp' => 0,
+                'forfeit_vp' => 5, 'forfeit_loser_tp' => 0,
+            ],
+            'tiebreakers' => ['diff', 'vp'],
+            'tiebreaker_toggle' => true,
+            'suggested_rounds' => [[4, 15, 3], [16, 32, 4], [33, null, 5]],
+            'default_round_time_limit' => 120,
+            'game_size' => ['label' => 'Game Size', 'unit' => '', 'default' => 50, 'min' => 1, 'max' => 1000, 'step' => 1],
+            'uses_season' => false,
+            'uses_encounter_type' => false,
+            'score_fields' => [
+                ['key' => 'vp', 'label' => 'Victory Points', 'min' => 0, 'max' => 99],
+            ],
+            'scenario_fields' => [],
+            'declaration' => 'none',
+            'requires_declaration' => false,
+            'tracks_leaders' => false,
+            'supports_tracker' => false,
+            'variants' => [],
         ],
     ],
 ];

@@ -7,7 +7,9 @@ use App\Enums\PoolSeasonEnum;
 use App\Enums\RoleEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Enums\TournamentTiebreakerEnum;
+use App\Http\Requests\Tournaments\Concerns\ValidatesRulesetCustomizations;
 use App\Models\Tournament;
+use App\Tournaments\Rulesets\Ruleset;
 use App\Tournaments\Rulesets\RulesetRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,6 +17,8 @@ use Illuminate\Validation\Validator;
 
 class TournamentStoreRequest extends FormRequest
 {
+    use ValidatesRulesetCustomizations;
+
     public const MAX_OPEN_EVENTS = 5;
 
     /**
@@ -46,6 +50,7 @@ class TournamentStoreRequest extends FormRequest
             'bye_diff' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'bye_vp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
+            ...$this->customizationRules(),
 
         ];
     }
@@ -57,7 +62,7 @@ class TournamentStoreRequest extends FormRequest
      */
     public function after(): array
     {
-        return [function (Validator $validator): void {
+        return [$this->validateVariants(), function (Validator $validator): void {
             $user = $this->user();
             if (! $user || $user->hasRole(RoleEnum::SuperAdmin->value)) {
                 return;
@@ -71,5 +76,10 @@ class TournamentStoreRequest extends FormRequest
                 $validator->errors()->add('name', 'You already have '.self::MAX_OPEN_EVENTS.' unfinished tournaments. Finish or delete one before creating another.');
             }
         }];
+    }
+
+    protected function rulesetForCustomizations(): Ruleset
+    {
+        return app(RulesetRegistry::class)->resolve($this->input('ruleset'));
     }
 }

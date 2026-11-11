@@ -12,6 +12,9 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
 import DeclarationFields from '@/components/Tournament/DeclarationFields.vue';
+import ScoringEditor from '@/components/Tournament/ScoringEditor.vue';
+import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
+import VariantPicker from '@/components/Tournament/VariantPicker.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
@@ -191,6 +194,8 @@ interface TournamentData {
     bye_diff?: number | null;
     bye_vp?: number | null;
     tiebreaker_mode?: 'diff_vp' | 'sos';
+    variants?: Record<string, boolean | number> | null;
+    scoring_config?: Record<string, unknown> | null;
     creator_id: number;
     players: TournamentPlayer[];
     rounds: TournamentRound[];
@@ -927,6 +932,28 @@ const openScoreEdit = (game: TournamentGame) => {
 };
 
 // Round number this game belongs to — used when the TO checks "drop after this round".
+// Alternating Leaders variant: a master (by title) can't be hired again in a later round of the same event.
+const leaderReuseWarning = (playerId: number, master: string | null, title: string | null): string | null => {
+    if (!props.ruleset.active_variants.alternating_leaders || !master || !editingGame.value) return null;
+    const editingId = editingGame.value.id;
+    const thisRound = editingRoundNumber.value;
+    const key = title || master;
+    for (const round of props.tournament.rounds) {
+        if (thisRound !== null && round.round_number >= thisRound) continue;
+        for (const g of round.games) {
+            if (g.id === editingId) continue;
+            const used =
+                g.player_one_id === playerId
+                    ? g.player_one_title || g.player_one_master
+                    : g.player_two_id === playerId
+                      ? g.player_two_title || g.player_two_master
+                      : null;
+            if (used && used === key) return `${key} was already played in Round ${round.round_number} (Alternating Leaders is on).`;
+        }
+    }
+    return null;
+};
+
 const editingRoundNumber = computed(() => {
     if (!editingGame.value) return null;
     for (const r of props.tournament.rounds) {
@@ -1206,6 +1233,8 @@ const editByeTp = ref(3);
 const editByeDiff = ref(4);
 const editByeVp = ref(6);
 const editAdvancedOpen = ref(false);
+const editVariants = ref<Record<string, boolean | number>>({});
+const editScoringConfig = ref<Record<string, unknown>>({});
 const settingsError = ref<string | null>(null);
 // Live tiebreaker toggle on the standings tab — distinct from the Settings
 // edit form so TOs can flip it any time, even after the tournament starts.
@@ -1229,6 +1258,8 @@ const openSettingsEdit = () => {
     editByeDiff.value = props.ruleset.scoring.bye_diff;
     editByeVp.value = props.ruleset.scoring.bye_vp;
     editAdvancedOpen.value = false;
+    editVariants.value = { ...props.ruleset.active_variants };
+    editScoringConfig.value = { ...(props.tournament.scoring_config ?? {}) };
     settingsError.value = null;
     editingSettings.value = true;
 };
@@ -1249,6 +1280,8 @@ const saveSettings = async () => {
         bye_tp: editByeTp.value === props.ruleset.default_scoring.bye_tp ? null : editByeTp.value,
         bye_diff: editByeDiff.value === props.ruleset.default_scoring.bye_diff ? null : editByeDiff.value,
         bye_vp: editByeVp.value === props.ruleset.default_scoring.bye_vp ? null : editByeVp.value,
+        variants: editVariants.value,
+        scoring_config: editScoringConfig.value,
     });
     submitting.value = false;
     if (ok) {
@@ -2497,6 +2530,11 @@ const titlesForMaster = (masterName: string | null) => {
                             </section>
 
                             <!-- Advanced Scoring (collapsed by default) -->
+                            <div v-if="ruleset.variants.length" class="space-y-2 border-t pt-4">
+                                <h3 class="text-sm font-semibold">Rule Variants</h3>
+                                <VariantPicker v-model="editVariants" :variants="ruleset.variants" />
+                            </div>
+
                             <Collapsible v-model:open="editAdvancedOpen" class="border-t pt-4">
                                 <CollapsibleTrigger as-child>
                                     <button
@@ -2546,7 +2584,16 @@ const titlesForMaster = (masterName: string | null) => {
                                             </div>
                                         </div>
                                     </div>
-                                    <p class="text-2xs text-muted-foreground">
+                                    <div class="space-y-2 rounded-md border border-dashed p-3">
+                                        <Label class="text-xs uppercase tracking-wide text-muted-foreground">Customize scoring</Label>
+                                        <ScoringEditor
+                                            v-model="editScoringConfig"
+                                            :defaults="ruleset.default_scoring"
+                                            :default-tiebreakers="ruleset.default_tiebreakers"
+                                            :show-tiebreakers="!ruleset.tiebreaker_toggle"
+                                        />
+                                    </div>
+                                    <p v-if="ruleset.tiebreaker_toggle" class="text-2xs text-muted-foreground">
                                         Tiebreaker mode toggle lives on the Standings tab so you can flip it any time, even mid-tournament.
                                     </p>
                                 </CollapsibleContent>
@@ -2621,6 +2668,8 @@ const titlesForMaster = (masterName: string | null) => {
                                     >
                                 </div>
                             </div>
+
+                            <ScoringSummary :ruleset="ruleset" class="border-t pt-4" />
 
                             <div class="border-t pt-4">
                                 <div class="mb-2 flex items-center justify-between">
@@ -2758,6 +2807,12 @@ const titlesForMaster = (masterName: string | null) => {
                             </Select>
                         </div>
                     </div>
+                    <p
+                        v-if="editingGame.player_one_id && leaderReuseWarning(editingGame.player_one_id, editP1Master, editP1Title)"
+                        class="text-2xs text-amber-600 dark:text-amber-400"
+                    >
+                        {{ leaderReuseWarning(editingGame.player_one_id, editP1Master, editP1Title) }}
+                    </p>
                     <div class="grid gap-2" :class="scoreGridClass">
                         <div v-for="field in ruleset.score_fields" :key="field.key" class="space-y-1">
                             <Label class="text-2xs"
@@ -2807,6 +2862,12 @@ const titlesForMaster = (masterName: string | null) => {
                             </Select>
                         </div>
                     </div>
+                    <p
+                        v-if="editingGame.player_two_id && leaderReuseWarning(editingGame.player_two_id, editP2Master, editP2Title)"
+                        class="text-2xs text-amber-600 dark:text-amber-400"
+                    >
+                        {{ leaderReuseWarning(editingGame.player_two_id, editP2Master, editP2Title) }}
+                    </p>
                     <div class="grid gap-2" :class="scoreGridClass">
                         <div v-for="field in ruleset.score_fields" :key="field.key" class="space-y-1">
                             <Label class="text-2xs"

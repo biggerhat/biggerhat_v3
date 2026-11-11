@@ -1,6 +1,6 @@
 # Tournament Rulesets — game-agnostic tournament tracking
 
-Status: **Phases 1–5 done** on branch `tournament-rulesets-nov10` (uncommitted); Phase 6 not started.
+Status: **Phases 1–5 and 6a done** on branch `tournament-rulesets-nov10` (uncommitted); Phase 6b (team events) designed, not started.
 Notes from implementation: rulesets are config-only (`config/tournaments.php`, no per-game classes); `tournaments.bye_*` columns are now nullable overrides (null = ruleset value); `ruleset` is a plain string column, unknown keys fall back to the default ruleset.
 
 ## Goal
@@ -96,11 +96,22 @@ player list, the public pairings and the CSV show the Allegiance, and the score 
 (`supports_tracker`) landed with Phase 4b. Also fixed: registering a user-linked player returned a 500 (the notification left a column-restricted `tournament` on the
 returned player).
 
-### Phase 6 — Variants, teams, custom rulesets
-- `variants` JSON of named optional rules (Close Objectives, Decisive Victory, Alternating Leaders, Bans …)
-  surfaced to players and, where checkable, warned on at score entry.
-- Team entities (Team Event / No Man's Land): a team stands as one competitor in standings.
-- UI to build a custom ruleset (the same `ScoringConfig`, edited by the TO).
+### Phase 6 — Variants, custom rulesets, teams
+**6a (done, not browser-tested):**
+- *Variants:* `tournaments.variants` JSON (`{"alternating_leaders": true, "bans": 2}`), catalog per ruleset in `config/tournaments.php` (`variants`, optional numeric `param`).
+  Gaining Grounds gets the packet's optional variants (encounter-type-covered ones like Crossroads/Team Event are not duplicated); Fields of Glory gets Close
+  Objectives, Strategic Alliance and Decisive Victory. Picker on Create and Manage settings (locked once the event starts); players see them under
+  "Format & rules" on the public page. Alternating Leaders also warns in the score dialog when a master (by title) was already played in an earlier round.
+- *Custom scoring:* every ruleset can be customized through `scoring_config` overrides (win/tie/loss/base TP, DIFF-adds-to-TP, DIFF cap, forfeit values, tiebreaker
+  order) via `ScoringEditor`; only changed keys are stored, the public page marks the event "Modified from <format>", and `ScoringSummary` explains the effective rules in
+  plain language. A blank-slate `custom` ruleset (no Malifaux/TOS requirements) is the starting point for other games.
+- Fix found on the way: `tiebreakerKeys()` now keeps the TO's order for an overridden tiebreaker list.
+
+**6b (team events, not started — design only):** Fields of Glory "No Man's Land" and Gaining Grounds "Team Event"/"Double Rush" make a *team* the unit that is
+paired and ranked. Recommended shape: a `tournament_teams` table (name, tournament_id) plus `tournament_players.team_id`; pairing, byes/ringers and standings key off a
+"competitor" (team when the ruleset/variant is team-based, otherwise the player), with each player's own game results rolled up into the team's TP/DIFF/VP. The
+`TournamentGame` sides then reference competitors rather than players. This touches pairing, standings, score entry and nearly every page, so it should be its own
+reviewed PR rather than bundled with this series.
 
 ## Deliberately out of scope for now
 Per-game scenario content tables for non-Wyrd games, round-robin/elimination pairing (pairing stays Swiss;

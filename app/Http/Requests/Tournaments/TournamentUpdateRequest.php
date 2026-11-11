@@ -5,12 +5,17 @@ namespace App\Http\Requests\Tournaments;
 use App\Enums\EncounterTypeEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Enums\TournamentTiebreakerEnum;
+use App\Http\Requests\Tournaments\Concerns\ValidatesRulesetCustomizations;
+use App\Models\Tournament;
+use App\Tournaments\Rulesets\Ruleset;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class TournamentUpdateRequest extends FormRequest
 {
+    use ValidatesRulesetCustomizations;
+
     /**
      * Ownership/policy checks run here so they precede validation (matching the old controller order).
      */
@@ -40,7 +45,22 @@ class TournamentUpdateRequest extends FormRequest
             'bye_diff' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'bye_vp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
+            ...$this->customizationRules(),
 
         ];
+    }
+
+    /** @return array<int, callable(\Illuminate\Contracts\Validation\Validator): void> */
+    public function after(): array
+    {
+        return [$this->validateVariants()];
+    }
+
+    protected function rulesetForCustomizations(): Ruleset
+    {
+        /** @var Tournament $tournament */
+        $tournament = $this->route('tournament');
+
+        return $tournament->rulesetDefinition();
     }
 }

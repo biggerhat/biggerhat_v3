@@ -50,6 +50,8 @@ individual events, with organizer notification) are done. **Deploy: run the new 
 
 **Status of player history (branch `tournament-history-nov11`):** F9 is done — a Tournament history card on the public stats page (events with placing, overall and per-faction record, most-played opponents). No migration. The older achievement tiles still ignore team events.
 
+**Status of discovery (branch `tournament-discovery-nov11`):** F11 (search, format and upcoming/past filters with pagination on the public list) and F8's `.ics` half (Add to calendar) are done. No migration. Not done: location-based "near me", a Discord event post via the bot API.
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

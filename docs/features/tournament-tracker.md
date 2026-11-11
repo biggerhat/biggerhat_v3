@@ -105,6 +105,11 @@ count; a forfeit counts for the player who didn't forfeit), per-faction results 
 It is a closure prop `tournament_history` on `StatsController::show` (the public `/stats/{slug}` page) rendered by `TournamentHistoryCard.vue`; the card is absent for someone with no finished events.
 `AchievementService::tournamentRecordForUser` (the Tournaments/Best-finish tiles and badges) is separate and still counts individual entries only.
 
+## Finding events and calendars
+`TournamentController@index` filters the public list server-side from the URL (`q` over name and location, `ruleset`, `when=upcoming|past`; unknown values are ignored), orders upcoming soonest first and
+paginates 20 at a time (`public_pagination`, `filters`, `ruleset_options` props); drafts stay private. The Index page keeps the filters in the URL and debounces typing. `TournamentCalendarController`
+(`tournaments.calendar`, `/tournaments/{t}/event.ics`) serves a one-event all-day iCalendar file (RFC 5545 escaping and 75-octet folding) behind the "Add to calendar" button on unfinished events.
+
 ## Manage page structure
 `pages/Tournaments/Manage.vue` (~880 lines) is the shell: header, next-step card, announcement dialog, the standings / RSVP / settings tabs, and the score and
 finalize dialogs. Its tabs live in `components/Tournament/`: `ManagePlayersTab.vue`, `ManageRoundsTab.vue` (round lifecycle, scenario editor, manual pairing,

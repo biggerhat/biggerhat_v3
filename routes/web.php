@@ -43,6 +43,7 @@ use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SupportersController;
 use App\Http\Controllers\Tournament\TournamentAnnouncementController;
+use App\Http\Controllers\Tournament\TournamentCalendarController;
 use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentCrewListController;
@@ -445,6 +446,7 @@ Route::middleware('auth')->group(function () {
 Route::get('/tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
 Route::get('/tournaments/{tournament}/display', [TournamentController::class, 'display'])->name('tournaments.display');
+Route::get('/tournaments/{tournament}/event.ics', [TournamentCalendarController::class, 'ics'])->name('tournaments.calendar');
 Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController::class, 'pdf'])->name('tournaments.results_pdf');
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
     Route::get('/create', [TournamentController::class, 'create'])->name('create');

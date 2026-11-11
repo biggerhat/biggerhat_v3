@@ -22,7 +22,7 @@ import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
+import { BarChart3, CalendarDays, CalendarPlus, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
 import { computed, nextTick, ref } from 'vue';
 
 interface TournamentPlayer {
@@ -462,6 +462,11 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 data-no-print
             />
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
+            <div v-if="tournament.status !== 'completed'" class="mb-4" data-no-print>
+                <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
+                    <a :href="route('tournaments.calendar', tournament.uuid)" download><CalendarPlus class="size-3.5" /> Add to calendar</a>
+                </Button>
+            </div>
             <details class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-no-print>
                 <summary class="cursor-pointer text-sm font-medium">
                     Format &amp; rules

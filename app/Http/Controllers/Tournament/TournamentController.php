@@ -35,9 +35,18 @@ class TournamentController extends Controller
         private readonly TournamentPagePayloads $payloads,
     ) {}
 
-    public function index(): Response|ResponseFactory
+    public function index(Request $request): Response|ResponseFactory
     {
         $userId = Auth::id();
+        $registry = app(RulesetRegistry::class);
+
+        // Find-an-event filters for the public list: free text (name or place), game format, and upcoming / past.
+        $filters = [
+            'q' => mb_substr(trim((string) $request->query('q', '')), 0, 100),
+            'ruleset' => in_array($request->query('ruleset'), $registry->keys(), true) ? (string) $request->query('ruleset') : '',
+            'when' => in_array($request->query('when'), ['upcoming', 'past'], true) ? (string) $request->query('when') : '',
+        ];
+        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']).'%';
 
         $myTournaments = $userId
             ? Tournament::forOrganizer($userId)
@@ -52,13 +61,24 @@ class TournamentController extends Controller
             ->when($userId, fn ($q) => $q->where('creator_id', '!=', $userId))
             ->with('creator:id,name')
             ->withCount('players')
-            ->latest('event_date')
-            ->take(20)
-            ->get();
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', $like)->orWhere('location', 'like', $like)))
+            ->when($filters['ruleset'] !== '', fn ($q) => $q->where('ruleset', $filters['ruleset']))
+            ->when($filters['when'] === 'upcoming', fn ($q) => $q->where('status', '!=', TournamentStatusEnum::Completed->value)->orderBy('event_date'))
+            ->when($filters['when'] === 'past', fn ($q) => $q->where('status', TournamentStatusEnum::Completed->value)->latest('event_date'))
+            ->when($filters['when'] === '', fn ($q) => $q->latest('event_date'))
+            ->paginate(20)
+            ->withQueryString();
 
         return inertia('Tournaments/Index', [
             'my_tournaments' => $myTournaments,
-            'public_tournaments' => $publicTournaments,
+            'public_tournaments' => $publicTournaments->items(),
+            'public_pagination' => [
+                'current_page' => $publicTournaments->currentPage(),
+                'last_page' => $publicTournaments->lastPage(),
+                'total' => $publicTournaments->total(),
+            ],
+            'filters' => $filters,
+            'ruleset_options' => collect($registry->all())->map(fn (Ruleset $r) => ['key' => $r->key, 'label' => $r->label])->values(),
         ]);
     }
 

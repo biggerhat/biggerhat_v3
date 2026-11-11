@@ -153,6 +153,8 @@ export interface RulesetInfo {
     tracks_leaders: boolean;
     supports_tracker: boolean;
     variants: RulesetVariant[];
+    /** Round-clock wording shown to players; null = the format has no such rule. */
+    time_rules: { last_turn_minutes: number; last_turn: string | null; time_called: string | null };
 }
 
 /** A tournament's ruleset: `scoring`/`tiebreakers` are effective values, `default_scoring` the ruleset's own. */

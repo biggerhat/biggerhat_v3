@@ -78,6 +78,11 @@ final class RulesetRegistry
             requiresDeclaration: (bool) ($def['requires_declaration'] ?? true),
             tracksLeaders: (bool) ($def['tracks_leaders'] ?? true),
             supportsTracker: (bool) ($def['supports_tracker'] ?? true),
+            timeRules: [
+                'last_turn_minutes' => (int) ($def['time_rules']['last_turn_minutes'] ?? 15),
+                'last_turn' => $def['time_rules']['last_turn'] ?? null,
+                'time_called' => $def['time_rules']['time_called'] ?? null,
+            ],
             variants: array_values(array_map(
                 fn (array $v) => [
                     'key' => (string) $v['key'],

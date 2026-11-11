@@ -123,3 +123,79 @@ it('still pairs everyone when same-meta pairings are unavoidable', function () {
     expect($pairings)->toHaveCount(2);
     expect(collect($pairings)->flatMap(fn ($p) => [$p['player_one_id'], $p['player_two_id']])->unique())->toHaveCount(4);
 });
+
+describe('matching quality', function () {
+    function matchPlayersVia(array $players, array $previous, bool $firstRound = false): array
+    {
+        $service = app(TournamentPairingService::class);
+        $method = new ReflectionMethod($service, 'matchPlayers');
+
+        return array_map(
+            fn ($pair) => [$pair[0]->id, $pair[1]->id],
+            $method->invoke($service, collect($players), $previous, $firstRound),
+        );
+    }
+
+    function fakePlayers(int $n): array
+    {
+        return collect(range(1, $n))->map(fn ($id) => (new TournamentPlayer)->forceFill(['id' => $id, 'meta_id' => null]))->all();
+    }
+
+    it('backtracks to avoid a rematch a greedy pass would be forced into', function () {
+        // 5 and 6 already met. Greedy: 1-2, 3-4, then 5-6 (forced rematch). A rematch-free matching exists.
+        $pairs = matchPlayersVia(fakePlayers(6), [5 => [6], 6 => [5]]);
+
+        expect($pairs)->toHaveCount(3);
+        expect($pairs)->not->toContain([5, 6]);
+        expect($pairs[0])->toBe([1, 2]); // still prefers the closest standings where it can
+        expect(collect($pairs)->flatten()->sort()->values()->all())->toBe([1, 2, 3, 4, 5, 6]);
+    });
+
+    it('accepts a rematch only when no rematch-free pairing exists', function () {
+        // Everyone has played everyone else in a 4-player field: any pairing is a rematch.
+        $previous = [1 => [2, 3, 4], 2 => [1, 3, 4], 3 => [1, 2, 4], 4 => [1, 2, 3]];
+
+        expect(matchPlayersVia(fakePlayers(4), $previous))->toHaveCount(2);
+    });
+
+    it('leaves the lowest-ranked player unpaired when the count is odd', function () {
+        $pairs = matchPlayersVia(fakePlayers(5), []);
+
+        expect($pairs)->toBe([[1, 2], [3, 4]]);
+    });
+
+    it('stays fast on a large field with heavy rematch constraints', function () {
+        $players = fakePlayers(64);
+        $previous = [];
+        foreach ($players as $p) {
+            // each player has already faced the four players ranked just below them
+            $previous[$p->id] = array_values(array_filter(range($p->id - 4, $p->id + 4), fn ($id) => $id >= 1 && $id <= 64 && $id !== $p->id));
+        }
+
+        $start = microtime(true);
+        $pairs = matchPlayersVia($players, $previous);
+
+        expect(microtime(true) - $start)->toBeLessThan(2.0);
+        expect($pairs)->toHaveCount(32);
+        foreach ($pairs as [$a, $b]) {
+            expect($previous[$a])->not->toContain($b);
+        }
+    });
+
+    it('pairs ties in random order rather than database order', function () {
+        $t = Tournament::factory()->active()->create();
+        TournamentPlayer::factory()->for($t)->count(4)->create();
+        $round = TournamentRound::factory()->for($t)->create(['round_number' => 2]);
+        $service = app(TournamentPairingService::class);
+
+        $seen = [];
+        for ($i = 0; $i < 30; $i++) {
+            $key = collect($service->generatePairings($t->fresh('players'), $round))
+                ->map(fn ($p) => collect([$p['player_one_id'], $p['player_two_id']])->sort()->implode('-'))
+                ->sort()->implode('|');
+            $seen[$key] = true;
+        }
+
+        expect(count($seen))->toBeGreaterThan(1);
+    });
+});

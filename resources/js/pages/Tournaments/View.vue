@@ -612,6 +612,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <span v-if="game.table_number">Table {{ game.table_number }}</span>
                                     <Badge v-if="game.is_bye" variant="outline" class="ml-auto text-2xs">BYE</Badge>
                                     <Badge v-if="game.is_forfeit" variant="destructive" class="ml-auto px-1 py-0 text-2xs">Forfeit</Badge>
+                                    <Badge v-else-if="game.result === 'agreed'" variant="outline" class="ml-auto px-1 py-0 text-2xs">Agreed</Badge>
                                     <Badge
                                         v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"
                                         variant="outline"
@@ -805,6 +806,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     </div>
 
                                     <Badge v-if="game.is_forfeit" variant="destructive" class="shrink-0 px-1 py-0 text-2xs">Forfeit</Badge>
+                                    <Badge v-else-if="game.result === 'agreed'" variant="outline" class="shrink-0 px-1 py-0 text-2xs">Agreed</Badge>
 
                                     <Badge
                                         v-if="game.tracker_game?.status && game.tracker_game.status !== 'completed'"

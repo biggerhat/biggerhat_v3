@@ -68,3 +68,28 @@ it('exports ruleset-specific score columns in the CSV', function () {
 
     expect($csv)->toContain('player_one_strategy_vp', 'player_one_scheme_vp', 'player_two_scheme_vp');
 });
+
+it('records an agreed result: scored like a normal game but flagged as agreed', function () {
+    [$owner, $t, $game] = scoredGameFor('malifaux_gaining_grounds');
+
+    $this->actingAs($owner)->putJson(route('tournaments.games.update', [$t, $game]), [
+        'player_one_score' => ['strategy' => 3, 'scheme' => 2],
+        'player_two_score' => ['strategy' => 1, 'scheme' => 0],
+        'agreed' => true,
+    ])->assertOk();
+
+    expect($game->fresh()->result)->toBe(\App\Enums\TournamentGameResultEnum::Agreed);
+
+    $row = collect(app(\App\Services\TournamentStandingsService::class)->compute($t))->firstWhere('player_id', $game->player_one_id);
+    expect($row)->total_tp->toBe(3)->total_vp->toBe(5)->total_diff->toBe(4);
+});
+
+it('lets the TO flip an agreed result back to a normal one, and the round can still end', function () {
+    [$owner, $t, $game] = scoredGameFor('malifaux_gaining_grounds');
+    $payload = ['player_one_score' => ['strategy' => 3, 'scheme' => 2], 'player_two_score' => ['strategy' => 1, 'scheme' => 0]];
+
+    $this->actingAs($owner)->putJson(route('tournaments.games.update', [$t, $game]), [...$payload, 'agreed' => true])->assertOk();
+    $this->actingAs($owner)->putJson(route('tournaments.games.update', [$t, $game]), [...$payload, 'agreed' => false])->assertOk();
+
+    expect($game->fresh()->result)->toBe(\App\Enums\TournamentGameResultEnum::Completed);
+});

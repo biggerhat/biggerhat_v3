@@ -44,6 +44,11 @@ return [
             'requires_declaration' => true,
             'tracks_leaders' => true,
             'supports_tracker' => true,
+            'time_rules' => [
+                'last_turn_minutes' => 15,
+                'last_turn' => 'Last turn: finish the turn you are on and end the game in step F of the End Phase, whatever turn it is.',
+                'time_called' => 'When time is called, finish the current activation plus one more (unless it is the last activation of the turn), then go straight to the End Phase.',
+            ],
             // Optional variants from the Gaining Grounds packet ("Optional Game Variants"). Crossroads, Team Event,
             // Double Rush and Total War are covered by the Encounter Type setting instead.
             'variants' => [
@@ -91,6 +96,11 @@ return [
             'requires_declaration' => true,
             // Commanders come from the Garrison and aren't recorded per game.
             'tracks_leaders' => false,
+            'time_rules' => [
+                'last_turn_minutes' => 15,
+                'last_turn' => 'Last turn: complete the Turn you are on and do not start a new one. Whatever Turn the game ends on counts as the final Turn for all game effects.',
+                'time_called' => null,
+            ],
             'variants' => [
                 ['key' => 'close_objectives', 'label' => 'Close Objectives', 'description' => 'If an Action gained from an Operation would require a Fireteam to be within 3" and LoS of an Objective, the Fireteam must instead be within 1" and LoS of it.'],
                 ['key' => 'strategic_alliance', 'label' => 'Strategic Alliance', 'description' => 'When creating a Stratagem Deck, players may include up to two Stratagems from an Allegiance of which they have an Envoy and a Commander. "Friendly unit/Asset/Fireteam" then only refers to those of that Stratagem\'s Allegiance.'],

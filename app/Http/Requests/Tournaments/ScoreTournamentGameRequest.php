@@ -31,6 +31,8 @@ class ScoreTournamentGameRequest extends FormRequest
             'player_two_master' => ['nullable', 'string', 'max:255'],
             'player_two_title' => ['nullable', 'string', 'max:255'],
             'player_two_crew_build_id' => ['nullable', 'exists:crew_builds,id'],
+            // Agreed result: the game wasn't played to its end; the scores entered are the agreed outcome (TO-approved).
+            'agreed' => ['sometimes', 'boolean'],
             // Opt-in override for when the tracker game is still in progress.
             'confirm_override' => ['sometimes', 'boolean'],
         ];

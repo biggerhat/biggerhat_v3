@@ -61,6 +61,13 @@ final class Ruleset
          * @var list<array{key: string, label: string, description: string, param: array{label: string, min: int, max: int, default: int}|null}> $variants
          */
         public readonly array $variants = [],
+        /**
+         * Round-clock rules shown to players: minutes left when the TO calls the last turn, and the wording of
+         * the last-turn / time-called rules (null = the format has no such rule).
+         *
+         * @var array{last_turn_minutes: int, last_turn: string|null, time_called: string|null} $timeRules
+         */
+        public readonly array $timeRules = ['last_turn_minutes' => 15, 'last_turn' => null, 'time_called' => null],
     ) {}
 
     /** @return array<string, array{key: string, label: string, description: string, param: array{label: string, min: int, max: int, default: int}|null}> */
@@ -106,6 +113,7 @@ final class Ruleset
             'tracks_leaders' => $this->tracksLeaders,
             'supports_tracker' => $this->supportsTracker,
             'variants' => $this->variants,
+            'time_rules' => $this->timeRules,
         ];
     }
 

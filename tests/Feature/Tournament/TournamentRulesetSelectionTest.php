@@ -108,3 +108,15 @@ it('lets a bye override be cleared back to the ruleset value', function () {
     expect($t->fresh()->bye_tp)->toBeNull();
     expect($t->fresh()->scoringConfig()->byeTp)->toBe(3);
 });
+
+it('sends each format’s round-clock rules to the pages', function () {
+    $gg = Tournament::factory()->create(['creator_id' => $this->organizer->id]);
+    $fog = Tournament::factory()->create(['creator_id' => $this->organizer->id, 'ruleset' => 'tos_fields_of_glory']);
+
+    $this->actingAs($this->organizer)->get(route('tournaments.manage', $gg))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('ruleset.time_rules.last_turn_minutes', 15)
+            ->where('ruleset.time_rules.time_called', fn ($v) => str_contains((string) $v, 'one additional') || str_contains((string) $v, 'plus one more')));
+    $this->actingAs($this->organizer)->get(route('tournaments.manage', $fog))
+        ->assertInertia(fn (Assert $page) => $page->where('ruleset.time_rules.time_called', null)->where('ruleset.time_rules.last_turn', fn ($v) => str_contains((string) $v, 'do not start a new one')));
+});

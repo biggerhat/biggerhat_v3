@@ -94,6 +94,8 @@ class TournamentGameController extends Controller
         }
 
         unset($validated['confirm_override']);
+        $agreed = (bool) ($validated['agreed'] ?? false);
+        unset($validated['agreed']);
         // Score components are ruleset-defined; the player's VP is their sum.
         $one = $validated['player_one_score'];
         $two = $validated['player_two_score'];
@@ -104,7 +106,8 @@ class TournamentGameController extends Controller
 
         $game->update([
             ...$validated,
-            'result' => TournamentGameResultEnum::Completed,
+            // Scored exactly like a played game; "agreed" just records that it ended by agreement.
+            'result' => $agreed ? TournamentGameResultEnum::Agreed : TournamentGameResultEnum::Completed,
         ]);
 
         $this->broadcastUpdate($tournament, 'score_updated');

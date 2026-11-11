@@ -1261,7 +1261,7 @@ class GamePlayController extends Controller
         if (! $tg) {
             return;
         }
-        if (in_array($tg->result, [TournamentGameResultEnum::Completed, TournamentGameResultEnum::Forfeited])) {
+        if (in_array($tg->result, [TournamentGameResultEnum::Completed, TournamentGameResultEnum::Agreed, TournamentGameResultEnum::Forfeited])) {
             return;
         }
 

@@ -898,6 +898,8 @@ const editP2Master = ref<string | null>(null);
 const editP2Title = ref<string | null>(null);
 const editP2Score = ref<Record<string, number>>({});
 // Optional: drop a player after submitting their score for this round.
+// Agreed result: the game ended by agreement (concession / ran out of time) and the entered scores are the agreed outcome.
+const editAgreed = ref(false);
 const editDropP1 = ref(false);
 const editDropP2 = ref(false);
 const scoreError = ref<string | null>(null);
@@ -926,6 +928,7 @@ const openScoreEdit = (game: TournamentGame) => {
     editP2Master.value = game.player_two_master;
     editP2Title.value = game.player_two_title;
     editP2Score.value = scoreFromGame(game, 'player_two');
+    editAgreed.value = game.result === 'agreed';
     editDropP1.value = false;
     editDropP2.value = false;
     scoreError.value = null;
@@ -1006,6 +1009,7 @@ const saveScore = async () => {
             player_two_master: editP2Master.value,
             player_two_title: editP2Title.value,
             player_two_score: editP2Score.value,
+            agreed: editAgreed.value,
             // Pre-acknowledge the "tracker still InProgress" guard — the banner
             // above the save button has already warned the TO.
             ...(trackerInProgress.value ? { confirm_override: true } : {}),
@@ -1375,7 +1379,8 @@ const latestRound = computed(() => (props.tournament.rounds.length > 0 ? props.t
 const gameStatus = (game: any, round: any): { label: string; tone: string } => {
     if (game.is_bye) return { label: 'Bye', tone: 'text-muted-foreground' };
     if (game.is_forfeit) return { label: 'Forfeit', tone: 'border-destructive/50 text-destructive' };
-    if (game.result === 'completed' || game.result === 'agreed') {
+    if (game.result === 'agreed') return { label: 'Agreed result', tone: 'border-sky-500/50 text-sky-700 dark:text-sky-300' };
+    if (game.result === 'completed') {
         return { label: 'Reported', tone: 'border-emerald-500/50 text-emerald-700 dark:text-emerald-300' };
     }
     if (game.tracker_game?.status === 'in_progress') {
@@ -2263,7 +2268,11 @@ const titlesForMaster = (masterName: string | null) => {
                                         v-for="game in round.games"
                                         :key="game.id"
                                         class="rounded-md border px-2 py-2 text-sm sm:px-3"
-                                        :class="game.result === 'completed' || game.result === 'forfeited' ? '' : 'border-dashed'"
+                                        :class="
+                                            game.result === 'completed' || game.result === 'agreed' || game.result === 'forfeited'
+                                                ? ''
+                                                : 'border-dashed'
+                                        "
                                     >
                                         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                                             <div class="flex min-w-0 flex-1 items-center gap-2">
@@ -2304,7 +2313,7 @@ const titlesForMaster = (masterName: string | null) => {
                                                 >
                                                 <span v-if="game.is_bye" class="text-xs text-muted-foreground">Automatic win</span>
                                                 <span
-                                                    v-else-if="game.result === 'completed' || game.result === 'forfeited'"
+                                                    v-else-if="game.result === 'completed' || game.result === 'agreed' || game.result === 'forfeited'"
                                                     class="text-sm font-bold tabular-nums"
                                                     >{{ game.player_one_vp ?? '-' }} – {{ game.player_two_vp ?? '-' }}</span
                                                 >
@@ -2782,6 +2791,17 @@ const titlesForMaster = (masterName: string | null) => {
                         </button>
                     </div>
                 </div>
+                <label class="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs">
+                    <input v-model="editAgreed" type="checkbox" class="mt-0.5 size-3.5" />
+                    <span>
+                        <span class="font-medium">Agreed result</span>
+                        <span class="block text-2xs text-muted-foreground">
+                            The game wasn't played to its end. Both players and you agree these scores are a likely outcome as the game stands — no
+                            inducements, no guessing at future turns. Scored like a normal result.
+                        </span>
+                    </span>
+                </label>
+
                 <!-- Player 1 -->
                 <div class="space-y-2 rounded-lg border p-3">
                     <div class="text-xs font-semibold">{{ playerName(editingGame.player_one_id) }}</div>

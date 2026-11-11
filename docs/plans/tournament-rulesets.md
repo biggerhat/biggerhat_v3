@@ -113,6 +113,13 @@ paired and ranked. Recommended shape: a `tournament_teams` table (name, tourname
 `TournamentGame` sides then reference competitors rather than players. This touches pairing, standings, score entry and nearly every page, so it should be its own
 reviewed PR rather than bundled with this series.
 
+### Review fixes (done, not browser-tested)
+Pairing (`TournamentPairingService::matchPlayers`): ties in the standings are now paired in random order (shuffle before the stable sort); the greedy first-fit pass
+is replaced by a backtracking search that finds a rematch-free matching whenever one exists (relaxing no-rematch+no-same-meta → no-rematch → anything, closest
+standings first, 50k-node budget per level). **Agreed results:** the score dialog has an "Agreed result" checkbox that stores `result = agreed` (scored exactly like
+a played game, badge on the pairings, never overwritten by tracker sync). **Round clock:** rulesets carry `time_rules`; the clock labels the last turn and its tooltip
+shows the format's last-turn / time-called wording.
+
 ## Deliberately out of scope for now
 Per-game scenario content tables for non-Wyrd games, round-robin/elimination pairing (pairing stays Swiss;
 a `pairing` strategy hook is left for later), importing results from other tournament software.

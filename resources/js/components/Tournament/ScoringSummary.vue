@@ -20,6 +20,7 @@ const lines = computed(() => {
     }
     out.push(`Bye: ${s.bye_tp} TP / ${s.bye_diff >= 0 ? '+' : ''}${s.bye_diff} DIFF / ${s.bye_vp} VP.`);
     out.push(`Forfeit: the winner scores ${s.forfeit_vp} VP, the forfeiting player ${s.forfeit_loser_tp} TP and −${s.forfeit_vp} DIFF.`);
+    out.push(`Skipping a round without dropping costs −${s.bye_diff} DIFF for each missed round.`);
     out.push(`Standings: TP${props.ruleset.tiebreakers.map((k) => ' → ' + TIEBREAKER_LABELS[k]).join('')}. Equal players share a placing.`);
     return out;
 });

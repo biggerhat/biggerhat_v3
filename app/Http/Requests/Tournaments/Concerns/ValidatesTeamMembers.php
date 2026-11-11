@@ -71,7 +71,10 @@ trait ValidatesTeamMembers
                 return;
             }
 
-            $isRinger = filter_var($this->input('is_ringer'), FILTER_VALIDATE_BOOLEAN);
+            // On update the flag may not be sent; fall back to the team being edited.
+            $isRinger = $this->has('is_ringer')
+                ? filter_var($this->input('is_ringer'), FILTER_VALIDATE_BOOLEAN)
+                : (bool) $this->route('player')?->is_ringer;
             if (is_array($members) && $count !== (int) $tournament->team_size && ! ($isRinger && $count === 0)) {
                 $validator->errors()->add('members', "A team needs exactly {$tournament->team_size} members.");
             }

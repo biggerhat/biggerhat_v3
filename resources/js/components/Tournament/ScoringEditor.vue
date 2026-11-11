@@ -81,8 +81,8 @@ const setTiebreakers = (csv: string) => set('tiebreakers', csv.split(','), props
                 <Checkbox
                     id="score-diff-adds"
                     class="mt-0.5"
-                    :model-value="diffAdds"
-                    @update:model-value="(on) => set('diff_adds_to_tp', on === true, props.defaults.diff_adds_to_tp)"
+                    :checked="diffAdds"
+                    @update:checked="(on) => set('diff_adds_to_tp', on === true, props.defaults.diff_adds_to_tp)"
                 />
                 <div>
                     <label for="score-diff-adds" class="text-sm font-medium">Add differential to TP</label>

@@ -31,7 +31,8 @@ defineExpose({ count: () => props.variants.filter(isOn).length });
 <template>
     <ul class="space-y-3">
         <li v-for="v in variants" :key="v.key" class="flex items-start gap-3">
-            <Checkbox :id="`variant-${v.key}`" class="mt-0.5" :model-value="isOn(v)" @update:model-value="(on) => toggle(v, on)" />
+            <!-- radix-vue checkbox: `checked` / `update:checked` (not modelValue) -->
+            <Checkbox :id="`variant-${v.key}`" class="mt-0.5" :checked="isOn(v)" @update:checked="(on) => toggle(v, on)" />
             <div class="min-w-0 flex-1">
                 <label :for="`variant-${v.key}`" class="text-sm font-medium">{{ v.label }}</label>
                 <p class="text-2xs text-muted-foreground">{{ v.description }}</p>

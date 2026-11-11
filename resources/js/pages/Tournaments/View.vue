@@ -124,6 +124,7 @@ const props = defineProps<{
         location: string | null;
         round_time_limit: number;
         allow_self_report?: boolean;
+        team_size?: number;
         players: TournamentPlayer[];
         organizers: { id: number; name: string }[];
         rsvps?: Rsvp[];
@@ -159,8 +160,10 @@ const activeTab = ref(activeInProgressRound ? `r${activeInProgressRound.round_nu
 const currentRoundNumber = computed(() => {
     const inProgress = props.rounds.find((r) => r.status === 'in_progress');
     if (inProgress) return inProgress.round_number;
-    if (!props.rounds.length) return null;
-    return Math.max(...props.rounds.map((r) => r.round_number));
+    // Rounds are created up front (empty, in Setup) — only count ones that have been paired or played, so a
+    // tournament that hasn't started doesn't claim to be "Round 3 of 3".
+    const started = props.rounds.filter((r) => r.status === 'completed' || r.games.length > 0);
+    return started.length ? Math.max(...started.map((r) => r.round_number)) : null;
 });
 
 const page = usePage<SharedData>();
@@ -359,7 +362,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         ><CalendarDays class="size-3" />{{ formatDate(tournament.event_date) }}</span
                     >
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" />{{ tournament.location }}</span>
-                    <span>{{ tournament.players.length }} players</span>
+                    <span>{{ tournament.players.length }} {{ (tournament.team_size ?? 1) > 1 ? 'teams' : 'players' }}</span>
                     <span v-if="(tournament.status === 'draft' || tournament.status === 'registration') && tournament.rsvps?.length"
                         >{{ tournament.rsvps.length }} RSVPs</span
                     >
@@ -391,8 +394,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
                         </div>
                         <p class="mt-1 text-xs text-muted-foreground">
-                            Express your interest in playing. Optionally pick a faction so the organizer can plan accordingly — you can change it
-                            before the tournament starts.
+                            Express your interest in playing. Optionally pick
+                            {{ ruleset.declaration === 'allegiance' ? 'an allegiance' : 'a faction' }} so the organizer can plan accordingly — you can
+                            change it before the tournament starts.
                         </p>
                     </div>
                     <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
@@ -441,7 +445,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 </CardContent>
             </Card>
             <Card
-                v-else-if="hasRsvped && (tournament.status === 'draft' || tournament.status === 'registration')"
+                v-else-if="hasRsvped && !isRegistered && (tournament.status === 'draft' || tournament.status === 'registration')"
                 class="mb-6 border-blue-500/30 bg-blue-500/5"
             >
                 <CardContent class="flex items-center justify-between p-4">
@@ -489,6 +493,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :my-player-id="myPlayerId"
                 :round-time-limit="tournament.round_time_limit"
                 :tournament-uuid="tournament.uuid"
+                :players="tournament.players"
                 :allow-self-report="tournament.allow_self_report"
                 :score-fields="ruleset.score_fields"
             />

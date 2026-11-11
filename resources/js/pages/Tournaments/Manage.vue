@@ -247,8 +247,10 @@ const activeTab = ref(initialTab && visibleTabs.value.includes(initialTab) ? ini
 const currentRoundNumber = computed(() => {
     const inProgress = props.tournament.rounds.find((r) => r.status === 'in_progress');
     if (inProgress) return inProgress.round_number;
-    if (!props.tournament.rounds.length) return null;
-    return Math.max(...props.tournament.rounds.map((r) => r.round_number));
+    // Rounds are created up front (empty, in Setup) — only count ones that have been paired or played, so a
+    // tournament that hasn't started doesn't claim to be "Round 3 of 3".
+    const started = props.tournament.rounds.filter((r) => r.status === 'completed' || r.games.length > 0);
+    return started.length ? Math.max(...started.map((r) => r.round_number)) : null;
 });
 
 const encounterTypeLabel = computed(() => {
@@ -883,7 +885,7 @@ const nextStep = computed<NextStep | null>(() => {
         return {
             stage: 'players',
             title: 'Registration is open',
-            detail: `${t.players.length} ${t.players.length === 1 ? 'player is' : 'players are'} in. Start the tournament when everyone has arrived.`,
+            detail: `${t.players.length} ${(t.team_size ?? 1) > 1 ? (t.players.length === 1 ? 'team is' : 'teams are') : t.players.length === 1 ? 'player is' : 'players are'} in. Start the tournament when everyone has arrived.`,
             actionLabel: statusTransitions.registration.label,
             action: () => (confirmStatusDialog.value = true),
         };

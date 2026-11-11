@@ -136,6 +136,9 @@ const availableUsers = computed(() => {
     );
     return (props.tournament.rsvps ?? []).filter((r) => r.user && !taken.has(r.user_id)).map((r) => ({ id: r.user_id, name: r.user!.name }));
 });
+const takenUserIds = computed(() =>
+    props.tournament.players.flatMap((p) => [p.user?.id, ...(p.members ?? []).map((m) => m.user_id)]).filter((id): id is number => !!id),
+);
 const memberPayload = (m: TeamMemberDraft) => ({
     ...(m.id ? { id: m.id } : {}),
     display_name: m.display_name.trim(),
@@ -143,21 +146,28 @@ const memberPayload = (m: TeamMemberDraft) => ({
     // A private Garrison's code is hidden from the payload, so only send it when the TO changed it.
     ...declarationPayload(m.faction, m.allegiance, m.garrison_code !== m.garrison_original ? m.garrison_code : undefined),
 });
-const membersReady = (members: TeamMemberDraft[]) =>
-    members.length === teamSize.value && members.every((m) => m.display_name.trim() && isDeclared(m.faction, m.allegiance));
-
+// A ringer team stands in for an odd field and needs no members; every other team needs a full, declared roster.
+const isEmptyRoster = (members: TeamMemberDraft[]) => members.every((m) => !m.display_name.trim() && !m.user_id);
+const membersReady = (members: TeamMemberDraft[], ringer = false) =>
+    (ringer && isEmptyRoster(members)) ||
+    (members.length === teamSize.value && members.every((m) => m.display_name.trim() && isDeclared(m.faction, m.allegiance)));
 const newTeamName = ref('');
+const newTeamIsRinger = ref(false);
 const newTeamMembers = ref<TeamMemberDraft[]>(Array.from({ length: teamSize.value }, blankMember));
 const addTeam = async () => {
-    if (!newTeamName.value.trim() || !membersReady(newTeamMembers.value)) return;
+    if (!newTeamName.value.trim() || !(newTeamIsRinger.value || membersReady(newTeamMembers.value))) return;
     submitting.value = true;
-    const ok = await doAction(route('tournaments.players.add', props.tournament.uuid), 'POST', {
-        display_name: newTeamName.value.trim(),
-        members: newTeamMembers.value.map(memberPayload),
-    });
+    const ok = await doAction(
+        route('tournaments.players.add', props.tournament.uuid),
+        'POST',
+        newTeamIsRinger.value
+            ? { display_name: newTeamName.value.trim(), is_ringer: true }
+            : { display_name: newTeamName.value.trim(), members: newTeamMembers.value.map(memberPayload) },
+    );
     submitting.value = false;
     if (ok) {
         newTeamName.value = '';
+        newTeamIsRinger.value = false;
         newTeamMembers.value = Array.from({ length: teamSize.value }, blankMember);
         reloadPage();
     }
@@ -179,13 +189,14 @@ const openTeamDialog = (team: TournamentPlayer) => {
     teamDialogOpen.value = true;
 };
 const submitTeam = async () => {
-    if (!teamEditing.value || !teamName.value.trim() || !membersReady(teamMembers.value)) return;
+    const ringer = !!teamEditing.value?.is_ringer;
+    if (!teamEditing.value || !teamName.value.trim() || !membersReady(teamMembers.value, ringer)) return;
     teamSaving.value = true;
     teamError.value = null;
     const { ok, error } = await doModalAction(
         route('tournaments.players.update', { tournament: props.tournament.uuid, player: teamEditing.value.id }),
         'PUT',
-        { display_name: teamName.value.trim(), members: teamMembers.value.map(memberPayload) },
+        { display_name: teamName.value.trim(), members: ringer && isEmptyRoster(teamMembers.value) ? [] : teamMembers.value.map(memberPayload) },
     );
     teamSaving.value = false;
     if (ok) {
@@ -571,14 +582,31 @@ defineExpose({ openRsvpPlayerDialog });
                     <Label class="text-xs">Team name</Label>
                     <Input v-model="newTeamName" placeholder="Enter team name..." class="h-9 text-sm" />
                 </div>
+                <label class="flex items-start gap-2 text-xs">
+                    <input v-model="newTeamIsRinger" type="checkbox" class="mt-0.5 size-3.5" />
+                    <span>
+                        <span class="font-medium">Ringer team</span>
+                        <span class="block text-2xs text-muted-foreground">
+                            Stands in when there's an odd number of teams, so it needs no members. It plays a game but isn't ranked.
+                        </span>
+                    </span>
+                </label>
                 <TeamForm
+                    v-if="!newTeamIsRinger"
                     v-model="newTeamMembers"
                     :declaration="declaration"
                     :factions="factions"
                     :allegiances="allegiances"
                     :available-users="availableUsers"
+                    :search-url="route('tournaments.users.search', tournament.uuid)"
+                    :taken-user-ids="takenUserIds"
                 />
-                <Button size="sm" class="h-9 gap-1" :disabled="!newTeamName.trim() || !membersReady(newTeamMembers) || submitting" @click="addTeam">
+                <Button
+                    size="sm"
+                    class="h-9 gap-1"
+                    :disabled="!newTeamName.trim() || !(newTeamIsRinger || membersReady(newTeamMembers)) || submitting"
+                    @click="addTeam"
+                >
                     <Plus class="size-3.5" /> Add team
                 </Button>
             </CardContent>
@@ -874,12 +902,14 @@ defineExpose({ openRsvpPlayerDialog });
                     :factions="factions"
                     :allegiances="allegiances"
                     :available-users="availableUsers"
+                    :search-url="route('tournaments.users.search', tournament.uuid)"
+                    :taken-user-ids="takenUserIds"
                 />
                 <p v-if="teamError" class="text-xs text-destructive">{{ teamError }}</p>
             </div>
             <DialogFooter>
                 <Button variant="outline" @click="teamDialogOpen = false">Cancel</Button>
-                <Button :disabled="!teamName.trim() || !membersReady(teamMembers) || teamSaving" @click="submitTeam">
+                <Button :disabled="!teamName.trim() || !membersReady(teamMembers, !!teamEditing?.is_ringer) || teamSaving" @click="submitTeam">
                     <Loader2 v-if="teamSaving" class="mr-2 size-4 animate-spin" /> Save team
                 </Button>
             </DialogFooter>

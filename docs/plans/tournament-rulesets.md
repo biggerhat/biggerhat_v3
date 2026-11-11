@@ -1,6 +1,6 @@
 # Tournament Rulesets — game-agnostic tournament tracking
 
-Status: **All phases done (1–6, including team events)** on branch `tournament-rulesets-nov10` (uncommitted); Nothing from phases 3+ has been browser-tested.
+Status: **All phases done (1–6, including team events)** on branch `tournament-rulesets-nov10` (uncommitted); Browser-tested (2026-11-14, headless Chrome against a local SQLite copy, 42 flows incl. phone width) — see the notes under "Browser pass".
 Notes from implementation: rulesets are config-only (`config/tournaments.php`, no per-game classes); `tournaments.bye_*` columns are now nullable overrides (null = ruleset value); `ruleset` is a plain string column, unknown keys fall back to the default ruleset.
 
 ## Goal
@@ -125,6 +125,21 @@ shows the format's last-turn / time-called wording.
 ### Player-facing follow-ups (done, not browser-tested)
 Self-reporting with opponent confirmation, check-in, big-screen display mode, and the first cut of splitting `Manage.vue` (score dialog and settings form extracted;
 3,349 → ~2,730 lines). Not done: extracting the player dialogs / next-step guide from Manage, and de-duplicating the mobile/desktop pairing rows in `View.vue`.
+
+### Browser pass (done)
+Drove the real UI with puppeteer + the repo's Chrome (no sudo: the six missing shared libraries were unpacked from `.deb`s into a private dir, see
+`docs/ui-audit.md`) against a local SQLite database seeded with a running Gaining Grounds event, a team event, a running team event and Fields of Glory events.
+42 steps across guest / player / organizer sessions: view, display mode, self-report → confirm between two accounts (individual and team), check-in, score dialog,
+settings edit + lock, variants, scoring editor, Fields of Glory create + allegiance + operation/deployment scenario, team add/edit/search/ringer, and phone-width
+layouts with horizontal-overflow checks. It found and fixed real bugs that compile checks and PHP tests could not see:
+- `VariantPicker` and `ScoringEditor` used `modelValue` on the radix-vue `Checkbox` (which uses `checked` / `update:checked`), so toggling silently did nothing and
+  every event was saved with no variants.
+- A player who RSVPed and was then registered kept seeing "waiting for the organizer" (the RSVP banner came first), hiding the registered banner and check-in.
+- The match card said "Result recorded." while a self-report was still pending.
+- Draft / registration events claimed "Round 3 of 3" because empty rounds are created up front.
+- Team events said "players" in headers and the guide; the match card didn't show who is on each team; allegiance events said "faction" in the RSVP copy.
+- Team add had no way to create a member-less ringer team, and editing one failed validation.
+Also added: free account search when linking team members (not just RSVPs), a "Ringer team" option.
 
 ## Deliberately out of scope for now
 Per-game scenario content tables for non-Wyrd games, round-robin/elimination pairing (pairing stays Swiss;

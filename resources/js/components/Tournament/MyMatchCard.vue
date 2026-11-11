@@ -62,6 +62,8 @@ const props = defineProps<{
     myPlayerId: number;
     roundTimeLimit: number;
     tournamentUuid: string;
+    /** The event's players, so team events can show who is on each team. */
+    players?: { id: number; display_name: string; members?: { display_name: string }[] }[];
     /** Whether players may submit their own results for the opponent to confirm. */
     allowSelfReport?: boolean;
     /** The ruleset's score components (e.g. strategy + scheme VP), one input each. */
@@ -79,6 +81,14 @@ const myFaction = computed(() => (iAmOne.value ? props.game.player_one_faction :
 const myMaster = computed(() =>
     iAmOne.value ? props.game.player_one_title || props.game.player_one_master : props.game.player_two_title || props.game.player_two_master,
 );
+
+// Team events: the team name and its members, for both sides.
+const teamLine = (id: number | null) => {
+    const p = id === null ? undefined : props.players?.find((x) => x.id === id);
+    return p?.members?.length ? `${p.display_name} — ${p.members.map((m) => m.display_name).join(' · ')}` : null;
+};
+const myTeam = computed(() => teamLine(props.myPlayerId));
+const opponentTeam = computed(() => teamLine(iAmOne.value ? props.game.player_two_id : props.game.player_one_id));
 
 const inProgress = computed(() => props.round.status === 'in_progress');
 const liveGame = computed(() => (props.game.tracker_game && props.game.tracker_game.status !== 'completed' ? props.game.tracker_game : null));
@@ -165,6 +175,7 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                     <FactionLogo v-if="myFaction" :faction="myFaction" class-name="size-6 shrink-0" />
                     <div class="min-w-0">
                         <div class="truncate font-semibold">You</div>
+                        <div v-if="myTeam" class="truncate text-xs text-muted-foreground">{{ myTeam }}</div>
                         <div v-if="myMaster" class="truncate text-xs text-muted-foreground">{{ myMaster }}</div>
                     </div>
                 </div>
@@ -173,6 +184,7 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                     <FactionLogo v-if="opponent.faction" :faction="opponent.faction" class-name="size-6 shrink-0" />
                     <div class="min-w-0">
                         <div class="truncate font-semibold">{{ opponent.name ?? 'TBD' }}</div>
+                        <div v-if="opponentTeam" class="truncate text-xs text-muted-foreground">{{ opponentTeam }}</div>
                         <div v-if="opponent.master" class="truncate text-xs text-muted-foreground">{{ opponent.master }}</div>
                     </div>
                 </div>
@@ -206,8 +218,8 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                 <p v-else-if="!inProgress" class="text-xs text-muted-foreground">
                     Round {{ round.round_number }} hasn't started yet — find your table and get set up.
                 </p>
-                <p v-else-if="!finished && !canReport" class="text-xs text-muted-foreground">
-                    Play your game, then give your scores to the organizer.
+                <p v-else-if="!finished" class="text-xs text-muted-foreground">
+                    {{ canReport ? 'Play your game, then report the result below.' : 'Play your game, then give your scores to the organizer.' }}
                 </p>
                 <p v-else-if="game.is_forfeit" class="text-xs text-muted-foreground">This game was recorded as a forfeit.</p>
                 <p v-else class="text-xs text-muted-foreground">Result recorded.</p>

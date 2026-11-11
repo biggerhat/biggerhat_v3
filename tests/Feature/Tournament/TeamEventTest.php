@@ -284,3 +284,41 @@ describe('payloads', function () {
             ->assertInertia(fn (Assert $page) => $page->where('ruleset.tracks_leaders', true));
     });
 });
+
+describe('ringer teams', function () {
+    it('lets a member-less ringer team be renamed without sending members, but a normal team still needs a full roster', function () {
+        $t = Tournament::factory()->inRegistration()->create(['creator_id' => $this->owner->id, 'team_size' => 2]);
+        $ringer = TournamentPlayer::factory()->for($t)->ringer()->create(['display_name' => 'Ringer Squad', 'faction' => null]);
+        $normal = TournamentPlayer::factory()->for($t)->create(['display_name' => 'Regulars', 'faction' => null]);
+
+        // empty roster is fine for the ringer (the flag isn't re-sent on update — the stored one counts)…
+        $this->actingAs($this->owner)->putJson(route('tournaments.players.update', [$t, $ringer]), ['display_name' => 'Renamed Ringers', 'members' => []])->assertOk();
+        expect($ringer->fresh()->display_name)->toBe('Renamed Ringers');
+
+        // …but not for a team that isn't a ringer.
+        $this->actingAs($this->owner)->putJson(route('tournaments.players.update', [$t, $normal]), ['members' => []])
+            ->assertStatus(422)->assertJsonValidationErrors('members');
+    });
+
+    it('can have an optional roster: a ringer team with members is still valid', function () {
+        $t = Tournament::factory()->inRegistration()->create(['creator_id' => $this->owner->id, 'team_size' => 2]);
+
+        $this->actingAs($this->owner)->postJson(route('tournaments.players.add', $t), [
+            'display_name' => 'Full Ringers', 'is_ringer' => true,
+            'members' => [['display_name' => 'A', 'faction' => 'guild'], ['display_name' => 'B', 'faction' => 'guild']],
+        ])->assertOk();
+
+        expect(TournamentPlayer::where('display_name', 'Full Ringers')->first()->members)->toHaveCount(2);
+    });
+
+    it('does not make a ringer team block the start of a team event', function () {
+        $t = Tournament::factory()->inRegistration()->create(['creator_id' => $this->owner->id, 'team_size' => 2]);
+        TournamentPlayer::factory()->for($t)->ringer()->create(['faction' => null]);
+        foreach (['A', 'B'] as $name) {
+            $team = TournamentPlayer::factory()->for($t)->create(['display_name' => $name, 'faction' => null]);
+            $team->members()->createMany([['display_name' => "{$name}1", 'faction' => 'guild', 'position' => 0], ['display_name' => "{$name}2", 'faction' => 'guild', 'position' => 1]]);
+        }
+
+        expect(app(TournamentStateMachine::class)->canTransitionTournamentTo($t, \App\Enums\TournamentStatusEnum::Active))->toBeNull();
+    });
+});

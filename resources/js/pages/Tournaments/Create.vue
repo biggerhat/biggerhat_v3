@@ -38,6 +38,7 @@ const props = defineProps<{
         bye_vp: number | null;
         tiebreaker_mode: 'diff_vp' | 'sos';
         variants: Record<string, boolean | number> | null;
+        allow_self_report: boolean;
         scoring_config: Record<string, unknown> | null;
     } | null;
     previous_events: { uuid: string; name: string; event_date: string }[];
@@ -62,6 +63,7 @@ const form = useForm({
     bye_diff: props.template?.bye_diff ?? initialRuleset.scoring.bye_diff,
     bye_vp: props.template?.bye_vp ?? initialRuleset.scoring.bye_vp,
     tiebreaker_mode: (props.template?.tiebreaker_mode ?? 'diff_vp') as 'diff_vp' | 'sos',
+    allow_self_report: props.template?.allow_self_report ?? false,
     variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
     // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
     scoring_config: (props.template?.scoring_config ?? {}) as Record<string, unknown>,
@@ -280,6 +282,17 @@ const submit = () => {
                                 </NumberField>
                                 <InputError :message="form.errors.round_time_limit" />
                             </div>
+
+                            <label class="flex items-start gap-2 text-sm">
+                                <input v-model="form.allow_self_report" type="checkbox" class="mt-1 size-3.5" />
+                                <span>
+                                    <span class="font-medium">Let players report their own results</span>
+                                    <span class="block text-2xs text-muted-foreground">
+                                        One player submits the score and the opponent confirms or disputes it. Nothing counts until confirmed; you can
+                                        always correct it.
+                                    </span>
+                                </span>
+                            </label>
                         </section>
 
                         <!-- ─── Rule variants ─── -->

@@ -45,6 +45,7 @@ class Tournament extends Model
             'event_date' => 'date',
             'scoring_config' => 'array',
             'variants' => 'array',
+            'allow_self_report' => 'boolean',
         ];
     }
 

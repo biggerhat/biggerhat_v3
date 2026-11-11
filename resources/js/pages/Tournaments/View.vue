@@ -32,6 +32,10 @@ interface TournamentPlayer {
 
 interface ViewGame {
     id: number;
+    report_status?: 'pending' | 'disputed' | null;
+    reported_by_player_id?: number | null;
+    reported_score?: { player_one: Record<string, number>; player_two: Record<string, number>; agreed: boolean } | null;
+    report_note?: string | null;
     player_one_id: number;
     player_two_id: number | null;
     player_one: TournamentPlayer;
@@ -116,6 +120,7 @@ const props = defineProps<{
         event_date: string;
         location: string | null;
         round_time_limit: number;
+        allow_self_report?: boolean;
         players: TournamentPlayer[];
         organizers: { id: number; name: string }[];
         rsvps?: Rsvp[];
@@ -476,6 +481,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :game="myMatch.game"
                 :my-player-id="myPlayerId"
                 :round-time-limit="tournament.round_time_limit"
+                :tournament-uuid="tournament.uuid"
+                :allow-self-report="tournament.allow_self_report"
+                :score-fields="ruleset.score_fields"
             />
 
             <!-- Main Tabs -->

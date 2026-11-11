@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TournamentGameResultEnum;
+use App\Enums\TournamentReportStatusEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +24,9 @@ class TournamentGame extends Model
             'is_bye' => 'boolean',
             'is_forfeit' => 'boolean',
             'score_breakdown' => 'array',
+            'report_status' => TournamentReportStatusEnum::class,
+            'reported_score' => 'array',
+            'reported_at' => 'datetime',
         ];
     }
 
@@ -56,6 +60,11 @@ class TournamentGame extends Model
     public function forfeitPlayer(): BelongsTo
     {
         return $this->belongsTo(TournamentPlayer::class, 'forfeit_player_id');
+    }
+
+    public function reportedBy(): BelongsTo
+    {
+        return $this->belongsTo(TournamentPlayer::class, 'reported_by_player_id');
     }
 
     public function playerOneCrewBuild(): BelongsTo

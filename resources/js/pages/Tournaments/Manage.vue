@@ -106,6 +106,11 @@ interface TournamentGame {
     player_two_master: string | null;
     player_two_title: string | null;
     player_two_vp: number | null;
+    /** A player-submitted result that isn't official yet (self-reporting). */
+    report_status?: 'pending' | 'disputed' | null;
+    reported_by_player_id?: number | null;
+    reported_score?: { player_one: Record<string, number>; player_two: Record<string, number>; agreed: boolean } | null;
+    report_note?: string | null;
     /** Per-side score components keyed by the ruleset's score-field keys. */
     score_breakdown: { player_one?: Record<string, number>; player_two?: Record<string, number> } | null;
     is_bye: boolean;
@@ -195,6 +200,7 @@ interface TournamentData {
     bye_vp?: number | null;
     tiebreaker_mode?: 'diff_vp' | 'sos';
     variants?: Record<string, boolean | number> | null;
+    allow_self_report?: boolean;
     scoring_config?: Record<string, unknown> | null;
     creator_id: number;
     players: TournamentPlayer[];
@@ -924,11 +930,13 @@ const openScoreEdit = (game: TournamentGame) => {
     editingGame.value = game;
     editP1Master.value = game.player_one_master;
     editP1Title.value = game.player_one_title;
-    editP1Score.value = scoreFromGame(game, 'player_one');
+    // A pending / disputed player report pre-fills the form, so approving it is one click.
+    const proposal = game.report_status ? game.reported_score : null;
+    editP1Score.value = proposal ? { ...proposal.player_one } : scoreFromGame(game, 'player_one');
     editP2Master.value = game.player_two_master;
     editP2Title.value = game.player_two_title;
-    editP2Score.value = scoreFromGame(game, 'player_two');
-    editAgreed.value = game.result === 'agreed';
+    editP2Score.value = proposal ? { ...proposal.player_two } : scoreFromGame(game, 'player_two');
+    editAgreed.value = proposal ? proposal.agreed : game.result === 'agreed';
     editDropP1.value = false;
     editDropP2.value = false;
     scoreError.value = null;
@@ -1236,6 +1244,7 @@ const editRoundTimeLimit = ref(135);
 const editByeTp = ref(3);
 const editByeDiff = ref(4);
 const editByeVp = ref(6);
+const editAllowSelfReport = ref(false);
 const editAdvancedOpen = ref(false);
 const editVariants = ref<Record<string, boolean | number>>({});
 const editScoringConfig = ref<Record<string, unknown>>({});
@@ -1261,6 +1270,7 @@ const openSettingsEdit = () => {
     editByeTp.value = props.ruleset.scoring.bye_tp;
     editByeDiff.value = props.ruleset.scoring.bye_diff;
     editByeVp.value = props.ruleset.scoring.bye_vp;
+    editAllowSelfReport.value = !!props.tournament.allow_self_report;
     editAdvancedOpen.value = false;
     editVariants.value = { ...props.ruleset.active_variants };
     editScoringConfig.value = { ...(props.tournament.scoring_config ?? {}) };
@@ -1285,6 +1295,7 @@ const saveSettings = async () => {
         bye_diff: editByeDiff.value === props.ruleset.default_scoring.bye_diff ? null : editByeDiff.value,
         bye_vp: editByeVp.value === props.ruleset.default_scoring.bye_vp ? null : editByeVp.value,
         variants: editVariants.value,
+        allow_self_report: editAllowSelfReport.value,
         scoring_config: editScoringConfig.value,
     });
     submitting.value = false;
@@ -1379,6 +1390,9 @@ const latestRound = computed(() => (props.tournament.rounds.length > 0 ? props.t
 const gameStatus = (game: any, round: any): { label: string; tone: string } => {
     if (game.is_bye) return { label: 'Bye', tone: 'text-muted-foreground' };
     if (game.is_forfeit) return { label: 'Forfeit', tone: 'border-destructive/50 text-destructive' };
+    if (game.report_status === 'disputed') return { label: 'Disputed', tone: 'border-destructive/50 text-destructive' };
+    if (game.report_status === 'pending')
+        return { label: 'Reported · awaiting confirmation', tone: 'border-amber-500/60 text-amber-700 dark:text-amber-300' };
     if (game.result === 'agreed') return { label: 'Agreed result', tone: 'border-sky-500/50 text-sky-700 dark:text-sky-300' };
     if (game.result === 'completed') {
         return { label: 'Reported', tone: 'border-emerald-500/50 text-emerald-700 dark:text-emerald-300' };
@@ -2536,6 +2550,16 @@ const titlesForMaster = (masterName: string | null) => {
                                         <NumberFieldContent><NumberFieldDecrement /><NumberFieldInput /><NumberFieldIncrement /></NumberFieldContent>
                                     </NumberField>
                                 </div>
+                                <label class="flex items-start gap-2 text-sm">
+                                    <input v-model="editAllowSelfReport" type="checkbox" class="mt-1 size-3.5" />
+                                    <span>
+                                        <span class="font-medium">Let players report their own results</span>
+                                        <span class="block text-2xs text-muted-foreground">
+                                            One player submits the score, the opponent confirms or disputes it. Nothing counts until confirmed; you
+                                            can always correct it.
+                                        </span>
+                                    </span>
+                                </label>
                             </section>
 
                             <!-- Advanced Scoring (collapsed by default) -->
@@ -2671,6 +2695,10 @@ const titlesForMaster = (masterName: string | null) => {
                                     <span>{{ tournament.season_label }}</span>
                                 </div>
                                 <div class="flex justify-between">
+                                    <span class="text-muted-foreground">Player self-reporting</span>
+                                    <span>{{ tournament.allow_self_report ? 'On' : 'Off' }}</span>
+                                </div>
+                                <div class="flex justify-between">
                                     <span class="text-muted-foreground">Bye Scoring</span>
                                     <span class="tabular-nums"
                                         >{{ ruleset.scoring.bye_tp }} TP / {{ ruleset.scoring.bye_diff }} DIFF / {{ ruleset.scoring.bye_vp }} VP</span
@@ -2791,6 +2819,23 @@ const titlesForMaster = (masterName: string | null) => {
                         </button>
                     </div>
                 </div>
+                <div
+                    v-if="editingGame.report_status"
+                    class="rounded-md border p-2 text-xs"
+                    :class="
+                        editingGame.report_status === 'disputed' ? 'border-destructive/50 bg-destructive/5' : 'border-amber-500/50 bg-amber-500/5'
+                    "
+                >
+                    <template v-if="editingGame.report_status === 'pending'">
+                        <span class="font-medium">{{ playerName(editingGame.reported_by_player_id ?? 0) }}</span> reported these scores; the opponent
+                        hasn't confirmed. Saving makes them official.
+                    </template>
+                    <template v-else>
+                        <span class="font-medium">Disputed.</span> {{ playerName(editingGame.reported_by_player_id ?? 0) }} reported these scores and
+                        the opponent disagrees<span v-if="editingGame.report_note">: “{{ editingGame.report_note }}”</span>. Enter the correct result.
+                    </template>
+                </div>
+
                 <label class="flex items-start gap-2 rounded-md border border-dashed p-2 text-xs">
                     <input v-model="editAgreed" type="checkbox" class="mt-0.5 size-3.5" />
                     <span>

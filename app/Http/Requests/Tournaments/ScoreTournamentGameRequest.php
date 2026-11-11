@@ -3,12 +3,15 @@
 namespace App\Http\Requests\Tournaments;
 
 use App\Enums\FactionEnum;
+use App\Http\Requests\Tournaments\Concerns\ValidatesRulesetScore;
 use App\Models\Tournament;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ScoreTournamentGameRequest extends FormRequest
 {
+    use ValidatesRulesetScore;
+
     public function authorize(): bool
     {
         /** @var Tournament|null $tournament */
@@ -36,28 +39,5 @@ class ScoreTournamentGameRequest extends FormRequest
             // Opt-in override for when the tracker game is still in progress.
             'confirm_override' => ['sometimes', 'boolean'],
         ];
-    }
-
-    /**
-     * Score components come from the tournament's ruleset (e.g. strategy + scheme VP for Malifaux,
-     * a single VP total for Fields of Glory): `player_one_score.<key>` / `player_two_score.<key>`.
-     *
-     * @return array<string, array<int, mixed>>
-     */
-    private function scoreRules(): array
-    {
-        /** @var Tournament|null $tournament */
-        $tournament = $this->route('tournament');
-        $fields = $tournament?->rulesetDefinition()->scoreFields ?? [];
-
-        $rules = [];
-        foreach (['player_one_score', 'player_two_score'] as $side) {
-            $rules[$side] = ['required', 'array'];
-            foreach ($fields as $field) {
-                $rules["{$side}.{$field['key']}"] = ['required', 'integer', 'min:'.$field['min'], 'max:'.$field['max']];
-            }
-        }
-
-        return $rules;
     }
 }

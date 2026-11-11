@@ -44,6 +44,7 @@ use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SupportersController;
 use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentGameController;
+use App\Http\Controllers\Tournament\TournamentGameReportController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
 use App\Http\Controllers\Tournament\TournamentRoundController;
@@ -476,6 +477,11 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::put('/{tournament}/games/{game}', [TournamentGameController::class, 'updateScore'])->name('games.update');
     Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
     Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');
+    // Player self-reporting (the opponent confirms or disputes; the TO's score entry always wins)
+    Route::post('/{tournament}/games/{game}/report', [TournamentGameReportController::class, 'store'])->name('games.report');
+    Route::post('/{tournament}/games/{game}/report/confirm', [TournamentGameReportController::class, 'confirm'])->name('games.report.confirm');
+    Route::post('/{tournament}/games/{game}/report/dispute', [TournamentGameReportController::class, 'dispute'])->name('games.report.dispute');
+    Route::delete('/{tournament}/games/{game}/report', [TournamentGameReportController::class, 'destroy'])->name('games.report.withdraw');
     Route::post('/{tournament}/games/{game}/complete-tracker', [TournamentGameController::class, 'completeTrackerGame'])->name('games.complete_tracker');
     Route::get('/{tournament}/export.csv', [\App\Http\Controllers\Tournament\TournamentController::class, 'exportCsv'])->name('export_csv');
 });

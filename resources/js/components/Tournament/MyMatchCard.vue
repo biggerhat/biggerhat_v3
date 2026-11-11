@@ -3,15 +3,25 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Link } from '@inertiajs/vue3';
-import { Gamepad2, Swords } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { Gamepad2, Loader2, Swords } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Side {
     display_name: string;
 }
 
+interface ReportedScore {
+    player_one: Record<string, number>;
+    player_two: Record<string, number>;
+    agreed: boolean;
+}
+
 interface MatchGame {
+    id: number;
     player_one_id: number;
     player_two_id: number | null;
     player_one: Side;
@@ -29,6 +39,11 @@ interface MatchGame {
     result: string;
     table_number: number | null;
     tracker_game: { uuid: string; status?: string } | null;
+    /** A player-submitted result that isn't official yet. */
+    report_status?: 'pending' | 'disputed' | null;
+    reported_by_player_id?: number | null;
+    reported_score?: ReportedScore | null;
+    report_note?: string | null;
 }
 
 interface MatchRound {
@@ -37,6 +52,8 @@ interface MatchRound {
     started_at: string | null;
     deployment: { label: string } | null;
     strategy: { name: string } | null;
+    /** TOS-style scenario (operation + deployment), when the ruleset has one. */
+    tos_scenario?: { operation: { name: string } | null; deployment: { name: string } | null } | null;
 }
 
 const props = defineProps<{
@@ -44,6 +61,11 @@ const props = defineProps<{
     game: MatchGame;
     myPlayerId: number;
     roundTimeLimit: number;
+    tournamentUuid: string;
+    /** Whether players may submit their own results for the opponent to confirm. */
+    allowSelfReport?: boolean;
+    /** The ruleset's score components (e.g. strategy + scheme VP), one input each. */
+    scoreFields?: { key: string; label: string; min: number; max: number }[];
 }>();
 
 const iAmOne = computed(() => props.game.player_one_id === props.myPlayerId);
@@ -66,6 +88,64 @@ const scoreLine = computed(() => {
     const theirs = iAmOne.value ? props.game.player_two_vp : props.game.player_one_vp;
     return mine === null || theirs === null ? null : `${mine} – ${theirs}`;
 });
+
+// ─── Self-reporting ───
+const fields = computed(() => props.scoreFields ?? []);
+const opponentName = computed(() => opponent.value.name ?? 'your opponent');
+const reportError = computed(() => (usePage().props.errors as Record<string, string> | undefined)?.report ?? null);
+const canReport = computed(
+    () =>
+        !!props.allowSelfReport && inProgress.value && !finished.value && !props.game.is_bye && !props.game.is_forfeit && !!props.game.player_two_id,
+);
+const iReported = computed(() => props.game.reported_by_player_id === props.myPlayerId);
+const proposal = computed(() => props.game.reported_score ?? null);
+/** The proposed score from my point of view: [mine, theirs] component maps. */
+const proposedMineTheirs = computed(() => {
+    const p = proposal.value;
+    if (!p) return null;
+    return iAmOne.value ? { mine: p.player_one, theirs: p.player_two } : { mine: p.player_two, theirs: p.player_one };
+});
+const total = (scores: Record<string, number> | undefined) => Object.values(scores ?? {}).reduce((a, b) => a + (Number(b) || 0), 0);
+
+const reporting = ref(false);
+const disputing = ref(false);
+const busy = ref(false);
+const mine = ref<Record<string, number>>({});
+const theirs = ref<Record<string, number>>({});
+const agreed = ref(false);
+const disputeNote = ref('');
+
+const openReportForm = () => {
+    mine.value = Object.fromEntries(fields.value.map((f) => [f.key, 0]));
+    theirs.value = Object.fromEntries(fields.value.map((f) => [f.key, 0]));
+    agreed.value = false;
+    reporting.value = true;
+};
+
+const reportRoute = (name: string) => route(name, { tournament: props.tournamentUuid, game: props.game.id });
+const send = (method: 'post' | 'delete', name: string, data: Record<string, unknown> = {}, done?: () => void) => {
+    busy.value = true;
+    router[method](reportRoute(name), data, {
+        preserveScroll: true,
+        onSuccess: () => done?.(),
+        onFinish: () => (busy.value = false),
+    });
+};
+const submitReport = () =>
+    send(
+        'post',
+        'tournaments.games.report',
+        {
+            player_one_score: iAmOne.value ? mine.value : theirs.value,
+            player_two_score: iAmOne.value ? theirs.value : mine.value,
+            agreed: agreed.value,
+        },
+        () => (reporting.value = false),
+    );
+const confirmReport = () => send('post', 'tournaments.games.report.confirm');
+const submitDispute = () =>
+    send('post', 'tournaments.games.report.dispute', { note: disputeNote.value.trim() || null }, () => (disputing.value = false));
+const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw');
 </script>
 
 <template>
@@ -99,7 +179,16 @@ const scoreLine = computed(() => {
                 <div v-if="finished && scoreLine" class="ml-auto text-lg font-bold tabular-nums">{{ scoreLine }}</div>
             </div>
 
-            <div v-if="round.deployment || round.strategy" class="text-xs text-muted-foreground">
+            <div v-if="round.tos_scenario" class="text-xs text-muted-foreground">
+                <span v-if="round.tos_scenario.operation"
+                    >Operation: <span class="font-medium text-foreground">{{ round.tos_scenario.operation.name }}</span></span
+                >
+                <span v-if="round.tos_scenario.operation && round.tos_scenario.deployment"> · </span>
+                <span v-if="round.tos_scenario.deployment"
+                    >Deployment: <span class="font-medium text-foreground">{{ round.tos_scenario.deployment.name }}</span></span
+                >
+            </div>
+            <div v-else-if="round.deployment || round.strategy" class="text-xs text-muted-foreground">
                 <span v-if="round.deployment"
                     >Deployment: <span class="font-medium text-foreground">{{ round.deployment.label }}</span></span
                 >
@@ -117,9 +206,106 @@ const scoreLine = computed(() => {
                 <p v-else-if="!inProgress" class="text-xs text-muted-foreground">
                     Round {{ round.round_number }} hasn't started yet — find your table and get set up.
                 </p>
-                <p v-else-if="!finished" class="text-xs text-muted-foreground">Play your game, then give your scores to the organizer.</p>
+                <p v-else-if="!finished && !canReport" class="text-xs text-muted-foreground">
+                    Play your game, then give your scores to the organizer.
+                </p>
                 <p v-else-if="game.is_forfeit" class="text-xs text-muted-foreground">This game was recorded as a forfeit.</p>
                 <p v-else class="text-xs text-muted-foreground">Result recorded.</p>
+            </div>
+
+            <!-- Player self-reporting: propose → opponent confirms/disputes → official -->
+            <div v-if="canReport" class="space-y-2 rounded-md border bg-background/60 p-3 text-sm" data-testid="self-report">
+                <p v-if="reportError" class="text-xs text-destructive" role="alert">{{ reportError }}</p>
+
+                <template v-if="game.report_status === 'disputed'">
+                    <p class="text-xs">
+                        <span class="font-medium">This result was disputed</span> — the organizer will settle it.
+                        <span v-if="game.report_note" class="block text-muted-foreground">“{{ game.report_note }}”</span>
+                    </p>
+                    <Button v-if="!reporting" size="sm" variant="outline" :disabled="busy" @click="openReportForm">Submit a new result</Button>
+                </template>
+
+                <template v-else-if="game.report_status === 'pending' && proposedMineTheirs">
+                    <p class="text-xs">
+                        <template v-if="iReported">
+                            You reported
+                            <span class="font-bold tabular-nums">{{ total(proposedMineTheirs.mine) }} – {{ total(proposedMineTheirs.theirs) }}</span>
+                            <span v-if="proposal?.agreed"> (agreed result)</span>. Waiting for {{ opponentName }} to confirm.
+                        </template>
+                        <template v-else>
+                            {{ opponentName }} reported the result as
+                            <span class="font-bold tabular-nums">{{ total(proposedMineTheirs.mine) }} – {{ total(proposedMineTheirs.theirs) }}</span>
+                            (you – them)<span v-if="proposal?.agreed">, as an agreed result</span>. Is that right?
+                        </template>
+                    </p>
+                    <div v-if="iReported" class="flex gap-2">
+                        <Button size="sm" variant="outline" :disabled="busy" @click="withdrawReport">Withdraw</Button>
+                    </div>
+                    <div v-else-if="!disputing" class="flex flex-wrap gap-2">
+                        <Button size="sm" :disabled="busy" @click="confirmReport"
+                            ><Loader2 v-if="busy" class="mr-1 size-3 animate-spin" /> Confirm</Button
+                        >
+                        <Button size="sm" variant="outline" :disabled="busy" @click="disputing = true">Dispute</Button>
+                    </div>
+                    <div v-else class="space-y-2">
+                        <Label for="dispute-note" class="text-2xs">What's different? (optional)</Label>
+                        <Textarea id="dispute-note" v-model="disputeNote" rows="2" maxlength="500" class="text-xs" />
+                        <div class="flex gap-2">
+                            <Button size="sm" variant="destructive" :disabled="busy" @click="submitDispute">Send dispute</Button>
+                            <Button size="sm" variant="ghost" :disabled="busy" @click="disputing = false">Cancel</Button>
+                        </div>
+                    </div>
+                </template>
+
+                <Button v-else-if="!reporting" size="sm" :disabled="busy" @click="openReportForm">Report result</Button>
+
+                <form v-if="reporting" class="space-y-3" @submit.prevent="submitReport">
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <fieldset class="space-y-1.5">
+                            <legend class="text-xs font-semibold">You</legend>
+                            <div v-for="f in fields" :key="'m-' + f.key" class="space-y-1">
+                                <Label :for="`rep-mine-${f.key}`" class="text-2xs"
+                                    >{{ f.label }} <span class="text-muted-foreground">/ {{ f.max }}</span></Label
+                                >
+                                <Input
+                                    :id="`rep-mine-${f.key}`"
+                                    v-model.number="mine[f.key]"
+                                    type="number"
+                                    :min="f.min"
+                                    :max="f.max"
+                                    class="h-8 text-center text-sm font-bold"
+                                />
+                            </div>
+                        </fieldset>
+                        <fieldset class="space-y-1.5">
+                            <legend class="text-xs font-semibold">{{ opponentName }}</legend>
+                            <div v-for="f in fields" :key="'t-' + f.key" class="space-y-1">
+                                <Label :for="`rep-theirs-${f.key}`" class="text-2xs"
+                                    >{{ f.label }} <span class="text-muted-foreground">/ {{ f.max }}</span></Label
+                                >
+                                <Input
+                                    :id="`rep-theirs-${f.key}`"
+                                    v-model.number="theirs[f.key]"
+                                    type="number"
+                                    :min="f.min"
+                                    :max="f.max"
+                                    class="h-8 text-center text-sm font-bold"
+                                />
+                            </div>
+                        </fieldset>
+                    </div>
+                    <label class="flex items-start gap-2 text-xs">
+                        <input v-model="agreed" type="checkbox" class="mt-0.5 size-3.5" />
+                        <span>The game wasn't played out — we agreed this is the likely result as it stands.</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <Button type="submit" size="sm" :disabled="busy"
+                            ><Loader2 v-if="busy" class="mr-1 size-3 animate-spin" /> Submit result</Button
+                        >
+                        <Button type="button" size="sm" variant="ghost" :disabled="busy" @click="reporting = false">Cancel</Button>
+                    </div>
+                    <p class="text-2xs text-muted-foreground">{{ opponentName }} will be asked to confirm. The organizer can always correct it.</p>
+                </form>
             </div>
         </CardContent>
     </Card>

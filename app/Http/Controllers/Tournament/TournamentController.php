@@ -261,6 +261,7 @@ class TournamentController extends Controller
                     'bye_vp' => $source->bye_vp,
                     'tiebreaker_mode' => $tiebreaker->value,
                     'variants' => $source->activeVariants(),
+                    'allow_self_report' => (bool) $source->allow_self_report,
                     'scoring_config' => $source->scoring_config,
                 ];
             }

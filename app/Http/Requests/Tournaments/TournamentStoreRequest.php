@@ -50,6 +50,7 @@ class TournamentStoreRequest extends FormRequest
             'bye_diff' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'bye_vp' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:20'],
             'tiebreaker_mode' => ['sometimes', Rule::enum(TournamentTiebreakerEnum::class)],
+            'allow_self_report' => ['sometimes', 'boolean'],
             ...$this->customizationRules(),
 
         ];

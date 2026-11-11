@@ -14,6 +14,7 @@ use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
+use App\Services\TournamentScoreRecorder;
 use App\Services\TournamentTrackerGameFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ class TournamentGameController extends Controller
 
     public function __construct(
         private readonly TournamentTrackerGameFactory $trackerGames,
+        private readonly TournamentScoreRecorder $scores,
     ) {}
 
     public function store(TournamentGameStoreRequest $request, Tournament $tournament, TournamentRound $round): JsonResponse
@@ -95,20 +97,13 @@ class TournamentGameController extends Controller
 
         unset($validated['confirm_override']);
         $agreed = (bool) ($validated['agreed'] ?? false);
-        unset($validated['agreed']);
-        // Score components are ruleset-defined; the player's VP is their sum.
         $one = $validated['player_one_score'];
         $two = $validated['player_two_score'];
-        unset($validated['player_one_score'], $validated['player_two_score']);
-        $validated['player_one_vp'] = array_sum($one);
-        $validated['player_two_vp'] = array_sum($two);
-        $validated['score_breakdown'] = ['player_one' => $one, 'player_two' => $two];
+        unset($validated['agreed'], $validated['player_one_score'], $validated['player_two_score']);
 
-        $game->update([
-            ...$validated,
-            // Scored exactly like a played game; "agreed" just records that it ended by agreement.
-            'result' => $agreed ? TournamentGameResultEnum::Agreed : TournamentGameResultEnum::Completed,
-        ]);
+        // Score components are ruleset-defined; the player's VP is their sum. Entering a score here
+        // also supersedes any pending or disputed player report.
+        $this->scores->record($game, $one, $two, $agreed, $validated);
 
         $this->broadcastUpdate($tournament, 'score_updated');
 
@@ -200,6 +195,7 @@ class TournamentGameController extends Controller
             $validated = $request->validated();
 
             $game->update([
+                ...$this->scores->clearedReport(),
                 'is_forfeit' => true,
                 'forfeit_player_id' => $validated['forfeit_player_id'],
                 'result' => TournamentGameResultEnum::Forfeited,

@@ -111,6 +111,12 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     icon: Trophy,
                     badge: 'Beta',
                 },
+                {
+                    title: 'Cooperative',
+                    href: route('cooperative.index'),
+                    icon: Users,
+                    badge: 'Beta',
+                },
                 ...(ctx.isAuthenticated
                     ? [
                           {

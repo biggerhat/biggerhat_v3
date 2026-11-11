@@ -49,6 +49,7 @@ use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
+use App\Http\Controllers\Tournament\TournamentResultsController;
 use App\Http\Controllers\Tournament\TournamentRoundController;
 use App\Http\Controllers\Tournament\TournamentRsvpController;
 use App\Http\Controllers\Tournament\TournamentSelfDropController;
@@ -443,6 +444,7 @@ Route::middleware('auth')->group(function () {
 Route::get('/tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
 Route::get('/tournaments/{tournament}/display', [TournamentController::class, 'display'])->name('tournaments.display');
+Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController::class, 'pdf'])->name('tournaments.results_pdf');
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
     Route::get('/create', [TournamentController::class, 'create'])->name('create');
     // Open to any signed-in user; throttled so it can't be used to mass-create events.

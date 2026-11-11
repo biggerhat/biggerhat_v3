@@ -6,6 +6,7 @@ import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
 import AnnouncementBanner from '@/components/Tournament/AnnouncementBanner.vue';
+import ResultsCard from '@/components/Tournament/ResultsCard.vue';
 import PairingRow from '@/components/Tournament/PairingRow.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
@@ -435,6 +436,15 @@ const openCard = (title: string, image?: string | null, description?: string | n
         </PageBanner>
 
         <div class="container mx-auto pb-8 sm:px-4" data-print-area>
+            <ResultsCard
+                v-if="isCompleted"
+                :name="tournament.name"
+                :subtitle="[formatDate(tournament.event_date), tournament.location, ruleset.label].filter(Boolean).join(' · ')"
+                :standings="standings"
+                :factions="factions"
+                :pdf-url="route('tournaments.results_pdf', tournament.uuid)"
+                :page-url="route('tournaments.view', tournament.uuid)"
+            />
             <AnnouncementBanner
                 v-if="tournament.announcement"
                 :text="tournament.announcement"

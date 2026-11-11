@@ -44,6 +44,8 @@ now says what's missing; the "games still need a result" count included byes.
 **Status of the first features (branch `tournament-capacity-nov11`):** F3 (player limit, registration deadline, computed waitlist with positions shown to players and organizers) and F4 (self-withdrawal for
 individual events, with organizer notification) are done. **Deploy: run the new migration** (`2026_11_16_100000_add_capacity_to_tournaments`). Not done from F3: notifying someone when they move up the waitlist.
 
+**Status of the results summary (branch `tournament-results-nov11`):** F6 is done — a Final results card (podium, PDF sheet, shareable image, native share) on the public page of a completed event. Not done: side awards (F7).
+
 ## 2. UI / UX
 
 ### Organizer (Manage)

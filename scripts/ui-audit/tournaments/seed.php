@@ -68,5 +68,18 @@ TournamentPlayer::factory()->for($t6)->create(['display_name' => 'Zed', 'faction
 foreach ([[$alice, 0], [$bob, 1], [$carol, 2]] as [$u, $min]) {
     TournamentRsvp::create(['tournament_id' => $t6->id, 'user_id' => $u->id, 'created_at' => now()->addMinutes($min)]);
 }
+// --- T7: a finished event with results (podium, PDF, shareable image)
+$t7 = Tournament::factory()->create(['name' => 'Spring Showdown', 'status' => 'completed', 'creator_id' => $dave->id, 'planned_rounds' => 2]);
+$t7->organizers()->attach($org->id);
+$rp = [];
+foreach ([['Alice', 'arcanists'], ['Bob', 'guild'], ['Carol', 'bayou'], ['Dave', 'neverborn'], ['Eve', 'outcasts']] as [$n, $f]) {
+    $rp[$n] = TournamentPlayer::factory()->for($t7)->create(['display_name' => $n, 'faction' => $f]);
+}
+$q1 = TournamentRound::factory()->for($t7)->create(['round_number' => 1, 'status' => 'completed']);
+TournamentGame::factory()->for($q1, 'round')->withScore(9, 3)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Bob']->id, 'result' => 'completed', 'table_number' => 1]);
+TournamentGame::factory()->for($q1, 'round')->withScore(7, 5)->create(['player_one_id' => $rp['Carol']->id, 'player_two_id' => $rp['Dave']->id, 'result' => 'completed', 'table_number' => 2]);
+$q2 = TournamentRound::factory()->for($t7)->create(['round_number' => 2, 'status' => 'completed']);
+TournamentGame::factory()->for($q2, 'round')->withScore(8, 4)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Carol']->id, 'result' => 'completed', 'table_number' => 1]);
+TournamentGame::factory()->for($q2, 'round')->withScore(6, 6)->create(['player_one_id' => $rp['Bob']->id, 'player_two_id' => $rp['Dave']->id, 'result' => 'completed', 'table_number' => 2]);
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 'g1' => $r1->games()->first()->id]));

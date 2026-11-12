@@ -157,3 +157,7 @@ Neither workflow has been run on GitHub from here — check the first runs.
 
 U14 (Create form): the format picker now says what each ruleset means (`blurb` in `config/tournaments.php`, `Ruleset::$blurb`), the description field is a short "Summary" that points to the Details tab, and from `lg` up a sticky "Your event" panel reads back
 the choices live (format, size, rounds, ranking, teams, limit, results, variants, modified scoring) with a four-step "After you create it" list. The page is unchanged on phones. Still open from the UI group: U15 (axe contrast pass).
+
+U15 (accessibility pass) is done for the tournament pages: browser flow 22 runs axe-core over the list, public event, finished event, display mode, create form, every Manage tab, the scoring desk, the score dialog and the top-cut states in light and
+dark at desktop and phone width (52 scans). Contrast was clean throughout; the findings were two moderate ones, both fixed — display mode had no `main` landmark, and the cards added to the Manage page used h3 directly under the page's h1
+(now h2, with table cards at h3). It fails on anything moderate or worse. The rest of the app was not audited here.

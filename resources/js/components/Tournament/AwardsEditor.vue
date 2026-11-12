@@ -70,7 +70,7 @@ const usePreset = (name: string) => {
     <Card data-testid="awards-editor">
         <CardContent class="space-y-3 p-4 sm:p-5">
             <div>
-                <h3 class="text-sm font-semibold">Side awards</h3>
+                <h2 class="text-sm font-semibold">Side awards</h2>
                 <p class="text-xs text-muted-foreground">
                     Best painted, sportsmanship, anything you like. Winners are shown on the event page and results sheet and get a notification.
                 </p>

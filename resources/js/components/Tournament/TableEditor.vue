@@ -112,7 +112,7 @@ const clear = async () => {
 <template>
     <div class="space-y-3 rounded-md border p-3 sm:p-4" :data-table="number">
         <div class="flex items-center justify-between gap-2">
-            <h4 class="text-sm font-semibold">Table {{ number }}</h4>
+            <h3 class="text-sm font-semibold">Table {{ number }}</h3>
             <Button v-if="described" type="button" variant="ghost" size="sm" class="gap-1 text-xs text-muted-foreground" @click="clear">
                 <Trash2 class="size-3.5" /> Clear
             </Button>

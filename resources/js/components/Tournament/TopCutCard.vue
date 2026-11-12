@@ -84,9 +84,9 @@ defineExpose({ advance, canAdvance, canStart, busy });
             <div class="flex items-start gap-3">
                 <Swords class="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
                 <div class="min-w-0 flex-1">
-                    <h3 class="text-sm font-semibold">
+                    <h2 class="text-sm font-semibold">
                         {{ canAdvance && latestRound ? `${roundName(latestRound)} are done` : 'Top cut' }}
-                    </h3>
+                    </h2>
                     <p class="text-xs text-muted-foreground">
                         <template v-if="canAdvance">Pair the winners into the next round of the bracket.</template>
                         <template v-else>

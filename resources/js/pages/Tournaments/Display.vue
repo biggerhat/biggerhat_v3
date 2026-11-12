@@ -199,7 +199,7 @@ const setMode = (m: Mode) => {
 
 <template>
     <Head :title="`${tournament.name} — Display`" />
-    <div class="min-h-screen bg-background p-4 text-foreground sm:p-8" @mousemove="wake" @pointerdown="wake" @keydown="wake" @focusin="wake">
+    <main class="min-h-screen bg-background p-4 text-foreground sm:p-8" @mousemove="wake" @pointerdown="wake" @keydown="wake" @focusin="wake">
         <TournamentLiveRegion :message="liveMessage" />
         <header class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-4">
             <div class="min-w-0">
@@ -339,5 +339,5 @@ const setMode = (m: Mode) => {
             <img :src="qr" alt="QR code for the tournament page" class="size-24" />
             <span class="max-w-28 text-sm font-semibold leading-tight">Scan to follow along</span>
         </div>
-    </div>
+    </main>
 </template>

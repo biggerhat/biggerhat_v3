@@ -76,7 +76,7 @@ const tableCount = computed(() => {
         <Card>
             <CardContent class="space-y-3 p-4 sm:p-5">
                 <div>
-                    <h3 class="text-sm font-semibold">Event details</h3>
+                    <h2 class="text-sm font-semibold">Event details</h2>
                     <p class="text-xs text-muted-foreground">
                         The long version: venue and schedule, rules and house rules, prizes, what to bring. Shown to everyone on the event page.
                     </p>
@@ -102,7 +102,7 @@ const tableCount = computed(() => {
         <Card v-if="ruleset.supports_table_details">
             <CardContent class="space-y-3 p-4 sm:p-5">
                 <div>
-                    <h3 class="text-sm font-semibold">Tables and terrain</h3>
+                    <h2 class="text-sm font-semibold">Tables and terrain</h2>
                     <p class="text-xs text-muted-foreground">
                         Name each table, describe its terrain and attach a photo or layout. Players see it next to their pairing.
                     </p>

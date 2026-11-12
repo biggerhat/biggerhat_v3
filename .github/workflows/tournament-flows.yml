@@ -37,6 +37,10 @@ jobs:
           out=$(npx puppeteer browsers install chrome-headless-shell@stable | tail -1)
           echo "path=${out#* }" >> "$GITHUB_OUTPUT"
 
+      # axe-core is not a project dependency; flows22 (the accessibility pass) skips itself without it.
+      - name: Install axe-core
+        run: npm i --no-save --no-audit --no-fund axe-core
+
       - name: Build frontend
         run: npm run build
 

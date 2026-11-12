@@ -78,7 +78,7 @@ const remove = async (user: { id: number; name: string }) => {
     <Card class="mb-4" data-testid="scorers-card">
         <CardContent class="space-y-3 p-4 sm:p-5">
             <div>
-                <h3 class="flex items-center gap-1.5 text-sm font-semibold"><ClipboardCheck class="size-4" aria-hidden="true" /> Scorekeepers</h3>
+                <h2 class="flex items-center gap-1.5 text-sm font-semibold"><ClipboardCheck class="size-4" aria-hidden="true" /> Scorekeepers</h2>
                 <p class="text-xs text-muted-foreground">
                     Let a judge or helper enter and correct results from the
                     <a :href="route('tournaments.score', tournament.uuid)" class="underline">scoring desk</a> without giving them the event.

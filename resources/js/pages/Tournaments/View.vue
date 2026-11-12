@@ -1,7 +1,22 @@
 <script setup lang="ts">
 import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
-import { formatGameSize, tosOperationText, type TosDeploymentInfo, type TosOperationInfo, type TournamentRuleset } from '@/types/tournament';
+import {
+    formatGameSize,
+    tosOperationText,
+    roundName,
+    roundShortName,
+    type TableDetails,
+    type TournamentAward,
+    type TosDeploymentInfo,
+    type TosOperationInfo,
+    type TournamentRuleset,
+} from '@/types/tournament';
+import BlogContent from '@/components/blog/BlogContent.vue';
+import TournamentLiveRegion from '@/components/Tournament/TournamentLiveRegion.vue';
+import { useTournamentAnnouncements } from '@/composables/useTournamentAnnouncements';
+import AwardsCard from '@/components/Tournament/AwardsCard.vue';
+import TableTerrain from '@/components/Tournament/TableTerrain.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import MyMatchCard from '@/components/Tournament/MyMatchCard.vue';
@@ -21,8 +36,8 @@ import { useConfirm } from '@/composables/useConfirm';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, CalendarPlus, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { BarChart3, CalendarDays, CalendarPlus, ClipboardCheck, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
 import { computed, nextTick, ref } from 'vue';
 
 interface TournamentPlayer {
@@ -73,6 +88,8 @@ interface ViewGame {
 interface ViewRound {
     id: number;
     round_number: number;
+    label?: string;
+    short_label?: string;
     status: string;
     started_at: string | null;
     deployment: { value: string; label: string; description: string; image_url: string | null } | null;
@@ -121,6 +138,7 @@ const props = defineProps<{
         uuid: string;
         name: string;
         description: string | null;
+        details?: Record<string, unknown> | null;
         status: string;
         encounter_size: number;
         encounter_type: string;
@@ -132,6 +150,8 @@ const props = defineProps<{
         allow_self_report?: boolean;
         max_players?: number | null;
         registration_closes_at?: string | null;
+        /** Signing up adds the person to the player list straight away while seats are free. */
+        instant_signup?: boolean;
         registration_closed?: boolean;
         announcement?: string | null;
         announced_at?: string | null;
@@ -141,6 +161,14 @@ const props = defineProps<{
         rsvps?: Rsvp[];
     };
     ruleset: TournamentRuleset;
+    /** The organizer's per-table notes, keyed by table number (empty unless the ruleset uses them). */
+    tables: TableDetails;
+    /** Whether the viewer may enter results (organizer or scorekeeper): shows the scoring-desk link. */
+    can_score?: boolean;
+    /** The league this event counts toward, if any. */
+    series?: { uuid: string; name: string } | null;
+    /** Side awards that have a recipient. */
+    awards: TournamentAward[];
     /** Allegiances a player can declare when RSVPing (empty unless the ruleset uses them). */
     allegiances: { id: number; slug: string; name: string }[];
     rounds: ViewRound[];
@@ -165,6 +193,11 @@ useTournamentChannel(props.tournament.uuid, () => {
     // static `factions` enum map on every tick.
     router.reload({ only: ['tournament', 'rounds', 'standings'], preserveScroll: true, preserveState: true });
 });
+
+const { message: liveMessage } = useTournamentAnnouncements(
+    () => props.rounds,
+    () => props.tournament.status,
+);
 
 const isCompleted = computed(() => props.tournament.status === 'completed');
 
@@ -270,6 +303,8 @@ const liveGames = computed(() =>
 const myPlayerId = computed(() => props.tournament.players.find(playsFor)?.id ?? null);
 
 // The user's pairing in the newest round that isn't finished yet — the "where do I sit, who do I play" answer.
+const describedTables = computed(() => Object.values(props.tables ?? {}).filter((t) => t.name || t.description || t.image_url));
+
 const myMatch = computed(() => {
     if (!myPlayerId.value) return null;
     const newestFirst = [...props.rounds].sort((a, b) => b.round_number - a.round_number);
@@ -447,6 +482,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
         </PageBanner>
 
         <div class="container mx-auto pb-8 sm:px-4" data-print-area>
+            <TournamentLiveRegion :message="liveMessage" />
             <ResultsCard
                 v-if="isCompleted"
                 :name="tournament.name"
@@ -456,6 +492,10 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :pdf-url="route('tournaments.results_pdf', tournament.uuid)"
                 :page-url="route('tournaments.view', tournament.uuid)"
             />
+            <p v-if="series" class="mb-3 text-xs text-muted-foreground" data-no-print data-testid="series-link">
+                Part of the league <Link :href="route('tournaments.series.show', series.uuid)" class="font-medium underline">{{ series.name }}</Link>
+            </p>
+            <AwardsCard :awards="awards ?? []" />
             <AnnouncementBanner
                 v-if="tournament.announcement"
                 :text="tournament.announcement"
@@ -464,6 +504,25 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 data-no-print
             />
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
+            <Card v-if="tournament.details" class="mb-4" data-testid="event-details">
+                <CardContent class="p-4 sm:p-5">
+                    <BlogContent :content="tournament.details" class="text-sm [&_.prose]:max-w-none" />
+                </CardContent>
+            </Card>
+            <details v-if="describedTables.length" class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-testid="tables-terrain">
+                <summary class="cursor-pointer text-sm font-medium">
+                    Tables &amp; terrain
+                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ describedTables.length }} described</span>
+                </summary>
+                <div class="mt-3 grid gap-4 pb-1 sm:grid-cols-2">
+                    <TableTerrain v-for="t in describedTables" :key="t.number" :detail="t" />
+                </div>
+            </details>
+            <div v-if="can_score && tournament.status === 'active'" class="mb-4" data-no-print>
+                <Button as-child size="sm" class="h-8 gap-1.5">
+                    <Link :href="route('tournaments.score', tournament.uuid)"><ClipboardCheck class="size-3.5" /> Scoring desk</Link>
+                </Button>
+            </div>
             <div v-if="tournament.status !== 'completed'" class="mb-4" data-no-print>
                 <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
                     <a :href="route('tournaments.calendar', tournament.uuid)" download><CalendarPlus class="size-3.5" /> Add to calendar</a>
@@ -488,7 +547,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 font-semibold">
                             <UserPlus class="size-4 text-blue-600 dark:text-blue-400" />
-                            {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
+                            {{
+                                tournament.instant_signup ? 'Sign-up open' : tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open'
+                            }}
                         </div>
                         <p
                             v-if="tournament.max_players"
@@ -496,9 +557,12 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             :class="seatsLeft === 0 ? 'text-amber-700 dark:text-amber-400' : ''"
                         >
                             <template v-if="seatsLeft === 0">
-                                All {{ tournament.max_players }} spots are taken — new RSVPs join the waitlist and move up if someone drops out.
+                                All {{ tournament.max_players }} spots are taken — new sign-ups join the waitlist and move up if someone drops out.
                             </template>
                             <template v-else>{{ seatsTaken }} of {{ tournament.max_players }} spots taken.</template>
+                        </p>
+                        <p v-if="tournament.instant_signup && seatsLeft !== 0" class="text-xs text-muted-foreground">
+                            You're added to the player list as soon as you sign up.
                         </p>
                         <p v-if="closesAt" class="text-xs text-muted-foreground">Registration closes {{ closesAt }}.</p>
                         <p class="mt-1 text-xs text-muted-foreground">
@@ -547,7 +611,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             </SelectContent>
                         </Select>
                         <Button size="sm" :disabled="rsvping" @click="submitRsvp">
-                            <UserPlus class="mr-1.5 size-3.5" /> {{ tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
+                            <UserPlus class="mr-1.5 size-3.5" />
+                            {{ tournament.instant_signup ? 'Sign up' : tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
                         </Button>
                     </div>
                 </CardContent>
@@ -562,7 +627,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     </span>
                     <span v-else class="text-sm text-blue-700 dark:text-blue-400">
                         {{
-                            tournament.status === 'registration'
+                            tournament.status === 'registration' && !tournament.instant_signup
                                 ? "You've signed up. Waiting for the organizer to confirm you in the player list."
                                 : "You've RSVPed for this tournament."
                         }}
@@ -615,6 +680,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :my-player-id="myPlayerId"
                 :round-time-limit="tournament.round_time_limit"
                 :tournament-uuid="tournament.uuid"
+                :table-detail="tables[myMatch.game.table_number ?? 0] ?? null"
                 :players="tournament.players"
                 :allow-self-report="tournament.allow_self_report"
                 :score-fields="ruleset.score_fields"
@@ -670,7 +736,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             {{ isCompleted ? 'Final Standings' : 'Standings' }}
                         </TabsTrigger>
                         <TabsTrigger v-for="round in rounds" :key="'tab-' + round.id" :value="'r' + round.round_number" class="text-xs sm:text-sm">
-                            R{{ round.round_number }}
+                            {{ roundShortName(round) }}
                         </TabsTrigger>
                         <TabsTrigger v-if="tournament.rsvps?.length" value="rsvps" class="text-xs sm:text-sm">
                             RSVPs
@@ -707,7 +773,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <Printer class="size-3.5" /> Print pairings
                                 </Button>
                             </div>
-                            <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — Round {{ round.round_number }}</h2>
+                            <h2 class="mb-3 hidden text-xl font-bold print:block">{{ tournament.name }} — {{ roundName(round) }}</h2>
                             <!-- Compact Scenario -->
                             <div
                                 v-if="round.deployment || round.strategy || round.schemes.length || round.tos_scenario"
@@ -804,6 +870,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     :players="tournament.players"
                                     :my-player-id="myPlayerId"
                                     :round-status="round.status"
+                                    :table-name="tables[game.table_number ?? 0]?.name ?? null"
                                 />
                             </div>
                             <div v-else class="py-6 text-center text-sm text-muted-foreground">Pairings not yet generated</div>

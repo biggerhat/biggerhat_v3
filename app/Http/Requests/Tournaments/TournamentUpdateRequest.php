@@ -49,6 +49,7 @@ class TournamentUpdateRequest extends FormRequest
             // Capacity: null = unlimited; RSVPs past it are waitlisted. Registration can also close at a set time.
             'max_players' => ['sometimes', 'nullable', 'integer', 'min:2', 'max:512'],
             'registration_closes_at' => ['sometimes', 'nullable', 'date'],
+            'instant_signup' => ['sometimes', 'boolean'],
             // Players attach a Crew Builder list before the event starts (faction-declaring rulesets, individual play).
             'require_crew_lists' => ['sometimes', 'boolean'],
             // 1 = individuals; 2–4 = teams of that size (the ruleset must support teams).

@@ -17,6 +17,7 @@ class TournamentUpdated implements ShouldBroadcastNow
     public function __construct(
         public Tournament $tournament,
         public string $action = 'updated',
+        public ?int $roundId = null,
     ) {}
 
     public function broadcastOn(): array
@@ -36,6 +37,8 @@ class TournamentUpdated implements ShouldBroadcastNow
         return [
             'action' => $this->action,
             'status' => $this->tournament->status->value,
+            // Which round changed, when a single round did (lets a client skip work for the others).
+            'round_id' => $this->roundId,
         ];
     }
 }

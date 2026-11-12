@@ -8,6 +8,7 @@ use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentRoundUpdateRequest;
+use App\Jobs\PostTournamentToDiscord;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\TOS\Deployment;
@@ -118,6 +119,11 @@ class TournamentRoundController extends Controller
         $this->trackerGames->destroyForRound($round);
         $round->delete();
 
+        // Deleting the whole cut takes the cut size with it.
+        if ($round->is_cut && ! $tournament->rounds()->where('is_cut', true)->exists()) {
+            $tournament->update(['cut_size' => null]);
+        }
+
         // If we deleted the last round, drop planned_rounds back to match.
         $maxRound = (int) ($tournament->rounds()->max('round_number') ?? 0);
         if ($maxRound < $tournament->planned_rounds) {
@@ -205,6 +211,10 @@ class TournamentRoundController extends Controller
 
         if ($error) {
             return $error;
+        }
+
+        if (($validated['status'] ?? null) === TournamentRoundStatusEnum::InProgress->value) {
+            PostTournamentToDiscord::whenConnected($tournament, 'round', $round);
         }
 
         $this->broadcastUpdate($tournament, 'round_updated');

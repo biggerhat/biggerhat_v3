@@ -41,6 +41,16 @@ jobs:
       - name: PHPStan
         run: composer stan
 
+      # Type-check the Vue/TS sources. Informational for now: the codebase has ~1300 pre-existing findings, so this does
+      # not fail the build. vue-tsc is installed on the fly (--no-save) because having it in package.json switches on
+      # prettier's organize-imports plugin and reorders imports across the frontend.
+      - name: Type check (vue-tsc, non-blocking)
+        continue-on-error: true
+        run: |
+          npm install --no-save --no-audit --no-fund vue-tsc@2.2.12
+          npx vue-tsc --noEmit 2>&1 | tee vue-tsc.log
+          echo "vue-tsc findings: $(grep -c 'error TS' vue-tsc.log || true)" >> "$GITHUB_STEP_SUMMARY"
+
       # - name: Commit Changes
       #   uses: stefanzweifel/git-auto-commit-action@v5
       #   with:

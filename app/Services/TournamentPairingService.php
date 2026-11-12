@@ -138,7 +138,7 @@ class TournamentPairingService
         // Survivors: manual games keep their slots and players.
         $manualGames = $round->games()->where('is_manual', true)->get();
         $alreadyPaired = [];
-        $highestTable = 0;
+        $usedTables = [];
         foreach ($manualGames as $g) {
             /** @var TournamentGame $g */
             if ($g->player_one_id) {
@@ -147,8 +147,8 @@ class TournamentPairingService
             if ($g->player_two_id) {
                 $alreadyPaired[$g->player_two_id] = true;
             }
-            if ($g->table_number !== null && $g->table_number > $highestTable) {
-                $highestTable = $g->table_number;
+            if ($g->table_number !== null) {
+                $usedTables[$g->table_number] = true;
             }
         }
 
@@ -161,8 +161,8 @@ class TournamentPairingService
         // is_disqualified / dropped_after_round / display_name). A separate local
         // query leaves $tournament->players untouched for downstream consumers.
         $playersById = $tournament->players()->get(['id', 'faction'])->keyBy('id');
-        $tableNumber = $highestTable + 1;
-        foreach ($pairings as $pairing) {
+        $tables = $this->assignTables($tournament, $round, $pairings, $usedTables);
+        foreach ($pairings as $index => $pairing) {
             TournamentGame::create([
                 'tournament_round_id' => $round->id,
                 'player_one_id' => $pairing['player_one_id'],
@@ -174,7 +174,7 @@ class TournamentPairingService
                 // until the TO clicks Start Round, matching the manual
                 // game scoring lifecycle.
                 'result' => TournamentGameResultEnum::Pending,
-                'table_number' => $pairing['is_bye'] ? null : $tableNumber++,
+                'table_number' => $tables[$index] ?? null,
                 'player_one_faction' => $playersById->get($pairing['player_one_id'])?->getRawOriginal('faction'),
                 'player_two_faction' => $pairing['player_two_id']
                     ? $playersById->get($pairing['player_two_id'])?->getRawOriginal('faction')
@@ -183,6 +183,64 @@ class TournamentPairingService
         }
 
         return count($pairings);
+    }
+
+    /**
+     * Give each non-bye pairing a table, keeping players off tables they have already played on where the free tables
+     * allow it. Tables are the lowest numbers not held by a manual pairing, so a normal round still fills 1..N.
+     *
+     * @param  array<int, array{player_one_id: int, player_two_id: int|null, is_bye: bool}>  $pairings
+     * @param  array<int, true>  $usedTables  table numbers already taken by manual pairings
+     * @return array<int, int> table number by pairing index (byes are absent)
+     */
+    private function assignTables(Tournament $tournament, TournamentRound $round, array $pairings, array $usedTables): array
+    {
+        $needed = count(array_filter($pairings, fn (array $p) => ! $p['is_bye']));
+        $pool = [];
+        for ($n = 1; count($pool) < $needed; $n++) {
+            if (! isset($usedTables[$n])) {
+                $pool[] = $n;
+            }
+        }
+
+        // Tables each player has sat at in earlier rounds of this event.
+        $history = [];
+        $earlier = TournamentGame::query()
+            ->whereHas('round', fn ($q) => $q->where('tournament_id', $tournament->id)->where('id', '!=', $round->id))
+            ->whereNotNull('table_number')
+            ->get(['player_one_id', 'player_two_id', 'table_number']);
+        foreach ($earlier as $game) {
+            foreach ([$game->player_one_id, $game->player_two_id] as $playerId) {
+                if ($playerId !== null) {
+                    $history[$playerId][$game->table_number] = true;
+                }
+            }
+        }
+
+        // Most constrained pairings first: they have the fewest tables to choose from.
+        $seenByPairing = [];
+        foreach ($pairings as $index => $pairing) {
+            if (! $pairing['is_bye']) {
+                $seenByPairing[$index] = ($history[$pairing['player_one_id']] ?? []) + ($history[$pairing['player_two_id']] ?? []);
+            }
+        }
+        uksort($seenByPairing, fn (int $x, int $y) => [count($seenByPairing[$y]), $x] <=> [count($seenByPairing[$x]), $y]);
+
+        $assigned = [];
+        foreach ($seenByPairing as $index => $seen) {
+            $pick = null;
+            foreach ($pool as $key => $table) {
+                if (! isset($seen[$table])) {
+                    $pick = $key;
+                    break;
+                }
+            }
+            $pick ??= array_key_first($pool);
+            $assigned[$index] = $pool[$pick];
+            unset($pool[$pick]);
+        }
+
+        return $assigned;
     }
 
     /** Search-node budget per strictness level; keeps worst-case pairing time bounded on big fields. */

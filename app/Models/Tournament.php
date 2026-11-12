@@ -48,9 +48,16 @@ class Tournament extends Model
             'allow_self_report' => 'boolean',
             'announced_at' => 'datetime',
             'registration_closes_at' => 'datetime',
+            'instant_signup' => 'boolean',
             'require_crew_lists' => 'boolean',
+            'details' => 'array',
+            'discord_webhook_url' => 'encrypted',
+            'cut_size' => 'integer',
         ];
     }
+
+    /** The webhook is a secret: it never leaves the server. */
+    protected $hidden = ['discord_webhook_url'];
 
     protected static function boot(): void
     {
@@ -181,6 +188,24 @@ class Tournament extends Model
         return $this->belongsToMany(User::class, 'tournament_organizers');
     }
 
+    /** @return BelongsTo<TournamentSeries, $this> */
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(TournamentSeries::class, 'series_id');
+    }
+
+    /** @return HasMany<TournamentAward, $this> */
+    public function awards(): HasMany
+    {
+        return $this->hasMany(TournamentAward::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** @return HasMany<TournamentTable, $this> */
+    public function tables(): HasMany
+    {
+        return $this->hasMany(TournamentTable::class)->orderBy('number');
+    }
+
     public function rsvps(): HasMany
     {
         return $this->hasMany(TournamentRsvp::class);
@@ -191,6 +216,7 @@ class Tournament extends Model
         return $this->hasMany(TournamentPlayer::class);
     }
 
+    /** @return HasMany<TournamentRound, $this> */
     public function rounds(): HasMany
     {
         return $this->hasMany(TournamentRound::class)->orderBy('round_number');
@@ -229,6 +255,23 @@ class Tournament extends Model
     public function isFull(): bool
     {
         return $this->max_players !== null && $this->competitorCount() >= $this->max_players;
+    }
+
+    /**
+     * User ids of the RSVPs currently waiting for a seat, in waitlist order.
+     *
+     * @return array<int, int>
+     */
+    public function waitlistedUserIds(): array
+    {
+        $positions = $this->waitlistPositions();
+        if ($positions === []) {
+            return [];
+        }
+
+        $userIds = $this->rsvps()->whereIn('id', array_keys($positions))->pluck('user_id', 'id');
+
+        return collect($positions)->sort()->keys()->map(fn ($rsvpId) => (int) $userIds->get($rsvpId))->values()->all();
     }
 
     /**
@@ -273,6 +316,23 @@ class Tournament extends Model
     public function ringerPlayer(): ?TournamentPlayer
     {
         return $this->players()->where('is_ringer', true)->first(); // @phpstan-ignore return.type
+    }
+
+    /** Scorekeepers: may enter and correct results from the scoring desk, nothing else. */
+    public function scorers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'tournament_scorers')->withTimestamps();
+    }
+
+    public function isScorer(int $userId): bool
+    {
+        return $this->scorers()->where('user_id', $userId)->exists();
+    }
+
+    /** Can this user enter results? Everyone who can manage the event, plus its scorekeepers. */
+    public function canScore(?int $userId): bool
+    {
+        return $userId !== null && ($this->canManage($userId) || $this->isScorer($userId));
     }
 
     public function isOrganizer(int $userId): bool

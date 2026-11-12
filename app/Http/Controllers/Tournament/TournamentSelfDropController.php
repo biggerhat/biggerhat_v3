@@ -9,6 +9,7 @@ use App\Models\Tournament;
 use App\Models\TournamentPlayer;
 use App\Models\User;
 use App\Notifications\Tournament\TournamentPlayerWithdrew;
+use App\Tournaments\WaitlistPromotions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,7 @@ class TournamentSelfDropController extends Controller
         }
 
         $stillPaired = false;
+        $waiting = WaitlistPromotions::snapshot($tournament);
         DB::transaction(function () use ($tournament, $player, $status, $userId, &$stillPaired): void {
             if ($status !== TournamentStatusEnum::Active) {
                 $tournament->rsvps()->where('user_id', $userId)->delete();
@@ -59,6 +61,8 @@ class TournamentSelfDropController extends Controller
             $lastCompleted = (int) $tournament->rounds()->where('status', TournamentRoundStatusEnum::Completed)->max('round_number');
             $player->update(['dropped_after_round' => $inProgress ?? $lastCompleted]);
         });
+
+        WaitlistPromotions::notify($tournament, $waiting);
 
         $organizerIds = $tournament->organizers()->pluck('users.id')->push($tournament->creator_id)->unique();
         foreach (User::whereIn('id', $organizerIds)->get() as $organizer) {

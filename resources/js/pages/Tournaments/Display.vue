@@ -4,6 +4,8 @@ import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
+import TournamentLiveRegion from '@/components/Tournament/TournamentLiveRegion.vue';
+import { useTournamentAnnouncements } from '@/composables/useTournamentAnnouncements';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import type { StandingEntry, TosDeploymentInfo, TosOperationInfo, TournamentRuleset } from '@/types/tournament';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -41,6 +43,8 @@ interface DisplayGame {
 interface DisplayRound {
     id: number;
     round_number: number;
+    label?: string;
+    is_cut?: boolean;
     status: string;
     started_at: string | null;
     deployment: { label: string } | null;
@@ -51,6 +55,8 @@ interface DisplayRound {
 }
 
 const props = defineProps<{
+    /** The organizer's table names, keyed by table number. */
+    tables?: Record<string, { name: string | null }>;
     tournament: {
         uuid: string;
         name: string;
@@ -69,6 +75,11 @@ const props = defineProps<{
 // Narrow reloads: the display only reads these props, and a TV refreshes on every score.
 const { connected } = useTournamentChannel(props.tournament.uuid, () =>
     router.reload({ only: ['tournament', 'rounds', 'standings', 'ruleset'], preserveScroll: true, preserveState: true }),
+);
+
+const { message: liveMessage } = useTournamentAnnouncements(
+    () => props.rounds,
+    () => props.tournament.status,
 );
 
 // The round everyone cares about: the one being played, else the latest one that has pairings, else the newest.
@@ -102,7 +113,9 @@ const roundLabel = computed(() => {
               : r.games.length
                 ? 'paired — find your table'
                 : 'being set up';
-    return `Round ${r.round_number} of ${props.tournament.planned_rounds} · ${state}`;
+    return r.label && r.label !== `Round ${r.round_number}`
+        ? `${r.label} · ${state}`
+        : `Round ${r.round_number} of ${props.tournament.planned_rounds} · ${state}`;
 });
 
 const scenario = computed(() => {
@@ -186,7 +199,8 @@ const setMode = (m: Mode) => {
 
 <template>
     <Head :title="`${tournament.name} — Display`" />
-    <div class="min-h-screen bg-background p-4 text-foreground sm:p-8" @mousemove="wake" @pointerdown="wake" @keydown="wake" @focusin="wake">
+    <main class="min-h-screen bg-background p-4 text-foreground sm:p-8" @mousemove="wake" @pointerdown="wake" @keydown="wake" @focusin="wake">
+        <TournamentLiveRegion :message="liveMessage" />
         <header class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-4">
             <div class="min-w-0">
                 <h1 class="truncate text-3xl font-bold sm:text-5xl">{{ tournament.name }}</h1>
@@ -254,7 +268,7 @@ const setMode = (m: Mode) => {
                 v-if="round && round.status === 'setup' && round.games.length"
                 class="mb-6 rounded-xl bg-primary/15 px-5 py-3 text-2xl font-semibold text-primary sm:text-3xl"
             >
-                Round {{ round.round_number }} is paired — find your table
+                {{ round.label ?? `Round ${round.round_number}` }} {{ round.is_cut ? 'are' : 'is' }} paired — find your table
             </p>
 
             <p v-if="!round || !round.games.length" class="py-24 text-center text-3xl text-muted-foreground">Pairings will appear here.</p>
@@ -265,6 +279,9 @@ const setMode = (m: Mode) => {
                         <span class="text-3xl font-bold tabular-nums">{{ g.table_number ?? '–' }}</span>
                     </div>
                     <div class="min-w-0 flex-1 space-y-1 text-xl font-semibold sm:text-2xl">
+                        <div v-if="tables?.[g.table_number ?? 0]?.name" class="truncate text-base font-normal text-muted-foreground">
+                            {{ tables[g.table_number ?? 0].name }}
+                        </div>
                         <div
                             v-for="side in [
                                 ['player_one_id', 'player_one_faction'],
@@ -322,5 +339,5 @@ const setMode = (m: Mode) => {
             <img :src="qr" alt="QR code for the tournament page" class="size-24" />
             <span class="max-w-28 text-sm font-semibold leading-tight">Scan to follow along</span>
         </div>
-    </div>
+    </main>
 </template>

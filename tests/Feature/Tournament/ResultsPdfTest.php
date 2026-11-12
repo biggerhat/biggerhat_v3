@@ -38,6 +38,7 @@ it('renders the sheet with the podium, the standings and the ruleset columns', f
         'rulesetLabel' => $t->rulesetDefinition()->label,
         'standings' => collect(app(App\Services\TournamentStandingsService::class)->compute($t))->map(fn ($r) => $r + ['faction_label' => ucfirst((string) $r['faction'])]),
         'podium' => collect(),
+        'awards' => collect(),
         'tiebreakers' => $t->tiebreakerKeys(),
         'isTeamEvent' => false,
         'organizer' => 'Olivia',
@@ -58,4 +59,25 @@ it('handles an event nobody played in', function () {
     $t = Tournament::factory()->create(['status' => 'completed']);
 
     $this->get(route('tournaments.results_pdf', $t->uuid))->assertOk();
+});
+
+it('lists the awards that have a recipient', function () {
+    $t = Tournament::factory()->completed()->create(['name' => 'Awards Cup']);
+    $winner = TournamentPlayer::factory()->for($t)->create(['display_name' => 'Pat Painter']);
+    App\Models\TournamentAward::create(['tournament_id' => $t->id, 'name' => 'Best Painted', 'player_id' => $winner->id, 'note' => 'Neon crew']);
+    App\Models\TournamentAward::create(['tournament_id' => $t->id, 'name' => 'Hidden one']);
+
+    $html = view('PDF.TournamentResults', [
+        'tournament' => $t,
+        'rulesetLabel' => $t->rulesetDefinition()->label,
+        'standings' => collect(),
+        'podium' => collect(),
+        'awards' => $t->awards()->whereNotNull('player_id')->with('player')->get(),
+        'tiebreakers' => $t->tiebreakerKeys(),
+        'isTeamEvent' => false,
+        'organizer' => 'Olivia',
+        'url' => 'https://example.test/t',
+    ])->render();
+
+    expect($html)->toContain('Best Painted')->toContain('Pat Painter')->toContain('Neon crew')->not->toContain('Hidden one');
 });

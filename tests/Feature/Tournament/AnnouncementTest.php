@@ -46,3 +46,10 @@ it('is organizer-only', function () {
     $this->actingAs(User::factory()->create())->putJson(($this->url)(), ['announcement' => 'Hi'])->assertForbidden();
     expect($this->tournament->fresh()->announcement)->toBeNull();
 });
+
+it('says which round a score change belongs to in the broadcast', function () {
+    $event = new TournamentUpdated($this->tournament, 'score_updated', 7);
+
+    expect($event->broadcastWith())->toMatchArray(['action' => 'score_updated', 'round_id' => 7]);
+    expect((new TournamentUpdated($this->tournament))->broadcastWith()['round_id'])->toBeNull();
+});

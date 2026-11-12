@@ -11,14 +11,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentStoreRequest;
 use App\Http\Requests\Tournaments\TournamentUpdateRequest;
 use App\Http\Requests\Tournaments\TournamentUpdateStatusRequest;
+use App\Jobs\PostTournamentToDiscord;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
 use App\Models\TournamentRound;
 use App\Services\TournamentStateMachine;
+use App\Tournaments\InstantSignup;
 use App\Tournaments\Payloads\TournamentPagePayloads;
 use App\Tournaments\Rulesets\Ruleset;
 use App\Tournaments\Rulesets\RulesetRegistry;
+use App\Tournaments\WaitlistPromotions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -99,6 +102,14 @@ class TournamentController extends Controller
         return inertia('Tournaments/Display', $props);
     }
 
+    /** The scoring desk: enter and correct results. Organizers and the event's scorekeepers. */
+    public function score(Tournament $tournament): Response|ResponseFactory
+    {
+        $this->authorize('score', $tournament);
+
+        return inertia('Tournaments/Score', $this->payloads->forScoring($tournament));
+    }
+
     public function manage(Tournament $tournament): Response|ResponseFactory
     {
         $this->authorize('manage', $tournament);
@@ -150,6 +161,7 @@ class TournamentController extends Controller
                     'allow_self_report' => (bool) $source->allow_self_report,
                     'team_size' => (int) $source->team_size,
                     'max_players' => $source->max_players,
+                    'instant_signup' => $source->instant_signup,
                     'require_crew_lists' => (bool) $source->require_crew_lists,
                     'scoring_config' => $source->scoring_config,
                 ];
@@ -329,7 +341,13 @@ class TournamentController extends Controller
             return response()->json(['error' => "Already {$tournament->competitorCount()} registered — the limit can't be lower than that."], 422);
         }
 
+        $waiting = WaitlistPromotions::snapshot($tournament);
         $tournament->update($validated);
+        // Switching instant sign-up on seats the people who already signed up.
+        if (! empty($validated['instant_signup'])) {
+            InstantSignup::seatWaiting($tournament);
+        }
+        WaitlistPromotions::notify($tournament, $waiting);
 
         $this->broadcastUpdate($tournament, 'settings_updated');
 
@@ -387,6 +405,12 @@ class TournamentController extends Controller
         }
 
         $this->broadcastUpdate($tournament, 'status_changed');
+
+        if ($newStatus === TournamentStatusEnum::Registration) {
+            PostTournamentToDiscord::whenConnected($tournament, 'registration');
+        } elseif ($newStatus === TournamentStatusEnum::Completed) {
+            PostTournamentToDiscord::whenConnected($tournament, 'completed');
+        }
 
         return response()->json(['success' => true]);
     }

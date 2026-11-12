@@ -261,7 +261,7 @@ class TournamentGameController extends Controller
             return response()->json(['error' => 'Scores are locked after the round is completed'], 422);
         }
 
-        $this->broadcastUpdate($tournament, 'score_updated');
+        $this->broadcastUpdate($tournament, 'score_updated', $game->tournament_round_id);
 
         return response()->json(['success' => true]);
     }
@@ -329,7 +329,7 @@ class TournamentGameController extends Controller
 
     public function toggleForfeit(TournamentGameToggleForfeitRequest $request, Tournament $tournament, TournamentGame $game): JsonResponse
     {
-        $this->authorize('manage', $tournament);
+        $this->authorize('score', $tournament);
 
         if ($game->round->status !== TournamentRoundStatusEnum::InProgress) {
             return response()->json([

@@ -7,6 +7,7 @@ use App\Models\Tournament;
 use App\Services\Standings\PlayerStatsCalculator;
 use App\Services\Standings\StandingsRanker;
 use App\Services\Standings\StrengthOfScheduleCalculator;
+use App\Tournaments\CutPlacings;
 use App\Tournaments\ScoringEngine;
 
 /**
@@ -33,10 +34,21 @@ class TournamentStandingsService
      */
     public function compute(Tournament $tournament): array
     {
+        return CutPlacings::apply($this->computeSwiss($tournament), $tournament);
+    }
+
+    /**
+     * The Swiss standings alone: top-cut rounds are left out entirely, so they never move the seeding.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function computeSwiss(Tournament $tournament): array
+    {
         $tournament->loadMissing(['players.allegiance:id,slug,name', 'players.members:id,tournament_player_id,display_name,position', 'rounds.games']);
 
         $players = $tournament->players->where('is_disqualified', false);
-        $allGames = $tournament->rounds->flatMap(fn ($round) => $round->games);
+        $swissRounds = $tournament->rounds->where('is_cut', false);
+        $allGames = $swissRounds->flatMap(fn ($round) => $round->games);
 
         // Scoring comes from the tournament's ruleset (plus any per-tournament overrides).
         $scoring = new ScoringEngine($tournament->scoringConfig());
@@ -44,7 +56,7 @@ class TournamentStandingsService
         // Completed rounds drive the missed-round penalty. Build an id→number
         // lookup once so per-player stats can translate game.tournament_round_id
         // back to a round number in O(1).
-        $completedRounds = $tournament->rounds
+        $completedRounds = $swissRounds
             ->filter(fn ($r) => $r->status === TournamentRoundStatusEnum::Completed)
             ->all();
         $completedRoundNumbers = [];

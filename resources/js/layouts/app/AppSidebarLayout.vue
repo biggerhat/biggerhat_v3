@@ -54,7 +54,8 @@ watch(
 // `reset_link` is a dev-only flash that renders the actual password-reset URL
 // so local devs can click it. Keep the inline alert for that one case only —
 // a toast would disappear before the dev could copy the link.
-const hasResetLink = computed(() => !!(page.props as { flash?: { reset_link?: string | null } }).flash?.reset_link);
+const resetLink = computed(() => (page.props as { flash?: { reset_link?: string | null } }).flash?.reset_link ?? '');
+const hasResetLink = computed(() => !!resetLink.value);
 </script>
 
 <template>
@@ -63,13 +64,7 @@ const hasResetLink = computed(() => !!(page.props as { flash?: { reset_link?: st
         <AppContent variant="sidebar">
             <AppSidebarHeader />
             <PageBreadcrumbs :breadcrumbs="breadcrumbs" />
-            <AlertMessage
-                v-if="hasResetLink"
-                :message="($page.props as { flash?: { reset_link?: string } }).flash?.reset_link ?? ''"
-                message-title="Password reset link"
-                message-type="info"
-                class="w-3/4"
-            />
+            <AlertMessage v-if="hasResetLink" :message="resetLink" message-title="Password reset link" message-type="info" class="w-3/4" />
             <Transition name="page-fade" mode="out-in">
                 <div :key="pageKey" class="flex flex-1 flex-col">
                     <slot />

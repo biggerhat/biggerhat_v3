@@ -87,6 +87,12 @@ export interface TournamentGame {
 export interface TournamentRound {
     id: number;
     round_number: number;
+    /** Top-cut (single elimination) round. */
+    is_cut?: boolean;
+    /** "Round 3", or the cut stage: Finals / Semifinals / Quarterfinals. */
+    label?: string;
+    /** "R3", or F / SF / QF for the cut. */
+    short_label?: string;
     /** The raw enum value on the Manage page (the public View payload hydrates it into an object). */
     deployment: string | null;
     strategy: { id: number; name: string } | null;
@@ -118,6 +124,8 @@ export interface ScenarioOptions {
 }
 
 export interface StandingEntry {
+    /** Final top-cut result once the cut is decided: Champion, Finalist, "Top 4", ... */
+    cut_finish?: string | null;
     rank: number | null;
     player_id: number;
     display_name: string;
@@ -198,6 +206,10 @@ export interface RulesetInfo {
     variants: RulesetVariant[];
     /** Whether events can be run as team events (teams of 2–4). */
     supports_teams: boolean;
+    /** Whether the TO can describe each table (name, terrain notes, photo). */
+    supports_table_details: boolean;
+    /** One sentence on what running this format means (Create form). */
+    blurb: string;
     /** Round-clock wording shown to players; null = the format has no such rule. */
     time_rules: { last_turn_minutes: number; last_turn: string | null; time_called: string | null };
 }
@@ -315,4 +327,47 @@ export interface TournamentHistory {
         tp: number;
         faction: string | null;
     })[];
+}
+
+/** A side award (best painted, sportsmanship, ...). Public pages only receive the ones that have a recipient. */
+export interface TournamentAward {
+    id: number;
+    name: string;
+    note: string | null;
+    player_id: number | null;
+    player_name: string | null;
+}
+
+/** What the organizer says about one table (keyed by table number in the page payload; `[]` when the ruleset has none). */
+export interface TableDetail {
+    number: number;
+    name: string | null;
+    description: string | null;
+    image_url: string | null;
+}
+
+export type TableDetails = Record<string, TableDetail>;
+
+/** "Table 3 — The Mill" / "Table 3". */
+export function tableLabel(number: number, details: TableDetails | undefined): string {
+    const name = details?.[number]?.name;
+    return name ? `Table ${number} — ${name}` : `Table ${number}`;
+}
+
+/** A round's display name; cut rounds are named for their stage ("Semifinals"). */
+export function roundName(round: { round_number: number; label?: string }): string {
+    return round.label ?? `Round ${round.round_number}`;
+}
+
+/** Compact round name for tabs and chips ("R3", "SF"). */
+export function roundShortName(round: { round_number: number; short_label?: string }): string {
+    return round.short_label ?? `R${round.round_number}`;
+}
+
+/** Where the top cut stands (Manage payload). */
+export interface CutState {
+    size: number | null;
+    started: boolean;
+    available_sizes: number[];
+    block_reason: string | null;
 }

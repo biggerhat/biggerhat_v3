@@ -92,6 +92,10 @@ class TournamentStateMachine
             return 'Round must be in setup to generate pairings';
         }
 
+        if ($round->is_cut) {
+            return 'Top-cut pairings come from the bracket — they cannot be regenerated.';
+        }
+
         if ($tournament->status !== TournamentStatusEnum::Active) {
             return $round->round_number === 1
                 ? 'Tournament must be started before Round 1 can be paired'
@@ -193,6 +197,12 @@ class TournamentStateMachine
             return "{$incomplete} round(s) still in progress. Finish all rounds first.";
         }
 
+        // A top cut has to be played through: finalizing after the semifinals would leave no champion.
+        $last = $tournament->rounds()->reorder('round_number', 'desc')->with('games')->first();
+        if ($last?->is_cut && $last->games->where('is_bye', false)->count() > 1) {
+            return 'The top cut is not finished — advance the bracket and play the final first.';
+        }
+
         return null;
     }
 
@@ -210,6 +220,11 @@ class TournamentStateMachine
         // the per-pairing Game tracker games are missing strategy/deployment/schemes.
         if ($missing = $this->missingScenarioFields($round->tournament, $round)) {
             return 'Set the round scenario before starting (missing: '.$missing.')';
+        }
+
+        // Cut rounds only involve the players still in the bracket, so nobody else needs a pairing.
+        if ($round->is_cut) {
+            return null;
         }
 
         // Every active player (non-DQ, not dropped before this round) must be in a pairing.

@@ -8,6 +8,9 @@ $bob = $mk('Bob', 'bob@example.test');
 $carol = $mk('Carol', 'carol@example.test');
 $dave = $mk('Dave', 'dave@example.test');
 
+// A master with a title, so score entry has leaders to pick (the picker lists masters of the player's faction).
+\App\Models\Character::factory()->create(['name' => 'Rasputina', 'title' => 'Winter Witch', 'station' => 'master', 'faction' => 'arcanists']);
+
 // --- T1: running Gaining Grounds event with self-reporting
 $strategy = Strategy::factory()->create();
 $schemes = Scheme::factory()->count(3)->create()->pluck('id')->all();
@@ -93,5 +96,26 @@ App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Ali
 App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Alice Guild 40', 'faction' => 'guild', 'encounter_size' => 40]);
 App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Alice Arcanists 50', 'faction' => 'arcanists', 'encounter_size' => 50]);
 App\Models\CrewBuild::factory()->create(['user_id' => $bob->id, 'name' => 'Bob Guild 50', 'faction' => 'guild', 'encounter_size' => 50]);
+// --- T9: Swiss finished, ready for a top cut. T10: a top 4 whose semifinals are played, ready to advance.
+// Created by another account: an organizer may own at most 5 unfinished events, and the org account is already at that limit.
+$mkField = function (string $name, int $count) use ($org, $dave) {
+    $t = Tournament::factory()->active()->create(['name' => $name, 'creator_id' => $dave->id, 'planned_rounds' => 1]);
+    $t->organizers()->attach($org->id);
+    $players = collect(range(1, $count))->map(fn ($n) => TournamentPlayer::factory()->for($t)->create(['display_name' => "{$name[0]}$n", 'faction' => 'guild']))->all();
+    $swiss = TournamentRound::factory()->for($t)->create(['round_number' => 1, 'status' => \App\Enums\TournamentRoundStatusEnum::Completed]);
+    for ($i = 0; $i + 1 < $count; $i += 2) {
+        TournamentGame::factory()->for($swiss, 'round')->withScore(10 - $i, 2 + $i)->create(['player_one_id' => $players[$i]->id, 'player_two_id' => $players[$i + 1]->id, 'result' => 'completed', 'table_number' => $i / 2 + 1]);
+    }
+
+    return $t;
+};
+$t9 = $mkField('Cutters', 6);
+$t10 = $mkField('Brackets', 4);
+$semis = app(\App\Services\TournamentCutService::class)->start($t10, 4);
+$semis->update(['status' => \App\Enums\TournamentRoundStatusEnum::Completed, 'strategy_id' => $strategy->id, 'deployment' => \App\Enums\DeploymentEnum::cases()[0], 'scheme_pool' => $schemes]);
+foreach ($semis->games()->get() as $i => $g) {
+    $g->update(['player_one_vp' => $i === 0 ? 3 : 9, 'player_two_vp' => $i === 0 ? 8 : 2, 'result' => 'completed']);
+}
+
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 'g1' => $r1->games()->first()->id]));

@@ -79,6 +79,8 @@ final class RulesetRegistry
             tracksLeaders: (bool) ($def['tracks_leaders'] ?? true),
             supportsTracker: (bool) ($def['supports_tracker'] ?? true),
             supportsTeams: (bool) ($def['supports_teams'] ?? true),
+            supportsTableDetails: (bool) ($def['supports_table_details'] ?? false),
+            blurb: (string) ($def['blurb'] ?? ''),
             timeRules: [
                 'last_turn_minutes' => (int) ($def['time_rules']['last_turn_minutes'] ?? 15),
                 'last_turn' => $def['time_rules']['last_turn'] ?? null,

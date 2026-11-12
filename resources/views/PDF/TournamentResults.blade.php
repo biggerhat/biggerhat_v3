@@ -71,6 +71,20 @@
         </table>
     @endif
 
+    @if ($awards->isNotEmpty())
+        <h2>Awards</h2>
+        <table class="standings">
+            <tbody>
+                @foreach ($awards as $award)
+                    <tr>
+                        <td style="width: 35%"><strong>{{ $award->name }}</strong></td>
+                        <td>{{ $award->player?->display_name }}@if ($award->note) <span style="color: #666"> — {{ $award->note }}</span>@endif</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
     <h2>Final standings</h2>
     <table class="standings">
         <thead>
@@ -90,6 +104,7 @@
                     <td>{{ $entry['is_ringer'] ? '—' : $entry['rank'] }}</td>
                     <td>
                         <strong>{{ $entry['display_name'] }}</strong>
+                        @if (! empty($entry['cut_finish'])) <span class="tag">{{ $entry['cut_finish'] }}</span> @endif
                         @if ($entry['is_ringer']) <span class="tag">ringer</span> @endif
                         @if ($entry['is_dropped']) <span class="tag">dropped</span> @endif
                         <span class="muted">

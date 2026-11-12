@@ -16,9 +16,15 @@ use App\Models\TOS\Allegiance;
 use App\Models\TOS\Deployment;
 use App\Models\TOS\Operation;
 use App\Models\Tournament;
+use App\Models\TournamentAward;
+use App\Models\TournamentGame;
 use App\Models\TournamentRound;
+use App\Models\TournamentSeries;
+use App\Models\TournamentTable;
+use App\Services\TournamentCutService;
 use App\Services\TournamentStandingsService;
 use App\Tournaments\CrewListCheck;
+use Inertia\DeferProp;
 use Inertia\Inertia;
 
 /**
@@ -37,6 +43,7 @@ class TournamentPagePayloads
     public function forView(Tournament $tournament): array
     {
         $tournament->load([
+            'series:id,uuid,name',
             'players.user:id,name,meta_id',
             'players.user.meta:id,name',
             'players.meta:id,name',
@@ -123,6 +130,9 @@ class TournamentPagePayloads
             $roundsData[] = [
                 'id' => $round->id,
                 'round_number' => $round->round_number,
+                'is_cut' => $round->is_cut,
+                'label' => $round->label,
+                'short_label' => $round->short_label,
                 'status' => $roundStatus->value,
                 'started_at' => $round->started_at?->toIso8601String(),
                 'deployment' => $deployment,
@@ -185,12 +195,142 @@ class TournamentPagePayloads
         return [
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
+            'tables' => $this->tableDetails($tournament),
+            // Shows the scoring-desk link to organizers and scorekeepers.
+            'can_score' => request()->user()?->can('score', $tournament) ?? false,
+            'awards' => $this->awardList($tournament, false),
+            'series' => $this->seriesSummary($tournament),
             'allegiances' => $this->allegianceOptions($tournament),
             'rounds' => $roundsData,
             'standings' => $standings,
             'factions' => FactionEnum::buildDetails(),
             'scheme_stats' => $schemeStats,
             'crew_lists' => $crewLists,
+        ];
+    }
+
+    /**
+     * The series this event belongs to, if any.
+     *
+     * @return array{uuid: string, name: string}|null
+     */
+    private function seriesSummary(Tournament $tournament): ?array
+    {
+        $series = $tournament->series;
+
+        return $series ? ['uuid' => $series->uuid, 'name' => $series->name] : null;
+    }
+
+    /**
+     * Where the top cut stands, for the organizer's Rounds tab.
+     *
+     * @return array{size: int|null, started: bool, available_sizes: list<int>, block_reason: string|null}
+     */
+    private function cutState(Tournament $tournament): array
+    {
+        $cut = app(TournamentCutService::class);
+
+        return [
+            'size' => $tournament->cut_size,
+            'started' => $tournament->rounds()->where('is_cut', true)->exists(),
+            'available_sizes' => $cut->availableSizes($tournament),
+            'block_reason' => $cut->blockReason($tournament),
+        ];
+    }
+
+    /**
+     * Side awards in display order. The public sees only those that have a recipient; organizers see them all.
+     *
+     * @return list<array{id: int, name: string, note: string|null, player_id: int|null, player_name: string|null}>
+     */
+    private function awardList(Tournament $tournament, bool $includeUnassigned): array
+    {
+        $awards = $tournament->awards()->with('player')->get();
+        if (! $includeUnassigned) {
+            $awards = $awards->filter(fn (TournamentAward $a) => $a->player_id !== null);
+        }
+
+        return $awards->map(fn (TournamentAward $a) => [
+            'id' => $a->id,
+            'name' => $a->name,
+            'note' => $a->note,
+            'player_id' => $a->player_id,
+            'player_name' => $a->player?->display_name,
+        ])->values()->all();
+    }
+
+    /**
+     * The organizer's table notes, keyed by table number (empty for rulesets without table details).
+     *
+     * @return array<int, array{number: int, name: string|null, description: string|null, image_url: string|null}>
+     */
+    private function tableDetails(Tournament $tournament): array
+    {
+        if (! $tournament->rulesetDefinition()->supportsTableDetails) {
+            return [];
+        }
+
+        return $tournament->tables()->get()->mapWithKeys(fn (TournamentTable $t) => [$t->number => [
+            'number' => $t->number,
+            'name' => $t->name,
+            'description' => $t->description,
+            'image_url' => $t->image_url,
+        ]])->all();
+    }
+
+    /**
+     * Masters grouped by name with their titles — only used in the score-entry dialog, so deferred under its own group.
+     */
+    private function mastersDeferred(): DeferProp
+    {
+        return Inertia::defer(function () {
+            $characters = Character::standard()->where('station', 'master')
+                ->where('is_hidden', false)
+                ->orderBy('name')->orderBy('title')
+                ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
+
+            $grouped = [];
+            foreach ($characters->groupBy('name') as $name => $group) {
+                $first = $group->first();
+                $grouped[] = [
+                    'name' => $name,
+                    'faction' => $first->getRawOriginal('faction'),
+                    'second_faction' => $first->getRawOriginal('second_faction'),
+                    'titles' => $group->map(fn ($c) => [
+                        'id' => $c->id,
+                        'display_name' => $c->display_name,
+                        'title' => $c->title,
+                    ])->values(),
+                ];
+            }
+
+            return $grouped; // @phpstan-ignore return.type
+        }, 'masters');
+    }
+
+    /**
+     * Props for the scoring desk: the pairings of every round with the score-entry fields, the standings and the
+     * ruleset. Nothing from the organizer's setup tools (players' accounts, RSVPs, crews, reference data).
+     *
+     * @return array<string, mixed>
+     */
+    public function forScoring(Tournament $tournament): array
+    {
+        $tournament->load([
+            'players',
+            'rounds.games.playerOne:id,display_name,faction,user_id',
+            'rounds.games.playerTwo:id,display_name,faction,user_id',
+            'rounds.games.trackerGame',
+        ]);
+        $this->slimGames($tournament);
+
+        return [
+            'tournament' => $tournament,
+            'ruleset' => $this->ruleset($tournament),
+            'standings' => $this->standings->compute($tournament),
+            'tables' => $this->tableDetails($tournament),
+            // Leaders (master + title) are recorded in rulesets that track them, so the desk needs the same picker data.
+            'masters' => $tournament->rulesetDefinition()->tracksLeaders ? $this->mastersDeferred() : null,
         ];
     }
 
@@ -202,6 +342,7 @@ class TournamentPagePayloads
     public function forManage(Tournament $tournament): array
     {
         $tournament->load([
+            'series:id,uuid,name',
             'players.user:id,name,meta_id',
             'players.user.meta:id,name',
             'players.meta:id,name',
@@ -223,12 +364,14 @@ class TournamentPagePayloads
             'rounds.games.trackerGame',
             'rounds.strategy:id,name',
             'organizers:id,name',
+            'scorers:id,name',
         ]);
 
         $standings = $this->standings->compute($tournament);
         $this->hidePrivateGarrisonCodes($tournament);
         $this->markWaitlist($tournament);
         $this->markCrewLists($tournament);
+        $this->slimGames($tournament);
 
         $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
@@ -261,35 +404,19 @@ class TournamentPagePayloads
             return $results;
         }, 'scenario');
 
-        // Masters grouped by name with titles — only used in the score-entry
-        // dialog, so defer under its own group.
-        $mastersDeferred = Inertia::defer(function () {
-            $characters = Character::standard()->where('station', 'master')
-                ->where('is_hidden', false)
-                ->orderBy('name')->orderBy('title')
-                ->get(['id', 'name', 'title', 'display_name', 'faction', 'second_faction']);
-
-            $grouped = [];
-            foreach ($characters->groupBy('name') as $name => $group) {
-                $first = $group->first();
-                $grouped[] = [
-                    'name' => $name,
-                    'faction' => $first->getRawOriginal('faction'),
-                    'second_faction' => $first->getRawOriginal('second_faction'),
-                    'titles' => $group->map(fn ($c) => [
-                        'id' => $c->id,
-                        'display_name' => $c->display_name,
-                        'title' => $c->title,
-                    ])->values(),
-                ];
-            }
-
-            return $grouped; // @phpstan-ignore return.type
-        }, 'masters');
+        $mastersDeferred = $this->mastersDeferred();
 
         return [
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
+            'tables' => $this->tableDetails($tournament),
+            'awards' => $this->awardList($tournament, true),
+            'cut' => $this->cutState($tournament),
+            'series' => $this->seriesSummary($tournament),
+            // The viewer's own series, for the "part of a series" picker.
+            'my_series' => TournamentSeries::where('creator_id', request()->user()?->id)->orderBy('name')->get(['uuid', 'name'])->map(fn (TournamentSeries $s) => ['uuid' => $s->uuid, 'name' => $s->name])->values()->all(),
+            // Whether a Discord channel is connected; the webhook URL itself never leaves the server.
+            'discord_connected' => (bool) $tournament->discord_webhook_url,
             'allegiances' => $this->allegianceOptions($tournament),
             'standings' => $standings,
             'seasons' => $seasons,
@@ -413,6 +540,27 @@ class TournamentPagePayloads
     }
 
     /**
+     * Only what the pages read from a game: its tracker game (settings, scheme pool, timestamps, season label...), the players' faction
+     * and account ids and the per-game timestamps were multiplied by every game of every round, so payloads grew quickly with event size.
+     */
+    private function slimGame(TournamentGame $game): void
+    {
+        $game->makeHidden(['created_at', 'updated_at']);
+        $game->trackerGame?->setVisible(['id', 'uuid', 'status', 'is_solo', 'current_turn', 'max_turns', 'winner_id', 'is_tie']);
+        $game->playerOne->setVisible(['id', 'display_name']);
+        $game->playerTwo?->setVisible(['id', 'display_name']);
+    }
+
+    private function slimGames(Tournament $tournament): void
+    {
+        foreach ($tournament->rounds as $round) {
+            foreach ($round->games as $game) {
+                $this->slimGame($game);
+            }
+        }
+    }
+
+    /**
      * The view/display pages are public and serialise whole models, so strip what only the people involved should see:
      * the players' report details (score proposal, dispute note) go to the two sides and the organizers, and nothing
      * public needs crew-build ids, tracker settings/loot state, or players' meta/profile columns.
@@ -439,7 +587,7 @@ class TournamentPagePayloads
                     $game->makeHidden(['report_note', 'reported_score', 'reported_by_player_id', 'reported_at']);
                 }
 
-                $game->trackerGame?->makeHidden(['settings', 'loot_state', 'creator_id']);
+                $this->slimGame($game);
             }
         }
     }

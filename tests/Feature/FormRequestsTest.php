@@ -26,6 +26,7 @@ it('builds rules for every form request', function () {
         App\Http\Requests\Games\UpdateCrewMemberRequest::class,
         App\Http\Requests\Admin\RenameUserRequest::class,
         App\Http\Requests\Settings\ProfileUpdateRequest::class,
+        App\Http\Requests\Tournaments\TournamentAwardRequest::class, // scopes the recipient to the route's tournament
     ];
     // Deliberately rule-less (authorization only).
     $noRules = [

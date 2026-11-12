@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TabsContent } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
+import TopCutCard from '@/components/Tournament/TopCutCard.vue';
 import { useTournament } from '@/composables/useTournament';
 import { Check, Dices, Eye, Loader2, MoreHorizontal, Plus, Trophy, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -20,6 +21,8 @@ import {
     isScoredResult,
     tosOperationText,
     type ScenarioOptions,
+    roundName,
+    type CutState,
     type TosDeploymentInfo,
     type TosOperationInfo,
     type TournamentGame,
@@ -55,6 +58,8 @@ const props = defineProps<{
     checkedInCount: number;
     uncheckedPlayers: TournamentPlayer[];
     canFinalize: boolean;
+    /** Where the top cut stands. */
+    cut: CutState;
 }>();
 
 const emit = defineEmits<{
@@ -66,7 +71,7 @@ const tournamentRef = computed(() => props.tournament);
 const { submitting, showError, doAction, doActionWithData, doModalAction, reloadProps, playerName, playerFaction } = useTournament(tournamentRef);
 const toast = useToast();
 const confirm = useConfirm();
-const reloadPage = () => reloadProps(['tournament', 'standings']);
+const reloadPage = () => reloadProps(['tournament', 'standings', 'cut']);
 
 const openScoreEdit = (game: TournamentGame) => emit('edit-score', game);
 
@@ -77,10 +82,10 @@ const createRound = async () => {
     }
 };
 
-const deleteRound = async (roundId: number, roundNumber: number) => {
+const deleteRound = async (roundId: number, name: string) => {
     if (
         !(await confirm({
-            title: `Delete Round ${roundNumber}?`,
+            title: `Delete ${name}?`,
             message: 'This will remove the round and any pairings/games it contains.',
             confirmLabel: 'Delete round',
             destructive: true,
@@ -571,6 +576,8 @@ const editScenario = (round: TournamentRound) => {
     if (expandedScenarioRoundId.value !== round.id) toggleScenarioEdit(round);
 };
 
+const topCut = ref<InstanceType<typeof TopCutCard> | null>(null);
+
 defineExpose({
     submitting,
     createRound,
@@ -582,12 +589,22 @@ defineExpose({
     scenarioBlockReason,
     startBlockReason,
     canEndRound,
+    advanceCut: () => topCut.value?.advance(),
+    cutAvailable: () => !!topCut.value?.canStart,
 });
 </script>
 
 <template>
     <!-- ═══ ROUNDS ═══ -->
     <TabsContent value="rounds">
+        <TopCutCard
+            ref="topCut"
+            :tournament="tournament"
+            :cut="cut"
+            :latest-round="tournament.rounds[tournament.rounds.length - 1] ?? null"
+            @changed="reloadPage"
+        />
+
         <!-- Finalize Tournament (last round completed) -->
         <div v-if="canFinalize" class="mb-4 flex flex-wrap gap-2">
             <Button class="gap-1" size="sm" @click="emit('finalize')">
@@ -605,7 +622,7 @@ defineExpose({
                 <CardContent class="p-4">
                     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <div class="flex items-center gap-2">
-                            <h2 class="text-sm font-semibold sm:text-base">Round {{ round.round_number }}</h2>
+                            <h2 class="text-sm font-semibold sm:text-base">{{ roundName(round) }}</h2>
                             <Badge
                                 :class="[
                                     'border-0 text-2xs',
@@ -644,8 +661,8 @@ defineExpose({
                                 v-if="round.status !== 'in_progress' && tournament.status !== 'completed'"
                                 class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                 title="Delete this round"
-                                :aria-label="`Delete round ${round.round_number}`"
-                                @click="deleteRound(round.id, round.round_number)"
+                                :aria-label="`Delete ${roundName(round)}`"
+                                @click="deleteRound(round.id, roundName(round))"
                             >
                                 <X class="size-3.5" />
                             </button>

@@ -17,6 +17,7 @@ return [
         // Malifaux — Gaining Grounds One. Win 3 / tie 1 / loss 0; TP → DIFF → VP.
         'malifaux_gaining_grounds' => [
             'label' => 'Malifaux — Gaining Grounds',
+            'blurb' => 'Swiss rounds of Malifaux. Each round has a strategy, a deployment and a scheme pool; a win is 3 TP, ranked by differential and victory points.',
             'game_system' => 'malifaux',
             'scoring' => [
                 'base_tp' => 0, 'win_tp' => 3, 'tie_tp' => 1, 'loss_tp' => 0,
@@ -32,6 +33,8 @@ return [
             'game_size' => ['label' => 'Encounter Size (SS)', 'unit' => 'ss', 'default' => 50, 'min' => 20, 'max' => 100, 'step' => 5],
             'uses_season' => true,
             'uses_encounter_type' => true,
+            // Terrain matters in Malifaux: the TO can name each table, describe its terrain and attach a photo/layout.
+            'supports_table_details' => true,
             // A Malifaux score is strategy VP (max 5) + scheme VP (max 6) = up to 11.
             'score_fields' => [
                 ['key' => 'strategy', 'label' => 'Strategy VP', 'min' => 0, 'max' => 5],
@@ -66,6 +69,7 @@ return [
         // The Other Side — Fields of Glory v3.0. 10 base TP + capped DIFF + 2 for a win; TP → SoS.
         'tos_fields_of_glory' => [
             'label' => 'The Other Side — Fields of Glory',
+            'blurb' => 'Swiss rounds of The Other Side. Each round pairs an Operation with a Deployment; games score 10 TP plus differential, ranked by strength of schedule.',
             'game_system' => 'tos',
             'scoring' => [
                 'base_tp' => 10, 'win_tp' => 2, 'tie_tp' => 0, 'loss_tp' => 0,
@@ -111,6 +115,7 @@ return [
         // A blank slate: pick the scoring, tiebreakers and rounds yourself ("Customize scoring" on the event).
         'custom' => [
             'label' => 'Custom — set your own scoring',
+            'blurb' => 'A blank slate for any game or house format: choose the scoring, tiebreakers and rounds yourself.',
             'game_system' => 'custom',
             'scoring' => [
                 'base_tp' => 0, 'win_tp' => 3, 'tie_tp' => 1, 'loss_tp' => 0,

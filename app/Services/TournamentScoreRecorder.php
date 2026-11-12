@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\TournamentGameResultEnum;
 use App\Models\TournamentGame;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Makes a score official. The one place that turns ruleset score components into a game's
@@ -19,6 +20,11 @@ class TournamentScoreRecorder
      */
     public function record(TournamentGame $game, array $one, array $two, bool $agreed = false, array $attributes = []): void
     {
+        // An elimination game has to produce a winner, so a tie is not an official result there.
+        if ($game->round->is_cut && array_sum($one) === array_sum($two)) {
+            throw ValidationException::withMessages(['score' => 'Elimination games need a winner — a tied score cannot be recorded.']);
+        }
+
         $game->update([
             ...$attributes,
             'player_one_vp' => array_sum($one),

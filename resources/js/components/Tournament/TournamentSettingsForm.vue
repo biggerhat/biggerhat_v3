@@ -35,6 +35,7 @@ const props = defineProps<{
         max_players?: number | null;
         require_crew_lists?: boolean;
         registration_closes_at?: string | null;
+        instant_signup?: boolean;
         scoring_config?: Record<string, unknown> | null;
         [key: string]: unknown;
     };
@@ -73,6 +74,7 @@ const toLocalInput = (iso?: string | null) => {
 };
 const editMaxPlayers = ref(props.tournament.max_players ? String(props.tournament.max_players) : '');
 const editClosesAt = ref(toLocalInput(props.tournament.registration_closes_at));
+const editInstantSignup = ref(props.tournament.instant_signup ?? false);
 const editAdvancedOpen = ref(false);
 const editVariants = ref<Record<string, boolean | number>>({ ...props.ruleset.active_variants });
 const editScoringConfig = ref<Record<string, unknown>>({ ...(props.tournament.scoring_config ?? {}) });
@@ -99,6 +101,7 @@ const saveSettings = async () => {
         require_crew_lists: editRequireCrewLists.value,
         max_players: editMaxPlayers.value.trim() === '' ? null : Number(editMaxPlayers.value),
         registration_closes_at: editClosesAt.value ? new Date(editClosesAt.value).toISOString() : null,
+        instant_signup: editInstantSignup.value,
         ...(props.canChangeTeamSize ? { team_size: editTeamSize.value } : {}),
         scoring_config: editScoringConfig.value,
     });
@@ -211,6 +214,16 @@ const saveSettings = async () => {
                         <p class="text-2xs text-muted-foreground">After this, new RSVPs are refused (cancelling still works).</p>
                     </div>
                 </div>
+                <label v-if="editTeamSize === 1" class="flex items-start gap-2 text-sm">
+                    <input v-model="editInstantSignup" type="checkbox" class="mt-1 size-3.5" />
+                    <span>
+                        <span class="font-medium">Instant sign-up</span>
+                        <span class="block text-2xs text-muted-foreground">
+                            Signing up adds people to the player list right away (up to the limit, then a waitlist) instead of waiting for you to
+                            confirm each one.
+                        </span>
+                    </span>
+                </label>
                 <label v-if="ruleset.declaration === 'faction' && editTeamSize === 1" class="flex items-start gap-2 text-sm">
                     <input v-model="editRequireCrewLists" type="checkbox" class="mt-1 size-3.5" />
                     <span>

@@ -78,3 +78,9 @@ with self-report, a team event in registration, a Fields of Glory event, a runni
 Each flows file mutates what it works on, so the database is re-seeded before every file. Output is PASS / WARN / FAIL per step (WARN = page errors,
 console errors or 5xx during an otherwise passing step); failure screenshots and numbered shots land in `$SHOTS` (default `$WORKDIR/shots`).
 Helpers in `lib.cjs` (`clickText`, `pickSelect`, `pickByTrigger`, `expectText`) encode the Reka/radix quirks above. Local use only.
+CI: `.github/workflows/tournament-flows.yml` runs the whole pass on demand (Actions tab, manual trigger only; it has not been run on GitHub yet, so expect to adjust it). `lint.yml` has a non-blocking
+`vue-tsc` step; run it locally with `npm install --no-save vue-tsc@2.2.12 && npx vue-tsc --noEmit` and `npm ci` afterwards (a saved dependency makes prettier's organize-imports plugin reorder imports across the app).
+`flows22.cjs` is an axe-core pass over every tournament page and state (light/dark, desktop/phone, score dialog, top cut): it needs `npm i --no-save axe-core` (it skips itself without it), fails on
+moderate or worse findings, and `AXE_REPORT=1` also lists minor ones.
+`FLOWS="flows17.cjs flows2.cjs"` runs just those files. The server runs through `router.php` so uploaded images under `/storage` are served from the repo's `storage/app/public`
+(uploads made by the flows land there; delete `storage/app/public/tournaments` afterwards). Reading screenshots: they are not cleared between runs, so check the file's timestamp before trusting one.

@@ -6,6 +6,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import TableTerrain from '@/components/Tournament/TableTerrain.vue';
+import type { TableDetail } from '@/types/tournament';
 import { Textarea } from '@/components/ui/textarea';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Gamepad2, Loader2, Swords } from 'lucide-vue-next';
@@ -49,6 +51,8 @@ interface MatchGame {
 
 interface MatchRound {
     round_number: number;
+    label?: string;
+    is_cut?: boolean;
     status: string;
     started_at: string | null;
     deployment: { label: string } | null;
@@ -69,6 +73,8 @@ const props = defineProps<{
     allowSelfReport?: boolean;
     /** The ruleset's score components (e.g. strategy + scheme VP), one input each. */
     scoreFields?: { key: string; label: string; min: number; max: number }[];
+    /** The organizer's notes for this game's table (name, terrain, photo). */
+    tableDetail?: TableDetail | null;
 }>();
 
 const iAmOne = computed(() => props.game.player_one_id === props.myPlayerId);
@@ -165,10 +171,17 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h2 class="text-sm font-semibold uppercase tracking-wide text-primary">Your match</h2>
                 <span class="text-sm text-muted-foreground">
-                    Round {{ round.round_number }}<template v-if="game.table_number"> · Table {{ game.table_number }}</template>
+                    {{ round.label ?? `Round ${round.round_number}` }}<template v-if="game.table_number"> · Table {{ game.table_number }}</template
+                    ><template v-if="tableDetail?.name"> — {{ tableDetail.name }}</template>
                 </span>
                 <RoundClock v-if="inProgress" :started-at="round.started_at" :limit-minutes="roundTimeLimit" class="ml-auto" />
             </div>
+
+            <TableTerrain
+                v-if="!game.is_bye && tableDetail && (tableDetail.description || tableDetail.image_url)"
+                :detail="tableDetail"
+                :show-title="false"
+            />
 
             <div v-if="game.is_bye" class="text-sm">You have a bye this round — a free win. Enjoy the break.</div>
             <div v-else class="flex flex-wrap items-center gap-3">
@@ -217,7 +230,8 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                 </Button>
                 <p v-else-if="game.is_bye" class="text-xs text-muted-foreground">Nothing to do until the next round is paired.</p>
                 <p v-else-if="!inProgress" class="text-xs text-muted-foreground">
-                    Round {{ round.round_number }} hasn't started yet — find your table and get set up.
+                    {{ round.label ?? `Round ${round.round_number}` }} {{ round.is_cut ? 'have' : 'has' }}n't started yet — find your table and get
+                    set up.
                 </p>
                 <p v-else-if="!finished" class="text-xs text-muted-foreground">
                     {{ canReport ? 'Play your game, then report the result below.' : 'Play your game, then give your scores to the organizer.' }}

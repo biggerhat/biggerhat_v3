@@ -82,8 +82,80 @@ TOS rounds pick an Operation + Deployment from `tos_operations` / `tos_deploymen
 deadline are refused (cancelling still works). The waitlist is **computed, not stored**: `Tournament::waitlistPositions()` takes RSVPs oldest first, skips users who already
 have a seat, and gives everyone past `max_players - competitors` a position, so a freed seat promotes the next RSVP with no job to run (individual events only — in team events an
 RSVP is a person while the limit counts teams). `TournamentPagePayloads` stamps `waitlist_position` on each RSVP. An organizer adding a (non-ringer) player past the limit gets a 422.
+**Instant sign-up** (`tournaments.instant_signup`, individual events): `App\Tournaments\InstantSignup` turns an RSVP into a `TournamentPlayer` (account name, declared faction/allegiance) while a seat is free and no round is in progress, under a row lock so the last seat can't be taken twice. `WaitlistPromotions::notify()` seats waiting RSVPs oldest first when a seat opens (the promoted users get the usual notice), and switching the option on seats existing RSVPs. Cancelling the RSVP removes the player unless they are already in a pairing (then they use Withdraw). The RSVP row stays so the list and waitlist order are unchanged.
 `TournamentSelfDropController` (`tournaments.withdraw`): a linked player in an individual event removes their seat and RSVP before the start, or is dropped after the round they are in
 (else the last finished round) once it runs; organizers get a `TournamentPlayerWithdrew` notification. Team events stay with the organizer.
+
+When a seat frees (a self-withdrawal before the start, an organizer removing a player, or a raised limit) `WaitlistPromotions::snapshot()` is taken before the change and `notify()` after it:
+whoever was on the waitlist before and is not now gets a `TournamentWaitlistPromoted` notification. A waitlisted user cancelling their own RSVP does not trigger it.
+
+## Tables
+`TournamentPairingService::assignTables()` numbers the auto-paired games from the lowest table numbers not held by a manual pairing, and keeps each player off tables they sat at in earlier
+rounds where the free tables allow it (most constrained pairing first; when no clean table is left the lowest free one is used). Table names and terrain sets are not modelled.
+The `TournamentRoundPaired` notification already carries the table number.
+
+## Event details and table terrain
+**Details** — `tournaments.details` is a TipTap JSON document (the long version: venue, schedule, house rules, prizes) next to the one-line `description`. The organizer edits it on the Manage page's
+**Details** tab with the blog's `TipTapEditor` (`:entities="false"`: no entity link/embed buttons) and saves through `TournamentDetailsController@update` (`tournaments.details`). Organizers are ordinary users,
+so `App\Tournaments\RichText::sanitize()` rebuilds the document from an allow-list before it is stored: known node and mark types only, link targets must be http(s) or mailto, images must be files under
+`/storage/tournaments/` (uploaded through `tournaments.details.image`, 5 MB, throttled), the whole document at most 100 KB. The public page renders it with `BlogContent` (structured JSON, never raw HTML).
+**Tables** — rulesets opt in with `supports_table_details` (Malifaux only for now; `Ruleset::$supportsTableDetails`). `tournament_tables` rows hold a name, notes (2000 chars) and a photo/layout for a table number;
+a row exists only while it has something on it (`TournamentTableController@save` / `destroy`, numbers 1-200, 404 for other rulesets). The payloads carry `tables` keyed by number (`[]` when unsupported).
+Players see the name and terrain on their match card and the pairing rows; spectators get a collapsible "Tables & terrain" list; display mode shows the name next to the table number.
+Uploads live on the public disk under `tournaments/{id}/` and are not removed when an event is soft-deleted.
+
+## Side awards
+`tournament_awards` (name, optional note, optional `player_id`) are the organizer's side prizes. They are managed on the Manage page's **Details** tab (`AwardsEditor`, up to 12 per event) through
+`TournamentAwardController` (`tournaments.awards.store|update|destroy`). Giving an award to a competitor (or changing the recipient) sends `TournamentAwardGiven` to that player, or every member of a
+team; renaming or re-saving does not. The public payload (`awards`) carries only awards that have a recipient, so an unassigned one is organizer-only; the Manage payload has them all. The public
+page shows `AwardsCard`, and the results PDF lists them under the podium. Deleting a player leaves the award unassigned (`nullOnDelete`).
+
+## Scorekeepers and the scoring desk
+`tournament_scorers` (a plain pivot) lists accounts an organizer lets enter results without running the event; they are separate from `organizers`, so they never receive organizer notifications or reach
+organizer pages. `Tournament::canScore()` = can manage, or is a scorer, and the policy ability `score` gates **entering/correcting a score** (`ScoreTournamentGameRequest`) and **forfeits**
+(`TournamentGameToggleForfeitRequest`); everything else stays on `manage`. Organizers add and remove scorekeepers from the **Scorekeepers** card on the Settings tab (`TournamentScorerController`,
+`tournaments.scorers.add|remove`, they get a `TournamentScorerAdded` notification linking to the desk). The desk is `Tournaments/Score.vue` (`tournaments.score`, `forScoring()` payload: players, every round's
+games, standings, ruleset, table names): a round switcher, one card per pairing with Enter/Edit score, and the same `ScoreEntryDialog` the Manage page uses, including the optional master/title pickers (the `masters` list is the same deferred prop,
+`TournamentPagePayloads::mastersDeferred()`, and is only sent for rulesets that track leaders). The public event page shows a "Scoring desk" link while the event is active to anyone who `can_score`.
+
+## Top cut (single elimination)
+After the Swiss rounds an organizer can run a cut of 2, 4, 8 or 16 players (`TournamentCutService`, `TournamentCutController`, `tournaments.cut.start|advance`, the `TopCutCard` on the Rounds tab and a next-step
+guide entry). `start()` seeds the best Swiss players (not dropped, disqualified or ringers) and creates the first cut round already paired in bracket order (8 => 1v8, 4v5, 2v7, 3v6), so game k of a round feeds
+game floor(k/2) of the next; `advance()` pairs the winners of the finished cut round the same way. Cut rounds are ordinary `tournament_rounds` rows with `is_cut = true`, so scenarios, scoring, the tracker, self-reporting
+and the scoring desk all work; `tournaments.cut_size` records the size. Rounds name themselves by stage (`TournamentRound::$label` / `$short_label`: Finals, Semifinals, Quarterfinals, "Round of 16"; "R3" / "SF" in tabs).
+Rules: pairing cannot be regenerated for a cut round; a cut round starts without every player being paired; `TournamentScoreRecorder` refuses a tied score in a cut game (a forfeit's non-forfeiting player advances; if a tie
+somehow exists the better seed advances); the tournament cannot be finalized until the final is played; deleting the last cut round clears `cut_size`.
+**Standings:** `TournamentStandingsService::computeSwiss()` leaves cut rounds out (seeds never move), and `compute()` applies `CutPlacings` once the final has a winner: champion 1st, finalist 2nd, each earlier
+round's losers share the next place (semifinal losers joint 3rd, quarterfinal losers joint 5th), everyone outside the cut ranks after. Rows get `cut_finish` ("Champion", "Finalist", "Top 4"), shown as a badge and on the PDF.
+Note `Tournament::rounds()` is already ordered by `round_number`, so use `reorder()` to get the latest one.
+
+## Accessibility notes
+Live pages (`View`, `Display`) include a `TournamentLiveRegion` (visually hidden, `role="status"`, `aria-live="polite"`). `useTournamentAnnouncements` compares each render of the rounds with the previous one and
+writes sentences into it: "Semifinals are paired.", "Round 2 has started.", "Result reported for table 3.", "The tournament is finished." The first render announces nothing. `ScoringSummary` ends with a **Terms** glossary
+(TP, VP, DIFF, Bye, and SoS when the event ranks by it) under "Format & rules" on the public page and the Manage settings.
+
+## Importing a finished event
+`/tournaments/import` (linked from the Create page) back-fills a past event from a CSV in the export's shape: `round`, `player_one`, `player_two` and scores (`player_one_vp` / `player_two_vp`, or one
+`player_one_<part>_vp` column per score component for formats that split the score, e.g. Malifaux strategy + scheme), plus optional `table`, factions, masters, `result`, `is_bye`, `is_forfeit`. `ResultsImport::parse()`
+checks the file without saving (line-numbered errors, warnings, counts; at most 10 rounds, 2000 rows, 256 players, 1 MB; rounds must run 1..N without gaps; nobody paired twice in a round; scores within the format's maximum) and
+`create()` builds a **completed** tournament owned by the importer with players (matched by name, case-insensitive), completed rounds and games, so standings, the results sheet and profile history work. A forfeit's
+loser is taken to be player two. The page checks the file first (`tournaments.import.preview`) and only a clean file can be imported (`tournaments.import.store`); `tournaments.import.template` serves an example for the chosen format.
+Not imported: allegiances (Fields of Glory), teams, accounts links (players are unlinked names), crews, scenarios.
+
+## Discord posts
+An organizer can connect an event to a Discord channel webhook (Settings tab, `DiscordCard`; `tournaments.discord` PUT, `tournaments.discord.test` POST). The URL is stored encrypted in `tournaments.discord_webhook_url`, is hidden from every
+serialisation (`$hidden`), and only `discord_connected` reaches the page. `TournamentDiscord::URL_PATTERN` allows only `https://discord.com|discordapp.com/api/webhooks/<id>/<token>` (checked on save and again before every post), redirects are
+not followed, `allowed_mentions` is empty (event text cannot ping anyone) and a failing Discord is logged and ignored. Posts go through the queued `PostTournamentToDiscord` job (a no-op without a webhook; `whenConnected()` skips the queue
+entirely): **registration opened** (date, format, place, limit), **round started** (the pairings, `**Table N** A vs B`), **announcement** (non-empty notices) and **final results** (podium + standings and PDF links). The test button posts
+synchronously so the organizer sees right away whether Discord accepted it. No bot is involved; the separate Discord bot repo is untouched.
+
+## Leagues (series)
+A `TournamentSeries` (`tournament_series`; `/tournaments/series`) groups an organizer's events under one public leaderboard. Settings: a **points table** by finishing place (`points_table`, 1st..16th; default 10-8-6-5-4-3-2-1),
+**participation points** for anyone who played but placed below the table, and an optional **best N events** rule. Only the creator (or a `manage_tournaments` holder) edits or deletes it (`TournamentSeriesPolicy`); series pages are public.
+An event joins from its Manage Settings tab (`SeriesCard`, `tournaments.series.assign`; it must belong to a series the user created, and team events are refused). Deleting a series un-links its events (done explicitly in the controller).
+`SeriesStandings::compute()` scores every **finished, individual** event in the series from the event's final standings (so top-cut placings count, joint places share points, ringers and players with no games are skipped).
+A person is one league entry across events when their players share an account; unlinked players are matched by name (case-insensitive) and a name equal to a linked player's joins that account. Rows are ranked by counted points,
+then wins, then best finish (equal on all three = joint rank) and carry per-event results flagged `counts` (struck through on the page when the best-N rule drops them). The event page shows "Part of the league ..." and links back.
 
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.

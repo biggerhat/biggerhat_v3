@@ -127,3 +127,49 @@ Ranked by value for a real event, with effort.
 - axe contrast / landmark results on the tournament pages (harness exists, not run).
 - MySQL behaviour of the new migrations (all browser work was SQLite).
 - Large-field performance (> 64 players) — only the pairing search budget (50,000 nodes) was reasoned about, not measured.
+
+## 7. Follow-up branch: tables and waitlist notices (tournament-tables-notify-nov12)
+
+F5 (partial): auto-paired games avoid tables a player already used (`assignTables`); named tables and terrain sets are not built. F16 (partial): waitlisted RSVPs are notified when
+they move under the player limit (`WaitlistPromotions`); "you're on table N" was already in `TournamentRoundPaired`. Clock warnings ("10 minutes left") need a scheduled job and are not built.
+
+Same branch, requested feature (not from the audit): a rich-text event description (`tournaments.details`, sanitised through `RichText`) and per-table name / terrain notes / photo for Malifaux (`tournament_tables`,
+ruleset flag `supports_table_details`). Browser flow 17 covers writing details, describing a table with a photo upload, and what players and spectators see. **Deploy: run the new migration; `php artisan storage:link` must exist for images.**
+The harness fix that came with it: `run.sh` now `exec`s PHP (the old `trap` left a stale server holding the port) and serves `/storage` through `router.php`; `FLOWS="flows17.cjs"` runs a subset.
+
+F7 (side awards) is built on the same branch: `tournament_awards`, an editor on the Details tab, a public Awards card, a line on the results PDF and a notification to the winner. Browser flow 18 covers it.
+Not done for F7: awards on the shareable results image and on the profile history card. **Deploy: run the new migration.**
+
+F15 (scorer-only role) is built on the same branch: `tournament_scorers`, the `score` policy ability, a scoring desk page and a Scorekeepers card. Browser flow 19 covers adding one, entering a score from the desk,
+the 403 on organizer pages and the desk at phone width. The desk includes the master/title pickers. Not done: scorers cannot complete tracker games or do anything beyond scores, leaders and forfeits. **Deploy: run the new migration.**
+
+F12 (top cut) is built on the same branch: single elimination of 2/4/8/16 after the Swiss rounds, seeded from the standings, stage-named rounds, bracket advance, cut placings in the standings and PDF. Browser flow 20 covers
+starting a cut, the public stage tab, advancing and the finalize guard. Not done: round-robin pools, double elimination, a bracket diagram, and seeding from anything but the Swiss standings. **Deploy: run the new migration.**
+Harness: the seed's two cut events are created by another account (an organizer may own at most 5 unfinished events), and `run.sh` sets `TELESCOPE_ENABLED=false` (the harness DB has no telescope tables, and the errors had grown `storage/logs/laravel.log` to several GB).
+
+Also on this branch: U16 (live region announcing paired / started / finished rounds, reported results and the final), U17 (Terms glossary), and U9 (the Manage tab bar fits one row at 390 px again after the Details tab was added; the
+pairing-row menu already had an accessible name). Browser flow 21 covers the glossary and the announcement (the spectator page refreshes through the 30 s poll because the harness has no websocket). Still open from the UI group: U14 (create form
+layout), U15 (axe contrast pass), C5 (left as is: "50ss" is standard community shorthand).
+
+Q4 and Q7 are addressed: `lint.yml` gained a non-blocking `vue-tsc` step (baseline ~1320 findings across the app, 65 of them in the tournament Create form; the step only reports) and `tournament-flows.yml` runs the browser pass on demand.
+To make `vue-tsc` runnable at all, the stale `vue/tsx` entry in `tsconfig.json` was removed and the three app layouts no longer put a type cast inside a template expression (vue-tsc cannot parse it).
+Neither workflow has been run on GitHub from here — check the first runs.
+
+U14 (Create form): the format picker now says what each ruleset means (`blurb` in `config/tournaments.php`, `Ruleset::$blurb`), the description field is a short "Summary" that points to the Details tab, and from `lg` up a sticky "Your event" panel reads back
+the choices live (format, size, rounds, ranking, teams, limit, results, variants, modified scoring) with a four-step "After you create it" list. The page is unchanged on phones. Still open from the UI group: U15 (axe contrast pass).
+
+U15 (accessibility pass) is done for the tournament pages: browser flow 22 runs axe-core over the list, public event, finished event, display mode, create form, every Manage tab, the scoring desk, the score dialog and the top-cut states in light and
+dark at desktop and phone width (52 scans). Contrast was clean throughout; the findings were two moderate ones, both fixed — display mode had no `main` landmark, and the cards added to the Manage page used h3 directly under the page's h1
+(now h2, with table cards at h3). It fails on anything moderate or worse. The rest of the app was not audited here.
+
+F14 (results import) is built on the same branch: CSV import of a finished event in the export's format with a check-first preview, plus an example file per format. Browser flow 23 covers a bad file, a good file and the finished event it creates.
+Not done: allegiances, teams, linking names to accounts, and other sites' exports (only our own column names are read). **No migration.**
+
+F8 (Discord) is built as organizer-owned channel webhooks rather than a bot feature (the bot lives in another repository): a Discord card on the Settings tab, posts for registration opening, round starts with pairings, announcements and the final
+podium, a test message, and the webhook kept encrypted and out of every payload. Browser flow 24 covers connecting, the validation message, the secret staying out of the page, the test result and disconnecting. Not done: a "near me"
+search, per-event post choices (all four kinds are always sent), editing or deleting earlier posts. **Deploy: run the new migration.**
+Harness: `run.sh` now uses `CACHE_STORE=database` so rate-limit buckets live in the throwaway database (the file cache in `storage/` leaked a stale limiter between runs).
+
+F13 (leagues) is built on the same branch: series with a points table, participation points and a best-N rule, a public leaderboard and list, the League card on Manage Settings, and a link on the event page. Browser flow 25 covers
+creating a league, adding a finished event and the leaderboard; the axe flow scans the league pages too (69 scans). Not done: team leagues, an approval step for adding other people's events, per-event point multipliers,
+and a "season" date window. **Deploy: run the new migration.** That closes the audit's feature list.

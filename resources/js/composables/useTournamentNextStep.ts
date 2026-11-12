@@ -1,4 +1,4 @@
-import { isScoredResult, type TournamentRound } from '@/types/tournament';
+import { isScoredResult, roundName, type TournamentRound } from '@/types/tournament';
 import { computed, type ComputedRef } from 'vue';
 
 /**
@@ -50,7 +50,14 @@ export interface NextStepContext {
     endRound: (roundId: number) => void;
     editScenario: (round: TournamentRound) => void;
     showRounds: () => void;
+    /** Pair the winners of the finished cut round into the next one. */
+    advanceCut: () => void;
+    /** Whether a top cut could be started right now. */
+    cutAvailable: () => boolean;
 }
+
+/** "is"/"are": cut stages are plural ("Semifinals are paired"). */
+const be = (round: TournamentRound) => (round.is_cut ? 'are' : 'is');
 
 export function useTournamentNextStep(ctx: () => NextStepContext) {
     const nextStep = computed<NextStep | null>(() => {
@@ -95,7 +102,7 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
             if (reason === null) {
                 return {
                     stage: 'pairing',
-                    title: `Pair Round ${round.round_number}`,
+                    title: `Pair ${roundName(round)}`,
                     detail: `The scenario is set. Generate Swiss pairings for ${c.activePlayerCount.value} players.`,
                     actionLabel: 'Auto-pair players',
                     action: () => c.generatePairings(round.id),
@@ -104,7 +111,7 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
             }
             return {
                 stage: 'pairing',
-                title: `Set up Round ${round.round_number}`,
+                title: `Set up ${roundName(round)}`,
                 detail: reason,
                 actionLabel: 'Set scenario',
                 action: () => c.editScenario(round),
@@ -116,7 +123,7 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
             if (scenarioReason) {
                 return {
                     stage: 'pairing',
-                    title: `Set up Round ${round.round_number}`,
+                    title: `Set up ${roundName(round)}`,
                     detail: scenarioReason.replace('before pairing', 'before starting'),
                     actionLabel: 'Set scenario',
                     action: () => c.editScenario(round),
@@ -126,7 +133,7 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
             if (startReason) {
                 return {
                     stage: 'pairing',
-                    title: `Finish pairing Round ${round.round_number}`,
+                    title: `Finish pairing ${roundName(round)}`,
                     detail: startReason,
                     actionLabel: 'Fix pairings',
                     action: c.showRounds,
@@ -134,9 +141,9 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
             }
             return {
                 stage: 'pairing',
-                title: `Round ${round.round_number} is paired`,
+                title: `${roundName(round)} ${be(round)} paired`,
                 detail: 'Check the pairings, then start the round to create the games.',
-                actionLabel: `Start Round ${round.round_number}`,
+                actionLabel: `Start ${roundName(round)}`,
                 action: () => c.startRound(round.id),
                 disabled: c.submitting.value,
             };
@@ -147,34 +154,46 @@ export function useTournamentNextStep(ctx: () => NextStepContext) {
             if (c.canEndRound(round)) {
                 return {
                     stage: 'play',
-                    title: `Round ${round.round_number}: all scores are in`,
+                    title: `${roundName(round)}: all scores are in`,
                     detail: 'Every game has a result. End the round to update standings.',
-                    actionLabel: `End Round ${round.round_number}`,
+                    actionLabel: `End ${roundName(round)}`,
                     action: () => c.endRound(round.id),
                     disabled: c.submitting.value,
                 };
             }
             return {
                 stage: 'play',
-                title: `Round ${round.round_number} is in progress`,
+                title: `${roundName(round)} ${be(round)} in progress`,
                 detail: `${done} of ${total} games reported. The round can end once every result is entered.`,
                 actionLabel: 'View games',
                 action: c.showRounds,
             };
         }
         // Latest round completed
+        if (round.is_cut && !c.canFinalize.value) {
+            return {
+                stage: 'pairing',
+                title: `${roundName(round)} are done`,
+                detail: 'Pair the winners into the next round of the bracket.',
+                actionLabel: 'Advance bracket',
+                action: c.advanceCut,
+                disabled: c.submitting.value,
+            };
+        }
         if (c.canFinalize.value) {
             return {
                 stage: 'results',
                 title: 'All rounds are finished',
-                detail: 'Finalize the standings to complete the tournament.',
+                detail: c.cutAvailable()
+                    ? 'Finalize the standings to complete the tournament — or start a top cut from the Rounds tab first.'
+                    : 'Finalize the standings to complete the tournament.',
                 actionLabel: 'Finalize standings',
                 action: c.openFinalizeDialog,
             };
         }
         return {
             stage: 'pairing',
-            title: `Round ${round.round_number} is complete`,
+            title: `${roundName(round)} ${be(round)} complete`,
             detail: `Add Round ${nextRoundNumber} when you're ready.`,
             actionLabel: `Add Round ${nextRoundNumber}`,
             action: c.createRound,

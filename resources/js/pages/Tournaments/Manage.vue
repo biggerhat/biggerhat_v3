@@ -7,6 +7,9 @@ import {
     type TournamentRuleset,
     type MasterOption,
     type StandingEntry,
+    type CutState,
+    type TableDetails,
+    type TournamentAward,
     type TournamentGame,
     type TournamentPlayer,
     type TournamentRound,
@@ -15,10 +18,14 @@ import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import ManageDetailsTab from '@/components/Tournament/ManageDetailsTab.vue';
 import ManagePlayersTab from '@/components/Tournament/ManagePlayersTab.vue';
 import ManageRoundsTab from '@/components/Tournament/ManageRoundsTab.vue';
 import NextStepCard from '@/components/Tournament/NextStepCard.vue';
 import AnnouncementDialog from '@/components/Tournament/AnnouncementDialog.vue';
+import DiscordCard from '@/components/Tournament/DiscordCard.vue';
+import SeriesCard from '@/components/Tournament/SeriesCard.vue';
+import ScorersCard from '@/components/Tournament/ScorersCard.vue';
 import ScoreEntryDialog from '@/components/Tournament/ScoreEntryDialog.vue';
 import TournamentSettingsForm from '@/components/Tournament/TournamentSettingsForm.vue';
 import ScoringSummary from '@/components/Tournament/ScoringSummary.vue';
@@ -66,6 +73,7 @@ interface TournamentData {
     uuid: string;
     name: string;
     description: string | null;
+    details?: Record<string, unknown> | null;
     status: string;
     encounter_size: number;
     encounter_type: string;
@@ -85,18 +93,31 @@ interface TournamentData {
     team_size?: number;
     max_players?: number | null;
     registration_closes_at?: string | null;
+    instant_signup?: boolean;
     registration_closed?: boolean;
     scoring_config?: Record<string, unknown> | null;
     creator_id: number;
     players: TournamentPlayer[];
     rounds: TournamentRound[];
     organizers: { id: number; name: string }[];
+    scorers?: { id: number; name: string }[];
     rsvps?: Rsvp[];
 }
 
 const props = defineProps<{
     tournament: TournamentData;
     ruleset: TournamentRuleset;
+    /** The organizer's per-table notes, keyed by table number. */
+    tables: TableDetails;
+    /** The league this event belongs to, and the viewer's own leagues to choose from. */
+    series: { uuid: string; name: string } | null;
+    my_series: { uuid: string; name: string }[];
+    /** Whether a Discord channel is connected (the webhook URL itself is never sent). */
+    discord_connected: boolean;
+    /** Where the top cut stands (size, whether it started, which sizes are open now). */
+    cut: CutState;
+    /** Side awards, including ones not yet given to anyone. */
+    awards: TournamentAward[];
     standings: StandingEntry[];
     seasons: { value: string; label: string }[];
     factions: Record<string, FactionInfo>;
@@ -132,7 +153,7 @@ const { statusColor, statusLabel } = useTournamentStatus();
 
 // Restore tab from URL hash. Only allow tabs that are actually rendered for this tournament.
 const visibleTabs = computed(() => {
-    const t = ['standings', 'players', 'rounds', 'settings'];
+    const t = ['standings', 'players', 'rounds', 'details', 'settings'];
     if (props.tournament.rsvps?.length || props.tournament.status === 'draft') {
         t.push('rsvps');
     }
@@ -187,7 +208,7 @@ watch(activeTab, (tab) => {
 });
 
 // Reload Inertia props after a mutation while preserving local UI state.
-const reloadPage = () => reloadProps(['tournament', 'standings']);
+const reloadPage = () => reloadProps(['tournament', 'standings', 'cut']);
 const announcementOpen = ref(false);
 const playersTab = ref<InstanceType<typeof ManagePlayersTab> | null>(null);
 const waitlistCount = computed(() => props.tournament.rsvps?.filter((r) => r.waitlist_position).length ?? 0);
@@ -360,6 +381,8 @@ const canFinalize = computed(() => {
     if (props.tournament.status !== 'active') return false;
     if (!isLastRound.value) return false;
     if (!latestRound.value) return false;
+    // A top cut has to reach its final before the event can be finalized.
+    if (latestRound.value.is_cut && latestRound.value.games.filter((g) => !g.is_bye).length > 1) return false;
     return latestRound.value.status === 'completed';
 });
 // ─── Next step guidance (logic in useTournamentNextStep, rendering in NextStepCard) ───
@@ -385,6 +408,8 @@ const { nextStep } = useTournamentNextStep(() => ({
         roundsTab.value?.editScenario(round);
     },
     showRounds: () => (activeTab.value = 'rounds'),
+    advanceCut: () => roundsTab.value?.advanceCut(),
+    cutAvailable: () => roundsTab.value?.cutAvailable() ?? false,
 }));
 
 const formatDate = (d: string) => formatDateOnly(d, { month: 'long', day: 'numeric', year: 'numeric' });
@@ -460,26 +485,31 @@ const isEditable = computed(() => !isLocked.value);
 
             <Tabs v-model="activeTab" default-value="standings">
                 <TabsList class="mb-4 flex w-full flex-wrap">
-                    <TabsTrigger value="standings" class="gap-1 text-xs sm:text-sm">Standings</TabsTrigger>
-                    <TabsTrigger value="players" class="gap-1 text-xs sm:text-sm">
+                    <TabsTrigger value="standings" class="gap-1 px-2 text-xs sm:px-3 sm:text-sm">Standings</TabsTrigger>
+                    <TabsTrigger value="players" class="gap-1 px-2 text-xs sm:px-3 sm:text-sm">
                         Players
                         <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.players.length
                         }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger v-if="tournament.status === 'draft' || tournament.rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
+                    <TabsTrigger
+                        v-if="tournament.status === 'draft' || tournament.rsvps?.length"
+                        value="rsvps"
+                        class="gap-1 px-2 text-xs sm:px-3 sm:text-sm"
+                    >
                         RSVPs
                         <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.rsvps.length
                         }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger value="rounds" class="gap-1 text-xs sm:text-sm">
+                    <TabsTrigger value="rounds" class="gap-1 px-2 text-xs sm:px-3 sm:text-sm">
                         Rounds
                         <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.rounds.length
                         }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger value="settings" class="text-xs sm:text-sm">Settings</TabsTrigger>
+                    <TabsTrigger value="details" class="px-2 text-xs sm:px-3 sm:text-sm">Details</TabsTrigger>
+                    <TabsTrigger value="settings" class="px-2 text-xs sm:px-3 sm:text-sm">Settings</TabsTrigger>
                 </TabsList>
 
                 <!-- ═══ STANDINGS ═══ -->
@@ -596,8 +626,18 @@ const isEditable = computed(() => !isLocked.value);
                     :checked-in-count="checkedInCount"
                     :unchecked-players="uncheckedPlayers"
                     :can-finalize="canFinalize"
+                    :cut="cut"
                     @edit-score="openScoreEdit"
                     @finalize="confirmFinalizeDialog = true"
+                />
+
+                <!-- ═══ DETAILS ═══ -->
+                <ManageDetailsTab
+                    :tournament="tournament"
+                    :ruleset="ruleset"
+                    :tables="tables"
+                    :awards="awards"
+                    @saved="reloadProps(['tournament', 'tables', 'awards'])"
                 />
 
                 <!-- ═══ SETTINGS ═══ -->
@@ -622,6 +662,12 @@ const isEditable = computed(() => !isLocked.value);
                             </a>
                         </CardContent>
                     </Card>
+
+                    <ScorersCard :tournament="tournament" @saved="reloadPage" />
+
+                    <SeriesCard :tournament="tournament" :series="series" :my-series="my_series" @saved="reloadProps(['series'])" />
+
+                    <DiscordCard :tournament="tournament" :connected="discord_connected" @saved="reloadProps(['discord_connected'])" />
 
                     <!-- Edit Mode -->
                     <TournamentSettingsForm

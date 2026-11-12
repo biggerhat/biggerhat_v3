@@ -47,6 +47,12 @@ class TournamentPolicy
         return $tournament->isOrganizer($user->id);
     }
 
+    /** Entering and correcting results: organizers and the event's scorekeepers. */
+    public function score(User $user, Tournament $tournament): bool
+    {
+        return $tournament->canScore($user->id);
+    }
+
     /** Generic update gate — settings edits. */
     public function update(User $user, Tournament $tournament): bool
     {

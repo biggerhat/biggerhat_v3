@@ -37,6 +37,7 @@ class TournamentResultsController extends Controller
             'tournament' => $tournament,
             'rulesetLabel' => $ruleset->label,
             'standings' => $standings,
+            'awards' => $tournament->awards()->whereNotNull('player_id')->with('player')->get(),
             'podium' => $ranked->filter(fn (array $row) => $row['rank'] !== null && $row['rank'] <= 3)->values(),
             'tiebreakers' => $tournament->tiebreakerKeys(),
             'isTeamEvent' => $tournament->isTeamEvent(),

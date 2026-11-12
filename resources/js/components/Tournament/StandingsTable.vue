@@ -86,6 +86,9 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                                     <span class="truncate text-xs font-medium sm:text-sm" :title="entry.members?.join(' · ')">{{
                                         entry.display_name
                                     }}</span>
+                                    <Badge v-if="entry.cut_finish" variant="outline" class="shrink-0 px-1.5 py-0 text-2xs" data-testid="cut-finish">{{
+                                        entry.cut_finish
+                                    }}</Badge>
                                     <Badge
                                         v-if="isMe(entry.player_id)"
                                         variant="outline"

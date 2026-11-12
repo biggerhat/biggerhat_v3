@@ -67,13 +67,20 @@ use App\Http\Controllers\Tournament\TournamentUserSearchController;
 use App\Http\Controllers\TransmissionController;
 use App\Http\Controllers\UserSearchController;
 use App\Http\Controllers\WishlistController;
+use App\Http\Middleware\HandleAppearance;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\BlogPost;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Keyword;
 use App\Models\Miniature;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Inertia\Inertia;
 
 Broadcast::routes(['middleware' => ['web', 'auth']]);
@@ -170,7 +177,17 @@ Route::get('/', function () {
     ]);
 })->name('index');
 
-Route::get('/command', CommandController::class)->name('command');
+// Public and cacheable, so it must not start a session: a cacheable response that carries Set-Cookie (session, XSRF) can be stored by a
+// proxy/CDN and replayed to other visitors, which swaps their session cookie.
+Route::get('/command', CommandController::class)->name('command')->withoutMiddleware([
+    EncryptCookies::class,
+    AddQueuedCookiesToResponse::class,
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    ValidateCsrfToken::class,
+    HandleAppearance::class,
+    HandleInertiaRequests::class,
+]);
 
 Route::get('/privacy', [PrivacyController::class, 'show'])->name('privacy');
 

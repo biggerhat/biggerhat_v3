@@ -35,3 +35,10 @@ it('builds the catalog once and then serves it from cache', function () {
 
     expect($catalogQueries)->toBe(0);
 });
+
+it('is cacheable without starting a session or setting cookies', function () {
+    $response = $this->actingAs(\App\Models\User::factory()->create())->get('/command')->assertOk();
+
+    expect($response->headers->get('Cache-Control'))->toContain('public')
+        ->and($response->headers->getCookies())->toBeEmpty();
+});

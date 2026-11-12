@@ -50,9 +50,13 @@ class Tournament extends Model
             'registration_closes_at' => 'datetime',
             'require_crew_lists' => 'boolean',
             'details' => 'array',
+            'discord_webhook_url' => 'encrypted',
             'cut_size' => 'integer',
         ];
     }
+
+    /** The webhook is a secret: it never leaves the server. */
+    protected $hidden = ['discord_webhook_url'];
 
     protected static function boot(): void
     {

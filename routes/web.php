@@ -49,6 +49,7 @@ use App\Http\Controllers\Tournament\TournamentCheckInController;
 use App\Http\Controllers\Tournament\TournamentController;
 use App\Http\Controllers\Tournament\TournamentCutController;
 use App\Http\Controllers\Tournament\TournamentDetailsController;
+use App\Http\Controllers\Tournament\TournamentDiscordController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentGameCrewController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
@@ -473,6 +474,8 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::post('/{tournament}/awards', [TournamentAwardController::class, 'store'])->name('awards.store');
     Route::put('/{tournament}/awards/{award}', [TournamentAwardController::class, 'update'])->name('awards.update');
     Route::delete('/{tournament}/awards/{award}', [TournamentAwardController::class, 'destroy'])->name('awards.destroy');
+    Route::put('/{tournament}/discord', [TournamentDiscordController::class, 'update'])->name('discord');
+    Route::post('/{tournament}/discord/test', [TournamentDiscordController::class, 'test'])->name('discord.test')->middleware('throttle:6,1');
     Route::put('/{tournament}/details', [TournamentDetailsController::class, 'update'])->name('details');
     Route::post('/{tournament}/details/image', [TournamentDetailsController::class, 'uploadImage'])->name('details.image')->middleware('throttle:30,60');
     Route::post('/{tournament}/tables/{number}', [TournamentTableController::class, 'save'])->name('tables.save')->whereNumber('number')->middleware('throttle:60,60');

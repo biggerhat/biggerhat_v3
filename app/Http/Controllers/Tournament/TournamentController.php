@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentStoreRequest;
 use App\Http\Requests\Tournaments\TournamentUpdateRequest;
 use App\Http\Requests\Tournaments\TournamentUpdateStatusRequest;
+use App\Jobs\PostTournamentToDiscord;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\Tournament;
@@ -398,6 +399,12 @@ class TournamentController extends Controller
         }
 
         $this->broadcastUpdate($tournament, 'status_changed');
+
+        if ($newStatus === TournamentStatusEnum::Registration) {
+            PostTournamentToDiscord::whenConnected($tournament, 'registration');
+        } elseif ($newStatus === TournamentStatusEnum::Completed) {
+            PostTournamentToDiscord::whenConnected($tournament, 'completed');
+        }
 
         return response()->json(['success' => true]);
     }

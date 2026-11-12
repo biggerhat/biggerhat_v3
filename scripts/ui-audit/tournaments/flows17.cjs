@@ -52,7 +52,14 @@ const L = require('./lib.cjs');
         await L.expectText(org, /Table 1 saved/i);
     });
     await L.step('tables: the photo is stored and served', org, async () => {
-        const src = await org.page.waitForFunction(() => document.querySelector('[data-table="1"] img')?.getAttribute('src'), { timeout: 9000 });
+        // the editor shows a local preview (blob:) until the saved page props arrive, so wait for the stored URL
+        const src = await org.page.waitForFunction(
+            () => {
+                const u = document.querySelector('[data-table="1"] img')?.getAttribute('src');
+                return u && u.startsWith('/storage/') ? u : null;
+            },
+            { timeout: 9000 },
+        );
         const url = await src.jsonValue();
         if (!/^\/storage\/tournaments\//.test(url)) throw new Error(`unexpected image url ${url}`);
         const status = await org.page.evaluate(async (u) => (await fetch(u)).status, url);

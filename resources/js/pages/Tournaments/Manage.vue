@@ -23,6 +23,7 @@ import ManagePlayersTab from '@/components/Tournament/ManagePlayersTab.vue';
 import ManageRoundsTab from '@/components/Tournament/ManageRoundsTab.vue';
 import NextStepCard from '@/components/Tournament/NextStepCard.vue';
 import AnnouncementDialog from '@/components/Tournament/AnnouncementDialog.vue';
+import DiscordCard from '@/components/Tournament/DiscordCard.vue';
 import ScorersCard from '@/components/Tournament/ScorersCard.vue';
 import ScoreEntryDialog from '@/components/Tournament/ScoreEntryDialog.vue';
 import TournamentSettingsForm from '@/components/Tournament/TournamentSettingsForm.vue';
@@ -106,6 +107,8 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     /** The organizer's per-table notes, keyed by table number. */
     tables: TableDetails;
+    /** Whether a Discord channel is connected (the webhook URL itself is never sent). */
+    discord_connected: boolean;
     /** Where the top cut stands (size, whether it started, which sizes are open now). */
     cut: CutState;
     /** Side awards, including ones not yet given to anyone. */
@@ -656,6 +659,8 @@ const isEditable = computed(() => !isLocked.value);
                     </Card>
 
                     <ScorersCard :tournament="tournament" @saved="reloadPage" />
+
+                    <DiscordCard :tournament="tournament" :connected="discord_connected" @saved="reloadProps(['discord_connected'])" />
 
                     <!-- Edit Mode -->
                     <TournamentSettingsForm

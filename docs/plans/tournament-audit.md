@@ -164,3 +164,8 @@ dark at desktop and phone width (52 scans). Contrast was clean throughout; the f
 
 F14 (results import) is built on the same branch: CSV import of a finished event in the export's format with a check-first preview, plus an example file per format. Browser flow 23 covers a bad file, a good file and the finished event it creates.
 Not done: allegiances, teams, linking names to accounts, and other sites' exports (only our own column names are read). **No migration.**
+
+F8 (Discord) is built as organizer-owned channel webhooks rather than a bot feature (the bot lives in another repository): a Discord card on the Settings tab, posts for registration opening, round starts with pairings, announcements and the final
+podium, a test message, and the webhook kept encrypted and out of every payload. Browser flow 24 covers connecting, the validation message, the secret staying out of the page, the test result and disconnecting. Not done: a "near me"
+search, per-event post choices (all four kinds are always sent), editing or deleting earlier posts. **Deploy: run the new migration.**
+Harness: `run.sh` now uses `CACHE_STORE=database` so rate-limit buckets live in the throwaway database (the file cache in `storage/` leaked a stale limiter between runs).

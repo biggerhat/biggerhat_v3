@@ -141,6 +141,13 @@ checks the file without saving (line-numbered errors, warnings, counts; at most 
 loser is taken to be player two. The page checks the file first (`tournaments.import.preview`) and only a clean file can be imported (`tournaments.import.store`); `tournaments.import.template` serves an example for the chosen format.
 Not imported: allegiances (Fields of Glory), teams, accounts links (players are unlinked names), crews, scenarios.
 
+## Discord posts
+An organizer can connect an event to a Discord channel webhook (Settings tab, `DiscordCard`; `tournaments.discord` PUT, `tournaments.discord.test` POST). The URL is stored encrypted in `tournaments.discord_webhook_url`, is hidden from every
+serialisation (`$hidden`), and only `discord_connected` reaches the page. `TournamentDiscord::URL_PATTERN` allows only `https://discord.com|discordapp.com/api/webhooks/<id>/<token>` (checked on save and again before every post), redirects are
+not followed, `allowed_mentions` is empty (event text cannot ping anyone) and a failing Discord is logged and ignored. Posts go through the queued `PostTournamentToDiscord` job (a no-op without a webhook; `whenConnected()` skips the queue
+entirely): **registration opened** (date, format, place, limit), **round started** (the pairings, `**Table N** A vs B`), **announcement** (non-empty notices) and **final results** (podium + standings and PDF links). The test button posts
+synchronously so the organizer sees right away whether Discord accepted it. No bot is involved; the separate Discord bot repo is untouched.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

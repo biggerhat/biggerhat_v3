@@ -8,6 +8,7 @@ use App\Enums\TournamentRoundStatusEnum;
 use App\Enums\TournamentStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentRoundUpdateRequest;
+use App\Jobs\PostTournamentToDiscord;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\TOS\Deployment;
@@ -210,6 +211,10 @@ class TournamentRoundController extends Controller
 
         if ($error) {
             return $error;
+        }
+
+        if (($validated['status'] ?? null) === TournamentRoundStatusEnum::InProgress->value) {
+            PostTournamentToDiscord::whenConnected($tournament, 'round', $round);
         }
 
         $this->broadcastUpdate($tournament, 'round_updated');

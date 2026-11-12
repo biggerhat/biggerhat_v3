@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tournament;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentAnnouncementRequest;
+use App\Jobs\PostTournamentToDiscord;
 use App\Models\Tournament;
 use Illuminate\Http\JsonResponse;
 
@@ -22,6 +23,10 @@ class TournamentAnnouncementController extends Controller
             'announcement' => $text === '' ? null : $text,
             'announced_at' => $text === '' ? null : now(),
         ]);
+
+        if ($text !== '') {
+            PostTournamentToDiscord::whenConnected($tournament, 'announcement', null, $text);
+        }
 
         $this->broadcastUpdate($tournament, 'announcement');
 

@@ -393,6 +393,8 @@ class TournamentPagePayloads
             'tables' => $this->tableDetails($tournament),
             'awards' => $this->awardList($tournament, true),
             'cut' => $this->cutState($tournament),
+            // Whether a Discord channel is connected; the webhook URL itself never leaves the server.
+            'discord_connected' => (bool) $tournament->discord_webhook_url,
             'allegiances' => $this->allegianceOptions($tournament),
             'standings' => $standings,
             'seasons' => $seasons,

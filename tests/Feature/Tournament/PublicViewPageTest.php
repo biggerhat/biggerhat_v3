@@ -49,3 +49,22 @@ it('renders the public view page for a guest', function () {
     $this->get(route('tournaments.view', $tournament->uuid))
         ->assertOk();
 });
+
+it('keeps the per-game payload slim on the public page', function () {
+    $creator = User::factory()->create();
+    $tournament = Tournament::factory()->active()->create(['creator_id' => $creator->id]);
+    $p1 = TournamentPlayer::factory()->for($tournament)->create();
+    $p2 = TournamentPlayer::factory()->for($tournament)->create();
+    $round = TournamentRound::factory()->for($tournament)->inProgress()->create();
+    $tracker = Game::factory()->create(['creator_id' => $creator->id, 'season' => $tournament->season->value]);
+    TournamentGame::factory()->for($round, 'round')->create(['player_one_id' => $p1->id, 'player_two_id' => $p2->id, 'game_id' => $tracker->id]);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('tournaments.view', $tournament->uuid))
+        ->assertInertia(function ($page) {
+            $game = $page->toArray()['props']['rounds'][0]['games'][0];
+            expect($game)->not->toHaveKeys(['created_at', 'updated_at']);
+            expect(array_keys($game['player_one']))->toEqualCanonicalizing(['id', 'display_name']);
+            expect(array_keys($game['tracker_game']))->toEqualCanonicalizing(['id', 'uuid', 'status', 'is_solo', 'current_turn', 'max_turns', 'winner_id', 'is_tie']);
+        });
+});

@@ -17,6 +17,7 @@ use App\Models\TOS\Deployment;
 use App\Models\TOS\Operation;
 use App\Models\Tournament;
 use App\Models\TournamentAward;
+use App\Models\TournamentGame;
 use App\Models\TournamentRound;
 use App\Models\TournamentSeries;
 use App\Models\TournamentTable;
@@ -321,6 +322,7 @@ class TournamentPagePayloads
             'rounds.games.playerTwo:id,display_name,faction,user_id',
             'rounds.games.trackerGame',
         ]);
+        $this->slimGames($tournament);
 
         return [
             'tournament' => $tournament,
@@ -369,6 +371,7 @@ class TournamentPagePayloads
         $this->hidePrivateGarrisonCodes($tournament);
         $this->markWaitlist($tournament);
         $this->markCrewLists($tournament);
+        $this->slimGames($tournament);
 
         $seasons = collect(PoolSeasonEnum::casesNewestFirst())->map(fn (PoolSeasonEnum $s) => [
             'value' => $s->value,
@@ -537,6 +540,27 @@ class TournamentPagePayloads
     }
 
     /**
+     * Only what the pages read from a game: its tracker game (settings, scheme pool, timestamps, season label...), the players' faction
+     * and account ids and the per-game timestamps were multiplied by every game of every round, so payloads grew quickly with event size.
+     */
+    private function slimGame(TournamentGame $game): void
+    {
+        $game->makeHidden(['created_at', 'updated_at']);
+        $game->trackerGame?->setVisible(['id', 'uuid', 'status', 'is_solo', 'current_turn', 'max_turns', 'winner_id', 'is_tie']);
+        $game->playerOne->setVisible(['id', 'display_name']);
+        $game->playerTwo?->setVisible(['id', 'display_name']);
+    }
+
+    private function slimGames(Tournament $tournament): void
+    {
+        foreach ($tournament->rounds as $round) {
+            foreach ($round->games as $game) {
+                $this->slimGame($game);
+            }
+        }
+    }
+
+    /**
      * The view/display pages are public and serialise whole models, so strip what only the people involved should see:
      * the players' report details (score proposal, dispute note) go to the two sides and the organizers, and nothing
      * public needs crew-build ids, tracker settings/loot state, or players' meta/profile columns.
@@ -563,7 +587,7 @@ class TournamentPagePayloads
                     $game->makeHidden(['report_note', 'reported_score', 'reported_by_player_id', 'reported_at']);
                 }
 
-                $game->trackerGame?->makeHidden(['settings', 'loot_state', 'creator_id']);
+                $this->slimGame($game);
             }
         }
     }

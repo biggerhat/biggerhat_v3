@@ -48,6 +48,7 @@ class Tournament extends Model
             'allow_self_report' => 'boolean',
             'announced_at' => 'datetime',
             'registration_closes_at' => 'datetime',
+            'instant_signup' => 'boolean',
             'require_crew_lists' => 'boolean',
             'details' => 'array',
             'discord_webhook_url' => 'encrypted',

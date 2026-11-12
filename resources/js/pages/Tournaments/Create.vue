@@ -70,6 +70,7 @@ const form = useForm({
     team_size: props.template?.team_size ?? 1,
     max_players: (props.template?.max_players ?? '') as number | '',
     registration_closes_at: '',
+    instant_signup: false,
     require_crew_lists: props.template?.require_crew_lists ?? false,
     variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
     // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
@@ -112,7 +113,12 @@ const summaryRows = computed(() => {
         { label: 'Rounds', value: `${form.planned_rounds} × ${form.round_time_limit} min` },
         { label: 'Ranked by', value: ['TP', ...ranking.map((k) => TIEBREAKER_LABELS[k])].join(' → ') },
         { label: 'Play', value: form.team_size > 1 ? `Teams of ${form.team_size}` : 'Individuals' },
-        { label: 'Players', value: form.max_players === '' ? 'No limit' : `Up to ${form.max_players}, then a waitlist` },
+        {
+            label: 'Players',
+            value:
+                (form.max_players === '' ? 'No limit' : `Up to ${form.max_players}, then a waitlist`) +
+                (form.instant_signup ? ' · instant sign-up' : ''),
+        },
         { label: 'Results', value: form.allow_self_report ? 'Players report, opponents confirm' : 'Entered by you and your scorers' },
     ];
     if (variantNames.length) rows.push({ label: 'Variants', value: variantNames.join(', ') });
@@ -365,6 +371,16 @@ const submit = () => {
                                         <InputError :message="form.errors.registration_closes_at" />
                                     </div>
                                 </div>
+
+                                <label v-if="form.team_size === 1" class="flex items-start gap-2 text-sm">
+                                    <input v-model="form.instant_signup" type="checkbox" class="mt-1 size-3.5" />
+                                    <span>
+                                        <span class="font-medium">Instant sign-up</span>
+                                        <span class="block text-2xs text-muted-foreground">
+                                            Signing up adds people to the player list right away (up to the limit, then a waitlist).
+                                        </span>
+                                    </span>
+                                </label>
 
                                 <label v-if="ruleset.declaration === 'faction' && form.team_size === 1" class="flex items-start gap-2 text-sm">
                                     <input v-model="form.require_crew_lists" type="checkbox" class="mt-1 size-3.5" />

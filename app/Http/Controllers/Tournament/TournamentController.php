@@ -17,6 +17,7 @@ use App\Models\Strategy;
 use App\Models\Tournament;
 use App\Models\TournamentRound;
 use App\Services\TournamentStateMachine;
+use App\Tournaments\InstantSignup;
 use App\Tournaments\Payloads\TournamentPagePayloads;
 use App\Tournaments\Rulesets\Ruleset;
 use App\Tournaments\Rulesets\RulesetRegistry;
@@ -160,6 +161,7 @@ class TournamentController extends Controller
                     'allow_self_report' => (bool) $source->allow_self_report,
                     'team_size' => (int) $source->team_size,
                     'max_players' => $source->max_players,
+                    'instant_signup' => $source->instant_signup,
                     'require_crew_lists' => (bool) $source->require_crew_lists,
                     'scoring_config' => $source->scoring_config,
                 ];
@@ -341,6 +343,10 @@ class TournamentController extends Controller
 
         $waiting = WaitlistPromotions::snapshot($tournament);
         $tournament->update($validated);
+        // Switching instant sign-up on seats the people who already signed up.
+        if (! empty($validated['instant_signup'])) {
+            InstantSignup::seatWaiting($tournament);
+        }
         WaitlistPromotions::notify($tournament, $waiting);
 
         $this->broadcastUpdate($tournament, 'settings_updated');

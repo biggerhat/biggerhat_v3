@@ -27,6 +27,9 @@ class WaitlistPromotions
             return;
         }
 
+        // Instant sign-up events seat the people who were waiting; either way they are no longer waitlisted afterwards.
+        InstantSignup::seatWaiting($tournament);
+
         $promoted = array_diff($before, $tournament->fresh()?->waitlistedUserIds() ?? []);
         if ($promoted === []) {
             return;

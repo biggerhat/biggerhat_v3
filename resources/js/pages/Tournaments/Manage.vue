@@ -93,6 +93,7 @@ interface TournamentData {
     team_size?: number;
     max_players?: number | null;
     registration_closes_at?: string | null;
+    instant_signup?: boolean;
     registration_closed?: boolean;
     scoring_config?: Record<string, unknown> | null;
     creator_id: number;

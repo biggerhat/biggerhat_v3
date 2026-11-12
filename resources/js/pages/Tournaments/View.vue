@@ -150,6 +150,8 @@ const props = defineProps<{
         allow_self_report?: boolean;
         max_players?: number | null;
         registration_closes_at?: string | null;
+        /** Signing up adds the person to the player list straight away while seats are free. */
+        instant_signup?: boolean;
         registration_closed?: boolean;
         announcement?: string | null;
         announced_at?: string | null;
@@ -545,7 +547,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 font-semibold">
                             <UserPlus class="size-4 text-blue-600 dark:text-blue-400" />
-                            {{ tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open' }}
+                            {{
+                                tournament.instant_signup ? 'Sign-up open' : tournament.status === 'registration' ? 'Registration Open' : 'RSVP Open'
+                            }}
                         </div>
                         <p
                             v-if="tournament.max_players"
@@ -553,9 +557,12 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             :class="seatsLeft === 0 ? 'text-amber-700 dark:text-amber-400' : ''"
                         >
                             <template v-if="seatsLeft === 0">
-                                All {{ tournament.max_players }} spots are taken — new RSVPs join the waitlist and move up if someone drops out.
+                                All {{ tournament.max_players }} spots are taken — new sign-ups join the waitlist and move up if someone drops out.
                             </template>
                             <template v-else>{{ seatsTaken }} of {{ tournament.max_players }} spots taken.</template>
+                        </p>
+                        <p v-if="tournament.instant_signup && seatsLeft !== 0" class="text-xs text-muted-foreground">
+                            You're added to the player list as soon as you sign up.
                         </p>
                         <p v-if="closesAt" class="text-xs text-muted-foreground">Registration closes {{ closesAt }}.</p>
                         <p class="mt-1 text-xs text-muted-foreground">
@@ -604,7 +611,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                             </SelectContent>
                         </Select>
                         <Button size="sm" :disabled="rsvping" @click="submitRsvp">
-                            <UserPlus class="mr-1.5 size-3.5" /> {{ tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
+                            <UserPlus class="mr-1.5 size-3.5" />
+                            {{ tournament.instant_signup ? 'Sign up' : tournament.status === 'registration' ? 'Register Interest' : 'RSVP' }}
                         </Button>
                     </div>
                 </CardContent>
@@ -619,7 +627,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     </span>
                     <span v-else class="text-sm text-blue-700 dark:text-blue-400">
                         {{
-                            tournament.status === 'registration'
+                            tournament.status === 'registration' && !tournament.instant_signup
                                 ? "You've signed up. Waiting for the organizer to confirm you in the player list."
                                 : "You've RSVPed for this tournament."
                         }}

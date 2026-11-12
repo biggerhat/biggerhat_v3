@@ -133,6 +133,14 @@ Live pages (`View`, `Display`) include a `TournamentLiveRegion` (visually hidden
 writes sentences into it: "Semifinals are paired.", "Round 2 has started.", "Result reported for table 3.", "The tournament is finished." The first render announces nothing. `ScoringSummary` ends with a **Terms** glossary
 (TP, VP, DIFF, Bye, and SoS when the event ranks by it) under "Format & rules" on the public page and the Manage settings.
 
+## Importing a finished event
+`/tournaments/import` (linked from the Create page) back-fills a past event from a CSV in the export's shape: `round`, `player_one`, `player_two` and scores (`player_one_vp` / `player_two_vp`, or one
+`player_one_<part>_vp` column per score component for formats that split the score, e.g. Malifaux strategy + scheme), plus optional `table`, factions, masters, `result`, `is_bye`, `is_forfeit`. `ResultsImport::parse()`
+checks the file without saving (line-numbered errors, warnings, counts; at most 10 rounds, 2000 rows, 256 players, 1 MB; rounds must run 1..N without gaps; nobody paired twice in a round; scores within the format's maximum) and
+`create()` builds a **completed** tournament owned by the importer with players (matched by name, case-insensitive), completed rounds and games, so standings, the results sheet and profile history work. A forfeit's
+loser is taken to be player two. The page checks the file first (`tournaments.import.preview`) and only a clean file can be imported (`tournaments.import.store`); `tournaments.import.template` serves an example for the chosen format.
+Not imported: allegiances (Fields of Glory), teams, accounts links (players are unlinked names), crews, scenarios.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

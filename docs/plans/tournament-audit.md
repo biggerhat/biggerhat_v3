@@ -161,3 +161,6 @@ the choices live (format, size, rounds, ranking, teams, limit, results, variants
 U15 (accessibility pass) is done for the tournament pages: browser flow 22 runs axe-core over the list, public event, finished event, display mode, create form, every Manage tab, the scoring desk, the score dialog and the top-cut states in light and
 dark at desktop and phone width (52 scans). Contrast was clean throughout; the findings were two moderate ones, both fixed — display mode had no `main` landmark, and the cards added to the Manage page used h3 directly under the page's h1
 (now h2, with table cards at h3). It fails on anything moderate or worse. The rest of the app was not audited here.
+
+F14 (results import) is built on the same branch: CSV import of a finished event in the export's format with a check-first preview, plus an example file per format. Browser flow 23 covers a bad file, a good file and the finished event it creates.
+Not done: allegiances, teams, linking names to accounts, and other sites' exports (only our own column names are read). **No migration.**

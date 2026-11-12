@@ -52,6 +52,7 @@ use App\Http\Controllers\Tournament\TournamentDetailsController;
 use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentGameCrewController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
+use App\Http\Controllers\Tournament\TournamentImportController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
 use App\Http\Controllers\Tournament\TournamentResultsController;
@@ -455,6 +456,10 @@ Route::get('/tournaments/{tournament}/event.ics', [TournamentCalendarController:
 Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController::class, 'pdf'])->name('tournaments.results_pdf');
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
     Route::get('/create', [TournamentController::class, 'create'])->name('create');
+    Route::get('/import', [TournamentImportController::class, 'create'])->name('import.create');
+    Route::get('/import/template/{ruleset}', [TournamentImportController::class, 'template'])->name('import.template');
+    Route::post('/import/preview', [TournamentImportController::class, 'preview'])->name('import.preview')->middleware('throttle:30,60');
+    Route::post('/import', [TournamentImportController::class, 'store'])->name('import.store')->middleware('throttle:10,60');
     // Open to any signed-in user; throttled so it can't be used to mass-create events.
     Route::post('/', [TournamentController::class, 'store'])->name('store')->middleware('throttle:20,60');
     Route::get('/{tournament}', [TournamentController::class, 'manage'])->name('manage');

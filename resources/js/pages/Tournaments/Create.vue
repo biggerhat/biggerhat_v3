@@ -176,6 +176,11 @@ const submit = () => {
 
             <div class="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,32rem)_1fr] lg:items-start">
                 <form class="w-full max-w-lg lg:max-w-none" @submit.prevent="submit">
+                    <p class="mb-3 text-xs text-muted-foreground">
+                        Already played it?
+                        <a :href="route('tournaments.import.create')" class="underline" data-testid="import-link">Import the results from a CSV</a>
+                        instead.
+                    </p>
                     <div v-if="previous_events.length" class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-muted/30 p-3">
                         <Copy class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                         <div class="min-w-48 flex-1">

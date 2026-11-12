@@ -68,6 +68,11 @@ async function axeScan(s, label) {
                 await L.sleep(400);
                 await axeScan(org, `${tag} create`);
             });
+            await L.step(`a11y ${tag}: import form`, org, async () => {
+                await L.visit(org, '/tournaments/import');
+                await L.sleep(400);
+                await axeScan(org, `${tag} import`);
+            });
             for (const tab of ['Standings', 'Players', 'Rounds', 'Details', 'Settings']) {
                 await L.step(`a11y ${tag}: manage ${tab}`, org, async () => {
                     await L.visit(org, `/tournaments/${ids.t1}`);

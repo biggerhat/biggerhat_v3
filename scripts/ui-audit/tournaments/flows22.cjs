@@ -36,6 +36,31 @@ async function axeScan(s, label) {
     const browser = await L.launch();
     const { ids } = L;
 
+    // One league with a finished event in it, so the league pages are scanned with real rows (made through the app, once).
+    let leagueUuid = null;
+    const dave = await L.session(browser, 'dave@example.test');
+    await L.step('a11y setup: dave starts a league and adds his finished event', dave, async () => {
+        await L.visit(dave, '/tournaments/series/create');
+        await dave.page.type('#s-name', 'A11y League');
+        await L.clickText(dave, /^Create league$/i, 'button');
+        await dave.page.waitForFunction(() => /\/tournaments\/series\/[0-9a-f-]{36}$/.test(location.pathname), { timeout: 9000 });
+        leagueUuid = dave.page.url().split('/').pop();
+        const status = await dave.page.evaluate(
+            async (t, series) => {
+                const token = decodeURIComponent((document.cookie.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
+                const res = await fetch(`/tournaments/${t}/series`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-XSRF-TOKEN': token },
+                    body: JSON.stringify({ series }),
+                });
+                return res.status;
+            },
+            ids.t7,
+            leagueUuid,
+        );
+        if (status !== 200) throw new Error(`could not attach the event (${status})`);
+    });
+
     for (const theme of ['light', 'dark']) {
         for (const [vpName, vp] of [
             ['desktop', { width: 1280, height: 900 }],
@@ -63,6 +88,21 @@ async function axeScan(s, label) {
                     await axeScan(guest, `${tag} ${name}`);
                 });
             }
+            for (const [name, url] of [
+                ['leagues list', '/tournaments/series'],
+                ['league page', `/tournaments/series/${leagueUuid}`],
+            ]) {
+                await L.step(`a11y ${tag}: ${name}`, guest, async () => {
+                    await L.visit(guest, url);
+                    await L.sleep(500);
+                    await axeScan(guest, `${tag} ${name}`);
+                });
+            }
+            await L.step(`a11y ${tag}: league form`, org, async () => {
+                await L.visit(org, '/tournaments/series/create');
+                await L.sleep(400);
+                await axeScan(org, `${tag} league form`);
+            });
             await L.step(`a11y ${tag}: create form`, org, async () => {
                 await L.visit(org, '/tournaments/create');
                 await L.sleep(400);

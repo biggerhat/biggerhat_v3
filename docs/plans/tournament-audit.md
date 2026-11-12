@@ -169,3 +169,7 @@ F8 (Discord) is built as organizer-owned channel webhooks rather than a bot feat
 podium, a test message, and the webhook kept encrypted and out of every payload. Browser flow 24 covers connecting, the validation message, the secret staying out of the page, the test result and disconnecting. Not done: a "near me"
 search, per-event post choices (all four kinds are always sent), editing or deleting earlier posts. **Deploy: run the new migration.**
 Harness: `run.sh` now uses `CACHE_STORE=database` so rate-limit buckets live in the throwaway database (the file cache in `storage/` leaked a stale limiter between runs).
+
+F13 (leagues) is built on the same branch: series with a points table, participation points and a best-N rule, a public leaderboard and list, the League card on Manage Settings, and a link on the event page. Browser flow 25 covers
+creating a league, adding a finished event and the leaderboard; the axe flow scans the league pages too (69 scans). Not done: team leagues, an approval step for adding other people's events, per-event point multipliers,
+and a "season" date window. **Deploy: run the new migration.** That closes the audit's feature list.

@@ -187,6 +187,12 @@ class Tournament extends Model
         return $this->belongsToMany(User::class, 'tournament_organizers');
     }
 
+    /** @return BelongsTo<TournamentSeries, $this> */
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(TournamentSeries::class, 'series_id');
+    }
+
     /** @return HasMany<TournamentAward, $this> */
     public function awards(): HasMany
     {

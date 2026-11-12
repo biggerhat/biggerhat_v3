@@ -134,6 +134,11 @@ const removeTournament = async (t: TournamentSummary) => {
         </PageBanner>
 
         <div class="container mx-auto sm:px-4">
+            <p class="mb-3 text-xs text-muted-foreground">
+                Running a season?
+                <Link :href="route('tournaments.series.index')" class="underline" data-testid="leagues-link">Browse or start a league</Link> — one
+                leaderboard across several events.
+            </p>
             <!-- Create Tournament CTA -->
             <Link
                 v-if="isLoggedIn"

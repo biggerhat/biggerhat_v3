@@ -163,6 +163,8 @@ const props = defineProps<{
     tables: TableDetails;
     /** Whether the viewer may enter results (organizer or scorekeeper): shows the scoring-desk link. */
     can_score?: boolean;
+    /** The league this event counts toward, if any. */
+    series?: { uuid: string; name: string } | null;
     /** Side awards that have a recipient. */
     awards: TournamentAward[];
     /** Allegiances a player can declare when RSVPing (empty unless the ruleset uses them). */
@@ -488,6 +490,9 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :pdf-url="route('tournaments.results_pdf', tournament.uuid)"
                 :page-url="route('tournaments.view', tournament.uuid)"
             />
+            <p v-if="series" class="mb-3 text-xs text-muted-foreground" data-no-print data-testid="series-link">
+                Part of the league <Link :href="route('tournaments.series.show', series.uuid)" class="font-medium underline">{{ series.name }}</Link>
+            </p>
             <AwardsCard :awards="awards ?? []" />
             <AnnouncementBanner
                 v-if="tournament.announcement"

@@ -148,6 +148,14 @@ not followed, `allowed_mentions` is empty (event text cannot ping anyone) and a 
 entirely): **registration opened** (date, format, place, limit), **round started** (the pairings, `**Table N** A vs B`), **announcement** (non-empty notices) and **final results** (podium + standings and PDF links). The test button posts
 synchronously so the organizer sees right away whether Discord accepted it. No bot is involved; the separate Discord bot repo is untouched.
 
+## Leagues (series)
+A `TournamentSeries` (`tournament_series`; `/tournaments/series`) groups an organizer's events under one public leaderboard. Settings: a **points table** by finishing place (`points_table`, 1st..16th; default 10-8-6-5-4-3-2-1),
+**participation points** for anyone who played but placed below the table, and an optional **best N events** rule. Only the creator (or a `manage_tournaments` holder) edits or deletes it (`TournamentSeriesPolicy`); series pages are public.
+An event joins from its Manage Settings tab (`SeriesCard`, `tournaments.series.assign`; it must belong to a series the user created, and team events are refused). Deleting a series un-links its events (done explicitly in the controller).
+`SeriesStandings::compute()` scores every **finished, individual** event in the series from the event's final standings (so top-cut placings count, joint places share points, ringers and players with no games are skipped).
+A person is one league entry across events when their players share an account; unlinked players are matched by name (case-insensitive) and a name equal to a linked player's joins that account. Rows are ranked by counted points,
+then wins, then best finish (equal on all three = joint rank) and carry per-event results flagged `counts` (struck through on the page when the best-N rule drops them). The event page shows "Part of the league ..." and links back.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

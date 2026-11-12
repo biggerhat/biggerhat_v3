@@ -24,6 +24,7 @@ import ManageRoundsTab from '@/components/Tournament/ManageRoundsTab.vue';
 import NextStepCard from '@/components/Tournament/NextStepCard.vue';
 import AnnouncementDialog from '@/components/Tournament/AnnouncementDialog.vue';
 import DiscordCard from '@/components/Tournament/DiscordCard.vue';
+import SeriesCard from '@/components/Tournament/SeriesCard.vue';
 import ScorersCard from '@/components/Tournament/ScorersCard.vue';
 import ScoreEntryDialog from '@/components/Tournament/ScoreEntryDialog.vue';
 import TournamentSettingsForm from '@/components/Tournament/TournamentSettingsForm.vue';
@@ -107,6 +108,9 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     /** The organizer's per-table notes, keyed by table number. */
     tables: TableDetails;
+    /** The league this event belongs to, and the viewer's own leagues to choose from. */
+    series: { uuid: string; name: string } | null;
+    my_series: { uuid: string; name: string }[];
     /** Whether a Discord channel is connected (the webhook URL itself is never sent). */
     discord_connected: boolean;
     /** Where the top cut stands (size, whether it started, which sizes are open now). */
@@ -659,6 +663,8 @@ const isEditable = computed(() => !isLocked.value);
                     </Card>
 
                     <ScorersCard :tournament="tournament" @saved="reloadPage" />
+
+                    <SeriesCard :tournament="tournament" :series="series" :my-series="my_series" @saved="reloadProps(['series'])" />
 
                     <DiscordCard :tournament="tournament" :connected="discord_connected" @saved="reloadProps(['discord_connected'])" />
 

@@ -18,6 +18,7 @@ use App\Models\TOS\Operation;
 use App\Models\Tournament;
 use App\Models\TournamentAward;
 use App\Models\TournamentRound;
+use App\Models\TournamentSeries;
 use App\Models\TournamentTable;
 use App\Services\TournamentCutService;
 use App\Services\TournamentStandingsService;
@@ -41,6 +42,7 @@ class TournamentPagePayloads
     public function forView(Tournament $tournament): array
     {
         $tournament->load([
+            'series:id,uuid,name',
             'players.user:id,name,meta_id',
             'players.user.meta:id,name',
             'players.meta:id,name',
@@ -196,6 +198,7 @@ class TournamentPagePayloads
             // Shows the scoring-desk link to organizers and scorekeepers.
             'can_score' => request()->user()?->can('score', $tournament) ?? false,
             'awards' => $this->awardList($tournament, false),
+            'series' => $this->seriesSummary($tournament),
             'allegiances' => $this->allegianceOptions($tournament),
             'rounds' => $roundsData,
             'standings' => $standings,
@@ -203,6 +206,18 @@ class TournamentPagePayloads
             'scheme_stats' => $schemeStats,
             'crew_lists' => $crewLists,
         ];
+    }
+
+    /**
+     * The series this event belongs to, if any.
+     *
+     * @return array{uuid: string, name: string}|null
+     */
+    private function seriesSummary(Tournament $tournament): ?array
+    {
+        $series = $tournament->series;
+
+        return $series ? ['uuid' => $series->uuid, 'name' => $series->name] : null;
     }
 
     /**
@@ -325,6 +340,7 @@ class TournamentPagePayloads
     public function forManage(Tournament $tournament): array
     {
         $tournament->load([
+            'series:id,uuid,name',
             'players.user:id,name,meta_id',
             'players.user.meta:id,name',
             'players.meta:id,name',
@@ -393,6 +409,9 @@ class TournamentPagePayloads
             'tables' => $this->tableDetails($tournament),
             'awards' => $this->awardList($tournament, true),
             'cut' => $this->cutState($tournament),
+            'series' => $this->seriesSummary($tournament),
+            // The viewer's own series, for the "part of a series" picker.
+            'my_series' => TournamentSeries::where('creator_id', request()->user()?->id)->orderBy('name')->get(['uuid', 'name'])->map(fn (TournamentSeries $s) => ['uuid' => $s->uuid, 'name' => $s->name])->values()->all(),
             // Whether a Discord channel is connected; the webhook URL itself never leaves the server.
             'discord_connected' => (bool) $tournament->discord_webhook_url,
             'allegiances' => $this->allegianceOptions($tournament),

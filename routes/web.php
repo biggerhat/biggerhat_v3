@@ -61,6 +61,7 @@ use App\Http\Controllers\Tournament\TournamentRoundController;
 use App\Http\Controllers\Tournament\TournamentRsvpController;
 use App\Http\Controllers\Tournament\TournamentScorerController;
 use App\Http\Controllers\Tournament\TournamentSelfDropController;
+use App\Http\Controllers\Tournament\TournamentSeriesController;
 use App\Http\Controllers\Tournament\TournamentTableController;
 use App\Http\Controllers\Tournament\TournamentUserSearchController;
 use App\Http\Controllers\TransmissionController;
@@ -451,6 +452,16 @@ Route::middleware('auth')->group(function () {
 
 // Tournaments
 Route::get('/tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
+// Leagues (a series of events with one leaderboard). Registered before the `/tournaments/{tournament}` routes so "series" is never read as an event.
+Route::get('/tournaments/series', [TournamentSeriesController::class, 'index'])->name('tournaments.series.index');
+Route::middleware('auth')->group(function () {
+    Route::get('/tournaments/series/create', [TournamentSeriesController::class, 'create'])->name('tournaments.series.create');
+    Route::post('/tournaments/series', [TournamentSeriesController::class, 'store'])->name('tournaments.series.store')->middleware('throttle:20,60');
+    Route::get('/tournaments/series/{series}/edit', [TournamentSeriesController::class, 'edit'])->name('tournaments.series.edit');
+    Route::put('/tournaments/series/{series}', [TournamentSeriesController::class, 'update'])->name('tournaments.series.update');
+    Route::delete('/tournaments/series/{series}', [TournamentSeriesController::class, 'destroy'])->name('tournaments.series.destroy');
+});
+Route::get('/tournaments/series/{series}', [TournamentSeriesController::class, 'show'])->name('tournaments.series.show');
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
 Route::get('/tournaments/{tournament}/display', [TournamentController::class, 'display'])->name('tournaments.display');
 Route::get('/tournaments/{tournament}/event.ics', [TournamentCalendarController::class, 'ics'])->name('tournaments.calendar');
@@ -476,6 +487,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}/awards/{award}', [TournamentAwardController::class, 'destroy'])->name('awards.destroy');
     Route::put('/{tournament}/discord', [TournamentDiscordController::class, 'update'])->name('discord');
     Route::post('/{tournament}/discord/test', [TournamentDiscordController::class, 'test'])->name('discord.test')->middleware('throttle:6,1');
+    Route::put('/{tournament}/series', [TournamentSeriesController::class, 'assign'])->name('series.assign');
     Route::put('/{tournament}/details', [TournamentDetailsController::class, 'update'])->name('details');
     Route::post('/{tournament}/details/image', [TournamentDetailsController::class, 'uploadImage'])->name('details.image')->middleware('throttle:30,60');
     Route::post('/{tournament}/tables/{number}', [TournamentTableController::class, 'save'])->name('tables.save')->whereNumber('number')->middleware('throttle:60,60');

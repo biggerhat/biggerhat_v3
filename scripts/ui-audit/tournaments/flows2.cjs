@@ -71,6 +71,13 @@ const L = require('./lib.cjs');
         if (!/Rule Variants/i.test(t) || !/Close Objectives/i.test(t)) throw new Error('expected the FoG variants');
         await L.shot(org, '24-create-fog');
     });
+    await L.step('create: the form explains the format and shows a live summary of the choices', org, async () => {
+        await L.expectText(org, /Swiss rounds of The Other Side/i);
+        await org.page.waitForSelector('[data-testid="create-summary"]', { timeout: 9000 });
+        await L.expectText(org, /After you create it/i);
+        await L.expectText(org, /Fields of Glory/i);
+        await L.shot(org, '24b-create-summary');
+    });
     await L.step('create: submit a Fields of Glory team event with a variant', org, async () => {
         await org.page.type('#t-name', 'FoG Browser Cup');
         await org.page.$eval('#t-date', (el) => {

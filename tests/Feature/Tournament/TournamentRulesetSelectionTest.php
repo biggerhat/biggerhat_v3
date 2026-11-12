@@ -120,3 +120,9 @@ it('sends each format’s round-clock rules to the pages', function () {
     $this->actingAs($this->organizer)->get(route('tournaments.manage', $fog))
         ->assertInertia(fn (Assert $page) => $page->where('ruleset.time_rules.time_called', null)->where('ruleset.time_rules.last_turn', fn ($v) => str_contains((string) $v, 'do not start a new one')));
 });
+
+it('describes every ruleset in one line for the create form', function () {
+    $this->actingAs($this->organizer)->get(route('tournaments.create'))->assertInertia(
+        fn (Assert $page) => $page->has('rulesets', fn (Assert $rulesets) => $rulesets->each(fn (Assert $r) => $r->where('blurb', fn ($blurb) => is_string($blurb) && strlen($blurb) > 20)->etc()))
+    );
+});

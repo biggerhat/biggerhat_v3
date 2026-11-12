@@ -72,6 +72,8 @@ final class Ruleset
         public readonly bool $supportsTeams = true,
         /** Whether the TO can describe each table (name, terrain notes, a photo or layout). */
         public readonly bool $supportsTableDetails = false,
+        /** One sentence for the Create form: what running this format means. */
+        public readonly string $blurb = '',
     ) {}
 
     /** @return array<string, array{key: string, label: string, description: string, param: array{label: string, min: int, max: int, default: int}|null}> */
@@ -120,6 +122,7 @@ final class Ruleset
             'time_rules' => $this->timeRules,
             'supports_teams' => $this->supportsTeams,
             'supports_table_details' => $this->supportsTableDetails,
+            'blurb' => $this->blurb,
         ];
     }
 

@@ -154,3 +154,6 @@ layout), U15 (axe contrast pass), C5 (left as is: "50ss" is standard community s
 Q4 and Q7 are addressed: `lint.yml` gained a non-blocking `vue-tsc` step (baseline ~1320 findings across the app, 65 of them in the tournament Create form; the step only reports) and `tournament-flows.yml` runs the browser pass on demand.
 To make `vue-tsc` runnable at all, the stale `vue/tsx` entry in `tsconfig.json` was removed and the three app layouts no longer put a type cast inside a template expression (vue-tsc cannot parse it).
 Neither workflow has been run on GitHub from here — check the first runs.
+
+U14 (Create form): the format picker now says what each ruleset means (`blurb` in `config/tournaments.php`, `Ruleset::$blurb`), the description field is a short "Summary" that points to the Details tab, and from `lg` up a sticky "Your event" panel reads back
+the choices live (format, size, rounds, ranking, teams, limit, results, variants, modified scoring) with a four-step "After you create it" list. The page is unchanged on phones. Still open from the UI group: U15 (axe contrast pass).

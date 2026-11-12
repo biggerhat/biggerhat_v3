@@ -208,6 +208,8 @@ export interface RulesetInfo {
     supports_teams: boolean;
     /** Whether the TO can describe each table (name, terrain notes, photo). */
     supports_table_details: boolean;
+    /** One sentence on what running this format means (Create form). */
+    blurb: string;
     /** Round-clock wording shown to players; null = the format has no such rule. */
     time_rules: { last_turn_minutes: number; last_turn: string | null; time_called: string | null };
 }

@@ -14,8 +14,8 @@ trait BroadcastsTournamentUpdates
      * The action label is informational — we send it so clients can choose
      * which props to refresh in the future, without changing the protocol.
      */
-    protected function broadcastUpdate(Tournament $tournament, string $action = 'updated'): void
+    protected function broadcastUpdate(Tournament $tournament, string $action = 'updated', ?int $roundId = null): void
     {
-        broadcast(new TournamentUpdated($tournament, $action))->toOthers();
+        broadcast(new TournamentUpdated($tournament, $action, $roundId))->toOthers();
     }
 }

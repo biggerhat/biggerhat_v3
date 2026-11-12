@@ -5,6 +5,9 @@ import { onMounted, onUnmounted, ref } from 'vue';
 /** How often to refresh while the websocket is down (a venue's wifi drops, Reverb isn't configured, ...). */
 const FALLBACK_POLL_MS = 30_000;
 
+/** Upper bound of the random delay added before a broadcast-triggered reload, so a crowd doesn't refetch in the same instant. */
+const RELOAD_JITTER_MS = 1500;
+
 /**
  * Subscribe to the public broadcast channel for a tournament. Whenever the
  * server emits a `TournamentUpdated` event, we trigger a debounced reload.
@@ -21,6 +24,7 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
     let active = false;
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let pendingWhileHidden: any = null;
     const connected = ref(false);
 
     const reload = (event: any) => {
@@ -32,7 +36,15 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
             return;
         }
 
+        // A hidden tab doesn't need the data now: catch up once when it's shown again (many people keep the page open in a background tab).
+        if (typeof document !== 'undefined' && document.hidden) {
+            pendingWhileHidden = event;
+            return;
+        }
+
         if (reloadTimer) clearTimeout(reloadTimer);
+        // Spread the refetches out: every viewer gets the same broadcast at the same instant, and each reload is the whole page's data.
+        const delay = 300 + Math.random() * RELOAD_JITTER_MS;
         reloadTimer = setTimeout(() => {
             if (onUpdate) {
                 onUpdate(event);
@@ -40,7 +52,14 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
                 router.reload({ preserveScroll: true });
             }
             reloadTimer = null;
-        }, 300);
+        }, delay);
+    };
+
+    const onVisible = () => {
+        if (document.hidden || pendingWhileHidden === null) return;
+        const event = pendingWhileHidden;
+        pendingWhileHidden = null;
+        reload(event);
     };
 
     const refresh = () => (onUpdate ? onUpdate({ action: 'poll' }) : router.reload({ preserveScroll: true }));
@@ -71,6 +90,7 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
 
         active = true;
         startPolling();
+        document.addEventListener('visibilitychange', onVisible);
         const echo = await loadEcho();
         // Unmounted while the Echo chunk was loading.
         if (!echo || !active) return;
@@ -87,6 +107,7 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
 
     const leaveChannel = () => {
         active = false;
+        if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
         if (reloadTimer) clearTimeout(reloadTimer);
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = null;

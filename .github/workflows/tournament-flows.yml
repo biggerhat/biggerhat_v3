@@ -1,0 +1,53 @@
+name: tournament browser flows
+
+# The tournament tracker's real-browser pass (scripts/ui-audit/tournaments, see docs/ui-audit.md). Manual only: it
+# needs a built frontend and a Chrome, and takes several minutes. Run it from the Actions tab before a release.
+on:
+  workflow_dispatch:
+
+jobs:
+  flows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: sqlite3, pdo_sqlite, gd, mbstring, intl, bcmath
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+          npm ci --prefer-offline --no-audit --no-fund
+          cp .env.example .env
+          php artisan key:generate
+
+      # The harness drives chrome-headless-shell (puppeteer's `headless: 'shell'`), which puppeteer can fetch itself.
+      - name: Install chrome-headless-shell
+        id: chrome
+        run: |
+          out=$(npx puppeteer browsers install chrome-headless-shell@stable | tail -1)
+          echo "path=${out#* }" >> "$GITHUB_OUTPUT"
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run the tournament flows
+        env:
+          CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: scripts/ui-audit/tournaments/run.sh
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tournament-flow-screenshots
+          path: /tmp/ui-audit-tournaments/shots

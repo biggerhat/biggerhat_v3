@@ -150,3 +150,7 @@ Harness: the seed's two cut events are created by another account (an organizer 
 Also on this branch: U16 (live region announcing paired / started / finished rounds, reported results and the final), U17 (Terms glossary), and U9 (the Manage tab bar fits one row at 390 px again after the Details tab was added; the
 pairing-row menu already had an accessible name). Browser flow 21 covers the glossary and the announcement (the spectator page refreshes through the 30 s poll because the harness has no websocket). Still open from the UI group: U14 (create form
 layout), U15 (axe contrast pass), C5 (left as is: "50ss" is standard community shorthand).
+
+Q4 and Q7 are addressed: `lint.yml` gained a non-blocking `vue-tsc` step (baseline ~1320 findings across the app, 65 of them in the tournament Create form; the step only reports) and `tournament-flows.yml` runs the browser pass on demand.
+To make `vue-tsc` runnable at all, the stale `vue/tsx` entry in `tsconfig.json` was removed and the three app layouts no longer put a type cast inside a template expression (vue-tsc cannot parse it).
+Neither workflow has been run on GitHub from here — check the first runs.

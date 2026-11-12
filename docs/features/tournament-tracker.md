@@ -128,6 +128,11 @@ somehow exists the better seed advances); the tournament cannot be finalized unt
 round's losers share the next place (semifinal losers joint 3rd, quarterfinal losers joint 5th), everyone outside the cut ranks after. Rows get `cut_finish` ("Champion", "Finalist", "Top 4"), shown as a badge and on the PDF.
 Note `Tournament::rounds()` is already ordered by `round_number`, so use `reorder()` to get the latest one.
 
+## Accessibility notes
+Live pages (`View`, `Display`) include a `TournamentLiveRegion` (visually hidden, `role="status"`, `aria-live="polite"`). `useTournamentAnnouncements` compares each render of the rounds with the previous one and
+writes sentences into it: "Semifinals are paired.", "Round 2 has started.", "Result reported for table 3.", "The tournament is finished." The first render announces nothing. `ScoringSummary` ends with a **Terms** glossary
+(TP, VP, DIFF, Bye, and SoS when the event ranks by it) under "Format & rules" on the public page and the Manage settings.
+
 ## Results sharing
 A completed event leads with `ResultsCard.vue` on the public page: a podium (rank <= 3, joint places included, ringers excluded) and three ways to take it away.
 **PDF** — `TournamentResultsController@pdf` (`tournaments.results_pdf`, public, 404 until the event is completed) renders `resources/views/PDF/TournamentResults.blade.php` with DomPDF: podium,

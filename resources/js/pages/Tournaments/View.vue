@@ -13,6 +13,8 @@ import {
     type TournamentRuleset,
 } from '@/types/tournament';
 import BlogContent from '@/components/blog/BlogContent.vue';
+import TournamentLiveRegion from '@/components/Tournament/TournamentLiveRegion.vue';
+import { useTournamentAnnouncements } from '@/composables/useTournamentAnnouncements';
 import AwardsCard from '@/components/Tournament/AwardsCard.vue';
 import TableTerrain from '@/components/Tournament/TableTerrain.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
@@ -187,6 +189,11 @@ useTournamentChannel(props.tournament.uuid, () => {
     // static `factions` enum map on every tick.
     router.reload({ only: ['tournament', 'rounds', 'standings'], preserveScroll: true, preserveState: true });
 });
+
+const { message: liveMessage } = useTournamentAnnouncements(
+    () => props.rounds,
+    () => props.tournament.status,
+);
 
 const isCompleted = computed(() => props.tournament.status === 'completed');
 
@@ -471,6 +478,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
         </PageBanner>
 
         <div class="container mx-auto pb-8 sm:px-4" data-print-area>
+            <TournamentLiveRegion :message="liveMessage" />
             <ResultsCard
                 v-if="isCompleted"
                 :name="tournament.name"

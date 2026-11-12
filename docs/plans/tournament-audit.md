@@ -146,3 +146,7 @@ the 403 on organizer pages and the desk at phone width. The desk includes the ma
 F12 (top cut) is built on the same branch: single elimination of 2/4/8/16 after the Swiss rounds, seeded from the standings, stage-named rounds, bracket advance, cut placings in the standings and PDF. Browser flow 20 covers
 starting a cut, the public stage tab, advancing and the finalize guard. Not done: round-robin pools, double elimination, a bracket diagram, and seeding from anything but the Swiss standings. **Deploy: run the new migration.**
 Harness: the seed's two cut events are created by another account (an organizer may own at most 5 unfinished events), and `run.sh` sets `TELESCOPE_ENABLED=false` (the harness DB has no telescope tables, and the errors had grown `storage/logs/laravel.log` to several GB).
+
+Also on this branch: U16 (live region announcing paired / started / finished rounds, reported results and the final), U17 (Terms glossary), and U9 (the Manage tab bar fits one row at 390 px again after the Details tab was added; the
+pairing-row menu already had an accessible name). Browser flow 21 covers the glossary and the announcement (the spectator page refreshes through the 30 s poll because the harness has no websocket). Still open from the UI group: U14 (create form
+layout), U15 (axe contrast pass), C5 (left as is: "50ss" is standard community shorthand).

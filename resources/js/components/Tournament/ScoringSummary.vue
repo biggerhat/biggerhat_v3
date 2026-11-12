@@ -25,6 +25,17 @@ const lines = computed(() => {
     return out;
 });
 
+// What the abbreviations on the standings mean; SoS only when this event ranks by it.
+const glossary = computed(() => [
+    { term: 'TP', meaning: 'Tournament Points — what a game earns you toward the standings.' },
+    { term: 'VP', meaning: 'Victory Points scored in a game (the sum of its score components).' },
+    { term: 'DIFF', meaning: "Differential — your VP minus your opponent's, added up over the event." },
+    ...(props.ruleset.tiebreakers.includes('sos')
+        ? [{ term: 'SoS', meaning: 'Strength of Schedule — how well your opponents did overall; it breaks ties between equal players.' }]
+        : []),
+    { term: 'Bye', meaning: 'A free win when there is an odd number of players.' },
+]);
+
 const variants = computed(() =>
     props.ruleset.variants
         .filter((v) => props.ruleset.active_variants[v.key] !== undefined)
@@ -42,6 +53,15 @@ const variants = computed(() =>
             <ul class="list-disc space-y-0.5 pl-5 text-xs text-muted-foreground">
                 <li v-for="l in lines" :key="l">{{ l }}</li>
             </ul>
+        </div>
+        <div data-testid="glossary">
+            <h3 class="mb-1 text-sm font-semibold">Terms</h3>
+            <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+                <template v-for="g in glossary" :key="g.term">
+                    <dt class="font-medium">{{ g.term }}</dt>
+                    <dd class="text-muted-foreground">{{ g.meaning }}</dd>
+                </template>
+            </dl>
         </div>
         <div v-if="variants.length">
             <h3 class="mb-1 text-sm font-semibold">Rule variants in play</h3>

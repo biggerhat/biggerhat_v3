@@ -4,6 +4,8 @@ import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
+import TournamentLiveRegion from '@/components/Tournament/TournamentLiveRegion.vue';
+import { useTournamentAnnouncements } from '@/composables/useTournamentAnnouncements';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import type { StandingEntry, TosDeploymentInfo, TosOperationInfo, TournamentRuleset } from '@/types/tournament';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -73,6 +75,11 @@ const props = defineProps<{
 // Narrow reloads: the display only reads these props, and a TV refreshes on every score.
 const { connected } = useTournamentChannel(props.tournament.uuid, () =>
     router.reload({ only: ['tournament', 'rounds', 'standings', 'ruleset'], preserveScroll: true, preserveState: true }),
+);
+
+const { message: liveMessage } = useTournamentAnnouncements(
+    () => props.rounds,
+    () => props.tournament.status,
 );
 
 // The round everyone cares about: the one being played, else the latest one that has pairings, else the newest.
@@ -193,6 +200,7 @@ const setMode = (m: Mode) => {
 <template>
     <Head :title="`${tournament.name} — Display`" />
     <div class="min-h-screen bg-background p-4 text-foreground sm:p-8" @mousemove="wake" @pointerdown="wake" @keydown="wake" @focusin="wake">
+        <TournamentLiveRegion :message="liveMessage" />
         <header class="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-4">
             <div class="min-w-0">
                 <h1 class="truncate text-3xl font-bold sm:text-5xl">{{ tournament.name }}</h1>

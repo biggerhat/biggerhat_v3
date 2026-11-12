@@ -477,27 +477,31 @@ const isEditable = computed(() => !isLocked.value);
 
             <Tabs v-model="activeTab" default-value="standings">
                 <TabsList class="mb-4 flex w-full flex-wrap">
-                    <TabsTrigger value="standings" class="gap-1 text-xs sm:text-sm">Standings</TabsTrigger>
-                    <TabsTrigger value="players" class="gap-1 text-xs sm:text-sm">
+                    <TabsTrigger value="standings" class="gap-1 px-2 text-xs sm:px-3 sm:text-sm">Standings</TabsTrigger>
+                    <TabsTrigger value="players" class="gap-1 px-2 text-xs sm:px-3 sm:text-sm">
                         Players
                         <Badge v-if="tournament.players.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.players.length
                         }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger v-if="tournament.status === 'draft' || tournament.rsvps?.length" value="rsvps" class="gap-1 text-xs sm:text-sm">
+                    <TabsTrigger
+                        v-if="tournament.status === 'draft' || tournament.rsvps?.length"
+                        value="rsvps"
+                        class="gap-1 px-2 text-xs sm:px-3 sm:text-sm"
+                    >
                         RSVPs
                         <Badge v-if="tournament.rsvps?.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.rsvps.length
                         }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger value="rounds" class="gap-1 text-xs sm:text-sm">
+                    <TabsTrigger value="rounds" class="gap-1 px-2 text-xs sm:px-3 sm:text-sm">
                         Rounds
                         <Badge v-if="tournament.rounds.length" variant="secondary" class="ml-1 px-1 py-0 text-2xs">{{
                             tournament.rounds.length
                         }}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger value="details" class="text-xs sm:text-sm">Details</TabsTrigger>
-                    <TabsTrigger value="settings" class="text-xs sm:text-sm">Settings</TabsTrigger>
+                    <TabsTrigger value="details" class="px-2 text-xs sm:px-3 sm:text-sm">Details</TabsTrigger>
+                    <TabsTrigger value="settings" class="px-2 text-xs sm:px-3 sm:text-sm">Settings</TabsTrigger>
                 </TabsList>
 
                 <!-- ═══ STANDINGS ═══ -->

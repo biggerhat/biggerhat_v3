@@ -50,12 +50,26 @@ defineEmits<{
                             <span class="text-center text-2xs font-medium sm:text-xs">{{ faction.name }}</span>
                         </button>
                     </div>
-                    <div v-if="selectedFaction" class="mt-4 flex justify-center">
-                        <Button :disabled="submitting" @click="$emit('confirm-faction')">
-                            <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                            Confirm Faction
-                        </Button>
-                    </div>
+                    <!-- Same floating confirm bar as Master Select, so a choice is always confirmed in the same place. -->
+                    <template v-if="selectedFaction">
+                        <div class="h-16" aria-hidden="true" />
+                        <div
+                            class="fixed inset-x-0 bottom-[var(--tabbar-h,0px)] z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-lg sm:border sm:py-2"
+                            data-testid="faction-confirm-bar"
+                        >
+                            <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-2xs uppercase tracking-wider text-muted-foreground">Selected</div>
+                                    <div class="truncate text-sm font-medium">{{ factions[selectedFaction]?.name ?? selectedFaction }}</div>
+                                </div>
+                                <Button variant="ghost" size="sm" class="h-9" @click="selectedFaction = null">Clear</Button>
+                                <Button class="h-9" :disabled="submitting" @click="$emit('confirm-faction')">
+                                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                                    Confirm
+                                </Button>
+                            </div>
+                        </div>
+                    </template>
                 </template>
                 <template v-else-if="!opponentFactionStepDone">
                     <div class="mb-3 flex items-center gap-2">
@@ -79,12 +93,28 @@ defineEmits<{
                             <span class="text-center text-2xs font-medium sm:text-xs">{{ faction.name }}</span>
                         </button>
                     </div>
-                    <div v-if="selectedOpponentFaction" class="mt-4 flex justify-center">
-                        <Button :disabled="submitting" @click="$emit('confirm-opponent-faction')">
-                            <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                            Confirm Opponent Faction
-                        </Button>
-                    </div>
+                    <!-- Same floating confirm bar as Master Select, so a choice is always confirmed in the same place. -->
+                    <template v-if="selectedOpponentFaction">
+                        <div class="h-16" aria-hidden="true" />
+                        <div
+                            class="fixed inset-x-0 bottom-[var(--tabbar-h,0px)] z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-lg sm:border sm:py-2"
+                            data-testid="faction-confirm-bar"
+                        >
+                            <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-2xs uppercase tracking-wider text-muted-foreground">Selected</div>
+                                    <div class="truncate text-sm font-medium">
+                                        {{ factions[selectedOpponentFaction]?.name ?? selectedOpponentFaction }}
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="sm" class="h-9" @click="selectedOpponentFaction = null">Clear</Button>
+                                <Button class="h-9" :disabled="submitting" @click="$emit('confirm-opponent-faction')">
+                                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                                    Confirm
+                                </Button>
+                            </div>
+                        </div>
+                    </template>
                 </template>
             </template>
 
@@ -109,12 +139,26 @@ defineEmits<{
                             <span class="text-center text-2xs font-medium sm:text-xs">{{ faction.name }}</span>
                         </button>
                     </div>
-                    <div v-if="selectedFaction" class="mt-4 flex justify-center">
-                        <Button :disabled="submitting" @click="$emit('confirm-faction')">
-                            <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                            Confirm Faction
-                        </Button>
-                    </div>
+                    <!-- Same floating confirm bar as Master Select, so a choice is always confirmed in the same place. -->
+                    <template v-if="selectedFaction">
+                        <div class="h-16" aria-hidden="true" />
+                        <div
+                            class="fixed inset-x-0 bottom-[var(--tabbar-h,0px)] z-40 border-t bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-lg sm:border sm:py-2"
+                            data-testid="faction-confirm-bar"
+                        >
+                            <div class="mx-auto flex w-full max-w-md items-center justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-2xs uppercase tracking-wider text-muted-foreground">Selected</div>
+                                    <div class="truncate text-sm font-medium">{{ factions[selectedFaction]?.name ?? selectedFaction }}</div>
+                                </div>
+                                <Button variant="ghost" size="sm" class="h-9" @click="selectedFaction = null">Clear</Button>
+                                <Button class="h-9" :disabled="submitting" @click="$emit('confirm-faction')">
+                                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                                    Confirm
+                                </Button>
+                            </div>
+                        </div>
+                    </template>
                 </template>
                 <div v-else class="flex items-center justify-center gap-2 py-4">
                     <FactionLogo :faction="myFaction!" class-name="size-12" />

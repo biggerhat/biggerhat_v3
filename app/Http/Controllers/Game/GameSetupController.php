@@ -10,6 +10,7 @@ use App\Events\GameSetupStepCompleted;
 use App\Events\GameStatusChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\GameSetupSubmitCampaignCrewRequest;
+use App\Http\Requests\Games\SkipCrewRequest;
 use App\Http\Requests\Games\SubmitCrewRequest;
 use App\Http\Requests\Games\SubmitFactionRequest;
 use App\Http\Requests\Games\SubmitMasterRequest;
@@ -396,43 +397,65 @@ class GameSetupController extends Controller
         return response()->json(['success' => true, 'both_done' => $bothDone]);
     }
 
-    public function skipCrew(Game $game): JsonResponse
+    /**
+     * "Track points only": mark a crew as not tracked (no models, HP or tokens, just VP, schemes and turns).
+     * A player skips their own crew; in a solo game the slot says which side, and with no slot the solo opponent
+     * (the null-user player, which may be slot 1 or 2 in tournament-created tracker games) is skipped.
+     */
+    public function skipCrew(SkipCrewRequest $request, Game $game): JsonResponse
     {
-        if (! $game->is_solo) {
-            return response()->json(['error' => 'Only available in solo mode'], 403);
-        }
-        if ($game->creator_id !== Auth::id()) {
-            return response()->json(['error' => 'Not the solo game owner'], 403);
-        }
-
-        // The solo opponent is the null-user player — could be slot 1 or 2
-        // depending on how the game was created (tournament-created tracker
-        // games put the registered user in whichever tournament slot they
-        // occupied, so the opponent isn't always slot 2).
-        /** @var GamePlayer|null $player */
-        $player = $game->players()->whereNull('user_id')->first();
-        if (! $player) {
-            return response()->json(['error' => 'Opponent slot not found'], 422);
+        if ($game->is_solo && ! $request->has('slot')) {
+            if ($game->creator_id !== Auth::id()) {
+                return response()->json(['error' => 'Not the solo game owner'], 403);
+            }
+            /** @var GamePlayer|null $player */
+            $player = $game->players()->whereNull('user_id')->first();
+            if (! $player) {
+                return response()->json(['error' => 'Opponent slot not found'], 422);
+            }
+        } else {
+            $player = $this->getPlayer($game, $request->integer('slot'));
         }
 
-        if ($game->status !== GameStatusEnum::CrewSelect) {
-            return response()->json(['error' => 'Invalid game state'], 422);
+        if ($game->format === GameFormatEnum::Campaign) {
+            return response()->json(['error' => 'Campaign crews come from the arsenal'], 422);
         }
 
-        $player->update(['crew_skipped' => true]);
-
-        $bothDone = DB::transaction(function () use ($game) {
+        $bothDone = DB::transaction(function () use ($game, $player) {
             /** @var Game $locked */
             $locked = Game::lockForUpdate()->find($game->id);
+            if ($locked->status !== GameStatusEnum::CrewSelect) {
+                return null;
+            }
+
+            /** @var GamePlayer $lockedPlayer */
+            $lockedPlayer = $locked->players()->whereKey($player->id)->first();
+            if ($lockedPlayer->crew_build_id) {
+                return null;
+            }
+            // Same starting pool a built crew gets when it spends little; a real player can adjust it in play.
+            $lockedPlayer->update(['crew_skipped' => true, 'soulstone_pool' => $lockedPlayer->user_id ? min(6, $locked->encounter_size) : $lockedPlayer->soulstone_pool]);
+
             $done = $locked->players()
                 ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
                 ->count() === 2;
-            if ($done && $locked->status === GameStatusEnum::CrewSelect) {
+            if ($done) {
                 $locked->update(['status' => GameStatusEnum::SchemeSelect]);
             }
 
             return $done;
         });
+
+        if ($bothDone === null) {
+            return response()->json(['error' => 'Invalid game state'], 422);
+        }
+
+        if (! $game->is_solo) {
+            if ($bothDone) {
+                broadcast(new GameStatusChanged($game))->toOthers();
+            }
+            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+        }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
     }

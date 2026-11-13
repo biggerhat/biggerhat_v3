@@ -75,3 +75,82 @@ it('does not let another user pick a solo game\'s slot', function () {
         ->postJson(route('games.setup.crew', $game->uuid), ['crew_build_id' => $build->id, 'slot' => 2])
         ->assertForbidden();
 });
+
+// --- "Track points only": skipping a crew -------------------------------------------------------------------------
+
+function crewSelectDuel(User $one, User $two): Game
+{
+    $game = Game::factory()->create(['creator_id' => $one->id, 'status' => GameStatusEnum::CrewSelect, 'encounter_size' => 50]);
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => $one->id, 'slot' => 1, 'faction' => 'arcanists']);
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => $two->id, 'slot' => 2, 'faction' => 'guild']);
+
+    return $game;
+}
+
+it('lets a player in a two-player game skip their own crew, and moves on once both are done', function () {
+    [$one, $two] = User::factory()->count(2)->create();
+    $game = crewSelectDuel($one, $two);
+
+    $this->actingAs($one)->postJson(route('games.setup.crew.skip', $game->uuid))
+        ->assertOk()->assertJson(['success' => true, 'both_done' => false]);
+
+    $mine = $game->players()->where('user_id', $one->id)->first();
+    expect($mine->crew_skipped)->toBeTrue()
+        ->and($mine->soulstone_pool)->toBe(6)
+        ->and($game->fresh()->status)->toBe(GameStatusEnum::CrewSelect)
+        ->and($game->players()->where('user_id', $two->id)->first()->crew_skipped)->toBeFalse();
+
+    $this->actingAs($two)->postJson(route('games.setup.crew.skip', $game->uuid))
+        ->assertOk()->assertJson(['both_done' => true]);
+
+    expect($game->fresh()->status)->toBe(GameStatusEnum::SchemeSelect);
+});
+
+it('skips the named side of a solo game', function () {
+    $creator = User::factory()->create();
+    $game = crewSelectSoloGame($creator);
+
+    $this->actingAs($creator)->postJson(route('games.setup.crew.skip', $game->uuid), ['slot' => 1])->assertOk();
+
+    expect($game->players()->where('slot', 1)->first()->crew_skipped)->toBeTrue()
+        ->and($game->players()->where('slot', 2)->first()->crew_skipped)->toBeFalse();
+});
+
+it('still skips the solo opponent when no slot is given', function () {
+    $creator = User::factory()->create();
+    $game = crewSelectSoloGame($creator);
+
+    $this->actingAs($creator)->postJson(route('games.setup.crew.skip', $game->uuid))->assertOk();
+
+    expect($game->players()->where('slot', 2)->first()->crew_skipped)->toBeTrue()
+        ->and($game->players()->where('slot', 1)->first()->crew_skipped)->toBeFalse();
+});
+
+it('refuses to skip once a crew is chosen or the game is past crew select', function () {
+    [$one, $two] = User::factory()->count(2)->create();
+    $game = crewSelectDuel($one, $two);
+    $build = masterBuild($one, 'arcanists');
+    $this->actingAs($one)->postJson(route('games.setup.crew', $game->uuid), ['crew_build_id' => $build->id])->assertOk();
+
+    $this->actingAs($one)->postJson(route('games.setup.crew.skip', $game->uuid))
+        ->assertStatus(422)->assertJson(['error' => 'Invalid game state']);
+
+    $game->update(['status' => GameStatusEnum::InProgress]);
+    $this->actingAs($two)->postJson(route('games.setup.crew.skip', $game->uuid))->assertStatus(422);
+});
+
+it('does not let someone outside the game skip a crew', function () {
+    [$one, $two, $stranger] = User::factory()->count(3)->create();
+    $game = crewSelectDuel($one, $two);
+
+    $this->actingAs($stranger)->postJson(route('games.setup.crew.skip', $game->uuid))->assertForbidden();
+
+    expect($game->players()->where('crew_skipped', true)->count())->toBe(0);
+});
+
+it('does not let a non-owner pick a solo slot to skip', function () {
+    $creator = User::factory()->create();
+    $game = crewSelectSoloGame($creator);
+
+    $this->actingAs(User::factory()->create())->postJson(route('games.setup.crew.skip', $game->uuid), ['slot' => 2])->assertForbidden();
+});

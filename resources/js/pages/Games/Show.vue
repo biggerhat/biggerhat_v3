@@ -374,7 +374,7 @@ const isCampaign = computed(() => props.game.format === GameFormat.Campaign);
 // that assumes the creator is always slot 1.
 const mySlot = computed(() => myPlayer.value?.slot ?? 1);
 const opponentSlot = computed(() => opponent.value?.slot ?? 2);
-const { onlineMembers } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
+const { onlineMembers, connected: channelConnected } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
 const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id === userId);
 
 // Safety net for campaign crew select: the arsenal prop is server-gated to status === crew_select, so a tab whose status
@@ -587,6 +587,17 @@ const onSkipOpponentCrew = async (titleDisplayName: string | null) => {
         await gameApi.post(route('games.setup.master', props.game.uuid), { master_name: titleDisplayName, slot: opponentSlot.value });
     }
     postSetup(route('games.setup.crew.skip', props.game.uuid), {});
+};
+
+// Skip your own crew ("track points only"). Solo games name the slot being skipped; in a duel it is always the caller's.
+const onSkipMyCrew = async (titleDisplayName: string | null) => {
+    if (titleDisplayName) {
+        await gameApi.post(route('games.setup.master', props.game.uuid), {
+            master_name: titleDisplayName,
+            ...(isSolo.value ? { slot: mySlot.value } : {}),
+        });
+    }
+    postSetup(route('games.setup.crew.skip', props.game.uuid), isSolo.value ? { slot: mySlot.value } : {});
 };
 
 // Solo: edit opponent name
@@ -3299,6 +3310,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <Badge variant="secondary" class="text-xs">{{ game.encounter_size }}ss</Badge>
                 <Badge v-if="isSolo" variant="outline" class="text-xs">Solo</Badge>
                 <Badge
+                    v-if="!channelConnected"
+                    variant="outline"
+                    class="border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
+                    role="status"
+                    data-testid="game-reconnecting"
+                    >Reconnecting… refreshing every 30 s</Badge
+                >
+                <Badge
                     v-if="game.is_observable && !GAME_FINISHED_STATUSES.includes(game.status)"
                     variant="outline"
                     class="border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
@@ -3316,39 +3335,82 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </div>
             </div>
 
+            <!-- Setup Step Indicator -->
+            <div v-if="game.status.includes('select')" class="mb-6">
+                <div class="flex items-center justify-center gap-1">
+                    <template v-for="(step, idx) in setupSteps" :key="step">
+                        <div v-if="idx > 0" class="h-px w-8 bg-border" />
+                        <div
+                            class="flex size-8 items-center justify-center rounded-full text-xs font-bold"
+                            :class="
+                                game.status === step + '_select'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : isPastStep(step)
+                                      ? 'bg-green-500 text-white'
+                                      : 'bg-muted text-muted-foreground'
+                            "
+                        >
+                            <Check v-if="isPastStep(step)" class="size-4" />
+                            <span v-else>{{ idx + 1 }}</span>
+                        </div>
+                    </template>
+                </div>
+                <div class="mt-1 flex items-center justify-center gap-1">
+                    <template v-for="(step, idx) in setupSteps" :key="step + '-label'">
+                        <div v-if="idx > 0" class="w-8" />
+                        <span class="w-8 text-center text-2xs text-muted-foreground">{{ stepLabels[step] }}</span>
+                    </template>
+                </div>
+            </div>
+
             <!-- Scenario (hidden during gameplay and completed; Bonanza Brawl
                  has no scenario at all) -->
             <div v-if="!isBonanza && game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
-                <!-- Mobile: compact text rows -->
-                <div class="space-y-1.5 sm:hidden">
-                    <div v-if="deployment" class="flex items-center justify-between rounded-lg border px-3 py-2">
-                        <div>
-                            <HeadingEyebrow>Deployment</HeadingEyebrow>
-                            <div class="text-sm font-medium">{{ deployment.label }}</div>
-                        </div>
-                        <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="deploymentDrawerOpen = true">View</Button>
-                    </div>
-                    <div v-if="game.strategy" class="flex items-center justify-between rounded-lg border px-3 py-2">
-                        <div>
-                            <HeadingEyebrow>Strategy</HeadingEyebrow>
-                            <div class="text-sm font-medium">{{ game.strategy.name }}</div>
-                        </div>
-                        <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="strategyDrawerOpen = true">View</Button>
-                    </div>
-                    <div v-if="schemes.length" class="rounded-lg border px-3 py-2">
-                        <HeadingEyebrow class="mb-1">Scheme Pool</HeadingEyebrow>
-                        <div class="flex flex-wrap gap-1.5">
-                            <button
-                                v-for="scheme in schemes"
-                                :key="'m-' + scheme.id"
-                                class="rounded-md bg-muted px-2 py-1 text-xs font-medium transition-colors hover:bg-accent"
-                                @click="openSchemeDrawer(scheme)"
+                <!-- Mobile: while a setup step is waiting on you the scenario folds into one summary line, so the step itself
+                     starts near the top of the screen; it is open in the lobby and a tap away the rest of the time. -->
+                <details class="group sm:hidden" :open="!game.status.includes('select')" data-testid="scenario-summary">
+                    <summary
+                        class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm [&::-webkit-details-marker]:hidden"
+                    >
+                        <span class="min-w-0 truncate">
+                            <HeadingEyebrow class="mr-1.5 inline">Scenario</HeadingEyebrow>
+                            <span class="font-medium">{{ [deployment?.label, game.strategy?.name].filter(Boolean).join(' · ') }}</span>
+                            <span v-if="schemes.length" class="text-muted-foreground">
+                                · {{ schemes.length }} {{ schemes.length === 1 ? 'scheme' : 'schemes' }}</span
                             >
-                                {{ scheme.name }}
-                            </button>
+                        </span>
+                        <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div class="mt-1.5 space-y-1.5">
+                        <div v-if="deployment" class="flex items-center justify-between rounded-lg border px-3 py-2">
+                            <div>
+                                <HeadingEyebrow>Deployment</HeadingEyebrow>
+                                <div class="text-sm font-medium">{{ deployment.label }}</div>
+                            </div>
+                            <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="deploymentDrawerOpen = true">View</Button>
+                        </div>
+                        <div v-if="game.strategy" class="flex items-center justify-between rounded-lg border px-3 py-2">
+                            <div>
+                                <HeadingEyebrow>Strategy</HeadingEyebrow>
+                                <div class="text-sm font-medium">{{ game.strategy.name }}</div>
+                            </div>
+                            <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="strategyDrawerOpen = true">View</Button>
+                        </div>
+                        <div v-if="schemes.length" class="rounded-lg border px-3 py-2">
+                            <HeadingEyebrow class="mb-1">Scheme Pool</HeadingEyebrow>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button
+                                    v-for="scheme in schemes"
+                                    :key="'m-' + scheme.id"
+                                    class="rounded-md bg-muted px-2 py-1 text-xs font-medium transition-colors hover:bg-accent"
+                                    @click="openSchemeDrawer(scheme)"
+                                >
+                                    {{ scheme.name }}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </details>
 
                 <!-- Desktop: visual card images -->
                 <div class="hidden gap-3 sm:grid sm:grid-cols-[1fr_1fr_2fr]">
@@ -3422,18 +3484,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- Players (hidden during gameplay — shown in Game tab) -->
-            <h2 v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-3 text-lg font-semibold">
+            <h2
+                v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)"
+                class="sr-only mb-3 text-lg font-semibold sm:not-sr-only"
+            >
                 Players
             </h2>
             <Card v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
-                <CardContent class="p-4 sm:p-6">
+                <CardContent class="p-2 sm:p-6">
                     <!-- Bonanza is personal-tracking only — slot 2 is inert, so the
-                         player grid drops to a single column showing just the user. -->
-                    <div :class="['grid gap-4', isBonanza ? '' : 'sm:grid-cols-2']">
+                         player grid drops to a single column showing just the user. Phones keep two players side by side
+                         so the setup step below starts higher up the screen. -->
+                    <div :class="['grid gap-2 sm:gap-4', isBonanza ? '' : 'grid-cols-2']">
                         <div
                             v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
                             :key="player.id"
-                            class="flex items-center gap-3 rounded-lg border p-3"
+                            class="flex items-center gap-2 rounded-lg border p-2 sm:gap-3 sm:p-3"
                         >
                             <div class="relative">
                                 <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-8" />
@@ -3449,7 +3515,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                     <!-- Solo opponent: editable name -->
                                     <template v-if="isSolo && !isObserver && !player.user && !GAME_FINISHED_STATUSES.includes(game.status)">
                                         <template v-if="editingOpponentName">
@@ -3518,34 +3584,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </CardContent>
             </Card>
-
-            <!-- Setup Step Indicator -->
-            <div v-if="game.status.includes('select')" class="mb-6">
-                <div class="flex items-center justify-center gap-1">
-                    <template v-for="(step, idx) in setupSteps" :key="step">
-                        <div v-if="idx > 0" class="h-px w-8 bg-border" />
-                        <div
-                            class="flex size-8 items-center justify-center rounded-full text-xs font-bold"
-                            :class="
-                                game.status === step + '_select'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : isPastStep(step)
-                                      ? 'bg-green-500 text-white'
-                                      : 'bg-muted text-muted-foreground'
-                            "
-                        >
-                            <Check v-if="isPastStep(step)" class="size-4" />
-                            <span v-else>{{ idx + 1 }}</span>
-                        </div>
-                    </template>
-                </div>
-                <div class="mt-1 flex items-center justify-center gap-1">
-                    <template v-for="(step, idx) in setupSteps" :key="step + '-label'">
-                        <div v-if="idx > 0" class="w-8" />
-                        <span class="w-8 text-center text-2xs text-muted-foreground">{{ stepLabels[step] }}</span>
-                    </template>
-                </div>
-            </div>
 
             <!-- ═══ LOBBY ═══ -->
             <GameSetupLobby
@@ -3639,6 +3677,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         })
                 "
                 @skip-opponent-crew="onSkipOpponentCrew"
+                @skip-crew="onSkipMyCrew"
             />
 
             <!-- ═══ SCHEME SELECT ═══ -->
@@ -4601,7 +4640,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 +1<GameIcon type="soulstone" class-name="mx-0.5 h-3 inline-block" /> from {{ soulstoneAwardName }}'s death
                             </div>
                         </Transition>
-                        <div class="mb-2 text-2xs text-muted-foreground">
+                        <div
+                            v-if="myPlayer?.crew_skipped && !myCrewMembers.length"
+                            class="mb-2 rounded-md border border-dashed p-2 text-xs text-muted-foreground"
+                            data-testid="crew-not-tracked"
+                        >
+                            Crew not tracked: you're tracking points only. Use Summon if you want to add a model.
+                        </div>
+                        <div v-else class="mb-2 text-2xs text-muted-foreground">
                             Activations:
                             <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ myCrewMembers.length }}</span> remaining

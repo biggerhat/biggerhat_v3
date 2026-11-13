@@ -33,7 +33,7 @@ it('requires auth for game show', function () {
 // ─── Authorization ───
 
 it('prevents non-participants from viewing a game', function () {
-    $game = Game::factory()->create();
+    $game = Game::factory()->inProgress()->create();
     $stranger = User::factory()->create();
 
     $this->actingAs($stranger)->get(route('games.show', $game->uuid))
@@ -114,4 +114,25 @@ it('prevents faction submission in wrong status', function () {
     $this->actingAs($user)->postJson(route('games.setup.faction', $game->uuid), [
         'faction' => 'guild',
     ])->assertStatus(422);
+});
+
+it('sends a non-participant who opens a still-open game to the join flow instead of a 403', function () {
+    $game = Game::factory()->create();
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => $game->creator_id, 'slot' => 1]);
+
+    $this->actingAs(User::factory()->create())->get(route('games.show', $game->uuid))
+        ->assertRedirect(route('games.join', $game->uuid));
+});
+
+it('does not redirect to join when the game is full, solo, or started', function () {
+    $stranger = User::factory()->create();
+
+    $full = Game::factory()->create();
+    GamePlayer::factory()->for($full, 'game')->create(['user_id' => $full->creator_id, 'slot' => 1]);
+    GamePlayer::factory()->for($full, 'game')->create(['user_id' => User::factory(), 'slot' => 2]);
+    $solo = Game::factory()->solo()->create(['status' => 'setup']);
+
+    foreach ([$full, $solo] as $game) {
+        $this->actingAs($stranger)->get(route('games.show', $game->uuid))->assertForbidden();
+    }
 });

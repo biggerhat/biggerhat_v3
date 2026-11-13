@@ -42,6 +42,7 @@ use App\Models\Upgrade;
 use App\Models\User;
 use App\Notifications\Game\GameOpponentJoined;
 use App\Support\Campaign\AftermathCatalog;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Response;
@@ -199,8 +200,14 @@ class GameController extends Controller
         return redirect()->route('games.show', $game->uuid);
     }
 
-    public function show(Game $game): Response|ResponseFactory
+    public function show(Game $game): Response|ResponseFactory|RedirectResponse
     {
+        // The address-bar URL is not the invite link (`/join`). Someone opening it while the game is still waiting for an
+        // opponent is almost certainly the invitee, so send them to the join flow instead of a bare 403.
+        if (Auth::user()?->cannot('view', $game) && ! $game->is_solo && $game->status === GameStatusEnum::Setup && ! $game->isFull()) {
+            return redirect()->route('games.join', $game->uuid);
+        }
+
         $this->authorize('view', $game);
 
         $game->load($this->eagerLoadsFor($game, GameShowContext::SelfView));

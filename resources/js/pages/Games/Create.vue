@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { NumberField, NumberFieldContent, NumberFieldDecrement, NumberFieldIncrement, NumberFieldInput } from '@/components/ui/number-field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft, Loader2, Swords, User } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 interface Season {
     value: string;
@@ -59,9 +59,36 @@ watch(
     { immediate: true },
 );
 
+// Remember the last choices on this device (per-viewer convenience only), so a regular 40ss / solo player doesn't redo them every game.
+const REMEMBER_KEY = 'game-create-defaults';
+onMounted(async () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(REMEMBER_KEY) ?? 'null');
+        if (!saved) return;
+        if (props.formats.some((f) => f.value === saved.format)) format.value = saved.format;
+        if (props.seasons.some((x) => x.value === saved.season)) season.value = saved.season;
+        // The format watcher snaps the size to the format's default; let it run before restoring the saved size.
+        await nextTick();
+        if (!isBonanza.value) {
+            if (props.encounter_sizes.includes(saved.encounterSize)) encounterSize.value = saved.encounterSize;
+            isSolo.value = saved.isSolo === true;
+        }
+    } catch {
+        // Storage blocked or unreadable: the form just keeps its defaults.
+    }
+});
+
 const submit = () => {
     if (submitting.value) return;
     submitting.value = true;
+    try {
+        localStorage.setItem(
+            REMEMBER_KEY,
+            JSON.stringify({ format: format.value, season: season.value, encounterSize: encounterSize.value, isSolo: isSolo.value }),
+        );
+    } catch {
+        // Not worth failing the create over.
+    }
     // Belt-and-suspenders: force is_solo=true at submit time for Bonanza so a
     // stale toggle value can't ride through (the toggle is hidden under
     // Bonanza, but Vue refs persist when v-if flips). The server enforces
@@ -96,9 +123,11 @@ const submit = () => {
         </PageBanner>
 
         <div class="container mx-auto sm:px-4">
-            <Button variant="ghost" class="mb-4 gap-1.5 text-sm" @click="router.get(route('games.index'))">
-                <ArrowLeft class="size-4" />
-                Back to Games
+            <Button variant="ghost" class="mb-4 gap-1.5 text-sm" as-child>
+                <Link :href="route('games.index')">
+                    <ArrowLeft class="size-4" />
+                    Back to Games
+                </Link>
             </Button>
 
             <Card class="mx-auto max-w-lg">
@@ -190,11 +219,16 @@ const submit = () => {
                         </template>
                     </div>
 
-                    <Button class="w-full" :disabled="submitting" @click="submit">
-                        <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
-                        <Swords v-else class="mr-2 size-4" />
-                        {{ submitting ? 'Creating…' : 'Create Game' }}
-                    </Button>
+                    <!-- Pinned above the phone tab bar so the one action is never below the fold. -->
+                    <div
+                        class="sticky bottom-[var(--tabbar-h,0px)] z-10 -mx-6 -mb-6 border-t bg-card/95 p-4 backdrop-blur sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:p-0"
+                    >
+                        <Button class="w-full" :disabled="submitting" @click="submit">
+                            <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                            <Swords v-else class="mr-2 size-4" />
+                            {{ submitting ? 'Creating…' : 'Create Game' }}
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
         </div>

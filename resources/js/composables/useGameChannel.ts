@@ -8,9 +8,15 @@ interface PresenceMember {
     name: string;
 }
 
+/** While the socket is down, refresh this often so a stalled lobby or setup step recovers on its own. */
+const FALLBACK_POLL_MS = 30_000;
+
 export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
     const onlineMembers = ref<PresenceMember[]>([]);
     const opponentOnline = ref(false);
+    // True until a live socket reports otherwise (solo games and a missing Echo never connect, so they stay "up").
+    const connected = ref(true);
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
     let channel: any = null;
     let active = false;
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
@@ -116,6 +122,38 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         }
     };
 
+    const refresh = () => router.reload({ preserveScroll: true });
+
+    const watchConnection = (echo: any) => {
+        const connection = echo.connector?.pusher?.connection;
+        if (!connection) return;
+        // A socket is always "connecting" for a moment on load or after a blip; only call it down after a few seconds.
+        let downTimer: ReturnType<typeof setTimeout> | null = null;
+        const set = (up: boolean) => {
+            if (up) {
+                if (downTimer) clearTimeout(downTimer);
+                downTimer = null;
+                const recovered = !connected.value;
+                connected.value = true;
+                // Events fired while we were away are gone: catch up once the socket is back.
+                if (recovered) refresh();
+            } else if (!downTimer && connected.value) {
+                downTimer = setTimeout(() => {
+                    downTimer = null;
+                    connected.value = false;
+                }, 5000);
+            }
+        };
+        connection.bind('connected', () => set(true));
+        for (const state of ['disconnected', 'unavailable', 'failed', 'connecting']) connection.bind(state, () => set(false));
+        set(connection.state === 'connected');
+        if (!pollTimer) {
+            pollTimer = setInterval(() => {
+                if (!connected.value && !document.hidden) refresh();
+            }, FALLBACK_POLL_MS);
+        }
+    };
+
     const joinChannel = async () => {
         if (!gameUuid) {
             if (import.meta.env.DEV) console.log('[GameChannel] No UUID, skipping');
@@ -130,6 +168,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         }
         // Unmounted while the Echo chunk was loading.
         if (!active) return;
+        watchConnection(echo);
 
         if (isObserver) {
             if (import.meta.env.DEV) console.log(`[GameChannel] Observer joining public channel: game-observe.${gameUuid}`);
@@ -158,6 +197,8 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
     const leaveChannel = () => {
         active = false;
         if (reloadTimer) clearTimeout(reloadTimer);
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = null;
         if (channel) {
             const channelName = isObserver ? `game-observe.${gameUuid}` : `game.${gameUuid}`;
             window.Echo?.leave(channelName);
@@ -176,5 +217,6 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
     return {
         onlineMembers,
         opponentOnline,
+        connected,
     };
 }

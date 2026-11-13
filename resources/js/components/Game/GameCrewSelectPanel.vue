@@ -126,6 +126,8 @@ const emit = defineEmits<{
     'confirm-campaign-crew': [arsenalModelIds: number[], equipmentAssignments: { equipment_id: number; target: string }[]];
     /** Skip the opponent's crew in solo setup, optionally locking in their title first. */
     'skip-opponent-crew': [titleDisplayName: string | null];
+    /** Track points only for your own side (no crew), optionally locking in your master's title first. */
+    'skip-crew': [titleDisplayName: string | null];
 }>();
 
 const masterTitleOptions = computed(() => {
@@ -192,6 +194,14 @@ const opponentTitleOptions = computed(() => {
 const opponentMatchingCrews = computed(() =>
     crewsForMaster(props.opponentPlayer?.master_name, opponentFilterTitleId.value, opponentTitleOptions.value),
 );
+
+// "Track points only": the title normally comes from the chosen crew build, so a master with several titles needs one picked first.
+const selectedTitleForSkip = ref<number | null>(null);
+const skipNeedsTitle = computed(() => masterTitleOptions.value.length > 1);
+const skipMyCrew = () => {
+    const title = selectedTitleForSkip.value ? masterTitleOptions.value.find((t) => t.id === selectedTitleForSkip.value) : null;
+    emit('skip-crew', title?.display_name ?? null);
+};
 
 const selectedOpponentTitleForSkip = ref<number | null>(null);
 const skipOpponentCrew = () => {
@@ -354,8 +364,8 @@ const confirmCampaignCrew = () => {
                 </template>
                 <template v-else>
                     <p class="mb-2 text-xs text-muted-foreground">
-                        Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name?.split(',')[0] }}</strong> or
-                        <Link :href="newCrewUrl" class="text-primary underline">create a new one</Link>.
+                        Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name?.split(',')[0] }}</strong
+                        >, build a new one, or skip the crew to track points only.
                     </p>
                     <div v-if="masterTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
                         <span class="text-2xs text-muted-foreground">Filter:</span>
@@ -672,6 +682,34 @@ const confirmCampaignCrew = () => {
                     </div>
                 </div>
                 <div v-else class="py-6 text-center text-sm text-muted-foreground">No saved crews for this faction yet.</div>
+
+                <!-- Paper list, or no saved crew yet: track VP, schemes and turns without the crew. -->
+                <div class="mt-4 rounded-lg border border-dashed p-3" data-testid="skip-crew">
+                    <p class="mb-2 text-xs text-muted-foreground">
+                        Playing from a paper list? Skip the crew to track victory points, schemes and turns only (no model HP or tokens).
+                    </p>
+                    <div v-if="skipNeedsTitle" class="mb-2 flex flex-wrap gap-1.5">
+                        <button
+                            v-for="title in masterTitleOptions"
+                            :key="'skip-my-title-' + title.id"
+                            type="button"
+                            class="rounded-md border px-2.5 py-1 text-xs"
+                            :class="selectedTitleForSkip === title.id ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-muted'"
+                            @click="selectedTitleForSkip = title.id"
+                        >
+                            {{ title.title || title.display_name }}
+                        </button>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="w-full"
+                        :disabled="submitting || (skipNeedsTitle && !selectedTitleForSkip)"
+                        @click="skipMyCrew"
+                    >
+                        {{ skipNeedsTitle && !selectedTitleForSkip ? "Pick your master's title to skip" : 'Skip crew, track points only' }}
+                    </Button>
+                </div>
             </template>
             <template v-else-if="!isSolo || opponentCrewStepDone">
                 <div class="py-4 text-center text-sm text-muted-foreground">

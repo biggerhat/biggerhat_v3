@@ -58,6 +58,12 @@ The real logic lives in services, not the controllers:
 `StateMachineTest`, `RoundLifecycleTest`, `RsvpTest`, `DropPlayerTest`,
 `ScenarioPropagationTest`, `PublicViewPageTest`.
 
+## Resetting a round ("Oh crap" button)
+`TournamentRoundController@reset` (`tournaments.rounds.reset`, POST) sends an **in-progress** round back to `setup`: every game's result, scores, forfeit and self-report are cleared, linked tracker `Game`s are
+destroyed (`TournamentTrackerGameFactory::destroyForRound`), `started_at` / `completed_at` are nulled. Pairings, tables and the scenario are kept so the organizer can fix them and start again. Guarded by
+`TournamentStateMachine::canResetRound` (in-progress only; refused once the tournament is completed) and re-checked under a row lock. Completed rounds are deliberately not resettable (their results feed the next
+round's pairings). Broadcasts `round_reset`. UI: the round card's options menu on the Rounds tab. Tests: `RoundLifecycleTest`; browser flow `scripts/ui-audit/tournaments/flows26.cjs` (phone width).
+
 ## Rulesets (game-agnostic tournaments)
 Tournaments run under a **ruleset** (`tournaments.ruleset`, config in `config/tournaments.php`, plan in
 [docs/plans/tournament-rulesets.md](../plans/tournament-rulesets.md)). A ruleset is data: scoring parameters
@@ -182,6 +188,14 @@ It is a closure prop `tournament_history` on `StatsController::show` (the public
 `TournamentController@index` filters the public list server-side from the URL (`q` over name and location, `ruleset`, `when=upcoming|past`; unknown values are ignored), orders upcoming soonest first and
 paginates 20 at a time (`public_pagination`, `filters`, `ruleset_options` props); drafts stay private. The Index page keeps the filters in the URL and debounces typing. `TournamentCalendarController`
 (`tournaments.calendar`, `/tournaments/{t}/event.ics`) serves a one-event all-day iCalendar file (RFC 5545 escaping and 75-octet folding) behind the "Add to calendar" button on unfinished events.
+
+## Status vocabulary and layout conventions
+`composables/useTournamentStatus.ts` is the one source for status copy and colour: `roundStatus(round)` and `gameStatus(game, round)` return `{ label, tone }` (tones: success / warning / info / danger / muted)
+and `badgeTone()` / `chipTone()` turn a tone into classes (filled badge vs. outlined chip). Don't hand-roll `bg-green-100 dark:bg-green-900` ternaries. On the Rounds tab a round card has a title row (name, status,
+clock, options menu holding Delete / Reset) and an action row (Scenario on the left, the single next action on the right: Auto pair, then Start round, then End round). A game row has one visible action
+(Enter / Edit score) plus an overflow menu (forfeit while playing, remove while setting up). The Manage header keeps Announce and Display as buttons, Share (copy link, QR) in a menu, and the status transition as the only
+filled button. The public View page orders: results, awards, announcement, description, **the viewer's own state** (RSVP / match card / crew picker), live games, then event info (details collapse once the event is running)
+and the tabs. Plan and status: [docs/plans/tournament-ui-polish.md](../plans/tournament-ui-polish.md).
 
 ## Manage page structure
 `pages/Tournaments/Manage.vue` (~880 lines) is the shell: header, next-step card, announcement dialog, the standings / RSVP / settings tabs, and the score and

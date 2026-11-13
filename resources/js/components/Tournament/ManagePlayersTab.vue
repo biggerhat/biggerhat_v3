@@ -741,7 +741,11 @@ defineExpose({ openRsvpPlayerDialog });
                 :class="[
                     factionSpine(player.faction),
                     'border bg-card',
-                    player.is_disqualified ? 'line-through opacity-40' : player.dropped_after_round !== null ? 'opacity-60' : '',
+                    player.is_disqualified
+                        ? 'text-muted-foreground line-through'
+                        : player.dropped_after_round !== null
+                          ? 'bg-muted/40 text-muted-foreground'
+                          : '',
                 ]"
                 class="flex items-start justify-between gap-2 rounded-lg px-2 py-2 sm:px-3"
             >
@@ -754,7 +758,7 @@ defineExpose({ openRsvpPlayerDialog });
                         />
                         <AllegianceLogo v-else-if="player.allegiance" :allegiance="player.allegiance.slug" class-name="size-4 shrink-0" />
                         <span class="truncate text-xs font-medium sm:text-sm">{{ player.display_name }}</span>
-                        <span v-if="player.allegiance" class="shrink-0 text-2xs opacity-70">{{ player.allegiance.name }}</span>
+                        <span v-if="player.allegiance" class="shrink-0 text-2xs text-muted-foreground">{{ player.allegiance.name }}</span>
                         <a
                             v-if="player.garrison?.share_code"
                             :href="route('tos.garrisons.shared', player.garrison.share_code)"

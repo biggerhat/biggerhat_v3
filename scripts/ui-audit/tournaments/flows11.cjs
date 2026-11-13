@@ -50,7 +50,7 @@ const L = require('./lib.cjs');
             await org.page.type('input[type=number]', String(3 + i));
             await org.page.keyboard.press('Enter');
             await org.page.waitForSelector('[role=dialog]', { hidden: true, timeout: 9000 });
-            await L.expectText(org, i === 0 ? /1 of 2 games still need a result/i : /all scores are in/i);
+            await L.expectText(org, i === 0 ? /1 of 2 games scored/i : /all scores are in/i);
         }
         await L.clickText(org, /^End Round 1$/i, 'button');
         await L.expectText(org, /Round 1 is complete|All rounds|Add Round 2/i);

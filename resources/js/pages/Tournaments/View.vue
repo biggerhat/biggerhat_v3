@@ -492,9 +492,6 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :pdf-url="route('tournaments.results_pdf', tournament.uuid)"
                 :page-url="route('tournaments.view', tournament.uuid)"
             />
-            <p v-if="series" class="mb-3 text-xs text-muted-foreground" data-no-print data-testid="series-link">
-                Part of the league <Link :href="route('tournaments.series.show', series.uuid)" class="font-medium underline">{{ series.name }}</Link>
-            </p>
             <AwardsCard :awards="awards ?? []" />
             <AnnouncementBanner
                 v-if="tournament.announcement"
@@ -504,43 +501,6 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 data-no-print
             />
             <p v-if="tournament.description" class="mb-4 text-sm text-muted-foreground">{{ tournament.description }}</p>
-            <Card v-if="tournament.details" class="mb-4" data-testid="event-details">
-                <CardContent class="p-4 sm:p-5">
-                    <BlogContent :content="tournament.details" class="text-sm [&_.prose]:max-w-none" />
-                </CardContent>
-            </Card>
-            <details v-if="describedTables.length" class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-testid="tables-terrain">
-                <summary class="cursor-pointer text-sm font-medium">
-                    Tables &amp; terrain
-                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ describedTables.length }} described</span>
-                </summary>
-                <div class="mt-3 grid gap-4 pb-1 sm:grid-cols-2">
-                    <TableTerrain v-for="t in describedTables" :key="t.number" :detail="t" />
-                </div>
-            </details>
-            <div v-if="can_score && tournament.status === 'active'" class="mb-4" data-no-print>
-                <Button as-child size="sm" class="h-8 gap-1.5">
-                    <Link :href="route('tournaments.score', tournament.uuid)"><ClipboardCheck class="size-3.5" /> Scoring desk</Link>
-                </Button>
-            </div>
-            <div v-if="tournament.status !== 'completed'" class="mb-4" data-no-print>
-                <Button as-child variant="outline" size="sm" class="h-8 gap-1.5">
-                    <a :href="route('tournaments.calendar', tournament.uuid)" download><CalendarPlus class="size-3.5" /> Add to calendar</a>
-                </Button>
-            </div>
-            <details class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-no-print>
-                <summary class="cursor-pointer text-sm font-medium">
-                    Format &amp; rules
-                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ ruleset.label }}</span>
-                    <span v-if="ruleset.scoring_customized || Object.keys(ruleset.active_variants).length" class="ml-1 text-xs text-primary">
-                        · {{ ruleset.scoring_customized ? 'modified scoring' : ''
-                        }}{{ ruleset.scoring_customized && Object.keys(ruleset.active_variants).length ? ', ' : ''
-                        }}{{ Object.keys(ruleset.active_variants).length ? Object.keys(ruleset.active_variants).length + ' variant(s)' : '' }}
-                    </span>
-                </summary>
-                <ScoringSummary :ruleset="ruleset" class="mt-3" />
-            </details>
-
             <!-- RSVP Banner (Draft and Registration phases) -->
             <Card v-if="canRsvp" class="mb-6 border-blue-500/30 bg-blue-500/5">
                 <CardContent class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -704,7 +664,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 </Button>
             </div>
 
-            <!-- Main Tabs -->
+            <!-- Live games -->
             <section v-if="liveGames.length" class="mb-4 rounded-lg border bg-muted/20 p-3" aria-label="Games in progress" data-no-print>
                 <h2 class="mb-2 flex items-center gap-2 text-sm font-semibold">
                     <span class="size-2 animate-pulse rounded-full bg-amber-500" aria-hidden="true" /> Live now
@@ -725,6 +685,52 @@ const openCard = (title: string, image?: string | null, description?: string | n
                     </li>
                 </ul>
             </section>
+
+            <p v-if="series" class="mb-3 text-xs text-muted-foreground" data-no-print data-testid="series-link">
+                Part of the league <Link :href="route('tournaments.series.show', series.uuid)" class="font-medium underline">{{ series.name }}</Link>
+            </p>
+            <details
+                v-if="tournament.details"
+                class="mb-4 rounded-lg border bg-card px-3 py-2"
+                :open="tournament.status === 'draft' || tournament.status === 'registration'"
+                data-testid="event-details"
+            >
+                <summary class="cursor-pointer text-sm font-medium">Event details</summary>
+                <BlogContent :content="tournament.details" class="mt-3 pb-2 text-sm [&_.prose]:max-w-none" />
+            </details>
+            <details v-if="describedTables.length" class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-testid="tables-terrain">
+                <summary class="cursor-pointer text-sm font-medium">
+                    Tables &amp; terrain
+                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ describedTables.length }} described</span>
+                </summary>
+                <div class="mt-3 grid gap-4 pb-1 sm:grid-cols-2">
+                    <TableTerrain v-for="t in describedTables" :key="t.number" :detail="t" />
+                </div>
+            </details>
+            <div
+                v-if="(can_score && tournament.status === 'active') || tournament.status !== 'completed'"
+                class="mb-4 flex flex-wrap gap-2"
+                data-no-print
+            >
+                <Button v-if="can_score && tournament.status === 'active'" as-child size="sm" class="gap-1.5">
+                    <Link :href="route('tournaments.score', tournament.uuid)"><ClipboardCheck class="size-3.5" /> Scoring desk</Link>
+                </Button>
+                <Button v-if="tournament.status !== 'completed'" as-child variant="outline" size="sm" class="gap-1.5">
+                    <a :href="route('tournaments.calendar', tournament.uuid)" download><CalendarPlus class="size-3.5" /> Add to calendar</a>
+                </Button>
+            </div>
+            <details class="mb-4 rounded-lg border bg-muted/20 px-3 py-2" data-no-print>
+                <summary class="cursor-pointer text-sm font-medium">
+                    Format &amp; rules
+                    <span class="ml-1 text-xs font-normal text-muted-foreground">{{ ruleset.label }}</span>
+                    <span v-if="ruleset.scoring_customized || Object.keys(ruleset.active_variants).length" class="ml-1 text-xs text-primary">
+                        · {{ ruleset.scoring_customized ? 'modified scoring' : ''
+                        }}{{ ruleset.scoring_customized && Object.keys(ruleset.active_variants).length ? ', ' : ''
+                        }}{{ Object.keys(ruleset.active_variants).length ? Object.keys(ruleset.active_variants).length + ' variant(s)' : '' }}
+                    </span>
+                </summary>
+                <ScoringSummary :ruleset="ruleset" class="mt-3" />
+            </details>
 
             <Tabs v-model="activeTab">
                 <!-- Horizontal scroll on mobile instead of wrapping — keeps a single tidy row

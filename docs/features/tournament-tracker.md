@@ -100,6 +100,8 @@ whoever was on the waitlist before and is not now gets a `TournamentWaitlistProm
 rounds where the free tables allow it (most constrained pairing first; when no clean table is left the lowest free one is used). Table names and terrain sets are not modelled.
 The `TournamentRoundPaired` notification already carries the table number.
 
+**Time warnings** (`tournaments:round-time-warnings`, scheduled every minute in `routes/console.php`): when a round in progress reaches the ruleset's last-turn window (`timeRules.last_turn_minutes`, default 15, before `round_time_limit` runs out), players whose game has no result yet get a `TournamentRoundTimeWarning` notification. `tournament_rounds.last_turn_notified_at` is claimed under a row lock so it goes out once per run of the round; resetting the round clears it. A round already past its limit is not warned. **Deploy: run the migration; the scheduler must be running.**
+
 ## Event details and table terrain
 **Details** — `tournaments.details` is a TipTap JSON document (the long version: venue, schedule, house rules, prizes) next to the one-line `description`. The organizer edits it on the Manage page's
 **Details** tab with the blog's `TipTapEditor` (`:entities="false"`: no entity link/embed buttons) and saves through `TournamentDetailsController@update` (`tournaments.details`). Organizers are ordinary users,

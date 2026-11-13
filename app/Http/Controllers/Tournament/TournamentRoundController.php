@@ -260,6 +260,7 @@ class TournamentRoundController extends Controller
                 'status' => TournamentRoundStatusEnum::Setup,
                 'started_at' => null,
                 'completed_at' => null,
+                'last_turn_notified_at' => null,
             ]);
 
             return null;

@@ -8,3 +8,5 @@ Schedule::command('activitylog:clean')->daily();
 // Discord bot monitoring: alert on missed heartbeats, keep the table bounded.
 Schedule::command('bot:check-heartbeat')->everyMinute();
 Schedule::command('model:prune', ['--model' => [BotHeartbeat::class]])->daily();
+// Players with an unfinished game hear when their round enters its last-turn window.
+Schedule::command('tournaments:round-time-warnings')->everyMinute();

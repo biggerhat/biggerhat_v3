@@ -401,6 +401,7 @@ function startedRound(object $test): TournamentRound
 
 it('resets an in-progress round to setup, keeping pairings and clearing scores and tracker games', function () {
     $round = startedRound($this);
+    $round->update(['last_turn_notified_at' => now()]);
     $game = $round->games()->first();
     $game->update(['player_one_vp' => 5, 'player_two_vp' => 3, 'result' => 'completed']);
     $pairings = $round->games()->count();
@@ -410,6 +411,7 @@ it('resets an in-progress round to setup, keeping pairings and clearing scores a
         ->assertOk();
 
     $round->refresh();
+    expect($round->last_turn_notified_at)->toBeNull();
     expect($round->status)->toBe(TournamentRoundStatusEnum::Setup)
         ->and($round->started_at)->toBeNull()
         ->and($round->games()->count())->toBe($pairings)

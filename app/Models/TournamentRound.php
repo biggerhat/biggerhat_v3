@@ -30,6 +30,7 @@ class TournamentRound extends Model
             'scenario' => 'array',
             'is_cut' => 'boolean',
             'started_at' => 'datetime',
+            'last_turn_notified_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
     }

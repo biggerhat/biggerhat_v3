@@ -173,3 +173,5 @@ Harness: `run.sh` now uses `CACHE_STORE=database` so rate-limit buckets live in 
 F13 (leagues) is built on the same branch: series with a points table, participation points and a best-N rule, a public leaderboard and list, the League card on Manage Settings, and a link on the event page. Browser flow 25 covers
 creating a league, adding a finished event and the leaderboard; the axe flow scans the league pages too (69 scans). Not done: team leagues, an approval step for adding other people's events, per-event point multipliers,
 and a "season" date window. **Deploy: run the new migration.** That closes the audit's feature list.
+
+F16 (clock warnings) is built on `tournament-reset-and-ui-polish`: a scheduled command notifies players with an unfinished game when the round enters the ruleset's last-turn window, once per round run (reset clears it). Pest-covered; not browser-tested (the harness has no scheduler). **Deploy: run the new migration.**

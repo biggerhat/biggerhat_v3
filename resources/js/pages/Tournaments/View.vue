@@ -789,7 +789,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <span v-if="round.deployment" class="flex items-center gap-1">
                                         <span class="text-muted-foreground">Deploy:</span>
                                         <button
-                                            class="font-medium hover:text-primary"
+                                            type="button"
+                                            class="font-medium underline decoration-dotted underline-offset-2 hover:text-primary"
                                             @click="openCard(round.deployment.label, round.deployment.image_url, round.deployment.description)"
                                         >
                                             {{ round.deployment.label }}
@@ -798,7 +799,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <span v-if="round.tos_scenario?.operation" class="flex items-center gap-1">
                                         <span class="text-muted-foreground">Operation:</span>
                                         <button
-                                            class="font-medium hover:text-primary"
+                                            type="button"
+                                            class="font-medium underline decoration-dotted underline-offset-2 hover:text-primary"
                                             @click="
                                                 openCard(
                                                     round.tos_scenario.operation.name,
@@ -813,7 +815,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <span v-if="round.tos_scenario?.deployment" class="flex items-center gap-1">
                                         <span class="text-muted-foreground">Deploy:</span>
                                         <button
-                                            class="font-medium hover:text-primary"
+                                            type="button"
+                                            class="font-medium underline decoration-dotted underline-offset-2 hover:text-primary"
                                             @click="
                                                 openCard(
                                                     round.tos_scenario.deployment.name,
@@ -828,7 +831,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                     <span v-if="round.strategy" class="flex items-center gap-1">
                                         <span class="text-muted-foreground">Strategy:</span>
                                         <button
-                                            class="font-medium hover:text-primary"
+                                            type="button"
+                                            class="font-medium underline decoration-dotted underline-offset-2 hover:text-primary"
                                             @click="openCard(round.strategy.name, round.strategy.image_url)"
                                         >
                                             {{ round.strategy.name }}
@@ -839,7 +843,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                                         <span v-for="(scheme, idx) in round.schemes" :key="scheme.id">
                                             <span v-if="idx > 0" class="text-muted-foreground">, </span>
                                             <button
-                                                class="font-medium hover:text-primary"
+                                                type="button"
+                                                class="font-medium underline decoration-dotted underline-offset-2 hover:text-primary"
                                                 @click="
                                                     openCard(
                                                         scheme.name,

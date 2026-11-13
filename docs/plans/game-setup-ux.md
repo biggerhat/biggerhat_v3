@@ -90,3 +90,27 @@ Code-rule note: "Back to Games" is a `Button` calling `router.get`; CLAUDE.md sa
 - The scheme step beyond reading it, Campaign / Bonanza / TOS setup variants, and the solo flow (solo skips the invite and picks both
   sides, which has its own two-step opponent panels).
 - Axe results for the setup screens.
+
+## Play screen review (first pass, 2026-11-13)
+
+Driven with a seeded solo game in progress (`play_game` in the harness seed: 6 and 5 models) at 390x844. Nothing here is implemented except the first item.
+
+**Done:** a player who skipped their crew now opens on the Game tab (VP, scheme, end of turn) instead of an empty My Crew tab (`gameplayTab` default in `Games/Show.vue`).
+
+**The Game tab is in good shape**: turn, both VP totals, deployment, your hidden scheme with notes, the end-of-turn VP steppers and the scheme choice all fit on one scroll.
+
+**The crew tab is where it feels slower than paper.** Each model is ~105px tall, so a six-model crew already fills the screen and an eight-model one scrolls:
+
+1. **Row height.** Name, health pips, three icon buttons and the -/+ stepper stack in three lines. Putting the stepper on the name line and dropping the pips (the number
+   `6/6` already says it) or the number (tappable pips already set health) would roughly halve the row.
+2. **Duplicate health controls.** Pips (tap to set), a -/+ stepper and a numeric label all edit or show the same value.
+3. **Tap targets.** The health pips are 14px squares and the activation circle is ~28px, both used constantly mid-game. The pips can keep their look and gain a bigger hit area.
+4. **Three unlabelled icon buttons on every row** (upgrades, tokens, replace) repeat 6-10 times. One "more" button per row (or showing the token button only
+   when the model has tokens) would remove most of the noise; the labels live only in `title`/`sr-only`, so a first-time player has to guess.
+5. **Activated models only dim** (`opacity: 0.7`), which is also the repo's "no opacity on text" rule. Moving activated models to the bottom of the list, or collapsing them
+   to one line, would make "who is left to activate" readable at a glance (the header already counts `6/6 remaining`).
+6. **Three copies of this markup** (my crew mobile/desktop, opponent column) in the 6k-line page, so each change above is made three times. Extracting a `GameCrewMemberRow`
+   component first (props: member, side, observer; emits for the dialogs) is the safe way to do 1-5 once.
+
+Suggested order: extract the row component (no visual change, covered by a browser flow that damages a model and activates one), then the compact layout and hit areas,
+then the overflow menu and activated-last ordering.

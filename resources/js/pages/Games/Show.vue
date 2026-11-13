@@ -1083,7 +1083,8 @@ onUnmounted(() => {
 // read/write through computed proxies so the active state stays consistent
 // across breakpoint changes (e.g. rotating a tablet to portrait).
 type GameplayTab = 'scenario' | 'my-crew' | 'opponent' | 'crews';
-const gameplayTab = ref<GameplayTab>('my-crew');
+// A player tracking points only has nothing on the crew tab, so open on the Game tab (VP, schemes, end of turn).
+const gameplayTab = ref<GameplayTab>(myPlayer.value?.crew_skipped && !myPlayer.value?.crew_members?.length ? 'scenario' : 'my-crew');
 const scenarioCollapsed = ref(false);
 const schemeHidden = ref(false);
 

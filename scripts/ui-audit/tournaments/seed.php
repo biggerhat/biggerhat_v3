@@ -136,5 +136,15 @@ App\Models\GamePlayer::factory()->create(['game_id' => $crewGame->id, 'user_id' 
 App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $crewGame->id, 'faction' => 'arcanists', 'role' => App\Enums\GameRoleEnum::Defender]);
 $crewBuild = App\Models\CrewBuild::factory()->create(['user_id' => $dave->id, 'name' => 'Dave Tracker Crew', 'faction' => 'guild', 'encounter_size' => 50]);
 
+// --- A solo game already in play with full crews on both sides (play-screen review / flows)
+$playGame = App\Models\Game::factory()->solo()->inProgress()->create(['creator_id' => $carol->id, 'strategy_id' => $strategy->id, 'current_turn' => 2, 'status' => App\Enums\GameStatusEnum::InProgress]);
+$pp1 = App\Models\GamePlayer::factory()->create(['game_id' => $playGame->id, 'user_id' => $carol->id, 'slot' => 1, 'faction' => 'bayou', 'role' => App\Enums\GameRoleEnum::Attacker, 'master_name' => 'Pandora', 'soulstone_pool' => 5]);
+$pp2 = App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $playGame->id, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Defender, 'master_name' => 'Lady Justice', 'soulstone_pool' => 4]);
+foreach ([[$pp1, 'bayou', [['Pandora', 'master', 'leader', 0, 10], ['Silurid', 'minion', 'in-keyword', 6, 6], ['Swampfiend', 'minion', 'in-keyword', 5, 7], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Mad Gremlin', 'minion', 'in-keyword', 8, 9]]], [$pp2, 'guild', [['Lady Justice', 'master', 'leader', 0, 10], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Hound', 'minion', 'in-keyword', 4, 5], ['Judge', 'minion', 'in-keyword', 9, 9]]]] as [$pl, $fac, $rows]) {
+    foreach ($rows as $i => [$nm, $st, $cat, $cost, $hp]) {
+        App\Models\GameCrewMember::factory()->create(['game_id' => $playGame->id, 'game_player_id' => $pl->id, 'character_id' => null, 'display_name' => $nm, 'faction' => $fac, 'station' => $st, 'hiring_category' => $cat, 'cost' => $cost, 'current_health' => $hp, 'max_health' => $hp, 'sort_order' => $i]);
+    }
+}
+
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'crew_build' => $crewBuild->share_code, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'play_game' => $playGame->uuid, 'crew_build' => $crewBuild->share_code, 'g1' => $r1->games()->first()->id]));

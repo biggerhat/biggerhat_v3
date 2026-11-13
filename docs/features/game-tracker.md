@@ -19,6 +19,7 @@ tokens, soulstones, schemes/VP, turns. Solo and 2-player (real-time) modes.
 ## Frontend
 
 - `pages/Games/Show.vue` — **~6,700-line** play screen. Section landmarks: `isBonanza` computed; loot-deck panel (`isBonanza && in_progress`); Summon buttons; `postSetup()` (the reload helper); `loadReferences()`; crew columns. **Grep for the feature, don't read top-to-bottom.**
+- `components/Game/GameCrewMemberRow.vue` — one living crew model on the play screen (activation, health pips + stepper, tokens, inline card, attached upgrades) for **both** sides; `editable` is the only difference. It owns no state: it emits and `Show.vue` acts. Change a crew row here, once. Browser flow `flows30.cjs` covers it (health, pips, activation, tokens dialog, opponent side, reload).
 - `pages/Games/Create.vue`, `Index.vue`, `constants.ts`.
 
 ## Realtime

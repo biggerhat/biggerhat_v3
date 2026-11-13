@@ -112,5 +112,7 @@ Driven with a seeded solo game in progress (`play_game` in the harness seed: 6 a
 6. **Three copies of this markup** (my crew mobile/desktop, opponent column) in the 6k-line page, so each change above is made three times. Extracting a `GameCrewMemberRow`
    component first (props: member, side, observer; emits for the dialogs) is the safe way to do 1-5 once.
 
+**Update:** the row component is extracted (`GameCrewMemberRow.vue`, Show.vue 6,3k -> 5,7k lines; only two copies existed, not three; screenshots before/after are identical, `flows30.cjs` passes on both builds). Items 1-5 are still open.
+
 Suggested order: extract the row component (no visual change, covered by a browser flow that damages a model and activates one), then the compact layout and hit areas,
 then the overflow menu and activated-last ordering.

@@ -4,7 +4,8 @@ const L = require('./lib.cjs');
 (async () => {
     const browser = await L.launch();
     const s = await L.session(browser, null, { width: 390, height: 844 });
-    const cookies = async () => (await s.page.cookies()).map((c) => ({ n: c.name.replace(/remember_web_.*/, 'remember_web'), session: c.session, exp: c.expires }));
+    const cookies = async () =>
+        (await s.page.cookies()).map((c) => ({ n: c.name.replace(/remember_web_.*/, 'remember_web'), session: c.session, exp: c.expires }));
     const loggedIn = async (path) => {
         await L.visit(s, path);
         return !s.page.url().includes('/login');
@@ -28,7 +29,8 @@ const L = require('./lib.cjs');
         if (!r || r.session) throw new Error(`cookies: ${JSON.stringify(c)}`);
     });
     await L.step('remember: staying signed in across page changes and reloads', s, async () => {
-        for (const p of ['/tournaments', '/tools/crew-builder', '/', '/settings/profile']) if (!(await loggedIn(p))) throw new Error(`lost session on ${p}`);
+        for (const p of ['/tournaments', '/tools/crew-builder', '/', '/settings/profile'])
+            if (!(await loggedIn(p))) throw new Error(`lost session on ${p}`);
         await s.page.reload({ waitUntil: 'networkidle2' });
         if (s.page.url().includes('/login')) throw new Error('lost session on reload');
     });

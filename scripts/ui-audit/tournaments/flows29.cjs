@@ -33,6 +33,7 @@ const L = require('./lib.cjs');
         await L.sleep(2200);
         url = a.page.url().replace(/^https?:\/\/[^/]+/, '');
         if (!/^\/games\/[0-9a-f-]{36}$/.test(url)) throw new Error('did not land on the game: ' + url);
+        await L.expectText(a, /assigned at random when they join/i);
     });
     await L.step('join: opening the game address as a non-player lands on the join flow, not a 403', b, async () => {
         await L.visit(b, url);
@@ -58,6 +59,8 @@ const L = require('./lib.cjs');
         await L.clickText(a, /^Arcanists$/i, 'button');
         await L.clickText(a, /^Confirm$/i, 'button');
         await L.sleep(1200);
+        const remembered = await a.page.evaluate(() => localStorage.getItem('game-last-faction'));
+        if (remembered !== 'arcanists') throw new Error('the confirmed faction should be remembered, got ' + remembered);
     });
     for (const [o, name] of [
         [a, 'host'],

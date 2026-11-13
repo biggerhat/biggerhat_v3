@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { Check, Loader2 } from 'lucide-vue-next';
+import { onMounted } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     factions: Record<string, { name: string; slug: string; color: string; logo: string }>;
     isSolo: boolean;
     submitting: boolean;
@@ -22,12 +23,32 @@ defineProps<{
 const selectedFaction = defineModel<string | null>('selectedFaction', { required: true });
 const selectedOpponentFaction = defineModel<string | null>('selectedOpponentFaction', { required: true });
 
-defineEmits<{
+const LAST_FACTION_KEY = 'game-last-faction';
+const emit = defineEmits<{
     /** Submit the local player's faction (parent owns the POST + reload). */
     'confirm-faction': [];
     /** Submit the opponent's faction in solo setup. */
     'confirm-opponent-faction': [];
 }>();
+
+// Returning players usually play the same faction: pre-select it (one tap on Confirm, or Clear to change). Per-device convenience only.
+onMounted(() => {
+    if (props.factionStepDone || selectedFaction.value) return;
+    try {
+        const last = localStorage.getItem(LAST_FACTION_KEY);
+        if (last && props.factions[last]) selectedFaction.value = last;
+    } catch {
+        // Storage unavailable: no pre-selection.
+    }
+});
+const confirmFaction = () => {
+    try {
+        if (selectedFaction.value) localStorage.setItem(LAST_FACTION_KEY, selectedFaction.value);
+    } catch {
+        // Not worth failing the confirm over.
+    }
+    emit('confirm-faction');
+};
 </script>
 
 <template>
@@ -63,7 +84,7 @@ defineEmits<{
                                     <div class="truncate text-sm font-medium">{{ factions[selectedFaction]?.name ?? selectedFaction }}</div>
                                 </div>
                                 <Button variant="ghost" size="sm" class="h-9" @click="selectedFaction = null">Clear</Button>
-                                <Button class="h-9" :disabled="submitting" @click="$emit('confirm-faction')">
+                                <Button class="h-9" :disabled="submitting" @click="confirmFaction">
                                     <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                     Confirm
                                 </Button>
@@ -152,7 +173,7 @@ defineEmits<{
                                     <div class="truncate text-sm font-medium">{{ factions[selectedFaction]?.name ?? selectedFaction }}</div>
                                 </div>
                                 <Button variant="ghost" size="sm" class="h-9" @click="selectedFaction = null">Clear</Button>
-                                <Button class="h-9" :disabled="submitting" @click="$emit('confirm-faction')">
+                                <Button class="h-9" :disabled="submitting" @click="confirmFaction">
                                     <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
                                     Confirm
                                 </Button>

@@ -5,6 +5,7 @@ import CharacterCardView from '@/components/CharacterCardView.vue';
 import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { factionDeep } from '@/composables/useFactionColor';
 import { computed } from 'vue';
 import {
@@ -17,6 +18,7 @@ import {
     Heart,
     HeartCrack,
     Minus,
+    MoreHorizontal,
     Plus,
     Puzzle,
     Replace,
@@ -199,35 +201,32 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <component :is="stat.icon" class="mr-0.5 inline size-4" />{{ stat.value }}
                     </span>
                 </div>
-                <div v-if="editable" class="ml-auto flex shrink-0 gap-1 sm:hidden">
+                <div v-if="editable" class="ml-auto flex shrink-0 items-center gap-1 sm:hidden">
+                    <!-- Tokens are used constantly, so they stay one tap away and labelled; the rarer actions share one menu. -->
                     <button
-                        class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                        title="Upgrades"
-                        @click.stop="$emit('open-upgrades')"
-                    >
-                        <ArrowUpCircle class="size-3.5" /><span class="sr-only">Upgrades</span>
-                    </button>
-                    <button
-                        v-if="isCampaign"
-                        class="flex items-center gap-1 rounded bg-black/30 p-1.5 text-rose-200 active:bg-black/50"
-                        @click.stop="$emit('open-injury')"
-                    >
-                        <HeartCrack class="size-3.5" /><span class="sr-only">Injury</span>
-                    </button>
-                    <button
-                        class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                        class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-xs font-medium text-neutral-50 active:bg-black/70"
                         title="Tokens"
                         @click.stop="$emit('open-tokens')"
                     >
-                        <Puzzle class="size-3.5" /><span class="sr-only">Tokens</span>
+                        <Puzzle class="size-3.5" /> Tokens
                     </button>
-                    <button
-                        class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                        title="Replace"
-                        @click.stop="$emit('replace')"
-                    >
-                        <Replace class="size-3.5" /><span class="sr-only">Replace</span>
-                    </button>
+                    <DropdownMenu :modal="false">
+                        <DropdownMenuTrigger as-child>
+                            <button
+                                class="flex items-center rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
+                                :aria-label="`More actions for ${member.display_name}`"
+                            >
+                                <MoreHorizontal class="size-4" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem @select="$emit('open-upgrades')"> <ArrowUpCircle class="mr-2 size-4" /> Upgrades </DropdownMenuItem>
+                            <DropdownMenuItem v-if="isCampaign" @select="$emit('open-injury')">
+                                <HeartCrack class="mr-2 size-4" /> Attach injury
+                            </DropdownMenuItem>
+                            <DropdownMenuItem @select="$emit('replace')"> <Replace class="mr-2 size-4" /> Replace model </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
             <!-- Line 3 (from `sm`): stats + pips + health controls on one row. Phones show these on lines 1-2 above. -->

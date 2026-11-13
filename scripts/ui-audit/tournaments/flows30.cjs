@@ -87,6 +87,13 @@ const L = require('./lib.cjs');
             throw new Error(`activated models should be last, order was ${names.join(', ')}`);
         if (names[0] === 'Pandora') throw new Error('Pandora should no longer be first');
     });
+    await L.step('crew: the more menu holds the rarer actions, with visible labels', c, async () => {
+        await act('Silurid', 'label', 'More actions for Silurid');
+        await L.expectText(c, /Upgrades/);
+        await L.expectText(c, /Replace model/);
+        await L.shot(c, '304-more-menu');
+        await c.page.keyboard.press('Escape');
+    });
     await L.step('crew: the tokens button opens the token dialog for that model', c, async () => {
         await act('Pandora', 'title', 'Tokens');
         await c.page.waitForSelector('[role=dialog]', { timeout: 6000 });

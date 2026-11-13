@@ -1,7 +1,7 @@
 # Game Tracker pre-game setup: UX review
 
 Status: **findings 1-8 implemented 2026-11-13 except where noted** (browser flow `flows29.cjs`, 12 steps, phone width; Pest for the skip endpoint and the join redirect).
-Not done from finding 8: "last played" faction hint, the scheme step's two-tap flow and small selects, and explaining roles in the lobby. The create page now remembers
+Finding 8 is finished too: the confirmed faction is remembered per device and pre-selected next time (one tap to confirm, Clear to change), the scheme setup form scrolls into view and its selects are phone-sized (the two-tap Select + Confirm stays on purpose: a scheme is hidden information), and the lobby says roles are assigned at random. The create page now remembers
 format / size / season / solo per device (localStorage). Original review notes follow (2026-11-13). Method: drove the real flow in the UI-audit harness at 390x844 as two players
 (create -> invite -> join -> faction -> master -> crew), full-page screenshots at each step, plus a read of `Games/Create.vue`,
 `GameSetupLobby.vue` and the Faction / Master / Crew / Scheme panels. The scheme step was read but not driven (the seed has no crew
@@ -112,7 +112,7 @@ Driven with a seeded solo game in progress (`play_game` in the harness seed: 6 a
 6. **Three copies of this markup** (my crew mobile/desktop, opponent column) in the 6k-line page, so each change above is made three times. Extracting a `GameCrewMemberRow`
    component first (props: member, side, observer; emits for the dialogs) is the safe way to do 1-5 once.
 
-**Update:** the row component is extracted (`GameCrewMemberRow.vue`, Show.vue 6,3k -> 5,7k lines; only two copies existed, not three; screenshots before/after are identical, `flows30.cjs` passes on both builds). Then items 1 (compact row: stepper on the name line, stats merged into the pips row, ~80px instead of ~105px), 3 (bigger hit areas on pips and the activation circle) and 5 (activated models sort last, `activatedLast` in `Show.vue`) were done; 2 (drop one of the duplicate health controls) and 4 (one overflow menu instead of three icon buttons) are left for a product decision.
+**Update:** the row component is extracted (`GameCrewMemberRow.vue`, Show.vue 6,3k -> 5,7k lines; only two copies existed, not three; screenshots before/after are identical, `flows30.cjs` passes on both builds). Then items 1 (compact row: stepper on the name line, stats merged into the pips row, ~80px instead of ~105px), 3 (bigger hit areas on pips and the activation circle) and 5 (activated models sort last, `activatedLast` in `Show.vue`) were done; 4 followed: on phones Tokens is a labelled button and Upgrades / Attach injury / Replace model share a "more" menu. Item 2 stays as is on purpose (pips set health fastest, the stepper is the safe path, the number is the label between the buttons).
 
 Suggested order: extract the row component (no visual change, covered by a browser flow that damages a model and activates one), then the compact layout and hit areas,
 then the overflow menu and activated-last ordering.

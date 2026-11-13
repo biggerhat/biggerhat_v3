@@ -16,7 +16,7 @@ import { factionDeep } from '@/composables/useFactionColor';
 import { categoryColor, categoryLabel } from '@/lib/gameDisplay';
 import type { CrewMember, GameData, GamePlayer, SchemeData } from '@/types/game';
 import { Check, Loader2 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 interface CrewCardEffect {
     name: string;
@@ -104,8 +104,11 @@ const pendingModelOptions = computed(() => {
         return true;
     });
 });
+// The setup form opens below the whole scheme list, which can be off-screen on a phone: bring it into view after choosing.
+const pendingSetupEl = ref<HTMLElement | null>(null);
 const selectPendingScheme = (schemeId: number) => {
     pendingSchemeId.value = schemeId;
+    nextTick(() => pendingSetupEl.value?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
     pendingSchemeModel.value = '';
     pendingSchemeMarker.value = '';
     pendingSchemeTerrainNote.value = '';
@@ -172,7 +175,7 @@ const confirmPendingScheme = () => {
                 </div>
 
                 <!-- Requirement fields + confirm (shown when a scheme is selected) -->
-                <div v-if="pendingScheme" class="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div v-if="pendingScheme" ref="pendingSetupEl" class="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
                     <div class="mb-2 text-sm font-medium">{{ pendingScheme.name }} — Setup</div>
 
                     <!-- Prerequisite hint -->
@@ -189,7 +192,7 @@ const confirmPendingScheme = () => {
                                 :model-value="pendingSchemeModel || '__none__'"
                                 @update:model-value="(v) => (pendingSchemeModel = v === '__none__' ? '' : (v as string))"
                             >
-                                <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                <SelectTrigger class="mt-0.5 h-10 text-sm sm:h-8 sm:text-xs">
                                     <SelectValue placeholder="Select..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -199,7 +202,13 @@ const confirmPendingScheme = () => {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Input v-else v-model="pendingSchemeModel" type="text" placeholder="Type model name..." class="mt-0.5 h-8 text-xs" />
+                            <Input
+                                v-else
+                                v-model="pendingSchemeModel"
+                                type="text"
+                                placeholder="Type model name..."
+                                class="mt-0.5 h-10 text-sm sm:h-8 sm:text-xs"
+                            />
                         </div>
 
                         <!-- Marker selection -->
@@ -209,7 +218,7 @@ const confirmPendingScheme = () => {
                                 :model-value="pendingSchemeMarker || '__none__'"
                                 @update:model-value="(v) => (pendingSchemeMarker = v === '__none__' ? '' : (v as string))"
                             >
-                                <SelectTrigger class="mt-0.5 h-8 text-xs">
+                                <SelectTrigger class="mt-0.5 h-10 text-sm sm:h-8 sm:text-xs">
                                     <SelectValue placeholder="Select..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -226,7 +235,7 @@ const confirmPendingScheme = () => {
                                 v-model="pendingSchemeTerrainNote"
                                 type="text"
                                 placeholder="e.g. the building on the left..."
-                                class="mt-0.5 h-8 text-xs"
+                                class="mt-0.5 h-10 text-sm sm:h-8 sm:text-xs"
                             />
                         </div>
                     </div>

@@ -175,3 +175,5 @@ creating a league, adding a finished event and the leaderboard; the axe flow sca
 and a "season" date window. **Deploy: run the new migration.** That closes the audit's feature list.
 
 F16 (clock warnings) is built on `tournament-reset-and-ui-polish`: a scheduled command notifies players with an unfinished game when the round enters the ruleset's last-turn window, once per round run (reset clears it). Pest-covered; not browser-tested (the harness has no scheduler). **Deploy: run the new migration.**
+
+U4's "next game" keyboard flow is built (Save & next game in the score dialog, first score box focused on open; browser flow 27). The seed now has a running event with a live tracker game and a solo game at crew select, so browser flow 28 covers the "Live now" strip and the crew-builder return button, both previously untested in a browser.

@@ -64,6 +64,8 @@ destroyed (`TournamentTrackerGameFactory::destroyForRound`), `started_at` / `com
 `TournamentStateMachine::canResetRound` (in-progress only; refused once the tournament is completed) and re-checked under a row lock. Completed rounds are deliberately not resettable (their results feed the next
 round's pairings). Broadcasts `round_reset`. UI: the round card's options menu on the Rounds tab. Tests: `RoundLifecycleTest`; browser flow `scripts/ui-audit/tournaments/flows26.cjs` (phone width).
 
+**Score entry flow** (`ScoreEntryDialog.vue`): opening a game focuses the first score box, Enter saves, and **Save & next game** keeps the dialog open on the next unscored pairing in the same round (the `open-game` event tells the page which game is showing; the button is hidden when none is left). Browser flow `flows27.cjs`. `flows28.cjs` covers the public "Live now" strip and Game Tracker → Crew Builder → back with the crew attached (seed events T11 and the `crew_game`).
+
 ## Rulesets (game-agnostic tournaments)
 Tournaments run under a **ruleset** (`tournaments.ruleset`, config in `config/tournaments.php`, plan in
 [docs/plans/tournament-rulesets.md](../plans/tournament-rulesets.md)). A ruleset is data: scoring parameters

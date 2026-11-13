@@ -117,5 +117,24 @@ foreach ($semis->games()->get() as $i => $g) {
     $g->update(['player_one_vp' => $i === 0 ? 3 : 9, 'player_two_vp' => $i === 0 ? 8 : 2, 'result' => 'completed']);
 }
 
+
+// --- T11: a running event with one tracker game being played right now (the "Live now" strip) and one pairing without a tracker yet
+$t11 = Tournament::factory()->active()->create(['name' => 'Live Cup', 'creator_id' => $dave->id, 'planned_rounds' => 2]);
+$t11->organizers()->attach($org->id);
+$lp = [];
+foreach ([[$alice, 'arcanists'], [$bob, 'guild'], [$carol, 'bayou'], [$dave, 'neverborn']] as [$u, $f]) {
+    $lp[$u->name] = TournamentPlayer::factory()->for($t11)->create(['display_name' => $u->name, 'user_id' => $u->id, 'faction' => $f]);
+}
+$r11 = TournamentRound::factory()->for($t11)->inProgress()->create(['round_number' => 1, 'strategy_id' => $strategy->id, 'deployment' => \App\Enums\DeploymentEnum::cases()[0], 'scheme_pool' => $schemes, 'started_at' => now()->subMinutes(10)]);
+$liveTracker = App\Models\Game::factory()->inProgress()->create(['creator_id' => $alice->id, 'strategy_id' => $strategy->id, 'current_turn' => 2, 'is_observable' => true]);
+TournamentGame::factory()->for($r11, 'round')->create(['player_one_id' => $lp['Alice']->id, 'player_two_id' => $lp['Bob']->id, 'table_number' => 1, 'game_id' => $liveTracker->id]);
+TournamentGame::factory()->for($r11, 'round')->create(['player_one_id' => $lp['Carol']->id, 'player_two_id' => $lp['Dave']->id, 'table_number' => 2]);
+
+// --- A standalone solo game waiting at crew select for Dave (Game Tracker -> Crew Builder -> back, with the crew attached)
+$crewGame = App\Models\Game::factory()->solo()->create(['creator_id' => $dave->id, 'status' => App\Enums\GameStatusEnum::CrewSelect, 'strategy_id' => $strategy->id]);
+App\Models\GamePlayer::factory()->create(['game_id' => $crewGame->id, 'user_id' => $dave->id, 'slot' => 1, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Attacker]);
+App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $crewGame->id, 'faction' => 'arcanists', 'role' => App\Enums\GameRoleEnum::Defender]);
+$crewBuild = App\Models\CrewBuild::factory()->create(['user_id' => $dave->id, 'name' => 'Dave Tracker Crew', 'faction' => 'guild', 'encounter_size' => 50]);
+
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'crew_build' => $crewBuild->share_code, 'g1' => $r1->games()->first()->id]));

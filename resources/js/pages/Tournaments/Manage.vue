@@ -323,6 +323,9 @@ const openScoreEdit = (game: TournamentGame) => {
     scoreGame.value = game;
 };
 
+const openGameById = (id: number) => {
+    scoreGame.value = props.tournament.rounds.flatMap((r) => r.games).find((g) => g.id === id) ?? null;
+};
 // ─── Status ───
 const statusTransitions: Record<string, { next: string; label: string }> = {
     draft: { next: 'registration', label: 'Open Registration' },
@@ -787,7 +790,14 @@ const isEditable = computed(() => !isLocked.value);
         </div>
     </div>
 
-    <ScoreEntryDialog :game="scoreGame" :tournament="tournament" :ruleset="ruleset" :masters="masters" @close="scoreGame = null" />
+    <ScoreEntryDialog
+        :game="scoreGame"
+        :tournament="tournament"
+        :ruleset="ruleset"
+        :masters="masters"
+        @close="scoreGame = null"
+        @open-game="openGameById"
+    />
 
     <!-- Finalize Tournament Confirmation -->
     <Dialog v-model:open="confirmFinalizeDialog">

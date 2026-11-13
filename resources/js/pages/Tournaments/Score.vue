@@ -78,6 +78,9 @@ const lock = computed(() => {
 });
 
 const scoreGame = ref<TournamentGame | null>(null);
+const openGameById = (id: number) => {
+    scoreGame.value = props.tournament.rounds.flatMap((r) => r.games).find((g) => g.id === id) ?? null;
+};
 const scoreLabel = (g: TournamentGame) => (g.player_one_vp !== null && isScoredResult(g.result) ? `${g.player_one_vp} – ${g.player_two_vp}` : null);
 </script>
 
@@ -153,5 +156,12 @@ const scoreLabel = (g: TournamentGame) => (g.player_one_vp !== null && isScoredR
         </template>
     </div>
 
-    <ScoreEntryDialog :game="scoreGame" :tournament="tournament" :ruleset="ruleset" :masters="masters" @close="scoreGame = null" />
+    <ScoreEntryDialog
+        :game="scoreGame"
+        :tournament="tournament"
+        :ruleset="ruleset"
+        :masters="masters"
+        @close="scoreGame = null"
+        @open-game="openGameById"
+    />
 </template>

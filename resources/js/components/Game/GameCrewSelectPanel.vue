@@ -150,7 +150,8 @@ const expandedOpponentCrewId = ref<number | null>(null);
 
 const crewBuilderUrl = (player: GamePlayer | undefined) => {
     const faction = player?.faction ?? '';
-    const gameParam = '&from_game=' + encodeURIComponent(props.game.uuid);
+    // from_slot lets the builder submit the finished crew for the right player (solo games build for either slot).
+    const gameParam = '&from_game=' + encodeURIComponent(props.game.uuid) + (player?.slot ? '&from_slot=' + player.slot : '');
     const masterId = player?.master_id;
     if (masterId) {
         return route('tools.crew_builder.editor') + '?step=hiring&faction=' + encodeURIComponent(faction) + '&master=' + masterId + gameParam;

@@ -29,6 +29,11 @@ Crew builder editor page + `components/CrewBuilderReferences.vue` (the
 references panel, reused in the tracker). Admin crew tools:
 `Admin\CrewAdminController` (`admin/crews`).
 
+## Building a crew from a game
+The Game Tracker's crew-select step links to the editor with `?from_game={uuid}` (and `&from_slot=` so a solo game's opponent crew goes to the right player). While `from_game` is present the editor shows a
+sticky bar with **Use this crew in game**: it flushes the autosave, POSTs `games.setup.crew` with the build id (and slot), then visits the game. A game that has already left crew select is treated as done and the user
+is just returned to it. `buildUrl()` keeps `from_game` / `from_slot` across the editor's URL syncing. Tests: `tests/Feature/Games/GameSetupCrewSubmitTest.php`.
+
 ## Gotchas
 - Bump `CrewBuild::REFERENCES_VERSION` whenever the references schema changes, or
   cached builds serve stale reference data.

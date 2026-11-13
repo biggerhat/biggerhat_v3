@@ -316,6 +316,44 @@ watch(
 const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
 const startInEditor = urlParams.has('new') || urlParams.has('build') || urlParams.has('crew') || urlParams.has('step');
 const fromGameUuid = urlParams.get('from_game');
+const fromGameSlot = urlParams.get('from_slot');
+const isSubmittingToGame = ref(false);
+const gameSubmitError = ref<string | null>(null);
+
+/** Submit the just-built crew to the originating game's crew-select step, then return to the tracker. */
+const useCrewInGame = async () => {
+    if (!fromGameUuid || isSubmittingToGame.value) return;
+    isSubmittingToGame.value = true;
+    gameSubmitError.value = null;
+    try {
+        // Flush any pending autosave so the game copies the latest crew.
+        await saveBuild();
+        if (!currentBuildId.value) {
+            gameSubmitError.value = 'Finish choosing a master before using this crew.';
+            return;
+        }
+        const response = await fetch(route('games.setup.crew', fromGameUuid), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': xsrfToken(), Accept: 'application/json' },
+            body: JSON.stringify({ crew_build_id: currentBuildId.value, ...(fromGameSlot ? { slot: Number(fromGameSlot) } : {}) }),
+        });
+        if (!response.ok) {
+            const body = await response.json().catch(() => null);
+            // Game may have moved on (e.g. crew already chosen) — still take them back to it.
+            if (response.status === 422 && body?.error === 'Invalid game state') {
+                router.visit(route('games.show', fromGameUuid));
+                return;
+            }
+            gameSubmitError.value = body?.error ?? 'Could not add this crew to the game.';
+            return;
+        }
+        router.visit(route('games.show', fromGameUuid));
+    } catch {
+        gameSubmitError.value = 'Could not add this crew to the game.';
+    } finally {
+        isSubmittingToGame.value = false;
+    }
+};
 const viewMode = ref<'builds' | 'editor'>(isAuthenticated.value && !startInEditor ? 'builds' : 'editor');
 
 // Refresh builds from server when entering builds list (cross-device/tab sync)
@@ -2460,11 +2498,19 @@ onUnmounted(() => {
             <!-- EDITOR (crew building)                     -->
             <!-- ═══════════════════════════════════════════ -->
             <!-- Return to Game banner -->
-            <div v-if="fromGameUuid" class="mb-3 flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-                <span class="text-xs text-muted-foreground">Building crew for Game Tracker</span>
-                <Link :href="route('games.show', fromGameUuid)" class="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                    <ArrowLeft class="size-3" /> Return to Game
-                </Link>
+            <div v-if="fromGameUuid" class="sticky top-0 z-20 mb-3 rounded-lg border border-primary/30 bg-background/95 px-3 py-2 backdrop-blur">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <Link :href="route('games.show', fromGameUuid)" class="flex items-center gap-1 text-xs text-muted-foreground hover:underline">
+                        <ArrowLeft class="size-3" /> Back to game without a crew
+                    </Link>
+                    <Button size="sm" :disabled="!currentBuildId || isSubmittingToGame" @click="useCrewInGame">
+                        {{ isSubmittingToGame ? 'Adding…' : 'Use this crew in game' }}
+                    </Button>
+                </div>
+                <p v-if="!currentBuildId" class="mt-1 text-xs text-muted-foreground">
+                    Building crew for Game Tracker — your crew saves automatically.
+                </p>
+                <p v-if="gameSubmitError" class="mt-1 text-xs text-destructive">{{ gameSubmitError }}</p>
             </div>
 
             <div v-if="viewMode === 'editor'">

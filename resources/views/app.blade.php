@@ -48,6 +48,47 @@
             })();
         </script>
 
+        {{-- Start-up watchdog. If the app bundle hasn't mounted after 10s (a stale or half-cached service worker
+             serving a missing chunk, a flaky connection) drop the service worker and its caches and reload once;
+             if that doesn't help, show a Reload button instead of leaving a blank screen. --}}
+        <script>
+            (function () {
+                var KEY = 'bh-watchdog-reloaded';
+                setTimeout(function () {
+                    if (window.__appMounted) {
+                        try { sessionStorage.removeItem(KEY); } catch (e) {}
+                        return;
+                    }
+                    var cleanup = [];
+                    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+                        cleanup.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+                            return Promise.all(rs.map(function (r) { return r.unregister(); }));
+                        }));
+                    }
+                    if (window.caches && caches.keys) {
+                        cleanup.push(caches.keys().then(function (ks) {
+                            return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+                        }));
+                    }
+                    Promise.all(cleanup).catch(function () {}).then(function () {
+                        var again = false;
+                        try { again = sessionStorage.getItem(KEY) === '1'; sessionStorage.setItem(KEY, '1'); } catch (e) {}
+                        if (!again) { location.reload(); return; }
+                        var bar = document.createElement('div');
+                        bar.setAttribute('role', 'alert');
+                        bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;padding:16px;background:#171717;color:#fff;font:16px/1.4 system-ui,sans-serif;text-align:center';
+                        bar.appendChild(document.createTextNode('BiggerHat is taking too long to load. '));
+                        var btn = document.createElement('button');
+                        btn.textContent = 'Reload';
+                        btn.style.cssText = 'margin-left:8px;padding:10px 18px;border:0;border-radius:6px;background:#f5c84b;color:#000;font:inherit;font-weight:600';
+                        btn.onclick = function () { location.reload(); };
+                        bar.appendChild(btn);
+                        document.body.appendChild(bar);
+                    });
+                }, 10000);
+            })();
+        </script>
+
         {{-- Inline style to set the HTML background color based on our theme in app.css --}}
         <style>
             html {

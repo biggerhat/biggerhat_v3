@@ -11,5 +11,7 @@ declare global {
         // app.blade.php has loaded. Optional because SSR / ad-blockers may omit it.
         gtag?: (...args: unknown[]) => void;
         dataLayer?: unknown[];
+        // Set once the app mounts; the start-up watchdog in app.blade.php checks it.
+        __appMounted?: boolean;
     }
 }

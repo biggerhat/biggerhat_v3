@@ -30,6 +30,8 @@ createInertiaApp({
             .component('Link', Link)
             .component('Head', Head)
             .mount(el);
+        // Tells the start-up watchdog in app.blade.php that the app got going.
+        window.__appMounted = true;
     },
     progress: {
         color: '#4B5563',

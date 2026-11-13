@@ -1526,9 +1526,12 @@ const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
     postPlay(route('games.play.crew-upgrade', props.game.uuid), 'PATCH', payload);
 };
 
-const myCrewMembers = computed(() => myPlayer.value?.crew_members?.filter((m) => !m.is_killed) ?? []);
+// Models that still need to activate come first (Array.sort is stable, so the crew keeps its order within each group).
+const activatedLast = <T extends { is_activated?: boolean | null }>(members: T[]): T[] =>
+    [...members].sort((a, b) => Number(!!a.is_activated) - Number(!!b.is_activated));
+const myCrewMembers = computed(() => activatedLast(myPlayer.value?.crew_members?.filter((m) => !m.is_killed) ?? []));
 const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m) => m.is_killed) ?? []);
-const opponentCrewMembers = computed(() => opponent.value?.crew_members?.filter((m) => !m.is_killed) ?? []);
+const opponentCrewMembers = computed(() => activatedLast(opponent.value?.crew_members?.filter((m) => !m.is_killed) ?? []));
 const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filter((m) => m.is_killed) ?? []);
 
 // Inline card preview — track expanded members per crew via Set

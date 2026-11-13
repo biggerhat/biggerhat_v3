@@ -6,6 +6,7 @@ import PowerBarBubbles from '@/components/Game/PowerBarBubbles.vue';
 import GameIcon from '@/components/GameIcon.vue';
 import { Badge } from '@/components/ui/badge';
 import { factionDeep } from '@/composables/useFactionColor';
+import { computed } from 'vue';
 import {
     ArrowUpCircle,
     Banana,
@@ -30,7 +31,7 @@ import {
  * The component owns no game state: every change is emitted and Games/Show.vue performs it, exactly as it did before the extraction.
  * Typed `any` for the member like the rest of the play screen (Show.vue has two shadowing CrewMember interfaces).
  */
-defineProps<{
+const props = defineProps<{
     member: any;
     /** The owning player's faction, used for the row colour when the model carries none. */
     fallbackFaction?: string | null;
@@ -61,6 +62,16 @@ defineEmits<{
 }>();
 
 // Campaign Leader/Totem (pg 31, 52): a server-rendered card image once generated, else the raw actions/abilities as a stat block.
+// Defense / Willpower / Speed / Size, shown on the pips row on phones and on its own row from `sm`.
+const stats = computed(() =>
+    [
+        { title: 'Defense', icon: Shield, value: props.member.defense },
+        { title: 'Willpower', icon: ShieldAlert, value: props.member.willpower },
+        { title: 'Speed', icon: Footprints, value: props.member.speed },
+        { title: 'Size', icon: Banana, value: props.member.size },
+    ].filter((x) => x.value),
+);
+
 const hasCustomCharacterCard = (member: any): boolean =>
     !!member.custom_character?.front_image ||
     (member.custom_character?.actions?.length ?? 0) > 0 ||
@@ -78,12 +89,12 @@ const hasCustomCharacterCard = (member: any): boolean =>
             <div class="flex items-center gap-1">
                 <template v-if="editable">
                     <button
-                        class="shrink-0 rounded p-1.5 hover:bg-white/20 sm:p-0.5"
+                        class="shrink-0 rounded p-2.5 hover:bg-white/20 sm:p-0.5"
                         @click="$emit('toggle-activated')"
                         :title="member.is_activated ? 'Mark unactivated' : 'Mark activated'"
                     >
-                        <Check v-if="member.is_activated" class="size-4 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
-                        <Circle v-else class="size-4 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
+                        <Check v-if="member.is_activated" class="size-5 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
+                        <Circle v-else class="size-5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
                     </button>
                     <button
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
@@ -123,27 +134,52 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                     <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                 </template>
-                <button class="cursor-pointer truncate text-base font-semibold hover:underline" @click="$emit('preview')">
+                <button class="min-w-0 cursor-pointer truncate text-base font-semibold hover:underline" @click="$emit('preview')">
                     {{ member.display_name }}
                 </button>
                 <button
                     v-if="member.front_image || hasCustomCharacterCard(member)"
-                    class="ml-auto shrink-0 rounded p-1 hover:bg-white/20"
+                    class="shrink-0 rounded p-1 hover:bg-white/20 sm:ml-auto"
                     aria-label="Toggle card preview"
                     title="Toggle card preview"
                     @click.stop="$emit('toggle-card')"
                 >
                     <Eye class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" :class="cardOpen ? 'text-amber-300' : 'text-white'" />
                 </button>
+                <!-- Phones: health stepper on the name line (from `sm` it sits on the stats row below, as before). -->
+                <div v-if="editable" class="ml-auto flex shrink-0 items-center gap-0.5 sm:hidden">
+                    <button
+                        :aria-label="`Decrease health of ${member.display_name}`"
+                        class="rounded border p-2.5 hover:bg-muted"
+                        @click="$emit('health-delta', -1)"
+                    >
+                        <Minus class="size-4" />
+                    </button>
+                    <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold">
+                        <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                        {{ member.current_health }}/{{ member.max_health }}
+                    </span>
+                    <button
+                        :aria-label="`Increase health of ${member.display_name}`"
+                        class="rounded border p-2.5 hover:bg-muted"
+                        @click="$emit('health-delta', 1)"
+                    >
+                        <Plus class="size-4" />
+                    </button>
+                </div>
+                <span v-else class="ml-auto flex shrink-0 items-center gap-0.5 text-sm font-bold sm:hidden">
+                    <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
+                    {{ member.current_health }}/{{ member.max_health }}
+                </span>
             </div>
-            <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
-            <div class="mt-0.5 flex items-center pl-8 sm:hidden">
+            <!-- Line 2 (phones): health pips, stats and the action buttons -->
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 sm:hidden">
                 <div class="flex gap-0.5">
                     <button
                         v-for="pip in member.max_health"
                         :key="'hp-m-' + pip"
                         type="button"
-                        class="size-3.5 rounded-sm transition-colors"
+                        class="relative size-3.5 rounded-sm transition-colors after:absolute after:-inset-x-px after:-inset-y-2.5 after:content-['']"
                         :class="[
                             pip <= member.current_health
                                 ? member.current_health <= Math.ceil(member.max_health / 2)
@@ -158,6 +194,11 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     />
                 </div>
 
+                <div v-if="stats.length" class="flex gap-1.5 text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                    <span v-for="stat in stats" :key="stat.title" :title="stat.title">
+                        <component :is="stat.icon" class="mr-0.5 inline size-4" />{{ stat.value }}
+                    </span>
+                </div>
                 <div v-if="editable" class="ml-auto flex shrink-0 gap-1 sm:hidden">
                     <button
                         class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
@@ -189,21 +230,18 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     </button>
                 </div>
             </div>
-            <!-- Line 3 (mobile): Stats + Health controls / Desktop: Stats + pips + controls on one row -->
-            <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-8 sm:pl-6">
+            <!-- Line 3 (from `sm`): stats + pips + health controls on one row. Phones show these on lines 1-2 above. -->
+            <div class="mt-0.5 hidden flex-wrap items-center gap-x-2 gap-y-1 sm:flex sm:pl-6">
                 <div
-                    v-if="member.defense || member.willpower || member.speed || member.size"
-                    class="flex gap-1.5 text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:text-xs"
+                    v-if="stats.length || member.characteristics?.length"
+                    class="flex gap-1.5 text-xs font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                 >
-                    <span v-if="member.defense" title="Defense"><Shield class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.defense }}</span>
-                    <span v-if="member.willpower" title="Willpower"
-                        ><ShieldAlert class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.willpower }}</span
-                    >
-                    <span v-if="member.speed" title="Speed"><Footprints class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.speed }}</span>
-                    <span v-if="member.size" title="Size"><Banana class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span>
+                    <span v-for="stat in stats" :key="stat.title" :title="stat.title">
+                        <component :is="stat.icon" class="mr-0.5 inline size-3.5" />{{ stat.value }}
+                    </span>
                     <span
                         v-if="member.characteristics?.length"
-                        class="text-2xs font-normal italic text-white/70 sm:text-2xs"
+                        class="text-2xs font-normal italic text-white/70"
                         :title="member.characteristics.join(', ')"
                         >({{ member.characteristics.join(', ') }})</span
                     >

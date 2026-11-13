@@ -65,8 +65,30 @@ const L = require('./lib.cjs');
         await act('Mad Gremlin', 'title', 'Mark activated');
         await L.expectText(c, /5\s*\/\s*6 remaining/);
     });
+    await L.step('crew: a row is compact on a phone (about 80px, down from about 105px)', c, async () => {
+        const h = await c.page.evaluate(() => {
+            const rows = [...document.querySelectorAll('div.rounded-md.border.border-white\\/20')].filter((r) => r.offsetParent !== null);
+            const row = rows.find((r) => r.innerText.includes('Silurid'));
+            return Math.round(row.getBoundingClientRect().height);
+        });
+        if (h > 90) throw new Error(`row is ${h}px tall`);
+        await L.shot(c, '303-compact-rows');
+    });
+    await L.step('crew: a model marked activated moves to the bottom of the list', c, async () => {
+        await act('Pandora', 'title', 'Mark activated');
+        await L.sleep(700);
+        const names = await c.page.evaluate(() =>
+            [...document.querySelectorAll('div.rounded-md.border.border-white\\/20')]
+                .filter((r) => r.offsetParent !== null)
+                .map((r) => r.innerText.split('\n')[0].trim()),
+        );
+        const tail = names.slice(-2);
+        if (!(tail.includes('Pandora') && tail.includes('Mad Gremlin')))
+            throw new Error(`activated models should be last, order was ${names.join(', ')}`);
+        if (names[0] === 'Pandora') throw new Error('Pandora should no longer be first');
+    });
     await L.step('crew: the tokens button opens the token dialog for that model', c, async () => {
-        await act('Pandora', 'label', 'Tokens').catch(() => act('Pandora', 'title', 'Tokens'));
+        await act('Pandora', 'title', 'Tokens');
         await c.page.waitForSelector('[role=dialog]', { timeout: 6000 });
         await L.shot(c, '300-token-dialog');
         await c.page.keyboard.press('Escape');

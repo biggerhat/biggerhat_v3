@@ -312,7 +312,15 @@ interface HistoryRecord {
     tied: number;
 }
 export interface TournamentHistory {
-    summary: HistoryRecord & { events: number; wins: number; podiums: number; games: number; win_rate: number | null; best_finish: number | null };
+    summary: HistoryRecord & {
+        events: number;
+        wins: number;
+        podiums: number;
+        games: number;
+        win_rate: number | null;
+        best_finish: number | null;
+        awards: number;
+    };
     by_faction: (HistoryRecord & { faction: string; label: string; games: number })[];
     rivals: (HistoryRecord & { name: string; slug: string | null; games: number })[];
     events: (HistoryRecord & {
@@ -326,6 +334,7 @@ export interface TournamentHistory {
         of: number;
         tp: number;
         faction: string | null;
+        awards: string[];
     })[];
 }
 

@@ -14,6 +14,8 @@ export interface ResultsImageData {
     title: string;
     subtitle: string;
     places: ResultsImagePlace[];
+    /** Side awards as ready-made lines, e.g. "Best painted: Mia". Drawn small along the bottom; as many as fit. */
+    awards?: string[];
     footer: string;
 }
 
@@ -109,6 +111,12 @@ export function drawResultsImage(canvas: HTMLCanvasElement, data: ResultsImageDa
         ctx.fillText(place.score, x + cardW / 2, y + h - 28);
         ctx.textAlign = 'left';
     });
+
+    if (data.awards?.length) {
+        ctx.fillStyle = '#d6b45c';
+        ctx.font = `500 22px ${FONT}`;
+        ctx.fillText(fit(ctx, `Awards · ${data.awards.join(' · ')}`, 700), 60, H - 22);
+    }
 
     ctx.fillStyle = '#6f7889';
     ctx.font = `500 22px ${FONT}`;

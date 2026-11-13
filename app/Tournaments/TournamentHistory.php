@@ -21,7 +21,7 @@ class TournamentHistory
 
     /**
      * @return array{
-     *     summary: array{events: int, wins: int, podiums: int, games: int, won: int, lost: int, tied: int, win_rate: int|null, best_finish: int|null},
+     *     summary: array{events: int, wins: int, podiums: int, games: int, won: int, lost: int, tied: int, win_rate: int|null, best_finish: int|null, awards: int},
      *     by_faction: list<array{faction: string, label: string, games: int, won: int, lost: int, tied: int}>,
      *     rivals: list<array{name: string, slug: string|null, games: int, won: int, lost: int, tied: int}>,
      *     events: list<array<string, mixed>>
@@ -32,7 +32,7 @@ class TournamentHistory
         $entries = TournamentPlayer::query()
             ->forUser($user->id)
             ->whereHas('tournament', fn ($q) => $q->where('status', TournamentStatusEnum::Completed))
-            ->with(['tournament', 'tournament.rounds.games.playerOne.user:id,name,slug', 'tournament.rounds.games.playerTwo.user:id,name,slug'])
+            ->with(['tournament', 'tournament.awards', 'tournament.rounds.games.playerOne.user:id,name,slug', 'tournament.rounds.games.playerTwo.user:id,name,slug'])
             ->get()
             ->sortByDesc(fn (TournamentPlayer $e) => $e->tournament->event_date)
             ->values();
@@ -90,6 +90,7 @@ class TournamentHistory
                 'lost' => $mine['lost'],
                 'tied' => $mine['tied'],
                 'faction' => $entry->getRawOriginal('faction'),
+                'awards' => $tournament->awards->where('player_id', $entry->id)->pluck('name')->values()->all(),
             ];
         }
 
@@ -105,6 +106,7 @@ class TournamentHistory
                 ...$record,
                 'win_rate' => $games > 0 ? (int) round($record['won'] / $games * 100) : null,
                 'best_finish' => $ranks->isEmpty() ? null : (int) $ranks->min(),
+                'awards' => collect($events)->sum(fn (array $e) => count($e['awards'])),
             ],
             'by_faction' => collect($factions)
                 ->map(fn (array $r, string $faction) => [

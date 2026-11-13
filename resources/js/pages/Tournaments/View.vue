@@ -489,6 +489,7 @@ const openCard = (title: string, image?: string | null, description?: string | n
                 :subtitle="[formatDate(tournament.event_date), tournament.location, ruleset.label].filter(Boolean).join(' · ')"
                 :standings="standings"
                 :factions="factions"
+                :awards="awards ?? []"
                 :pdf-url="route('tournaments.results_pdf', tournament.uuid)"
                 :page-url="route('tournaments.view', tournament.uuid)"
             />

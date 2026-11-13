@@ -381,3 +381,63 @@ it('refuses to start a round that was already started', function () {
     expect($round->fresh()->status)->toBe(TournamentRoundStatusEnum::InProgress)
         ->and(Game::count())->toBe($games);
 });
+
+function startedRound(object $test): TournamentRound
+{
+    \App\Models\TournamentPlayer::factory()->for($test->tournament)->count(4)->create();
+    $round = TournamentRound::factory()->for($test->tournament)->create([
+        'round_number' => 1,
+        'strategy_id' => \App\Models\Strategy::factory()->create()->id,
+        'deployment' => 'standard',
+        'scheme_pool' => \App\Models\Scheme::factory()->count(3)->create()->pluck('id')->all(),
+    ]);
+    $test->actingAs($test->creator)->postJson(route('tournaments.rounds.pair', [$test->tournament->uuid, $round]))->assertOk();
+    $test->actingAs($test->creator)
+        ->putJson(route('tournaments.rounds.update', [$test->tournament->uuid, $round]), ['status' => 'in_progress'])
+        ->assertOk();
+
+    return $round;
+}
+
+it('resets an in-progress round to setup, keeping pairings and clearing scores and tracker games', function () {
+    $round = startedRound($this);
+    $game = $round->games()->first();
+    $game->update(['player_one_vp' => 5, 'player_two_vp' => 3, 'result' => 'completed']);
+    $pairings = $round->games()->count();
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.reset', [$this->tournament->uuid, $round]))
+        ->assertOk();
+
+    $round->refresh();
+    expect($round->status)->toBe(TournamentRoundStatusEnum::Setup)
+        ->and($round->started_at)->toBeNull()
+        ->and($round->games()->count())->toBe($pairings)
+        ->and($round->games()->where('result', '!=', 'pending')->count())->toBe(0)
+        ->and($round->games()->whereNotNull('player_one_vp')->count())->toBe(0)
+        ->and($round->games()->whereNotNull('game_id')->count())->toBe(0)
+        ->and(Game::count())->toBe(0);
+
+    // And the round can be started again.
+    $this->actingAs($this->creator)
+        ->putJson(route('tournaments.rounds.update', [$this->tournament->uuid, $round]), ['status' => 'in_progress'])
+        ->assertOk();
+});
+
+it('refuses to reset a round that is not in progress', function () {
+    $round = TournamentRound::factory()->for($this->tournament)->create(['round_number' => 1]);
+
+    $this->actingAs($this->creator)
+        ->postJson(route('tournaments.rounds.reset', [$this->tournament->uuid, $round]))
+        ->assertUnprocessable();
+});
+
+it('forbids non-organizers from resetting a round', function () {
+    $round = startedRound($this);
+
+    $this->actingAs(User::factory()->create())
+        ->postJson(route('tournaments.rounds.reset', [$this->tournament->uuid, $round]))
+        ->assertForbidden();
+
+    expect($round->fresh()->status)->toBe(TournamentRoundStatusEnum::InProgress);
+});

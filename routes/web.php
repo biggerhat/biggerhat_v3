@@ -540,6 +540,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::put('/{tournament}/rounds/{round}', [TournamentRoundController::class, 'update'])->name('rounds.update');
     Route::delete('/{tournament}/rounds/{round}', [TournamentRoundController::class, 'destroy'])->name('rounds.delete');
     Route::post('/{tournament}/rounds/{round}/pair', [TournamentRoundController::class, 'pair'])->name('rounds.pair');
+    Route::post('/{tournament}/rounds/{round}/reset', [TournamentRoundController::class, 'reset'])->name('rounds.reset');
     Route::post('/{tournament}/rounds/{round}/randomize', [TournamentRoundController::class, 'randomize'])->name('rounds.randomize');
 
     // Games / Scores

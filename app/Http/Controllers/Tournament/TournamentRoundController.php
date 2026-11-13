@@ -222,6 +222,58 @@ class TournamentRoundController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Emergency reset: send an in-progress round back to its non-started state (Setup). Pairings, tables and
+     * scenario are kept so the organizer can fix them and start again; every score, forfeit, self-report and
+     * linked tracker game is thrown away.
+     */
+    public function reset(Tournament $tournament, TournamentRound $round): JsonResponse
+    {
+        $this->authorize('manage', $tournament);
+
+        // Re-check under a row lock so a double-click or a concurrent End Round can't race the reset.
+        $error = DB::transaction(function () use ($tournament, $round): ?string {
+            $locked = TournamentRound::lockForUpdate()->findOrFail($round->id);
+
+            if ($error = $this->stateMachine->canResetRound($tournament, $locked)) {
+                return $error;
+            }
+
+            $this->trackerGames->destroyForRound($locked);
+
+            $locked->games()->update([
+                'result' => TournamentGameResultEnum::Pending,
+                'player_one_vp' => null,
+                'player_two_vp' => null,
+                'score_breakdown' => null,
+                'is_forfeit' => false,
+                'forfeit_player_id' => null,
+                'game_id' => null,
+                'report_status' => null,
+                'reported_by_player_id' => null,
+                'reported_at' => null,
+                'reported_score' => null,
+                'report_note' => null,
+            ]);
+
+            $locked->update([
+                'status' => TournamentRoundStatusEnum::Setup,
+                'started_at' => null,
+                'completed_at' => null,
+            ]);
+
+            return null;
+        });
+
+        if ($error) {
+            return response()->json(['error' => $error], 422);
+        }
+
+        $this->broadcastUpdate($tournament, 'round_reset');
+
+        return response()->json(['success' => true]);
+    }
+
     public function randomize(Tournament $tournament, TournamentRound $round): JsonResponse
     {
         $this->authorize('manage', $tournament);

@@ -46,6 +46,6 @@ const reset = () => (tokens.value = sampleTokens.map((t) => ({ ...t })));
         </template>
     </PageBanner>
     <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
-        <TabletopBoard :tokens="tokens" sandbox @moved="moved" @add="add" @remove="remove" @reset="reset" />
+        <TabletopBoard :tokens="tokens" sandbox storage-key="sandbox" @moved="moved" @add="add" @remove="remove" @reset="reset" />
     </div>
 </template>

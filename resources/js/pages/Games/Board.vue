@@ -99,6 +99,6 @@ function moved(t: Token) {
         </template>
     </PageBanner>
     <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
-        <TabletopBoard :tokens="tokens" :side-names="sideNames" @moved="moved" />
+        <TabletopBoard :tokens="tokens" :storage-key="game.uuid" :side-names="sideNames" @moved="moved" />
     </div>
 </template>

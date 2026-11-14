@@ -64,9 +64,47 @@ const L = require('./lib.cjs');
             await L.shot(s, `351-tabletop-filter-${label}`);
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
         });
+        await L.step(`tabletop (${label}): an aura starts at the base edge and shows who is inside`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await L.clickText(s, /^Reset table$/i, 'button'); // earlier steps moved models; the table is saved on this device
+            await s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView()); // the Reset button sits below the board on a phone
+            const a = await pixel(18, 4); // the blue master, 50 mm base, with the henchman (12, 5) and minion (22, 4) around it
+            await s.page.mouse.click(a.x, a.y);
+            await s.page.click('[data-testid=aura-add]');
+            await s.page.waitForSelector('[data-testid=aura-a1]');
+            const radius = () => s.page.$eval('[data-testid=aura-a1] circle', (c) => Number(c.getAttribute('r')));
+            const r6 = await radius();
+            // 50 mm base: radius 0.984", so a 6" aura is 6.984" from the centre
+            if (Math.abs(r6 - (6 + 25 / 25.4)) > 0.01) throw new Error(`6" aura radius is ${r6}, expected ${6 + 25 / 25.4}`);
+            const inside = await s.page.$eval('[data-testid=aura-inside]', (e) => e.innerText);
+            if (!/Henchman/.test(inside) || !/Minion/.test(inside)) throw new Error(`expected both nearby models inside the 6" aura: ${inside}`);
+            await s.page.click('[data-testid=aura-minus]');
+            await s.page.click('[data-testid=aura-minus]');
+            await s.page.click('[data-testid=aura-minus]');
+            await s.page.click('[data-testid=aura-minus]');
+            await s.page.click('[data-testid=aura-minus]');
+            await s.page.click('[data-testid=aura-minus]');
+            await s.page.click('[data-testid=aura-minus]');
+            await s.page.click('[data-testid=aura-minus]'); // 6" down to 2"
+            const r2 = await radius();
+            if (Math.abs(r2 - (2 + 25 / 25.4)) > 0.01) throw new Error(`2" aura radius is ${r2}`);
+            const inside2 = await s.page.$eval('[data-testid=aura-inside]', (e) => e.innerText);
+            if (/Henchman|Minion/.test(inside2)) throw new Error(`nobody should be within 2": ${inside2}`);
+            await L.shot(s, `352-tabletop-aura-${label}`);
+            if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
+            await s.page.click('[data-testid=aura-remove]');
+            if (await s.page.$('[data-testid=aura-a1]')) throw new Error('aura was not removed');
+        });
         await L.step(`tabletop (${label}): adding a model works`, s, async () => {
+            // centre the button first: on a phone the fixed tab bar can sit over a button scrolled to the very bottom
+            await s.page.$eval('[data-testid=add-token]', (b) => b.scrollIntoView({ block: 'center' }));
             await s.page.click('[data-testid=add-token]');
-            if ((await s.page.$$('[data-testid^=token-]')).length !== 7) throw new Error('model was not added');
+            await s.page
+                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 7, { timeout: 5000 })
+                .catch(async () => {
+                    throw new Error(`model was not added: ${(await s.page.$$('[data-testid^=token-]')).length} on the table`);
+                });
         });
     }
 

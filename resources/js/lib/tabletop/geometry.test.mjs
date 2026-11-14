@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+    auraRadius,
     baseRadius,
     clampToTable,
     deploymentZones,
@@ -10,6 +11,7 @@ import {
     pointInShape,
     restingSupport,
     supportFraction,
+    withinAura,
 } from './geometry.ts';
 
 const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
@@ -89,4 +91,21 @@ test('deployment zones sit on opposite sides of the table', () => {
     const corner = deploymentZones('corner');
     assert.equal(corner.a.w, 12);
     assert.equal(corner.b.x, 24);
+});
+
+test('an aura starts at the outside edge of the base', () => {
+    assert.ok(Math.abs(auraRadius(tok(0, 0, 30), 6) - (6 + baseRadius(30))) < 1e-9);
+    assert.ok(Math.abs(auraRadius(tok(0, 0, 50), 6) - (6 + baseRadius(50))) < 1e-9);
+});
+
+test('within an aura means any part of the base reaches it', () => {
+    const source = tok(10, 10, 30);
+    // Edge to edge exactly 6": centres 6 + both radii apart.
+    const exactly = tok(10 + 6 + 2 * baseRadius(30), 10, 30);
+    assert.ok(withinAura(source, 6, exactly));
+    assert.ok(!withinAura(source, 6, tok(10 + 6.05 + 2 * baseRadius(30), 10, 30)));
+    // base contact is within 0"
+    assert.ok(withinAura(source, 0, tok(10 + 2 * baseRadius(30), 10, 30)));
+    // a bigger base reaches in from farther out
+    assert.ok(withinAura(source, 6, tok(10 + 6 + baseRadius(30) + baseRadius(50) - 0.1, 10, 50)));
 });

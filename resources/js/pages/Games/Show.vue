@@ -569,7 +569,8 @@ const opponentStepDone = (step: string) => {
         case 'crew':
             return !!opponentPlayer.value.crew_build_id || opponentPlayer.value.crew_skipped;
         case 'scheme':
-            return !!opponentPlayer.value.current_scheme_id;
+            // scheme_ready is sent in place of the pick itself, which stays hidden from the opponent until it is revealed.
+            return opponentPlayer.value.scheme_ready ?? !!opponentPlayer.value.current_scheme_id;
         default:
             return false;
     }

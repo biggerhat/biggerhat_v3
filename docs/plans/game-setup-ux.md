@@ -116,3 +116,47 @@ Driven with a seeded solo game in progress (`play_game` in the harness seed: 6 a
 
 Suggested order: extract the row component (no visual change, covered by a browser flow that damages a model and activates one), then the compact layout and hit areas,
 then the overflow menu and activated-last ordering.
+
+## Second audit: robustness and hidden information (2026-11-14)
+
+Scope: the server side of the first steps (create, join, faction, master, crew, scheme), what each viewer's page data reveals, and an
+axe pass over every setup screen. The first review (above) was about phone usability; this one is about correctness.
+
+**Fixed**
+
+- **Joining was not safe against a double tap.** `GameController::join` checked "is there an open seat?" outside any lock, then reshuffled
+  the first player's role, then inserted the second player. Two taps on the invite link (or two people opening it) both passed the check;
+  the loser then failed on the unique `(game_id, slot)` index with a 500 _after_ having rewritten the first player's role, which could
+  leave both players as Defender. It now locks the game, re-checks status, fullness and membership inside the lock, and a loser is
+  sent to the game (if already in it) or back to the list with the usual message.
+- **Scheme picks leaked.** During Scheme Select the other player, and any spectator, received the opponent's `current_scheme_id`, their
+  private `scheme_notes` (target model, marker) and the follow-up pool derived from the pick, all in the page data. Only faction and
+  master were masked. All three are now withheld for the other seat and for observers; a `scheme_ready` flag drives the "opponent has
+  locked in" indicator instead. Solo games still see both sides (the one player picks both).
+- **Bonanza could start with nothing to track.** `submitMaster` accepted any name and Bonanza only creates its model when the name
+  matches a catalog model, so a bad name moved the game to In Progress with an empty crew. It now answers 422.
+- **Game creation is atomic and throttled.** The game and its seats are made in one transaction, and creation is limited to 30 an hour
+  per player.
+- **Harness:** the browser seed built schemes with a random season, so whether the default season had any depended on luck and flow 29
+  failed on an empty scheme pool. The seed now always creates a strategy and schemes for the default season.
+
+**Accessibility:** flow 33 runs axe-core over the create form, lobby, faction, master, crew, scheme, the first play screen and the solo
+start, dark and light, at 390px. Moderate-or-worse findings fail it. (Run `npm i --no-save axe-core` first; it skips itself without it.)
+The light pass uses the real `appearance` cookie and a reload, because toggling the class on a live page produced false contrast
+failures.
+
+**Found, not fixed (needs a decision)**
+
+- **In-play hidden information.** After scheme select, the other participant's page data still carries your current scheme, your
+  turn rows (`scheme_id`, `next_scheme_id`, notes) and, for non-solo games, observers are deliberately given current and held schemes
+  (`buildObserverCurrentSchemes`). If the game is observable, an opponent can also open the observe page in a second tab. Masking
+  needs the opponent-intel panel reworked, because it reads the same rows. Decide whether observers should be delayed or blind to schemes.
+- **`join` is a state-changing GET.** Opening the link joins the game, so a prefetch or an embedded image on another site could seat a
+  logged-in user. An interstitial "Join this game?" with a POST would close it, at the cost of one more tap.
+- **Crew submission trusts the client more than it should.** `submitCrew` checks ownership but not that the crew's faction and master
+  match what the player picked, nor that its size fits the encounter. `swapRoles` has no FormRequest (against the project convention) and
+  works at any stage, including mid-game.
+- **A bare Campaign-format game can still be created by POST.** The Create page hides the format, but `StoreGameRequest`
+  accepts it, and a test plus a `copyCrewToGame` branch deliberately support a solo Campaign game with no campaign link, so I left it. If
+  that path is no longer wanted, reject it in the request and delete the branch.
+- **Stale lobbies.** I did not find a job that clears games left waiting in Setup; check whether the public games list can fill with them.

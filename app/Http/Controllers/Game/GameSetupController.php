@@ -118,6 +118,11 @@ class GameSetupController extends Controller
 
         $master = $masterQuery->first();
 
+        // Bonanza fields the picked model itself: a name that matches nothing would start the game with no model to track.
+        if ($game->format === GameFormatEnum::BonanzaBrawl && ! $master) {
+            return response()->json(['error' => 'Unknown model for this faction'], 422);
+        }
+
         $player->update([
             'master_name' => $validated['master_name'],
             'master_id' => $master?->id,

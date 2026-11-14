@@ -414,7 +414,7 @@ Route::get('/stats/{user:slug}', [StatsController::class, 'show'])->name('stats.
 Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::get('/', [GameController::class, 'index'])->name('index');
     Route::get('/create', [GameController::class, 'create'])->name('create');
-    Route::post('/', [GameController::class, 'store'])->name('store');
+    Route::post('/', [GameController::class, 'store'])->name('store')->middleware('throttle:30,60');
     Route::get('/{game:uuid}', [GameController::class, 'show'])->name('show');
     Route::put('/{game:uuid}/scenario', [GameController::class, 'updateScenario'])->name('scenario.update');
     Route::post('/{game:uuid}/regenerate', [GameController::class, 'regenerateScenario'])->name('scenario.regenerate');

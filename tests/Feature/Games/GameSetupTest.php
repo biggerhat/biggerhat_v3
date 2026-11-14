@@ -240,3 +240,51 @@ it('never surfaces Campaign in the standalone game-create format list, even with
             ->where('formats', fn ($formats) => collect($formats)->pluck('value')->doesntContain('campaign'))
         );
 });
+
+it('gives the two players opposite roles when the second one joins', function () {
+    $creator = User::factory()->create();
+    $joiner = User::factory()->create();
+    $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core']);
+    $game = Game::latest('id')->first();
+
+    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+
+    $roles = $game->players()->orderBy('slot')->pluck('role')->map(fn ($r) => $r->value ?? $r)->all();
+    expect($roles)->toHaveCount(2)->and(array_unique($roles))->toHaveCount(2);
+});
+
+it('sends a late joiner away without touching the roles or the second seat', function () {
+    $creator = User::factory()->create();
+    $joiner = User::factory()->create();
+    $late = User::factory()->create();
+    $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core']);
+    $game = Game::latest('id')->first();
+    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+    $before = $game->players()->orderBy('slot')->get(['user_id', 'role'])->toArray();
+
+    $this->actingAs($late)->get(route('games.join', $game->uuid))->assertRedirect(route('games.index'));
+
+    expect($game->players()->orderBy('slot')->get(['user_id', 'role'])->toArray())->toBe($before);
+});
+
+it('treats the invite link being opened twice by the same person as one join', function () {
+    $creator = User::factory()->create();
+    $joiner = User::factory()->create();
+    $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core']);
+    $game = Game::latest('id')->first();
+
+    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+    $this->actingAs($joiner)->get(route('games.join', $game->uuid))->assertRedirect(route('games.show', $game->uuid));
+
+    expect($game->players()->count())->toBe(2);
+});
+
+it('throttles game creation per player', function () {
+    $user = User::factory()->create();
+
+    foreach (range(1, 30) as $i) {
+        $this->actingAs($user)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core'])->assertRedirect();
+    }
+
+    $this->actingAs($user)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core'])->assertStatus(429);
+});

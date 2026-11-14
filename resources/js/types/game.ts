@@ -89,6 +89,8 @@ export interface GamePlayer {
     crew_build_id: number | null;
     crew_skipped: boolean;
     current_scheme_id: number | null;
+    /** Sent in place of the pick while an opponent's scheme is hidden (Scheme Select); absent in solo games. */
+    scheme_ready?: boolean;
     scheme_notes: { note?: string; selected_model?: string; selected_marker?: string; terrain_note?: string } | null;
     role: string | null;
     total_points: number;

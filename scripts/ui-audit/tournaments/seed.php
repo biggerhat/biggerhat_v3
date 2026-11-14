@@ -56,6 +56,11 @@ $t5->organizers()->attach($org->id);
 // scenario pickers list only the event's own season, so give it a few strategies and schemes to pick from
 Strategy::factory()->count(2)->create(['season' => $t5->season->value]);
 Scheme::factory()->count(4)->create(['season' => $t5->season->value]);
+// The Game Tracker's Create form defaults to the newest season; the factories above pick a random one, so make sure that
+// season always has a strategy and schemes or a freshly created game gets an empty scheme pool.
+$defaultSeason = \App\Enums\PoolSeasonEnum::defaultSeason()->value;
+Strategy::factory()->count(2)->create(['season' => $defaultSeason]);
+Scheme::factory()->count(4)->create(['season' => $defaultSeason]);
 $sp = [];
 foreach (['Ann', 'Ben', 'Cat', 'Dan', 'Eve'] as $i => $n) {
     $sp[$n] = TournamentPlayer::factory()->for($t5)->create(['display_name' => $n, 'faction' => ['arcanists', 'guild', 'bayou', 'neverborn', 'outcasts'][$i]]);

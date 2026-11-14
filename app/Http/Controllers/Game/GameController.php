@@ -161,41 +161,46 @@ class GameController extends Controller
             ? GameFormatEnum::BonanzaBrawl->defaultEncounterSize()
             : $validated['encounter_size'];
 
-        $game = Game::create([
-            'name' => $validated['name'] ?? null,
-            'encounter_size' => $encounterSize,
-            'season' => $seasonEnum->value,
-            'format' => $format->value,
-            'strategy_id' => $strategy?->id,
-            'deployment' => $deployment?->value,
-            'scheme_pool' => $schemePool,
-            'status' => $isSolo ? GameStatusEnum::FactionSelect : GameStatusEnum::Setup,
-            'started_at' => $isSolo ? now() : null,
-            'creator_id' => Auth::id(),
-            'is_solo' => $isSolo,
-        ]);
+        // The game and its seats are made together, so a failure can't leave a game with nobody in it.
+        $game = DB::transaction(function () use ($validated, $encounterSize, $seasonEnum, $format, $strategy, $deployment, $schemePool, $isSolo): Game {
+            $game = Game::create([
+                'name' => $validated['name'] ?? null,
+                'encounter_size' => $encounterSize,
+                'season' => $seasonEnum->value,
+                'format' => $format->value,
+                'strategy_id' => $strategy?->id,
+                'deployment' => $deployment?->value,
+                'scheme_pool' => $schemePool,
+                'status' => $isSolo ? GameStatusEnum::FactionSelect : GameStatusEnum::Setup,
+                'started_at' => $isSolo ? now() : null,
+                'creator_id' => Auth::id(),
+                'is_solo' => $isSolo,
+            ]);
 
-        // Randomly assign roles
-        $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
+            // Randomly assign roles
+            $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
 
-        // Creator is player 1
-        GamePlayer::create([
-            'game_id' => $game->id,
-            'user_id' => Auth::id(),
-            'slot' => 1,
-            'role' => $isSolo ? $roles[0] : null,
-        ]);
-
-        if ($isSolo) {
-            // Create opponent player (no user) for solo mode
+            // Creator is player 1
             GamePlayer::create([
                 'game_id' => $game->id,
-                'user_id' => null,
-                'slot' => 2,
-                'opponent_name' => 'Opponent',
-                'role' => $roles[1],
+                'user_id' => Auth::id(),
+                'slot' => 1,
+                'role' => $isSolo ? $roles[0] : null,
             ]);
-        }
+
+            if ($isSolo) {
+                // Create opponent player (no user) for solo mode
+                GamePlayer::create([
+                    'game_id' => $game->id,
+                    'user_id' => null,
+                    'slot' => 2,
+                    'opponent_name' => 'Opponent',
+                    'role' => $roles[1],
+                ]);
+            }
+
+            return $game;
+        });
 
         return redirect()->route('games.show', $game->uuid);
     }
@@ -287,6 +292,23 @@ class GameController extends Controller
             ? $game->players->firstWhere('user_id', Auth::id())?->slot
             : null;
         $hidden = fn (GamePlayer $player) => $player->slot !== $mySlot;
+
+        // The "has locked in" signal the setup stepper needs, so the pick itself can be withheld below.
+        foreach ($game->players as $player) {
+            $player->setAttribute('scheme_ready', $player->current_scheme_id !== null);
+        }
+
+        // Schemes are hidden information: the pick, its notes (target model / marker) and the follow-up pool it derives
+        // (which reveals the pick) must not reach the other player or a spectator in the page data.
+        if ($game->status === GameStatusEnum::SchemeSelect) {
+            foreach ($game->players as $player) {
+                if ($hidden($player)) {
+                    $player->setAttribute('current_scheme_id', null);
+                    $player->setAttribute('scheme_notes', null);
+                    $player->setAttribute('scheme_pool', null);
+                }
+            }
+        }
 
         if ($game->status === GameStatusEnum::FactionSelect) {
             foreach ($game->players as $player) {
@@ -1120,28 +1142,48 @@ class GameController extends Controller
             return redirect()->route('games.show', $game->uuid);
         }
 
-        // Game must be in setup and have an open slot
-        if ($game->status !== GameStatusEnum::Setup || $game->isFull()) {
-            return redirect()->route('games.index')
-                ->withMessage('This game is no longer accepting players.');
+        // Lock the game and re-check inside the lock: a double-tapped invite link, or two people opening it at once, would
+        // otherwise both pass the "open slot" check, reshuffle the first player's role and then fail on the unique
+        // (game_id, slot) index, leaving both players with the same role and the loser on a 500 page.
+        $player = DB::transaction(function () use ($game, $userId): ?GamePlayer {
+            /** @var Game|null $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+            if (! $locked || $locked->status !== GameStatusEnum::Setup) {
+                return null;
+            }
+            if ($locked->players()->count() >= 2 || $locked->players()->where('user_id', $userId)->exists()) {
+                return null;
+            }
+
+            // Randomly assign attacker/defender to both players
+            $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
+            $locked->players()->where('slot', 1)->update(['role' => $roles[0]]);
+
+            $joined = GamePlayer::create([
+                'game_id' => $locked->id,
+                'user_id' => $userId,
+                'slot' => 2,
+                'role' => $roles[1],
+            ]);
+
+            // Advance to faction select now that both players are in
+            $locked->update([
+                'status' => GameStatusEnum::FactionSelect,
+                'started_at' => now(),
+            ]);
+
+            return $joined;
+        });
+
+        if (! $player) {
+            // Lost the race, or the game moved on. A double tap on the invite link lands here with the person already
+            // seated by their first request, so they go to the game; anyone else is told it is closed.
+            return GamePlayer::query()->where('game_id', $game->id)->where('user_id', $userId)->exists()
+                ? redirect()->route('games.show', $game->uuid)
+                : redirect()->route('games.index')->withMessage('This game is no longer accepting players.');
         }
 
-        // Randomly assign attacker/defender to both players
-        $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
-        $game->players()->where('slot', 1)->update(['role' => $roles[0]]);
-
-        $player = GamePlayer::create([
-            'game_id' => $game->id,
-            'user_id' => $userId,
-            'slot' => 2,
-            'role' => $roles[1],
-        ]);
-
-        // Advance to faction select now that both players are in
-        $game->update([
-            'status' => GameStatusEnum::FactionSelect,
-            'started_at' => now(),
-        ]);
+        $game->refresh();
 
         broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers();
         broadcast(new GameStatusChanged($game))->toOthers();

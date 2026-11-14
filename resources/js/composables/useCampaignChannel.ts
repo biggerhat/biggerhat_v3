@@ -28,7 +28,7 @@ export function useCampaignChannel(campaignId: number | null, only: string[]) {
         keys.forEach((k) => pendingOnly.add(k));
         if (reloadTimer) clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
-            router.reload({ only: [...pendingOnly], preserveScroll: true });
+            router.reload({ only: [...pendingOnly] });
             pendingOnly = new Set();
             reloadTimer = null;
         }, BROADCAST_RELOAD_DEBOUNCE_MS);

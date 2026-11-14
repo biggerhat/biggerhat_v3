@@ -5,7 +5,7 @@ import { X } from 'lucide-vue-next';
 const modelValue = defineModel<string | null>();
 
 interface Option {
-    [key: string]: string | number;
+    [key: string]: any;
 }
 
 interface Props {

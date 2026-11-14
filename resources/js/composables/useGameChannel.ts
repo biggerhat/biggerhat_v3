@@ -27,7 +27,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         only.forEach((k) => pendingOnly.add(k));
         if (reloadTimer) clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
-            router.reload({ only: [...pendingOnly], preserveScroll: true });
+            router.reload({ only: [...pendingOnly] });
             pendingOnly = new Set();
             reloadTimer = null;
         }, BROADCAST_RELOAD_DEBOUNCE_MS);
@@ -122,7 +122,7 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
         }
     };
 
-    const refresh = () => router.reload({ preserveScroll: true });
+    const refresh = () => router.reload();
 
     const watchConnection = (echo: any) => {
         const connection = echo.connector?.pusher?.connection;

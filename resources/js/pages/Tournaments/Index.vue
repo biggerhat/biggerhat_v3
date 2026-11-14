@@ -109,7 +109,7 @@ const removeTournament = async (t: TournamentSummary) => {
             return;
         }
         toast.success(`${t.name} deleted.`);
-        router.reload({ only: ['my_tournaments', 'public_tournaments'], preserveScroll: true });
+        router.reload({ only: ['my_tournaments', 'public_tournaments'] });
     } catch {
         toast.error('Network error deleting tournament.');
     }

@@ -38,7 +38,7 @@ const props = defineProps<{
 
 // The owner viewing their card sees the download button appear when the render finishes.
 useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
-    if (event.kind === 'custom_upgrade' && event.id === props.upgrade.id) router.reload({ only: ['upgrade'], preserveScroll: true });
+    if (event.kind === 'custom_upgrade' && event.id === props.upgrade.id) router.reload({ only: ['upgrade'] });
 });
 
 const domainLabel = props.upgrade.domain === 'crew' ? 'Crew Card' : 'Upgrade';

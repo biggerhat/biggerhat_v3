@@ -7,7 +7,7 @@ import { computed, ref, watch } from 'vue';
 const modelValue = defineModel<string | null>();
 
 interface Option {
-    [key: string]: string | number;
+    [key: string]: any;
 }
 
 interface Props {

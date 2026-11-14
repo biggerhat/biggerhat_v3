@@ -2080,7 +2080,7 @@ const startNewBuild = () => {
 // autosave silently no-ops. Reloading only `auth` avoids a heavy props refetch.
 const onVisibilityChange = () => {
     if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
-    router.reload({ only: ['auth'], preserveScroll: true, preserveState: true });
+    router.reload({ only: ['auth'] });
 };
 
 // Best-effort flush when the browser tab is being closed or fully navigated

@@ -387,7 +387,6 @@ watch(
         arsenalRefetched = true;
         router.reload({
             only: ['campaign_arsenal', 'campaign_owned_equipment', 'campaign_totem', 'campaign_leader', 'campaign_leader_option', 'campaign_context'],
-            preserveScroll: true,
         });
     },
     { immediate: true },
@@ -433,7 +432,7 @@ const saveScenarioFromDrawer = async () => {
     try {
         await savePromise;
         editScenarioOpen.value = false;
-        router.reload({ only: ['game', 'schemes', 'deployment'], preserveScroll: true });
+        router.reload({ only: ['game', 'schemes', 'deployment'] });
     } catch {
         // Toast already surfaced via toast.promise.
     }
@@ -458,7 +457,7 @@ const regenerateScenario = async () => {
 
     try {
         await regenPromise;
-        router.reload({ only: ['game', 'schemes', 'deployment'], preserveScroll: true });
+        router.reload({ only: ['game', 'schemes', 'deployment'] });
     } catch {
         // Toast already surfaced via toast.promise.
     }
@@ -525,8 +524,6 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 // refresh once crew selection actually sets up the crews.
                 'campaign_context',
             ],
-            preserveScroll: true,
-            preserveState: true,
             onFinish: () => {
                 submitting.value = false;
             },
@@ -691,8 +688,6 @@ const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: nu
     const savedNextScheme = nextSchemeId.value;
     router.reload({
         only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'],
-        preserveState: true,
-        preserveScroll: true,
         onFinish: () => {
             strategyPoints.value = savedStrategy;
             schemePoints.value = savedScheme;
@@ -954,7 +949,7 @@ const submitQuickAdd = async () => {
         member_ids: quickAddMemberIds.value,
     });
     quickAddOpen.value = false;
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // ─── Leave-confirmation guard for in-progress games ───
@@ -1043,7 +1038,7 @@ const confirmLeave = () => {
 // actions non-functional.
 const onAuthVisibilityChange = () => {
     if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
-    router.reload({ only: ['auth'], preserveScroll: true, preserveState: true });
+    router.reload({ only: ['auth'] });
 };
 
 onMounted(() => {
@@ -1364,7 +1359,7 @@ const drawLoot = async () => {
         lootSidePicker.value = { type: 'attach', card: data.card };
         const candidates = attachableMembers.value;
         lootSidePickerMemberId.value = candidates.length === 1 ? candidates[0].id : null;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     } catch {
         showError('Network error. Please check your connection.');
     }
@@ -1695,7 +1690,7 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
             showError((data.error as string) ?? 'Action failed. Please try again.');
             return;
         }
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
         return data;
     } catch {
         showError('Network error. Please check your connection.');
@@ -1714,7 +1709,7 @@ const restoreEndOfTurnTokens = async (removed: RemovedToken[]) => {
     await gameApi.post(route('games.play.crew.tokens.restore', props.game.uuid), {
         tokens: removed.map((r) => ({ member_id: r.member_id, token_id: r.token_id, token_name: r.token_name })),
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const showEndOfTurnUndoToast = (removed?: RemovedToken[]) => {
@@ -1775,7 +1770,7 @@ const setHealth = (member: CrewMember, target: number) => {
                 pendingHealth.delete(member.id);
             }
             if (!res.ok) {
-                router.reload({ only: ['game'], preserveScroll: true });
+                router.reload({ only: ['game'] });
             }
         })
         .catch((err) => {
@@ -1785,7 +1780,7 @@ const setHealth = (member: CrewMember, target: number) => {
                 healthAborts.delete(member.id);
                 pendingHealth.delete(member.id);
             }
-            router.reload({ only: ['game'], preserveScroll: true });
+            router.reload({ only: ['game'] });
         });
 };
 
@@ -1816,7 +1811,7 @@ const toggleActivated = async (member: any) => {
     );
     if (!res.ok) {
         member.is_activated = oldValue;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
         return;
     }
     // End-of-activation tokens fall off as the model activates — reflect the
@@ -1855,7 +1850,7 @@ const killMember = async (member: any) => {
     if (!res.ok) {
         member.is_killed = false;
         member.current_health = prevHealth;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
         return;
     }
     const data = res.data as any;
@@ -1885,7 +1880,7 @@ const killMember = async (member: any) => {
                 return; // postPlay handles the reload
             }
         }
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     }
 };
 
@@ -1926,7 +1921,7 @@ const confirmReplaceOnDeath = async () => {
         }
     }
     if (anyAdded) {
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     }
     // Only auto-close if no warnings — let user pick alternatives if some failed
     if (!replaceOnDeathWarnings.value.length) {
@@ -2126,7 +2121,7 @@ const submitEditTurn = async () => {
             return;
         }
         editTurnDialogOpen.value = false;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     } catch {
         showError('Network error. Please check your connection.');
     } finally {
@@ -2175,11 +2170,7 @@ const submitTurnScore = async () => {
     schemePoints.value = 0;
     nextSchemeId.value = null;
     scoringTurn.value = false;
-    router.reload({
-        only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'],
-        preserveState: true,
-        preserveScroll: true,
-    });
+    router.reload({ only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'] });
     showEndOfTurnUndoToast(turnData?.removed_tokens);
 };
 
@@ -2209,7 +2200,7 @@ const markGameComplete = async () => {
     if (res.data.game_complete) {
         router.visit(route('games.show', props.game.uuid));
     } else {
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     }
 };
 
@@ -2321,7 +2312,7 @@ const summonCharacter = async (characterId: number, miniatureId: number | null =
         });
     }
 
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Replace crew member
@@ -2502,14 +2493,14 @@ const removeTokenFromInfo = async () => {
         attached_tokens: updated,
     });
     tokenInfoDrawerOpen.value = false;
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const quickRemoveToken = async (member: any, tokenId: number) => {
     const current = member.attached_tokens ?? [];
     const updated = current.filter((t: any) => t.id !== tokenId);
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), { attached_tokens: updated });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Reference characters from loaded references (summons/replaces)
@@ -2549,7 +2540,7 @@ const toggleToken = async (tokenId: number, tokenName: string) => {
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
         attached_tokens: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const removeToken = async (tokenId: number) => {
@@ -2560,7 +2551,7 @@ const removeToken = async (tokenId: number) => {
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
         attached_tokens: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Character upgrade management
@@ -2655,7 +2646,7 @@ const toggleInjury = async (injury: { id: number; name: string; front_image: str
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: injuryMember.value.id }), {
         attached_upgrades: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const toggleUpgrade = async (upgrade: {
@@ -2692,7 +2683,7 @@ const toggleUpgrade = async (upgrade: {
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: upgradeMember.value.id }), {
         attached_upgrades: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Set the current_power_bar on an attached upgrade for a specific crew member.
@@ -2731,7 +2722,7 @@ const quickRemoveUpgrade = async (member: any, upgradeId: number) => {
     const updated = (member.attached_upgrades ?? []).filter((u: any) => u.id !== upgradeId);
     member.attached_upgrades = updated;
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), { attached_upgrades: updated });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Upgrade preview from crew list

@@ -23,6 +23,7 @@ interface DisplayPlayer {
     faction: string | null;
     allegiance?: { slug: string; name: string } | null;
     members?: { display_name: string }[];
+    is_disqualified?: boolean;
 }
 
 interface DisplayGame {
@@ -73,9 +74,7 @@ const props = defineProps<{
 }>();
 
 // Narrow reloads: the display only reads these props, and a TV refreshes on every score.
-const { connected } = useTournamentChannel(props.tournament.uuid, () =>
-    router.reload({ only: ['tournament', 'rounds', 'standings', 'ruleset'], preserveScroll: true, preserveState: true }),
-);
+const { connected } = useTournamentChannel(props.tournament.uuid, () => router.reload({ only: ['tournament', 'rounds', 'standings', 'ruleset'] }));
 
 const { message: liveMessage } = useTournamentAnnouncements(
     () => props.rounds,

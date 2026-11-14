@@ -123,7 +123,7 @@ export function useTournament<T extends Tournament>(tournament: ComputedRef<T> |
      * refreshes should call router.reload directly.
      */
     const reloadProps = (only: string[] = ['tournament', 'standings']) => {
-        router.reload({ only, preserveScroll: true, preserveState: true });
+        router.reload({ only });
     };
 
     /** Memoized player ID → player map for O(1) lookups in heavy renders. */

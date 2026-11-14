@@ -191,7 +191,7 @@ const props = defineProps<{
 useTournamentChannel(props.tournament.uuid, () => {
     // Narrow partial reload so the broadcast refresh avoids recomputing the
     // static `factions` enum map on every tick.
-    router.reload({ only: ['tournament', 'rounds', 'standings'], preserveScroll: true, preserveState: true });
+    router.reload({ only: ['tournament', 'rounds', 'standings'] });
 });
 
 const { message: liveMessage } = useTournamentAnnouncements(

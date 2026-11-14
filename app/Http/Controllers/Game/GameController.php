@@ -47,6 +47,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Response;
 use Inertia\ResponseFactory;
+use Laravel\Pennant\Feature;
 
 class GameController extends Controller
 {
@@ -548,6 +549,8 @@ class GameController extends Controller
             'observer_scheme_intel' => fn () => $context === GameShowContext::Observer ? $this->buildObserverSchemeIntel($game) : null,
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => ! $isSelf,
+            // Pre-release: the tabletop link only appears for players while the experiment-tabletop flag is on.
+            'tabletop_enabled' => $isSelf && Feature::for(null)->active('experiment-tabletop'),
         ];
 
         // Loot catalog: lazily loaded only for Bonanza in-progress games, used by

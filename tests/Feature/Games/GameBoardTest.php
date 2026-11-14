@@ -268,3 +268,22 @@ it('hides the terrain endpoint until the flag is on', function () {
 
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => []])->assertNotFound();
 });
+
+it('offers the board link on the game screen to players while the flag is on', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->get(route('games.show', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', true));
+
+    Feature::for(null)->deactivate('experiment-tabletop');
+    $this->actingAs($a)->get(route('games.show', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', false));
+});
+
+it('does not offer the board link to someone watching the game', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $game->update(['is_observable' => true]);
+
+    $this->actingAs(User::factory()->create())->get(route('games.observe', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', false));
+});

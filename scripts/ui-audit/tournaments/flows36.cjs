@@ -12,6 +12,19 @@ const L = require('./lib.cjs');
             return { cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')), px: r.left + r.width / 2, py: r.top + r.height / 2 };
         }, nth);
 
+    const nav = await L.session(browser, 'carol@example.test');
+    await L.step('board: the play screen links to it', nav, async () => {
+        await L.visit(nav, `/games/${L.ids.play_game}`);
+        await nav.page.waitForSelector('[data-testid=open-board]');
+        await nav.page.click('[data-testid=open-board]');
+        await nav.page.waitForSelector('[data-testid=tabletop-board]', { timeout: 9000 }).catch(async () => {
+            throw new Error(`board did not appear at ${nav.page.url()}: ${(await L.text(nav)).replace(/\\s+/g, ' ').slice(0, 300)}`);
+        });
+        if (!nav.page.url().endsWith('/board')) throw new Error(`landed on ${nav.page.url()}`);
+        await L.clickText(nav, /Back to the game/i, 'a');
+        await nav.page.waitForSelector('[data-testid=open-board]');
+    });
+
     for (const [label, vp] of [
         ['desktop', { width: 1280, height: 900 }],
         ['phone', { width: 390, height: 844 }],

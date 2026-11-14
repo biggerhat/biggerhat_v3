@@ -83,12 +83,19 @@ $rp = [];
 foreach ([['Alice', 'arcanists', $alice], ['Bob', 'guild', $bob], ['Carol', 'bayou', $carol], ['Dave', 'neverborn', $dave], ['Eve', 'outcasts', null]] as [$n, $f, $u]) {
     $rp[$n] = TournamentPlayer::factory()->for($t7)->create(['display_name' => $n, 'faction' => $f, 'user_id' => $u?->id]);
 }
-$q1 = TournamentRound::factory()->for($t7)->create(['round_number' => 1, 'status' => 'completed']);
+$q1 = TournamentRound::factory()->for($t7)->create(['round_number' => 1, 'status' => 'completed', 'strategy_id' => $strategy->id]);
 TournamentGame::factory()->for($q1, 'round')->withScore(9, 3)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Bob']->id, 'result' => 'completed', 'table_number' => 1]);
 TournamentGame::factory()->for($q1, 'round')->withScore(7, 5)->create(['player_one_id' => $rp['Carol']->id, 'player_two_id' => $rp['Dave']->id, 'result' => 'completed', 'table_number' => 2]);
 $q2 = TournamentRound::factory()->for($t7)->create(['round_number' => 2, 'status' => 'completed']);
 TournamentGame::factory()->for($q2, 'round')->withScore(8, 4)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Carol']->id, 'result' => 'completed', 'table_number' => 1]);
 TournamentGame::factory()->for($q2, 'round')->withScore(6, 6)->create(['player_one_id' => $rp['Bob']->id, 'player_two_id' => $rp['Dave']->id, 'result' => 'completed', 'table_number' => 2]);
+// Analytics: Round 1's first pairing was played in the Game Tracker (one scored scheme, one discarded).
+$trackedGame = App\Models\Game::factory()->solo()->create(['creator_id' => $dave->id]);
+$trackedSide = App\Models\GamePlayer::factory()->create(['game_id' => $trackedGame->id, 'user_id' => $alice->id, 'slot' => 1]);
+$q1->games()->orderBy('id')->first()->update(['game_id' => $trackedGame->id]);
+foreach ([[1, 'scored', 2, 0], [2, 'discarded', 0, 1], [3, 'scored', 3, 2]] as [$turn, $action, $points, $i]) {
+    App\Models\GameTurn::create(['game_id' => $trackedGame->id, 'game_player_id' => $trackedSide->id, 'turn_number' => $turn, 'scheme_id' => Scheme::find($schemes[$i])->id, 'scheme_action' => $action, 'scheme_points' => $points]);
+}
 // --- T8: an active event that asks for a crew each round; Round 1 is paired (scenario set) but not started: Alice vs Bob, both guild
 $t8 = Tournament::factory()->active()->create(['name' => 'Crew Check Open', 'creator_id' => $carol->id, 'require_crew_lists' => true, 'encounter_size' => 50, 'planned_rounds' => 2]);
 $t8->organizers()->attach($org->id);

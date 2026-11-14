@@ -409,7 +409,7 @@ it('submitCrew arsenal check is a no-op for non-campaign games', function () {
         'status' => GameStatusEnum::CrewSelect->value,
         'creator_id' => $user->id,
     ]);
-    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1]);
+    GamePlayer::factory()->create(['game_id' => $game->id, 'user_id' => $user->id, 'slot' => 1, 'faction' => FactionEnum::Guild->value]);
 
     $char = Character::factory()->create();
     $master = Character::factory()->create();

@@ -222,3 +222,13 @@ Announcements: `TournamentAnnouncementController` (`tournaments.announcement`). 
 `tournaments.team_size` > 1 makes each competitor a team: a `tournament_players` row (named by `display_name`) plus `tournament_player_members` for the people on it.
 Everything that pairs/scores/ranks works on the competitor row unchanged; anything about *people* (declaration, linked accounts, notifications, check-in, self-report)
 goes through the members — see `TournamentPlayer::forUser()` / `linkedUserIds()`. UI: `ManagePlayersTab` (team mode) + `TeamForm`.
+
+## Analytics (organizer only)
+**Insights tab** (`Manage.vue`, `components/Tournament/EventInsights.vue`): how one event went. `App\Tournaments\Analytics\EventInsights::forEvent()` works it out from recorded results (nothing is stored) and
+`TournamentPagePayloads::forManage()` serves it as a deferred `insights` prop (group `insights`): `null` until any game has an official result (the tab is hidden), absent while the follow-up request loads. It
+covers turnout (registered, played, dropped, DQ, new vs returning accounts), game stats (average score and margin, close games = decided by 2 or less, byes, forfeits, margin buckets, score components such as
+strategy/scheme VP), a round-by-round table with round length and scenario, win rate by faction (Allegiance for TOS; skipped for team events) and by leader (rulesets that track leaders), and highlights. Only
+**contested** games count for scores (two players, a result, no bye or forfeit: `InsightMath::isContested`). Win rate counts a tie as half a win. A refresh after a score change re-requests `insights` only while the tab is open.
+**All events** (`/tournaments/analytics`, `TournamentAnalyticsController`, `OrganizerInsights::forUser()`, page `Tournaments/Analytics.vue`): every active or finished event the signed-in user organizes, all time or the
+last 12 months (`?range=12m`): turnout per event, repeat players (matched by account, else by name), returning share, faction results and popularity, regulars, formats. Each person sees only their own events.
+Shared pieces: `InsightBars`, `InsightTiles`, `InsightBreakdown` (plain div bars, no chart library). Tests: `tests/Feature/Tournament/AnalyticsTest.php`; browser flow `flows34.cjs`.

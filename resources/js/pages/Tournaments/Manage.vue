@@ -2,6 +2,7 @@
 import {
     formatGameSize,
     TIEBREAKER_LABELS,
+    type EventInsightsData,
     type TosDeploymentInfo,
     type TosOperationInfo,
     type TournamentRuleset,
@@ -18,6 +19,7 @@ import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import EventInsights from '@/components/Tournament/EventInsights.vue';
 import ManageDetailsTab from '@/components/Tournament/ManageDetailsTab.vue';
 import ManagePlayersTab from '@/components/Tournament/ManagePlayersTab.vue';
 import ManageRoundsTab from '@/components/Tournament/ManageRoundsTab.vue';
@@ -145,6 +147,8 @@ const props = defineProps<{
     /** TOS reference data; empty unless the ruleset's scenario uses it. */
     tos_operations: TosOperationInfo[];
     tos_deployments: TosDeploymentInfo[];
+    /** The Insights tab. A deferred prop: absent while it loads, null until the first result is in. */
+    insights?: EventInsightsData | null;
 }>();
 
 // Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
@@ -158,6 +162,9 @@ const visibleTabs = computed(() => {
     const t = ['standings', 'players', 'rounds', 'details', 'settings'];
     if (props.tournament.rsvps?.length || props.tournament.status === 'draft') {
         t.push('rsvps');
+    }
+    if (props.insights !== null) {
+        t.push('insights');
     }
     return t;
 });
@@ -209,7 +216,8 @@ watch(activeTab, (tab) => {
 });
 
 // Reload Inertia props after a mutation while preserving local UI state.
-const reloadPage = () => reloadProps(['tournament', 'standings', 'cut']);
+// Insights is worked out per request, so it is only refreshed while someone is looking at it.
+const reloadPage = () => reloadProps(['tournament', 'standings', 'cut', ...(activeTab.value === 'insights' ? ['insights'] : [])]);
 const announcementOpen = ref(false);
 const playersTab = ref<InstanceType<typeof ManagePlayersTab> | null>(null);
 const waitlistCount = computed(() => props.tournament.rsvps?.filter((r) => r.waitlist_position).length ?? 0);
@@ -513,6 +521,7 @@ const isEditable = computed(() => !isLocked.value);
                             tournament.rounds.length
                         }}</Badge>
                     </TabsTrigger>
+                    <TabsTrigger v-if="insights !== null" value="insights" class="px-2 text-xs sm:px-3 sm:text-sm">Insights</TabsTrigger>
                     <TabsTrigger value="details" class="px-2 text-xs sm:px-3 sm:text-sm">Details</TabsTrigger>
                     <TabsTrigger value="settings" class="px-2 text-xs sm:px-3 sm:text-sm">Settings</TabsTrigger>
                 </TabsList>
@@ -540,6 +549,11 @@ const isEditable = computed(() => !isLocked.value);
                             <a :href="route('tournaments.export_csv', tournament.uuid)"><Download class="size-3.5" /> Download results (CSV)</a>
                         </Button>
                     </div>
+                </TabsContent>
+
+                <!-- ═══ INSIGHTS ═══ -->
+                <TabsContent v-if="insights !== null" value="insights">
+                    <EventInsights :insights="insights" :is-completed="tournament.status === 'completed'" />
                 </TabsContent>
 
                 <!-- ═══ RSVPs ═══ -->

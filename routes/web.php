@@ -42,6 +42,7 @@ use App\Http\Controllers\ScenarioGeneratorController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\SupportersController;
+use App\Http\Controllers\Tournament\TournamentAnalyticsController;
 use App\Http\Controllers\Tournament\TournamentAnnouncementController;
 use App\Http\Controllers\Tournament\TournamentAwardController;
 use App\Http\Controllers\Tournament\TournamentCalendarController;
@@ -486,6 +487,7 @@ Route::get('/tournaments/{tournament}/event.ics', [TournamentCalendarController:
 Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController::class, 'pdf'])->name('tournaments.results_pdf');
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
     Route::get('/create', [TournamentController::class, 'create'])->name('create');
+    Route::get('/analytics', TournamentAnalyticsController::class)->name('analytics');
     Route::get('/import', [TournamentImportController::class, 'create'])->name('import.create');
     Route::get('/import/template/{ruleset}', [TournamentImportController::class, 'template'])->name('import.template');
     Route::post('/import/preview', [TournamentImportController::class, 'preview'])->name('import.preview')->middleware('throttle:30,60');

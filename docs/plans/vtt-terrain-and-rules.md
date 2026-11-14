@@ -59,5 +59,12 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   `games.board_state` (JSON). You move your own models; in a solo game you move both sides. Saves merge under a lock.
 - Realtime: a drop broadcasts `GameBoardMoved` on the game's presence channel; the other board applies it at once, and re-syncs when the tab becomes visible again.
 - Auras: select a model, "Add aura", set the range (0.5" steps, presets 1, 2, 3, 6). A model casts up to three. The lock pins an aura where it is while the model walks away; unlocking returns it to the model. The circle starts at the outside edge of the base (base radius + range) and the panel lists the models within it. Auras are a view aid stored on the device.
+- Deployments: Standard, Flank, Corner and Wedge are drawn as the guide shows them (p.61), in four orientations each, with the
+  centerline. The game board starts on the game's own deployment.
+- Terrain editor ("Terrain" tool): pick a piece type from the guide's standard pieces or a plain block or round piece, drag it
+  into place (snaps to half inches), turn it 90 degrees, resize it, copy or delete it, set its traits, and give it up to six
+  levels, each with its own footprint and height. Undo, clear, or load the demo table. It shows coverage against the guide's
+  45-65% and the count of climbable Ht 2+ pieces (three to eight). In a game the layout is saved to `games.board_state` and
+  both players can edit it; changes reach the other player live. The sandbox keeps its layout on the device.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

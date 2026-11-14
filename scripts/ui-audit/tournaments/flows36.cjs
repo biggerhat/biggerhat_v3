@@ -39,6 +39,36 @@ const L = require('./lib.cjs');
             if (Math.abs(after.cx - before.cx) < 0.5 && Math.abs(after.cy - before.cy) < 0.5)
                 throw new Error('the model went back to where it started');
         });
+        await L.step(`board (${label}): terrain laid out on the game's table is saved with the game`, carol, async () => {
+            const centre = (testid) => carol.page.$eval(`[data-testid=${testid}]`, (b) => b.scrollIntoView({ block: 'center' }));
+            const click = async (testid) => {
+                await centre(testid);
+                await carol.page.click(`[data-testid=${testid}]`);
+            };
+            const pieces = () => carol.page.$eval('[data-testid=terrain-stats]', (e) => Number((e.innerText.match(/(\d+) pieces?/) || [])[1]));
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=mode-terrain]');
+            await click('mode-terrain');
+            await carol.page.waitForSelector('[data-testid=terrain-stats]');
+            const start = await pieces();
+            await carol.page.select('[data-testid=terrain-preset]', 'tower');
+            await click('terrain-add');
+            await carol.page.waitForFunction(
+                (n) => Number((document.querySelector('[data-testid=terrain-stats]').innerText.match(/(\d+) pieces?/) || [])[1]) === n,
+                { timeout: 5000 },
+                start + 1,
+            );
+            await L.sleep(1200); // the save is a background request
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=mode-terrain]');
+            await click('mode-terrain');
+            const kept = await pieces();
+            if (kept !== start + 1) throw new Error(`expected ${start + 1} pieces after a reload, found ${kept}`);
+            await L.shot(carol, `361-board-terrain-${label}`);
+            // Leave the table as it was found.
+            await click('terrain-clear');
+            await L.sleep(1200);
+        });
     }
 
     const live = await L.session(browser, 'carol@example.test');
@@ -50,6 +80,7 @@ const L = require('./lib.cjs');
                     const ch = {
                         listen(event, cb) {
                             if (event === '.GameBoardMoved') window.__boardMoved = cb;
+                            if (event === '.GameBoardTerrainChanged') window.__boardTerrain = cb;
                             return ch;
                         },
                     };
@@ -76,6 +107,27 @@ const L = require('./lib.cjs');
             return { cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')) };
         });
         if (Math.abs(at.cx - 20) > 0.01 || Math.abs(at.cy - 18) > 0.01) throw new Error(`model did not move: ${JSON.stringify(at)}`);
+    });
+    await L.step('board: terrain the other player lays out appears without a reload', live, async () => {
+        await live.page.waitForFunction(() => typeof window.__boardTerrain === 'function', { timeout: 9000 });
+        const wall = (id, x) => ({
+            id,
+            name: 'Wall',
+            traits: ['blocking', 'climbable'],
+            surfaces: [{ id: `${id}-1`, top: 2, shape: { kind: 'rect', x, y: 10, w: 8, h: 1.5 } }],
+        });
+        await live.page.evaluate((layout) => window.__boardTerrain({ terrain: layout }), [wall('w1', 4), wall('w2', 20)]);
+        await live.page.waitForFunction(
+            () =>
+                document.querySelectorAll('[data-testid=tabletop-board] svg text').length > 0 &&
+                [...document.querySelectorAll('[data-testid=tabletop-board] svg text')].filter((t) => t.textContent.trim() === 'Ht 2').length === 2,
+            { timeout: 5000 },
+        );
+        await live.page.evaluate(() => window.__boardTerrain({ terrain: [] }));
+        await live.page.waitForFunction(
+            () => ![...document.querySelectorAll('[data-testid=tabletop-board] svg text')].some((t) => /^Ht /.test(t.textContent.trim())),
+            { timeout: 5000 },
+        );
     });
 
     const outsider = await L.session(browser, 'alice@example.test');

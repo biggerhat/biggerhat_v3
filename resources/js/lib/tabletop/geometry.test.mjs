@@ -5,7 +5,9 @@ import {
     auraOrigin,
     auraRadius,
     baseRadius,
+    clampSize,
     clampToTable,
+    clampTop,
     deploymentZones,
     describeZone,
     edgeDistance,
@@ -13,9 +15,16 @@ import {
     heightCover,
     inZone,
     modelsWithin,
+    movePiece,
+    pieceBounds,
     pointInShape,
     restingSupport,
+    rotatePiece90,
     supportFraction,
+    surfaceAt,
+    tallClimbablePieces,
+    terrainCoverage,
+    translateShape,
     withinAura,
 } from './geometry.ts';
 
@@ -218,4 +227,122 @@ test('a locked aura stays where it was locked while the model moves on', () => {
 
 test('a model can cast up to three auras', () => {
     assert.equal(AURAS_PER_MODEL, 3);
+});
+
+const piece2 = (id, shapes, traits = ['climbable']) => ({
+    id,
+    name: id,
+    traits,
+    surfaces: shapes.map(([shape, top], i) => ({ id: `${id}-${i}`, shape, top })),
+});
+
+test('moving a piece moves every level and keeps it on the table', () => {
+    const tower = piece2('t', [
+        [rect(2, 2, 6, 6), 3],
+        [rect(2, 2, 3, 3), 5],
+    ]);
+    const moved = movePiece(tower, 10, 4);
+    assert.deepEqual(moved.surfaces[0].shape, rect(12, 6, 6, 6));
+    assert.deepEqual(moved.surfaces[1].shape, rect(12, 6, 3, 3));
+    // dragged far off the table: stops at the edge, the whole piece still inside
+    const edge = movePiece(tower, 100, 100);
+    assert.deepEqual(pieceBounds(edge), { minX: 30, minY: 30, maxX: 36, maxY: 36 });
+    const corner = movePiece(tower, -100, -100);
+    assert.deepEqual(pieceBounds(corner), { minX: 0, minY: 0, maxX: 6, maxY: 6 });
+    // a polygon and a circle translate too
+    assert.deepEqual(translateShape({ kind: 'circle', cx: 5, cy: 5, r: 2 }, 1, 2), { kind: 'circle', cx: 6, cy: 7, r: 2 });
+    assert.deepEqual(
+        translateShape(
+            {
+                kind: 'poly',
+                points: [
+                    [0, 0],
+                    [2, 0],
+                    [0, 2],
+                ],
+            },
+            1,
+            1,
+        ).points,
+        [
+            [1, 1],
+            [3, 1],
+            [1, 3],
+        ],
+    );
+});
+
+test('the highest level under a point is the one picked', () => {
+    const tower = piece2('t', [
+        [rect(2, 2, 6, 6), 3],
+        [rect(2, 2, 3, 3), 5],
+    ]);
+    assert.equal(surfaceAt([tower], 3, 3).surface.top, 5);
+    assert.equal(surfaceAt([tower], 6, 6).surface.top, 3);
+    assert.equal(surfaceAt([tower], 20, 20), null);
+});
+
+test('coverage counts the share of the table under terrain and ignores overlap', () => {
+    assert.equal(terrainCoverage([]), 0);
+    assert.ok(Math.abs(terrainCoverage([piece2('a', [[rect(0, 0, 18, 36), 2]])]) - 0.5) < 0.001);
+    const stacked = piece2('b', [
+        [rect(0, 0, 18, 18), 2],
+        [rect(0, 0, 9, 9), 4],
+    ]);
+    assert.ok(Math.abs(terrainCoverage([stacked]) - 0.25) < 0.001);
+});
+
+test('the guide wants three to eight standable pieces of Ht 2 or more', () => {
+    const tall = piece2('tall', [[rect(0, 0, 3, 3), 2]]);
+    const low = piece2('low', [[rect(5, 5, 3, 3), 1]]);
+    const steep = piece2('steep', [[rect(9, 9, 3, 3), 4]], ['impassable']);
+    assert.equal(tallClimbablePieces([tall, low, steep]), 1);
+});
+
+test('editor input is kept to half inches inside the allowed range', () => {
+    assert.equal(clampTop(0), 0.5);
+    assert.equal(clampTop(99), 12);
+    assert.equal(clampTop(2.3), 2.5);
+    assert.equal(clampSize(0), 0.5);
+    assert.equal(clampSize(50), 36);
+});
+
+test('every preset builds a valid piece on the table', async () => {
+    const { TERRAIN_PRESETS } = await import('./terrainPresets.ts');
+    assert.ok(TERRAIN_PRESETS.length >= 8);
+    for (const preset of TERRAIN_PRESETS) {
+        const p = preset.make('x', 18, 18);
+        assert.ok(p.surfaces.length >= 1 && p.surfaces.length <= 6, `${preset.key}: surface count`);
+        assert.ok(
+            p.traits.every((t) => ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible'].includes(t)),
+            `${preset.key}: traits`,
+        );
+        const b = pieceBounds(p);
+        assert.ok(b.minX >= 0 && b.minY >= 0 && b.maxX <= 36 && b.maxY <= 36, `${preset.key}: fits the table when centred`);
+        assert.ok(
+            p.surfaces.every((s) => s.top >= 0.5 && s.top <= 12),
+            `${preset.key}: heights`,
+        );
+    }
+});
+
+test('turning a piece a quarter swaps the sides of a rectangle about the piece centre', () => {
+    const wall = piece2('w', [[rect(10, 10, 8, 2), 2]]);
+    const turned = rotatePiece90(wall);
+    assert.deepEqual(pieceBounds(turned), { minX: 13, minY: 7, maxX: 15, maxY: 15 });
+    // four turns come back to where it started
+    const back = rotatePiece90(rotatePiece90(rotatePiece90(turned)));
+    assert.deepEqual(back.surfaces[0].shape, rect(10, 10, 8, 2));
+    // a stack turns together
+    const tower = piece2('t', [
+        [rect(2, 2, 6, 4), 3],
+        [rect(2, 2, 2, 2), 5],
+    ]);
+    const t = rotatePiece90(tower);
+    assert.deepEqual(pieceBounds(t), { minX: 3, minY: 1, maxX: 7, maxY: 7 });
+    assert.equal(t.surfaces.length, 2);
+    // a piece at the table edge is nudged back inside after turning
+    const edge = piece2('e', [[rect(0, 0, 12, 2), 2]]);
+    const b = pieceBounds(rotatePiece90(edge));
+    assert.ok(b.minX >= 0 && b.minY >= 0);
 });

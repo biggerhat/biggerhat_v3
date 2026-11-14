@@ -1,28 +1,30 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
-import type { Token } from '@/lib/tabletop/geometry';
-import { sampleTokens } from '@/lib/tabletop/sampleTable';
+import type { TerrainPiece, Token } from '@/lib/tabletop/geometry';
+import { sampleTerrain, sampleTokens } from '@/lib/tabletop/sampleTable';
 import { Head } from '@inertiajs/vue3';
 import { onMounted, ref, watch } from 'vue';
 
 // Sandbox: the demo table with free-standing models. Nothing leaves this device.
 const STORAGE_KEY = 'tabletop-spike-v1';
 const tokens = ref<Token[]>(sampleTokens.map((t) => ({ ...t })));
+const terrain = ref<TerrainPiece[]>(JSON.parse(JSON.stringify(sampleTerrain)));
 
 onMounted(() => {
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
         if (Array.isArray(saved?.tokens)) tokens.value = saved.tokens;
+        if (Array.isArray(saved?.terrain)) terrain.value = saved.terrain;
     } catch {
         // storage unavailable: the table simply starts from the demo layout
     }
 });
 watch(
-    tokens,
+    [tokens, terrain],
     () => {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tokens: tokens.value }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tokens: tokens.value, terrain: terrain.value }));
         } catch {
             // ignore
         }
@@ -33,7 +35,11 @@ watch(
 const moved = (t: Token) => (tokens.value = tokens.value.map((x) => (x.id === t.id ? t : x)));
 const add = (t: Omit<Token, 'id'>) => tokens.value.push({ ...t, id: `n${Date.now().toString(36)}` });
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
-const reset = () => (tokens.value = sampleTokens.map((t) => ({ ...t })));
+const reset = () => {
+    tokens.value = sampleTokens.map((t) => ({ ...t }));
+    terrain.value = JSON.parse(JSON.stringify(sampleTerrain));
+};
+const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
 </script>
 
 <template>
@@ -46,6 +52,16 @@ const reset = () => (tokens.value = sampleTokens.map((t) => ({ ...t })));
         </template>
     </PageBanner>
     <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
-        <TabletopBoard :tokens="tokens" sandbox storage-key="sandbox" @moved="moved" @add="add" @remove="remove" @reset="reset" />
+        <TabletopBoard
+            :tokens="tokens"
+            :terrain="terrain"
+            sandbox
+            @terrain-changed="terrainChanged"
+            storage-key="sandbox"
+            @moved="moved"
+            @add="add"
+            @remove="remove"
+            @reset="reset"
+        />
     </div>
 </template>

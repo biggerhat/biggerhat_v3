@@ -2,7 +2,7 @@
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
-import { TABLE_SIZE, baseRadius, type DeploymentKind, type Token } from '@/lib/tabletop/geometry';
+import { TABLE_SIZE, baseRadius, type DeploymentKind, type TerrainPiece, type Token } from '@/lib/tabletop/geometry';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import { loadEcho } from '@/lib/echo';
@@ -21,6 +21,7 @@ const props = defineProps<{
     players: { slot: number; name: string; mine: boolean }[];
     models: BoardModel[];
     positions: Record<string, { x: number; y: number }>;
+    terrain: TerrainPiece[];
 }>();
 
 // Saved positions, plus moves the other player has just made (applied straight from the broadcast).
@@ -30,17 +31,28 @@ watch(
     (next) => (live.value = { ...next }),
 );
 
+// The table layout: saved with the game, and replaced whole when the other player changes it.
+const liveTerrain = ref<TerrainPiece[]>(props.terrain);
+watch(
+    () => props.terrain,
+    (next) => (liveTerrain.value = next),
+);
+
 let joined = false;
-const resync = () => document.visibilityState === 'visible' && router.reload({ only: ['positions'] });
+const resync = () => document.visibilityState === 'visible' && router.reload({ only: ['positions', 'terrain'] });
 
 onMounted(async () => {
     document.addEventListener('visibilitychange', resync);
     const echo = await loadEcho();
     if (!echo) return;
     joined = true;
-    echo.join(`game.${props.game.uuid}`).listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number }> }) => {
-        live.value = { ...live.value, ...e.positions };
-    });
+    echo.join(`game.${props.game.uuid}`)
+        .listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number }> }) => {
+            live.value = { ...live.value, ...e.positions };
+        })
+        .listen('.GameBoardTerrainChanged', (e: { terrain: TerrainPiece[] }) => {
+            liveTerrain.value = e.terrain;
+        });
 });
 onUnmounted(() => {
     document.removeEventListener('visibilitychange', resync);
@@ -75,6 +87,15 @@ const tokens = computed<Token[]>(() =>
     }),
 );
 
+function terrainChanged(pieces: TerrainPiece[]) {
+    liveTerrain.value = pieces;
+    router.put(
+        route('games.board.terrain', props.game.uuid),
+        { terrain: JSON.parse(JSON.stringify(pieces)) },
+        { preserveScroll: true, preserveState: true, only: ['terrain'] },
+    );
+}
+
 function moved(t: Token) {
     router.put(
         route('games.board.update', props.game.uuid),
@@ -89,7 +110,8 @@ function moved(t: Token) {
     <PageBanner title="Game board">
         <template #subtitle>
             <div class="px-2 text-sm text-muted-foreground">
-                Your crew is on the table. Drag your own models; the other crew is locked. Positions are saved to the game.
+                Your crew is on the table. Drag your own models; the other crew is locked. Either player can lay out the terrain. Everything is saved
+                to the game.
             </div>
         </template>
         <template #actions>
@@ -99,6 +121,14 @@ function moved(t: Token) {
         </template>
     </PageBanner>
     <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
-        <TabletopBoard :tokens="tokens" :storage-key="game.uuid" :deployment="game.deployment ?? undefined" :side-names="sideNames" @moved="moved" />
+        <TabletopBoard
+            :tokens="tokens"
+            :terrain="liveTerrain"
+            @terrain-changed="terrainChanged"
+            :storage-key="game.uuid"
+            :deployment="game.deployment ?? undefined"
+            :side-names="sideNames"
+            @moved="moved"
+        />
     </div>
 </template>

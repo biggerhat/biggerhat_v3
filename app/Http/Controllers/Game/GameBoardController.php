@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Game;
 
 use App\Enums\BaseSizeEnum;
 use App\Events\GameBoardMoved;
+use App\Events\GameBoardTerrainChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\UpdateBoardRequest;
+use App\Http\Requests\Games\UpdateTerrainRequest;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
@@ -40,6 +42,7 @@ class GameBoardController extends Controller
                 'killed' => (bool) $m->is_killed,
             ]))->values(),
             'positions' => $game->board_state['positions'] ?? (object) [],
+            'terrain' => $game->board_state['terrain'] ?? [],
         ]);
     }
 
@@ -64,10 +67,27 @@ class GameBoardController extends Controller
         DB::transaction(function () use ($game, $incoming) {
             $locked = Game::query()->lockForUpdate()->findOrFail($game->id);
             $positions = array_replace($locked->board_state['positions'] ?? [], $incoming->all());
-            $locked->update(['board_state' => ['positions' => $positions]]);
+            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['positions' => $positions])]);
         });
 
         broadcast(new GameBoardMoved($game, $incoming->all()))->toOthers();
+
+        return redirect()->back();
+    }
+
+    /** Either player may lay out the table: in a real game both place the terrain together. The whole layout is replaced. */
+    public function updateTerrain(UpdateTerrainRequest $request, Game $game): RedirectResponse
+    {
+        $this->guard();
+
+        $terrain = array_values($request->validated('terrain'));
+
+        DB::transaction(function () use ($game, $terrain) {
+            $locked = Game::query()->lockForUpdate()->findOrFail($game->id);
+            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['terrain' => $terrain])]);
+        });
+
+        broadcast(new GameBoardTerrainChanged($game, $terrain))->toOthers();
 
         return redirect()->back();
     }

@@ -298,3 +298,106 @@ export function describeZone(shape: Shape): string {
 
 /** Is a point inside a zone, on the table? */
 export const inZone = (shape: Shape, x: number, y: number): boolean => x >= 0 && x <= T && y >= 0 && y <= T && pointInShape(shape, x, y);
+
+// ---- terrain editing -------------------------------------------------------------------------------------------------------------
+
+export const TERRAIN_TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible'] as const;
+export type TerrainTrait = (typeof TERRAIN_TRAITS)[number];
+export const SURFACE_MIN_TOP = 0.5;
+export const SURFACE_MAX_TOP = 12;
+export const PIECE_MAX = 40;
+export const SURFACES_PER_PIECE = 6;
+
+export interface Bounds {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+}
+
+export function shapeBounds(shape: Shape): Bounds {
+    if (shape.kind === 'rect') return { minX: shape.x, minY: shape.y, maxX: shape.x + shape.w, maxY: shape.y + shape.h };
+    if (shape.kind === 'circle') return { minX: shape.cx - shape.r, minY: shape.cy - shape.r, maxX: shape.cx + shape.r, maxY: shape.cy + shape.r };
+    const xs = shape.points.map((p) => p[0]);
+    const ys = shape.points.map((p) => p[1]);
+    return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+export function pieceBounds(piece: TerrainPiece): Bounds {
+    const all = piece.surfaces.map((s) => shapeBounds(s.shape));
+    return {
+        minX: Math.min(...all.map((b) => b.minX)),
+        minY: Math.min(...all.map((b) => b.minY)),
+        maxX: Math.max(...all.map((b) => b.maxX)),
+        maxY: Math.max(...all.map((b) => b.maxY)),
+    };
+}
+
+export function translateShape(shape: Shape, dx: number, dy: number): Shape {
+    if (shape.kind === 'rect') return { ...shape, x: shape.x + dx, y: shape.y + dy };
+    if (shape.kind === 'circle') return { ...shape, cx: shape.cx + dx, cy: shape.cy + dy };
+    return { kind: 'poly', points: shape.points.map(([x, y]) => [x + dx, y + dy] as [number, number]) };
+}
+
+/** Move a whole piece, every level together, nudged back so that none of it leaves the table. */
+export function movePiece(piece: TerrainPiece, dx: number, dy: number): TerrainPiece {
+    const b = pieceBounds(piece);
+    const x = Math.min(TABLE_SIZE - b.maxX, Math.max(-b.minX, dx));
+    const y = Math.min(TABLE_SIZE - b.maxY, Math.max(-b.minY, dy));
+    return { ...piece, surfaces: piece.surfaces.map((s) => ({ ...s, shape: translateShape(s.shape, x, y) })) };
+}
+
+/** The topmost surface under a point (the highest level wins), with the piece it belongs to. */
+export function surfaceAt(pieces: TerrainPiece[], x: number, y: number): { piece: TerrainPiece; surface: Surface } | null {
+    let best: { piece: TerrainPiece; surface: Surface } | null = null;
+    for (const piece of pieces) {
+        for (const surface of piece.surfaces) {
+            if (pointInShape(surface.shape, x, y) && (!best || surface.top >= best.surface.top)) best = { piece, surface };
+        }
+    }
+    return best;
+}
+
+/** Share of the table covered by terrain, 0..1 (sampled on a 0.5" grid). The guide wants roughly 45-65% (p.60). */
+export function terrainCoverage(pieces: TerrainPiece[]): number {
+    const step = 0.5;
+    let covered = 0;
+    let total = 0;
+    for (let x = step / 2; x < TABLE_SIZE; x += step) {
+        for (let y = step / 2; y < TABLE_SIZE; y += step) {
+            total++;
+            if (pieces.some((p) => p.surfaces.some((s) => pointInShape(s.shape, x, y)))) covered++;
+        }
+    }
+    return covered / total;
+}
+
+/** Pieces a model can stand on at Ht 2 or more: the guide wants three to eight (p.60). */
+export const tallClimbablePieces = (pieces: TerrainPiece[]): number =>
+    pieces.filter((p) => p.traits.includes('climbable') && p.surfaces.some((s) => s.top >= 2)).length;
+
+/** Keep editor input inside what the data model and the server accept. */
+export const clampTop = (n: number): number => Math.min(SURFACE_MAX_TOP, Math.max(SURFACE_MIN_TOP, Math.round(n * 2) / 2));
+export const clampSize = (n: number): number => Math.min(TABLE_SIZE, Math.max(0.5, Math.round(n * 2) / 2));
+
+/** Turn a piece a quarter turn about its own centre (every level together), kept inside the table. */
+export function rotatePiece90(piece: TerrainPiece): TerrainPiece {
+    const b = pieceBounds(piece);
+    const cx = (b.minX + b.maxX) / 2;
+    const cy = (b.minY + b.maxY) / 2;
+    const turn = ([x, y]: [number, number]): [number, number] => [cx - (y - cy), cy + (x - cx)];
+    const surfaces = piece.surfaces.map((s) => {
+        const sh = s.shape;
+        if (sh.kind === 'circle') {
+            const [x, y] = turn([sh.cx, sh.cy]);
+            return { ...s, shape: { ...sh, cx: x, cy: y } };
+        }
+        if (sh.kind === 'rect') {
+            const [x1, y1] = turn([sh.x, sh.y]);
+            const [x2, y2] = turn([sh.x + sh.w, sh.y + sh.h]);
+            return { ...s, shape: { kind: 'rect' as const, x: Math.min(x1, x2), y: Math.min(y1, y2), w: sh.h, h: sh.w } };
+        }
+        return { ...s, shape: { kind: 'poly' as const, points: sh.points.map(turn) } };
+    });
+    return movePiece({ ...piece, surfaces }, 0, 0);
+}

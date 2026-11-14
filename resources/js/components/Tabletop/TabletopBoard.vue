@@ -14,24 +14,35 @@ import {
     edgeDistance,
     fallHurts,
     heightCover,
+    movePiece,
     restingSupport,
+    surfaceAt,
     modelsWithin,
     type Aura,
     type DeploymentKind,
     type Shape,
+    type TerrainPiece,
     type Token,
 } from '@/lib/tabletop/geometry';
+import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
-import { Lock, LockOpen, Maximize, Minus, Plus, Ruler, Trash2 } from 'lucide-vue-next';
+import { Lock, LockOpen, Maximize, Minus, Mountain, Plus, Ruler, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
-type Mode = 'move' | 'ruler';
+type Mode = 'move' | 'ruler' | 'terrain';
 type Point = { x: number; y: number };
 
 const MIN_WIDTH = 6;
 
 const props = withDefaults(
-    defineProps<{ tokens: Token[]; sandbox?: boolean; sideNames?: { a: string; b: string }; storageKey?: string; deployment?: DeploymentKind }>(),
+    defineProps<{
+        tokens: Token[];
+        terrain?: TerrainPiece[];
+        sandbox?: boolean;
+        sideNames?: { a: string; b: string };
+        storageKey?: string;
+        deployment?: DeploymentKind;
+    }>(),
     {
         sandbox: false,
         sideNames: () => ({ a: 'Blue', b: 'Red' }),
@@ -42,9 +53,39 @@ const emit = defineEmits<{
     add: [token: Omit<Token, 'id'>];
     remove: [id: string];
     reset: [];
+    terrainChanged: [pieces: TerrainPiece[]];
 }>();
 
-const terrain = sampleTerrain;
+// The table layout, copied so a piece moves smoothly while it is dragged; the parent gets the layout once it is dropped.
+const cloneTerrain = (pieces: TerrainPiece[]): TerrainPiece[] => JSON.parse(JSON.stringify(pieces));
+const terrain = ref<TerrainPiece[]>(cloneTerrain(props.terrain ?? sampleTerrain));
+watch(
+    () => props.terrain,
+    (next) => {
+        if (!next) return;
+        const grabbed = drag;
+        const held = grabbed?.kind === 'piece' ? terrain.value.find((p) => p.id === grabbed.id) : undefined;
+        terrain.value = cloneTerrain(next).map((p) => (held && p.id === held.id ? held : p));
+    },
+    { deep: true },
+);
+const selectedPieceId = ref<string | null>(null);
+/** Layouts before each change, newest last, so a slip of the finger can be undone. */
+const undoStack = ref<TerrainPiece[][]>([]);
+function commitTerrain(next: TerrainPiece[], remember = true) {
+    if (remember) undoStack.value = [...undoStack.value.slice(-19), cloneTerrain(terrain.value)];
+    terrain.value = cloneTerrain(next);
+    emit('terrainChanged', cloneTerrain(next));
+}
+function undoTerrain() {
+    const previous = undoStack.value.at(-1);
+    if (!previous) return;
+    undoStack.value = undoStack.value.slice(0, -1);
+    terrain.value = cloneTerrain(previous);
+    if (!terrain.value.some((p) => p.id === selectedPieceId.value)) selectedPieceId.value = null;
+    emit('terrainChanged', cloneTerrain(previous));
+}
+const viewCentre = computed(() => ({ x: view.value.x + view.value.w / 2, y: view.value.y + view.value.w / 2 }));
 // A working copy, so a drag moves smoothly; the parent gets one `moved` event when the model is dropped.
 const tokens = ref<Token[]>(props.tokens.map((t) => ({ ...t })));
 watch(
@@ -69,8 +110,8 @@ const newBase = ref<number>(30);
 
 const ruler = ref<{ from: Point; to: Point; fromToken: string | null; toToken: string | null } | null>(null);
 
-const levels = computed(() => [0, ...new Set(terrain.flatMap((p) => p.surfaces.map((s) => s.top)))].sort((a, b) => a - b));
-const supports = computed(() => new Map(tokens.value.map((t) => [t.id, restingSupport(t, terrain)])));
+const levels = computed(() => [0, ...new Set(terrain.value.flatMap((p) => p.surfaces.map((s) => s.top)))].sort((a, b) => a - b));
+const supports = computed(() => new Map(tokens.value.map((t) => [t.id, restingSupport(t, terrain.value)])));
 const elevationOf = (t: Token) => supports.value.get(t.id)?.elevation ?? 0;
 // Auras: a circle of `range` inches that starts at the outside edge of a model's base. A model casts up to three. A locked aura stays at
 // the spot where it was locked while the model moves on. A view aid kept on this device.
@@ -165,8 +206,12 @@ const labelAt = (shape: Shape): Point => {
 // --- pointer handling: one finger drags a token or pans, two fingers pinch, wheel zooms ---
 
 const pointers = new Map<number, Point>();
-let drag: { kind: 'token'; id: string; dx: number; dy: number; startElevation: number } | { kind: 'pan'; last: Point } | { kind: 'ruler' } | null =
-    null;
+let drag:
+    | { kind: 'token'; id: string; dx: number; dy: number; startElevation: number }
+    | { kind: 'piece'; id: string; from: Point; original: TerrainPiece; before: TerrainPiece[]; moved: boolean }
+    | { kind: 'pan'; last: Point }
+    | { kind: 'ruler' }
+    | null = null;
 let pinch: { distance: number; width: number; centre: Point } | null = null;
 
 function toBoard(clientX: number, clientY: number): Point {
@@ -213,6 +258,17 @@ function onDown(e: PointerEvent) {
     const p = toBoard(e.clientX, e.clientY);
     const hit = tokenAt(p);
     note.value = '';
+    if (mode.value === 'terrain') {
+        const found = surfaceAt(terrain.value, p.x, p.y);
+        if (found) {
+            selectedPieceId.value = found.piece.id;
+            drag = { kind: 'piece', id: found.piece.id, from: p, original: found.piece, before: cloneTerrain(terrain.value), moved: false };
+        } else {
+            selectedPieceId.value = null;
+            drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
+        }
+        return;
+    }
     if (mode.value === 'ruler') {
         ruler.value = { from: hit ? { x: hit.x, y: hit.y } : p, to: hit ? { x: hit.x, y: hit.y } : p, fromToken: hit?.id ?? null, toToken: null };
         drag = { kind: 'ruler' };
@@ -246,6 +302,14 @@ function onMove(e: PointerEvent) {
         if (!t) return;
         const p = toBoard(e.clientX, e.clientY);
         Object.assign(t, clampToTable({ ...t, x: p.x + drag.dx, y: p.y + drag.dy }));
+    } else if (drag.kind === 'piece') {
+        const p = toBoard(e.clientX, e.clientY);
+        // Snap to half inches so a table lays out tidily.
+        const snap = (n: number) => Math.round(n * 2) / 2;
+        const moved = movePiece(drag.original, snap(p.x - drag.from.x), snap(p.y - drag.from.y));
+        const id = drag.id;
+        terrain.value = terrain.value.map((x) => (x.id === id ? moved : x));
+        if (snap(p.x - drag.from.x) !== 0 || snap(p.y - drag.from.y) !== 0) drag.moved = true;
     } else if (drag.kind === 'pan') {
         const rect = svg.value!.getBoundingClientRect();
         const k = view.value.w / rect.width;
@@ -276,6 +340,10 @@ function onUp(e: PointerEvent) {
                 note.value = `${t.name} dropped from elevation ${drag.startElevation} to ${now}: 1 irreducible damage if this was a fall.`;
             else if (now !== drag.startElevation) note.value = `${t.name} is now at elevation ${now}.`;
         }
+    }
+    if (drag?.kind === 'piece' && drag.moved) {
+        undoStack.value = [...undoStack.value.slice(-19), drag.before];
+        emit('terrainChanged', cloneTerrain(terrain.value));
     }
     if (pointers.size === 0) drag = null;
 }
@@ -414,8 +482,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :is="shapeTag(surface.shape)"
                                 v-bind="shapeAttrs(surface.shape)"
                                 :fill="surfaceFill(surface.top)"
-                                stroke="hsl(var(--foreground) / 0.55)"
-                                stroke-width="0.07"
+                                :stroke="mode === 'terrain' && piece.id === selectedPieceId ? 'hsl(45 95% 55%)' : 'hsl(var(--foreground) / 0.55)'"
+                                :stroke-width="mode === 'terrain' && piece.id === selectedPieceId ? 0.22 : 0.07"
                             />
                             <text
                                 :x="labelAt(surface.shape).x"
@@ -522,10 +590,26 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button :variant="mode === 'ruler' ? 'default' : 'outline'" size="sm" data-testid="mode-ruler" @click="mode = 'ruler'"
                     ><Ruler class="mr-1 size-4" />Ruler</Button
                 >
+                <Button :variant="mode === 'terrain' ? 'default' : 'outline'" size="sm" data-testid="mode-terrain" @click="mode = 'terrain'"
+                    ><Mountain class="mr-1 size-4" />Terrain</Button
+                >
                 <Button variant="outline" size="sm" aria-label="Zoom in" @click="zoomBy(0.8)"><Plus class="size-4" /></Button>
                 <Button variant="outline" size="sm" aria-label="Zoom out" @click="zoomBy(1.25)"><Minus class="size-4" /></Button>
                 <Button variant="outline" size="sm" aria-label="Fit the whole table" @click="resetView"><Maximize class="size-4" /></Button>
             </div>
+
+            <TerrainEditor
+                v-if="mode === 'terrain'"
+                :pieces="terrain"
+                :selected-id="selectedPieceId"
+                :anchor="viewCentre"
+                :can-undo="undoStack.length > 0"
+                @change="commitTerrain($event)"
+                @select="selectedPieceId = $event"
+                @undo="undoTerrain"
+                @clear="commitTerrain([])"
+                @demo="commitTerrain(sampleTerrain)"
+            />
 
             <div v-if="measure" class="rounded-md border p-3 text-sm" data-testid="ruler-readout">
                 <div class="font-semibold">
@@ -566,7 +650,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </label>
             </div>
 
-            <div class="rounded-md border p-3 text-sm" data-testid="selected-panel">
+            <div v-if="mode !== 'terrain'" class="rounded-md border p-3 text-sm" data-testid="selected-panel">
                 <template v-if="selected">
                     <div class="font-semibold">
                         {{ selected.name }} <span class="font-normal text-muted-foreground">{{ selected.baseMm }} mm base</span>

@@ -3,6 +3,7 @@
 use App\Enums\BaseSizeEnum;
 use App\Enums\DeploymentEnum;
 use App\Events\GameBoardMoved;
+use App\Events\GameBoardTerrainChanged;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Game;
@@ -167,4 +168,103 @@ it('hands the board the deployment the game was set up with', function () {
 
     $this->actingAs($a)->get(route('games.board', $game->uuid))
         ->assertInertia(fn (Assert $page) => $page->where('game.deployment', 'wedge'));
+});
+
+function terrainPiece(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 'p1', 'name' => 'Tower', 'traits' => ['blocking', 'climbable'],
+        'surfaces' => [
+            ['id' => 'p1-1', 'top' => 3, 'shape' => ['kind' => 'rect', 'x' => 4, 'y' => 4, 'w' => 6, 'h' => 5]],
+            ['id' => 'p1-2', 'top' => 5, 'shape' => ['kind' => 'circle', 'cx' => 6, 'cy' => 6, 'r' => 1.5]],
+            ['id' => 'p1-3', 'top' => 1, 'shape' => ['kind' => 'poly', 'points' => [[1, 1], [3, 1], [2, 3]]]],
+        ],
+    ], $overrides);
+}
+
+it('saves the terrain layout for the game, and hands it back with the board', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece()]])->assertRedirect();
+
+    expect($game->fresh()->board_state['terrain'])->toHaveCount(1);
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->has('terrain', 1)->where('terrain.0.surfaces.0.top', 3));
+});
+
+it('lets either player lay out the table', function () {
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+
+    $this->actingAs($b)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece(['id' => 'from-b'])]])->assertRedirect();
+
+    expect($game->fresh()->board_state['terrain'][0]['id'])->toBe('from-b');
+});
+
+it('keeps positions when the terrain changes, and terrain when models move', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 3, 'y' => 3]]]);
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece()]]);
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 9, 'y' => 9]]]);
+
+    $state = $game->fresh()->board_state;
+    expect($state['terrain'])->toHaveCount(1)->and($state['positions'][(string) $m1->id]['x'])->toEqual(9);
+});
+
+it('can clear the table by saving an empty layout', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece()]]);
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => []])->assertRedirect();
+
+    expect($game->fresh()->board_state['terrain'])->toBe([]);
+});
+
+it('tells the other player when the terrain changes', function () {
+    Event::fake([GameBoardTerrainChanged::class]);
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece()]]);
+
+    Event::assertDispatched(GameBoardTerrainChanged::class, fn ($e) => count($e->terrain) === 1 && $e->broadcastOn()[0]->name === 'presence-game.'.$game->uuid);
+});
+
+it('rejects a malformed terrain layout', function (array $piece) {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece($piece)]])->assertSessionHasErrors();
+
+    expect($game->fresh()->board_state)->toBeNull();
+})->with([
+    'unknown trait' => [['traits' => ['sticky']]],
+    'bad id' => [['id' => 'has spaces!']],
+    'no name' => [['name' => '']],
+    'no surfaces' => [['surfaces' => []]],
+    'too many surfaces' => [['surfaces' => array_fill(0, 7, ['id' => 's', 'top' => 1, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1, 'w' => 2, 'h' => 2]])]],
+    'height too tall' => [['surfaces' => [['id' => 's', 'top' => 40, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
+    'off the table' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 50, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
+    'rectangle without a size' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1]]]]],
+    'unknown shape' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'star']]]]],
+    'polygon with two points' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'poly', 'points' => [[1, 1], [2, 2]]]]]]],
+]);
+
+it('refuses duplicate piece ids and a layout of more than 40 pieces', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece(), terrainPiece()]])->assertSessionHasErrors();
+    $many = array_map(fn ($i) => terrainPiece(['id' => "p$i"]), range(1, 41));
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => $many])->assertSessionHasErrors('terrain');
+});
+
+it('keeps terrain edits to people in the game', function () {
+    [$game] = boardGame(User::factory()->create(), User::factory()->create());
+
+    $this->actingAs(User::factory()->create())->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece()]])->assertForbidden();
+});
+
+it('hides the terrain endpoint until the flag is on', function () {
+    Feature::for(null)->deactivate('experiment-tabletop');
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => []])->assertNotFound();
 });

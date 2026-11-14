@@ -119,7 +119,6 @@ const rerenderUpgrade = async (u: CustomUpgrade) => {
     }
     router.reload({
         only: ['upgrades'],
-        preserveScroll: true,
         onFinish: () => (rerenderingUpgradeIds.value = rerenderingUpgradeIds.value.filter((id) => id !== u.id)),
     });
 };
@@ -167,7 +166,6 @@ const rerenderCharacter = async (character: CustomCharacter) => {
     }
     router.reload({
         only: ['characters'],
-        preserveScroll: true,
         onFinish: () => (rerenderingIds.value = rerenderingIds.value.filter((id) => id !== character.id)),
     });
 };
@@ -257,7 +255,7 @@ const bulkRun = async (keys: string[], request: (kind: 'c' | 'u', id: number) =>
     if (ok > 0) toast.success(`${doneLabel} ${ok} card${ok === 1 ? '' : 's'}.`);
     if (stoppedBy) toast.error(stoppedBy);
     stopSelecting();
-    router.reload({ only: ['characters', 'upgrades'], preserveScroll: true });
+    router.reload({ only: ['characters', 'upgrades'] });
 };
 const bulkDeleteOpen = ref(false);
 const bulkDelete = async () => {
@@ -326,8 +324,8 @@ const performDelete = async () => {
 
 // A saved card's image is rendered shortly after each save; swap it in as soon as the server announces it.
 useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
-    if (event.kind === 'custom_character') router.reload({ only: ['characters'], preserveScroll: true });
-    if (event.kind === 'custom_upgrade' || event.kind === 'crew_card') router.reload({ only: ['upgrades'], preserveScroll: true });
+    if (event.kind === 'custom_character') router.reload({ only: ['characters'] });
+    if (event.kind === 'custom_upgrade' || event.kind === 'crew_card') router.reload({ only: ['upgrades'] });
 });
 
 const copiedId = ref<string | null>(null);

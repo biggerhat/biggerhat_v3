@@ -42,6 +42,7 @@ use App\Models\Upgrade;
 use App\Models\User;
 use App\Notifications\Game\GameOpponentJoined;
 use App\Support\Campaign\AftermathCatalog;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Response;
@@ -160,47 +161,58 @@ class GameController extends Controller
             ? GameFormatEnum::BonanzaBrawl->defaultEncounterSize()
             : $validated['encounter_size'];
 
-        $game = Game::create([
-            'name' => $validated['name'] ?? null,
-            'encounter_size' => $encounterSize,
-            'season' => $seasonEnum->value,
-            'format' => $format->value,
-            'strategy_id' => $strategy?->id,
-            'deployment' => $deployment?->value,
-            'scheme_pool' => $schemePool,
-            'status' => $isSolo ? GameStatusEnum::FactionSelect : GameStatusEnum::Setup,
-            'started_at' => $isSolo ? now() : null,
-            'creator_id' => Auth::id(),
-            'is_solo' => $isSolo,
-        ]);
+        // The game and its seats are made together, so a failure can't leave a game with nobody in it.
+        $game = DB::transaction(function () use ($validated, $encounterSize, $seasonEnum, $format, $strategy, $deployment, $schemePool, $isSolo): Game {
+            $game = Game::create([
+                'name' => $validated['name'] ?? null,
+                'encounter_size' => $encounterSize,
+                'season' => $seasonEnum->value,
+                'format' => $format->value,
+                'strategy_id' => $strategy?->id,
+                'deployment' => $deployment?->value,
+                'scheme_pool' => $schemePool,
+                'status' => $isSolo ? GameStatusEnum::FactionSelect : GameStatusEnum::Setup,
+                'started_at' => $isSolo ? now() : null,
+                'creator_id' => Auth::id(),
+                'is_solo' => $isSolo,
+            ]);
 
-        // Randomly assign roles
-        $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
+            // Randomly assign roles
+            $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
 
-        // Creator is player 1
-        GamePlayer::create([
-            'game_id' => $game->id,
-            'user_id' => Auth::id(),
-            'slot' => 1,
-            'role' => $isSolo ? $roles[0] : null,
-        ]);
-
-        if ($isSolo) {
-            // Create opponent player (no user) for solo mode
+            // Creator is player 1
             GamePlayer::create([
                 'game_id' => $game->id,
-                'user_id' => null,
-                'slot' => 2,
-                'opponent_name' => 'Opponent',
-                'role' => $roles[1],
+                'user_id' => Auth::id(),
+                'slot' => 1,
+                'role' => $isSolo ? $roles[0] : null,
             ]);
-        }
+
+            if ($isSolo) {
+                // Create opponent player (no user) for solo mode
+                GamePlayer::create([
+                    'game_id' => $game->id,
+                    'user_id' => null,
+                    'slot' => 2,
+                    'opponent_name' => 'Opponent',
+                    'role' => $roles[1],
+                ]);
+            }
+
+            return $game;
+        });
 
         return redirect()->route('games.show', $game->uuid);
     }
 
-    public function show(Game $game): Response|ResponseFactory
+    public function show(Game $game): Response|ResponseFactory|RedirectResponse
     {
+        // The address-bar URL is not the invite link (`/join`). Someone opening it while the game is still waiting for an
+        // opponent is almost certainly the invitee, so send them to the join flow instead of a bare 403.
+        if (Auth::user()?->cannot('view', $game) && ! $game->is_solo && $game->status === GameStatusEnum::Setup && ! $game->isFull()) {
+            return redirect()->route('games.join', $game->uuid);
+        }
+
         $this->authorize('view', $game);
 
         $game->load($this->eagerLoadsFor($game, GameShowContext::SelfView));
@@ -281,6 +293,23 @@ class GameController extends Controller
             : null;
         $hidden = fn (GamePlayer $player) => $player->slot !== $mySlot;
 
+        // The "has locked in" signal the setup stepper needs, so the pick itself can be withheld below.
+        foreach ($game->players as $player) {
+            $player->setAttribute('scheme_ready', $player->current_scheme_id !== null);
+        }
+
+        // Schemes are hidden information: the pick, its notes (target model / marker) and the follow-up pool it derives
+        // (which reveals the pick) must not reach the other player or a spectator in the page data.
+        if ($game->status === GameStatusEnum::SchemeSelect) {
+            foreach ($game->players as $player) {
+                if ($hidden($player)) {
+                    $player->setAttribute('current_scheme_id', null);
+                    $player->setAttribute('scheme_notes', null);
+                    $player->setAttribute('scheme_pool', null);
+                }
+            }
+        }
+
         if ($game->status === GameStatusEnum::FactionSelect) {
             foreach ($game->players as $player) {
                 if ($hidden($player)) {
@@ -294,6 +323,36 @@ class GameController extends Controller
                 if ($hidden($player)) {
                     $player->setAttribute('master_name', null);
                     $player->setAttribute('master_id', null);
+                }
+            }
+        }
+    }
+
+    /**
+     * During play, hidden schemes stay out of the page data: the current scheme, its notes, the follow-up pool derived from
+     * it, any scheme still unrevealed in the turn history (held, or not yet scored or discarded) and every next-turn pick.
+     * Scores are public and stay, and a scheme that has been scored or discarded is revealed. `$exceptSlot` is the seat the
+     * viewer owns and may see in full; observers have none, so both seats are hidden from them.
+     */
+    private function hidePlayerSchemes(Game $game, ?int $exceptSlot): void
+    {
+        foreach ($game->players as $player) {
+            if ($exceptSlot !== null && $player->slot === $exceptSlot) {
+                continue;
+            }
+            $player->setAttribute('scheme_ready', $player->current_scheme_id !== null);
+            $player->setAttribute('current_scheme_id', null);
+            $player->setAttribute('scheme_notes', null);
+            $player->setAttribute('scheme_pool', null);
+
+            if ($player->relationLoaded('turns')) {
+                foreach ($player->turns as $turn) {
+                    // The pick for the following turn is hidden whatever this turn's outcome.
+                    $turn->setAttribute('next_scheme_id', null);
+                    if (! in_array($turn->scheme_action, ['scored', 'discarded'], true)) {
+                        $turn->setAttribute('scheme_id', null);
+                        $turn->setAttribute('scheme_notes', null);
+                    }
                 }
             }
         }
@@ -351,19 +410,24 @@ class GameController extends Controller
             : collect();
     }
 
-    /** Current/held schemes visible to public observers during live or finished play. */
+    /**
+     * Schemes a public observer may see: those already scored or discarded while the game is live (nothing a player has
+     * only selected or is holding), and every scheme once the game is over.
+     */
     private function buildObserverCurrentSchemes(Game $game): array
     {
         if (! in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed])) {
             return [];
         }
-        $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
+
         if ($game->status === GameStatusEnum::Completed) {
-            $turnSchemeIds = GameTurn::where('game_id', $game->id)
-                ->whereNotNull('scheme_id')
-                ->pluck('scheme_id')
-                ->unique();
-            $schemeIds = $schemeIds->merge($turnSchemeIds)->unique()->values();
+            $schemeIds = $game->players->pluck('current_scheme_id')->filter()
+                ->merge(GameTurn::where('game_id', $game->id)->whereNotNull('scheme_id')->pluck('scheme_id'))
+                ->unique()->values();
+        } else {
+            $schemeIds = $game->players->flatMap(fn (GamePlayer $p) => $p->turns)
+                ->filter(fn (GameTurn $t) => in_array($t->scheme_action, ['scored', 'discarded'], true))
+                ->pluck('scheme_id')->filter()->unique()->values();
         }
 
         return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => $s->toTrackerArray())->toArray();
@@ -532,6 +596,19 @@ class GameController extends Controller
         // narrative), same ownership check as CampaignAftermathController.
         if ($context === GameShowContext::Summary) {
             $props['campaign_aftermath_recap'] = fn () => $this->buildCampaignAftermathRecapProp($game);
+        }
+
+        // A participant in a live two-player game must not be able to read the other side's hidden schemes out of the page
+        // data. The opponent-intel panel is built from those same rows, so it is computed first and handed over ready-made.
+        if ($isSelf && ! $game->is_solo && $game->status === GameStatusEnum::InProgress) {
+            $props['opponent_scheme_intel'] = $this->buildOpponentSchemeIntel($game, $schemeCache);
+            $this->hidePlayerSchemes($game, $game->players->firstWhere('user_id', Auth::id())?->slot);
+        }
+
+        // Observers only get to see the schemes still available to each side (observer_scheme_intel) and the ones already scored
+        // or discarded, never what either player has currently selected. That holds for solo games they watch too.
+        if ($context === GameShowContext::Observer && $game->status === GameStatusEnum::InProgress) {
+            $this->hidePlayerSchemes($game, null);
         }
 
         return $props;
@@ -1085,6 +1162,10 @@ class GameController extends Controller
             ->map(fn ($upgrade) => $upgrade->only(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count']));
     }
 
+    /**
+     * The invite link. Opening it only shows who is inviting and a "Join game" button: joining changes state, so it is
+     * a POST ({@see confirmJoin()}) and a prefetch, an embedded image or a stray click on a link cannot seat anyone.
+     */
     public function join(Game $game)
     {
         // Require login — redirect back to this join URL after auth
@@ -1096,51 +1177,105 @@ class GameController extends Controller
                 ->with('messageType', 'warning');
         }
 
+        if ($redirect = $this->joinRedirect($game, Auth::id())) {
+            return $redirect;
+        }
+
+        $game->loadMissing('creator:id,name');
+
+        return inertia('Games/Join', [
+            'game' => [
+                'uuid' => $game->uuid,
+                'name' => $game->name,
+                'encounter_size' => $game->encounter_size,
+                'season' => $game->season->label(),
+                'format' => $game->format->label(),
+                'creator_name' => data_get($game, 'creator.name'),
+            ],
+        ]);
+    }
+
+    /** Takes the second seat in a waiting two-player game. */
+    public function confirmJoin(Game $game)
+    {
         $userId = Auth::id();
 
-        // Solo games cannot be joined
-        if ($game->is_solo) {
-            return redirect()->route('games.index');
+        if ($redirect = $this->joinRedirect($game, $userId)) {
+            return $redirect;
         }
 
-        // Already in game? Go to show
-        if ($game->players()->where('user_id', $userId)->exists()) {
-            return redirect()->route('games.show', $game->uuid);
+        // Lock the game and re-check inside the lock: a double-tapped invite link, or two people opening it at once, would
+        // otherwise both pass the "open slot" check, reshuffle the first player's role and then fail on the unique
+        // (game_id, slot) index, leaving both players with the same role and the loser on a 500 page.
+        $player = DB::transaction(function () use ($game, $userId): ?GamePlayer {
+            /** @var Game|null $locked */
+            $locked = Game::lockForUpdate()->find($game->id);
+            if (! $locked || $locked->status !== GameStatusEnum::Setup) {
+                return null;
+            }
+            if ($locked->players()->count() >= 2 || $locked->players()->where('user_id', $userId)->exists()) {
+                return null;
+            }
+
+            // Randomly assign attacker/defender to both players
+            $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
+            $locked->players()->where('slot', 1)->update(['role' => $roles[0]]);
+
+            $joined = GamePlayer::create([
+                'game_id' => $locked->id,
+                'user_id' => $userId,
+                'slot' => 2,
+                'role' => $roles[1],
+            ]);
+
+            // Advance to faction select now that both players are in
+            $locked->update([
+                'status' => GameStatusEnum::FactionSelect,
+                'started_at' => now(),
+            ]);
+
+            return $joined;
+        });
+
+        if (! $player) {
+            // Lost the race, or the game moved on. A double tap on the invite link lands here with the person already
+            // seated by their first request, so they go to the game; anyone else is told it is closed.
+            return GamePlayer::query()->where('game_id', $game->id)->where('user_id', $userId)->exists()
+                ? redirect()->route('games.show', $game->uuid)
+                : redirect()->route('games.index')->withMessage('This game is no longer accepting players.');
         }
 
-        // Creator can't join as player 2
-        if ($game->creator_id === $userId) {
-            return redirect()->route('games.show', $game->uuid);
-        }
-
-        // Game must be in setup and have an open slot
-        if ($game->status !== GameStatusEnum::Setup || $game->isFull()) {
-            return redirect()->route('games.index')
-                ->withMessage('This game is no longer accepting players.');
-        }
-
-        // Randomly assign attacker/defender to both players
-        $roles = collect([GameRoleEnum::Attacker->value, GameRoleEnum::Defender->value])->shuffle();
-        $game->players()->where('slot', 1)->update(['role' => $roles[0]]);
-
-        $player = GamePlayer::create([
-            'game_id' => $game->id,
-            'user_id' => $userId,
-            'slot' => 2,
-            'role' => $roles[1],
-        ]);
-
-        // Advance to faction select now that both players are in
-        $game->update([
-            'status' => GameStatusEnum::FactionSelect,
-            'started_at' => now(),
-        ]);
+        $game->refresh();
 
         broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers();
         broadcast(new GameStatusChanged($game))->toOthers();
         User::find($game->creator_id)?->notify(new GameOpponentJoined($game, $player->user->name));
 
         return redirect()->route('games.show', $game->uuid);
+    }
+
+    /**
+     * Where someone who cannot (or need not) join should go instead, or null when they may join. Shared by the invite page
+     * and the join action; the action repeats the open-seat check under a lock.
+     */
+    private function joinRedirect(Game $game, int $userId): ?RedirectResponse
+    {
+        // Solo games cannot be joined
+        if ($game->is_solo) {
+            return redirect()->route('games.index');
+        }
+
+        // Already in game, or the creator (who can't take the second seat)? Go to the game
+        if ($game->creator_id === $userId || $game->players()->where('user_id', $userId)->exists()) {
+            return redirect()->route('games.show', $game->uuid);
+        }
+
+        // Game must be in setup and have an open slot
+        if ($game->status !== GameStatusEnum::Setup || $game->players()->count() >= 2) {
+            return redirect()->route('games.index')->withMessage('This game is no longer accepting players.');
+        }
+
+        return null;
     }
 
     public function updateScenario(UpdateScenarioRequest $request, Game $game)

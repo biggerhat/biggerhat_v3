@@ -35,32 +35,32 @@ import { factionSpine } from '@/composables/useFactionColor';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { refDebounced } from '@vueuse/core';
 import { ArrowUpFromLine, Check, ChevronsUpDown, CircleX, EllipsisVertical, Search, SquareMinus, SquarePlus, UserPlus } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, type PropType, ref, watch } from 'vue';
 
 const props = defineProps({
     characters: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     upgrades: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     factions: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     keywords: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];

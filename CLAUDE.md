@@ -41,6 +41,8 @@ php artisan test --filter="test name"        # Single test by name
 composer lint                                # PHP linting (Pint)
 composer stan                                # PHP static analysis (PHPStan/Larastan)
 npm run lint && npm run format               # Frontend linting + formatting
+npm run typecheck                            # vue-tsc against scripts/typecheck-baseline.json (fails only on NEW type errors)
+npm run typecheck:update                     # After fixing type errors: lock the lower count in (never to hide new ones)
 composer prepush                             # Full pre-push check (IDE helpers, stan, lint, tests)
 composer ide-generate                        # Regenerate IDE helper files (after model changes)
 npm run build                                # Build frontend assets

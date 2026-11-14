@@ -58,6 +58,14 @@ The real logic lives in services, not the controllers:
 `StateMachineTest`, `RoundLifecycleTest`, `RsvpTest`, `DropPlayerTest`,
 `ScenarioPropagationTest`, `PublicViewPageTest`.
 
+## Resetting a round ("Oh crap" button)
+`TournamentRoundController@reset` (`tournaments.rounds.reset`, POST) sends an **in-progress** round back to `setup`: every game's result, scores, forfeit and self-report are cleared, linked tracker `Game`s are
+destroyed (`TournamentTrackerGameFactory::destroyForRound`), `started_at` / `completed_at` are nulled. Pairings, tables and the scenario are kept so the organizer can fix them and start again. Guarded by
+`TournamentStateMachine::canResetRound` (in-progress only; refused once the tournament is completed) and re-checked under a row lock. Completed rounds are deliberately not resettable (their results feed the next
+round's pairings). Broadcasts `round_reset`. UI: the round card's options menu on the Rounds tab. Tests: `RoundLifecycleTest`; browser flow `scripts/ui-audit/tournaments/flows26.cjs` (phone width).
+
+**Score entry flow** (`ScoreEntryDialog.vue`): opening a game focuses the first score box, Enter saves, and **Save & next game** keeps the dialog open on the next unscored pairing in the same round (the `open-game` event tells the page which game is showing; the button is hidden when none is left). Browser flow `flows27.cjs`. `flows28.cjs` covers the public "Live now" strip and Game Tracker → Crew Builder → back with the crew attached (seed events T11 and the `crew_game`).
+
 ## Rulesets (game-agnostic tournaments)
 Tournaments run under a **ruleset** (`tournaments.ruleset`, config in `config/tournaments.php`, plan in
 [docs/plans/tournament-rulesets.md](../plans/tournament-rulesets.md)). A ruleset is data: scoring parameters
@@ -93,6 +101,8 @@ whoever was on the waitlist before and is not now gets a `TournamentWaitlistProm
 `TournamentPairingService::assignTables()` numbers the auto-paired games from the lowest table numbers not held by a manual pairing, and keeps each player off tables they sat at in earlier
 rounds where the free tables allow it (most constrained pairing first; when no clean table is left the lowest free one is used). Table names and terrain sets are not modelled.
 The `TournamentRoundPaired` notification already carries the table number.
+
+**Time warnings** (`tournaments:round-time-warnings`, scheduled every minute in `routes/console.php`): when a round in progress reaches the ruleset's last-turn window (`timeRules.last_turn_minutes`, default 15, before `round_time_limit` runs out), players whose game has no result yet get a `TournamentRoundTimeWarning` notification. `tournament_rounds.last_turn_notified_at` is claimed under a row lock so it goes out once per run of the round; resetting the round clears it. A round already past its limit is not warned. **Deploy: run the migration; the scheduler must be running.**
 
 ## Event details and table terrain
 **Details** — `tournaments.details` is a TipTap JSON document (the long version: venue, schedule, house rules, prizes) next to the one-line `description`. The organizer edits it on the Manage page's
@@ -183,6 +193,14 @@ It is a closure prop `tournament_history` on `StatsController::show` (the public
 paginates 20 at a time (`public_pagination`, `filters`, `ruleset_options` props); drafts stay private. The Index page keeps the filters in the URL and debounces typing. `TournamentCalendarController`
 (`tournaments.calendar`, `/tournaments/{t}/event.ics`) serves a one-event all-day iCalendar file (RFC 5545 escaping and 75-octet folding) behind the "Add to calendar" button on unfinished events.
 
+## Status vocabulary and layout conventions
+`composables/useTournamentStatus.ts` is the one source for status copy and colour: `roundStatus(round)` and `gameStatus(game, round)` return `{ label, tone }` (tones: success / warning / info / danger / muted)
+and `badgeTone()` / `chipTone()` turn a tone into classes (filled badge vs. outlined chip). Don't hand-roll `bg-green-100 dark:bg-green-900` ternaries. On the Rounds tab a round card has a title row (name, status,
+clock, options menu holding Delete / Reset) and an action row (Scenario on the left, the single next action on the right: Auto pair, then Start round, then End round). A game row has one visible action
+(Enter / Edit score) plus an overflow menu (forfeit while playing, remove while setting up). The Manage header keeps Announce and Display as buttons, Share (copy link, QR) in a menu, and the status transition as the only
+filled button. The public View page orders: results, awards, announcement, description, **the viewer's own state** (RSVP / match card / crew picker), live games, then event info (details collapse once the event is running)
+and the tabs. Plan and status: [docs/plans/tournament-ui-polish.md](../plans/tournament-ui-polish.md).
+
 ## Manage page structure
 `pages/Tournaments/Manage.vue` (~880 lines) is the shell: header, next-step card, announcement dialog, the standings / RSVP / settings tabs, and the score and
 finalize dialogs. Its tabs live in `components/Tournament/`: `ManagePlayersTab.vue`, `ManageRoundsTab.vue` (round lifecycle, scenario editor, manual pairing,
@@ -204,3 +222,18 @@ Announcements: `TournamentAnnouncementController` (`tournaments.announcement`). 
 `tournaments.team_size` > 1 makes each competitor a team: a `tournament_players` row (named by `display_name`) plus `tournament_player_members` for the people on it.
 Everything that pairs/scores/ranks works on the competitor row unchanged; anything about *people* (declaration, linked accounts, notifications, check-in, self-report)
 goes through the members — see `TournamentPlayer::forUser()` / `linkedUserIds()`. UI: `ManagePlayersTab` (team mode) + `TeamForm`.
+
+## Analytics (organizer only)
+**Insights tab** (`Manage.vue`, `components/Tournament/EventInsights.vue`): how one event went. `App\Tournaments\Analytics\EventInsights::forEvent()` works it out from recorded results (nothing is stored) and
+`TournamentPagePayloads::forManage()` serves it as a deferred `insights` prop (group `insights`): `null` until any game has an official result (the tab is hidden), absent while the follow-up request loads. It
+covers turnout (registered, played, dropped, DQ, new vs returning accounts), game stats (average score and margin, close games = decided by 2 or less, byes, forfeits, margin buckets, score components such as
+strategy/scheme VP), a round-by-round table with round length and scenario, win rate by faction (Allegiance for TOS; skipped for team events) and by leader (rulesets that track leaders), and highlights. Only
+**contested** games count for scores (two players, a result, no bye or forfeit: `InsightMath::isContested`). Win rate counts a tie as half a win. A refresh after a score change re-requests `insights` only while the tab is open.
+**All events** (`/tournaments/analytics`, `TournamentAnalyticsController`, `OrganizerInsights::forUser()`, page `Tournaments/Analytics.vue`): every active or finished event the signed-in user organizes, all time or the
+last 12 months (`?range=12m`): turnout per event, repeat players (matched by account, else by name), returning share, faction results and popularity, regulars, formats. Each person sees only their own events.
+**Strategies and schemes** (`ScenarioStats`): strategies come from each round's strategy and cover every game (rounds, games, average score and margin, strategy VP); schemes come from the Game Tracker turns of linked
+games only (picked = scored + discarded, points, score rate), with a coverage line ("N of M games"). A scheme still held at the end of a game is not counted. Shown on the Insights tab and on both overview pages (`InsightScenarios`).
+**League analytics** (`/tournaments/series/{series}/analytics`, creator only, "Analytics" button on the league page) reuses the overview page through `OrganizerInsights::forSeries()`; the page takes a `scope` prop for its title, back link and CSV URL.
+**CSV** (`TournamentInsightsExportController`): `tournaments.insights_csv` (event, organizers), `tournaments.analytics_csv` (`?range=`), `tournaments.series.analytics_csv`. Several tables per file, each with a title row; cells that start with
+`= + - @` are prefixed with `'` so a spreadsheet never runs them (`InsightsCsv::cell`). Throttled 30/hour.
+Shared pieces: `InsightBars`, `InsightTiles`, `InsightBreakdown` (plain div bars, no chart library). Tests: `tests/Feature/Tournament/AnalyticsTest.php`; browser flow `flows34.cjs`.

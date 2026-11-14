@@ -3,7 +3,6 @@ import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import LootEffectText from '@/components/Bonanza/LootEffectText.vue';
 import { getFactionVar } from '@/components/CardCreator/utils';
-import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
@@ -13,6 +12,7 @@ import GameAttachedUpgradeDrawer from '@/components/Game/GameAttachedUpgradeDraw
 import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
 import GameCompleteDialog from '@/components/Game/GameCompleteDialog.vue';
 import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
+import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
 import GameCrewSelectPanel from '@/components/Game/GameCrewSelectPanel.vue';
 import GameEditScenarioDrawer from '@/components/Game/GameEditScenarioDrawer.vue';
 import GameFactionSelectPanel from '@/components/Game/GameFactionSelectPanel.vue';
@@ -49,7 +49,6 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
-import { factionDeep } from '@/composables/useFactionColor';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
@@ -82,9 +81,6 @@ import {
     Dices,
     Eye,
     EyeOff,
-    Footprints,
-    Heart,
-    HeartCrack,
     Layers,
     LayoutGrid,
     Loader2,
@@ -94,7 +90,6 @@ import {
     Pencil,
     Plus,
     Puzzle,
-    Replace,
     RotateCcw,
     Search,
     Settings,
@@ -108,6 +103,14 @@ import {
     X,
 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
+/** One turn of the opponent's scheme history, as built by GameController::buildOpponentSchemeIntel. */
+interface OpponentSchemeTurn {
+    turn_number: number;
+    scheme_id: number | null;
+    scheme_name: string | null;
+    scheme_action: 'scored' | 'discarded' | 'held' | null;
+}
 
 interface FactionInfo {
     name: string;
@@ -217,8 +220,9 @@ const props = defineProps<{
     all_deployments: { value: string; label: string; image_url: string | null }[];
     current_schemes: SchemeData[];
     opponent_scheme_intel: {
-        last_revealed: { id: number; name: string; turn_number: number; scored: boolean } | null;
+        last_revealed: OpponentSchemeTurn | null;
         possible_schemes: SchemeData[];
+        scheme_history: OpponentSchemeTurn[];
     } | null;
     next_schemes: SchemeData[];
     opponent_next_schemes: SchemeData[];
@@ -374,7 +378,7 @@ const isCampaign = computed(() => props.game.format === GameFormat.Campaign);
 // that assumes the creator is always slot 1.
 const mySlot = computed(() => myPlayer.value?.slot ?? 1);
 const opponentSlot = computed(() => opponent.value?.slot ?? 2);
-const { onlineMembers } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
+const { onlineMembers, connected: channelConnected } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
 const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id === userId);
 
 // Safety net for campaign crew select: the arsenal prop is server-gated to status === crew_select, so a tab whose status
@@ -392,7 +396,6 @@ watch(
         arsenalRefetched = true;
         router.reload({
             only: ['campaign_arsenal', 'campaign_owned_equipment', 'campaign_totem', 'campaign_leader', 'campaign_leader_option', 'campaign_context'],
-            preserveScroll: true,
         });
     },
     { immediate: true },
@@ -438,7 +441,7 @@ const saveScenarioFromDrawer = async () => {
     try {
         await savePromise;
         editScenarioOpen.value = false;
-        router.reload({ only: ['game', 'schemes', 'deployment'], preserveScroll: true });
+        router.reload({ only: ['game', 'schemes', 'deployment'] });
     } catch {
         // Toast already surfaced via toast.promise.
     }
@@ -463,7 +466,7 @@ const regenerateScenario = async () => {
 
     try {
         await regenPromise;
-        router.reload({ only: ['game', 'schemes', 'deployment'], preserveScroll: true });
+        router.reload({ only: ['game', 'schemes', 'deployment'] });
     } catch {
         // Toast already surfaced via toast.promise.
     }
@@ -530,8 +533,6 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
                 // refresh once crew selection actually sets up the crews.
                 'campaign_context',
             ],
-            preserveScroll: true,
-            preserveState: true,
             onFinish: () => {
                 submitting.value = false;
             },
@@ -568,7 +569,8 @@ const opponentStepDone = (step: string) => {
         case 'crew':
             return !!opponentPlayer.value.crew_build_id || opponentPlayer.value.crew_skipped;
         case 'scheme':
-            return !!opponentPlayer.value.current_scheme_id;
+            // scheme_ready is sent in place of the pick itself, which stays hidden from the opponent until it is revealed.
+            return opponentPlayer.value.scheme_ready ?? !!opponentPlayer.value.current_scheme_id;
         default:
             return false;
     }
@@ -587,6 +589,17 @@ const onSkipOpponentCrew = async (titleDisplayName: string | null) => {
         await gameApi.post(route('games.setup.master', props.game.uuid), { master_name: titleDisplayName, slot: opponentSlot.value });
     }
     postSetup(route('games.setup.crew.skip', props.game.uuid), {});
+};
+
+// Skip your own crew ("track points only"). Solo games name the slot being skipped; in a duel it is always the caller's.
+const onSkipMyCrew = async (titleDisplayName: string | null) => {
+    if (titleDisplayName) {
+        await gameApi.post(route('games.setup.master', props.game.uuid), {
+            master_name: titleDisplayName,
+            ...(isSolo.value ? { slot: mySlot.value } : {}),
+        });
+    }
+    postSetup(route('games.setup.crew.skip', props.game.uuid), isSolo.value ? { slot: mySlot.value } : {});
 };
 
 // Solo: edit opponent name
@@ -685,8 +698,6 @@ const doSubmitOpponentTurn = async (schemeAction: string, identifiedSchemeId: nu
     const savedNextScheme = nextSchemeId.value;
     router.reload({
         only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'],
-        preserveState: true,
-        preserveScroll: true,
         onFinish: () => {
             strategyPoints.value = savedStrategy;
             schemePoints.value = savedScheme;
@@ -948,7 +959,7 @@ const submitQuickAdd = async () => {
         member_ids: quickAddMemberIds.value,
     });
     quickAddOpen.value = false;
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // ─── Leave-confirmation guard for in-progress games ───
@@ -1037,7 +1048,7 @@ const confirmLeave = () => {
 // actions non-functional.
 const onAuthVisibilityChange = () => {
     if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
-    router.reload({ only: ['auth'], preserveScroll: true, preserveState: true });
+    router.reload({ only: ['auth'] });
 };
 
 onMounted(() => {
@@ -1072,7 +1083,8 @@ onUnmounted(() => {
 // read/write through computed proxies so the active state stays consistent
 // across breakpoint changes (e.g. rotating a tablet to portrait).
 type GameplayTab = 'scenario' | 'my-crew' | 'opponent' | 'crews';
-const gameplayTab = ref<GameplayTab>('my-crew');
+// A player tracking points only has nothing on the crew tab, so open on the Game tab (VP, schemes, end of turn).
+const gameplayTab = ref<GameplayTab>(myPlayer.value?.crew_skipped && !myPlayer.value?.crew_members?.length ? 'scenario' : 'my-crew');
 const scenarioCollapsed = ref(false);
 const schemeHidden = ref(false);
 
@@ -1357,7 +1369,7 @@ const drawLoot = async () => {
         lootSidePicker.value = { type: 'attach', card: data.card };
         const candidates = attachableMembers.value;
         lootSidePickerMemberId.value = candidates.length === 1 ? candidates[0].id : null;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     } catch {
         showError('Network error. Please check your connection.');
     }
@@ -1519,9 +1531,12 @@ const swapCrewUpgrade = async (upgradeId: number, slot?: number) => {
     postPlay(route('games.play.crew-upgrade', props.game.uuid), 'PATCH', payload);
 };
 
-const myCrewMembers = computed(() => myPlayer.value?.crew_members?.filter((m) => !m.is_killed) ?? []);
+// Models that still need to activate come first (Array.sort is stable, so the crew keeps its order within each group).
+const activatedLast = <T extends { is_activated?: boolean | null }>(members: T[]): T[] =>
+    [...members].sort((a, b) => Number(!!a.is_activated) - Number(!!b.is_activated));
+const myCrewMembers = computed(() => activatedLast(myPlayer.value?.crew_members?.filter((m) => !m.is_killed) ?? []));
 const myKilledMembers = computed(() => myPlayer.value?.crew_members?.filter((m) => m.is_killed) ?? []);
-const opponentCrewMembers = computed(() => opponent.value?.crew_members?.filter((m) => !m.is_killed) ?? []);
+const opponentCrewMembers = computed(() => activatedLast(opponent.value?.crew_members?.filter((m) => !m.is_killed) ?? []));
 const opponentKilledMembers = computed(() => opponent.value?.crew_members?.filter((m) => m.is_killed) ?? []);
 
 // Inline card preview — track expanded members per crew via Set
@@ -1685,7 +1700,7 @@ const postPlay = async (url: string, method: string = 'POST', body?: Record<stri
             showError((data.error as string) ?? 'Action failed. Please try again.');
             return;
         }
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
         return data;
     } catch {
         showError('Network error. Please check your connection.');
@@ -1704,7 +1719,7 @@ const restoreEndOfTurnTokens = async (removed: RemovedToken[]) => {
     await gameApi.post(route('games.play.crew.tokens.restore', props.game.uuid), {
         tokens: removed.map((r) => ({ member_id: r.member_id, token_id: r.token_id, token_name: r.token_name })),
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const showEndOfTurnUndoToast = (removed?: RemovedToken[]) => {
@@ -1765,7 +1780,7 @@ const setHealth = (member: CrewMember, target: number) => {
                 pendingHealth.delete(member.id);
             }
             if (!res.ok) {
-                router.reload({ only: ['game'], preserveScroll: true });
+                router.reload({ only: ['game'] });
             }
         })
         .catch((err) => {
@@ -1775,7 +1790,7 @@ const setHealth = (member: CrewMember, target: number) => {
                 healthAborts.delete(member.id);
                 pendingHealth.delete(member.id);
             }
-            router.reload({ only: ['game'], preserveScroll: true });
+            router.reload({ only: ['game'] });
         });
 };
 
@@ -1806,7 +1821,7 @@ const toggleActivated = async (member: any) => {
     );
     if (!res.ok) {
         member.is_activated = oldValue;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
         return;
     }
     // End-of-activation tokens fall off as the model activates — reflect the
@@ -1845,7 +1860,7 @@ const killMember = async (member: any) => {
     if (!res.ok) {
         member.is_killed = false;
         member.current_health = prevHealth;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
         return;
     }
     const data = res.data as any;
@@ -1875,7 +1890,7 @@ const killMember = async (member: any) => {
                 return; // postPlay handles the reload
             }
         }
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     }
 };
 
@@ -1916,7 +1931,7 @@ const confirmReplaceOnDeath = async () => {
         }
     }
     if (anyAdded) {
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     }
     // Only auto-close if no warnings — let user pick alternatives if some failed
     if (!replaceOnDeathWarnings.value.length) {
@@ -2116,7 +2131,7 @@ const submitEditTurn = async () => {
             return;
         }
         editTurnDialogOpen.value = false;
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     } catch {
         showError('Network error. Please check your connection.');
     } finally {
@@ -2165,11 +2180,7 @@ const submitTurnScore = async () => {
     schemePoints.value = 0;
     nextSchemeId.value = null;
     scoringTurn.value = false;
-    router.reload({
-        only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'],
-        preserveState: true,
-        preserveScroll: true,
-    });
+    router.reload({ only: ['game', 'current_schemes', 'next_schemes', 'opponent_next_schemes', 'opponent_scheme_intel'] });
     showEndOfTurnUndoToast(turnData?.removed_tokens);
 };
 
@@ -2199,7 +2210,7 @@ const markGameComplete = async () => {
     if (res.data.game_complete) {
         router.visit(route('games.show', props.game.uuid));
     } else {
-        router.reload({ only: ['game'], preserveScroll: true });
+        router.reload({ only: ['game'] });
     }
 };
 
@@ -2311,7 +2322,7 @@ const summonCharacter = async (characterId: number, miniatureId: number | null =
         });
     }
 
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Replace crew member
@@ -2492,14 +2503,14 @@ const removeTokenFromInfo = async () => {
         attached_tokens: updated,
     });
     tokenInfoDrawerOpen.value = false;
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const quickRemoveToken = async (member: any, tokenId: number) => {
     const current = member.attached_tokens ?? [];
     const updated = current.filter((t: any) => t.id !== tokenId);
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), { attached_tokens: updated });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Reference characters from loaded references (summons/replaces)
@@ -2539,7 +2550,7 @@ const toggleToken = async (tokenId: number, tokenName: string) => {
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
         attached_tokens: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const removeToken = async (tokenId: number) => {
@@ -2550,7 +2561,7 @@ const removeToken = async (tokenId: number) => {
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: tokenMember.value.id }), {
         attached_tokens: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Character upgrade management
@@ -2645,7 +2656,7 @@ const toggleInjury = async (injury: { id: number; name: string; front_image: str
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: injuryMember.value.id }), {
         attached_upgrades: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 const toggleUpgrade = async (upgrade: {
@@ -2682,7 +2693,7 @@ const toggleUpgrade = async (upgrade: {
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: upgradeMember.value.id }), {
         attached_upgrades: updated,
     });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Set the current_power_bar on an attached upgrade for a specific crew member.
@@ -2721,7 +2732,7 @@ const quickRemoveUpgrade = async (member: any, upgradeId: number) => {
     const updated = (member.attached_upgrades ?? []).filter((u: any) => u.id !== upgradeId);
     member.attached_upgrades = updated;
     await gameApi.patch(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: member.id }), { attached_upgrades: updated });
-    router.reload({ only: ['game'], preserveScroll: true });
+    router.reload({ only: ['game'] });
 };
 
 // Upgrade preview from crew list
@@ -3299,6 +3310,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 <Badge variant="secondary" class="text-xs">{{ game.encounter_size }}ss</Badge>
                 <Badge v-if="isSolo" variant="outline" class="text-xs">Solo</Badge>
                 <Badge
+                    v-if="!channelConnected"
+                    variant="outline"
+                    class="border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
+                    role="status"
+                    data-testid="game-reconnecting"
+                    >Reconnecting… refreshing every 30 s</Badge
+                >
+                <Badge
                     v-if="game.is_observable && !GAME_FINISHED_STATUSES.includes(game.status)"
                     variant="outline"
                     class="border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
@@ -3316,39 +3335,82 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </div>
             </div>
 
+            <!-- Setup Step Indicator -->
+            <div v-if="game.status.includes('select')" class="mb-6">
+                <div class="flex items-center justify-center gap-1">
+                    <template v-for="(step, idx) in setupSteps" :key="step">
+                        <div v-if="idx > 0" class="h-px w-8 bg-border" />
+                        <div
+                            class="flex size-8 items-center justify-center rounded-full text-xs font-bold"
+                            :class="
+                                game.status === step + '_select'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : isPastStep(step)
+                                      ? 'bg-green-500 text-white'
+                                      : 'bg-muted text-muted-foreground'
+                            "
+                        >
+                            <Check v-if="isPastStep(step)" class="size-4" />
+                            <span v-else>{{ idx + 1 }}</span>
+                        </div>
+                    </template>
+                </div>
+                <div class="mt-1 flex items-center justify-center gap-1">
+                    <template v-for="(step, idx) in setupSteps" :key="step + '-label'">
+                        <div v-if="idx > 0" class="w-8" />
+                        <span class="w-8 text-center text-2xs text-muted-foreground">{{ stepLabels[step] }}</span>
+                    </template>
+                </div>
+            </div>
+
             <!-- Scenario (hidden during gameplay and completed; Bonanza Brawl
                  has no scenario at all) -->
             <div v-if="!isBonanza && game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
-                <!-- Mobile: compact text rows -->
-                <div class="space-y-1.5 sm:hidden">
-                    <div v-if="deployment" class="flex items-center justify-between rounded-lg border px-3 py-2">
-                        <div>
-                            <HeadingEyebrow>Deployment</HeadingEyebrow>
-                            <div class="text-sm font-medium">{{ deployment.label }}</div>
-                        </div>
-                        <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="deploymentDrawerOpen = true">View</Button>
-                    </div>
-                    <div v-if="game.strategy" class="flex items-center justify-between rounded-lg border px-3 py-2">
-                        <div>
-                            <HeadingEyebrow>Strategy</HeadingEyebrow>
-                            <div class="text-sm font-medium">{{ game.strategy.name }}</div>
-                        </div>
-                        <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="strategyDrawerOpen = true">View</Button>
-                    </div>
-                    <div v-if="schemes.length" class="rounded-lg border px-3 py-2">
-                        <HeadingEyebrow class="mb-1">Scheme Pool</HeadingEyebrow>
-                        <div class="flex flex-wrap gap-1.5">
-                            <button
-                                v-for="scheme in schemes"
-                                :key="'m-' + scheme.id"
-                                class="rounded-md bg-muted px-2 py-1 text-xs font-medium transition-colors hover:bg-accent"
-                                @click="openSchemeDrawer(scheme)"
+                <!-- Mobile: while a setup step is waiting on you the scenario folds into one summary line, so the step itself
+                     starts near the top of the screen; it is open in the lobby and a tap away the rest of the time. -->
+                <details class="group sm:hidden" :open="!game.status.includes('select')" data-testid="scenario-summary">
+                    <summary
+                        class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm [&::-webkit-details-marker]:hidden"
+                    >
+                        <span class="min-w-0 truncate">
+                            <HeadingEyebrow class="mr-1.5 inline">Scenario</HeadingEyebrow>
+                            <span class="font-medium">{{ [deployment?.label, game.strategy?.name].filter(Boolean).join(' · ') }}</span>
+                            <span v-if="schemes.length" class="text-muted-foreground">
+                                · {{ schemes.length }} {{ schemes.length === 1 ? 'scheme' : 'schemes' }}</span
                             >
-                                {{ scheme.name }}
-                            </button>
+                        </span>
+                        <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div class="mt-1.5 space-y-1.5">
+                        <div v-if="deployment" class="flex items-center justify-between rounded-lg border px-3 py-2">
+                            <div>
+                                <HeadingEyebrow>Deployment</HeadingEyebrow>
+                                <div class="text-sm font-medium">{{ deployment.label }}</div>
+                            </div>
+                            <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="deploymentDrawerOpen = true">View</Button>
+                        </div>
+                        <div v-if="game.strategy" class="flex items-center justify-between rounded-lg border px-3 py-2">
+                            <div>
+                                <HeadingEyebrow>Strategy</HeadingEyebrow>
+                                <div class="text-sm font-medium">{{ game.strategy.name }}</div>
+                            </div>
+                            <Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" @click="strategyDrawerOpen = true">View</Button>
+                        </div>
+                        <div v-if="schemes.length" class="rounded-lg border px-3 py-2">
+                            <HeadingEyebrow class="mb-1">Scheme Pool</HeadingEyebrow>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button
+                                    v-for="scheme in schemes"
+                                    :key="'m-' + scheme.id"
+                                    class="rounded-md bg-muted px-2 py-1 text-xs font-medium transition-colors hover:bg-accent"
+                                    @click="openSchemeDrawer(scheme)"
+                                >
+                                    {{ scheme.name }}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </details>
 
                 <!-- Desktop: visual card images -->
                 <div class="hidden gap-3 sm:grid sm:grid-cols-[1fr_1fr_2fr]">
@@ -3422,18 +3484,22 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- Players (hidden during gameplay — shown in Game tab) -->
-            <h2 v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-3 text-lg font-semibold">
+            <h2
+                v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)"
+                class="sr-only mb-3 text-lg font-semibold sm:not-sr-only"
+            >
                 Players
             </h2>
             <Card v-if="game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
-                <CardContent class="p-4 sm:p-6">
+                <CardContent class="p-2 sm:p-6">
                     <!-- Bonanza is personal-tracking only — slot 2 is inert, so the
-                         player grid drops to a single column showing just the user. -->
-                    <div :class="['grid gap-4', isBonanza ? '' : 'sm:grid-cols-2']">
+                         player grid drops to a single column showing just the user. Phones keep two players side by side
+                         so the setup step below starts higher up the screen. -->
+                    <div :class="['grid gap-2 sm:gap-4', isBonanza ? '' : 'grid-cols-2']">
                         <div
                             v-for="player in isBonanza ? game.players.filter((p) => p.slot === 1) : game.players"
                             :key="player.id"
-                            class="flex items-center gap-3 rounded-lg border p-3"
+                            class="flex items-center gap-2 rounded-lg border p-2 sm:gap-3 sm:p-3"
                         >
                             <div class="relative">
                                 <FactionLogo v-if="player.faction" :faction="player.faction" class-name="size-8" />
@@ -3449,7 +3515,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                     <!-- Solo opponent: editable name -->
                                     <template v-if="isSolo && !isObserver && !player.user && !GAME_FINISHED_STATUSES.includes(game.status)">
                                         <template v-if="editingOpponentName">
@@ -3518,34 +3584,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     </div>
                 </CardContent>
             </Card>
-
-            <!-- Setup Step Indicator -->
-            <div v-if="game.status.includes('select')" class="mb-6">
-                <div class="flex items-center justify-center gap-1">
-                    <template v-for="(step, idx) in setupSteps" :key="step">
-                        <div v-if="idx > 0" class="h-px w-8 bg-border" />
-                        <div
-                            class="flex size-8 items-center justify-center rounded-full text-xs font-bold"
-                            :class="
-                                game.status === step + '_select'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : isPastStep(step)
-                                      ? 'bg-green-500 text-white'
-                                      : 'bg-muted text-muted-foreground'
-                            "
-                        >
-                            <Check v-if="isPastStep(step)" class="size-4" />
-                            <span v-else>{{ idx + 1 }}</span>
-                        </div>
-                    </template>
-                </div>
-                <div class="mt-1 flex items-center justify-center gap-1">
-                    <template v-for="(step, idx) in setupSteps" :key="step + '-label'">
-                        <div v-if="idx > 0" class="w-8" />
-                        <span class="w-8 text-center text-2xs text-muted-foreground">{{ stepLabels[step] }}</span>
-                    </template>
-                </div>
-            </div>
 
             <!-- ═══ LOBBY ═══ -->
             <GameSetupLobby
@@ -3639,6 +3677,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                         })
                 "
                 @skip-opponent-crew="onSkipOpponentCrew"
+                @skip-crew="onSkipMyCrew"
             />
 
             <!-- ═══ SCHEME SELECT ═══ -->
@@ -4601,7 +4640,14 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                 +1<GameIcon type="soulstone" class-name="mx-0.5 h-3 inline-block" /> from {{ soulstoneAwardName }}'s death
                             </div>
                         </Transition>
-                        <div class="mb-2 text-2xs text-muted-foreground">
+                        <div
+                            v-if="myPlayer?.crew_skipped && !myCrewMembers.length"
+                            class="mb-2 rounded-md border border-dashed p-2 text-xs text-muted-foreground"
+                            data-testid="crew-not-tracked"
+                        >
+                            Crew not tracked: you're tracking points only. Use Summon if you want to add a model.
+                        </div>
+                        <div v-else class="mb-2 text-2xs text-muted-foreground">
                             Activations:
                             <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ myCrewMembers.length }}</span> remaining
@@ -4769,367 +4815,32 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             </div>
                         </div>
                         <div class="space-y-1">
-                            <div
+                            <GameCrewMemberRow
                                 v-for="member in myCrewMembers"
                                 :key="member.id"
-                                :class="factionDeep(member.faction ?? myPlayer?.faction ?? '')"
-                                class="rounded-md border border-white/20 px-2 py-1.5 text-white"
-                                :style="member.is_activated ? 'opacity: 0.7' : ''"
-                            >
-                                <div class="min-w-0 flex-1">
-                                    <!-- Line 1: Activation + Name (+ desktop action buttons) -->
-                                    <div class="flex items-center gap-1">
-                                        <template v-if="!isObserver">
-                                            <button
-                                                class="shrink-0 rounded p-1.5 hover:bg-white/20 sm:p-0.5"
-                                                @click="toggleActivated(member)"
-                                                :title="member.is_activated ? 'Mark unactivated' : 'Mark activated'"
-                                            >
-                                                <Check
-                                                    v-if="member.is_activated"
-                                                    class="size-4 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5"
-                                                />
-                                                <Circle v-else class="size-4 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
-                                            </button>
-                                            <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Upgrades"
-                                                title="Upgrades"
-                                                @click.stop="openUpgradeDialog(member)"
-                                            >
-                                                <ArrowUpCircle class="size-4" />
-                                            </button>
-                                            <button
-                                                v-if="game.format === GameFormat.Campaign"
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-rose-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Attach Injury"
-                                                title="Attach Injury"
-                                                @click.stop="openInjuryDialog(member)"
-                                            >
-                                                <HeartCrack class="size-4" />
-                                            </button>
-                                            <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-cyan-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Tokens"
-                                                title="Tokens"
-                                                @click.stop="openTokenDialog(member)"
-                                            >
-                                                <Puzzle class="size-4" />
-                                            </button>
-                                            <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-blue-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Replace"
-                                                title="Replace"
-                                                @click.stop="openReplace(member)"
-                                            >
-                                                <Replace class="size-4" />
-                                            </button>
-                                        </template>
-                                        <template v-else>
-                                            <Check
-                                                v-if="member.is_activated"
-                                                class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
-                                            />
-                                            <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                        </template>
-                                        <button
-                                            class="cursor-pointer truncate text-base font-semibold hover:underline"
-                                            @click="openMemberPreview(member)"
-                                        >
-                                            {{ member.display_name }}
-                                        </button>
-                                        <button
-                                            v-if="member.front_image || hasCustomCharacterCard(member)"
-                                            class="ml-auto shrink-0 rounded p-1 hover:bg-white/20"
-                                            aria-label="Toggle card preview"
-                                            title="Toggle card preview"
-                                            @click.stop="toggleInlineCard(member.id, 'my')"
-                                        >
-                                            <Eye
-                                                class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
-                                                :class="expandedMyCards.has(member.id) ? 'text-amber-300' : 'text-white'"
-                                            />
-                                        </button>
-                                    </div>
-                                    <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
-                                    <div class="mt-0.5 flex items-center pl-8 sm:hidden">
-                                        <div class="flex gap-0.5">
-                                            <button
-                                                v-for="pip in member.max_health"
-                                                :key="'hp-m-' + pip"
-                                                type="button"
-                                                class="size-3.5 rounded-sm transition-colors"
-                                                :class="[
-                                                    pip <= member.current_health
-                                                        ? member.current_health <= Math.ceil(member.max_health / 2)
-                                                            ? 'bg-red-400/90'
-                                                            : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
-                                                    isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
-                                                ]"
-                                                :disabled="isObserver"
-                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
-                                                @click.stop="onHealthPipClick(member, pip, isObserver)"
-                                            />
-                                        </div>
-
-                                        <div v-if="!isObserver" class="ml-auto flex shrink-0 gap-1 sm:hidden">
-                                            <button
-                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                                                title="Upgrades"
-                                                @click.stop="openUpgradeDialog(member)"
-                                            >
-                                                <ArrowUpCircle class="size-3.5" /><span class="sr-only">Upgrades</span>
-                                            </button>
-                                            <button
-                                                v-if="game.format === GameFormat.Campaign"
-                                                class="flex items-center gap-1 rounded bg-black/30 p-1.5 text-rose-200 active:bg-black/50"
-                                                @click.stop="openInjuryDialog(member)"
-                                            >
-                                                <HeartCrack class="size-3.5" /><span class="sr-only">Injury</span>
-                                            </button>
-                                            <button
-                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                                                title="Tokens"
-                                                @click.stop="openTokenDialog(member)"
-                                            >
-                                                <Puzzle class="size-3.5" /><span class="sr-only">Tokens</span>
-                                            </button>
-                                            <button
-                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                                                title="Replace"
-                                                @click.stop="openReplace(member)"
-                                            >
-                                                <Replace class="size-3.5" /><span class="sr-only">Replace</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <!-- Line 3 (mobile): Stats + Health controls / Desktop: Stats + pips + controls on one row -->
-                                    <div class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-8 sm:pl-6">
-                                        <div
-                                            v-if="member.defense || member.willpower || member.speed || member.size"
-                                            class="flex gap-1.5 text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:text-xs"
-                                        >
-                                            <span v-if="member.defense" title="Defense"
-                                                ><Shield class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.defense }}</span
-                                            >
-                                            <span v-if="member.willpower" title="Willpower"
-                                                ><ShieldAlert class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.willpower }}</span
-                                            >
-                                            <span v-if="member.speed" title="Speed"
-                                                ><Footprints class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.speed }}</span
-                                            >
-                                            <span v-if="member.size" title="Size"
-                                                ><Banana class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span
-                                            >
-                                            <span
-                                                v-if="member.characteristics?.length"
-                                                class="text-2xs font-normal italic text-white/70 sm:text-2xs"
-                                                :title="member.characteristics.join(', ')"
-                                                >({{ member.characteristics.join(', ') }})</span
-                                            >
-                                        </div>
-                                        <!-- Desktop: health pips inline -->
-                                        <div class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
-                                            <button
-                                                v-for="pip in member.max_health"
-                                                :key="'hp-' + pip"
-                                                type="button"
-                                                class="size-3 rounded-sm transition-colors"
-                                                :class="[
-                                                    pip <= member.current_health
-                                                        ? member.current_health <= Math.ceil(member.max_health / 2)
-                                                            ? 'bg-red-400/90'
-                                                            : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
-                                                    isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
-                                                ]"
-                                                :disabled="isObserver"
-                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
-                                                @click.stop="onHealthPipClick(member, pip, isObserver)"
-                                            />
-                                        </div>
-                                        <template v-if="!isObserver">
-                                            <div class="ml-auto flex shrink-0 items-center gap-0.5">
-                                                <button
-                                                    :aria-label="`Decrease health of ${member.display_name}`"
-                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
-                                                    @click="updateHealth(member, -1)"
-                                                >
-                                                    <Minus class="size-4 sm:size-3.5" />
-                                                </button>
-                                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold">
-                                                    <Heart
-                                                        class="size-3.5"
-                                                        :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''"
-                                                    />
-                                                    {{ member.current_health }}/{{ member.max_health }}
-                                                </span>
-                                                <button
-                                                    :aria-label="`Increase health of ${member.display_name}`"
-                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
-                                                    @click="updateHealth(member, 1)"
-                                                >
-                                                    <Plus class="size-4 sm:size-3.5" />
-                                                </button>
-                                            </div>
-                                        </template>
-                                        <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-sm font-bold">
-                                            <Heart
-                                                class="size-3.5"
-                                                :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''"
-                                            />
-                                            {{ member.current_health }}/{{ member.max_health }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <!-- Token badges -->
-                                <div v-if="member.attached_tokens?.length" class="mt-1 flex flex-wrap gap-1">
-                                    <Badge
-                                        v-for="token in member.attached_tokens"
-                                        :key="token.id"
-                                        variant="secondary"
-                                        class="group cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
-                                        @click="openTokenInfo(token.id, member)"
-                                    >
-                                        {{ token.name }}
-                                        <button
-                                            v-if="!isObserver"
-                                            class="ml-0.5 shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                            aria-label="Remove token"
-                                            @click.stop="quickRemoveToken(member, token.id)"
-                                        >
-                                            <X class="size-2.5" />
-                                        </button>
-                                    </Badge>
-                                </div>
-                                <!-- Inline card preview — kept above the attached-upgrades list so a
-                                     unit with many attachments never pushes it out of view. -->
-                                <Transition
-                                    enter-active-class="transition-all duration-300 ease-out"
-                                    leave-active-class="transition-all duration-200 ease-in"
-                                    enter-from-class="max-h-0 opacity-0"
-                                    enter-to-class="max-h-[600px] opacity-100"
-                                    leave-from-class="max-h-[600px] opacity-100"
-                                    leave-to-class="max-h-0 opacity-0"
-                                >
-                                    <div
-                                        v-if="expandedMyCards.has(member.id) && member.front_image"
-                                        class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]"
-                                    >
-                                        <CharacterCardView
-                                            :miniature="{
-                                                id: member.id,
-                                                display_name: member.display_name,
-                                                slug: '',
-                                                front_image: member.front_image,
-                                                back_image: member.back_image,
-                                            }"
-                                            :show-link="false"
-                                            :show-collection="false"
-                                        />
-                                    </div>
-                                    <!-- Campaign Leader/Totem (pg 31, 52) — server-rendered card image, once generated. -->
-                                    <div
-                                        v-else-if="expandedMyCards.has(member.id) && member.custom_character?.front_image"
-                                        class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]"
-                                    >
-                                        <CharacterCardView
-                                            :miniature="{
-                                                id: member.custom_character.id,
-                                                display_name: member.custom_character.display_name,
-                                                slug: '',
-                                                front_image: member.custom_character.front_image,
-                                                back_image: member.custom_character.back_image,
-                                                card_image_generated_at: member.custom_character.card_image_generated_at,
-                                            }"
-                                            :show-link="false"
-                                            :show-collection="false"
-                                        />
-                                    </div>
-                                    <!-- No image generated yet — render the JSON stat block instead. -->
-                                    <div
-                                        v-else-if="expandedMyCards.has(member.id) && hasCustomCharacterCard(member)"
-                                        class="mt-2 space-y-2 overflow-hidden"
-                                    >
-                                        <ActionCard
-                                            v-for="(a, i) in member.custom_character.actions"
-                                            :key="`my-action-${member.id}-${i}`"
-                                            :action="a"
-                                            :hide-footer="true"
-                                        />
-                                        <AbilityCard
-                                            v-for="(ab, i) in member.custom_character.abilities"
-                                            :key="`my-ability-${member.id}-${i}`"
-                                            :ability="ab"
-                                            :hide-footer="true"
-                                        />
-                                    </div>
-                                </Transition>
-                                <!-- Attached upgrades — collapsible so a unit with several
-                                     Equipment/Injury attachments doesn't grow the column
-                                     unboundedly (mirrors the References <details> pattern below). -->
-                                <details v-if="member.attached_upgrades?.length" open class="mt-1 rounded-lg border border-white/10">
-                                    <summary class="cursor-pointer px-2 py-1 text-2xs font-medium text-white/70 hover:text-white">
-                                        Attached Upgrades ({{ member.attached_upgrades.length }})
-                                    </summary>
-                                    <div class="space-y-0.5 p-1.5 pt-0.5">
-                                        <div
-                                            v-for="upgrade in member.attached_upgrades"
-                                            :key="'au-' + upgrade.id"
-                                            class="rounded bg-black/20 px-2 py-1 text-sm"
-                                            :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
-                                        >
-                                            <div
-                                                class="flex items-center gap-1.5"
-                                                :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
-                                                :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
-                                                @click="openAttachedUpgradePreview(upgrade)"
-                                                @keydown.enter="openAttachedUpgradePreview(upgrade)"
-                                            >
-                                                <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                                <template v-if="(upgrade as any).loot_side">
-                                                    <span
-                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-2xs font-bold uppercase text-black"
-                                                        :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
-                                                    >
-                                                        {{ (upgrade as any).loot_side.toUpperCase() }}
-                                                    </span>
-                                                    <span
-                                                        v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-2xs tabular-nums"
-                                                    >
-                                                        {{ lootCardById((upgrade as any).loot_card_id)?.value_label
-                                                        }}<GameIcon
-                                                            v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
-                                                            :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
-                                                            class-name="h-2.5 inline-block"
-                                                        />
-                                                    </span>
-                                                </template>
-                                                <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                                <button
-                                                    v-if="!isObserver"
-                                                    class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                                    aria-label="Remove upgrade"
-                                                    @click.stop="quickRemoveUpgrade(member, upgrade.id)"
-                                                >
-                                                    <X class="size-3" />
-                                                </button>
-                                            </div>
-                                            <PowerBarBubbles
-                                                v-if="upgradePowerMax(upgrade.id) > 0"
-                                                class="mt-1 pl-5"
-                                                :max="upgradePowerMax(upgrade.id)"
-                                                :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
-                                                :readonly="isObserver"
-                                                compact
-                                                @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
-                                            />
-                                        </div>
-                                    </div>
-                                </details>
-                            </div>
+                                :member="member"
+                                :fallback-faction="myPlayer?.faction"
+                                :editable="!isObserver"
+                                :card-open="expandedMyCards.has(member.id)"
+                                :is-campaign="game.format === GameFormat.Campaign"
+                                :upgrade-power-max="upgradePowerMax"
+                                :loot-card-by-id="lootCardById"
+                                :loot-card-suit-icon="lootCardSuitIcon"
+                                @toggle-activated="toggleActivated(member)"
+                                @open-upgrades="openUpgradeDialog(member)"
+                                @open-injury="openInjuryDialog(member)"
+                                @open-tokens="openTokenDialog(member)"
+                                @replace="openReplace(member)"
+                                @preview="openMemberPreview(member)"
+                                @toggle-card="toggleInlineCard(member.id, 'my')"
+                                @health-pip="(pip: number) => onHealthPipClick(member, pip, false)"
+                                @health-delta="(d: number) => updateHealth(member, d)"
+                                @token-info="(id: number) => openTokenInfo(id, member)"
+                                @remove-token="(id: number) => quickRemoveToken(member, id)"
+                                @upgrade-preview="openAttachedUpgradePreview"
+                                @remove-upgrade="(id: number) => quickRemoveUpgrade(member, id)"
+                                @power-bar="(id: number, v: number) => setMemberUpgradePowerBar(member, id, v)"
+                            />
                             <div
                                 v-for="member in myKilledMembers"
                                 :key="'killed-' + member.id"
@@ -5417,362 +5128,32 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             </div>
                         </div>
                         <div class="space-y-1">
-                            <div
+                            <GameCrewMemberRow
                                 v-for="member in opponentCrewMembers"
                                 :key="member.id"
-                                :class="factionDeep(member.faction ?? opponent?.faction ?? '')"
-                                class="rounded-md border border-white/20 px-2 py-1.5 text-white"
-                                :style="member.is_activated ? 'opacity: 0.7' : ''"
-                            >
-                                <div class="min-w-0 flex-1">
-                                    <!-- Line 1: Activation + Name (+ desktop action buttons) -->
-                                    <div class="flex items-center gap-1">
-                                        <template v-if="isSolo && !isObserver">
-                                            <button
-                                                aria-label="Toggle activated"
-                                                class="shrink-0 rounded p-1.5 hover:bg-white/20 sm:p-0.5"
-                                                @click="toggleActivated(member)"
-                                            >
-                                                <Check v-if="member.is_activated" class="size-4 text-green-300 sm:size-3.5" />
-                                                <Circle v-else class="size-4 text-white/30 sm:size-3.5" />
-                                            </button>
-                                            <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Upgrades"
-                                                title="Upgrades"
-                                                @click.stop="openUpgradeDialog(member)"
-                                            >
-                                                <ArrowUpCircle class="size-4" />
-                                            </button>
-                                            <button
-                                                v-if="game.format === GameFormat.Campaign"
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-rose-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Attach Injury"
-                                                title="Attach Injury"
-                                                @click.stop="openInjuryDialog(member)"
-                                            >
-                                                <HeartCrack class="size-4" />
-                                            </button>
-                                            <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-cyan-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Tokens"
-                                                title="Tokens"
-                                                @click.stop="openTokenDialog(member)"
-                                            >
-                                                <Puzzle class="size-4" />
-                                            </button>
-                                            <button
-                                                class="hidden shrink-0 rounded bg-black/30 p-1.5 text-blue-200 hover:bg-black/50 sm:inline-flex"
-                                                aria-label="Replace"
-                                                title="Replace"
-                                                @click.stop="openReplace(member)"
-                                            >
-                                                <Replace class="size-4" />
-                                            </button>
-                                        </template>
-                                        <template v-else>
-                                            <Check
-                                                v-if="member.is_activated"
-                                                class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
-                                            />
-                                            <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-                                        </template>
-                                        <button
-                                            class="cursor-pointer truncate text-base font-semibold hover:underline"
-                                            @click="openMemberPreview(member)"
-                                        >
-                                            {{ member.display_name }}
-                                        </button>
-                                        <button
-                                            v-if="member.front_image || hasCustomCharacterCard(member)"
-                                            class="ml-auto shrink-0 rounded p-1 hover:bg-white/20"
-                                            aria-label="Toggle card preview"
-                                            title="Toggle card preview"
-                                            @click.stop="toggleInlineCard(member.id, 'opponent')"
-                                        >
-                                            <Eye
-                                                class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
-                                                :class="expandedOpponentCards.has(member.id) ? 'text-amber-300' : 'text-white'"
-                                            />
-                                        </button>
-                                    </div>
-                                    <!-- Line 2 (mobile): Health pips under name / Desktop: combined with stats -->
-                                    <div class="mt-0.5 flex items-center sm:hidden" :class="isSolo ? 'pl-8' : 'pl-5'">
-                                        <div class="flex gap-0.5">
-                                            <button
-                                                v-for="pip in member.max_health"
-                                                :key="'ohp-m-' + pip"
-                                                type="button"
-                                                class="size-3.5 rounded-sm transition-colors"
-                                                :class="[
-                                                    pip <= member.current_health
-                                                        ? member.current_health <= Math.ceil(member.max_health / 2)
-                                                            ? 'bg-red-400/90'
-                                                            : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
-                                                    !isSolo || isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
-                                                ]"
-                                                :disabled="!isSolo || isObserver"
-                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
-                                                @click.stop="onHealthPipClick(member, pip, !isSolo || isObserver)"
-                                            />
-                                        </div>
-
-                                        <div v-if="isSolo && !isObserver" class="ml-auto flex shrink-0 gap-1 sm:hidden">
-                                            <button
-                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                                                title="Upgrades"
-                                                @click.stop="openUpgradeDialog(member)"
-                                            >
-                                                <ArrowUpCircle class="size-3.5" /><span class="sr-only">Upgrades</span>
-                                            </button>
-                                            <button
-                                                v-if="game.format === GameFormat.Campaign"
-                                                class="flex items-center gap-1 rounded bg-black/30 p-1.5 text-rose-200 active:bg-black/50"
-                                                @click.stop="openInjuryDialog(member)"
-                                            >
-                                                <HeartCrack class="size-3.5" /><span class="sr-only">Injury</span>
-                                            </button>
-                                            <button
-                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                                                title="Tokens"
-                                                @click.stop="openTokenDialog(member)"
-                                            >
-                                                <Puzzle class="size-3.5" /><span class="sr-only">Tokens</span>
-                                            </button>
-                                            <button
-                                                class="flex items-center gap-1 rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
-                                                title="Replace"
-                                                @click.stop="openReplace(member)"
-                                            >
-                                                <Replace class="size-3.5" /><span class="sr-only">Replace</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <!-- Line 3 (mobile): Stats + Health controls / Desktop: Stats + pips + controls on one row -->
-                                    <div class="mt-0.5 flex items-center gap-2" :class="isSolo ? 'pl-8 sm:pl-6' : 'pl-5'">
-                                        <div
-                                            v-if="member.defense || member.willpower || member.speed || member.size"
-                                            class="flex gap-1.5 text-sm font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] sm:text-xs"
-                                        >
-                                            <span v-if="member.defense" title="Defense"
-                                                ><Shield class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.defense }}</span
-                                            >
-                                            <span v-if="member.willpower" title="Willpower"
-                                                ><ShieldAlert class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.willpower }}</span
-                                            >
-                                            <span v-if="member.speed" title="Speed"
-                                                ><Footprints class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.speed }}</span
-                                            >
-                                            <span v-if="member.size" title="Size"
-                                                ><Banana class="mr-0.5 inline size-4 sm:size-3.5" />{{ member.size }}</span
-                                            >
-                                            <span
-                                                v-if="member.characteristics?.length"
-                                                class="text-2xs font-normal italic text-white/70 sm:text-2xs"
-                                                :title="member.characteristics.join(', ')"
-                                                >({{ member.characteristics.join(', ') }})</span
-                                            >
-                                        </div>
-                                        <!-- Desktop: health pips inline -->
-                                        <div class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
-                                            <button
-                                                v-for="pip in member.max_health"
-                                                :key="'ohp-' + pip"
-                                                type="button"
-                                                class="size-3 rounded-sm transition-colors"
-                                                :class="[
-                                                    pip <= member.current_health
-                                                        ? member.current_health <= Math.ceil(member.max_health / 2)
-                                                            ? 'bg-red-400/90'
-                                                            : 'bg-white/60'
-                                                        : 'bg-black/30 ring-1 ring-inset ring-white/10',
-                                                    !isSolo || isObserver ? 'cursor-default' : 'cursor-pointer hover:bg-white/80',
-                                                ]"
-                                                :disabled="!isSolo || isObserver"
-                                                :aria-label="`Set health to ${pip} of ${member.max_health}`"
-                                                @click.stop="onHealthPipClick(member, pip, !isSolo || isObserver)"
-                                            />
-                                        </div>
-                                        <template v-if="isSolo && !isObserver">
-                                            <div class="ml-auto flex shrink-0 items-center gap-0.5">
-                                                <button
-                                                    :aria-label="`Decrease health of ${member.display_name}`"
-                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
-                                                    @click="updateHealth(member, -1)"
-                                                >
-                                                    <Minus class="size-4 sm:size-3.5" />
-                                                </button>
-                                                <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold">
-                                                    <Heart
-                                                        class="size-3.5"
-                                                        :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''"
-                                                    />
-                                                    {{ member.current_health }}/{{ member.max_health }}
-                                                </span>
-                                                <button
-                                                    :aria-label="`Increase health of ${member.display_name}`"
-                                                    class="rounded border p-2 hover:bg-muted sm:p-1"
-                                                    @click="updateHealth(member, 1)"
-                                                >
-                                                    <Plus class="size-4 sm:size-3.5" />
-                                                </button>
-                                            </div>
-                                        </template>
-                                        <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-sm font-bold">
-                                            <Heart
-                                                class="size-3.5"
-                                                :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''"
-                                            />
-                                            {{ member.current_health }}/{{ member.max_health }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <!-- Token badges -->
-                                <div v-if="member.attached_tokens?.length" class="mt-1 flex flex-wrap gap-1">
-                                    <Badge
-                                        v-for="token in member.attached_tokens"
-                                        :key="token.id"
-                                        variant="secondary"
-                                        class="cursor-pointer gap-0.5 border border-cyan-500/50 bg-cyan-900/60 px-1.5 py-0.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-800/70"
-                                        @click="openTokenInfo(token.id, member)"
-                                    >
-                                        {{ token.name }}
-                                        <button
-                                            v-if="isSolo && !isObserver"
-                                            class="ml-0.5 shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                            aria-label="Remove token"
-                                            @click.stop="quickRemoveToken(member, token.id)"
-                                        >
-                                            <X class="size-2.5" />
-                                        </button>
-                                    </Badge>
-                                </div>
-                                <!-- Inline card preview — kept above the attached-upgrades list so a
-                                     unit with many attachments never pushes it out of view. -->
-                                <Transition
-                                    enter-active-class="transition-all duration-300 ease-out"
-                                    leave-active-class="transition-all duration-200 ease-in"
-                                    enter-from-class="max-h-0 opacity-0"
-                                    enter-to-class="max-h-[600px] opacity-100"
-                                    leave-from-class="max-h-[600px] opacity-100"
-                                    leave-to-class="max-h-0 opacity-0"
-                                >
-                                    <div
-                                        v-if="expandedOpponentCards.has(member.id) && member.front_image"
-                                        class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]"
-                                    >
-                                        <CharacterCardView
-                                            :miniature="{
-                                                id: member.id,
-                                                display_name: member.display_name,
-                                                slug: '',
-                                                front_image: member.front_image,
-                                                back_image: member.back_image,
-                                            }"
-                                            :show-link="false"
-                                            :show-collection="false"
-                                        />
-                                    </div>
-                                    <!-- Campaign Leader/Totem (pg 31, 52) — server-rendered card image, once generated. -->
-                                    <div
-                                        v-else-if="expandedOpponentCards.has(member.id) && member.custom_character?.front_image"
-                                        class="mt-2 overflow-hidden [&_img]:max-h-[70dvh] [&_img]:w-auto [&_img]:object-contain xl:[&_img]:max-h-[50dvh]"
-                                    >
-                                        <CharacterCardView
-                                            :miniature="{
-                                                id: member.custom_character.id,
-                                                display_name: member.custom_character.display_name,
-                                                slug: '',
-                                                front_image: member.custom_character.front_image,
-                                                back_image: member.custom_character.back_image,
-                                                card_image_generated_at: member.custom_character.card_image_generated_at,
-                                            }"
-                                            :show-link="false"
-                                            :show-collection="false"
-                                        />
-                                    </div>
-                                    <!-- No image generated yet — render the JSON stat block instead. -->
-                                    <div
-                                        v-else-if="expandedOpponentCards.has(member.id) && hasCustomCharacterCard(member)"
-                                        class="mt-2 space-y-2 overflow-hidden"
-                                    >
-                                        <ActionCard
-                                            v-for="(a, i) in member.custom_character.actions"
-                                            :key="`opp-action-${member.id}-${i}`"
-                                            :action="a"
-                                            :hide-footer="true"
-                                        />
-                                        <AbilityCard
-                                            v-for="(ab, i) in member.custom_character.abilities"
-                                            :key="`opp-ability-${member.id}-${i}`"
-                                            :ability="ab"
-                                            :hide-footer="true"
-                                        />
-                                    </div>
-                                </Transition>
-                                <!-- Attached upgrades — collapsible, see the matching player-side block above. -->
-                                <details v-if="member.attached_upgrades?.length" open class="mt-1 rounded-lg border border-white/10">
-                                    <summary class="cursor-pointer px-2 py-1 text-2xs font-medium text-white/70 hover:text-white">
-                                        Attached Upgrades ({{ member.attached_upgrades.length }})
-                                    </summary>
-                                    <div class="space-y-0.5 p-1.5 pt-0.5">
-                                        <div
-                                            v-for="upgrade in member.attached_upgrades"
-                                            :key="'oau-' + upgrade.id"
-                                            class="rounded bg-black/20 px-2 py-1 text-sm"
-                                            :class="upgrade.front_image || upgrade.description ? 'cursor-pointer hover:bg-black/30' : ''"
-                                        >
-                                            <div
-                                                class="flex items-center gap-1.5"
-                                                :role="upgrade.front_image || upgrade.description ? 'button' : undefined"
-                                                :tabindex="upgrade.front_image || upgrade.description ? 0 : undefined"
-                                                @click="openAttachedUpgradePreview(upgrade)"
-                                                @keydown.enter="openAttachedUpgradePreview(upgrade)"
-                                            >
-                                                <ArrowUpCircle class="size-3.5 shrink-0 text-amber-300" />
-                                                <template v-if="(upgrade as any).loot_side">
-                                                    <span
-                                                        class="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-amber-400 px-1 text-2xs font-bold uppercase text-black"
-                                                        :title="`Side ${(upgrade as any).loot_side.toUpperCase()} active`"
-                                                    >
-                                                        {{ (upgrade as any).loot_side.toUpperCase() }}
-                                                    </span>
-                                                    <span
-                                                        v-if="lootCardById((upgrade as any).loot_card_id)"
-                                                        class="inline-flex h-4 shrink-0 items-center gap-0.5 rounded border border-white/30 bg-black/30 px-1 font-mono text-2xs tabular-nums"
-                                                    >
-                                                        {{ lootCardById((upgrade as any).loot_card_id)?.value_label
-                                                        }}<GameIcon
-                                                            v-if="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit)"
-                                                            :type="lootCardSuitIcon(lootCardById((upgrade as any).loot_card_id)?.suit) as string"
-                                                            class-name="h-2.5 inline-block"
-                                                        />
-                                                    </span>
-                                                </template>
-                                                <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
-                                                <button
-                                                    v-if="isSolo && !isObserver"
-                                                    class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                                                    aria-label="Remove upgrade"
-                                                    @click.stop="quickRemoveUpgrade(member, upgrade.id)"
-                                                >
-                                                    <X class="size-3" />
-                                                </button>
-                                            </div>
-                                            <PowerBarBubbles
-                                                v-if="upgradePowerMax(upgrade.id) > 0"
-                                                class="mt-1 pl-5"
-                                                :max="upgradePowerMax(upgrade.id)"
-                                                :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
-                                                :readonly="!isSolo || isObserver"
-                                                compact
-                                                @update="(v) => setMemberUpgradePowerBar(member, upgrade.id, v)"
-                                            />
-                                        </div>
-                                    </div>
-                                </details>
-                            </div>
+                                :member="member"
+                                :fallback-faction="opponent?.faction"
+                                :editable="isSolo && !isObserver"
+                                :card-open="expandedOpponentCards.has(member.id)"
+                                :is-campaign="game.format === GameFormat.Campaign"
+                                :upgrade-power-max="upgradePowerMax"
+                                :loot-card-by-id="lootCardById"
+                                :loot-card-suit-icon="lootCardSuitIcon"
+                                @toggle-activated="toggleActivated(member)"
+                                @open-upgrades="openUpgradeDialog(member)"
+                                @open-injury="openInjuryDialog(member)"
+                                @open-tokens="openTokenDialog(member)"
+                                @replace="openReplace(member)"
+                                @preview="openMemberPreview(member)"
+                                @toggle-card="toggleInlineCard(member.id, 'opponent')"
+                                @health-pip="(pip: number) => onHealthPipClick(member, pip, false)"
+                                @health-delta="(d: number) => updateHealth(member, d)"
+                                @token-info="(id: number) => openTokenInfo(id, member)"
+                                @remove-token="(id: number) => quickRemoveToken(member, id)"
+                                @upgrade-preview="openAttachedUpgradePreview"
+                                @remove-upgrade="(id: number) => quickRemoveUpgrade(member, id)"
+                                @power-bar="(id: number, v: number) => setMemberUpgradePowerBar(member, id, v)"
+                            />
                             <div
                                 v-for="member in opponentKilledMembers"
                                 :key="'killed-' + member.id"

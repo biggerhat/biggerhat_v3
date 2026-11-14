@@ -32,6 +32,10 @@ const L = require('./lib.cjs');
     await L.step('details: everyone sees the details on the public page', guest, async () => {
         await L.visit(guest, `/tournaments/${ids.t1}/view`);
         await guest.page.waitForSelector('[data-testid="event-details"]', { timeout: 9000 });
+        // A running event tucks the long details document away behind its summary; opening it shows the text.
+        const openAtStart = await guest.page.$eval('[data-testid="event-details"]', (d) => d.open);
+        if (openAtStart) throw new Error('details should start collapsed while the event is running');
+        await guest.page.click('[data-testid="event-details"] summary');
         await L.expectText(guest, /bring your own objective markers/i);
         await L.shot(guest, '171-details-public');
     });

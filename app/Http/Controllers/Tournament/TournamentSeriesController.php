@@ -8,6 +8,7 @@ use App\Http\Requests\Tournaments\TournamentSeriesAssignRequest;
 use App\Http\Requests\Tournaments\TournamentSeriesRequest;
 use App\Models\Tournament;
 use App\Models\TournamentSeries;
+use App\Tournaments\Analytics\OrganizerInsights;
 use App\Tournaments\SeriesStandings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -72,6 +73,23 @@ class TournamentSeriesController extends Controller
             'standings' => $board['rows'],
             'scored_events' => $board['events'],
             'can_manage' => Auth::user()?->can('manage', $series) ?? false,
+        ]);
+    }
+
+    /** Turnout, repeat players and results across a league's events. Its creator only. */
+    public function analytics(TournamentSeries $series, OrganizerInsights $insights): Response|ResponseFactory
+    {
+        $this->authorize('manage', $series);
+
+        return inertia('Tournaments/Analytics', $insights->forSeries($series) + [
+            'range' => 'all',
+            'ranges' => [],
+            'scope' => [
+                'title' => $series->name,
+                'subtitle' => 'Across this league',
+                'back' => ['label' => 'League', 'href' => route('tournaments.series.show', $series)],
+                'csv' => route('tournaments.series.analytics_csv', $series),
+            ],
         ]);
     }
 

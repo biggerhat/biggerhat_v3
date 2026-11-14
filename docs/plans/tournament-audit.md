@@ -42,7 +42,7 @@ the page unclickable (`pointer-events: none` on `body`) after the dialog closed;
 now says what's missing; the "games still need a result" count included byes.
 
 **Status of the first features (branch `tournament-capacity-nov11`):** F3 (player limit, registration deadline, computed waitlist with positions shown to players and organizers) and F4 (self-withdrawal for
-individual events, with organizer notification) are done. **Deploy: run the new migration** (`2026_11_16_100000_add_capacity_to_tournaments`). Not done from F3: notifying someone when they move up the waitlist.
+individual events, with organizer notification) are done. **Deploy: run the new migration** (`2026_11_16_100000_add_capacity_to_tournaments`). Waitlist promotions also notify the player who moves up.
 
 **Status of the results summary (branch `tournament-results-nov11`):** F6 is done — a Final results card (podium, PDF sheet, shareable image, native share) on the public page of a completed event. Not done: side awards (F7).
 
@@ -138,7 +138,7 @@ ruleset flag `supports_table_details`). Browser flow 17 covers writing details, 
 The harness fix that came with it: `run.sh` now `exec`s PHP (the old `trap` left a stale server holding the port) and serves `/storage` through `router.php`; `FLOWS="flows17.cjs"` runs a subset.
 
 F7 (side awards) is built on the same branch: `tournament_awards`, an editor on the Details tab, a public Awards card, a line on the results PDF and a notification to the winner. Browser flow 18 covers it.
-Not done for F7: awards on the shareable results image and on the profile history card. **Deploy: run the new migration.**
+Awards also appear on the shareable results image and the profile history card (tile plus a line per event). **Deploy: run the new migration.**
 
 F15 (scorer-only role) is built on the same branch: `tournament_scorers`, the `score` policy ability, a scoring desk page and a Scorekeepers card. Browser flow 19 covers adding one, entering a score from the desk,
 the 403 on organizer pages and the desk at phone width. The desk includes the master/title pickers. Not done: scorers cannot complete tracker games or do anything beyond scores, leaders and forfeits. **Deploy: run the new migration.**
@@ -173,3 +173,7 @@ Harness: `run.sh` now uses `CACHE_STORE=database` so rate-limit buckets live in 
 F13 (leagues) is built on the same branch: series with a points table, participation points and a best-N rule, a public leaderboard and list, the League card on Manage Settings, and a link on the event page. Browser flow 25 covers
 creating a league, adding a finished event and the leaderboard; the axe flow scans the league pages too (69 scans). Not done: team leagues, an approval step for adding other people's events, per-event point multipliers,
 and a "season" date window. **Deploy: run the new migration.** That closes the audit's feature list.
+
+F16 (clock warnings) is built on `tournament-reset-and-ui-polish`: a scheduled command notifies players with an unfinished game when the round enters the ruleset's last-turn window, once per round run (reset clears it). Pest-covered; not browser-tested (the harness has no scheduler). **Deploy: run the new migration.**
+
+U4's "next game" keyboard flow is built (Save & next game in the score dialog, first score box focused on open; browser flow 27). The seed now has a running event with a live tracker game and a solo game at crew select, so browser flow 28 covers the "Live now" strip and the crew-builder return button, both previously untested in a browser.

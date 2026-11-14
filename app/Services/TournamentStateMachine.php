@@ -58,6 +58,23 @@ class TournamentStateMachine
     }
 
     /**
+     * Validate that a started round may be reset back to its pre-start state ("Oh crap" button).
+     * Only a round in progress can be reset; a completed round's results are already final.
+     */
+    public function canResetRound(Tournament $tournament, TournamentRound $round): ?string
+    {
+        if ($tournament->status === TournamentStatusEnum::Completed) {
+            return 'This tournament is completed, so its rounds are locked.';
+        }
+
+        if ($round->status !== TournamentRoundStatusEnum::InProgress) {
+            return 'Only a round that is in progress can be reset.';
+        }
+
+        return null;
+    }
+
+    /**
      * Validate that the round's scenario fields (deployment / strategy /
      * scheme pool) may currently be edited. Returns null if allowed.
      *

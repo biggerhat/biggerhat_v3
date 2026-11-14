@@ -352,3 +352,16 @@ it('rejects the Bonanza VP endpoint on a standard format game', function () {
     $this->actingAs($user)->patchJson(route('games.play.bonanza_vp', $game->uuid), ['delta' => 1])
         ->assertStatus(422);
 });
+
+it('refuses a Bonanza model name that matches nothing instead of starting a game with no model', function () {
+    $creator = User::factory()->create();
+    $game = Game::factory()->bonanza()->create(['creator_id' => $creator->id, 'is_solo' => true, 'status' => GameStatusEnum::MasterSelect]);
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => $creator->id, 'slot' => 1, 'faction' => 'arcanists']);
+    GamePlayer::factory()->for($game, 'game')->create(['user_id' => null, 'slot' => 2, 'opponent_name' => 'Opponent']);
+
+    $this->actingAs($creator)->postJson(route('games.setup.master', $game->uuid), ['master_name' => 'Nobody At All'])
+        ->assertStatus(422);
+
+    expect($game->refresh()->status)->toBe(GameStatusEnum::MasterSelect)
+        ->and(GameCrewMember::where('game_id', $game->id)->count())->toBe(0);
+});

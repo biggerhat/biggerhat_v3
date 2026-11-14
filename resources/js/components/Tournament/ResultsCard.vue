@@ -16,6 +16,7 @@ const props = defineProps<{
     subtitle: string;
     standings: StandingEntry[];
     factions: Record<string, { name: string }>;
+    awards?: { name: string; player_name: string | null }[];
     pdfUrl: string;
     pageUrl: string;
 }>();
@@ -45,6 +46,7 @@ const imageData = computed<ResultsImageData>(() => ({
     title: props.name,
     subtitle: props.subtitle,
     places: places.value,
+    awards: (props.awards ?? []).filter((a) => a.player_name).map((a) => `${a.name}: ${a.player_name}`),
     footer: 'BiggerHat · Tournament Tracker',
 }));
 

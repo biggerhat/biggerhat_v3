@@ -1815,7 +1815,7 @@ const submitInjuries = () => {
                                                 // Default to the campaign's first other crew the
                                                 // moment Traitor is actually checked, not before —
                                                 // the player can still change it.
-                                                f.traitor_target_crew_id ??= traitorTargetCrews.value[0]?.id ?? null;
+                                                f.traitor_target_crew_id ??= traitorTargetCrews[0]?.id ?? null;
                                             }
                                         }
                                     "

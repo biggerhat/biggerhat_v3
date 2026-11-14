@@ -171,7 +171,12 @@ const confirmOpponentMasterSelection = () => {
                         v-for="master in filteredMasters"
                         :key="master.name"
                         :class="['cursor-pointer', CARD_HOVER_PROMINENT, selectedMasterName === master.name ? 'ring-2 ring-primary' : '']"
+                        role="button"
+                        tabindex="0"
+                        :aria-pressed="selectedMasterName === master.name"
                         @click="pickMaster(master)"
+                        @keydown.enter.self.prevent="pickMaster(master)"
+                        @keydown.space.self.prevent="pickMaster(master)"
                     >
                         <CardContent class="flex items-start gap-3 p-3">
                             <div v-if="master.front_image" class="shrink-0 overflow-hidden rounded-md">

@@ -747,7 +747,7 @@ const currentGeneratedAt = (target: CardTarget) =>
           ? props.totem?.card_image_generated_at
           : props.crew.crew_card_generated_at;
 
-const reloadCards = (onDone?: () => void) => router.reload({ only: ['leader', 'totem', 'crew'], preserveScroll: true, onSuccess: onDone });
+const reloadCards = (onDone?: () => void) => router.reload({ only: ['leader', 'totem', 'crew'], onSuccess: onDone });
 
 // Realtime: CardImageGenerated names the finished render, so reload once and stop that spinner. Polling below is only
 // the fallback for when the socket isn't available, and a one-shot safety net if an event is lost.
@@ -1354,7 +1354,7 @@ const saveArt = async () => {
         }
         artTarget.value = null;
         toast.success('Art saved — the card image is re-rendering.');
-        router.reload({ only: ['leader', 'totem'], preserveScroll: true });
+        router.reload({ only: ['leader', 'totem'] });
     } catch {
         toast.error('Could not save the art — check your connection and try again.');
     } finally {

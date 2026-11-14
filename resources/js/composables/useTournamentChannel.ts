@@ -49,7 +49,7 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
             if (onUpdate) {
                 onUpdate(event);
             } else {
-                router.reload({ preserveScroll: true });
+                router.reload();
             }
             reloadTimer = null;
         }, delay);
@@ -62,7 +62,7 @@ export function useTournamentChannel(tournamentUuid: string, onUpdate?: (event: 
         reload(event);
     };
 
-    const refresh = () => (onUpdate ? onUpdate({ action: 'poll' }) : router.reload({ preserveScroll: true }));
+    const refresh = () => (onUpdate ? onUpdate({ action: 'poll' }) : router.reload());
 
     const startPolling = () => {
         if (pollTimer || typeof document === 'undefined') return;

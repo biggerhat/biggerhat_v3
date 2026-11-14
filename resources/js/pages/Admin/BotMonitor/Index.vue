@@ -41,7 +41,7 @@ const props = defineProps<{
 }>();
 
 // Keep the page live without a websocket: reload just the data every 30s.
-useIntervalFn(() => router.reload({ preserveScroll: true }), 30_000);
+useIntervalFn(() => router.reload(), 30_000);
 
 const statusLabel = computed(() => ({ online: 'Online', offline: 'Offline', never: 'No data yet' })[props.status]);
 const statusClass = computed(

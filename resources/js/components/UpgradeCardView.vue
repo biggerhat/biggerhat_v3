@@ -4,7 +4,7 @@ import Button from '@/components/ui/button/Button.vue';
 import { CARD_HOVER } from '@/lib/cardHover';
 import { router } from '@inertiajs/vue3';
 import { Maximize2 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, type PropType, ref } from 'vue';
 
 const flipped = ref(false);
 const fullscreenOpen = ref(false);
@@ -15,7 +15,7 @@ const flip = () => {
 
 const props = defineProps({
     upgrade: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};

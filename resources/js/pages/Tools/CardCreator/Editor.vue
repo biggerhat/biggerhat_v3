@@ -142,7 +142,7 @@ const imageUrl = computed(() =>
 const rerendering = ref(false);
 useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
     if (event.kind === 'custom_character' && event.id === props.character?.id) {
-        router.reload({ only: ['character', 'card_image_pending'], preserveScroll: true });
+        router.reload({ only: ['character', 'card_image_pending'] });
     }
 });
 // Below lg the preview sits under the form; the save bar's Preview button jumps to it.
@@ -160,7 +160,7 @@ const rerender = async () => {
         toast.error('Could not start the render — please try again in a moment.');
         return;
     }
-    router.reload({ only: ['card_image_pending'], preserveScroll: true });
+    router.reload({ only: ['card_image_pending'] });
 };
 
 const formatSlug = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -502,7 +502,7 @@ const save = async () => {
     }
 
     // Stay on the editor: pick up the "rendering" state the save just triggered.
-    router.reload({ only: ['character', 'card_image_pending'], preserveScroll: true });
+    router.reload({ only: ['character', 'card_image_pending'] });
 
     saving.value = false;
 };

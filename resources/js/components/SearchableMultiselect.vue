@@ -3,7 +3,7 @@ import { X } from 'lucide-vue-next';
 import { computed, nextTick, ref } from 'vue';
 
 interface Option {
-    [key: string]: string | number;
+    [key: string]: any;
 }
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
     optionValue?: string;
 }
 
-const modelValue = defineModel<string[]>({ default: [] });
+const modelValue = defineModel<string[]>({ default: () => [] });
 
 const props = withDefaults(defineProps<Props>(), {
     placeholder: 'Search...',

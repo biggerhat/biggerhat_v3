@@ -89,6 +89,8 @@ export interface GamePlayer {
     crew_build_id: number | null;
     crew_skipped: boolean;
     current_scheme_id: number | null;
+    /** Sent in place of the pick while an opponent's scheme is hidden (Scheme Select); absent in solo games. */
+    scheme_ready?: boolean;
     scheme_notes: { note?: string; selected_model?: string; selected_marker?: string; terrain_note?: string } | null;
     role: string | null;
     total_points: number;
@@ -220,7 +222,16 @@ export interface GameData {
     is_observable: boolean;
     settings: { auto_soulstone_on_kill?: boolean } | null;
     winner_slot: number | null;
-    strategy: { id: number; name: string; slug: string } | null;
+    strategy: {
+        id: number;
+        name: string;
+        slug: string;
+        image_url?: string | null;
+        setup?: string | null;
+        rules?: string | null;
+        scoring?: string | null;
+        additional_scoring?: string | null;
+    } | null;
     players: GamePlayer[];
     winner: { id: number; name: string } | null;
     created_at: string;

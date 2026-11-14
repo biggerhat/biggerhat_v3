@@ -115,3 +115,19 @@ it('is on the public stats page', function () {
 
     $this->get(route('stats.show', $this->rival->slug))->assertOk()->assertInertia(fn (Assert $page) => $page->where('tournament_history.summary.events', 0));
 });
+
+it('lists the side awards a player took home, per event and in total', function () {
+    [$t, $made] = finishedEvent('Autumn Open', '2026-10-01', [
+        'me' => ['display_name' => 'Mia', 'user_id' => $this->me->id, 'faction' => 'guild'],
+        'rex' => ['display_name' => 'Rex', 'user_id' => $this->rival->id, 'faction' => 'bayou'],
+    ], [['me', 'rex', 8, 2, []]]);
+    $t->awards()->create(['name' => 'Best painted', 'player_id' => $made['me']->id]);
+    $t->awards()->create(['name' => 'Sportsmanship', 'player_id' => $made['me']->id]);
+    $t->awards()->create(['name' => 'Longest game', 'player_id' => $made['rex']->id]);
+    $t->awards()->create(['name' => 'Unclaimed', 'player_id' => null]);
+
+    $history = ($this->history)();
+
+    expect($history['summary']['awards'])->toBe(2)
+        ->and($history['events'][0]['awards'])->toBe(['Best painted', 'Sportsmanship']);
+});

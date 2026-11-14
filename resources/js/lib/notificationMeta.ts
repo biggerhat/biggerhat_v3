@@ -1,4 +1,4 @@
-import { Award, Bell, CalendarCheck, Flag, Swords, Trophy, UserCheck, UserPlus, Users, type LucideIcon } from 'lucide-vue-next';
+import { Award, Bell, CalendarCheck, Flag, Swords, Timer, Trophy, UserCheck, UserPlus, Users, type LucideIcon } from 'lucide-vue-next';
 
 /** Icon shown next to a notification, keyed by the `type` each Notification class stores. */
 const ICONS: Record<string, LucideIcon> = {
@@ -9,6 +9,7 @@ const ICONS: Record<string, LucideIcon> = {
     tournament_player_registered: Users,
     tournament_player_withdrew: Users,
     tournament_round_paired: Flag,
+    tournament_round_time_warning: Timer,
     campaign_invitation_received: CalendarCheck,
     campaign_game_started: Swords,
     custom_card_moderated: Award,

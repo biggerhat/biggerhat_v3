@@ -17,7 +17,12 @@ const props = defineProps<{
     headKey?: string;
 }>();
 
-const json = computed(() => JSON.stringify(props.data));
+/**
+ * Written raw into a <script> element, so anything that could close it or start an HTML comment must be escaped:
+ * a tournament, crew or user name containing a closing script tag would otherwise end the block and inject markup into the
+ * server-rendered page. The \u escapes are still valid JSON, so crawlers read the same data.
+ */
+const json = computed(() => JSON.stringify(props.data).replace(/[<>&\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`));
 </script>
 
 <template>

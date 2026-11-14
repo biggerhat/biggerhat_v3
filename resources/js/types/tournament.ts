@@ -312,7 +312,15 @@ interface HistoryRecord {
     tied: number;
 }
 export interface TournamentHistory {
-    summary: HistoryRecord & { events: number; wins: number; podiums: number; games: number; win_rate: number | null; best_finish: number | null };
+    summary: HistoryRecord & {
+        events: number;
+        wins: number;
+        podiums: number;
+        games: number;
+        win_rate: number | null;
+        best_finish: number | null;
+        awards: number;
+    };
     by_faction: (HistoryRecord & { faction: string; label: string; games: number })[];
     rivals: (HistoryRecord & { name: string; slug: string | null; games: number })[];
     events: (HistoryRecord & {
@@ -326,6 +334,7 @@ export interface TournamentHistory {
         of: number;
         tp: number;
         faction: string | null;
+        awards: string[];
     })[];
 }
 
@@ -370,4 +379,141 @@ export interface CutState {
     started: boolean;
     available_sizes: number[];
     block_reason: string | null;
+}
+
+/** How the games under one strategy scored. */
+export interface InsightStrategyRow {
+    name: string;
+    rounds: number;
+    games: number;
+    avg_vp: number | null;
+    avg_margin: number | null;
+    components: Record<string, number | null>;
+}
+
+/** How one scheme fared on Game Tracker games: picked = scored + discarded. */
+export interface InsightSchemeRow {
+    name: string;
+    picked: number;
+    scored: number;
+    discarded: number;
+    points: number;
+    avg_points: number | null;
+    score_rate: number | null;
+}
+
+export interface InsightSchemes {
+    coverage: { tracked: number; total: number };
+    rows: InsightSchemeRow[];
+}
+
+/** One row of a breakdown by faction (or Allegiance, or leader). */
+export interface InsightBreakdownRow {
+    label: string;
+    players: number;
+    games: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    win_rate: number | null;
+}
+
+interface InsightGameLine {
+    round: string;
+    table: number | null;
+    winner: string;
+    loser: string;
+    winner_vp: number;
+    loser_vp: number;
+    margin: number;
+}
+
+/** The organizer's read-out for one event (the Insights tab on Manage). */
+export interface EventInsightsData {
+    is_team: boolean;
+    field: {
+        rsvps: number;
+        registered: number;
+        checked_in: number;
+        played: number;
+        dropped: number;
+        disqualified: number;
+        ringers: number;
+        with_accounts: number;
+        returning: number;
+        new: number;
+    };
+    games: {
+        contested: number;
+        byes: number;
+        forfeits: number;
+        ties: number;
+        avg_vp: number | null;
+        avg_margin: number | null;
+        close: number;
+        close_pct: number | null;
+        margin_buckets: { label: string; count: number }[];
+        components: { key: string; label: string; avg: number | null }[];
+    };
+    rounds: {
+        round_number: number;
+        label: string;
+        status: string;
+        games: number;
+        avg_vp: number | null;
+        avg_margin: number | null;
+        forfeits: number;
+        minutes: number | null;
+        strategy: string | null;
+        deployment: string | null;
+    }[];
+    time_limit: number | null;
+    avg_round_minutes: number | null;
+    factions: InsightBreakdownRow[];
+    leaders: InsightBreakdownRow[];
+    strategies: InsightStrategyRow[];
+    schemes: InsightSchemes;
+    tracks_leaders: boolean;
+    highlights: {
+        biggest_win: InsightGameLine | null;
+        high_score: (InsightGameLine & { vp: number }) | null;
+        undefeated: string[];
+    };
+}
+
+/** Everything one organizer has run (the Tournaments > Analytics page). */
+export interface OrganizerInsightsData {
+    range: string;
+    ranges: { value: string; label: string }[];
+    summary: {
+        events: number;
+        completed: number;
+        unique_players: number;
+        entries: number;
+        avg_attendance: number | null;
+        largest: number | null;
+        avg_rounds: number | null;
+        games: number;
+        avg_margin: number | null;
+        repeat_players: number;
+        repeat_pct: number | null;
+        returning_pct: number | null;
+    };
+    events: {
+        uuid: string;
+        name: string;
+        date: string | null;
+        status: string;
+        players: number;
+        returning: number;
+        new: number;
+        rounds: number;
+        games: number;
+        ruleset: string;
+    }[];
+    factions: InsightBreakdownRow[];
+    rulesets: { label: string; events: number }[];
+    regulars: { name: string; events: number }[];
+    strategies: InsightStrategyRow[];
+    schemes: InsightSchemes;
 }

@@ -13,7 +13,7 @@ import { CARD_HOVER_PROMINENT } from '@/lib/cardHover';
 import { csrfToken } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ChevronLeft, ChevronRight, Plus, Search, Trophy } from 'lucide-vue-next';
+import { BarChart3, ChevronLeft, ChevronRight, Plus, Search, Trophy } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref } from 'vue';
 
 const props = defineProps<{
@@ -109,7 +109,7 @@ const removeTournament = async (t: TournamentSummary) => {
             return;
         }
         toast.success(`${t.name} deleted.`);
-        router.reload({ only: ['my_tournaments', 'public_tournaments'], preserveScroll: true });
+        router.reload({ only: ['my_tournaments', 'public_tournaments'] });
     } catch {
         toast.error('Network error deleting tournament.');
     }
@@ -180,7 +180,12 @@ const removeTournament = async (t: TournamentSummary) => {
 
             <!-- My Tournaments -->
             <section v-if="isLoggedIn && my_tournaments.length" class="mb-10" aria-labelledby="my-tournaments">
-                <h2 id="my-tournaments" class="mb-4 text-lg font-semibold">My Tournaments</h2>
+                <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 id="my-tournaments" class="text-lg font-semibold">My Tournaments</h2>
+                    <Link :href="route('tournaments.analytics')" class="flex items-center gap-1 text-xs underline" data-testid="analytics-link"
+                        ><BarChart3 class="size-3.5" aria-hidden="true" /> Analytics across your events</Link
+                    >
+                </div>
                 <div v-for="group in myGroups" :key="'my-' + group.id" class="mb-5">
                     <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ group.title }}</h3>
                     <div class="grid gap-3 sm:grid-cols-2">

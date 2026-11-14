@@ -56,6 +56,11 @@ $t5->organizers()->attach($org->id);
 // scenario pickers list only the event's own season, so give it a few strategies and schemes to pick from
 Strategy::factory()->count(2)->create(['season' => $t5->season->value]);
 Scheme::factory()->count(4)->create(['season' => $t5->season->value]);
+// The Game Tracker's Create form defaults to the newest season; the factories above pick a random one, so make sure that
+// season always has a strategy and schemes or a freshly created game gets an empty scheme pool.
+$defaultSeason = \App\Enums\PoolSeasonEnum::defaultSeason()->value;
+Strategy::factory()->count(2)->create(['season' => $defaultSeason]);
+Scheme::factory()->count(4)->create(['season' => $defaultSeason]);
 $sp = [];
 foreach (['Ann', 'Ben', 'Cat', 'Dan', 'Eve'] as $i => $n) {
     $sp[$n] = TournamentPlayer::factory()->for($t5)->create(['display_name' => $n, 'faction' => ['arcanists', 'guild', 'bayou', 'neverborn', 'outcasts'][$i]]);
@@ -78,12 +83,19 @@ $rp = [];
 foreach ([['Alice', 'arcanists', $alice], ['Bob', 'guild', $bob], ['Carol', 'bayou', $carol], ['Dave', 'neverborn', $dave], ['Eve', 'outcasts', null]] as [$n, $f, $u]) {
     $rp[$n] = TournamentPlayer::factory()->for($t7)->create(['display_name' => $n, 'faction' => $f, 'user_id' => $u?->id]);
 }
-$q1 = TournamentRound::factory()->for($t7)->create(['round_number' => 1, 'status' => 'completed']);
+$q1 = TournamentRound::factory()->for($t7)->create(['round_number' => 1, 'status' => 'completed', 'strategy_id' => $strategy->id]);
 TournamentGame::factory()->for($q1, 'round')->withScore(9, 3)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Bob']->id, 'result' => 'completed', 'table_number' => 1]);
 TournamentGame::factory()->for($q1, 'round')->withScore(7, 5)->create(['player_one_id' => $rp['Carol']->id, 'player_two_id' => $rp['Dave']->id, 'result' => 'completed', 'table_number' => 2]);
 $q2 = TournamentRound::factory()->for($t7)->create(['round_number' => 2, 'status' => 'completed']);
 TournamentGame::factory()->for($q2, 'round')->withScore(8, 4)->create(['player_one_id' => $rp['Alice']->id, 'player_two_id' => $rp['Carol']->id, 'result' => 'completed', 'table_number' => 1]);
 TournamentGame::factory()->for($q2, 'round')->withScore(6, 6)->create(['player_one_id' => $rp['Bob']->id, 'player_two_id' => $rp['Dave']->id, 'result' => 'completed', 'table_number' => 2]);
+// Analytics: Round 1's first pairing was played in the Game Tracker (one scored scheme, one discarded).
+$trackedGame = App\Models\Game::factory()->solo()->create(['creator_id' => $dave->id]);
+$trackedSide = App\Models\GamePlayer::factory()->create(['game_id' => $trackedGame->id, 'user_id' => $alice->id, 'slot' => 1]);
+$q1->games()->orderBy('id')->first()->update(['game_id' => $trackedGame->id]);
+foreach ([[1, 'scored', 2, 0], [2, 'discarded', 0, 1], [3, 'scored', 3, 2]] as [$turn, $action, $points, $i]) {
+    App\Models\GameTurn::create(['game_id' => $trackedGame->id, 'game_player_id' => $trackedSide->id, 'turn_number' => $turn, 'scheme_id' => Scheme::find($schemes[$i])->id, 'scheme_action' => $action, 'scheme_points' => $points]);
+}
 // --- T8: an active event that asks for a crew each round; Round 1 is paired (scenario set) but not started: Alice vs Bob, both guild
 $t8 = Tournament::factory()->active()->create(['name' => 'Crew Check Open', 'creator_id' => $carol->id, 'require_crew_lists' => true, 'encounter_size' => 50, 'planned_rounds' => 2]);
 $t8->organizers()->attach($org->id);
@@ -117,5 +129,34 @@ foreach ($semis->games()->get() as $i => $g) {
     $g->update(['player_one_vp' => $i === 0 ? 3 : 9, 'player_two_vp' => $i === 0 ? 8 : 2, 'result' => 'completed']);
 }
 
+
+// --- T11: a running event with one tracker game being played right now (the "Live now" strip) and one pairing without a tracker yet
+$t11 = Tournament::factory()->active()->create(['name' => 'Live Cup', 'creator_id' => $dave->id, 'planned_rounds' => 2]);
+$t11->organizers()->attach($org->id);
+$lp = [];
+foreach ([[$alice, 'arcanists'], [$bob, 'guild'], [$carol, 'bayou'], [$dave, 'neverborn']] as [$u, $f]) {
+    $lp[$u->name] = TournamentPlayer::factory()->for($t11)->create(['display_name' => $u->name, 'user_id' => $u->id, 'faction' => $f]);
+}
+$r11 = TournamentRound::factory()->for($t11)->inProgress()->create(['round_number' => 1, 'strategy_id' => $strategy->id, 'deployment' => \App\Enums\DeploymentEnum::cases()[0], 'scheme_pool' => $schemes, 'started_at' => now()->subMinutes(10)]);
+$liveTracker = App\Models\Game::factory()->inProgress()->create(['creator_id' => $alice->id, 'strategy_id' => $strategy->id, 'current_turn' => 2, 'is_observable' => true]);
+TournamentGame::factory()->for($r11, 'round')->create(['player_one_id' => $lp['Alice']->id, 'player_two_id' => $lp['Bob']->id, 'table_number' => 1, 'game_id' => $liveTracker->id]);
+TournamentGame::factory()->for($r11, 'round')->create(['player_one_id' => $lp['Carol']->id, 'player_two_id' => $lp['Dave']->id, 'table_number' => 2]);
+
+// --- A standalone solo game waiting at crew select for Dave (Game Tracker -> Crew Builder -> back, with the crew attached)
+$crewGame = App\Models\Game::factory()->solo()->create(['creator_id' => $dave->id, 'status' => App\Enums\GameStatusEnum::CrewSelect, 'strategy_id' => $strategy->id]);
+App\Models\GamePlayer::factory()->create(['game_id' => $crewGame->id, 'user_id' => $dave->id, 'slot' => 1, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Attacker]);
+App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $crewGame->id, 'faction' => 'arcanists', 'role' => App\Enums\GameRoleEnum::Defender]);
+$crewBuild = App\Models\CrewBuild::factory()->create(['user_id' => $dave->id, 'name' => 'Dave Tracker Crew', 'faction' => 'guild', 'encounter_size' => 50]);
+
+// --- A solo game already in play with full crews on both sides (play-screen review / flows)
+$playGame = App\Models\Game::factory()->solo()->inProgress()->create(['creator_id' => $carol->id, 'strategy_id' => $strategy->id, 'current_turn' => 2, 'status' => App\Enums\GameStatusEnum::InProgress]);
+$pp1 = App\Models\GamePlayer::factory()->create(['game_id' => $playGame->id, 'user_id' => $carol->id, 'slot' => 1, 'faction' => 'bayou', 'role' => App\Enums\GameRoleEnum::Attacker, 'master_name' => 'Pandora', 'soulstone_pool' => 5]);
+$pp2 = App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $playGame->id, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Defender, 'master_name' => 'Lady Justice', 'soulstone_pool' => 4]);
+foreach ([[$pp1, 'bayou', [['Pandora', 'master', 'leader', 0, 10], ['Silurid', 'minion', 'in-keyword', 6, 6], ['Swampfiend', 'minion', 'in-keyword', 5, 7], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Mad Gremlin', 'minion', 'in-keyword', 8, 9]]], [$pp2, 'guild', [['Lady Justice', 'master', 'leader', 0, 10], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Hound', 'minion', 'in-keyword', 4, 5], ['Judge', 'minion', 'in-keyword', 9, 9]]]] as [$pl, $fac, $rows]) {
+    foreach ($rows as $i => [$nm, $st, $cat, $cost, $hp]) {
+        App\Models\GameCrewMember::factory()->create(['game_id' => $playGame->id, 'game_player_id' => $pl->id, 'character_id' => null, 'display_name' => $nm, 'faction' => $fac, 'station' => $st, 'hiring_category' => $cat, 'cost' => $cost, 'current_health' => $hp, 'max_health' => $hp, 'sort_order' => $i]);
+    }
+}
+
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'play_game' => $playGame->uuid, 'crew_build' => $crewBuild->share_code, 'g1' => $r1->games()->first()->id]));

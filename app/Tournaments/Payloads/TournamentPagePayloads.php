@@ -23,6 +23,7 @@ use App\Models\TournamentSeries;
 use App\Models\TournamentTable;
 use App\Services\TournamentCutService;
 use App\Services\TournamentStandingsService;
+use App\Tournaments\Analytics\EventInsights;
 use App\Tournaments\CrewListCheck;
 use Inertia\DeferProp;
 use Inertia\Inertia;
@@ -435,7 +436,17 @@ class TournamentPagePayloads
             'all_strategies' => $strategiesDeferred,
             'all_schemes' => $schemesDeferred,
             'masters' => $mastersDeferred,
+            // The Insights tab: worked out in a follow-up request, and only once there is something played to read.
+            'insights' => $this->hasResults($tournament)
+                ? Inertia::defer(fn () => app(EventInsights::class)->forEvent($tournament, $standings), 'insights')
+                : null,
         ];
+    }
+
+    /** Whether any game has an official result yet (the Insights tab has nothing to say before that). */
+    private function hasResults(Tournament $tournament): bool
+    {
+        return $tournament->rounds->contains(fn (TournamentRound $r) => $r->games->contains(fn (TournamentGame $g) => $g->result !== TournamentGameResultEnum::Pending));
     }
 
     /**

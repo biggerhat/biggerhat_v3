@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatDateOnly } from '@/lib/utils';
 import type { TournamentHistory } from '@/types/tournament';
 import { Link } from '@inertiajs/vue3';
-import { Trophy } from 'lucide-vue-next';
+import { Award, Trophy } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 /** A player's tournament record on their public stats page: headline numbers, per-faction results, rivals and every finished event. */
@@ -34,6 +34,7 @@ const tiles = computed(() => {
         { label: 'Wins', value: String(s.wins) },
         { label: 'Podiums', value: String(s.podiums) },
         { label: 'Best finish', value: s.best_finish ? ordinal(s.best_finish) : '–' },
+        ...(s.awards > 0 ? [{ label: 'Awards', value: String(s.awards) }] : []),
         { label: 'Record', value: record(s) },
         { label: 'Win rate', value: s.win_rate === null ? '–' : `${s.win_rate}%` },
     ];
@@ -45,7 +46,7 @@ const tiles = computed(() => {
         <CardContent class="space-y-4 p-4">
             <HeadingEyebrow class="flex items-center gap-2"><Trophy class="size-4" /> Tournament history</HeadingEyebrow>
 
-            <dl class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <dl class="grid grid-cols-3 gap-2" :class="tiles.length > 6 ? 'sm:grid-cols-7' : 'sm:grid-cols-6'">
                 <div v-for="t in tiles" :key="t.label" class="rounded-md border bg-muted/30 p-2 text-center">
                     <dt class="text-2xs uppercase text-muted-foreground">{{ t.label }}</dt>
                     <dd class="text-sm font-bold tabular-nums">{{ t.value }}</dd>
@@ -71,6 +72,12 @@ const tiles = computed(() => {
                             <div class="truncate text-2xs text-muted-foreground">
                                 {{ formatDateOnly(e.event_date) }} · {{ e.ruleset }}
                                 <template v-if="e.is_team"> · with {{ e.team_name }}</template>
+                            </div>
+                            <div
+                                v-if="e.awards.length"
+                                class="flex items-center gap-1 truncate text-2xs font-medium text-amber-700 dark:text-amber-300"
+                            >
+                                <Award class="size-3 shrink-0" aria-hidden="true" /> {{ e.awards.join(', ') }}
                             </div>
                         </div>
                         <div class="shrink-0 text-right tabular-nums">

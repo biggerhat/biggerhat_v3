@@ -2,6 +2,7 @@
 import {
     formatGameSize,
     TIEBREAKER_LABELS,
+    type EventInsightsData,
     type TosDeploymentInfo,
     type TosOperationInfo,
     type TournamentRuleset,
@@ -18,6 +19,7 @@ import AllegianceLogo from '@/components/AllegianceLogo.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import EventInsights from '@/components/Tournament/EventInsights.vue';
 import ManageDetailsTab from '@/components/Tournament/ManageDetailsTab.vue';
 import ManagePlayersTab from '@/components/Tournament/ManagePlayersTab.vue';
 import ManageRoundsTab from '@/components/Tournament/ManageRoundsTab.vue';
@@ -33,6 +35,8 @@ import StandingsTable from '@/components/Tournament/StandingsTable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/composables/useToast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,8 +48,8 @@ import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { useTournamentStatus } from '@/composables/useTournamentStatus';
 import { formatDateOnly } from '@/lib/utils';
 import type { SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
-import { ArrowLeft, CalendarDays, Megaphone, MonitorPlay, Copy, Download, MapPin, Plus, QrCode, Shield, Trophy, X } from 'lucide-vue-next';
+import { Head, usePage } from '@inertiajs/vue3';
+import { CalendarDays, Megaphone, MonitorPlay, Copy, Download, MapPin, Plus, QrCode, Share2, Shield, Trophy, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 interface FactionInfo {
@@ -143,6 +147,8 @@ const props = defineProps<{
     /** TOS reference data; empty unless the ruleset's scenario uses it. */
     tos_operations: TosOperationInfo[];
     tos_deployments: TosDeploymentInfo[];
+    /** The Insights tab. A deferred prop: absent while it loads, null until the first result is in. */
+    insights?: EventInsightsData | null;
 }>();
 
 // Tournament-wide state + helpers (memoized player lookup, doAction, factionBackground, error toast).
@@ -156,6 +162,9 @@ const visibleTabs = computed(() => {
     const t = ['standings', 'players', 'rounds', 'details', 'settings'];
     if (props.tournament.rsvps?.length || props.tournament.status === 'draft') {
         t.push('rsvps');
+    }
+    if (props.insights !== null) {
+        t.push('insights');
     }
     return t;
 });
@@ -195,11 +204,10 @@ const encounterTypeLabel = computed(() => {
 
 const isLocked = computed(() => props.tournament.status === 'active' || props.tournament.status === 'completed');
 
-const linkCopied = ref(false);
+const toast = useToast();
 const copyPublicLink = async () => {
     await navigator.clipboard.writeText(route('tournaments.view', props.tournament.uuid));
-    linkCopied.value = true;
-    setTimeout(() => (linkCopied.value = false), 2000);
+    toast.success('Public link copied');
 };
 const qrOpen = ref(false);
 
@@ -208,7 +216,8 @@ watch(activeTab, (tab) => {
 });
 
 // Reload Inertia props after a mutation while preserving local UI state.
-const reloadPage = () => reloadProps(['tournament', 'standings', 'cut']);
+// Insights is worked out per request, so it is only refreshed while someone is looking at it.
+const reloadPage = () => reloadProps(['tournament', 'standings', 'cut', ...(activeTab.value === 'insights' ? ['insights'] : [])]);
 const announcementOpen = ref(false);
 const playersTab = ref<InstanceType<typeof ManagePlayersTab> | null>(null);
 const waitlistCount = computed(() => props.tournament.rsvps?.filter((r) => r.waitlist_position).length ?? 0);
@@ -322,6 +331,9 @@ const openScoreEdit = (game: TournamentGame) => {
     scoreGame.value = game;
 };
 
+const openGameById = (id: number) => {
+    scoreGame.value = props.tournament.rounds.flatMap((r) => r.games).find((g) => g.id === id) ?? null;
+};
 // ─── Status ───
 const statusTransitions: Record<string, { next: string; label: string }> = {
     draft: { next: 'registration', label: 'Open Registration' },
@@ -444,34 +456,35 @@ const isEditable = computed(() => !isLocked.value);
         </PageBanner>
 
         <div class="container mx-auto sm:px-4">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <Button variant="ghost" class="gap-1.5 text-sm" @click="router.get(route('tournaments.index'))">
-                    <ArrowLeft class="size-4" /> Back
-                </Button>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2" role="toolbar" aria-label="Event actions">
                 <div class="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyPublicLink">
-                        <Copy class="size-3" />
-                        {{ linkCopied ? 'Copied!' : 'Share' }}
+                    <Button variant="outline" size="sm" class="gap-1.5" @click="announcementOpen = true">
+                        <Megaphone class="size-3.5" /> {{ tournament.announcement ? 'Edit announcement' : 'Announce' }}
                     </Button>
-                    <Button as-child variant="outline" size="sm" class="gap-1 text-xs">
+                    <Button as-child variant="outline" size="sm" class="gap-1.5">
                         <a :href="route('tournaments.display', tournament.uuid)" target="_blank" rel="noopener"
-                            ><MonitorPlay class="size-3" /> Display</a
+                            ><MonitorPlay class="size-3.5" /> Display</a
                         >
                     </Button>
-                    <Button variant="outline" size="sm" class="gap-1 text-xs" @click="announcementOpen = true">
-                        <Megaphone class="size-3" /> {{ tournament.announcement ? 'Edit announcement' : 'Announce' }}
-                    </Button>
-                    <Button aria-label="Show QR code" variant="outline" size="sm" class="gap-1 text-xs" @click="qrOpen = true">
-                        <QrCode class="size-3" />
-                    </Button>
+                    <DropdownMenu :modal="false">
+                        <DropdownMenuTrigger as-child>
+                            <Button variant="outline" size="sm" class="gap-1.5"> <Share2 class="size-3.5" /> Share </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                            <DropdownMenuItem @select="copyPublicLink"> <Copy class="mr-2 size-4" /> Copy public link </DropdownMenuItem>
+                            <DropdownMenuItem @select="qrOpen = true"> <QrCode class="mr-2 size-4" /> Show QR code </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
                     <Button
                         v-if="tournament.status === 'registration'"
                         variant="ghost"
                         size="sm"
-                        class="text-xs text-muted-foreground"
+                        class="text-muted-foreground"
                         @click="revertToDraft"
                     >
-                        Back to Draft
+                        Back to draft
                     </Button>
                     <Button v-if="statusTransitions[tournament.status] && !nextStep" size="sm" @click="confirmStatusDialog = true">
                         {{ statusTransitions[tournament.status].label }}
@@ -508,6 +521,7 @@ const isEditable = computed(() => !isLocked.value);
                             tournament.rounds.length
                         }}</Badge>
                     </TabsTrigger>
+                    <TabsTrigger v-if="insights !== null" value="insights" class="px-2 text-xs sm:px-3 sm:text-sm">Insights</TabsTrigger>
                     <TabsTrigger value="details" class="px-2 text-xs sm:px-3 sm:text-sm">Details</TabsTrigger>
                     <TabsTrigger value="settings" class="px-2 text-xs sm:px-3 sm:text-sm">Settings</TabsTrigger>
                 </TabsList>
@@ -535,6 +549,15 @@ const isEditable = computed(() => !isLocked.value);
                             <a :href="route('tournaments.export_csv', tournament.uuid)"><Download class="size-3.5" /> Download results (CSV)</a>
                         </Button>
                     </div>
+                </TabsContent>
+
+                <!-- ═══ INSIGHTS ═══ -->
+                <TabsContent v-if="insights !== null" value="insights">
+                    <EventInsights
+                        :insights="insights"
+                        :is-completed="tournament.status === 'completed'"
+                        :csv-url="route('tournaments.insights_csv', tournament.uuid)"
+                    />
                 </TabsContent>
 
                 <!-- ═══ RSVPs ═══ -->
@@ -785,7 +808,14 @@ const isEditable = computed(() => !isLocked.value);
         </div>
     </div>
 
-    <ScoreEntryDialog :game="scoreGame" :tournament="tournament" :ruleset="ruleset" :masters="masters" @close="scoreGame = null" />
+    <ScoreEntryDialog
+        :game="scoreGame"
+        :tournament="tournament"
+        :ruleset="ruleset"
+        :masters="masters"
+        @close="scoreGame = null"
+        @open-game="openGameById"
+    />
 
     <!-- Finalize Tournament Confirmation -->
     <Dialog v-model:open="confirmFinalizeDialog">

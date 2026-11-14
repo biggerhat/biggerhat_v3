@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import type { PropType } from 'vue';
 const props = defineProps({
     character: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};

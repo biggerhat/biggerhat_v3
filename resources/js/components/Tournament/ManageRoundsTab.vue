@@ -14,7 +14,8 @@ import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import TopCutCard from '@/components/Tournament/TopCutCard.vue';
 import { useTournament } from '@/composables/useTournament';
-import { Check, Dices, Eye, Loader2, MoreHorizontal, Plus, Trophy, X } from 'lucide-vue-next';
+import { gameStatus, roundStatus, useTournamentStatus } from '@/composables/useTournamentStatus';
+import { Check, Dices, Eye, Loader2, MoreHorizontal, Plus, RotateCcw, Trash2, Trophy } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 import {
@@ -448,6 +449,24 @@ const endRound = async (roundId: number) => {
     submitting.value = false;
 };
 
+const resetRound = async (roundId: number) => {
+    const round = props.tournament.rounds.find((r) => r.id === roundId);
+    const scored = round?.games.filter((g) => !g.is_bye && g.result !== 'pending').length ?? 0;
+    const proceed = await confirm({
+        title: `Reset Round ${round?.round_number}?`,
+        message:
+            `This puts the round back to before it started: ${scored ? `${scored} entered score(s) and ` : ''}forfeits, self-reports and the live tracker games are deleted. ` +
+            'Pairings, tables and the scenario are kept, so you can fix them and start the round again. This cannot be undone.',
+        confirmLabel: 'Reset round',
+    });
+    if (!proceed) return;
+    submitting.value = true;
+    if (await doAction(route('tournaments.rounds.reset', { tournament: props.tournament.uuid, round: roundId }), 'POST', {})) {
+        reloadPage();
+    }
+    submitting.value = false;
+};
+
 // ─── Randomize Scenario ───
 const randomizeInDialog = () => {
     if (usesTosScenario.value) {
@@ -523,27 +542,10 @@ const viewScheme = (idStr: string | null) => {
     }
 };
 
-// One-glance status for a pairing row: tracker progress, reported result, or waiting.
-const gameStatus = (game: TournamentGame, round: TournamentRound): { label: string; tone: string } => {
-    if (game.is_bye) return { label: 'Bye', tone: 'text-muted-foreground' };
-    if (game.is_forfeit) return { label: 'Forfeit', tone: 'border-destructive/50 text-destructive' };
-    if (game.report_status === 'disputed') return { label: 'Disputed', tone: 'border-destructive/50 text-destructive' };
-    if (game.report_status === 'pending')
-        return { label: 'Reported · awaiting confirmation', tone: 'border-amber-500/60 text-amber-700 dark:text-amber-300' };
-    if (game.result === 'agreed') return { label: 'Agreed result', tone: 'border-sky-500/50 text-sky-700 dark:text-sky-300' };
-    if (game.result === 'completed') {
-        return { label: 'Reported', tone: 'border-emerald-500/50 text-emerald-700 dark:text-emerald-300' };
-    }
-    if (game.tracker_game?.status === 'in_progress') {
-        return {
-            label: `Playing · T${game.tracker_game.current_turn ?? 1}/${game.tracker_game.max_turns ?? 5}`,
-            tone: 'border-amber-500/60 text-amber-700 dark:text-amber-300',
-        };
-    }
-    if (game.tracker_game?.status === 'abandoned') return { label: 'Tracker abandoned', tone: 'border-destructive/50 text-destructive' };
-    if (round.status === 'in_progress') return { label: 'Waiting for score', tone: 'text-muted-foreground' };
-    return { label: 'Not started', tone: 'text-muted-foreground' };
-};
+const { badgeTone, chipTone } = useTournamentStatus();
+
+const playedCount = (round: TournamentRound): number => round.games.filter((g) => !g.is_bye).length;
+const scoredCount = (round: TournamentRound): number => round.games.filter((g) => !g.is_bye && g.result !== 'pending').length;
 
 const roundAllScored = (round: TournamentRound): boolean => {
     if (!round.games.length) return false;
@@ -620,107 +622,107 @@ defineExpose({
         <div class="space-y-4">
             <Card v-for="round in tournament.rounds" :key="round.id">
                 <CardContent class="p-4">
-                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <div class="flex items-center gap-2">
-                            <h2 class="text-sm font-semibold sm:text-base">{{ roundName(round) }}</h2>
-                            <Badge
-                                :class="[
-                                    'border-0 text-2xs',
-                                    round.status === 'completed'
-                                        ? 'bg-muted text-muted-foreground'
-                                        : round.status === 'in_progress'
-                                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                          : round.games.length
-                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-                                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-                                ]"
-                                variant="outline"
-                            >
-                                {{
-                                    round.status === 'in_progress'
-                                        ? 'In Progress'
-                                        : round.status === 'completed'
-                                          ? 'Completed'
-                                          : round.games.length
-                                            ? 'Paired'
-                                            : 'Setup'
-                                }}
-                            </Badge>
-                            <RoundClock
-                                v-if="round.status === 'in_progress' && round.started_at"
-                                :started-at="round.started_at"
-                                :limit-minutes="tournament.round_time_limit"
-                            />
-                            <span
-                                v-if="round.strategy"
-                                class="max-w-[110px] truncate text-xs text-muted-foreground sm:max-w-none"
-                                :title="round.strategy.name"
-                                >{{ round.strategy.name }}</span
-                            >
-                            <button
-                                v-if="round.status !== 'in_progress' && tournament.status !== 'completed'"
-                                class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                title="Delete this round"
-                                :aria-label="`Delete ${roundName(round)}`"
-                                @click="deleteRound(round.id, roundName(round))"
-                            >
-                                <X class="size-3.5" />
-                            </button>
+                    <div class="mb-3 space-y-2">
+                        <!-- Title row: what round is this and where is it? -->
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex min-w-0 flex-wrap items-center gap-2">
+                                <h2 class="text-sm font-semibold sm:text-base">{{ roundName(round) }}</h2>
+                                <Badge :class="['text-2xs', badgeTone(roundStatus(round).tone)]" variant="outline">{{
+                                    roundStatus(round).label
+                                }}</Badge>
+                                <RoundClock
+                                    v-if="round.status === 'in_progress' && round.started_at"
+                                    :started-at="round.started_at"
+                                    :limit-minutes="tournament.round_time_limit"
+                                />
+                            </div>
+                            <DropdownMenu v-if="round.status === 'in_progress' || tournament.status !== 'completed'" :modal="false">
+                                <DropdownMenuTrigger as-child>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="size-8 shrink-0 text-muted-foreground"
+                                        :aria-label="`Options for ${roundName(round)}`"
+                                    >
+                                        <MoreHorizontal class="size-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                        v-if="round.status === 'in_progress'"
+                                        class="text-destructive focus:text-destructive"
+                                        @select="resetRound(round.id)"
+                                    >
+                                        <RotateCcw class="mr-2 size-4" /> Reset round…
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        v-else
+                                        class="text-destructive focus:text-destructive"
+                                        @select="deleteRound(round.id, roundName(round))"
+                                    >
+                                        <Trash2 class="mr-2 size-4" /> Delete round…
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
-                        <div class="flex items-center gap-1">
+
+                        <!-- Action row: the scenario on the left, the one thing to do next on the right -->
+                        <div class="flex flex-wrap items-center justify-between gap-2">
                             <Button
                                 v-if="ruleset.scenario_fields.length && (tournament.status !== 'completed' || round.strategy || round.deployment)"
                                 variant="ghost"
                                 size="sm"
-                                class="h-7 px-2 text-2xs sm:text-xs"
+                                class="-ml-2"
                                 @click="toggleScenarioEdit(round)"
                             >
                                 {{
                                     expandedScenarioRoundId === round.id
-                                        ? 'Hide Scenario'
+                                        ? 'Hide scenario'
                                         : round.strategy || round.deployment || round.scenario?.operation_id
                                           ? 'Scenario'
-                                          : 'Set Scenario'
+                                          : 'Set scenario'
                                 }}
                             </Button>
-                            <Button
-                                v-if="round.status === 'setup'"
-                                variant="outline"
-                                size="sm"
-                                class="h-7 gap-1 px-2 text-2xs sm:text-xs"
-                                :disabled="submitting || !canAutoPair(round)"
-                                :title="
-                                    pairBlockReason(round) ??
-                                    (round.games.length ? 'Regenerate Swiss pairings (preserves manual pairings)' : 'Generate Swiss pairings')
-                                "
-                                @click="generatePairings(round.id)"
-                            >
-                                <Loader2 v-if="submitting" class="size-3 animate-spin" />
-                                Auto Pair
-                            </Button>
-                            <Button
-                                v-if="canStartRound(round)"
-                                size="sm"
-                                class="h-7 gap-1 px-2 text-2xs sm:text-xs"
-                                :disabled="submitting || !!startBlockReason(round)"
-                                :title="startBlockReason(round) ?? ''"
-                                @click="startRound(round.id)"
-                            >
-                                <Loader2 v-if="submitting" class="size-3 animate-spin" />
-                                Start Round
-                            </Button>
-                            <Button
-                                v-if="round.status === 'in_progress'"
-                                size="sm"
-                                class="h-7 gap-1 px-2 text-2xs sm:text-xs"
-                                :class="canEndRound(round) ? '' : 'opacity-50'"
-                                :disabled="submitting || !canEndRound(round)"
-                                :title="!canEndRound(round) ? 'All scores must be entered before ending the round' : ''"
-                                @click="endRound(round.id)"
-                            >
-                                <Loader2 v-if="submitting" class="size-3 animate-spin" />
-                                End Round
-                            </Button>
+                            <span v-else />
+                            <div class="flex items-center gap-2">
+                                <Button
+                                    v-if="round.status === 'setup'"
+                                    :variant="canStartRound(round) ? 'outline' : 'default'"
+                                    size="sm"
+                                    class="gap-1"
+                                    :disabled="submitting || !canAutoPair(round)"
+                                    :title="
+                                        pairBlockReason(round) ??
+                                        (round.games.length ? 'Regenerate Swiss pairings (preserves manual pairings)' : 'Generate Swiss pairings')
+                                    "
+                                    @click="generatePairings(round.id)"
+                                >
+                                    <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                    Auto pair
+                                </Button>
+                                <Button
+                                    v-if="canStartRound(round)"
+                                    size="sm"
+                                    class="gap-1"
+                                    :disabled="submitting || !!startBlockReason(round)"
+                                    :title="startBlockReason(round) ?? ''"
+                                    @click="startRound(round.id)"
+                                >
+                                    <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                    Start round
+                                </Button>
+                                <Button
+                                    v-if="round.status === 'in_progress'"
+                                    size="sm"
+                                    class="gap-1"
+                                    :disabled="submitting || !canEndRound(round)"
+                                    :title="!canEndRound(round) ? 'All scores must be entered before ending the round' : ''"
+                                    @click="endRound(round.id)"
+                                >
+                                    <Loader2 v-if="submitting" class="size-3 animate-spin" />
+                                    End round
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
@@ -841,17 +843,30 @@ defineExpose({
                         </div>
                     </div>
                     <!-- Scenario summary (when not editing) -->
-                    <div v-else-if="usesTosScenario && round.scenario" class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
-                        <span v-if="round.scenario.operation_id">{{ tosOperationName(round.scenario.operation_id) }}</span>
-                        <span v-if="round.scenario.deployment_id">{{ tosDeploymentName(round.scenario.deployment_id) }}</span>
-                    </div>
-                    <div v-else-if="round.strategy || round.deployment" class="mb-3 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
-                        <span v-if="round.deployment">{{ deploymentByValue[round.deployment]?.label }}</span>
-                        <span v-if="round.strategy">{{ round.strategy.name }}</span>
-                        <span v-if="round.scheme_pool?.length">{{
-                            round.scheme_pool.map((id: number) => schemeById[id]?.name ?? id).join(' / ')
-                        }}</span>
-                    </div>
+                    <dl v-else-if="usesTosScenario && round.scenario" class="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <div v-if="round.scenario.operation_id" class="flex gap-1.5">
+                            <dt class="text-muted-foreground">Operation</dt>
+                            <dd class="font-medium">{{ tosOperationName(round.scenario.operation_id) }}</dd>
+                        </div>
+                        <div v-if="round.scenario.deployment_id" class="flex gap-1.5">
+                            <dt class="text-muted-foreground">Deployment</dt>
+                            <dd class="font-medium">{{ tosDeploymentName(round.scenario.deployment_id) }}</dd>
+                        </div>
+                    </dl>
+                    <dl v-else-if="round.strategy || round.deployment" class="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <div v-if="round.deployment" class="flex gap-1.5">
+                            <dt class="text-muted-foreground">Deployment</dt>
+                            <dd class="font-medium">{{ deploymentByValue[round.deployment]?.label }}</dd>
+                        </div>
+                        <div v-if="round.strategy" class="flex gap-1.5">
+                            <dt class="text-muted-foreground">Strategy</dt>
+                            <dd class="font-medium">{{ round.strategy.name }}</dd>
+                        </div>
+                        <div v-if="round.scheme_pool?.length" class="flex gap-1.5">
+                            <dt class="text-muted-foreground">Schemes</dt>
+                            <dd class="font-medium">{{ round.scheme_pool.map((id: number) => schemeById[id]?.name ?? id).join(' · ') }}</dd>
+                        </div>
+                    </dl>
 
                     <div v-if="!round.games.length" class="py-4 text-center text-xs text-muted-foreground">
                         No games in this round yet. Generate pairings or add them manually.
@@ -869,7 +884,7 @@ defineExpose({
                                     <button
                                         v-if="game.table_number && round.status === 'setup'"
                                         type="button"
-                                        class="shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-muted-foreground hover:bg-accent"
+                                        class="shrink-0 cursor-pointer rounded bg-muted px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-muted-foreground hover:bg-accent"
                                         :class="tablePicked(game.id) ? 'ring-2 ring-primary' : ''"
                                         :aria-pressed="tablePicked(game.id)"
                                         :title="tablePicked(game.id) ? 'Pick another table to swap' : 'Click, then another table, to swap tables'"
@@ -892,7 +907,7 @@ defineExpose({
                                             <button
                                                 v-if="round.status === 'setup'"
                                                 type="button"
-                                                class="truncate rounded px-1 font-medium hover:bg-accent"
+                                                class="cursor-pointer truncate rounded px-1 font-medium underline decoration-muted-foreground/50 decoration-dotted underline-offset-4 hover:bg-accent"
                                                 :class="slotPicked(game.id, 'player_one') ? 'bg-primary/15 ring-1 ring-primary' : ''"
                                                 :aria-pressed="slotPicked(game.id, 'player_one')"
                                                 @click="pickSlot(round, game, 'player_one')"
@@ -912,7 +927,7 @@ defineExpose({
                                                 <button
                                                     v-if="round.status === 'setup'"
                                                     type="button"
-                                                    class="truncate rounded px-1 font-medium hover:bg-accent"
+                                                    class="cursor-pointer truncate rounded px-1 font-medium underline decoration-muted-foreground/50 decoration-dotted underline-offset-4 hover:bg-accent"
                                                     :class="slotPicked(game.id, 'player_two') ? 'bg-primary/15 ring-1 ring-primary' : ''"
                                                     :aria-pressed="slotPicked(game.id, 'player_two')"
                                                     @click="pickSlot(round, game, 'player_two')"
@@ -929,7 +944,7 @@ defineExpose({
                                     <!-- One status chip per game: where is this match right now? -->
                                     <span
                                         class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium"
-                                        :class="gameStatus(game, round).tone"
+                                        :class="chipTone(gameStatus(game, round).tone)"
                                         >{{ gameStatus(game, round).label }}</span
                                     >
                                     <span v-if="game.is_bye" class="text-xs text-muted-foreground">Automatic win</span>
@@ -945,7 +960,10 @@ defineExpose({
                                     >
                                         {{ game.result === 'pending' ? 'Enter score' : 'Edit score' }}
                                     </Button>
-                                    <DropdownMenu :modal="false" v-if="round.status === 'in_progress' && !game.is_bye && game.player_two">
+                                    <DropdownMenu
+                                        v-if="(round.status === 'in_progress' && !game.is_bye && game.player_two) || round.status === 'setup'"
+                                        :modal="false"
+                                    >
                                         <DropdownMenuTrigger as-child>
                                             <Button
                                                 variant="ghost"
@@ -957,24 +975,21 @@ defineExpose({
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                                v-if="!game.is_forfeit"
-                                                class="text-destructive focus:text-destructive"
-                                                @select="openForfeitDialog(game)"
-                                            >
-                                                Record a forfeit…
+                                            <template v-if="round.status === 'in_progress'">
+                                                <DropdownMenuItem
+                                                    v-if="!game.is_forfeit"
+                                                    class="text-destructive focus:text-destructive"
+                                                    @select="openForfeitDialog(game)"
+                                                >
+                                                    Record a forfeit…
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem v-else @select="removeForfeit(game)">Undo forfeit</DropdownMenuItem>
+                                            </template>
+                                            <DropdownMenuItem v-else class="text-destructive focus:text-destructive" @select="removeGame(game.id)">
+                                                Remove game
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem v-else @select="removeForfeit(game)">Undo forfeit</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                    <button
-                                        aria-label="Remove game"
-                                        v-if="round.status === 'setup'"
-                                        class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                        @click="removeGame(game.id)"
-                                    >
-                                        <X class="size-3.5" />
-                                    </button>
                                 </div>
                             </div>
                             <div
@@ -1015,12 +1030,19 @@ defineExpose({
                     <!-- Pending scores indicator -->
                     <div
                         v-if="round.status === 'in_progress' && round.games.length > 0 && !roundAllScored(round)"
-                        class="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"
+                        class="mt-2 space-y-1"
                         role="status"
                     >
-                        <Loader2 class="size-3 animate-spin" />
-                        {{ round.games.filter((g) => !g.is_bye && g.result === 'pending').length }} of
-                        {{ round.games.filter((g) => !g.is_bye).length }} games still need a result — End Round unlocks once every game has one
+                        <div class="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{{ scoredCount(round) }} of {{ playedCount(round) }} games scored</span>
+                            <span>End round unlocks when every game has a result</span>
+                        </div>
+                        <div class="h-1 overflow-hidden rounded-full bg-muted">
+                            <div
+                                class="h-full rounded-full bg-primary transition-all"
+                                :style="{ width: (scoredCount(round) / Math.max(1, playedCount(round))) * 100 + '%' }"
+                            />
+                        </div>
                     </div>
 
                     <!-- Fix pairings -->

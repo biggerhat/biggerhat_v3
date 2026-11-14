@@ -42,7 +42,7 @@ const props = defineProps<{
         team_size: number;
         max_players: number | null;
         require_crew_lists: boolean;
-        scoring_config: Record<string, unknown> | null;
+        scoring_config: Record<string, number | boolean | null> | null;
     } | null;
     previous_events: { uuid: string; name: string; event_date: string }[];
 }>();
@@ -74,7 +74,7 @@ const form = useForm({
     require_crew_lists: props.template?.require_crew_lists ?? false,
     variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
     // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
-    scoring_config: (props.template?.scoring_config ?? {}) as Record<string, unknown>,
+    scoring_config: (props.template?.scoring_config ?? {}) as Record<string, number | boolean | null>,
 });
 
 const ruleset = computed(() => rulesetByKey.value[form.ruleset] ?? initialRuleset);

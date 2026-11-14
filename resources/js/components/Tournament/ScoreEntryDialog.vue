@@ -9,7 +9,7 @@ import { useConfirm } from '@/composables/useConfirm';
 import { useTournament } from '@/composables/useTournament';
 import type { TournamentRuleset } from '@/types/tournament';
 import { Loader2 } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 /**
  * The organizer's score-entry dialog for one tournament game: ruleset score components, leader
@@ -28,6 +28,7 @@ interface ScoreEntryGame {
     player_two_master: string | null;
     player_two_title: string | null;
     result: string;
+    is_bye?: boolean;
     tracker_game?: { uuid: string; status: string; current_turn?: number; max_turns?: number | null } | null;
     report_status?: 'pending' | 'disputed' | null;
     reported_by_player_id?: number | null;
@@ -55,7 +56,7 @@ const props = defineProps<{
     /** Deferred prop: null until the follow-up request fills it in. */
     masters: MasterOption[] | null;
 }>();
-const emit = defineEmits<{ (e: 'close'): void }>();
+const emit = defineEmits<{ (e: 'close'): void; (e: 'open-game', gameId: number): void }>();
 
 const tournamentRef = computed(() => props.tournament);
 const { submitting, doAction, doModalAction, reloadProps, playerName } = useTournament(tournamentRef);
@@ -172,7 +173,17 @@ const completeTrackerGame = async () => {
     completingTracker.value = false;
 };
 
-const saveScore = async () => {
+// The next game in this round still waiting for a score (wrapping round to the top), so an organizer can enter a whole round without going back to the list.
+const nextGame = computed<ScoreEntryGame | null>(() => {
+    const current = editingGame.value;
+    if (!current) return null;
+    const games = props.tournament.rounds.find((r) => r.games.some((g) => g.id === current.id))?.games ?? [];
+    const at = games.findIndex((g) => g.id === current.id);
+    const ordered = [...games.slice(at + 1), ...games.slice(0, at)];
+    return ordered.find((g) => g.result === 'pending' && !g.is_bye && g.player_two_id) ?? null;
+});
+
+const saveScore = async (advance = false) => {
     if (!editingGame.value) return;
     submitting.value = true;
     scoreError.value = null;
@@ -233,7 +244,14 @@ const saveScore = async () => {
     }
 
     submitting.value = false;
-    close();
+    const next = advance === true ? nextGame.value : null;
+    if (next) {
+        // Keep the dialog open on the next pairing; the page just needs to know which game is showing.
+        hydrate(next);
+        emit('open-game', next.id);
+    } else {
+        close();
+    }
     reloadPage();
 };
 
@@ -253,6 +271,16 @@ const close = () => {
     editingGame.value = null;
     emit('close');
 };
+
+// Put the cursor in the first score box whenever a game opens (or the next one loads), so scores can be typed straight away.
+watch(
+    () => editingGame.value?.id,
+    async (id) => {
+        if (!id) return;
+        await nextTick();
+        setTimeout(() => document.querySelector<HTMLInputElement>('[data-score-input]')?.focus(), 50);
+    },
+);
 
 // Hydrate the form whenever the page opens a (different) game.
 watch(
@@ -419,8 +447,9 @@ watch(
                                 :min="field.min"
                                 :max="field.max"
                                 class="h-8 text-center text-sm font-bold"
+                                data-score-input
                                 @focus="($event.target as HTMLInputElement).select()"
-                                @keydown.enter.prevent="saveScore"
+                                @keydown.enter.prevent="saveScore()"
                             />
                         </div>
                     </div>
@@ -475,8 +504,9 @@ watch(
                                 :min="field.min"
                                 :max="field.max"
                                 class="h-8 text-center text-sm font-bold"
+                                data-score-input
                                 @focus="($event.target as HTMLInputElement).select()"
-                                @keydown.enter.prevent="saveScore"
+                                @keydown.enter.prevent="saveScore()"
                             />
                         </div>
                     </div>
@@ -499,9 +529,13 @@ watch(
             <p v-if="scoreError" class="text-xs text-destructive">{{ scoreError }}</p>
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="outline" @click="close">Cancel</Button>
-                <Button :disabled="submitting" @click="saveScore">
-                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                <Button :variant="nextGame ? 'outline' : 'default'" :disabled="submitting" @click="saveScore()">
+                    <Loader2 v-if="submitting && !nextGame" class="mr-2 size-4 animate-spin" />
                     Save Score
+                </Button>
+                <Button v-if="nextGame" :disabled="submitting" data-testid="save-next-game" @click="saveScore(true)">
+                    <Loader2 v-if="submitting" class="mr-2 size-4 animate-spin" />
+                    Save &amp; next game
                 </Button>
             </DialogFooter>
         </DialogContent>

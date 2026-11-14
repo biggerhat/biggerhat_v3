@@ -62,7 +62,7 @@ const props = defineProps<{
 
 // The owner viewing their card sees the download button appear when the render finishes.
 useCardImageEvents(usePage<SharedData>().props.auth.user?.id, (event) => {
-    if (event.kind === 'custom_character' && event.id === props.character.id) router.reload({ only: ['character'], preserveScroll: true });
+    if (event.kind === 'custom_character' && event.id === props.character.id) router.reload({ only: ['character'] });
 });
 
 const stationLabel = (station: string | null) => {

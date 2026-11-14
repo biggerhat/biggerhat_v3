@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\BaseSizeEnum;
+use App\Events\GameBoardMoved;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\UpdateBoardRequest;
 use App\Models\Game;
@@ -65,6 +66,8 @@ class GameBoardController extends Controller
             $positions = array_replace($locked->board_state['positions'] ?? [], $incoming->all());
             $locked->update(['board_state' => ['positions' => $positions]]);
         });
+
+        broadcast(new GameBoardMoved($game, $incoming->all()))->toOthers();
 
         return redirect()->back();
     }

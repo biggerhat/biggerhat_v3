@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\BaseSizeEnum;
+use App\Events\GameBoardMoved;
 use App\Models\Character;
 use App\Models\CustomCharacter;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\User;
+use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Pennant\Feature;
 
@@ -137,4 +139,22 @@ it('reads the base size from a custom card and falls back to 30 mm', function ()
 
     $this->actingAs($a)->get(route('games.board', $game->uuid))
         ->assertInertia(fn (Assert $page) => $page->where('models.0.base_mm', 40)->where('models.1.base_mm', 30));
+});
+
+it('tells the game about moves, and only the moves you were allowed to make', function () {
+    Event::fake([GameBoardMoved::class]);
+    [$game, $m1, $m2] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 3, 'y' => 3], $m2->id => ['x' => 9, 'y' => 9]]]);
+
+    Event::assertDispatched(GameBoardMoved::class, fn ($e) => array_keys($e->positions) === [$m1->id] && $e->broadcastOn()[0]->name === 'presence-game.'.$game->uuid);
+});
+
+it('broadcasts nothing when a move is refused', function () {
+    Event::fake([GameBoardMoved::class]);
+    [$game, , $m2] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m2->id => ['x' => 9, 'y' => 9]]])->assertForbidden();
+
+    Event::assertNotDispatched(GameBoardMoved::class);
 });

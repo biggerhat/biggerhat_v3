@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { TABLE_SIZE, baseRadius, type Token } from '@/lib/tabletop/geometry';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { loadEcho } from '@/lib/echo';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 interface BoardModel {
     id: number;
@@ -22,6 +23,30 @@ const props = defineProps<{
     positions: Record<string, { x: number; y: number }>;
 }>();
 
+// Saved positions, plus moves the other player has just made (applied straight from the broadcast).
+const live = ref<Record<string, { x: number; y: number }>>({ ...props.positions });
+watch(
+    () => props.positions,
+    (next) => (live.value = { ...next }),
+);
+
+let joined = false;
+const resync = () => document.visibilityState === 'visible' && router.reload({ only: ['positions'] });
+
+onMounted(async () => {
+    document.addEventListener('visibilitychange', resync);
+    const echo = await loadEcho();
+    if (!echo) return;
+    joined = true;
+    echo.join(`game.${props.game.uuid}`).listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number }> }) => {
+        live.value = { ...live.value, ...e.positions };
+    });
+});
+onUnmounted(() => {
+    document.removeEventListener('visibilitychange', resync);
+    if (joined) window.Echo?.leave(`game.${props.game.uuid}`);
+});
+
 const playerFor = (slot: number) => props.players.find((p) => p.slot === slot);
 const sideNames = computed(() => ({ a: playerFor(1)?.name ?? 'Player 1', b: playerFor(2)?.name ?? 'Player 2' }));
 
@@ -36,7 +61,7 @@ function defaultSpot(model: BoardModel): { x: number; y: number } {
 
 const tokens = computed<Token[]>(() =>
     props.models.map((m) => {
-        const at = props.positions[String(m.id)] ?? defaultSpot(m);
+        const at = live.value[String(m.id)] ?? defaultSpot(m);
         return {
             id: String(m.id),
             name: m.name,

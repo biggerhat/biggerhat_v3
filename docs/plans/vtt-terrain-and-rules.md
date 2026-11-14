@@ -57,5 +57,6 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - Sandbox at `/tools/tabletop` and a game board at `/games/{uuid}/board`, both behind the `experiment-tabletop` flag.
 - The game board loads the game's crews with their real base sizes (custom cards too, 30 mm if unknown) and saves positions to
   `games.board_state` (JSON). You move your own models; in a solo game you move both sides. Saves merge under a lock.
-- Not yet: realtime (the other player sees moves on reload only), a link from the game screen, scenario terrain (the board uses
+- Realtime: a drop broadcasts `GameBoardMoved` on the game's presence channel; the other board applies it at once, and re-syncs when the tab becomes visible again.
+- Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

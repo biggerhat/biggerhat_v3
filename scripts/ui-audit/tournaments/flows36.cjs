@@ -41,6 +41,43 @@ const L = require('./lib.cjs');
         });
     }
 
+    const live = await L.session(browser, 'carol@example.test');
+    await L.step('board: a move broadcast by the other player appears without a reload', live, async () => {
+        // No Reverb server in the harness: stand in for Echo and fire the event the server would send.
+        await live.page.evaluateOnNewDocument(() => {
+            window.Echo = {
+                join() {
+                    const ch = {
+                        listen(event, cb) {
+                            if (event === '.GameBoardMoved') window.__boardMoved = cb;
+                            return ch;
+                        },
+                    };
+                    return ch;
+                },
+                // the notification bell listens on a private channel
+                private() {
+                    const quiet = { listen: () => quiet, notification: () => quiet };
+                    return quiet;
+                },
+                leave() {},
+            };
+        });
+        await L.visit(live, `/games/${L.ids.play_game}/board`);
+        await live.page.waitForSelector('[data-testid^=token-]');
+        await live.page.waitForFunction(() => typeof window.__boardMoved === 'function', { timeout: 9000 });
+        const id = await live.page.evaluate(() =>
+            document.querySelectorAll('[data-testid^=token-]')[1].getAttribute('data-testid').replace('token-', ''),
+        );
+        await live.page.evaluate((i) => window.__boardMoved({ positions: { [i]: { x: 20, y: 18 } } }), id);
+        await L.sleep(300);
+        const at = await live.page.evaluate(() => {
+            const c = document.querySelectorAll('[data-testid^=token-] circle')[1];
+            return { cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')) };
+        });
+        if (Math.abs(at.cx - 20) > 0.01 || Math.abs(at.cy - 18) > 0.01) throw new Error(`model did not move: ${JSON.stringify(at)}`);
+    });
+
     const outsider = await L.session(browser, 'alice@example.test');
     await L.step('board: someone who is not in the game gets a 403', outsider, async () => {
         const res = await outsider.page.goto(`${L.BASE}/games/${L.ids.play_game}/board`, { waitUntil: 'networkidle2' });

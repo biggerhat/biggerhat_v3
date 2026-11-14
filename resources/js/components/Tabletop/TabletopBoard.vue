@@ -38,7 +38,11 @@ const terrain = sampleTerrain;
 const tokens = ref<Token[]>(props.tokens.map((t) => ({ ...t })));
 watch(
     () => props.tokens,
-    (next) => (tokens.value = next.map((t) => ({ ...t }))),
+    (next) => {
+        const grabbed = drag;
+        const held = grabbed?.kind === 'token' ? tokens.value.find((t) => t.id === grabbed.id) : undefined;
+        tokens.value = next.map((t) => (held && t.id === held.id ? { ...t, x: held.x, y: held.y } : { ...t }));
+    },
     { deep: true },
 );
 const selectedId = ref<string | null>(null);

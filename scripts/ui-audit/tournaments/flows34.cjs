@@ -18,6 +18,7 @@ const L = require('./lib.cjs');
             await L.expectText(dave, /How the games went/);
             await L.expectText(dave, /Round by round/);
             await L.expectText(dave, /Factions/);
+            await L.expectText(dave, /Strategies/);
             await L.shot(dave, `340-insights-${label}`);
             const t = await L.text(dave);
             // Seed: 4 contested games, scores 9-3, 7-5, 8-4, 6-6 -> average 6 VP per player, one tie.
@@ -25,6 +26,9 @@ const L = require('./lib.cjs');
             if (!/Biggest win:\s*Alice 9-3 over Bob/.test(t.replace(/\s+/g, ' '))) throw new Error('biggest win line missing');
             if (!/Arcanists/.test(t)) throw new Error('faction rows missing');
             if ((await hscroll(dave)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(dave)}px`);
+            const href = await dave.page.$eval('[data-testid=insights-csv]', (a) => a.href);
+            const csv = await dave.page.evaluate(async (u) => (await fetch(u)).text(), href);
+            if (!/Turnout[\s\S]*Rounds/.test(csv)) throw new Error(`insights CSV looks wrong: ${csv.slice(0, 200)}`);
         });
         await L.step(`analytics (${label}): the all-events page counts the organizer's events`, dave, async () => {
             await L.visit(dave, '/tournaments');
@@ -34,6 +38,11 @@ const L = require('./lib.cjs');
             await L.expectText(dave, /Spring Showdown/);
             if ((await hscroll(dave)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(dave)}px`);
             await L.shot(dave, `341-analytics-${label}`);
+            const csv = await dave.page.evaluate(
+                async (href) => (await fetch(href)).text(),
+                await dave.page.$eval('[data-testid=analytics-csv]', (a) => a.href),
+            );
+            if (!/Summary[\s\S]*Events/.test(csv)) throw new Error(`analytics CSV looks wrong: ${csv.slice(0, 200)}`);
             await L.clickText(dave, /Last 12 months/i, 'a');
             await L.expectText(dave, /Time range|Turnout by event|Nothing to show yet/);
         });

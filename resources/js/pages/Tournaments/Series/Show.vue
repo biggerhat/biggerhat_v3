@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useConfirm } from '@/composables/useConfirm';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowLeft, Medal, Pencil, Trash2 } from 'lucide-vue-next';
+import { BarChart3, ArrowLeft, Medal, Pencil, Trash2 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 /** One league: the cumulative leaderboard, how points work, and the events in it. */
@@ -80,6 +80,11 @@ const statusLabel = (s: string) => ({ draft: 'Draft', registration: 'Open', acti
                 <Link :href="route('tournaments.series.index')"><ArrowLeft class="size-4" /> Leagues</Link>
             </Button>
             <div v-if="can_manage" class="flex gap-2">
+                <Button as-child variant="outline" size="sm" class="gap-1.5">
+                    <Link :href="route('tournaments.series.analytics', series.uuid)" data-testid="series-analytics-link"
+                        ><BarChart3 class="size-3.5" /> Analytics</Link
+                    >
+                </Button>
                 <Button as-child variant="outline" size="sm" class="gap-1.5">
                     <Link :href="route('tournaments.series.edit', series.uuid)"><Pencil class="size-3.5" /> Edit</Link>
                 </Button>

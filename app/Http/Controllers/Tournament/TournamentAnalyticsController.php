@@ -15,6 +15,13 @@ class TournamentAnalyticsController extends Controller
     {
         $range = (string) $request->query('range', 'all');
 
-        return inertia('Tournaments/Analytics', $insights->forUser((int) $request->user()->id, $range));
+        $data = $insights->forUser((int) $request->user()->id, $range);
+
+        return inertia('Tournaments/Analytics', $data + ['scope' => [
+            'title' => 'Tournament analytics',
+            'subtitle' => 'Across every event you organize',
+            'back' => ['label' => 'Tournaments', 'href' => route('tournaments.index')],
+            'csv' => route('tournaments.analytics_csv', ['range' => $data['range'] === 'all' ? null : $data['range']]),
+        ]]);
     }
 }

@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import InsightBars from '@/components/Tournament/InsightBars.vue';
+import InsightScenarios from '@/components/Tournament/InsightScenarios.vue';
 import InsightBreakdown from '@/components/Tournament/InsightBreakdown.vue';
 import InsightTiles from '@/components/Tournament/InsightTiles.vue';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { EventInsightsData } from '@/types/tournament';
-import { BarChart3 } from 'lucide-vue-next';
+import { BarChart3, Download } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 /** The Insights tab: how the event went. `insights` is undefined while the deferred request is still loading. */
-const props = defineProps<{ insights?: EventInsightsData | null; isCompleted: boolean }>();
+const props = defineProps<{ insights?: EventInsightsData | null; isCompleted: boolean; csvUrl: string }>();
 
 const dash = '–';
 const num = (v: number | null | undefined, suffix = '') => (v === null || v === undefined ? dash : `${v}${suffix}`);
@@ -63,10 +65,15 @@ const hasGames = computed(() => (props.insights?.games.contested ?? 0) > 0);
         </Card>
 
         <div v-else class="space-y-4">
-            <p v-if="!isCompleted" class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                The event is still running, so these figures will keep moving until the last round is scored.
-            </p>
-
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p v-if="!isCompleted" class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                    The event is still running, so these figures will keep moving until the last round is scored.
+                </p>
+                <span v-else />
+                <Button as-child variant="outline" size="sm" class="gap-1.5 text-xs">
+                    <a :href="csvUrl" data-testid="insights-csv"><Download class="size-3.5" aria-hidden="true" /> Download insights (CSV)</a>
+                </Button>
+            </div>
             <Card>
                 <CardContent class="space-y-3 p-4">
                     <h2 class="text-sm font-semibold">Turnout</h2>
@@ -169,6 +176,8 @@ const hasGames = computed(() => (props.insights?.games.contested ?? 0) > 0);
                     <InsightBreakdown :rows="insights.factions" noun="across every game the faction played" />
                 </CardContent>
             </Card>
+
+            <InsightScenarios :strategies="insights.strategies" :schemes="insights.schemes" />
 
             <Card v-if="insights.tracks_leaders && insights.leaders.length">
                 <CardContent class="space-y-3 p-4">

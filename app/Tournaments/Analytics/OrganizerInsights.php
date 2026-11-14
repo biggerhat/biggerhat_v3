@@ -6,6 +6,7 @@ use App\Enums\TournamentStatusEnum;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
 use App\Models\TournamentPlayer;
+use App\Models\TournamentSeries;
 use Illuminate\Support\Collection;
 
 /**
@@ -27,11 +28,43 @@ class OrganizerInsights
         $events = Tournament::forOrganizer($userId)
             ->whereIn('status', [TournamentStatusEnum::Active->value, TournamentStatusEnum::Completed->value])
             ->when($range === '12m', fn ($q) => $q->whereDate('event_date', '>=', now()->subYear()->toDateString()))
-            ->with(['players.allegiance:id,slug,name', 'rounds.games'])
+            ->with(['players.allegiance:id,slug,name', 'rounds.games', 'rounds.strategy:id,name'])
             ->orderBy('event_date')
             ->orderBy('id')
             ->get();
 
+        return ['range' => $range, 'ranges' => $this->ranges()] + $this->forEvents($events);
+    }
+
+    /**
+     * The same read-out for a league: its active and finished events.
+     *
+     * @return array<string, mixed>
+     */
+    public function forSeries(TournamentSeries $series): array
+    {
+        $events = $series->tournaments()
+            ->whereIn('status', [TournamentStatusEnum::Active->value, TournamentStatusEnum::Completed->value])
+            ->with(['players.allegiance:id,slug,name', 'rounds.games', 'rounds.strategy:id,name'])
+            ->orderBy('event_date')
+            ->orderBy('id')
+            ->get();
+
+        return $this->forEvents($events);
+    }
+
+    /** @return list<array{value: string, label: string}> */
+    public function ranges(): array
+    {
+        return collect(self::RANGES)->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])->values()->all();
+    }
+
+    /**
+     * @param  Collection<int, Tournament>  $events  oldest first, with players, rounds.games and rounds.strategy loaded
+     * @return array<string, mixed>
+     */
+    public function forEvents(Collection $events): array
+    {
         $seen = [];
         $attendance = [];
         $factionBuckets = [];
@@ -117,8 +150,6 @@ class OrganizerInsights
         $returningTotal = array_sum(array_column($rows, 'returning'));
 
         return [
-            'range' => $range,
-            'ranges' => collect(self::RANGES)->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])->values()->all(),
             'summary' => [
                 'events' => $count,
                 'completed' => collect($rows)->where('status', 'completed')->count(),
@@ -140,6 +171,8 @@ class OrganizerInsights
             'factions' => array_slice(InsightMath::rows($factionBuckets), 0, 14),
             'rulesets' => collect($rulesets)->map(fn (int $n, string $label) => ['label' => $label, 'events' => $n])->values()->all(),
             'regulars' => $this->regulars($attendance),
+            'strategies' => ScenarioStats::strategies($events->flatMap->rounds),
+            'schemes' => ScenarioStats::schemes($events->flatMap->rounds),
         ];
     }
 

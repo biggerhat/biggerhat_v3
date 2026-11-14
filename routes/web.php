@@ -55,6 +55,7 @@ use App\Http\Controllers\Tournament\TournamentGameController;
 use App\Http\Controllers\Tournament\TournamentGameCrewController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
 use App\Http\Controllers\Tournament\TournamentImportController;
+use App\Http\Controllers\Tournament\TournamentInsightsExportController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
 use App\Http\Controllers\Tournament\TournamentResultsController;
@@ -476,6 +477,8 @@ Route::get('/tournaments/series', [TournamentSeriesController::class, 'index'])-
 Route::middleware('auth')->group(function () {
     Route::get('/tournaments/series/create', [TournamentSeriesController::class, 'create'])->name('tournaments.series.create');
     Route::post('/tournaments/series', [TournamentSeriesController::class, 'store'])->name('tournaments.series.store')->middleware('throttle:20,60');
+    Route::get('/tournaments/series/{series}/analytics', [TournamentSeriesController::class, 'analytics'])->name('tournaments.series.analytics');
+    Route::get('/tournaments/series/{series}/analytics.csv', [TournamentInsightsExportController::class, 'series'])->name('tournaments.series.analytics_csv')->middleware('throttle:30,60');
     Route::get('/tournaments/series/{series}/edit', [TournamentSeriesController::class, 'edit'])->name('tournaments.series.edit');
     Route::put('/tournaments/series/{series}', [TournamentSeriesController::class, 'update'])->name('tournaments.series.update');
     Route::delete('/tournaments/series/{series}', [TournamentSeriesController::class, 'destroy'])->name('tournaments.series.destroy');
@@ -488,6 +491,7 @@ Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
     Route::get('/create', [TournamentController::class, 'create'])->name('create');
     Route::get('/analytics', TournamentAnalyticsController::class)->name('analytics');
+    Route::get('/analytics.csv', [TournamentInsightsExportController::class, 'organizer'])->name('analytics_csv')->middleware('throttle:30,60');
     Route::get('/import', [TournamentImportController::class, 'create'])->name('import.create');
     Route::get('/import/template/{ruleset}', [TournamentImportController::class, 'template'])->name('import.template');
     Route::post('/import/preview', [TournamentImportController::class, 'preview'])->name('import.preview')->middleware('throttle:30,60');
@@ -560,6 +564,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::post('/{tournament}/games/{game}/report/dispute', [TournamentGameReportController::class, 'dispute'])->name('games.report.dispute');
     Route::delete('/{tournament}/games/{game}/report', [TournamentGameReportController::class, 'destroy'])->name('games.report.withdraw');
     Route::post('/{tournament}/games/{game}/complete-tracker', [TournamentGameController::class, 'completeTrackerGame'])->name('games.complete_tracker');
+    Route::get('/{tournament}/insights.csv', [TournamentInsightsExportController::class, 'event'])->name('insights_csv')->middleware('throttle:30,60');
     Route::get('/{tournament}/export.csv', [\App\Http\Controllers\Tournament\TournamentController::class, 'exportCsv'])->name('export_csv');
 });
 

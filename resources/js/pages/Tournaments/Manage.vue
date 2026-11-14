@@ -553,7 +553,11 @@ const isEditable = computed(() => !isLocked.value);
 
                 <!-- ═══ INSIGHTS ═══ -->
                 <TabsContent v-if="insights !== null" value="insights">
-                    <EventInsights :insights="insights" :is-completed="tournament.status === 'completed'" />
+                    <EventInsights
+                        :insights="insights"
+                        :is-completed="tournament.status === 'completed'"
+                        :csv-url="route('tournaments.insights_csv', tournament.uuid)"
+                    />
                 </TabsContent>
 
                 <!-- ═══ RSVPs ═══ -->

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import InsightScenarios from '@/components/Tournament/InsightScenarios.vue';
 import InsightBars from '@/components/Tournament/InsightBars.vue';
 import InsightBreakdown from '@/components/Tournament/InsightBreakdown.vue';
 import InsightTiles from '@/components/Tournament/InsightTiles.vue';
@@ -9,11 +10,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatDateOnly } from '@/lib/utils';
 import type { OrganizerInsightsData } from '@/types/tournament';
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowLeft, BarChart3 } from 'lucide-vue-next';
+import { ArrowLeft, BarChart3, Download } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 /** Analytics across every event the signed-in user organizes. */
-const props = defineProps<OrganizerInsightsData>();
+const props = defineProps<
+    OrganizerInsightsData & { scope: { title: string; subtitle: string; back: { label: string; href: string }; csv: string } }
+>();
 
 const dash = '–';
 const num = (v: number | null | undefined, suffix = '') => (v === null || v === undefined ? dash : `${v}${suffix}`);
@@ -38,19 +41,19 @@ const share = computed(() => props.factions.map((f) => ({ label: f.label, value:
 </script>
 
 <template>
-    <Head title="Tournament analytics" />
-    <PageBanner title="Tournament analytics" class="mb-2">
+    <Head :title="scope.title === 'Tournament analytics' ? scope.title : `${scope.title} analytics`" />
+    <PageBanner :title="scope.title" class="mb-2">
         <template #subtitle>
-            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">Across every event you organize</div>
+            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">{{ scope.subtitle }}</div>
         </template>
     </PageBanner>
 
     <div class="container mx-auto space-y-4 pb-8 sm:px-4" data-testid="organizer-analytics">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <Button as-child variant="ghost" class="gap-1.5 text-sm">
-                <Link :href="route('tournaments.index')"><ArrowLeft class="size-4" /> Tournaments</Link>
+                <Link :href="scope.back.href"><ArrowLeft class="size-4" /> {{ scope.back.label }}</Link>
             </Button>
-            <nav class="flex gap-1" aria-label="Time range">
+            <nav v-if="ranges.length" class="flex gap-1" aria-label="Time range">
                 <Button v-for="r in ranges" :key="r.value" as-child size="sm" :variant="range === r.value ? 'default' : 'outline'" class="text-xs">
                     <Link
                         :href="route('tournaments.analytics', { range: r.value === 'all' ? undefined : r.value })"
@@ -60,6 +63,9 @@ const share = computed(() => props.factions.map((f) => ({ label: f.label, value:
                     >
                 </Button>
             </nav>
+            <Button v-if="summary.events > 0" as-child variant="outline" size="sm" class="gap-1.5 text-xs">
+                <a :href="scope.csv" data-testid="analytics-csv"><Download class="size-3.5" aria-hidden="true" /> Download (CSV)</a>
+            </Button>
         </div>
 
         <EmptyState
@@ -113,6 +119,8 @@ const share = computed(() => props.factions.map((f) => ({ label: f.label, value:
                     </CardContent>
                 </Card>
             </div>
+
+            <InsightScenarios :strategies="strategies" :schemes="schemes" />
 
             <Card>
                 <CardContent class="p-4">

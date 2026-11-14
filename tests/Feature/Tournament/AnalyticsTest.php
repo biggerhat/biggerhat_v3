@@ -160,3 +160,85 @@ it('renders the organizer analytics page for a signed-in user and not a guest', 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Tournaments/Analytics')->where('summary.events', 0));
 });
+
+it('compares strategies by what the games under them scored', function () {
+    [$t] = analyticsEvent($this->owner, '2026-05-01', [
+        'a' => ['display_name' => 'Ann', 'faction' => 'guild'], 'b' => ['display_name' => 'Bo', 'faction' => 'bayou'],
+    ], [
+        ['a', 'b', 8, 2, ['score_breakdown' => ['player_one' => ['strategy' => 5, 'scheme' => 3], 'player_two' => ['strategy' => 1, 'scheme' => 1]]]],
+        ['a', 'b', 4, 4, []],
+    ]);
+    $strategy = \App\Models\Strategy::factory()->create(['name' => 'Reckoning']);
+    $t->rounds->each->update(['strategy_id' => $strategy->id]);
+
+    $rows = app(EventInsights::class)->forEvent($t->fresh(), [])['strategies'];
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0])->toMatchArray(['name' => 'Reckoning', 'rounds' => 2, 'games' => 2, 'avg_vp' => 4.5, 'avg_margin' => 3.0])
+        ->and($rows[0]['components']['strategy'])->toBe(3.0);
+});
+
+it('counts schemes from the tracker games of the event and says how much of it was tracked', function () {
+    [$t, $made] = analyticsEvent($this->owner, '2026-05-01', [
+        'a' => ['display_name' => 'Ann'], 'b' => ['display_name' => 'Bo'],
+    ], [['a', 'b', 8, 2, []], ['a', 'b', 6, 5, []]]);
+    $game = \App\Models\Game::factory()->solo()->create();
+    $player = \App\Models\GamePlayer::factory()->create(['game_id' => $game->id]);
+    $scheme = \App\Models\Scheme::factory()->create(['name' => 'Bodyguard']);
+    TournamentGame::query()->orderBy('id')->first()->update(['game_id' => $game->id]);
+    foreach ([[1, 'scored', 2], [2, 'discarded', 0], [3, 'held', 0]] as [$turn, $action, $points]) {
+        \App\Models\GameTurn::create(['game_id' => $game->id, 'game_player_id' => $player->id, 'turn_number' => $turn, 'scheme_id' => $scheme->id, 'scheme_action' => $action, 'scheme_points' => $points]);
+    }
+
+    $schemes = app(EventInsights::class)->forEvent($t->fresh(), [])['schemes'];
+
+    expect($schemes['coverage'])->toBe(['tracked' => 1, 'total' => 2])
+        ->and($schemes['rows'])->toHaveCount(1)
+        ->and($schemes['rows'][0])->toMatchArray(['name' => 'Bodyguard', 'picked' => 2, 'scored' => 1, 'discarded' => 1, 'points' => 2, 'avg_points' => 2.0, 'score_rate' => 50]);
+});
+
+it('downloads the event insights as CSV for organizers only, with formula-looking names defused', function () {
+    [$t] = analyticsEvent($this->owner, '2026-05-01', [
+        'a' => ['display_name' => '=HYPERLINK("x")', 'faction' => 'guild'], 'b' => ['display_name' => 'Bo', 'faction' => 'bayou'],
+    ], [['a', 'b', 8, 2, []]]);
+
+    $res = $this->actingAs($this->owner)->get(route('tournaments.insights_csv', $t))->assertOk();
+    $csv = $res->streamedContent();
+
+    expect($res->headers->get('content-disposition'))->toContain('.csv')
+        ->and($csv)->toContain('Turnout')->toContain('games_played,1')->toContain('Guild')->toContain('Rounds');
+
+    $this->actingAs(User::factory()->create())->get(route('tournaments.insights_csv', $t))->assertForbidden();
+    auth()->logout();
+    $this->get(route('tournaments.insights_csv', $t))->assertRedirect(route('login'));
+});
+
+it('defuses spreadsheet formulas in any cell', function () {
+    expect(\App\Tournaments\Analytics\InsightsCsv::cell('=1+1'))->toBe("'=1+1")
+        ->and(\App\Tournaments\Analytics\InsightsCsv::cell('+1'))->toBe("'+1")
+        ->and(\App\Tournaments\Analytics\InsightsCsv::cell('Alice'))->toBe('Alice')
+        ->and(\App\Tournaments\Analytics\InsightsCsv::cell(5))->toBe(5);
+});
+
+it('downloads the all-events CSV and only covers the signed-in organizer', function () {
+    analyticsEvent($this->owner, '2026-05-01', ['a' => ['display_name' => 'Mine']], []);
+    analyticsEvent(User::factory()->create(), '2026-05-02', ['a' => ['display_name' => 'Other']], []);
+
+    $csv = $this->actingAs($this->owner)->get(route('tournaments.analytics_csv'))->assertOk()->streamedContent();
+
+    expect($csv)->toContain('Summary')->toContain('events,1');
+});
+
+it('gives a league its own analytics, for its creator only', function () {
+    $series = \App\Models\TournamentSeries::create(['creator_id' => $this->owner->id, 'name' => 'Winter League', 'points_table' => [10], 'participation_points' => 1, 'best_of' => null]);
+    analyticsEvent($this->owner, '2026-01-01', ['a' => ['display_name' => 'Ann'], 'b' => ['display_name' => 'Bo']], [['a', 'b', 8, 2, []]], ['series_id' => $series->id]);
+    analyticsEvent($this->owner, '2026-02-01', ['a' => ['display_name' => 'Ann']], [], ['series_id' => null]);
+
+    $this->actingAs($this->owner)->get(route('tournaments.series.analytics', $series))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Tournaments/Analytics')->where('summary.events', 1)->where('scope.title', 'Winter League'));
+    $this->actingAs($this->owner)->get(route('tournaments.series.analytics_csv', $series))->assertOk();
+
+    $this->actingAs(User::factory()->create())->get(route('tournaments.series.analytics', $series))->assertForbidden();
+    $this->actingAs(User::factory()->create())->get(route('tournaments.series.analytics_csv', $series))->assertForbidden();
+});

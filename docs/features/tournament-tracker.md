@@ -231,4 +231,9 @@ strategy/scheme VP), a round-by-round table with round length and scenario, win 
 **contested** games count for scores (two players, a result, no bye or forfeit: `InsightMath::isContested`). Win rate counts a tie as half a win. A refresh after a score change re-requests `insights` only while the tab is open.
 **All events** (`/tournaments/analytics`, `TournamentAnalyticsController`, `OrganizerInsights::forUser()`, page `Tournaments/Analytics.vue`): every active or finished event the signed-in user organizes, all time or the
 last 12 months (`?range=12m`): turnout per event, repeat players (matched by account, else by name), returning share, faction results and popularity, regulars, formats. Each person sees only their own events.
+**Strategies and schemes** (`ScenarioStats`): strategies come from each round's strategy and cover every game (rounds, games, average score and margin, strategy VP); schemes come from the Game Tracker turns of linked
+games only (picked = scored + discarded, points, score rate), with a coverage line ("N of M games"). A scheme still held at the end of a game is not counted. Shown on the Insights tab and on both overview pages (`InsightScenarios`).
+**League analytics** (`/tournaments/series/{series}/analytics`, creator only, "Analytics" button on the league page) reuses the overview page through `OrganizerInsights::forSeries()`; the page takes a `scope` prop for its title, back link and CSV URL.
+**CSV** (`TournamentInsightsExportController`): `tournaments.insights_csv` (event, organizers), `tournaments.analytics_csv` (`?range=`), `tournaments.series.analytics_csv`. Several tables per file, each with a title row; cells that start with
+`= + - @` are prefixed with `'` so a spreadsheet never runs them (`InsightsCsv::cell`). Throttled 30/hour.
 Shared pieces: `InsightBars`, `InsightTiles`, `InsightBreakdown` (plain div bars, no chart library). Tests: `tests/Feature/Tournament/AnalyticsTest.php`; browser flow `flows34.cjs`.

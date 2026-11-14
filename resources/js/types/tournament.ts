@@ -381,6 +381,32 @@ export interface CutState {
     block_reason: string | null;
 }
 
+/** How the games under one strategy scored. */
+export interface InsightStrategyRow {
+    name: string;
+    rounds: number;
+    games: number;
+    avg_vp: number | null;
+    avg_margin: number | null;
+    components: Record<string, number | null>;
+}
+
+/** How one scheme fared on Game Tracker games: picked = scored + discarded. */
+export interface InsightSchemeRow {
+    name: string;
+    picked: number;
+    scored: number;
+    discarded: number;
+    points: number;
+    avg_points: number | null;
+    score_rate: number | null;
+}
+
+export interface InsightSchemes {
+    coverage: { tracked: number; total: number };
+    rows: InsightSchemeRow[];
+}
+
 /** One row of a breakdown by faction (or Allegiance, or leader). */
 export interface InsightBreakdownRow {
     label: string;
@@ -445,6 +471,8 @@ export interface EventInsightsData {
     avg_round_minutes: number | null;
     factions: InsightBreakdownRow[];
     leaders: InsightBreakdownRow[];
+    strategies: InsightStrategyRow[];
+    schemes: InsightSchemes;
     tracks_leaders: boolean;
     highlights: {
         biggest_win: InsightGameLine | null;
@@ -486,4 +514,6 @@ export interface OrganizerInsightsData {
     factions: InsightBreakdownRow[];
     rulesets: { label: string; events: number }[];
     regulars: { name: string; events: number }[];
+    strategies: InsightStrategyRow[];
+    schemes: InsightSchemes;
 }

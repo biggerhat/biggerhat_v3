@@ -158,6 +158,8 @@ class EventInsights
             'avg_round_minutes' => InsightMath::average(collect($roundRows)->pluck('minutes')->filter(), 0),
             'factions' => InsightMath::rows($factionBuckets),
             'leaders' => array_slice(InsightMath::rows($leaderBuckets), 0, 12),
+            'strategies' => ScenarioStats::strategies($tournament->rounds),
+            'schemes' => ScenarioStats::schemes($tournament->rounds),
             'tracks_leaders' => $ruleset->tracksLeaders,
             'highlights' => [
                 'biggest_win' => $biggest,

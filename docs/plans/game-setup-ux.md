@@ -161,9 +161,10 @@ failures.
 
 **Still open (needs a decision)**
 
-- **Observers see schemes by design.** `buildObserverCurrentSchemes` gives a public observer both sides' current schemes during play, and
-  an opponent can open the observe page of an observable game in a second tab. Either delay or hide schemes for observers, or tell
-  creators that "observable" means opponents can peek.
+- **Observers see available schemes only (done).** A public observer of a live game gets each side's available schemes and the ones
+  already scored or discarded, never what either player has selected or is holding: the current pick, notes, follow-up pool,
+  unrevealed turn rows and next-turn picks are withheld for both seats, solo games included. A finished game shows everything. One
+  gap remains: an opponent can still open the observe page of an observable game, but now sees no more than any other observer.
 - **A bare Campaign-format game can still be created by POST.** The Create page hides the format, but `StoreGameRequest`
   accepts it, and a test plus a `copyCrewToGame` branch deliberately support a solo Campaign game with no campaign link, so I left it. If
   that path is no longer wanted, reject it in the request and delete the branch.

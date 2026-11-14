@@ -136,3 +136,56 @@ it('shows the whole game back once it is over', function () {
 
     expect($p1['current_scheme_id'])->toBe($this->schemes[1]->id);
 });
+
+// ─── Observers ───
+
+it('shows an observer only the available schemes during play, never what either player has selected', function () {
+    inPlayWithHiddenSchemes($this);
+    $this->p2->update(['current_scheme_id' => $this->schemes[2]->id, 'scheme_notes' => ['note' => 'P2-HIDDEN-NOTE']]);
+
+    $props = $this->get(route('games.observe', $this->game->uuid))->assertOk()->viewData('page')['props'];
+
+    foreach ($props['game']['players'] as $p) {
+        expect($p['current_scheme_id'])->toBeNull()->and($p['scheme_notes'])->toBeNull()->and($p['scheme_pool'])->toBeNull();
+        foreach ($p['turns'] ?? [] as $turn) {
+            expect($turn['next_scheme_id'])->toBeNull();
+        }
+    }
+    $p1Turns = collect(collect($props['game']['players'])->firstWhere('slot', 1)['turns'])->keyBy('turn_number');
+    expect($p1Turns[2]['scheme_id'])->toBeNull()->and($p1Turns[2]['scheme_notes'])->toBeNull();
+
+    expect(json_encode($props))->not->toContain('HIDDEN-NOTE')->not->toContain('P2-HIDDEN-NOTE');
+    // Only a scheme that has been scored (turn 1) is shown; the held and the currently selected ones are not.
+    expect(collect($props['current_schemes'])->pluck('id')->all())->toBe([$this->schemes[0]->id]);
+});
+
+it('still gives an observer each side\'s available schemes and the one just scored', function () {
+    inPlayWithHiddenSchemes($this);
+    $this->game->update(['current_turn' => 1]);
+
+    $intel = $this->get(route('games.observe', $this->game->uuid))->viewData('page')['props']['observer_scheme_intel'];
+
+    expect($intel[1]['revealed_scheme_id'])->toBe($this->schemes[0]->id)
+        ->and($intel[1]['last_scored_turn'])->toBe(1)
+        ->and($intel[2]['revealed_scheme_id'])->toBeNull();
+});
+
+it('shows an observer the schemes in the available pool before anyone has scored', function () {
+    $this->game->update(['status' => GameStatusEnum::InProgress, 'current_turn' => 1]);
+    $this->p1->update(['current_scheme_id' => $this->schemes[0]->id]);
+
+    $props = $this->get(route('games.observe', $this->game->uuid))->viewData('page')['props'];
+
+    expect($props['current_schemes'])->toBe([])
+        ->and(collect($props['observer_scheme_intel'][1]['possible_schemes'])->pluck('id')->sort()->values()->all())
+        ->toBe($this->schemes->pluck('id')->sort()->values()->all());
+});
+
+it('lets an observer see every scheme once the game is over', function () {
+    inPlayWithHiddenSchemes($this);
+    $this->game->update(['status' => GameStatusEnum::Completed]);
+
+    $ids = collect($this->get(route('games.observe', $this->game->uuid))->viewData('page')['props']['current_schemes'])->pluck('id')->all();
+
+    expect($ids)->toContain($this->schemes[0]->id)->toContain($this->schemes[1]->id);
+});

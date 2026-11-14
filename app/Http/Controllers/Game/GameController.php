@@ -329,16 +329,15 @@ class GameController extends Controller
     }
 
     /**
-     * During play the other seat's current scheme, its notes, the follow-up pool derived from it and any scheme still
-     * unrevealed in their turn history (held, or not yet scored or discarded) stay out of the page data. Scores are public
-     * and stay. Once a scheme is scored or discarded it is revealed, and the intel panel shows it.
+     * During play, hidden schemes stay out of the page data: the current scheme, its notes, the follow-up pool derived from
+     * it, any scheme still unrevealed in the turn history (held, or not yet scored or discarded) and every next-turn pick.
+     * Scores are public and stay, and a scheme that has been scored or discarded is revealed. `$exceptSlot` is the seat the
+     * viewer owns and may see in full; observers have none, so both seats are hidden from them.
      */
-    private function hideOpponentSchemes(Game $game): void
+    private function hidePlayerSchemes(Game $game, ?int $exceptSlot): void
     {
-        $mySlot = $game->players->firstWhere('user_id', Auth::id())?->slot;
-
         foreach ($game->players as $player) {
-            if ($player->slot === $mySlot) {
+            if ($exceptSlot !== null && $player->slot === $exceptSlot) {
                 continue;
             }
             $player->setAttribute('scheme_ready', $player->current_scheme_id !== null);
@@ -411,19 +410,24 @@ class GameController extends Controller
             : collect();
     }
 
-    /** Current/held schemes visible to public observers during live or finished play. */
+    /**
+     * Schemes a public observer may see: those already scored or discarded while the game is live (nothing a player has
+     * only selected or is holding), and every scheme once the game is over.
+     */
     private function buildObserverCurrentSchemes(Game $game): array
     {
         if (! in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed])) {
             return [];
         }
-        $schemeIds = $game->players->pluck('current_scheme_id')->filter()->unique()->values();
+
         if ($game->status === GameStatusEnum::Completed) {
-            $turnSchemeIds = GameTurn::where('game_id', $game->id)
-                ->whereNotNull('scheme_id')
-                ->pluck('scheme_id')
-                ->unique();
-            $schemeIds = $schemeIds->merge($turnSchemeIds)->unique()->values();
+            $schemeIds = $game->players->pluck('current_scheme_id')->filter()
+                ->merge(GameTurn::where('game_id', $game->id)->whereNotNull('scheme_id')->pluck('scheme_id'))
+                ->unique()->values();
+        } else {
+            $schemeIds = $game->players->flatMap(fn (GamePlayer $p) => $p->turns)
+                ->filter(fn (GameTurn $t) => in_array($t->scheme_action, ['scored', 'discarded'], true))
+                ->pluck('scheme_id')->filter()->unique()->values();
         }
 
         return Scheme::whereIn('id', $schemeIds)->get()->map(fn (Scheme $s) => $s->toTrackerArray())->toArray();
@@ -598,7 +602,13 @@ class GameController extends Controller
         // data. The opponent-intel panel is built from those same rows, so it is computed first and handed over ready-made.
         if ($isSelf && ! $game->is_solo && $game->status === GameStatusEnum::InProgress) {
             $props['opponent_scheme_intel'] = $this->buildOpponentSchemeIntel($game, $schemeCache);
-            $this->hideOpponentSchemes($game);
+            $this->hidePlayerSchemes($game, $game->players->firstWhere('user_id', Auth::id())?->slot);
+        }
+
+        // Observers only get to see the schemes still available to each side (observer_scheme_intel) and the ones already scored
+        // or discarded, never what either player has currently selected. That holds for solo games they watch too.
+        if ($context === GameShowContext::Observer && $game->status === GameStatusEnum::InProgress) {
+            $this->hidePlayerSchemes($game, null);
         }
 
         return $props;

@@ -39,6 +39,10 @@ export interface Token {
     baseMm: number;
     x: number;
     y: number;
+    /** The viewer may not move this model (it belongs to the other player). */
+    locked?: boolean;
+    /** Removed from play in the game tracker: drawn faded. */
+    killed?: boolean;
 }
 
 export const mmToInches = (mm: number): number => mm / MM_PER_INCH;

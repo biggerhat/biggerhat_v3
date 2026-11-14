@@ -28,6 +28,7 @@ use App\Http\Controllers\Database\TriggerController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\Game\GameBoardController;
 use App\Http\Controllers\Game\GameController;
 use App\Http\Controllers\Game\GamePlayController;
 use App\Http\Controllers\Game\GameSetupController;
@@ -422,6 +423,8 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::put('/{game:uuid}/scenario', [GameController::class, 'updateScenario'])->name('scenario.update');
     Route::post('/{game:uuid}/regenerate', [GameController::class, 'regenerateScenario'])->name('scenario.regenerate');
     Route::delete('/{game:uuid}', [GameController::class, 'destroy'])->name('destroy');
+    Route::get('/{game:uuid}/board', [GameBoardController::class, 'show'])->name('board');
+    Route::put('/{game:uuid}/board', [GameBoardController::class, 'update'])->name('board.update')->middleware('throttle:120,1');
     Route::post('/{game:uuid}/join', [GameController::class, 'confirmJoin'])->name('join.confirm')->middleware('throttle:20,1');
     Route::post('/{game:uuid}/abandon', [GameController::class, 'abandon'])->name('abandon');
     Route::post('/{game:uuid}/toggle-observable', [GameController::class, 'toggleObservable'])->name('toggle_observable');

@@ -100,7 +100,7 @@ it('allows a second player to join a 2-player game', function () {
 
     $game = Game::latest('id')->first();
 
-    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+    $this->actingAs($joiner)->post(route('games.join.confirm', $game->uuid));
 
     $game->refresh()->load('players');
     expect($game->players)->toHaveCount(2);
@@ -120,7 +120,7 @@ it('notifies the creator when someone joins their game', function () {
 
     $game = Game::latest('id')->first();
 
-    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+    $this->actingAs($joiner)->post(route('games.join.confirm', $game->uuid));
 
     Notification::assertSentTo($creator, GameOpponentJoined::class);
 });
@@ -247,7 +247,7 @@ it('gives the two players opposite roles when the second one joins', function ()
     $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core']);
     $game = Game::latest('id')->first();
 
-    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+    $this->actingAs($joiner)->post(route('games.join.confirm', $game->uuid));
 
     $roles = $game->players()->orderBy('slot')->pluck('role')->map(fn ($r) => $r->value ?? $r)->all();
     expect($roles)->toHaveCount(2)->and(array_unique($roles))->toHaveCount(2);
@@ -259,10 +259,10 @@ it('sends a late joiner away without touching the roles or the second seat', fun
     $late = User::factory()->create();
     $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core']);
     $game = Game::latest('id')->first();
-    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
+    $this->actingAs($joiner)->post(route('games.join.confirm', $game->uuid));
     $before = $game->players()->orderBy('slot')->get(['user_id', 'role'])->toArray();
 
-    $this->actingAs($late)->get(route('games.join', $game->uuid))->assertRedirect(route('games.index'));
+    $this->actingAs($late)->post(route('games.join.confirm', $game->uuid))->assertRedirect(route('games.index'));
 
     expect($game->players()->orderBy('slot')->get(['user_id', 'role'])->toArray())->toBe($before);
 });
@@ -273,8 +273,8 @@ it('treats the invite link being opened twice by the same person as one join', f
     $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core']);
     $game = Game::latest('id')->first();
 
-    $this->actingAs($joiner)->get(route('games.join', $game->uuid));
-    $this->actingAs($joiner)->get(route('games.join', $game->uuid))->assertRedirect(route('games.show', $game->uuid));
+    $this->actingAs($joiner)->post(route('games.join.confirm', $game->uuid));
+    $this->actingAs($joiner)->post(route('games.join.confirm', $game->uuid))->assertRedirect(route('games.show', $game->uuid));
 
     expect($game->players()->count())->toBe(2);
 });
@@ -287,4 +287,66 @@ it('throttles game creation per player', function () {
     }
 
     $this->actingAs($user)->post(route('games.store'), ['encounter_size' => 50, 'season' => 'core'])->assertStatus(429);
+});
+
+it('shows an invitee who they are joining and does not seat them just for opening the link', function () {
+    $creator = User::factory()->create(['name' => 'Hosty McHost']);
+    $invitee = User::factory()->create();
+    $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 40, 'season' => 'core']);
+    $game = Game::latest('id')->first();
+
+    $this->actingAs($invitee)->get(route('games.join', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Games/Join')->where('game.creator_name', 'Hosty McHost')->where('game.encounter_size', 40));
+
+    expect($game->players()->count())->toBe(1)->and($game->refresh()->status->value)->toBe('setup');
+});
+
+it('sends a logged-out invitee to log in and back to the invite page', function () {
+    $creator = User::factory()->create();
+    $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 40, 'season' => 'core']);
+    $game = Game::latest('id')->first();
+    auth()->logout();
+
+    $this->get(route('games.join', $game->uuid))->assertRedirect(route('login'));
+    $this->post(route('games.join.confirm', $game->uuid))->assertRedirect(route('login'));
+});
+
+it('does not offer the join page for a full or solo game', function () {
+    $creator = User::factory()->create();
+    $a = User::factory()->create();
+    $b = User::factory()->create();
+    $this->actingAs($creator)->post(route('games.store'), ['encounter_size' => 40, 'season' => 'core']);
+    $game = Game::latest('id')->first();
+    $this->actingAs($a)->post(route('games.join.confirm', $game->uuid));
+
+    $this->actingAs($b)->get(route('games.join', $game->uuid))->assertRedirect(route('games.index'));
+    $this->actingAs($b)->post(route('games.join.confirm', $game->uuid))->assertRedirect(route('games.index'));
+});
+
+it('swaps the roles in a solo game while it is being set up, but not once it is under way', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user)->post(route('games.store'), ['encounter_size' => 40, 'season' => 'core', 'is_solo' => true]);
+    $game = Game::latest('id')->first();
+    $before = $game->players()->orderBy('slot')->pluck('role')->map(fn ($r) => $r->value ?? $r)->all();
+
+    $this->actingAs($user)->post(route('games.setup.swap_roles', $game->uuid))->assertRedirect();
+    $swapped = $game->players()->orderBy('slot')->pluck('role')->map(fn ($r) => $r->value ?? $r)->all();
+    expect($swapped)->toBe(array_reverse($before));
+
+    $game->update(['status' => GameStatusEnum::InProgress]);
+    $this->actingAs($user)->post(route('games.setup.swap_roles', $game->uuid))->assertRedirect();
+    expect($game->players()->orderBy('slot')->pluck('role')->map(fn ($r) => $r->value ?? $r)->all())->toBe($swapped);
+});
+
+it('does not let anyone but the creator swap a solo game\'s roles, or swap in a two-player game', function () {
+    $user = User::factory()->create();
+    $other = User::factory()->create();
+    $this->actingAs($user)->post(route('games.store'), ['encounter_size' => 40, 'season' => 'core', 'is_solo' => true]);
+    $solo = Game::latest('id')->first();
+    $this->actingAs($other)->post(route('games.setup.swap_roles', $solo->uuid))->assertForbidden();
+
+    $this->actingAs($user)->post(route('games.store'), ['encounter_size' => 40, 'season' => 'core']);
+    $duo = Game::latest('id')->first();
+    $this->actingAs($user)->post(route('games.setup.swap_roles', $duo->uuid))->assertForbidden();
 });

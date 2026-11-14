@@ -145,18 +145,26 @@ start, dark and light, at 390px. Moderate-or-worse findings fail it. (Run `npm i
 The light pass uses the real `appearance` cookie and a reload, because toggling the class on a live page produced false contrast
 failures.
 
-**Found, not fixed (needs a decision)**
+**Fixed in the follow-up (same day)**
 
-- **In-play hidden information.** After scheme select, the other participant's page data still carries your current scheme, your
-  turn rows (`scheme_id`, `next_scheme_id`, notes) and, for non-solo games, observers are deliberately given current and held schemes
-  (`buildObserverCurrentSchemes`). If the game is observable, an opponent can also open the observe page in a second tab. Masking
-  needs the opponent-intel panel reworked, because it reads the same rows. Decide whether observers should be delayed or blind to schemes.
-- **`join` is a state-changing GET.** Opening the link joins the game, so a prefetch or an embedded image on another site could seat a
-  logged-in user. An interstitial "Join this game?" with a POST would close it, at the cost of one more tap.
-- **Crew submission trusts the client more than it should.** `submitCrew` checks ownership but not that the crew's faction and master
-  match what the player picked, nor that its size fits the encounter. `swapRoles` has no FormRequest (against the project convention) and
-  works at any stage, including mid-game.
+- **Hidden schemes during play.** In a live two-player game the other seat's current scheme, notes, follow-up pool, unrevealed turn rows
+  (held, or not yet scored or discarded) and every `next_scheme_id` are withheld from a participant's page data, and
+  `current_schemes` no longer returns both sides' schemes. Scores stay public and a scored or discarded scheme is revealed. The
+  opponent-intel panel is built first and handed over ready-made, because it reads the same rows. After the game, everything is shown.
+- **`join` no longer changes state on a GET.** The invite link (`games.join`) now shows a "Join this game?" page with who is hosting;
+  the button posts to `games.join.confirm` (throttled, same lock as before). Logged-out people still log in and come back to it.
+- **Crew submission checks the faction.** A crew must match the faction the player picked (a master may also be hired by its second
+  faction); Campaign games are exempt. Crew size is still not compared with the encounter, since hiring under the limit is legal.
+- **`swapRoles`** has a FormRequest (creator of a solo game only) and no longer works once the game has started.
+- **Stale lobbies.** `games:prune-stale-lobbies` (daily) soft-deletes two-player games nobody joined within 7 days, leaving tournament-
+  tracked games alone.
+
+**Still open (needs a decision)**
+
+- **Observers see schemes by design.** `buildObserverCurrentSchemes` gives a public observer both sides' current schemes during play, and
+  an opponent can open the observe page of an observable game in a second tab. Either delay or hide schemes for observers, or tell
+  creators that "observable" means opponents can peek.
 - **A bare Campaign-format game can still be created by POST.** The Create page hides the format, but `StoreGameRequest`
   accepts it, and a test plus a `copyCrewToGame` branch deliberately support a solo Campaign game with no campaign link, so I left it. If
   that path is no longer wanted, reject it in the request and delete the branch.
-- **Stale lobbies.** I did not find a job that clears games left waiting in Setup; check whether the public games list can fill with them.
+- **No in-browser check of the intel panel** with a scored scheme (the server tests cover its data).

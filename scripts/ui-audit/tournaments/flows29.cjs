@@ -35,8 +35,17 @@ const L = require('./lib.cjs');
         if (!/^\/games\/[0-9a-f-]{36}$/.test(url)) throw new Error('did not land on the game: ' + url);
         await L.expectText(a, /assigned at random when they join/i);
     });
-    await L.step('join: opening the game address as a non-player lands on the join flow, not a 403', b, async () => {
+    await L.step('join: opening the game address as a non-player lands on the invite page, not a 403, and does not seat them', b, async () => {
         await L.visit(b, url);
+        await L.expectText(b, /You have been invited/i);
+        await L.expectText(b, /assigned at random when you join/i);
+        // The host's lobby is still waiting: opening the invite did not take the second seat.
+        await L.visit(a, url);
+        await L.expectText(a, /assigned at random when they join/i);
+        await L.shot(b, '289-invite-page');
+    });
+    await L.step('join: the Join game button takes the second seat', b, async () => {
+        await L.clickText(b, /^Join game$/i, 'button');
         await L.expectText(b, /Select Your Faction/i);
     });
     await L.step('layout: the faction step starts high on the page and the scenario is collapsed', b, async () => {

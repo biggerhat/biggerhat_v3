@@ -100,7 +100,7 @@ it('prevents joining a solo game', function () {
     GamePlayer::factory()->soloOpponent()->create(['game_id' => $game->id]);
 
     $joiner = User::factory()->create();
-    $this->actingAs($joiner)->get(route('games.join', $game->uuid))
+    $this->actingAs($joiner)->post(route('games.join.confirm', $game->uuid))
         ->assertRedirect();
 });
 

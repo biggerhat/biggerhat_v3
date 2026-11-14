@@ -154,3 +154,26 @@ it('does not let a non-owner pick a solo slot to skip', function () {
 
     $this->actingAs(User::factory()->create())->postJson(route('games.setup.crew.skip', $game->uuid), ['slot' => 2])->assertForbidden();
 });
+
+it('refuses a crew from a different faction than the one the player picked', function () {
+    $creator = User::factory()->create();
+    $game = crewSelectSoloGame($creator); // slot 1 picked arcanists
+    $guildBuild = masterBuild($creator, 'guild');
+
+    $this->actingAs($creator)
+        ->postJson(route('games.setup.crew', $game->uuid), ['crew_build_id' => $guildBuild->id, 'slot' => 1])
+        ->assertStatus(422);
+
+    expect($game->players()->where('slot', 1)->first()->crew_build_id)->toBeNull();
+});
+
+it('accepts a crew whose master belongs to the picked faction as a second faction', function () {
+    $creator = User::factory()->create();
+    $game = crewSelectSoloGame($creator);
+    $master = Character::factory()->create(['station' => 'master', 'faction' => 'guild', 'second_faction' => 'arcanists']);
+    $build = CrewBuild::factory()->create(['user_id' => $creator->id, 'faction' => 'guild', 'master_id' => $master->id, 'crew_data' => []]);
+
+    $this->actingAs($creator)
+        ->postJson(route('games.setup.crew', $game->uuid), ['crew_build_id' => $build->id, 'slot' => 1])
+        ->assertOk();
+});

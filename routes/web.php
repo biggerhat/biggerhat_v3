@@ -419,6 +419,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::put('/{game:uuid}/scenario', [GameController::class, 'updateScenario'])->name('scenario.update');
     Route::post('/{game:uuid}/regenerate', [GameController::class, 'regenerateScenario'])->name('scenario.regenerate');
     Route::delete('/{game:uuid}', [GameController::class, 'destroy'])->name('destroy');
+    Route::post('/{game:uuid}/join', [GameController::class, 'confirmJoin'])->name('join.confirm')->middleware('throttle:20,1');
     Route::post('/{game:uuid}/abandon', [GameController::class, 'abandon'])->name('abandon');
     Route::post('/{game:uuid}/toggle-observable', [GameController::class, 'toggleObservable'])->name('toggle_observable');
     Route::patch('/{game:uuid}/settings', [GameController::class, 'updateSettings'])->name('settings.update');

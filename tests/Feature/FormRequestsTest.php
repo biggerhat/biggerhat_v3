@@ -35,6 +35,7 @@ it('builds rules for every form request', function () {
         App\Http\Requests\Campaign\RemoveManualInjuryRequest::class,
         App\Http\Requests\Campaign\RemoveCrewCardItemRequest::class,
         App\Http\Requests\Campaign\RemoveLeaderTotemInjuryRequest::class,
+        App\Http\Requests\Games\SwapRolesRequest::class, // creator of a solo game only: authorization, no input
     ];
 
     $broken = [];

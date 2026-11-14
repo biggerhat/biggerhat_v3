@@ -329,6 +329,37 @@ class GameController extends Controller
     }
 
     /**
+     * During play the other seat's current scheme, its notes, the follow-up pool derived from it and any scheme still
+     * unrevealed in their turn history (held, or not yet scored or discarded) stay out of the page data. Scores are public
+     * and stay. Once a scheme is scored or discarded it is revealed, and the intel panel shows it.
+     */
+    private function hideOpponentSchemes(Game $game): void
+    {
+        $mySlot = $game->players->firstWhere('user_id', Auth::id())?->slot;
+
+        foreach ($game->players as $player) {
+            if ($player->slot === $mySlot) {
+                continue;
+            }
+            $player->setAttribute('scheme_ready', $player->current_scheme_id !== null);
+            $player->setAttribute('current_scheme_id', null);
+            $player->setAttribute('scheme_notes', null);
+            $player->setAttribute('scheme_pool', null);
+
+            if ($player->relationLoaded('turns')) {
+                foreach ($player->turns as $turn) {
+                    // The pick for the following turn is hidden whatever this turn's outcome.
+                    $turn->setAttribute('next_scheme_id', null);
+                    if (! in_array($turn->scheme_action, ['scored', 'discarded'], true)) {
+                        $turn->setAttribute('scheme_id', null);
+                        $turn->setAttribute('scheme_notes', null);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Full reachable scheme tree for the pool: every pool scheme plus all of
      * their follow-ups, recursively. Seen-set + index cursor keeps it O(n)
      * instead of the O(n²) an array_shift queue would cost.
@@ -561,6 +592,13 @@ class GameController extends Controller
         // narrative), same ownership check as CampaignAftermathController.
         if ($context === GameShowContext::Summary) {
             $props['campaign_aftermath_recap'] = fn () => $this->buildCampaignAftermathRecapProp($game);
+        }
+
+        // A participant in a live two-player game must not be able to read the other side's hidden schemes out of the page
+        // data. The opponent-intel panel is built from those same rows, so it is computed first and handed over ready-made.
+        if ($isSelf && ! $game->is_solo && $game->status === GameStatusEnum::InProgress) {
+            $props['opponent_scheme_intel'] = $this->buildOpponentSchemeIntel($game, $schemeCache);
+            $this->hideOpponentSchemes($game);
         }
 
         return $props;
@@ -1114,6 +1152,10 @@ class GameController extends Controller
             ->map(fn ($upgrade) => $upgrade->only(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count']));
     }
 
+    /**
+     * The invite link. Opening it only shows who is inviting and a "Join game" button: joining changes state, so it is
+     * a POST ({@see confirmJoin()}) and a prefetch, an embedded image or a stray click on a link cannot seat anyone.
+     */
     public function join(Game $game)
     {
         // Require login — redirect back to this join URL after auth
@@ -1125,21 +1167,31 @@ class GameController extends Controller
                 ->with('messageType', 'warning');
         }
 
+        if ($redirect = $this->joinRedirect($game, Auth::id())) {
+            return $redirect;
+        }
+
+        $game->loadMissing('creator:id,name');
+
+        return inertia('Games/Join', [
+            'game' => [
+                'uuid' => $game->uuid,
+                'name' => $game->name,
+                'encounter_size' => $game->encounter_size,
+                'season' => $game->season->label(),
+                'format' => $game->format->label(),
+                'creator_name' => data_get($game, 'creator.name'),
+            ],
+        ]);
+    }
+
+    /** Takes the second seat in a waiting two-player game. */
+    public function confirmJoin(Game $game)
+    {
         $userId = Auth::id();
 
-        // Solo games cannot be joined
-        if ($game->is_solo) {
-            return redirect()->route('games.index');
-        }
-
-        // Already in game? Go to show
-        if ($game->players()->where('user_id', $userId)->exists()) {
-            return redirect()->route('games.show', $game->uuid);
-        }
-
-        // Creator can't join as player 2
-        if ($game->creator_id === $userId) {
-            return redirect()->route('games.show', $game->uuid);
+        if ($redirect = $this->joinRedirect($game, $userId)) {
+            return $redirect;
         }
 
         // Lock the game and re-check inside the lock: a double-tapped invite link, or two people opening it at once, would
@@ -1190,6 +1242,30 @@ class GameController extends Controller
         User::find($game->creator_id)?->notify(new GameOpponentJoined($game, $player->user->name));
 
         return redirect()->route('games.show', $game->uuid);
+    }
+
+    /**
+     * Where someone who cannot (or need not) join should go instead, or null when they may join. Shared by the invite page
+     * and the join action; the action repeats the open-seat check under a lock.
+     */
+    private function joinRedirect(Game $game, int $userId): ?RedirectResponse
+    {
+        // Solo games cannot be joined
+        if ($game->is_solo) {
+            return redirect()->route('games.index');
+        }
+
+        // Already in game, or the creator (who can't take the second seat)? Go to the game
+        if ($game->creator_id === $userId || $game->players()->where('user_id', $userId)->exists()) {
+            return redirect()->route('games.show', $game->uuid);
+        }
+
+        // Game must be in setup and have an open slot
+        if ($game->status !== GameStatusEnum::Setup || $game->players()->count() >= 2) {
+            return redirect()->route('games.index')->withMessage('This game is no longer accepting players.');
+        }
+
+        return null;
     }
 
     public function updateScenario(UpdateScenarioRequest $request, Game $game)

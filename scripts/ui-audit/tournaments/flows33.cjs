@@ -79,9 +79,15 @@ async function scan(o, label, { transient = false } = {}) {
         await L.expectText(a, /assigned at random when they join/i);
         await scan(a, 'lobby');
     });
-    await L.step('a11y faction step', b, async () => {
+    await L.step('a11y invite page', b, async () => {
         await L.visit(b, url);
+        await L.expectText(b, /You have been invited/i);
+        await scan(b, 'invite');
+        await L.clickText(b, /^Join game$/i, 'button');
+    });
+    await L.step('a11y faction step', b, async () => {
         await L.expectText(b, /Select Your Faction/i);
+        await L.sleep(900); // the page has just arrived by a client-side visit; let its entrance transition finish before scanning
         await scan(b, 'faction');
         await L.clickText(b, /^Arcanists$/i, 'button');
         await L.sleep(400);

@@ -15,6 +15,7 @@ use App\Http\Requests\Games\SubmitCrewRequest;
 use App\Http\Requests\Games\SubmitFactionRequest;
 use App\Http\Requests\Games\SubmitMasterRequest;
 use App\Http\Requests\Games\SubmitSchemeRequest;
+use App\Http\Requests\Games\SwapRolesRequest;
 use App\Http\Requests\Games\UpdateOpponentNameRequest;
 use App\Models\Ability;
 use App\Models\Action;
@@ -216,6 +217,16 @@ class GameSetupController extends Controller
             $arsenalError = $this->validateCampaignArsenalHires($game, $crewBuild);
             if ($arsenalError !== null) {
                 return response()->json(['error' => $arsenalError], 422);
+            }
+        }
+
+        // A crew has to belong to the faction the player picked (a master may also be hired by its second faction).
+        // Campaign games take their leader from the campaign, so their builds are not compared.
+        if ($game->format !== GameFormatEnum::Campaign && $player->faction !== null) {
+            $crewMaster = $crewBuild->master;
+            $crewFactions = array_filter([$crewBuild->faction, $crewMaster ? $crewMaster->faction : null, $crewMaster ? $crewMaster->second_faction : null]);
+            if ($crewFactions !== [] && ! in_array($player->faction, $crewFactions, true)) {
+                return response()->json(['error' => "That crew is not a {$player->faction->label()} crew"], 422);
             }
         }
 
@@ -566,10 +577,11 @@ class GameSetupController extends Controller
         return back();
     }
 
-    public function swapRoles(Game $game): RedirectResponse
+    public function swapRoles(SwapRolesRequest $request, Game $game): RedirectResponse
     {
-        if (! $game->is_solo || $game->creator_id !== Auth::id()) {
-            abort(403, 'Only available in solo mode');
+        // Attacker/Defender decides deployment, so it is fixed once the game is under way.
+        if (in_array($game->status, [GameStatusEnum::InProgress, GameStatusEnum::Completed, GameStatusEnum::Abandoned], true)) {
+            return back()->withMessage('Roles can only be swapped before the game starts.');
         }
 
         /** @var GamePlayer|null $p1 */

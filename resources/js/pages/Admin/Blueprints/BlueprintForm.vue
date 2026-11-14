@@ -8,39 +8,39 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { imageSrc } from '@/composables/useBlueprintImages';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { onMounted, ref } from 'vue';
+import { onMounted, type PropType, ref } from 'vue';
 
 const props = defineProps({
     blueprint: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return null;
         },
     },
     sculpt_versions: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     characters: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     miniatures: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     packages: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];

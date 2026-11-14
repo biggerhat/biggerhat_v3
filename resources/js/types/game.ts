@@ -220,7 +220,16 @@ export interface GameData {
     is_observable: boolean;
     settings: { auto_soulstone_on_kill?: boolean } | null;
     winner_slot: number | null;
-    strategy: { id: number; name: string; slug: string } | null;
+    strategy: {
+        id: number;
+        name: string;
+        slug: string;
+        image_url?: string | null;
+        setup?: string | null;
+        rules?: string | null;
+        scoring?: string | null;
+        additional_scoring?: string | null;
+    } | null;
     players: GamePlayer[];
     winner: { id: number; name: string } | null;
     created_at: string;

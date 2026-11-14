@@ -11,88 +11,88 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { CircleX } from 'lucide-vue-next';
-import { onMounted, ref } from 'vue';
+import { onMounted, type PropType, ref } from 'vue';
 
 const props = defineProps({
     upgrade: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return null;
         },
     },
     characters: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     keywords: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     factions: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     limitations: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     tokens: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     markers: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     triggers: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     actions: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     abilities: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     game_mode_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];

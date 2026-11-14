@@ -2,7 +2,7 @@
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head } from '@inertiajs/vue3';
 import { Swords, Users } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, type PropType } from 'vue';
 
 import CardSkeleton from '@/components/CardSkeleton.vue';
 import ClearableSelect from '@/components/ClearableSelect.vue';
@@ -27,7 +27,7 @@ const booleanOptions = [
 
 const props = defineProps({
     triggers: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
@@ -39,14 +39,14 @@ const props = defineProps({
         default: 0,
     },
     trigger_names: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     suits: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};

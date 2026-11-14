@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { onMounted, ref } from 'vue';
+import { onMounted, type PropType, ref } from 'vue';
 
 interface SelectOption {
     name: string;
@@ -16,7 +16,7 @@ interface SelectOption {
 
 const props = defineProps({
     channel: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return null;

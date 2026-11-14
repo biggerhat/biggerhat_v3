@@ -13,7 +13,7 @@ interface UpgradeAction {
     is_signature?: boolean;
     stone_cost?: number;
     range?: number | string | null;
-    range_type?: string;
+    range_type?: string | null;
     stat?: number | string | null;
     stat_suits?: string | null;
     stat_modifier?: string | null;

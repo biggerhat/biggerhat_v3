@@ -21,7 +21,10 @@ const globalSearchFilter: FilterFn<any> = (row, _columnId, filterValue) => {
     return name.includes(search) || suits.includes(search) || notes.includes(search);
 };
 
-const columns: ColumnDef<Triggers>[] = [
+/** Rows come straight from the server payload; their fields are read by the column definitions below. */
+type TableRow = Record<string, any>;
+
+const columns: ColumnDef<TableRow>[] = [
     {
         accessorKey: 'id',
         header: sortableHeader('ID'),
@@ -81,7 +84,7 @@ const columns: ColumnDef<Triggers>[] = [
 ];
 
 const props = defineProps<{
-    triggers: TData[];
+    triggers: TableRow[];
 }>();
 
 const globalFilter = ref('');

@@ -19,7 +19,7 @@ import {
     Trash2,
     X,
 } from 'lucide-vue-next';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, type PropType, ref, watch } from 'vue';
 
 const urlCopied = ref(false);
 const copySearchUrl = () => {
@@ -61,7 +61,7 @@ const booleanOptions = [
 
 const props = defineProps({
     results: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
@@ -73,147 +73,147 @@ const props = defineProps({
         default: 0,
     },
     factions: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     game_mode_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     stations: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     suits: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     base_sizes: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     keywords: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     characteristics: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     actions: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     abilities: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     triggers: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     tokens_list: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     markers_list: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     action_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     action_range_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     stat_modifiers: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     resistance_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     defensive_ability_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     sort_options: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     sort_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     view_options: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     saved_searches: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];

@@ -32,7 +32,7 @@ interface ActionData {
     type?: string;
     is_signature?: boolean;
     stone_cost?: number;
-    range_type?: string;
+    range_type?: string | null;
     range?: number | string | null;
     stat?: number | string | null;
     stat_suits?: string | null;

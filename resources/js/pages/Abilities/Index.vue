@@ -2,7 +2,7 @@
 import { useStaggeredEntry } from '@/composables/useStaggeredEntry';
 import { Head, Link } from '@inertiajs/vue3';
 import { ScrollText, Users } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, type PropType } from 'vue';
 
 import AbilityCard from '@/components/AbilityCard.vue';
 import CardSkeleton from '@/components/CardSkeleton.vue';
@@ -28,7 +28,7 @@ const booleanOptions = [
 
 const props = defineProps({
     abilities: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
@@ -40,21 +40,21 @@ const props = defineProps({
         default: 0,
     },
     ability_names: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     suits: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};
         },
     },
     defensive_ability_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return {};

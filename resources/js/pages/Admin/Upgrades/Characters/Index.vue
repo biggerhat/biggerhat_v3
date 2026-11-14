@@ -15,7 +15,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
-const columns: ColumnDef<Upgrades>[] = [
+/** Rows come straight from the server payload; their fields are read by the column definitions below. */
+type TableRow = Record<string, any>;
+
+const columns: ColumnDef<TableRow>[] = [
     {
         accessorKey: 'name',
         header: sortableHeader('Upgrade'),
@@ -66,7 +69,7 @@ const columns: ColumnDef<Upgrades>[] = [
 ];
 
 const props = defineProps<{
-    upgrades: TData[];
+    upgrades: TableRow[];
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([]);

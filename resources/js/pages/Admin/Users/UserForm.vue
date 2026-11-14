@@ -8,22 +8,22 @@ import { Label } from '@/components/ui/label';
 import { type SharedData } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { Check, Copy, KeyRound, LoaderCircle } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, type PropType, ref } from 'vue';
 
 const props = defineProps({
     user: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: true,
     },
     checked_roles: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     roles: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];

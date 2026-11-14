@@ -39,7 +39,7 @@ what the repo shows but needs a look at production to confirm.
 - **Tests:** 246 test files, about 2,500 tests. Thin areas: Cooperative (2 files; the play tracker does not exist yet), Game (22 files for the biggest controllers). Tournament has 48 files plus 30+ browser flows in CI.
 - **Strictness is on:** `Model::shouldBeStrict()` catches lazy loading and mass assignment in dev and tests. No TODO/FIXME debt in code.
 - **Dependencies:** `inertia-laravel` and `@inertiajs/vue3` have a new major (3.x); the Tiptap packages are a minor behind. None urgent.
-- **No `vue-tsc`.** Templates are only checked by the Vue compiler and ESLint, so prop and type mismatches in templates reach the browser. Installing it and fixing the backlog is the single biggest frontend quality win.
+- **Type checking (done 2026-11-13).** `npm run typecheck` runs vue-tsc against a per-file baseline (`scripts/typecheck-baseline.json`) and is a blocking CI step: a file may not get more errors than its baseline. It went from 1,312 findings to 271 by fixing shared causes (Select option types, `Input`/`Textarea` accepting `null`, 34 `[Object, Array]` props, placeholder `TData` types in admin tables, redundant `reload()` options). It also found a real bug: ticking _Black Joker (Traitor)_ on the Aftermath page read `traitorTargetCrews.value[0]` inside the template, where the ref is already unwrapped, so the handler threw. vue-tsc lives in `node_modules/.cache/typecheck`, not `package.json`, because having it resolvable makes prettier's organize-imports plugin reorder every `.vue` file's imports. Burn the rest down by running `npm run typecheck:update` after each fix.
 
 ## UX gaps worth fixing
 

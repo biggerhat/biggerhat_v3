@@ -14,7 +14,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 import { Ban, Check } from 'lucide-vue-next';
 
-const columns: ColumnDef<Miniatures>[] = [
+/** Rows come straight from the server payload; their fields are read by the column definitions below. */
+type TableRow = Record<string, any>;
+
+const columns: ColumnDef<TableRow>[] = [
     {
         accessorKey: 'id',
         header: sortableHeader('ID'),
@@ -78,7 +81,7 @@ const columns: ColumnDef<Miniatures>[] = [
 ];
 
 const props = defineProps<{
-    miniatures: TData[];
+    miniatures: TableRow[];
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([]);

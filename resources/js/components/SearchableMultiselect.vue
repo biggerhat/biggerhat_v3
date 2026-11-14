@@ -13,7 +13,7 @@ interface Props {
     optionValue?: string;
 }
 
-const modelValue = defineModel<string[]>({ default: [] });
+const modelValue = defineModel<string[]>({ default: () => [] });
 
 const props = withDefaults(defineProps<Props>(), {
     placeholder: 'Search...',

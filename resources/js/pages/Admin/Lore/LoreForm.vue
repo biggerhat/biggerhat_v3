@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { Trash2 } from 'lucide-vue-next';
-import { onMounted, ref } from 'vue';
+import { onMounted, type PropType, ref } from 'vue';
 
 interface NewMediaEntry {
     name: string | null;
@@ -19,35 +19,35 @@ interface NewMediaEntry {
 
 const props = defineProps({
     lore: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return null;
         },
     },
     lore_media: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     media_types: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     characters: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];
         },
     },
     tos_units: {
-        type: [Object, Array],
+        type: [Object, Array] as PropType<any>,
         required: false,
         default() {
             return [];

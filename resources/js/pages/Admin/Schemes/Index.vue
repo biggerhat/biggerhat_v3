@@ -13,7 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
 
-const columns: ColumnDef<Schemes>[] = [
+/** Rows come straight from the server payload; their fields are read by the column definitions below. */
+type TableRow = Record<string, any>;
+
+const columns: ColumnDef<TableRow>[] = [
     {
         accessorKey: 'name',
         header: sortableHeader('Scheme'),
@@ -49,7 +52,7 @@ const columns: ColumnDef<Schemes>[] = [
 ];
 
 const props = defineProps<{
-    schemes: TData[];
+    schemes: TableRow[];
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([]);

@@ -62,7 +62,10 @@ const addToCollection = (character: any) => {
     );
 };
 
-const columns: ColumnDef<Miniatures>[] = [
+/** Rows come straight from the server payload; their fields are read by the column definitions below. */
+type TableRow = Record<string, any>;
+
+const columns: ColumnDef<TableRow>[] = [
     {
         accessorKey: 'display_name',
         header: () => h('div', {}, 'Name'),
@@ -138,7 +141,7 @@ const columns: ColumnDef<Miniatures>[] = [
 ];
 
 const props = defineProps<{
-    characters: TData[];
+    characters: TableRow[];
 }>();
 
 const columnFilters = ref<ColumnFiltersState>([]);

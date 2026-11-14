@@ -104,6 +104,14 @@ import {
 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
+/** One turn of the opponent's scheme history, as built by GameController::buildOpponentSchemeIntel. */
+interface OpponentSchemeTurn {
+    turn_number: number;
+    scheme_id: number | null;
+    scheme_name: string | null;
+    scheme_action: 'scored' | 'discarded' | 'held' | null;
+}
+
 interface FactionInfo {
     name: string;
     slug: string;
@@ -212,8 +220,9 @@ const props = defineProps<{
     all_deployments: { value: string; label: string; image_url: string | null }[];
     current_schemes: SchemeData[];
     opponent_scheme_intel: {
-        last_revealed: { id: number; name: string; turn_number: number; scored: boolean } | null;
+        last_revealed: OpponentSchemeTurn | null;
         possible_schemes: SchemeData[];
+        scheme_history: OpponentSchemeTurn[];
     } | null;
     next_schemes: SchemeData[];
     opponent_next_schemes: SchemeData[];

@@ -324,6 +324,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/bonanza-loot-deck', BonanzaLootDeckController::class)->name('bonanza_loot_deck');
     Route::get('/bonanza-loot-deck/print', PrintBonanzaLootDeckController::class)->name('bonanza_loot_deck.print');
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
+    Route::get('/tabletop', \App\Http\Controllers\TabletopController::class)->name('tabletop');
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
         Route::get('/upgrades/share/{shareCode}', [CustomUpgradeController::class, 'share'])->name('upgrades.share');

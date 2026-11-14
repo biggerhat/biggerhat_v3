@@ -36,6 +36,11 @@ class FeatureFlagsServiceProvider extends ServiceProvider
             'description' => 'Side-by-side character stat comparison page.',
             'default' => false,
         ],
+        'experiment-tabletop' => [
+            'label' => 'Tabletop (preview)',
+            'description' => 'Virtual tabletop spike: a 36 inch board with to-scale bases, multi-level terrain and a ruler. Solo, nothing is saved on the server.',
+            'default' => false,
+        ],
     ];
 
     public function boot(): void

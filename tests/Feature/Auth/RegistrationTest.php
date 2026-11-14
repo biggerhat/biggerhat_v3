@@ -19,3 +19,11 @@ test('new users can register', function () {
     $this->assertAuthenticated();
     $response->assertRedirect(route('index', absolute: false));
 });
+
+test('registration is rate limited per client', function () {
+    foreach (range(1, 10) as $i) {
+        $this->post('/register', ['name' => '', 'email' => '', 'password' => '', 'password_confirmation' => '']);
+    }
+
+    $this->post('/register', ['name' => '', 'email' => '', 'password' => '', 'password_confirmation' => ''])->assertStatus(429);
+});

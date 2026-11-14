@@ -128,7 +128,11 @@ export function auraOrigin(aura: Aura, owner: Pick<Token, 'x' | 'y' | 'baseMm'>)
 /**
  * Models inside an aura. A model never counts as inside its own following aura, but one standing in the aura it left behind does.
  */
-export function modelsWithin<T extends Pick<Token, 'id' | 'x' | 'y' | 'baseMm'>>(aura: Aura, owner: Pick<Token, 'x' | 'y' | 'baseMm'>, tokens: T[]): T[] {
+export function modelsWithin<T extends Pick<Token, 'id' | 'x' | 'y' | 'baseMm'>>(
+    aura: Aura,
+    owner: Pick<Token, 'x' | 'y' | 'baseMm'>,
+    tokens: T[],
+): T[] {
     const origin = auraOrigin(aura, owner);
     return tokens.filter((t) => (t.id !== aura.ownerId || aura.locked) && withinAura(origin, aura.range, t));
 }
@@ -152,10 +156,145 @@ export const effectiveSize = (sz: number, elevation: number): number => sz + ele
 /** Cover from height: the target is at least 2" higher than the initiator (p.57). */
 export const heightCover = (initiatorElevation: number, targetElevation: number): boolean => targetElevation - initiatorElevation >= 2;
 
-/** Standard Deployment (8" from the chosen edge) and Corner Deployment (12" from the chosen corner), p.61. Returned as shapes per side. */
-export function deploymentZones(kind: 'standard' | 'corner'): { a: Shape; b: Shape } {
-    if (kind === 'standard') {
-        return { a: { kind: 'rect', x: 0, y: 0, w: TABLE_SIZE, h: 8 }, b: { kind: 'rect', x: 0, y: TABLE_SIZE - 8, w: TABLE_SIZE, h: 8 } };
-    }
-    return { a: { kind: 'rect', x: 0, y: 0, w: 12, h: 12 }, b: { kind: 'rect', x: TABLE_SIZE - 12, y: TABLE_SIZE - 12, w: 12, h: 12 } };
+export type DeploymentKind = 'standard' | 'flank' | 'corner' | 'wedge';
+export const DEPLOYMENT_KINDS: { value: DeploymentKind; label: string }[] = [
+    { value: 'standard', label: 'Standard (within 8" of an edge)' },
+    { value: 'flank', label: 'Flank (within 9" of a quarter\'s edges)' },
+    { value: 'corner', label: 'Corner (within 12" of a corner)' },
+    { value: 'wedge', label: 'Wedge (12" in from the middle of an edge)' },
+];
+
+export interface DeploymentZones {
+    a: Shape;
+    b: Shape;
+    /** The line that divides the table into the two halves (p.60-61). */
+    centerline: [[number, number], [number, number]];
 }
+
+const T = TABLE_SIZE;
+const half = T / 2;
+const rectPoly = (x: number, y: number, w: number, h: number): Shape => ({
+    kind: 'poly',
+    points: [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+    ],
+});
+
+/** The zones as the guide draws them (p.61), with side A at the top or top-right. A zone is always inside the table. */
+function baseZones(kind: DeploymentKind): DeploymentZones {
+    switch (kind) {
+        case 'standard':
+            return {
+                a: rectPoly(0, 0, T, 8),
+                b: rectPoly(0, T - 8, T, 8),
+                centerline: [
+                    [0, half],
+                    [T, half],
+                ],
+            };
+        case 'wedge':
+            return {
+                a: {
+                    kind: 'poly',
+                    points: [
+                        [0, 0],
+                        [T, 0],
+                        [half, 12],
+                    ],
+                },
+                b: {
+                    kind: 'poly',
+                    points: [
+                        [0, T],
+                        [T, T],
+                        [half, T - 12],
+                    ],
+                },
+                centerline: [
+                    [0, half],
+                    [T, half],
+                ],
+            };
+        case 'corner':
+            // A quarter circle: a 12" circle centred on the table corner, cut off by the table edge when drawn.
+            return {
+                a: { kind: 'circle', cx: T, cy: 0, r: 12 },
+                b: { kind: 'circle', cx: 0, cy: T, r: 12 },
+                centerline: [
+                    [0, 0],
+                    [T, T],
+                ],
+            };
+        case 'flank':
+            // The part of a table quarter within 9" of the two table edges that bound it: a 9" band along each edge.
+            return {
+                a: {
+                    kind: 'poly',
+                    points: [
+                        [half, 0],
+                        [T, 0],
+                        [T, half],
+                        [T - 9, half],
+                        [T - 9, 9],
+                        [half, 9],
+                    ],
+                },
+                b: {
+                    kind: 'poly',
+                    points: [
+                        [0, half],
+                        [9, half],
+                        [9, T - 9],
+                        [half, T - 9],
+                        [half, T],
+                        [0, T],
+                    ],
+                },
+                centerline: [
+                    [0, 0],
+                    [T, T],
+                ],
+            };
+    }
+}
+
+/** Turn the table a quarter turn about its centre: (x, y) goes to (T - y, x). */
+function quarterTurn(shape: Shape): Shape {
+    const turn = ([x, y]: [number, number]): [number, number] => [T - y, x];
+    if (shape.kind === 'circle') {
+        const [cx, cy] = turn([shape.cx, shape.cy]);
+        return { ...shape, cx, cy };
+    }
+    if (shape.kind === 'rect') return quarterTurn(rectPoly(shape.x, shape.y, shape.w, shape.h));
+    return { kind: 'poly', points: shape.points.map(turn) };
+}
+
+/**
+ * The zones for a deployment. Variant 0 is as drawn in the guide; 1, 2 and 3 turn the table by a quarter each, which covers every
+ * way a player can choose an edge, corner or quarter (with the opponent opposite).
+ */
+export function deploymentZones(kind: DeploymentKind, variant = 0): DeploymentZones {
+    let z = baseZones(kind);
+    for (let i = 0; i < ((variant % 4) + 4) % 4; i++) {
+        const turn = ([x, y]: [number, number]): [number, number] => [T - y, x];
+        z = { a: quarterTurn(z.a), b: quarterTurn(z.b), centerline: [turn(z.centerline[0]), turn(z.centerline[1])] };
+    }
+    return z;
+}
+
+/** Where a zone sits, in words: "top", "bottom-right", and so on. */
+export function describeZone(shape: Shape): string {
+    const pts =
+        shape.kind === 'circle' ? [[shape.cx, shape.cy]] : shape.kind === 'poly' ? shape.points : [[shape.x + shape.w / 2, shape.y + shape.h / 2]];
+    const cx = pts.reduce((n, p) => n + p[0], 0) / pts.length;
+    const cy = pts.reduce((n, p) => n + p[1], 0) / pts.length;
+    const v = cy < T / 3 ? 'top' : cy > (2 * T) / 3 ? 'bottom' : '';
+    const h = cx < T / 3 ? 'left' : cx > (2 * T) / 3 ? 'right' : '';
+    return [v, h].filter(Boolean).join('-') || 'middle';
+}
+
+/** Is a point inside a zone, on the table? */
+export const inZone = (shape: Shape, x: number, y: number): boolean => x >= 0 && x <= T && y >= 0 && y <= T && pointInShape(shape, x, y);

@@ -64,6 +64,38 @@ const L = require('./lib.cjs');
             await L.shot(s, `351-tabletop-filter-${label}`);
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
         });
+        await L.step(`tabletop (${label}): all four deployments draw their real shapes and a centerline`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            // What each deployment draws for side A: a rectangle strip, an L-shaped flank, a quarter circle, a triangle.
+            const expected = { standard: 'polygon', flank: 'polygon', corner: 'circle', wedge: 'polygon' };
+            const pointsOf = () =>
+                s.page.evaluate(() => (document.querySelector('[data-testid=zone-a]').getAttribute('points') || '').trim().split(/\s+/).length);
+            const wanted = { standard: 4, flank: 6, wedge: 3 };
+            for (const kind of ['standard', 'flank', 'corner', 'wedge']) {
+                await s.page.select('[data-testid=deployment-select]', kind);
+                await s.page.waitForSelector('[data-testid=zone-a]');
+                const tag = await s.page.$eval('[data-testid=zone-a]', (e) => e.tagName.toLowerCase());
+                if (tag !== expected[kind]) throw new Error(`${kind} draws a <${tag}>, expected <${expected[kind]}>`);
+                if (wanted[kind] && (await pointsOf()) !== wanted[kind])
+                    throw new Error(`${kind} has ${await pointsOf()} corners, expected ${wanted[kind]}`);
+                if (!(await s.page.$('[data-testid=centerline]'))) throw new Error(`${kind} has no centerline`);
+                const variants = await s.page.$$eval('[data-testid=deployment-variant] option', (o) => o.length);
+                if (variants !== 4) throw new Error(`${kind} offers ${variants} placements, expected 4`);
+                await L.shot(s, `354-deployment-${kind}-${label}`);
+            }
+            // Turning the table moves the zone: the corner circle goes from the top-right corner to the bottom-right.
+            const centre = () =>
+                s.page.$eval('[data-testid=zone-a]', (e) => ({ cx: Number(e.getAttribute('cx')), cy: Number(e.getAttribute('cy')) }));
+            await s.page.select('[data-testid=deployment-select]', 'corner');
+            const first = await centre();
+            await s.page.select('[data-testid=deployment-variant]', '1');
+            const second = await centre();
+            if (!(first.cx === 36 && first.cy === 0 && second.cx === 36 && second.cy === 36)) {
+                throw new Error(`corner did not turn: ${JSON.stringify(first)} then ${JSON.stringify(second)}`);
+            }
+            if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
+        });
         await L.step(`tabletop (${label}): an aura starts at the base edge and shows who is inside`, s, async () => {
             await L.visit(s, '/tools/tabletop');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');

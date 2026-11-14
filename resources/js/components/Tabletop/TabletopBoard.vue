@@ -3,18 +3,21 @@ import { Button } from '@/components/ui/button';
 import {
     BASE_SIZES_MM,
     AURAS_PER_MODEL,
+    DEPLOYMENT_KINDS,
     TABLE_SIZE,
     auraOrigin,
     auraRadius,
     baseRadius,
     clampToTable,
     deploymentZones,
+    describeZone,
     edgeDistance,
     fallHurts,
     heightCover,
     restingSupport,
     modelsWithin,
     type Aura,
+    type DeploymentKind,
     type Shape,
     type Token,
 } from '@/lib/tabletop/geometry';
@@ -27,10 +30,13 @@ type Point = { x: number; y: number };
 
 const MIN_WIDTH = 6;
 
-const props = withDefaults(defineProps<{ tokens: Token[]; sandbox?: boolean; sideNames?: { a: string; b: string }; storageKey?: string }>(), {
-    sandbox: false,
-    sideNames: () => ({ a: 'Blue', b: 'Red' }),
-});
+const props = withDefaults(
+    defineProps<{ tokens: Token[]; sandbox?: boolean; sideNames?: { a: string; b: string }; storageKey?: string; deployment?: DeploymentKind }>(),
+    {
+        sandbox: false,
+        sideNames: () => ({ a: 'Blue', b: 'Red' }),
+    },
+);
 const emit = defineEmits<{
     moved: [token: Token];
     add: [token: Omit<Token, 'id'>];
@@ -53,7 +59,8 @@ watch(
 const selectedId = ref<string | null>(null);
 const mode = ref<Mode>('move');
 const level = ref<number | 'all'>('all');
-const deployment = ref<'none' | 'standard' | 'corner'>('none');
+const deployment = ref<'none' | DeploymentKind>(props.deployment ?? 'none');
+const variant = ref(0);
 const note = ref('');
 const view = ref({ x: 0, y: 0, w: TABLE_SIZE });
 const svg = ref<SVGSVGElement | null>(null);
@@ -125,7 +132,16 @@ const insideOf = (id: string) => activeAuras.value.find((a) => a.aura.id === id)
 const caught = computed(() => new Set(activeAuras.value.flatMap((a) => a.inside.map((t) => t.id))));
 const selected = computed(() => tokens.value.find((t) => t.id === selectedId.value) ?? null);
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
-const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value)));
+const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value, variant.value)));
+/** The four ways to place the chosen deployment, named by where each side ends up. */
+const variants = computed(() =>
+    deployment.value === 'none'
+        ? []
+        : [0, 1, 2, 3].map((v) => {
+              const z = deploymentZones(deployment.value as DeploymentKind, v);
+              return { value: v, label: `${props.sideNames.a} ${describeZone(z.a)}, ${props.sideNames.b} ${describeZone(z.b)}` };
+          }),
+);
 
 const sideColour = (side: 'a' | 'b') => (side === 'a' ? 'hsl(215 70% 50%)' : 'hsl(5 70% 48%)');
 
@@ -333,25 +349,60 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         stroke="hsl(var(--border))"
                         :stroke-width="n === 18 ? 0.06 : 0.03"
                     />
-                    <g v-if="zones">
-                        <component
-                            :is="shapeTag(zones.a)"
-                            v-bind="shapeAttrs(zones.a)"
-                            :fill="sideColour('a')"
-                            fill-opacity="0.12"
-                            stroke-dasharray="0.6 0.4"
-                            :stroke="sideColour('a')"
-                            stroke-width="0.08"
+                    <g v-if="zones" data-testid="deployment-zones" :data-kind="deployment">
+                        <!-- zones are clipped to the table, which cuts the corner circles into quarters -->
+                        <clipPath id="table-clip"><rect x="0" y="0" :width="TABLE_SIZE" :height="TABLE_SIZE" /></clipPath>
+                        <g clip-path="url(#table-clip)">
+                            <component
+                                :is="shapeTag(zones.a)"
+                                v-bind="shapeAttrs(zones.a)"
+                                :fill="sideColour('a')"
+                                fill-opacity="0.16"
+                                stroke-dasharray="0.6 0.4"
+                                :stroke="sideColour('a')"
+                                stroke-width="0.12"
+                                data-testid="zone-a"
+                            />
+                            <component
+                                :is="shapeTag(zones.b)"
+                                v-bind="shapeAttrs(zones.b)"
+                                :fill="sideColour('b')"
+                                fill-opacity="0.16"
+                                stroke-dasharray="0.6 0.4"
+                                :stroke="sideColour('b')"
+                                stroke-width="0.12"
+                                data-testid="zone-b"
+                            />
+                        </g>
+                        <line
+                            :x1="zones.centerline[0][0]"
+                            :y1="zones.centerline[0][1]"
+                            :x2="zones.centerline[1][0]"
+                            :y2="zones.centerline[1][1]"
+                            stroke="hsl(var(--foreground))"
+                            stroke-opacity="0.75"
+                            stroke-width="0.14"
+                            stroke-dasharray="0.7 0.5"
+                            data-testid="centerline"
                         />
-                        <component
-                            :is="shapeTag(zones.b)"
-                            v-bind="shapeAttrs(zones.b)"
-                            :fill="sideColour('b')"
-                            fill-opacity="0.12"
-                            stroke-dasharray="0.6 0.4"
-                            :stroke="sideColour('b')"
-                            stroke-width="0.08"
-                        />
+                        <text
+                            :x="TABLE_SIZE / 2"
+                            :y="TABLE_SIZE / 2"
+                            text-anchor="middle"
+                            font-size="0.9"
+                            font-weight="700"
+                            letter-spacing="0.15"
+                            fill="hsl(var(--foreground))"
+                            fill-opacity="0.8"
+                            stroke="hsl(var(--background))"
+                            stroke-width="0.25"
+                            paint-order="stroke"
+                            :transform="`rotate(${Math.round((Math.atan2(zones.centerline[1][1] - zones.centerline[0][1], zones.centerline[1][0] - zones.centerline[0][0]) * 180) / Math.PI)} ${TABLE_SIZE / 2} ${TABLE_SIZE / 2})`"
+                            dy="-0.5"
+                            pointer-events="none"
+                        >
+                            CENTERLINE
+                        </text>
                     </g>
                     <template v-for="piece in terrain" :key="piece.id">
                         <g
@@ -494,14 +545,26 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     <option v-for="l in levels" :key="l" :value="l">{{ l === 0 ? 'Table only' : `Up to Ht ${l}` }}</option>
                 </select>
             </label>
-            <label class="block text-sm">
-                <span class="mb-1 block font-medium">Deployment zones</span>
-                <select v-model="deployment" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="deployment-select">
-                    <option value="none">None</option>
-                    <option value="standard">Standard (8" from an edge)</option>
-                    <option value="corner">Corner (12" from a corner)</option>
-                </select>
-            </label>
+            <div class="space-y-2">
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium">Deployment</span>
+                    <select
+                        v-model="deployment"
+                        class="w-full rounded-md border bg-background px-2 py-1.5"
+                        data-testid="deployment-select"
+                        @change="variant = 0"
+                    >
+                        <option value="none">None</option>
+                        <option v-for="d in DEPLOYMENT_KINDS" :key="d.value" :value="d.value">{{ d.label }}</option>
+                    </select>
+                </label>
+                <label v-if="variants.length" class="block text-sm">
+                    <span class="mb-1 block font-medium">Which side</span>
+                    <select v-model.number="variant" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="deployment-variant">
+                        <option v-for="v in variants" :key="v.value" :value="v.value">{{ v.label }}</option>
+                    </select>
+                </label>
+            </div>
 
             <div class="rounded-md border p-3 text-sm" data-testid="selected-panel">
                 <template v-if="selected">

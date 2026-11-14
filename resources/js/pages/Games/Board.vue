@@ -2,7 +2,7 @@
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
-import { TABLE_SIZE, baseRadius, type Token } from '@/lib/tabletop/geometry';
+import { TABLE_SIZE, baseRadius, type DeploymentKind, type Token } from '@/lib/tabletop/geometry';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import { loadEcho } from '@/lib/echo';
@@ -17,7 +17,7 @@ interface BoardModel {
 }
 
 const props = defineProps<{
-    game: { uuid: string; is_solo: boolean };
+    game: { uuid: string; is_solo: boolean; deployment: DeploymentKind | null };
     players: { slot: number; name: string; mine: boolean }[];
     models: BoardModel[];
     positions: Record<string, { x: number; y: number }>;
@@ -99,6 +99,6 @@ function moved(t: Token) {
         </template>
     </PageBanner>
     <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
-        <TabletopBoard :tokens="tokens" :storage-key="game.uuid" :side-names="sideNames" @moved="moved" />
+        <TabletopBoard :tokens="tokens" :storage-key="game.uuid" :deployment="game.deployment ?? undefined" :side-names="sideNames" @moved="moved" />
     </div>
 </template>

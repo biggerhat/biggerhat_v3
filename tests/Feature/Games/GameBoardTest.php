@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\BaseSizeEnum;
+use App\Enums\DeploymentEnum;
 use App\Events\GameBoardMoved;
 use App\Models\Character;
 use App\Models\CustomCharacter;
@@ -49,6 +50,7 @@ it('shows both crews with their real base sizes to a participant', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Games/Board')
             ->has('models', 2)
+            ->where('game.deployment', fn ($d) => in_array($d, ['standard', 'corner', 'flank', 'wedge'], true) || $d === null)
             ->where('models.0.base_mm', 50)
             ->where('models.1.base_mm', 30)
             ->where('players.0.mine', true)
@@ -157,4 +159,12 @@ it('broadcasts nothing when a move is refused', function () {
     $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m2->id => ['x' => 9, 'y' => 9]]])->assertForbidden();
 
     Event::assertNotDispatched(GameBoardMoved::class);
+});
+
+it('hands the board the deployment the game was set up with', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $game->update(['deployment' => DeploymentEnum::Wedge]);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('game.deployment', 'wedge'));
 });

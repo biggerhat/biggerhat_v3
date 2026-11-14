@@ -26,7 +26,7 @@ class GameBoardController extends Controller
         $game->load(['players.user:id,name', 'players.crewMembers.character:id,base', 'players.crewMembers.customCharacter:id,base']);
 
         return inertia('Games/Board', [
-            'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo],
+            'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo, 'deployment' => $game->deployment?->value],
             'players' => $game->players->map(fn (GamePlayer $p) => [
                 'slot' => $p->slot,
                 'name' => $this->playerName($p),

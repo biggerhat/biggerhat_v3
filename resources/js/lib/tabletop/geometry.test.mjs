@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+    AURAS_PER_MODEL,
+    auraOrigin,
     auraRadius,
     baseRadius,
     clampToTable,
@@ -8,6 +10,7 @@ import {
     edgeDistance,
     fallHurts,
     heightCover,
+    modelsWithin,
     pointInShape,
     restingSupport,
     supportFraction,
@@ -108,4 +111,24 @@ test('within an aura means any part of the base reaches it', () => {
     assert.ok(withinAura(source, 0, tok(10 + 2 * baseRadius(30), 10, 30)));
     // a bigger base reaches in from farther out
     assert.ok(withinAura(source, 6, tok(10 + 6 + baseRadius(30) + baseRadius(50) - 0.1, 10, 50)));
+});
+
+test('a locked aura stays where it was locked while the model moves on', () => {
+    const owner = { ...tok(10, 10, 30), id: 'o' };
+    const near = { ...tok(14, 10, 30), id: 'n' };
+    const following = { id: 'a1', ownerId: 'o', range: 6, locked: false };
+    assert.deepEqual(modelsWithin(following, owner, [owner, near]).map((t) => t.id), ['n']);
+
+    const locked = { ...following, locked: true, x: 10, y: 10 };
+    const moved = { ...owner, x: 30, y: 30 };
+    assert.equal(auraOrigin(locked, moved).x, 10);
+    assert.equal(auraOrigin(following, moved).x, 30);
+    // the spot keeps its place: the nearby model is still inside, and the owner who walked off is not
+    assert.deepEqual(modelsWithin(locked, moved, [moved, near]).map((t) => t.id), ['n']);
+    // an owner who stays inside the aura they left behind counts as inside it
+    assert.deepEqual(modelsWithin(locked, owner, [owner, near]).map((t) => t.id).sort(), ['n', 'o']);
+});
+
+test('a model can cast up to three auras', () => {
+    assert.equal(AURAS_PER_MODEL, 3);
 });

@@ -58,6 +58,6 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - The game board loads the game's crews with their real base sizes (custom cards too, 30 mm if unknown) and saves positions to
   `games.board_state` (JSON). You move your own models; in a solo game you move both sides. Saves merge under a lock.
 - Realtime: a drop broadcasts `GameBoardMoved` on the game's presence channel; the other board applies it at once, and re-syncs when the tab becomes visible again.
-- Auras: select a model, "Add aura", set the range (0.5" steps, presets 1, 2, 3, 6). The circle starts at the outside edge of the base (base radius + range) and the panel lists the models within it. Auras are a view aid stored on the device.
+- Auras: select a model, "Add aura", set the range (0.5" steps, presets 1, 2, 3, 6). A model casts up to three. The lock pins an aura where it is while the model walks away; unlocking returns it to the model. The circle starts at the outside edge of the base (base radius + range) and the panel lists the models within it. Auras are a view aid stored on the device.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

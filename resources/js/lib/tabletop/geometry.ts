@@ -108,6 +108,31 @@ export const auraRadius = (token: Pick<Token, 'baseMm'>, range: number): number 
 export const withinAura = (source: Pick<Token, 'x' | 'y' | 'baseMm'>, range: number, other: Pick<Token, 'x' | 'y' | 'baseMm'>): boolean =>
     edgeDistance(source, other) <= range + 1e-9;
 
+export const AURAS_PER_MODEL = 3;
+
+/** An aura cast by a model. Locked, it stays at (x, y), where it was when locked, while the model moves on. */
+export interface Aura {
+    id: string;
+    ownerId: string;
+    range: number;
+    locked: boolean;
+    x?: number;
+    y?: number;
+}
+
+/** Where an aura is centred, as a base of the owner's size: on the model, or at its locked spot. */
+export function auraOrigin(aura: Aura, owner: Pick<Token, 'x' | 'y' | 'baseMm'>): Pick<Token, 'x' | 'y' | 'baseMm'> {
+    return aura.locked && aura.x !== undefined && aura.y !== undefined ? { x: aura.x, y: aura.y, baseMm: owner.baseMm } : owner;
+}
+
+/**
+ * Models inside an aura. A model never counts as inside its own following aura, but one standing in the aura it left behind does.
+ */
+export function modelsWithin<T extends Pick<Token, 'id' | 'x' | 'y' | 'baseMm'>>(aura: Aura, owner: Pick<Token, 'x' | 'y' | 'baseMm'>, tokens: T[]): T[] {
+    const origin = auraOrigin(aura, owner);
+    return tokens.filter((t) => (t.id !== aura.ownerId || aura.locked) && withinAura(origin, aura.range, t));
+}
+
 /** Keep a whole base on the table: models cannot move past a table edge (p.60). */
 export function clampToTable(token: Pick<Token, 'x' | 'y' | 'baseMm'>): { x: number; y: number } {
     const r = baseRadius(token.baseMm);

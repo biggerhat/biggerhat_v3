@@ -91,6 +91,47 @@ const L = require('./lib.cjs');
             if (Math.abs(r2 - (2 + 25 / 25.4)) > 0.01) throw new Error(`2" aura radius is ${r2}`);
             const inside2 = await s.page.$eval('[data-testid=aura-inside]', (e) => e.innerText);
             if (/Henchman|Minion/.test(inside2)) throw new Error(`nobody should be within 2": ${inside2}`);
+            // Lock it where it is, then walk the master 10" away: the locked aura stays put.
+            const circleOf = (n) =>
+                s.page.evaluate((i) => {
+                    const c = document.querySelectorAll('[data-testid=aura-a1] circle')[i];
+                    return c ? { cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')) } : null;
+                }, n);
+            const toBoard = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+            await s.page.click('[data-testid=aura-lock]');
+            await toBoard();
+            await dragTo([18, 4], [18, 14]);
+            const stayed = await circleOf(0);
+            if (!stayed || Math.abs(stayed.cx - 18) > 0.05 || Math.abs(stayed.cy - 4) > 0.05)
+                throw new Error(`locked aura moved: ${JSON.stringify(stayed)}`);
+            const walked = await s.page.$eval('[data-testid=token-a1] circle', (c) => Number(c.getAttribute('cy')));
+            if (Math.abs(walked - 14) > 0.3) throw new Error(`master did not walk to y=14 (cy ${walked})`);
+            // A second and a third aura on the same model; then no more.
+            await s.page.$eval('[data-testid=aura-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.click('[data-testid=aura-add]');
+            await s.page.$eval('[data-testid=aura-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.click('[data-testid=aura-add]');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=aura-a1]').length === 3, { timeout: 5000 });
+            if (!(await s.page.$eval('[data-testid=aura-add]', (b) => b.disabled))) throw new Error('a fourth aura should not be allowed');
+            // The new auras follow the master (now at y=14); the first stays at y=4.
+            const followed = await s.page.evaluate(() =>
+                [...document.querySelectorAll('[data-testid=aura-a1]')].map((g) => Number(g.querySelector('circle').getAttribute('cy'))),
+            );
+            if (followed.filter((y) => Math.abs(y - 14) < 0.3).length !== 2 || followed.filter((y) => Math.abs(y - 4) < 0.3).length !== 1) {
+                throw new Error(`expected one locked aura at y=4 and two following at y=14: ${followed}`);
+            }
+            await L.shot(s, `353-tabletop-auras-${label}`);
+            // Unlock the first: it jumps back to the model.
+            await s.page.$eval('[data-testid=aura-row-0] [data-testid=aura-lock]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.click('[data-testid=aura-row-0] [data-testid=aura-lock]');
+            await L.sleep(200);
+            const after = await s.page.evaluate(() =>
+                [...document.querySelectorAll('[data-testid=aura-a1]')].map((g) => Number(g.querySelector('circle').getAttribute('cy'))),
+            );
+            if (after.some((y) => Math.abs(y - 14) > 0.3)) throw new Error(`unlocked aura did not follow the model: ${after}`);
+            // Leave one aura for the removal check below.
+            await s.page.click('[data-testid=aura-row-2] [data-testid=aura-remove]');
+            await s.page.click('[data-testid=aura-row-1] [data-testid=aura-remove]');
             await L.shot(s, `352-tabletop-aura-${label}`);
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
             await s.page.click('[data-testid=aura-remove]');

@@ -2,7 +2,9 @@
 import { Button } from '@/components/ui/button';
 import {
     BASE_SIZES_MM,
+    AURAS_PER_MODEL,
     TABLE_SIZE,
+    auraOrigin,
     auraRadius,
     baseRadius,
     clampToTable,
@@ -11,12 +13,13 @@ import {
     fallHurts,
     heightCover,
     restingSupport,
-    withinAura,
+    modelsWithin,
+    type Aura,
     type Shape,
     type Token,
 } from '@/lib/tabletop/geometry';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
-import { Maximize, Minus, Plus, Ruler, Trash2 } from 'lucide-vue-next';
+import { Lock, LockOpen, Maximize, Minus, Plus, Ruler, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 type Mode = 'move' | 'ruler';
@@ -62,17 +65,23 @@ const ruler = ref<{ from: Point; to: Point; fromToken: string | null; toToken: s
 const levels = computed(() => [0, ...new Set(terrain.flatMap((p) => p.surfaces.map((s) => s.top)))].sort((a, b) => a - b));
 const supports = computed(() => new Map(tokens.value.map((t) => [t.id, restingSupport(t, terrain)])));
 const elevationOf = (t: Token) => supports.value.get(t.id)?.elevation ?? 0;
-// Auras: a circle of `range` inches that starts at the outside edge of a model's base. A view aid kept on this device.
+// Auras: a circle of `range` inches that starts at the outside edge of a model's base. A model casts up to three. A locked aura stays at
+// the spot where it was locked while the model moves on. A view aid kept on this device.
 const AURA_MIN = 0.5;
 const AURA_MAX = 36;
 const AURA_PRESETS = [1, 2, 3, 6];
-const auras = ref<Record<string, number>>({});
+const AURA_DASHES = ['0.5 0.35', '0.15 0.3', '1 0.3'];
+const auras = ref<Aura[]>([]);
 const auraKey = computed(() => (props.storageKey ? `tabletop-auras-${props.storageKey}` : null));
 onMounted(() => {
     if (!auraKey.value) return;
     try {
         const saved = JSON.parse(localStorage.getItem(auraKey.value) ?? 'null');
-        if (saved && typeof saved === 'object') auras.value = saved;
+        if (Array.isArray(saved)) auras.value = saved;
+        // first version: one aura per model, saved as { modelId: range }
+        else if (saved && typeof saved === 'object') {
+            auras.value = Object.entries(saved).map(([ownerId, range], i) => ({ id: `legacy${i}`, ownerId, range: Number(range), locked: false }));
+        }
     } catch {
         // storage unavailable: auras simply start empty
     }
@@ -90,27 +99,30 @@ watch(
     { deep: true },
 );
 const clampAura = (n: number) => Math.min(AURA_MAX, Math.max(AURA_MIN, Math.round(n * 2) / 2));
-const setAura = (id: string, range: number) => (auras.value = { ...auras.value, [id]: clampAura(range) });
-function clearAura(id: string) {
-    auras.value = Object.fromEntries(Object.entries(auras.value).filter(([key]) => key !== id));
+const aurasOf = (ownerId: string) => auras.value.filter((a) => a.ownerId === ownerId);
+const patchAura = (id: string, patch: Partial<Aura>) => (auras.value = auras.value.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+const setRange = (id: string, range: number) => patchAura(id, { range: clampAura(range) });
+function addAura(owner: Token) {
+    if (aurasOf(owner.id).length >= AURAS_PER_MODEL) return;
+    auras.value = [...auras.value, { id: `a${Date.now().toString(36)}${auras.value.length}`, ownerId: owner.id, range: 6, locked: false }];
 }
+function toggleLock(aura: Aura, owner: Token) {
+    patchAura(aura.id, aura.locked ? { locked: false, x: undefined, y: undefined } : { locked: true, x: owner.x, y: owner.y });
+}
+const removeAura = (id: string) => (auras.value = auras.value.filter((a) => a.id !== id));
+const ownerOf = (a: Aura) => tokens.value.find((t) => t.id === a.ownerId);
+/** Auras drawn on the board: each with its owner, centre, radius and the models inside it. An aura whose model is gone is dropped. */
 const activeAuras = computed(() =>
-    tokens.value
-        .filter((t) => auras.value[t.id] !== undefined)
-        .map((t) => ({ token: t, range: auras.value[t.id], radius: auraRadius(t, auras.value[t.id]) })),
+    auras.value.flatMap((aura) => {
+        const owner = ownerOf(aura);
+        if (!owner) return [];
+        const origin = auraOrigin(aura, owner);
+        const nth = aurasOf(owner.id).indexOf(aura);
+        return [{ aura, owner, origin, nth, radius: auraRadius(owner, aura.range), inside: modelsWithin(aura, owner, tokens.value) }];
+    }),
 );
-/** Models with any part of their base inside an aura, keyed by the model that casts it. */
-const insideAura = computed(() => {
-    const map = new Map<string, Token[]>();
-    for (const { token, range } of activeAuras.value) {
-        map.set(
-            token.id,
-            tokens.value.filter((o) => o.id !== token.id && withinAura(token, range, o)),
-        );
-    }
-    return map;
-});
-const caught = computed(() => new Set([...insideAura.value.values()].flat().map((t) => t.id)));
+const insideOf = (id: string) => activeAuras.value.find((a) => a.aura.id === id)?.inside ?? [];
+const caught = computed(() => new Set(activeAuras.value.flatMap((a) => a.inside.map((t) => t.id))));
 const selected = computed(() => tokens.value.find((t) => t.id === selectedId.value) ?? null);
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
 const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value)));
@@ -365,29 +377,47 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             </text>
                         </g>
                     </template>
-                    <g v-for="a in activeAuras" :key="`aura-${a.token.id}`" pointer-events="none" :data-testid="`aura-${a.token.id}`">
+                    <g
+                        v-for="a in activeAuras"
+                        :key="`aura-${a.aura.id}`"
+                        pointer-events="none"
+                        :data-testid="`aura-${a.owner.id}`"
+                        :data-locked="a.aura.locked"
+                    >
                         <circle
-                            :cx="a.token.x"
-                            :cy="a.token.y"
+                            :cx="a.origin.x"
+                            :cy="a.origin.y"
                             :r="a.radius"
-                            :fill="sideColour(a.token.side)"
+                            :fill="sideColour(a.owner.side)"
                             fill-opacity="0.14"
-                            :stroke="sideColour(a.token.side)"
-                            stroke-width="0.12"
-                            stroke-dasharray="0.5 0.35"
+                            :stroke="sideColour(a.owner.side)"
+                            :stroke-width="a.aura.locked ? 0.2 : 0.12"
+                            :stroke-dasharray="a.aura.locked ? undefined : AURA_DASHES[a.nth % AURA_DASHES.length]"
                         />
+                        <g v-if="a.aura.locked">
+                            <circle :cx="a.origin.x" :cy="a.origin.y" r="0.22" :fill="sideColour(a.owner.side)" />
+                            <circle
+                                :cx="a.origin.x"
+                                :cy="a.origin.y"
+                                :r="baseRadius(a.owner.baseMm)"
+                                fill="none"
+                                :stroke="sideColour(a.owner.side)"
+                                stroke-width="0.08"
+                                stroke-dasharray="0.25 0.2"
+                            />
+                        </g>
                         <text
-                            :x="a.token.x"
-                            :y="a.token.y - a.radius - 0.3"
+                            :x="a.origin.x"
+                            :y="a.origin.y - a.radius - 0.3"
                             text-anchor="middle"
                             font-size="0.9"
                             font-weight="600"
-                            :fill="sideColour(a.token.side)"
+                            :fill="sideColour(a.owner.side)"
                             stroke="hsl(var(--background))"
                             stroke-width="0.2"
                             paint-order="stroke"
                         >
-                            {{ fmt(a.range) }}"
+                            {{ fmt(a.aura.range) }}"
                         </text>
                     </g>
                     <g v-for="t in tokens" :key="t.id" :opacity="dimmed(elevationOf(t)) ? 0.25 : t.killed ? 0.35 : 1" :data-testid="`token-${t.id}`">
@@ -485,38 +515,47 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     </div>
                     <div class="mt-3 border-t pt-3" data-testid="aura-controls">
                         <div class="mb-2 flex items-center justify-between">
-                            <span class="font-medium">Aura</span>
+                            <span class="font-medium"
+                                >Auras
+                                <span class="font-normal text-muted-foreground"
+                                    >{{ aurasOf(selected.id).length }} of {{ AURAS_PER_MODEL }}</span
+                                ></span
+                            >
                             <Button
-                                v-if="auras[selected.id] === undefined"
                                 size="sm"
                                 variant="outline"
                                 data-testid="aura-add"
-                                @click="setAura(selected.id, 6)"
-                                >Add aura</Button
+                                :disabled="aurasOf(selected.id).length >= AURAS_PER_MODEL"
+                                @click="addAura(selected)"
+                                >{{ aurasOf(selected.id).length ? 'Add another' : 'Add aura' }}</Button
                             >
-                            <Button v-else size="sm" variant="ghost" data-testid="aura-remove" @click="clearAura(selected.id)">Remove aura</Button>
                         </div>
-                        <template v-if="auras[selected.id] !== undefined">
-                            <div class="flex items-center gap-2">
+                        <div
+                            v-for="(aura, i) in aurasOf(selected.id)"
+                            :key="aura.id"
+                            class="mb-3 rounded-md border p-2"
+                            :data-testid="`aura-row-${i}`"
+                        >
+                            <div class="flex items-center gap-1">
                                 <Button
                                     size="sm"
                                     variant="outline"
                                     aria-label="Smaller aura"
                                     data-testid="aura-minus"
-                                    @click="setAura(selected.id, auras[selected.id] - 0.5)"
+                                    @click="setRange(aura.id, aura.range - 0.5)"
                                     ><Minus class="size-4"
                                 /></Button>
                                 <input
                                     type="number"
                                     inputmode="decimal"
-                                    class="w-20 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
                                     :min="AURA_MIN"
                                     :max="AURA_MAX"
                                     step="0.5"
                                     aria-label="Aura range in inches"
                                     data-testid="aura-range"
-                                    :value="auras[selected.id]"
-                                    @change="setAura(selected.id, Number(($event.target as HTMLInputElement).value) || AURA_MIN)"
+                                    :value="aura.range"
+                                    @change="setRange(aura.id, Number(($event.target as HTMLInputElement).value) || AURA_MIN)"
                                 />
                                 <span class="text-muted-foreground">"</span>
                                 <Button
@@ -524,8 +563,21 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     variant="outline"
                                     aria-label="Larger aura"
                                     data-testid="aura-plus"
-                                    @click="setAura(selected.id, auras[selected.id] + 0.5)"
+                                    @click="setRange(aura.id, aura.range + 0.5)"
                                     ><Plus class="size-4"
+                                /></Button>
+                                <Button
+                                    size="sm"
+                                    :variant="aura.locked ? 'default' : 'outline'"
+                                    :aria-pressed="aura.locked"
+                                    :aria-label="aura.locked ? 'Unlock: follow the model again' : 'Lock this aura where it is'"
+                                    data-testid="aura-lock"
+                                    @click="toggleLock(aura, selected)"
+                                >
+                                    <component :is="aura.locked ? Lock : LockOpen" class="size-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" aria-label="Remove this aura" data-testid="aura-remove" @click="removeAura(aura.id)"
+                                    ><Trash2 class="size-4"
                                 /></Button>
                             </div>
                             <div class="mt-2 flex flex-wrap gap-1">
@@ -533,25 +585,25 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     v-for="n in AURA_PRESETS"
                                     :key="n"
                                     size="sm"
-                                    :variant="auras[selected.id] === n ? 'default' : 'outline'"
-                                    @click="setAura(selected.id, n)"
+                                    :variant="aura.range === n ? 'default' : 'outline'"
+                                    @click="setRange(aura.id, n)"
                                     >{{ n }}"</Button
                                 >
                             </div>
                             <p class="mt-2 text-muted-foreground" data-testid="aura-inside">
-                                Starts at the edge of the base.
-                                <template v-if="insideAura.get(selected.id)?.length"
-                                    >Within {{ fmt(auras[selected.id]) }}":
+                                {{ aura.locked ? 'Locked at ' + fmt(aura.x ?? 0) + '", ' + fmt(aura.y ?? 0) + '". ' : 'Follows the model. ' }}Starts
+                                at the edge of the base.
+                                <template v-if="insideOf(aura.id).length"
+                                    >Within {{ fmt(aura.range) }}":
                                     {{
-                                        insideAura
-                                            .get(selected.id)
-                                            ?.map((t) => t.name)
+                                        insideOf(aura.id)
+                                            .map((t) => t.name)
                                             .join(', ')
                                     }}.</template
                                 >
-                                <template v-else>No other model is within {{ fmt(auras[selected.id]) }}".</template>
+                                <template v-else>No other model is within {{ fmt(aura.range) }}".</template>
                             </p>
-                        </template>
+                        </div>
                     </div>
                     <Button v-if="sandbox" class="mt-2" variant="outline" size="sm" @click="removeSelected"
                         ><Trash2 class="mr-1 size-4" />Remove model</Button

@@ -66,5 +66,9 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   levels, each with its own footprint and height. Undo, clear, or load the demo table. It shows coverage against the guide's
   45-65% and the count of climbable Ht 2+ pieces (three to eight). In a game the layout is saved to `games.board_state` and
   both players can edit it; changes reach the other player live. The sandbox keeps its layout on the device.
+- Markers: "Add a marker" searches every row of the markers table (every word must match, any order) and lists each marker's
+  base size. A marker is drawn to scale as a purple dashed token, sits under the models, can be dragged, given auras, and picked
+  up. In a game both players can place and move them. They are saved with the game as {id, marker_id, x, y} only: the name and
+  base size always come from the table. Edits are merged under a lock and the other player sees them live. A table holds up to 60.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

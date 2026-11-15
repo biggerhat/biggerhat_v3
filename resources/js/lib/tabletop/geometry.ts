@@ -35,7 +35,11 @@ export interface TerrainPiece {
 export interface Token {
     id: string;
     name: string;
-    side: 'a' | 'b';
+    /** 'a' and 'b' are the two players; 'n' is neutral, for markers. */
+    side: 'a' | 'b' | 'n';
+    /** A marker from the markers table rather than a model in a crew. */
+    marker?: boolean;
+    markerId?: number;
     baseMm: number;
     x: number;
     y: number;
@@ -400,4 +404,23 @@ export function rotatePiece90(piece: TerrainPiece): TerrainPiece {
         return { ...s, shape: { kind: 'poly' as const, points: sh.points.map(turn) } };
     });
     return movePiece({ ...piece, surfaces }, 0, 0);
+}
+
+/** A marker a player can put on the table: name and base size come from the markers table. */
+export interface MarkerOption {
+    id: number;
+    name: string;
+    base_mm: number;
+}
+
+/** Search the marker list: every word typed must appear in the name, in any order, ignoring case. Names starting with the text come first. */
+export function searchMarkers(options: MarkerOption[], query: string, limit = 12): MarkerOption[] {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const hits = options.filter((o) => words.every((w) => o.name.toLowerCase().includes(w)));
+    const first = query.trim().toLowerCase();
+    return hits
+        .map((o) => ({ o, rank: o.name.toLowerCase().startsWith(first) ? 0 : 1 }))
+        .sort((a, b) => a.rank - b.rank || a.o.name.localeCompare(b.o.name))
+        .slice(0, limit)
+        .map((x) => x.o);
 }

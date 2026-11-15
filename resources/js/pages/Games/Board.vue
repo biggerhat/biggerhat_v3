@@ -2,11 +2,18 @@
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
-import { TABLE_SIZE, baseRadius, type DeploymentKind, type TerrainPiece, type Token } from '@/lib/tabletop/geometry';
+import { TABLE_SIZE, baseRadius, type DeploymentKind, type MarkerOption, type TerrainPiece, type Token } from '@/lib/tabletop/geometry';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import { loadEcho } from '@/lib/echo';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+
+interface PlacedMarker {
+    id: string;
+    marker_id: number;
+    x: number;
+    y: number;
+}
 
 interface BoardModel {
     id: number;
@@ -22,6 +29,8 @@ const props = defineProps<{
     models: BoardModel[];
     positions: Record<string, { x: number; y: number }>;
     terrain: TerrainPiece[];
+    markers: MarkerOption[];
+    placed_markers: PlacedMarker[];
 }>();
 
 // Saved positions, plus moves the other player has just made (applied straight from the broadcast).
@@ -38,8 +47,15 @@ watch(
     (next) => (liveTerrain.value = next),
 );
 
+// Markers on the table, shared by both players. Name and base size always come from the markers table.
+const placed = ref<PlacedMarker[]>(props.placed_markers);
+watch(
+    () => props.placed_markers,
+    (next) => (placed.value = next),
+);
+
 let joined = false;
-const resync = () => document.visibilityState === 'visible' && router.reload({ only: ['positions', 'terrain'] });
+const resync = () => document.visibilityState === 'visible' && router.reload({ only: ['positions', 'terrain', 'placed_markers'] });
 
 onMounted(async () => {
     document.addEventListener('visibilitychange', resync);
@@ -52,6 +68,9 @@ onMounted(async () => {
         })
         .listen('.GameBoardTerrainChanged', (e: { terrain: TerrainPiece[] }) => {
             liveTerrain.value = e.terrain;
+        })
+        .listen('.GameBoardMarkersChanged', (e: { markers: PlacedMarker[] }) => {
+            placed.value = e.markers;
         });
 });
 onUnmounted(() => {
@@ -71,8 +90,26 @@ function defaultSpot(model: BoardModel): { x: number; y: number } {
     return { x: start + step * index, y: model.slot === 1 ? 2 + baseRadius(model.base_mm) : TABLE_SIZE - 2 - baseRadius(model.base_mm) };
 }
 
-const tokens = computed<Token[]>(() =>
-    props.models.map((m) => {
+const markerTokens = computed<Token[]>(() =>
+    placed.value.map((pm): Token => {
+        const option = props.markers.find((m) => m.id === pm.marker_id);
+        return {
+            id: pm.id,
+            name: option?.name ?? 'Marker',
+            side: 'n',
+            baseMm: option?.base_mm ?? 30,
+            x: pm.x,
+            y: pm.y,
+            marker: true,
+            markerId: pm.marker_id,
+        };
+    }),
+);
+
+const tokens = computed<Token[]>(() => [
+    // markers first, so they draw underneath the models and a model on top of one is the one you pick up
+    ...markerTokens.value,
+    ...props.models.map((m): Token => {
         const at = live.value[String(m.id)] ?? defaultSpot(m);
         return {
             id: String(m.id),
@@ -85,7 +122,7 @@ const tokens = computed<Token[]>(() =>
             locked: !playerFor(m.slot)?.mine,
         };
     }),
-);
+]);
 
 function terrainChanged(pieces: TerrainPiece[]) {
     liveTerrain.value = pieces;
@@ -96,7 +133,34 @@ function terrainChanged(pieces: TerrainPiece[]) {
     );
 }
 
+/** One request per change: upsert some markers and/or remove some. The server merges, so the other player's edits are kept. */
+function saveMarkers(change: { upsert?: { id: string; marker_id: number; x: number; y: number }[]; remove?: string[] }) {
+    router.put(route('games.board.markers', props.game.uuid), JSON.parse(JSON.stringify(change)), {
+        preserveScroll: true,
+        preserveState: true,
+        only: ['placed_markers'],
+    });
+}
+
+function addMarker(m: { markerId: number; x: number; y: number }) {
+    const id = `m${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+    placed.value = [...placed.value, { id, marker_id: m.markerId, x: m.x, y: m.y }];
+    saveMarkers({ upsert: [{ id, marker_id: m.markerId, x: m.x, y: m.y }] });
+}
+
+function removeToken(id: string) {
+    // Only markers can be picked up; the crews come from the game itself.
+    if (!placed.value.some((pm) => pm.id === id)) return;
+    placed.value = placed.value.filter((pm) => pm.id !== id);
+    saveMarkers({ remove: [id] });
+}
+
 function moved(t: Token) {
+    if (t.marker && t.markerId !== undefined) {
+        placed.value = placed.value.map((pm) => (pm.id === t.id ? { ...pm, x: t.x, y: t.y } : pm));
+        saveMarkers({ upsert: [{ id: t.id, marker_id: t.markerId, x: t.x, y: t.y }] });
+        return;
+    }
     router.put(
         route('games.board.update', props.game.uuid),
         { positions: { [t.id]: { x: t.x, y: t.y } } },
@@ -124,6 +188,9 @@ function moved(t: Token) {
         <TabletopBoard
             :tokens="tokens"
             :terrain="liveTerrain"
+            :markers="markers"
+            @add-marker="addMarker"
+            @remove="removeToken"
             @terrain-changed="terrainChanged"
             :storage-key="game.uuid"
             :deployment="game.deployment ?? undefined"

@@ -82,6 +82,69 @@ const L = require('./lib.cjs');
             await click('terrain-clear');
             await L.sleep(1200);
         });
+        await L.step(`board (${label}): a marker from the list is placed at its base size and saved with the game`, carol, async () => {
+            const hit = async (selector) => {
+                await carol.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
+                await carol.page.click(selector);
+            };
+            const markers = () =>
+                carol.page.$$eval('[data-marker=true]', (cs) =>
+                    cs.map((c) => ({ cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')), r: Number(c.getAttribute('r')) })),
+                );
+            const open = async () => {
+                await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                await carol.page.waitForSelector('[data-testid=marker-picker]');
+            };
+            await open();
+            const start = (await markers()).length;
+            await carol.page.type('[data-testid=marker-search]', 'corpse');
+            const row = await carol.page.$eval('[data-testid=marker-result]', (r) => r.innerText.replace(/\s+/g, ' '));
+            if (!/Corpse Marker/.test(row) || !/40 mm/.test(row)) throw new Error(`unexpected result row: ${row}`);
+            await hit('[data-testid=marker-add]');
+            await carol.page.waitForFunction((n) => document.querySelectorAll('[data-marker=true]').length === n, { timeout: 5000 }, start + 1);
+            await L.sleep(1200);
+            await open();
+            const kept = await markers();
+            if (kept.length !== start + 1) throw new Error(`expected ${start + 1} markers after a reload, found ${kept.length}`);
+            const mine = kept[kept.length - 1];
+            if (Math.abs(mine.r - 20 / 25.4) > 0.01) throw new Error(`a 40 mm marker has radius ${mine.r}, expected ${20 / 25.4}`);
+            // Drag it somewhere else and check the move is saved too.
+            await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+            const px = await carol.page.evaluate(
+                ([x, y]) => {
+                    const svg = document.querySelector('[data-testid=tabletop-board] svg');
+                    const r = svg.getBoundingClientRect();
+                    const vb = svg.viewBox.baseVal;
+                    return { x: r.left + ((x - vb.x) / vb.width) * r.width, y: r.top + ((y - vb.y) / vb.height) * r.height };
+                },
+                [mine.cx, mine.cy],
+            );
+            await carol.page.mouse.move(px.x, px.y);
+            await carol.page.mouse.down();
+            await carol.page.mouse.move(px.x + 60, px.y + 40, { steps: 6 });
+            await carol.page.mouse.up();
+            await L.sleep(1200);
+            await open();
+            const moved = (await markers()).find((m) => Math.abs(m.cx - mine.cx) > 0.5 || Math.abs(m.cy - mine.cy) > 0.5);
+            if (!moved) throw new Error('the marker went back to where it was placed');
+            await L.shot(carol, `364-board-marker-${label}`);
+            // Pick it up again, and the table is as it was found.
+            await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+            const at = await carol.page.evaluate(
+                ([x, y]) => {
+                    const svg = document.querySelector('[data-testid=tabletop-board] svg');
+                    const r = svg.getBoundingClientRect();
+                    const vb = svg.viewBox.baseVal;
+                    return { x: r.left + ((x - vb.x) / vb.width) * r.width, y: r.top + ((y - vb.y) / vb.height) * r.height };
+                },
+                [moved.cx, moved.cy],
+            );
+            await carol.page.mouse.click(at.x, at.y);
+            await hit('[data-testid=remove-token]');
+            await L.sleep(1200);
+            await open();
+            if ((await markers()).length !== start) throw new Error('picking the marker up was not saved');
+        });
     }
 
     const live = await L.session(browser, 'carol@example.test');
@@ -94,6 +157,7 @@ const L = require('./lib.cjs');
                         listen(event, cb) {
                             if (event === '.GameBoardMoved') window.__boardMoved = cb;
                             if (event === '.GameBoardTerrainChanged') window.__boardTerrain = cb;
+                            if (event === '.GameBoardMarkersChanged') window.__boardMarkers = cb;
                             return ch;
                         },
                     };
@@ -141,6 +205,23 @@ const L = require('./lib.cjs');
             () => ![...document.querySelectorAll('[data-testid=tabletop-board] svg text')].some((t) => /^Ht /.test(t.textContent.trim())),
             { timeout: 5000 },
         );
+    });
+
+    await L.step('board: a marker the other player places appears without a reload', live, async () => {
+        await live.page.waitForFunction(() => typeof window.__boardMarkers === 'function', { timeout: 9000 });
+        await live.page.evaluate(() =>
+            window.__boardMarkers({
+                markers: [
+                    { id: 'mx1', marker_id: 1, x: 10, y: 10 },
+                    { id: 'mx2', marker_id: 1, x: 20, y: 20 },
+                ],
+            }),
+        );
+        await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 2, { timeout: 5000 });
+        await live.page.evaluate(() => window.__boardMarkers({ markers: [{ id: 'mx2', marker_id: 1, x: 22, y: 22 }] }));
+        await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 1, { timeout: 5000 });
+        await live.page.evaluate(() => window.__boardMarkers({ markers: [] }));
+        await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 0, { timeout: 5000 });
     });
 
     const outsider = await L.session(browser, 'alice@example.test');

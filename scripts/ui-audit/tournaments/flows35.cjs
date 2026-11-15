@@ -27,6 +27,7 @@ const L = require('./lib.cjs');
             await s.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
             await s.page.click(selector);
         };
+        const toBoardTop = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
         const dragTo = async (from, to) => {
             const a = await pixel(...from);
             const b = await pixel(...to);
@@ -173,6 +174,59 @@ const L = require('./lib.cjs');
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
             await hit('[data-testid=aura-remove]');
             if (await s.page.$('[data-testid=aura-a1]')) throw new Error('aura was not removed');
+        });
+        await L.step(`tabletop (${label}): markers from the list can be added, at their own base size`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=marker-picker]');
+            const results = () => s.page.$$eval('[data-testid=marker-result]', (rows) => rows.map((r) => r.innerText.replace(/\s+/g, ' ').trim()));
+            if ((await results()).length !== 6) throw new Error(`expected all 6 markers listed: ${await results()}`);
+            // Search: every word must match, in any order.
+            await s.page.type('[data-testid=marker-search]', 'marker blast');
+            const found = await results();
+            if (found.length !== 1 || !/Blast Marker/.test(found[0]) || !/50 mm/.test(found[0]))
+                throw new Error(`searching "marker blast" gave: ${found}`);
+            await hit('[data-testid=marker-add]');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 1, { timeout: 5000 });
+            // It is drawn to scale: a 50 mm base is 0.984" in radius.
+            const r = await s.page.$eval('[data-marker=true]', (c) => Number(c.getAttribute('r')));
+            if (Math.abs(r - 25 / 25.4) > 0.01) throw new Error(`a 50 mm marker has radius ${r}, expected ${25 / 25.4}`);
+            // Several of the same marker are fine, and a 30 mm one is smaller.
+            await s.page.$eval('[data-testid=marker-search]', (i) => (i.value = ''));
+            await s.page.type('[data-testid=marker-search]', 'scheme');
+            await hit('[data-testid=marker-add]');
+            await hit('[data-testid=marker-add]');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 3, { timeout: 5000 });
+            const radii = await s.page.$$eval('[data-marker=true]', (cs) => cs.map((c) => Number(c.getAttribute('r'))).sort());
+            if (Math.abs(radii[0] - 15 / 25.4) > 0.01) throw new Error(`a 30 mm marker has radius ${radii[0]}, expected ${15 / 25.4}`);
+            await L.shot(s, `356-markers-${label}`);
+            if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
+            // Select one, see its base size, pick it up.
+            await toBoardTop();
+            const ids = await s.page.$$eval('[data-marker=true]', (cs) =>
+                cs.map((c) => c.parentElement.getAttribute('data-testid').replace('token-', '')),
+            );
+            const first = await s.page.$eval(`[data-testid=token-${ids[0]}] circle`, (c) => ({
+                x: Number(c.getAttribute('cx')),
+                y: Number(c.getAttribute('cy')),
+            }));
+            const at = await pixel(first.x, first.y);
+            await s.page.mouse.click(at.x, at.y);
+            await s.page.waitForSelector('[data-testid=selected-panel]');
+            await s.page.waitForFunction(() => /mm base/.test(document.querySelector('[data-testid=selected-panel]').innerText), { timeout: 5000 });
+            await hit('[data-testid=remove-token]');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 2, { timeout: 5000 });
+            // Leave the table as the next step expects it.
+            for (let i = 0; i < 2; i++) {
+                await toBoardTop();
+                const remaining = await s.page.$eval('[data-marker=true]', (c) => ({
+                    x: Number(c.getAttribute('cx')),
+                    y: Number(c.getAttribute('cy')),
+                }));
+                const p = await pixel(remaining.x, remaining.y);
+                await s.page.mouse.click(p.x, p.y);
+                await hit('[data-testid=remove-token]');
+            }
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 0, { timeout: 5000 });
         });
         await L.step(`tabletop (${label}): adding a model works`, s, async () => {
             // centre the button first: on a phone the fixed tab bar can sit over a button scrolled to the very bottom

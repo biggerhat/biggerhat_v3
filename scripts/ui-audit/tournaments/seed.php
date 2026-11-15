@@ -159,6 +159,9 @@ foreach ([[$pp1, 'bayou', [['Pandora', 'master', 'leader', 0, 10], ['Silurid', '
 }
 
 \Laravel\Pennant\Feature::for(null)->activate('experiment-tabletop');
+foreach ([['Scheme Marker', 30], ['Strategy Marker', 30], ['Blast Marker', 50], ['Corpse Marker', 40], ['Scrap Marker', 30], ['Marker of the Dead', 30]] as [$markerName, $markerBase]) {
+    App\Models\Marker::factory()->create(['name' => $markerName, 'base' => $markerBase]);
+}
 
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
 file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'play_game' => $playGame->uuid, 'crew_build' => $crewBuild->share_code, 'g1' => $r1->games()->first()->id]));

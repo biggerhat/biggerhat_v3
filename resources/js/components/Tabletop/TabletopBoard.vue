@@ -20,10 +20,12 @@ import {
     modelsWithin,
     type Aura,
     type DeploymentKind,
+    type MarkerOption,
     type Shape,
     type TerrainPiece,
     type Token,
 } from '@/lib/tabletop/geometry';
+import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { Lock, LockOpen, Maximize, Minus, Mountain, Plus, Ruler, Trash2 } from 'lucide-vue-next';
@@ -40,6 +42,8 @@ const props = withDefaults(
         terrain?: TerrainPiece[];
         sandbox?: boolean;
         sideNames?: { a: string; b: string };
+        /** Markers that can be placed (name and base size from the markers table). Without them the picker is hidden. */
+        markers?: MarkerOption[];
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -51,6 +55,7 @@ const props = withDefaults(
 const emit = defineEmits<{
     moved: [token: Token];
     add: [token: Omit<Token, 'id'>];
+    addMarker: [marker: { markerId: number; name: string; baseMm: number; x: number; y: number }];
     remove: [id: string];
     reset: [];
     terrainChanged: [pieces: TerrainPiece[]];
@@ -184,7 +189,17 @@ const variants = computed(() =>
           }),
 );
 
-const sideColour = (side: 'a' | 'b') => (side === 'a' ? 'hsl(215 70% 50%)' : 'hsl(5 70% 48%)');
+const sideColour = (side: 'a' | 'b' | 'n') => (side === 'a' ? 'hsl(215 70% 50%)' : side === 'b' ? 'hsl(5 70% 48%)' : 'hsl(280 45% 50%)');
+/** Two letters for a marker ("Scheme Marker" is "SM"), one for a model. */
+const tokenLabel = (t: Token) =>
+    t.marker
+        ? t.name
+              .split(/\s+/)
+              .slice(0, 2)
+              .map((w) => w.slice(0, 1))
+              .join('')
+              .toUpperCase()
+        : t.name.slice(0, 1);
 
 const surfaceFill = (top: number) => `hsl(var(--primary) / ${Math.min(0.1 + top * 0.09, 0.6)})`;
 const dimmed = (elevation: number) => level.value !== 'all' && elevation > level.value;
@@ -275,7 +290,7 @@ function onDown(e: PointerEvent) {
     } else if (hit) {
         selectedId.value = hit.id;
         if (hit.locked) {
-            note.value = `${hit.name} belongs to ${props.sideNames[hit.side]}; only they can move it.`;
+            note.value = `${hit.name} belongs to ${hit.side === 'n' ? 'the table' : props.sideNames[hit.side]}; only they can move it.`;
             drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
             return;
         }
@@ -375,6 +390,13 @@ function addToken() {
         x: view.value.x + view.value.w / 2,
         y: view.value.y + view.value.w / 2,
     });
+}
+function placeMarker(m: MarkerOption) {
+    // Fan new markers out a little so several added in a row do not sit exactly on top of each other.
+    const nudge = (tokens.value.filter((t) => t.marker).length % 6) * 1.2;
+    const at = clampToTable({ baseMm: m.base_mm, x: view.value.x + view.value.w / 2 + nudge, y: view.value.y + view.value.w / 2 + nudge });
+    emit('addMarker', { markerId: m.id, name: m.name, baseMm: m.base_mm, ...at });
+    note.value = `${m.name} added (${m.base_mm} mm base). Drag it into place.`;
 }
 function removeSelected() {
     if (selectedId.value) emit('remove', selectedId.value);
@@ -548,9 +570,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             fill-opacity="0.9"
                             :stroke="t.id === selectedId ? 'hsl(var(--foreground))' : caught.has(t.id) ? 'hsl(45 95% 55%)' : 'white'"
                             :stroke-width="t.id === selectedId ? 0.16 : 0.08"
+                            :stroke-dasharray="t.marker && t.id !== selectedId ? '0.35 0.25' : undefined"
+                            :data-marker="t.marker ? 'true' : undefined"
                         />
                         <text :x="t.x" :y="t.y + 0.3" text-anchor="middle" font-size="0.85" fill="white" font-weight="600" pointer-events="none">
-                            {{ t.name.slice(0, 1) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}
+                            {{ tokenLabel(t) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}
                         </text>
                     </g>
                     <g v-if="ruler" pointer-events="none">
@@ -752,14 +776,22 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             </p>
                         </div>
                     </div>
-                    <Button v-if="sandbox" class="mt-2" variant="outline" size="sm" @click="removeSelected"
-                        ><Trash2 class="mr-1 size-4" />Remove model</Button
+                    <Button
+                        v-if="sandbox || selected.marker"
+                        class="mt-2"
+                        variant="outline"
+                        size="sm"
+                        data-testid="remove-token"
+                        @click="removeSelected"
+                        ><Trash2 class="mr-1 size-4" />{{ selected.marker ? 'Remove marker' : 'Remove model' }}</Button
                     >
                 </template>
                 <span v-else class="text-muted-foreground"
                     >Tap a model to select it. Drag it to move. Drag the board to pan; pinch or scroll to zoom.</span
                 >
             </div>
+
+            <MarkerPicker v-if="markers && mode !== 'terrain'" :markers="markers" @add="placeMarker" />
 
             <div v-if="sandbox" class="flex flex-wrap items-end gap-2 text-sm">
                 <label>

@@ -3,23 +3,29 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\BaseSizeEnum;
+use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
 use App\Events\GameBoardTerrainChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\UpdateBoardRequest;
+use App\Http\Requests\Games\UpdateMarkersRequest;
 use App\Http\Requests\Games\UpdateTerrainRequest;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
+use App\Support\Tabletop\MarkerCatalogue;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use Laravel\Pennant\Feature;
 
 class GameBoardController extends Controller
 {
+    private const MAX_MARKERS = 60;
+
     public function show(Game $game): Response|ResponseFactory
     {
         $this->guard();
@@ -43,6 +49,8 @@ class GameBoardController extends Controller
             ]))->values(),
             'positions' => $game->board_state['positions'] ?? (object) [],
             'terrain' => $game->board_state['terrain'] ?? [],
+            'markers' => MarkerCatalogue::options(),
+            'placed_markers' => $game->board_state['markers'] ?? [],
         ]);
     }
 
@@ -88,6 +96,51 @@ class GameBoardController extends Controller
         });
 
         broadcast(new GameBoardTerrainChanged($game, $terrain))->toOthers();
+
+        return redirect()->back();
+    }
+
+    /** Either player may place, move or pick up markers. Applied under a lock, so simultaneous edits both survive. */
+    public function updateMarkers(UpdateMarkersRequest $request, Game $game): RedirectResponse
+    {
+        $this->guard();
+
+        $upsert = collect($request->validated('upsert') ?? []);
+        $remove = collect($request->validated('remove') ?? [])->all();
+        $tooMany = false;
+        $result = [];
+
+        DB::transaction(function () use ($game, $upsert, $remove, &$tooMany, &$result) {
+            $locked = Game::query()->lockForUpdate()->findOrFail($game->id);
+            $placed = collect($locked->board_state['markers'] ?? [])->keyBy('id');
+
+            foreach ($remove as $id) {
+                $placed->forget($id);
+            }
+            foreach ($upsert as $m) {
+                $placed->put($m['id'], [
+                    'id' => $m['id'],
+                    'marker_id' => (int) $m['marker_id'],
+                    'x' => round((float) $m['x'], 2),
+                    'y' => round((float) $m['y'], 2),
+                ]);
+            }
+
+            if ($placed->count() > self::MAX_MARKERS) {
+                $tooMany = true;
+
+                return;
+            }
+
+            $result = $placed->values()->all();
+            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['markers' => $result])]);
+        });
+
+        if ($tooMany) {
+            throw ValidationException::withMessages(['upsert' => 'A table can hold up to '.self::MAX_MARKERS.' markers.']);
+        }
+
+        broadcast(new GameBoardMarkersChanged($game, $result))->toOthers();
 
         return redirect()->back();
     }

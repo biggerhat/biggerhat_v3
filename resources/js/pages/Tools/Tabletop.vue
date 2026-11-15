@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
-import type { TerrainPiece, Token } from '@/lib/tabletop/geometry';
+import type { MarkerOption, TerrainPiece, Token } from '@/lib/tabletop/geometry';
 import { sampleTerrain, sampleTokens } from '@/lib/tabletop/sampleTable';
 import { Head } from '@inertiajs/vue3';
 import { onMounted, ref, watch } from 'vue';
+
+const props = defineProps<{ markers: MarkerOption[] }>();
 
 // Sandbox: the demo table with free-standing models. Nothing leaves this device.
 const STORAGE_KEY = 'tabletop-spike-v1';
@@ -39,6 +41,18 @@ const reset = () => {
     tokens.value = sampleTokens.map((t) => ({ ...t }));
     terrain.value = JSON.parse(JSON.stringify(sampleTerrain));
 };
+/** Markers go underneath the models, so a model sitting on a marker is still the one you pick up. */
+const addMarker = (m: { markerId: number; name: string; baseMm: number; x: number; y: number }) =>
+    tokens.value.unshift({
+        id: `m${Date.now().toString(36)}`,
+        name: m.name,
+        side: 'n',
+        baseMm: m.baseMm,
+        x: m.x,
+        y: m.y,
+        marker: true,
+        markerId: m.markerId,
+    });
 const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
 </script>
 
@@ -55,7 +69,9 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
         <TabletopBoard
             :tokens="tokens"
             :terrain="terrain"
+            :markers="props.markers"
             sandbox
+            @add-marker="addMarker"
             @terrain-changed="terrainChanged"
             storage-key="sandbox"
             @moved="moved"

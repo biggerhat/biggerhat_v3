@@ -2,6 +2,7 @@
 
 use App\Enums\BaseSizeEnum;
 use App\Enums\DeploymentEnum;
+use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
 use App\Events\GameBoardTerrainChanged;
 use App\Models\Character;
@@ -9,6 +10,7 @@ use App\Models\CustomCharacter;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
+use App\Models\Marker;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -286,4 +288,114 @@ it('does not offer the board link to someone watching the game', function () {
 
     $this->actingAs(User::factory()->create())->get(route('games.observe', $game->uuid))
         ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', false));
+});
+
+function placed(string $id, int $markerId, float $x = 10, float $y = 10): array
+{
+    return ['id' => $id, 'marker_id' => $markerId, 'x' => $x, 'y' => $y];
+}
+
+it('hands the board the marker catalogue with base sizes', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    Marker::factory()->create(['name' => 'Scheme Marker', 'base' => 30]);
+    Marker::factory()->create(['name' => 'Blast Marker', 'base' => 50]);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('markers', 2)
+            ->where('markers.0.name', 'Blast Marker')
+            ->where('markers.0.base_mm', 50)
+            ->where('markers.1.base_mm', 30)
+            ->where('placed_markers', []));
+});
+
+it('lets either player place a marker, and hands it back with the board', function () {
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $marker = Marker::factory()->create(['base' => 40]);
+
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 12.345, 20)]])->assertRedirect();
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->has('placed_markers', 1)->where('placed_markers.0.marker_id', $marker->id)->where('placed_markers.0.x', 12.35));
+});
+
+it('moves and picks up markers without disturbing the others', function () {
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $marker = Marker::factory()->create();
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id), placed('m2', $marker->id, 5, 5)]]);
+    // The other player moves m1 while the first removes m2: both edits survive.
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 30, 30)]]);
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['remove' => ['m2']]);
+
+    $saved = collect($game->fresh()->board_state['markers']);
+    expect($saved)->toHaveCount(1)->and($saved->first()['id'])->toBe('m1')->and($saved->first()['x'])->toEqual(30);
+});
+
+it('keeps positions and terrain when markers change', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $marker = Marker::factory()->create();
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 3, 'y' => 3]]]);
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece()]]);
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id)]]);
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 9, 'y' => 9]]]);
+
+    $state = $game->fresh()->board_state;
+    expect($state['markers'])->toHaveCount(1)->and($state['terrain'])->toHaveCount(1)->and($state['positions'])->toHaveCount(1);
+});
+
+it('tells the other player when markers change', function () {
+    Event::fake([GameBoardMarkersChanged::class]);
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $marker = Marker::factory()->create();
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id)]]);
+
+    Event::assertDispatched(GameBoardMarkersChanged::class, fn ($e) => count($e->markers) === 1 && $e->broadcastOn()[0]->name === 'presence-game.'.$game->uuid);
+});
+
+it('rejects bad marker requests', function (array $body) {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    Marker::factory()->create();
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), $body)->assertSessionHasErrors();
+
+    expect($game->fresh()->board_state)->toBeNull();
+})->with([
+    'nothing to change' => [[]],
+    'unknown marker' => [['upsert' => [['id' => 'm1', 'marker_id' => 99999, 'x' => 1, 'y' => 1]]]],
+    'off the table' => [['upsert' => [['id' => 'm1', 'marker_id' => 1, 'x' => 40, 'y' => 1]]]],
+    'bad id' => [['upsert' => [['id' => 'no spaces!', 'marker_id' => 1, 'x' => 1, 'y' => 1]]]],
+    'missing y' => [['upsert' => [['id' => 'm1', 'marker_id' => 1, 'x' => 1]]]],
+    'too many at once' => [['upsert' => array_map(fn ($i) => ['id' => "m$i", 'marker_id' => 1, 'x' => 1, 'y' => 1], range(1, 21))]],
+]);
+
+it('refuses a table with more than 60 markers', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $marker = Marker::factory()->create();
+    foreach (range(0, 2) as $batch) {
+        $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("m$batch-$i", $marker->id), range(1, 20))])->assertRedirect();
+    }
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('one-too-many', $marker->id)]])->assertSessionHasErrors('upsert');
+
+    expect($game->fresh()->board_state['markers'])->toHaveCount(60);
+});
+
+it('keeps marker edits to people in the game, and behind the flag', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $marker = Marker::factory()->create();
+
+    $this->actingAs(User::factory()->create())->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id)]])->assertForbidden();
+
+    Feature::for(null)->deactivate('experiment-tabletop');
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id)]])->assertNotFound();
+});
+
+it('hands the sandbox the marker catalogue', function () {
+    Marker::factory()->create(['name' => 'Scheme Marker', 'base' => 30]);
+
+    $this->actingAs(User::factory()->create())->get(route('tools.tabletop'))
+        ->assertInertia(fn (Assert $page) => $page->has('markers', 1)->where('markers.0.base_mm', 30));
 });

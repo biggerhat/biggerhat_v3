@@ -20,6 +20,7 @@ import {
     pointInShape,
     restingSupport,
     rotatePiece90,
+    searchMarkers,
     supportFraction,
     surfaceAt,
     tallClimbablePieces,
@@ -345,4 +346,33 @@ test('turning a piece a quarter swaps the sides of a rectangle about the piece c
     const edge = piece2('e', [[rect(0, 0, 12, 2), 2]]);
     const b = pieceBounds(rotatePiece90(edge));
     assert.ok(b.minX >= 0 && b.minY >= 0);
+});
+
+test('marker search needs every word, in any order, and puts names that start with the text first', () => {
+    const list = [
+        { id: 1, name: 'Scheme Marker', base_mm: 30 },
+        { id: 2, name: 'Strategy Marker', base_mm: 40 },
+        { id: 3, name: 'Blast Marker', base_mm: 50 },
+        { id: 4, name: 'Marker of the Dead', base_mm: 30 },
+        { id: 5, name: 'Corpse Marker', base_mm: 30 },
+    ];
+    assert.deepEqual(
+        searchMarkers(list, 'marker').map((o) => o.id),
+        [4, 3, 5, 1, 2],
+    );
+    assert.deepEqual(
+        searchMarkers(list, 'mark dead').map((o) => o.id),
+        [4],
+    );
+    assert.deepEqual(
+        searchMarkers(list, 'DEAD marker').map((o) => o.id),
+        [4],
+    );
+    assert.deepEqual(searchMarkers(list, 'zzz'), []);
+    assert.equal(searchMarkers(list, '').length, 5, 'an empty search lists everything, up to the limit');
+    assert.equal(searchMarkers(list, '', 2).length, 2);
+    assert.deepEqual(
+        searchMarkers(list, 'sch').map((o) => o.name),
+        ['Scheme Marker'],
+    );
 });

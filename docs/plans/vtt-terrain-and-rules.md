@@ -95,5 +95,8 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   Reading choices to confirm against play: "any clear line crossing blocking terrain" gives cover (the guide's wording is "at least one
   of the initiator's sight lines"), the concealment "more than 1 inch" and in-terrain exception are not modelled, building interiors and
   windows are not modelled, and the p.19 limit on targeting with y actions across elevations is not applied.
-- Not yet: a link from the game screen, scenario terrain (the board uses
-  the demo table), a layout editor, enforcement of climb and jump costs.
+- Ready-made tables (terrain mode > Ready-made table, `terrainLayouts.ts`): City streets, Hills and ruins, Crossroads. Each is laid out
+  for half the table and turned 180 degrees for the other half so neither side has better ground; a test holds every one to the guide's
+  advice (45-65% covered, 3-8 standable Ht 2+ pieces, nothing overlapping, all on the table, symmetric). Loading one replaces the
+  table and can be undone. Not tied to a scenario yet: the game's scenario does not choose a layout.
+- Not yet: a link from the game screen, a layout editor, enforcement of climb and jump costs.

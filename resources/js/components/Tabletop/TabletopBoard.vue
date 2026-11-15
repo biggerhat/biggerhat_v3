@@ -843,6 +843,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @undo="undoTerrain"
                 @clear="commitTerrain([])"
                 @demo="commitTerrain(sampleTerrain)"
+                @layout="commitTerrain($event)"
             />
 
             <div v-if="mode === 'sight' && !sightForward" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="sight-hint">

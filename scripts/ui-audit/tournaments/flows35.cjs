@@ -351,6 +351,15 @@ const L = require('./lib.cjs');
             await click('terrain-clear');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             if (/Covered: [1-9]/.test(await stats())) throw new Error(`an empty table has no coverage: ${await stats()}`);
+            // A ready-made table fills it in one go and is undoable.
+            await s.page.select('[data-testid=terrain-layout]', 'hills');
+            await click('terrain-layout-load');
+            await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            const covered = Number(((await stats()).match(/Covered: (\d+)%/) || [])[1]);
+            if (covered < 45 || covered > 65) throw new Error(`a ready-made table should cover 45-65%: ${await stats()}`);
+            await L.shot(s, `358-terrain-layout-${label}`);
+            await click('terrain-undo');
+            await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             await click('terrain-demo');
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             // It is all kept on this device: reload and the demo table is still there, still in terrain mode's reach.

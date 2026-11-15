@@ -24,6 +24,7 @@ import {
     restingSupport,
     rotatePiece90,
     searchMarkers,
+    shapeBounds,
     supportFraction,
     surfaceAt,
     tallClimbablePieces,
@@ -31,6 +32,7 @@ import {
     translateShape,
     withinAura,
 } from './geometry.ts';
+import { TERRAIN_LAYOUTS } from './terrainLayouts.ts';
 
 const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
 const piece = (id, shape, top) => ({ id, name: id, traits: ['climbable'], surfaces: [{ id: `${id}-s`, shape, top }] });
@@ -505,6 +507,46 @@ test('models in base contact always see each other, and distances to shapes work
 });
 
 test('only climbable terrain holds a model up', () => {
-    const steep = { id: 's', name: 'Steep', traits: ['blocking', 'impassable'], surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 } }] };
+    const steep = {
+        id: 's',
+        name: 'Steep',
+        traits: ['blocking', 'impassable'],
+        surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 } }],
+    };
     assert.equal(restingSupport({ x: 5, y: 5, baseMm: 30 }, [steep]).elevation, 0);
+});
+
+test('every ready-made table follows the guide: 45-65% covered, three to eight tall standable pieces, nothing overlapping, all on the table', () => {
+    for (const layout of TERRAIN_LAYOUTS) {
+        const pieces = layout.pieces();
+        const coverage = terrainCoverage(pieces);
+        assert.ok(coverage >= 0.45 && coverage <= 0.65, `${layout.key}: ${Math.round(coverage * 100)}% covered`);
+        const tall = tallClimbablePieces(pieces);
+        assert.ok(tall >= 3 && tall <= 8, `${layout.key}: ${tall} tall climbable pieces`);
+        assert.equal(new Set(pieces.map((p) => p.id)).size, pieces.length, `${layout.key}: piece ids`);
+        assert.equal(
+            new Set(pieces.flatMap((p) => p.surfaces.map((s) => s.id))).size,
+            pieces.flatMap((p) => p.surfaces).length,
+            `${layout.key}: surface ids`,
+        );
+        for (const s of pieces.flatMap((p) => p.surfaces)) {
+            const b = shapeBounds(s.shape);
+            assert.ok(b.minX >= 0 && b.minY >= 0 && b.maxX <= 36 && b.maxY <= 36, `${layout.key}: ${s.id} is on the table`);
+            assert.ok(s.top >= 0.5 && s.top <= 12);
+        }
+        for (let x = 0.25; x < 36; x += 0.5) {
+            for (let y = 0.25; y < 36; y += 0.5) {
+                const hits = pieces.filter((p) => p.surfaces.some((s) => pointInShape(s.shape, x, y)));
+                assert.ok(hits.length <= 1, `${layout.key}: ${hits.map((h) => h.id)} overlap at ${x},${y}`);
+            }
+        }
+        // fair: turning the table half a turn gives the same table, level for level
+        for (let x = 0.5; x < 36; x += 1) {
+            for (let y = 0.5; y < 36; y += 1) {
+                const here = surfaceAt(pieces, x, y);
+                const there = surfaceAt(pieces, 36 - x, 36 - y);
+                assert.equal(here?.surface.top ?? 0, there?.surface.top ?? 0, `${layout.key}: not symmetric at ${x},${y}`);
+            }
+        }
+    }
 });

@@ -2,6 +2,7 @@
 
 use App\Enums\BaseSizeEnum;
 use App\Enums\DeploymentEnum;
+use App\Enums\PermissionEnum;
 use App\Events\GameBoardAurasChanged;
 use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
@@ -566,4 +567,19 @@ it('keeps the orientation to people in the game, and behind the flag', function 
 
     Feature::for(null)->deactivate('experiment-tabletop');
     $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 1])->assertNotFound();
+});
+
+it('lets a beta tester into the board while the flag is off, and shows them the link', function () {
+    Feature::for(null)->deactivate('experiment-tabletop');
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $a->givePermissionTo(PermissionEnum::UseTabletopBeta->value);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertOk();
+    $this->actingAs($a)->get(route('games.show', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', true));
+    // The other player has no access yet: the board is hidden from them and so is the link.
+    $this->actingAs($b)->get(route('games.board', $game->uuid))->assertNotFound();
+    $this->actingAs($b)->get(route('games.show', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', false));
+    // Saves are held to the same rule.
+    $this->actingAs($b)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 1])->assertNotFound();
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 1])->assertRedirect();
 });

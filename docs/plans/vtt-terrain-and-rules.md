@@ -79,5 +79,9 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   does not know the model's Wk or enforce anything.
 - Deployment orientation ("Which side") is saved in `board_state.deployment_variant` (0-3), either player can set it, and the other
   sees the change live. The kind still comes from the game; the overlay on/off stays a personal view.
+- Access: everyone while the `experiment-tabletop` flag is on; while it is off, only users holding `use_tabletop_beta` (and super_admin, whose
+  role holds every permission). One check, `TabletopAccess::allows()`, covers the page, the board, every save and the Open board link.
+  To add a tester: Admin > Roles, make a role with that permission (group Tabletop), give the role to the user. Both players need access
+  to see the board: a tester's opponent without it gets a 404 and no link.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

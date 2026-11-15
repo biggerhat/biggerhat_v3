@@ -49,4 +49,5 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case TosOperation = 'tos_operation';
     case TosDeployment = 'tos_deployment';
     case Campaign = 'campaign';
+    case Tabletop = 'tabletop';
 }

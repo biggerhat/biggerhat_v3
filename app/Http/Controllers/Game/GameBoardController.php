@@ -18,13 +18,13 @@ use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Support\Tabletop\MarkerCatalogue;
+use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 use Inertia\ResponseFactory;
-use Laravel\Pennant\Feature;
 
 class GameBoardController extends Controller
 {
@@ -275,10 +275,10 @@ class GameBoardController extends Controller
         return redirect()->back();
     }
 
-    /** Pre-release: hidden (404, not 403) until the flag is on. */
+    /** Pre-release: hidden (404, not 403) unless the flag is on or the user holds the beta permission. */
     private function guard(): void
     {
-        abort_unless(Feature::for(null)->active('experiment-tabletop'), 404);
+        abort_unless(TabletopAccess::allows(auth()->user()), 404);
     }
 
     /** Base size in mm from the character card, or the custom card, falling back to 30 mm (the common size). */

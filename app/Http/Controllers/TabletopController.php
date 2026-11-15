@@ -3,16 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Support\Tabletop\MarkerCatalogue;
+use App\Support\Tabletop\TabletopAccess;
+use Illuminate\Http\Request;
 use Inertia\Response;
 use Inertia\ResponseFactory;
-use Laravel\Pennant\Feature;
 
 class TabletopController extends Controller
 {
-    public function __invoke(): Response|ResponseFactory
+    public function __invoke(Request $request): Response|ResponseFactory
     {
-        // Pre-release: hidden (404, not 403) until the experiment-tabletop flag is switched on.
-        abort_unless(Feature::for(null)->active('experiment-tabletop'), 404);
+        // Pre-release: hidden (404, not 403) unless the experiment-tabletop flag is on or the user holds the beta permission.
+        abort_unless(TabletopAccess::allows($request->user()), 404);
 
         return inertia('Tools/Tabletop', ['markers' => MarkerCatalogue::options()]);
     }

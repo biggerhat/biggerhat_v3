@@ -358,6 +358,36 @@ const L = require('./lib.cjs');
             if ((await levels()) !== 1) throw new Error(`undo should take the extra level away, got ${await levels()}`);
             await L.shot(s, `355-terrain-editor-${label}`);
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
+            // Draw an outline: corners tapped on the board close into a polygon piece.
+            const piecesBefore = Number(((await stats()).match(/(\d+) pieces?/) || [])[1]);
+            const polygons = () => s.page.$$eval('[data-testid=tabletop-board] svg polygon', (p) => p.length);
+            const polysBefore = await polygons();
+            await click('terrain-draw');
+            await s.page.waitForSelector('[data-testid=outline-help]');
+            for (const [x, y] of [
+                [31, 30],
+                [35, 30],
+                [34, 34],
+                [31, 34.5],
+            ]) {
+                const at = await pixel(x, y);
+                await s.page.mouse.click(at.x, at.y);
+            }
+            await s.page.waitForSelector('[data-testid=outline-preview]');
+            await click('outline-finish');
+            await s.page.waitForFunction(
+                (n) => new RegExp(`${n + 1} pieces`).test(document.querySelector('[data-testid=terrain-stats]').innerText),
+                { timeout: 5000 },
+                piecesBefore,
+            );
+            if ((await polygons()) !== polysBefore + 1)
+                throw new Error(`the drawn outline should add one polygon to the board (${polysBefore} -> ${await polygons()})`);
+            await click('terrain-undo');
+            await s.page.waitForFunction(
+                (n) => new RegExp(`${n} pieces?`).test(document.querySelector('[data-testid=terrain-stats]').innerText),
+                { timeout: 5000 },
+                piecesBefore,
+            );
             // Clear the table, then bring the demo table back.
             await click('terrain-clear');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });

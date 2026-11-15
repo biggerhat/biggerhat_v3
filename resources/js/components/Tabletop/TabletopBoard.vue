@@ -32,6 +32,7 @@ import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
+import { newPieceId } from '@/lib/tabletop/terrainPresets';
 import { Eye, Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -94,6 +95,52 @@ function commitTerrain(next: TerrainPiece[], remember = true) {
     terrain.value = cloneTerrain(next);
     emit('terrainChanged', cloneTerrain(next));
 }
+/** Drawing a polygon piece: the corners placed so far (snapped to half inches). The first corner closes it. */
+const outline = ref<Point[] | null>(null);
+const OUTLINE_MAX = 16;
+const snapHalf = (n: number) => Math.min(TABLE_SIZE, Math.max(0, Math.round(n * 2) / 2));
+function startOutline() {
+    outline.value = [];
+    selectedPieceId.value = null;
+}
+function cancelOutline() {
+    outline.value = null;
+}
+function undoCorner() {
+    if (outline.value) outline.value = outline.value.slice(0, -1);
+}
+/** A drawn outline needs three corners and a real area. */
+const outlineArea = (pts: Point[]) =>
+    Math.abs(pts.reduce((sum, a, i) => sum + (a.x * pts[(i + 1) % pts.length].y - pts[(i + 1) % pts.length].x * a.y), 0)) / 2;
+function finishOutline() {
+    const pts = outline.value;
+    if (!pts || pts.length < 3 || outlineArea(pts) < 1) {
+        note.value = 'An outline needs at least three corners that enclose some ground.';
+        return;
+    }
+    const id = newPieceId();
+    const piece: TerrainPiece = {
+        id,
+        name: 'Outline',
+        traits: ['blocking', 'climbable'],
+        surfaces: [{ id: `${id}-1`, top: 2, shape: { kind: 'poly', points: pts.map((q): [number, number] => [q.x, q.y]) } }],
+    };
+    outline.value = null;
+    commitTerrain([...terrain.value, piece]);
+    selectedPieceId.value = id;
+}
+function addCorner(p: Point) {
+    if (!outline.value) return;
+    const q = { x: snapHalf(p.x), y: snapHalf(p.y) };
+    const first = outline.value[0];
+    // Closing: a corner back on the first one finishes the shape.
+    if (first && outline.value.length >= 3 && Math.hypot(q.x - first.x, q.y - first.y) < 1) return finishOutline();
+    if (outline.value.length >= OUTLINE_MAX) {
+        note.value = `An outline can have up to ${OUTLINE_MAX} corners.`;
+        return;
+    }
+    if (!outline.value.some((o) => o.x === q.x && o.y === q.y)) outline.value = [...outline.value, q];
+}
 function undoTerrain() {
     const previous = undoStack.value.at(-1);
     if (!previous) return;
@@ -116,6 +163,10 @@ watch(
 );
 const selectedId = ref<string | null>(null);
 const mode = ref<Mode>('move');
+watch(mode, (m) => {
+    if (m !== 'terrain') outline.value = null;
+});
+
 const level = ref<number | 'all'>('all');
 const deployment = ref<'none' | DeploymentKind>(props.deployment ?? 'none');
 const variant = ref(props.deploymentVariant ?? 0);
@@ -360,6 +411,10 @@ function onDown(e: PointerEvent) {
     trail.value = null;
     sight.value = null;
     if (mode.value === 'terrain') {
+        if (outline.value) {
+            addCorner(p);
+            return;
+        }
         const found = surfaceAt(terrain.value, p.x, p.y);
         if (found) {
             selectedPieceId.value = found.piece.id;
@@ -780,6 +835,25 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             {{ fmt(Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y)) }}"
                         </text>
                     </g>
+                    <g v-if="outline && outline.length" pointer-events="none" data-testid="outline-preview">
+                        <polyline
+                            :points="outline.map((q) => `${q.x},${q.y}`).join(' ')"
+                            fill="hsl(45 95% 55% / 0.18)"
+                            stroke="hsl(45 95% 55%)"
+                            stroke-width="0.15"
+                            stroke-dasharray="0.4 0.3"
+                        />
+                        <circle
+                            v-for="(q, i) in outline"
+                            :key="i"
+                            :cx="q.x"
+                            :cy="q.y"
+                            :r="i === 0 ? 0.45 : 0.28"
+                            :fill="i === 0 ? 'hsl(45 95% 55%)' : 'hsl(var(--background))'"
+                            stroke="hsl(45 95% 55%)"
+                            stroke-width="0.1"
+                        />
+                    </g>
                     <g v-if="sightForward && sightBack" pointer-events="none" data-testid="sight-line">
                         <line
                             v-if="sightBack.clear && !sightForward.clear"
@@ -861,6 +935,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @clear="commitTerrain([])"
                 @demo="commitTerrain(sampleTerrain)"
                 @layout="commitTerrain($event)"
+                :drawing="outline ? outline.length : null"
+                @draw="startOutline"
+                @finish-draw="finishOutline"
+                @cancel-draw="cancelOutline"
+                @undo-corner="undoCorner"
             />
 
             <div v-if="mode === 'sight' && !sightForward" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="sight-hint">

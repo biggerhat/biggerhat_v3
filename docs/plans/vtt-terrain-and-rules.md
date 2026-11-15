@@ -102,4 +102,7 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - Placement check (`placementProblems()`): a model whose base overlaps another model's base, or stands on impassable terrain, gets a red
   ring, a warning in its panel and a note on drop ("move it to the nearest legal spot", p.20). Bases may touch. Markers and models out
   of play are ignored. Hazardous terrain is flagged but not treated as a problem. Nothing is blocked or moved automatically.
-- Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (only reported), drawn polygon outlines, an interior model for buildings.
+- Draw an outline (terrain mode): tap corners on the board (snapped to half inches, 3 to 16), tap the first corner again or press
+  Finish to close it into a polygon piece (blocking, climbable, Ht 2 to start; edit traits and Ht like any piece, drag or turn it). Its size
+  has no number fields, so reshape by drawing again. Undo removes it.
+- Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (only reported), an interior model for buildings, numeric editing of a polygon's corners.

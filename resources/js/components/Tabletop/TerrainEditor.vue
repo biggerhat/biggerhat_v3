@@ -19,7 +19,7 @@ import {
 } from '@/lib/tabletop/geometry';
 import { TERRAIN_LAYOUTS } from '@/lib/tabletop/terrainLayouts';
 import { TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
-import { Copy, Layers, Minus, Plus, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
+import { Copy, Layers, PenLine, Minus, Plus, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -28,6 +28,8 @@ const props = defineProps<{
     /** Where new pieces appear: the middle of what the board is showing. */
     anchor: { x: number; y: number };
     canUndo: boolean;
+    /** Corners placed so far while drawing an outline, or null when not drawing. */
+    drawing?: number | null;
 }>();
 
 const emit = defineEmits<{
@@ -37,6 +39,10 @@ const emit = defineEmits<{
     clear: [];
     demo: [];
     layout: [pieces: TerrainPiece[]];
+    draw: [];
+    finishDraw: [];
+    cancelDraw: [];
+    undoCorner: [];
 }>();
 
 const presetKey = ref(TERRAIN_PRESETS[0].key);
@@ -162,6 +168,27 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 </select>
             </label>
             <Button size="sm" data-testid="terrain-add" @click="addPiece"><Plus class="mr-1 size-4" />Add</Button>
+        </div>
+        <Button size="sm" variant="outline" data-testid="terrain-draw" :disabled="drawing !== null && drawing !== undefined" @click="emit('draw')"
+            ><PenLine class="mr-1 size-4" />Draw an outline</Button
+        >
+        <div
+            v-if="drawing !== null && drawing !== undefined"
+            class="space-y-2 rounded-md border border-amber-500/60 p-3 text-sm"
+            data-testid="outline-help"
+        >
+            <div class="font-medium">Drawing an outline</div>
+            <p class="text-muted-foreground">
+                Tap the board to place corners ({{ drawing }} so far). Tap the first corner again, or press Finish, to close the shape. Corners snap
+                to half inches.
+            </p>
+            <div class="flex flex-wrap gap-2">
+                <Button size="sm" data-testid="outline-finish" :disabled="drawing < 3" @click="emit('finishDraw')">Finish</Button>
+                <Button size="sm" variant="outline" data-testid="outline-undo" :disabled="drawing < 1" @click="emit('undoCorner')"
+                    >Undo corner</Button
+                >
+                <Button size="sm" variant="ghost" data-testid="outline-cancel" @click="emit('cancelDraw')">Cancel</Button>
+            </div>
         </div>
         <div class="space-y-1" data-testid="terrain-layouts">
             <div class="flex items-end gap-2">

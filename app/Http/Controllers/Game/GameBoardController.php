@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\BaseSizeEnum;
+use App\Events\GameBoardAurasChanged;
 use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
 use App\Events\GameBoardTerrainChanged;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Games\UpdateAurasRequest;
 use App\Http\Requests\Games\UpdateBoardRequest;
 use App\Http\Requests\Games\UpdateMarkersRequest;
 use App\Http\Requests\Games\UpdateTerrainRequest;
@@ -26,6 +28,9 @@ class GameBoardController extends Controller
 {
     /** Each player can have this many of each kind of marker on the table at once. */
     private const MARKERS_PER_PLAYER = 5;
+
+    /** A model or marker can show the other player this many auras (the same limit as private ones). */
+    private const AURAS_PER_TOKEN = 3;
 
     public function show(Game $game): Response|ResponseFactory
     {
@@ -52,6 +57,7 @@ class GameBoardController extends Controller
             'terrain' => $game->board_state['terrain'] ?? [],
             'markers' => MarkerCatalogue::options(),
             'placed_markers' => $game->board_state['markers'] ?? [],
+            'shared_auras' => $game->board_state['auras'] ?? [],
         ]);
     }
 
@@ -154,7 +160,9 @@ class GameBoardController extends Controller
             }
 
             $result = $placed->values()->all();
-            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['markers' => $result])]);
+            // An aura cast by a marker that is gone goes with it.
+            $auras = array_values(array_filter($locked->board_state['auras'] ?? [], fn ($a) => ! in_array($a['owner_id'], $remove, true)));
+            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['markers' => $result, 'auras' => $auras])]);
         });
 
         abort_if($problem === 'forbidden', 403, 'You can only move or pick up your own markers.');
@@ -163,6 +171,86 @@ class GameBoardController extends Controller
         }
 
         broadcast(new GameBoardMarkersChanged($game, $result))->toOthers();
+
+        return redirect()->back();
+    }
+
+    /**
+     * Auras are private to a viewer's browser until the owner shares one. A shared aura is saved with the game so both players see
+     * it (and it survives a reload); only the player who controls the model, or placed the marker, changes or withdraws it.
+     */
+    public function updateAuras(UpdateAurasRequest $request, Game $game): RedirectResponse
+    {
+        $this->guard();
+
+        $game->load('players.crewMembers:id,game_player_id');
+        $mine = $game->players->filter(fn (GamePlayer $p) => $this->controls($p, $game));
+        $myModels = $mine->flatMap(fn (GamePlayer $p) => $p->crewMembers->pluck('id'))->map(fn ($id) => (string) $id)->all();
+        $mySlots = $mine->pluck('slot')->map(fn ($s) => (int) $s)->all();
+        $upsert = collect($request->validated('upsert') ?? []);
+        $remove = collect($request->validated('remove') ?? [])->all();
+        $problem = null;
+        $result = [];
+
+        DB::transaction(function () use ($game, $upsert, $remove, $myModels, $mySlots, &$problem, &$result) {
+            $locked = Game::query()->lockForUpdate()->findOrFail($game->id);
+            $markers = collect($locked->board_state['markers'] ?? [])->keyBy('id');
+            $auras = collect($locked->board_state['auras'] ?? [])->keyBy('id');
+            $modelIds = $game->players->flatMap(fn (GamePlayer $p) => $p->crewMembers->pluck('id'))->map(fn ($id) => (string) $id)->all();
+
+            // Yours when you control the model, or placed the marker (a marker with no owner belongs to either player).
+            $isMine = function (string $ownerId) use ($myModels, $mySlots, $markers, $modelIds): bool {
+                if (in_array($ownerId, $modelIds, true)) {
+                    return in_array($ownerId, $myModels, true);
+                }
+                $marker = $markers->get($ownerId);
+
+                return $marker !== null && (! isset($marker['owner']) || in_array((int) $marker['owner'], $mySlots, true));
+            };
+
+            foreach ($remove as $id) {
+                $existing = $auras->get($id);
+                if ($existing !== null && ! $isMine($existing['owner_id'])) {
+                    $problem = 'forbidden';
+
+                    return;
+                }
+                $auras->forget($id);
+            }
+            foreach ($upsert as $a) {
+                $existing = $auras->get($a['id']);
+                $ownerId = $existing['owner_id'] ?? $a['owner_id'];
+                if (! $isMine($ownerId)) {
+                    $problem = 'forbidden';
+
+                    return;
+                }
+                $auras->put($a['id'], array_filter([
+                    'id' => $a['id'],
+                    'owner_id' => $ownerId,
+                    'range' => round((float) $a['range'] * 2) / 2,
+                    'locked' => (bool) $a['locked'],
+                    'x' => $a['locked'] ? round((float) $a['x'], 2) : null,
+                    'y' => $a['locked'] ? round((float) $a['y'], 2) : null,
+                ], fn ($v) => $v !== null));
+            }
+
+            if ($auras->groupBy('owner_id')->contains(fn ($group) => $group->count() > self::AURAS_PER_TOKEN)) {
+                $problem = 'limit';
+
+                return;
+            }
+
+            $result = $auras->values()->all();
+            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['auras' => $result])]);
+        });
+
+        abort_if($problem === 'forbidden', 403, 'You can only share or change auras on your own models and markers.');
+        if ($problem === 'limit') {
+            throw ValidationException::withMessages(['upsert' => 'A model can show up to '.self::AURAS_PER_TOKEN.' auras.']);
+        }
+
+        broadcast(new GameBoardAurasChanged($game, $result))->toOthers();
 
         return redirect()->back();
     }

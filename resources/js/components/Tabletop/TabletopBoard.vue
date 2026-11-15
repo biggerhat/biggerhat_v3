@@ -29,7 +29,7 @@ import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
-import { Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2 } from 'lucide-vue-next';
+import { Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 type Mode = 'move' | 'ruler' | 'terrain';
@@ -47,6 +47,8 @@ const props = withDefaults(
         markers?: MarkerOption[];
         /** The sides this viewer may place markers for. Each side can have MARKERS_PER_KIND of each marker on the table. The sandbox offers both. */
         placeAs?: { side: 'a' | 'b'; label: string }[];
+        /** Auras players have chosen to show both sides, saved with the game. Without it, auras are private to this browser. */
+        sharedAuras?: Aura[];
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -62,6 +64,7 @@ const emit = defineEmits<{
     remove: [id: string];
     reset: [];
     terrainChanged: [pieces: TerrainPiece[]];
+    auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
 }>();
 
 // The table layout, copied so a piece moves smoothly while it is dragged; the parent gets the layout once it is dropped.
@@ -127,27 +130,34 @@ const AURA_MIN = 0.5;
 const AURA_MAX = 36;
 const AURA_PRESETS = [1, 2, 3, 6];
 const AURA_DASHES = ['0.5 0.35', '0.15 0.3', '1 0.3'];
-const auras = ref<Aura[]>([]);
+/** Auras private to this browser. Shared ones come from the game (props.sharedAuras) and are changed through `auraChange`. */
+const privateAuras = ref<Aura[]>([]);
+const auras = computed<Aura[]>(() => [...privateAuras.value, ...(props.sharedAuras ?? []).map((a) => ({ ...a, shared: true }))]);
 const auraKey = computed(() => (props.storageKey ? `tabletop-auras-${props.storageKey}` : null));
 onMounted(() => {
     if (!auraKey.value) return;
     try {
         const saved = JSON.parse(localStorage.getItem(auraKey.value) ?? 'null');
-        if (Array.isArray(saved)) auras.value = saved;
+        if (Array.isArray(saved)) privateAuras.value = saved;
         // first version: one aura per model, saved as { modelId: range }
         else if (saved && typeof saved === 'object') {
-            auras.value = Object.entries(saved).map(([ownerId, range], i) => ({ id: `legacy${i}`, ownerId, range: Number(range), locked: false }));
+            privateAuras.value = Object.entries(saved).map(([ownerId, range], i) => ({
+                id: `legacy${i}`,
+                ownerId,
+                range: Number(range),
+                locked: false,
+            }));
         }
     } catch {
         // storage unavailable: auras simply start empty
     }
 });
 watch(
-    auras,
+    privateAuras,
     () => {
         if (!auraKey.value) return;
         try {
-            localStorage.setItem(auraKey.value, JSON.stringify(auras.value));
+            localStorage.setItem(auraKey.value, JSON.stringify(privateAuras.value));
         } catch {
             // ignore
         }
@@ -156,17 +166,48 @@ watch(
 );
 const clampAura = (n: number) => Math.min(AURA_MAX, Math.max(AURA_MIN, Math.round(n * 2) / 2));
 const aurasOf = (ownerId: string) => auras.value.filter((a) => a.ownerId === ownerId);
-const patchAura = (id: string, patch: Partial<Aura>) => (auras.value = auras.value.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+const ownerOf = (a: Aura) => tokens.value.find((t) => t.id === a.ownerId);
+/** You change a private aura freely; a shared one only when you control the model or marker that casts it. */
+const canEdit = (a: Aura) => !a.shared || !ownerOf(a)?.locked;
+const sharingOn = computed(() => props.sharedAuras !== undefined);
+function patchAura(id: string, patch: Partial<Aura>) {
+    const shared = props.sharedAuras?.find((a) => a.id === id);
+    if (shared) {
+        if (canEdit({ ...shared, shared: true })) emit('auraChange', { upsert: [{ ...shared, ...patch }] });
+        return;
+    }
+    privateAuras.value = privateAuras.value.map((a) => (a.id === id ? { ...a, ...patch } : a));
+}
 const setRange = (id: string, range: number) => patchAura(id, { range: clampAura(range) });
 function addAura(owner: Token) {
     if (aurasOf(owner.id).length >= AURAS_PER_MODEL) return;
-    auras.value = [...auras.value, { id: `a${Date.now().toString(36)}${auras.value.length}`, ownerId: owner.id, range: 6, locked: false }];
+    privateAuras.value = [
+        ...privateAuras.value,
+        { id: `a${Date.now().toString(36)}${auras.value.length}`, ownerId: owner.id, range: 6, locked: false },
+    ];
 }
 function toggleLock(aura: Aura, owner: Token) {
     patchAura(aura.id, aura.locked ? { locked: false, x: undefined, y: undefined } : { locked: true, x: owner.x, y: owner.y });
 }
-const removeAura = (id: string) => (auras.value = auras.value.filter((a) => a.id !== id));
-const ownerOf = (a: Aura) => tokens.value.find((t) => t.id === a.ownerId);
+/** Show an aura to the other player (it is saved with the game), or take it back to this browser. */
+function toggleShare(aura: Aura) {
+    if (!canEdit(aura)) return;
+    const { shared, ...plain } = aura;
+    if (shared) {
+        privateAuras.value = [...privateAuras.value, plain];
+        emit('auraChange', { remove: [aura.id] });
+    } else {
+        privateAuras.value = privateAuras.value.filter((a) => a.id !== aura.id);
+        emit('auraChange', { upsert: [plain] });
+    }
+}
+function removeAura(id: string) {
+    if (props.sharedAuras?.some((a) => a.id === id)) {
+        if (canEdit({ ...props.sharedAuras.find((a) => a.id === id)!, shared: true })) emit('auraChange', { remove: [id] });
+        return;
+    }
+    privateAuras.value = privateAuras.value.filter((a) => a.id !== id);
+}
 /** Auras drawn on the board: each with its owner, centre, radius and the models inside it. An aura whose model is gone is dropped. */
 const activeAuras = computed(() =>
     auras.value.flatMap((aura) => {
@@ -568,6 +609,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             :stroke-width="a.aura.locked ? 0.2 : 0.12"
                             :stroke-dasharray="a.aura.locked ? undefined : AURA_DASHES[a.nth % AURA_DASHES.length]"
                         />
+                        <circle
+                            v-if="a.aura.shared"
+                            :cx="a.origin.x"
+                            :cy="a.origin.y"
+                            :r="a.radius + 0.22"
+                            fill="none"
+                            :stroke="sideColour(a.owner.side)"
+                            stroke-width="0.06"
+                            data-shared="true"
+                        />
                         <g v-if="a.aura.locked">
                             <circle :cx="a.origin.x" :cy="a.origin.y" r="0.22" :fill="sideColour(a.owner.side)" />
                             <circle
@@ -746,6 +797,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     variant="outline"
                                     aria-label="Smaller aura"
                                     data-testid="aura-minus"
+                                    :disabled="!canEdit(aura)"
                                     @click="setRange(aura.id, aura.range - 0.5)"
                                     ><Minus class="size-4"
                                 /></Button>
@@ -758,6 +810,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     step="0.5"
                                     aria-label="Aura range in inches"
                                     data-testid="aura-range"
+                                    :disabled="!canEdit(aura)"
                                     :value="aura.range"
                                     @change="setRange(aura.id, Number(($event.target as HTMLInputElement).value) || AURA_MIN)"
                                 />
@@ -767,6 +820,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     variant="outline"
                                     aria-label="Larger aura"
                                     data-testid="aura-plus"
+                                    :disabled="!canEdit(aura)"
                                     @click="setRange(aura.id, aura.range + 0.5)"
                                     ><Plus class="size-4"
                                 /></Button>
@@ -776,11 +830,29 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     :aria-pressed="aura.locked"
                                     :aria-label="aura.locked ? 'Unlock: follow the model again' : 'Lock this aura where it is'"
                                     data-testid="aura-lock"
+                                    :disabled="!canEdit(aura)"
                                     @click="toggleLock(aura, selected)"
                                 >
                                     <component :is="aura.locked ? Lock : LockOpen" class="size-4" />
                                 </Button>
-                                <Button size="sm" variant="ghost" aria-label="Remove this aura" data-testid="aura-remove" @click="removeAura(aura.id)"
+                                <Button
+                                    v-if="sharingOn && !selected.locked"
+                                    size="sm"
+                                    :variant="aura.shared ? 'default' : 'outline'"
+                                    :aria-pressed="!!aura.shared"
+                                    :aria-label="aura.shared ? 'Stop showing this aura to the other player' : 'Show this aura to the other player'"
+                                    data-testid="aura-share"
+                                    @click="toggleShare(aura)"
+                                >
+                                    <Users class="size-4" />
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label="Remove this aura"
+                                    data-testid="aura-remove"
+                                    :disabled="!canEdit(aura)"
+                                    @click="removeAura(aura.id)"
                                     ><Trash2 class="size-4"
                                 /></Button>
                             </div>
@@ -790,12 +862,14 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     :key="n"
                                     size="sm"
                                     :variant="aura.range === n ? 'default' : 'outline'"
+                                    :disabled="!canEdit(aura)"
                                     @click="setRange(aura.id, n)"
                                     >{{ n }}"</Button
                                 >
                             </div>
                             <p class="mt-2 text-muted-foreground" data-testid="aura-inside">
-                                {{ aura.locked ? 'Locked at ' + fmt(aura.x ?? 0) + '", ' + fmt(aura.y ?? 0) + '". ' : 'Follows the model. ' }}Starts
+                                {{ aura.shared ? (canEdit(aura) ? 'Shown to both players. ' : 'Shown to you by the other player. ') : ''
+                                }}{{ aura.locked ? 'Locked at ' + fmt(aura.x ?? 0) + '", ' + fmt(aura.y ?? 0) + '". ' : 'Follows the model. ' }}Starts
                                 at the edge of the base.
                                 <template v-if="insideOf(aura.id).length"
                                     >Within {{ fmt(aura.range) }}":

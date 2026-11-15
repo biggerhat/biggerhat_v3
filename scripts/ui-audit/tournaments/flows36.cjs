@@ -147,6 +147,54 @@ const L = require('./lib.cjs');
             await open();
             if ((await markers()).length !== start) throw new Error('picking the marker up was not saved');
         });
+        await L.step(`board (${label}): an aura shown to the other player is saved with the game`, carol, async () => {
+            const hit = async (selector) => {
+                await carol.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
+                await carol.page.click(selector);
+            };
+            const open = async () => {
+                await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                await carol.page.waitForSelector('[data-testid^=token-]');
+            };
+            await open();
+            // Click models until one is mine: the other crew is locked, so its aura has no share button.
+            const count = (await carol.page.$$('[data-testid^=token-]')).length;
+            let found = false;
+            for (let i = 0; i < count && !found; i++) {
+                await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+                const c = await circle(carol, i);
+                await carol.page.mouse.click(c.px, c.py);
+                await carol.page.waitForSelector('[data-testid=aura-controls]');
+                await hit('[data-testid=aura-add]');
+                if (await carol.page.$('[data-testid=aura-share]')) found = true;
+                else await hit('[data-testid=aura-remove]');
+            }
+            if (!found) throw new Error('no model of mine could show an aura');
+            await hit('[data-testid=aura-share]');
+            await carol.page.waitForSelector('[data-shared=true]');
+            await L.sleep(1200);
+            await open();
+            if (!(await carol.page.$('[data-shared=true]'))) throw new Error('the shared aura was not kept after a reload');
+            await L.shot(carol, `365-board-shared-aura-${label}`);
+            // withdraw it: select its model again and remove the aura
+            const auraOwner = await carol.page.$eval('[data-shared=true]', (g) => g.parentElement.getAttribute('data-testid'));
+            const owner = await carol.page.$eval(`[data-testid=${auraOwner}]`, (g) => g.getAttribute('data-testid'));
+            if (!owner) throw new Error('aura has no owner');
+            const idx = await carol.page.evaluate(
+                (o) =>
+                    [...document.querySelectorAll('[data-testid^=token-]')].findIndex(
+                        (g) => g.getAttribute('data-testid') === o.replace('aura-', 'token-'),
+                    ),
+                auraOwner,
+            );
+            await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+            const c = await circle(carol, idx);
+            await carol.page.mouse.click(c.px, c.py);
+            await hit('[data-testid=aura-remove]');
+            await L.sleep(1200);
+            await open();
+            if (await carol.page.$('[data-shared=true]')) throw new Error('withdrawing the aura was not saved');
+        });
     }
 
     const live = await L.session(browser, 'carol@example.test');
@@ -160,6 +208,7 @@ const L = require('./lib.cjs');
                             if (event === '.GameBoardMoved') window.__boardMoved = cb;
                             if (event === '.GameBoardTerrainChanged') window.__boardTerrain = cb;
                             if (event === '.GameBoardMarkersChanged') window.__boardMarkers = cb;
+                            if (event === '.GameBoardAurasChanged') window.__boardAuras = cb;
                             return ch;
                         },
                     };
@@ -224,6 +273,17 @@ const L = require('./lib.cjs');
         await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 1, { timeout: 5000 });
         await live.page.evaluate(() => window.__boardMarkers({ markers: [] }));
         await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 0, { timeout: 5000 });
+    });
+
+    await L.step('board: an aura the other player shows appears without a reload', live, async () => {
+        await live.page.waitForFunction(() => typeof window.__boardAuras === 'function', { timeout: 9000 });
+        const id = await live.page.evaluate(() =>
+            document.querySelectorAll('[data-testid^=token-]')[1].getAttribute('data-testid').replace('token-', ''),
+        );
+        await live.page.evaluate((i) => window.__boardAuras({ auras: [{ id: 'sa1', owner_id: i, range: 4, locked: false }] }), id);
+        await live.page.waitForFunction(() => document.querySelectorAll('[data-shared=true]').length === 1, { timeout: 5000 });
+        await live.page.evaluate(() => window.__boardAuras({ auras: [] }));
+        await live.page.waitForFunction(() => document.querySelectorAll('[data-shared=true]').length === 0, { timeout: 5000 });
     });
 
     const outsider = await L.session(browser, 'alice@example.test');

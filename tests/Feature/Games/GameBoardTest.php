@@ -2,6 +2,7 @@
 
 use App\Enums\BaseSizeEnum;
 use App\Enums\DeploymentEnum;
+use App\Events\GameBoardAurasChanged;
 use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
 use App\Events\GameBoardTerrainChanged;
@@ -427,4 +428,112 @@ it('hands the sandbox the marker catalogue', function () {
 
     $this->actingAs(User::factory()->create())->get(route('tools.tabletop'))
         ->assertInertia(fn (Assert $page) => $page->has('markers', 1)->where('markers.0.base_mm', 30));
+});
+
+function sharedAura(string $id, string|int $owner, float $range = 6, bool $locked = false): array
+{
+    return ['id' => $id, 'owner_id' => (string) $owner, 'range' => $range, 'locked' => $locked] + ($locked ? ['x' => 12.3456, 'y' => 20] : []);
+}
+
+it('hands the board the auras players have shared', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id, 3, true)]])->assertRedirect();
+
+    $this->actingAs($b)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('shared_auras', 1)
+            ->where('shared_auras.0.owner_id', (string) $m1->id)
+            ->where('shared_auras.0.locked', true)
+            ->where('shared_auras.0.x', 12.35));
+});
+
+it('lets only the model\'s player share, change or withdraw its auras', function () {
+    [$game, $m1, $m2] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id)]]);
+
+    $this->actingAs($b)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('x', $m1->id)]])->assertForbidden();
+    $this->actingAs($b)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m2->id, 2)]])->assertForbidden();
+    $this->actingAs($b)->put(route('games.board.auras', $game->uuid), ['remove' => ['a1']])->assertForbidden();
+    $this->actingAs($b)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('b1', $m2->id, 2)]])->assertRedirect();
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id, 9)]])->assertRedirect();
+
+    $saved = collect($game->fresh()->board_state['auras'])->keyBy('id');
+    expect($saved->keys()->all())->toEqual(['a1', 'b1'])->and($saved['a1']['range'])->toEqual(9)->and($saved['a1']['owner_id'])->toBe((string) $m1->id);
+});
+
+it('shares auras cast by your markers, and drops them when the marker is picked up', function () {
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $marker = Marker::factory()->create();
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id)]]);
+
+    $this->actingAs($b)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('x', 'm1')]])->assertForbidden();
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', 'm1')]])->assertRedirect();
+    expect($game->fresh()->board_state['auras'])->toHaveCount(1);
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['remove' => ['m1']]);
+
+    expect($game->fresh()->board_state['auras'])->toBe([]);
+});
+
+it('lets a model show three auras, not four', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => array_map(fn ($i) => sharedAura("a$i", $m1->id), [1, 2, 3])])->assertRedirect();
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a4', $m1->id)]])->assertSessionHasErrors('upsert');
+
+    expect($game->fresh()->board_state['auras'])->toHaveCount(3);
+});
+
+it('lets a solo player share auras on either side', function () {
+    [$game, $m1, $m2] = boardGame($a = User::factory()->create(), User::factory()->create(), solo: true);
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id), sharedAura('a2', $m2->id)]])->assertRedirect();
+
+    expect($game->fresh()->board_state['auras'])->toHaveCount(2);
+});
+
+it('keeps positions, terrain and markers when auras change', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $marker = Marker::factory()->create();
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 3, 'y' => 3]]]);
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id)]]);
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id)]]);
+
+    $state = $game->fresh()->board_state;
+    expect($state['auras'])->toHaveCount(1)->and($state['markers'])->toHaveCount(1)->and($state['positions'])->toHaveCount(1);
+});
+
+it('tells the other player when auras change', function () {
+    Event::fake([GameBoardAurasChanged::class]);
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id)]]);
+
+    Event::assertDispatched(GameBoardAurasChanged::class, fn ($e) => count($e->auras) === 1 && $e->broadcastOn()[0]->name === 'presence-game.'.$game->uuid);
+});
+
+it('rejects bad aura requests', function (array $body) {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), $body)->assertSessionHasErrors();
+
+    expect($game->fresh()->board_state)->toBeNull();
+})->with([
+    'nothing to change' => [[]],
+    'range too small' => [['upsert' => [['id' => 'a1', 'owner_id' => '1', 'range' => 0, 'locked' => false]]]],
+    'range too big' => [['upsert' => [['id' => 'a1', 'owner_id' => '1', 'range' => 40, 'locked' => false]]]],
+    'locked without a spot' => [['upsert' => [['id' => 'a1', 'owner_id' => '1', 'range' => 3, 'locked' => true]]]],
+    'spot off the table' => [['upsert' => [['id' => 'a1', 'owner_id' => '1', 'range' => 3, 'locked' => true, 'x' => 50, 'y' => 1]]]],
+    'bad id' => [['upsert' => [['id' => 'no spaces', 'owner_id' => '1', 'range' => 3, 'locked' => false]]]],
+]);
+
+it('keeps aura sharing to people in the game, and behind the flag', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs(User::factory()->create())->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id)]])->assertForbidden();
+
+    Feature::for(null)->deactivate('experiment-tabletop');
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id)]])->assertNotFound();
 });

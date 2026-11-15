@@ -71,5 +71,8 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   auras and, by its owner only, dragged and picked up. The player who places a marker owns it; each player can have five of each kind on the
   table (in a solo game you place for either side). Saved with the game as {id, marker_id, owner (slot), x, y}: the name and base
   size always come from the table. Edits are merged under a lock and the other player sees them live.
+- Shared auras: an aura is private to the browser (localStorage) until its owner presses "Show to the other player". Shared auras are saved
+  in `board_state.auras` ({id, owner_id (crew id or marker id), range, locked, x, y}), drawn with an outer ring, live for both players, and
+  only the model's or marker's owner can change or withdraw them (up to 3 per model). A marker's shared auras go when it is picked up.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

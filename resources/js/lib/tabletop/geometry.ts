@@ -122,6 +122,8 @@ export interface Aura {
     locked: boolean;
     x?: number;
     y?: number;
+    /** Shown to the other player too, and saved with the game. Otherwise private to this browser. */
+    shared?: boolean;
 }
 
 /** Where an aura is centred, as a base of the owner's size: on the model, or at its locked spot. */

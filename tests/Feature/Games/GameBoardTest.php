@@ -396,18 +396,20 @@ it('rejects bad marker requests', function (array $body) {
     'too many at once' => [['upsert' => array_map(fn ($i) => ['id' => "m$i", 'marker_id' => 1, 'owner' => 1, 'x' => 1, 'y' => 1], range(1, 21))]],
 ]);
 
-it('lets each player have five markers, not six', function () {
+it('lets each player have five of each kind of marker, not six', function () {
     [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
-    $marker = Marker::factory()->create();
-    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("m$i", $marker->id), range(1, 5))])->assertRedirect();
+    $scheme = Marker::factory()->create();
+    $blast = Marker::factory()->create();
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("m$i", $scheme->id), range(1, 5))])->assertRedirect();
 
-    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('sixth', $marker->id)]])->assertSessionHasErrors('upsert');
-    // The other player's five are their own.
-    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("n$i", $marker->id, 3, 3, 2), range(1, 5))])->assertRedirect();
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('sixth', $scheme->id)]])->assertSessionHasErrors('upsert');
+    // Another kind has its own five, and so does the other player.
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("b$i", $blast->id), range(1, 5))])->assertRedirect();
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("n$i", $scheme->id, 3, 3, 2), range(1, 5))])->assertRedirect();
     // Moving one you already have is not a sixth.
-    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 20, 20)]])->assertRedirect();
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $scheme->id, 20, 20)]])->assertRedirect();
 
-    expect($game->fresh()->board_state['markers'])->toHaveCount(10);
+    expect($game->fresh()->board_state['markers'])->toHaveCount(15);
 });
 
 it('keeps marker edits to people in the game, and behind the flag', function () {

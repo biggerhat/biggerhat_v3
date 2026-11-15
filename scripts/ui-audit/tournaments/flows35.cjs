@@ -208,8 +208,8 @@ const L = require('./lib.cjs');
             }
             const radii = await s.page.$$eval('[data-marker=true]', (cs) => cs.map((c) => Number(c.getAttribute('r'))).sort());
             if (Math.abs(radii[0] - 15 / 25.4) > 0.01) throw new Error(`a 30 mm marker has radius ${radii[0]}, expected ${15 / 25.4}`);
-            // Each side can have five: the fifth is fine, then the dialog says so and will not add a sixth.
-            for (let i = 0; i < 2; i++) {
+            // Each side can have five of each marker: the fifth Scheme is fine, then it cannot add a sixth while Blast still can.
+            for (let i = 0; i < 3; i++) {
                 await openPicker();
                 await s.page.type('[data-testid=marker-search]', 'scheme');
                 await hit('[data-testid=marker-add]');
@@ -217,8 +217,17 @@ const L = require('./lib.cjs');
                 await s.page.waitForFunction((n) => document.querySelectorAll('[data-marker=true]').length === n, { timeout: 5000 }, i + 4);
             }
             await openPicker();
-            await s.page.waitForSelector('[data-testid=marker-full]');
-            if (!(await s.page.$eval('[data-testid=marker-add]', (b) => b.disabled))) throw new Error('Add should be disabled at five markers');
+            await s.page.type('[data-testid=marker-search]', 'scheme');
+            if (!(await s.page.$eval('[data-testid=marker-add]', (b) => b.disabled))) throw new Error('Add should be disabled at five of one marker');
+            const used = await s.page.$eval('[data-testid=marker-used]', (e) => e.innerText.trim());
+            if (used !== '5/5') throw new Error(`expected 5/5 used, saw ${used}`);
+            // Another kind still has all five.
+            await s.page.$eval('[data-testid=marker-search]', (i) => {
+                i.value = '';
+                i.dispatchEvent(new Event('input'));
+            });
+            await s.page.type('[data-testid=marker-search]', 'blast');
+            if (await s.page.$eval('[data-testid=marker-add]', (b) => b.disabled)) throw new Error('a different marker should still be addable');
             await L.shot(s, `356-markers-${label}`);
             await s.page.keyboard.press('Escape');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=marker-picker]'), { timeout: 5000 });
@@ -237,9 +246,9 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=selected-panel]');
             await s.page.waitForFunction(() => /mm base/.test(document.querySelector('[data-testid=selected-panel]').innerText), { timeout: 5000 });
             await hit('[data-testid=remove-token]');
-            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 4, { timeout: 5000 });
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 5, { timeout: 5000 });
             // Leave the table as the next step expects it.
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 5; i++) {
                 await toBoardTop();
                 const remaining = await s.page.$eval('[data-marker=true]', (c) => ({
                     x: Number(c.getAttribute('cx')),

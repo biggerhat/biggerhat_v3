@@ -24,7 +24,7 @@ use Laravel\Pennant\Feature;
 
 class GameBoardController extends Controller
 {
-    /** Each player can have this many markers on the table at once. */
+    /** Each player can have this many of each kind of marker on the table at once. */
     private const MARKERS_PER_PLAYER = 5;
 
     public function show(Game $game): Response|ResponseFactory
@@ -103,7 +103,7 @@ class GameBoardController extends Controller
 
     /**
      * Each player owns the markers they place and can only move or pick up their own (in a solo game you play both sides).
-     * A player can have five on the table. Applied under a lock, so simultaneous edits both survive.
+     * A player can have five of each kind of marker on the table. Applied under a lock, so simultaneous edits both survive.
      */
     public function updateMarkers(UpdateMarkersRequest $request, Game $game): RedirectResponse
     {
@@ -147,7 +147,7 @@ class GameBoardController extends Controller
                 ]);
             }
 
-            if ($placed->groupBy('owner')->contains(fn ($group) => $group->count() > self::MARKERS_PER_PLAYER)) {
+            if ($placed->groupBy(fn ($m) => ($m['owner'] ?? 0).'-'.$m['marker_id'])->contains(fn ($group) => $group->count() > self::MARKERS_PER_PLAYER)) {
                 $problem = 'limit';
 
                 return;
@@ -159,7 +159,7 @@ class GameBoardController extends Controller
 
         abort_if($problem === 'forbidden', 403, 'You can only move or pick up your own markers.');
         if ($problem === 'limit') {
-            throw ValidationException::withMessages(['upsert' => 'Each player can have up to '.self::MARKERS_PER_PLAYER.' markers on the table.']);
+            throw ValidationException::withMessages(['upsert' => 'Each player can have up to '.self::MARKERS_PER_PLAYER.' of each marker on the table.']);
         }
 
         broadcast(new GameBoardMarkersChanged($game, $result))->toOthers();

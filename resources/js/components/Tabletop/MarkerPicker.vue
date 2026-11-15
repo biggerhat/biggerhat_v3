@@ -4,7 +4,11 @@ import { searchMarkers, type MarkerOption } from '@/lib/tabletop/geometry';
 import { MapPin, Search } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-const props = defineProps<{ markers: MarkerOption[]; disabled?: boolean }>();
+const props = defineProps<{
+    markers: MarkerOption[];
+    /** How many of each marker (by id) are already on the table for this side. */ used?: Record<number, number>;
+    limit?: number;
+}>();
 const emit = defineEmits<{ add: [marker: MarkerOption] }>();
 
 const query = ref('');
@@ -32,10 +36,13 @@ const total = computed(() => props.markers.length);
                 <MapPin class="size-4 shrink-0 text-muted-foreground" />
                 <span class="min-w-0 flex-1 truncate">{{ m.name }}</span>
                 <span class="shrink-0 text-muted-foreground" data-testid="marker-base">{{ m.base_mm }} mm</span>
+                <span v-if="limit !== undefined" class="shrink-0 text-xs text-muted-foreground" data-testid="marker-used"
+                    >{{ used?.[m.id] ?? 0 }}/{{ limit }}</span
+                >
                 <Button
                     size="sm"
                     variant="outline"
-                    :disabled="disabled"
+                    :disabled="limit !== undefined && (used?.[m.id] ?? 0) >= limit"
                     :aria-label="`Add ${m.name}`"
                     data-testid="marker-add"
                     @click="emit('add', m)"

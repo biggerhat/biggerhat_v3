@@ -68,7 +68,7 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   both players can edit it; changes reach the other player live. The sandbox keeps its layout on the device.
 - Markers: "Add marker" opens a dialog that searches every row of the markers table (every word must match, any order) and lists
   each marker's base size. A marker is drawn to scale as a dashed token in its owner's colour, sits under the models, can be given
-  auras and, by its owner only, dragged and picked up. The player who places a marker owns it; each player can have five on the
+  auras and, by its owner only, dragged and picked up. The player who places a marker owns it; each player can have five of each kind on the
   table (in a solo game you place for either side). Saved with the game as {id, marker_id, owner (slot), x, y}: the name and base
   size always come from the table. Edits are merged under a lock and the other player sees them live.
 - Not yet: a link from the game screen, scenario terrain (the board uses

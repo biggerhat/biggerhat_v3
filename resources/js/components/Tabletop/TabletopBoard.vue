@@ -45,7 +45,7 @@ const props = withDefaults(
         sideNames?: { a: string; b: string };
         /** Markers that can be placed (name and base size from the markers table). Without them the picker is hidden. */
         markers?: MarkerOption[];
-        /** The sides this viewer may place markers for. Each side can have MARKERS_PER_SIDE on the table. The sandbox offers both. */
+        /** The sides this viewer may place markers for. Each side can have MARKERS_PER_KIND of each marker on the table. The sandbox offers both. */
         placeAs?: { side: 'a' | 'b'; label: string }[];
         storageKey?: string;
         deployment?: DeploymentKind;
@@ -394,8 +394,8 @@ function addToken() {
         y: view.value.y + view.value.w / 2,
     });
 }
-/** Markers belong to whoever placed them, and each side can have this many on the table. */
-const MARKERS_PER_SIDE = 5;
+/** Markers belong to whoever placed them, and each side can have this many of each kind on the table. */
+const MARKERS_PER_KIND = 5;
 const markerDialog = ref(false);
 /** A fresh search box each time the dialog opens. */
 const pickerKey = ref(0);
@@ -414,10 +414,16 @@ const markerSides = computed(
             : []),
 );
 const markerSide = ref<'a' | 'b'>(markerSides.value[0]?.side ?? 'a');
-const markersOf = (side: 'a' | 'b') => props.tokens.filter((t) => t.marker && t.side === side).length;
-const markerRoom = computed(() => MARKERS_PER_SIDE - markersOf(markerSide.value));
+/** How many of each marker the chosen side already has out, by marker id. */
+const markersUsed = computed(() => {
+    const used: Record<number, number> = {};
+    for (const t of props.tokens)
+        if (t.marker && t.side === markerSide.value && t.markerId !== undefined) used[t.markerId] = (used[t.markerId] ?? 0) + 1;
+    return used;
+});
+const markersOut = (side: 'a' | 'b') => props.tokens.filter((t) => t.marker && t.side === side).length;
 function placeMarker(m: MarkerOption) {
-    if (markerRoom.value <= 0) return;
+    if ((markersUsed.value[m.id] ?? 0) >= MARKERS_PER_KIND) return;
     // Fan new markers out a little so several added in a row do not sit exactly on top of each other.
     const nudge = (tokens.value.filter((t) => t.marker).length % 6) * 1.2;
     const at = clampToTable({ baseMm: m.base_mm, x: view.value.x + view.value.w / 2 + nudge, y: view.value.y + view.value.w / 2 + nudge });
@@ -823,10 +829,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     ><MapPin class="mr-1 size-4" />Add marker</Button
                 >
                 <span class="text-muted-foreground" data-testid="marker-count"
-                    >{{
-                        markerSides.map((s) => `${markerSides.length > 1 ? `${s.label}: ` : ''}${markersOf(s.side)}/${MARKERS_PER_SIDE}`).join(', ')
-                    }}
-                    markers</span
+                    >{{ markerSides.map((s) => `${markerSides.length > 1 ? `${s.label}: ` : ''}${markersOut(s.side)}`).join(', ') }} on the
+                    table</span
                 >
             </div>
             <Dialog v-model:open="markerDialog">
@@ -834,21 +838,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     <DialogHeader>
                         <DialogTitle>Add a marker</DialogTitle>
                         <DialogDescription>
-                            Markers are yours: only you can move or pick them up. You can have {{ MARKERS_PER_SIDE }} on the table.
+                            Markers are yours: only you can move or pick them up. You can have {{ MARKERS_PER_KIND }} of each kind on the table.
                         </DialogDescription>
                     </DialogHeader>
                     <label v-if="markerSides.length > 1" class="block text-sm">
                         <span class="mb-1 block font-medium">Place for</span>
                         <select v-model="markerSide" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="marker-side">
-                            <option v-for="s in markerSides" :key="s.side" :value="s.side">
-                                {{ s.label }} ({{ markersOf(s.side) }}/{{ MARKERS_PER_SIDE }})
-                            </option>
+                            <option v-for="s in markerSides" :key="s.side" :value="s.side">{{ s.label }} ({{ markersOut(s.side) }} out)</option>
                         </select>
                     </label>
-                    <p v-if="markerRoom <= 0" class="text-sm text-amber-600 dark:text-amber-400" data-testid="marker-full">
-                        That is {{ MARKERS_PER_SIDE }} markers already. Pick one up to place another.
-                    </p>
-                    <MarkerPicker :key="pickerKey" :markers="markers ?? []" :disabled="markerRoom <= 0" @add="placeMarker" />
+                    <MarkerPicker :key="pickerKey" :markers="markers ?? []" :used="markersUsed" :limit="MARKERS_PER_KIND" @add="placeMarker" />
                 </DialogContent>
             </Dialog>
 

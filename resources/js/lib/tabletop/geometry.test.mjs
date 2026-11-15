@@ -10,10 +10,12 @@ import {
     clampTop,
     deploymentZones,
     describeZone,
+    distanceToShape,
     edgeDistance,
     fallHurts,
     heightCover,
     inZone,
+    lineOfSight,
     modelsWithin,
     moveCost,
     movePiece,
@@ -31,7 +33,7 @@ import {
 } from './geometry.ts';
 
 const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
-const piece = (id, shape, top) => ({ id, name: id, traits: [], surfaces: [{ id: `${id}-s`, shape, top }] });
+const piece = (id, shape, top) => ({ id, name: id, traits: ['climbable'], surfaces: [{ id: `${id}-s`, shape, top }] });
 const tok = (x, y, baseMm = 30) => ({ id: 't', name: 't', side: 'a', baseMm, x, y });
 
 test('base radius is half the diameter in inches', () => {
@@ -386,4 +388,123 @@ test('moving costs the ground covered plus any climb, and a drop is reported apa
     assert.deepEqual([up.climb, up.drop, up.total], [2, 0, 7]);
     const down = moveCost({ x: 0, y: 0 }, { x: 0, y: 6 }, 3, 0);
     assert.deepEqual([down.climb, down.drop, down.total], [0, 3, 6]);
+});
+
+// --- line of sight ---
+const man = (id, side, x, y, sz = 2, extra = {}) => ({ id, name: id, side, baseMm: 30, sz, x, y, ...extra });
+const wall = (top, x = 9, w = 2, traits = ['blocking']) => ({
+    id: 'w',
+    name: 'Wall',
+    traits,
+    surfaces: [{ id: 'w1', top, shape: { kind: 'rect', x, y: 5, w, h: 30 } }],
+});
+
+test('terrain as tall as both models blocks sight, shorter than both does not', () => {
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    assert.equal(lineOfSight(a, b, [a, b], [wall(2)]).clear, false);
+    assert.equal(lineOfSight(a, b, [a, b], [wall(2)]).blockedBy, 'Wall');
+    assert.equal(lineOfSight(a, b, [a, b], [wall(1)]).clear, true);
+    assert.equal(lineOfSight(a, b, [a, b], []).clear, true);
+});
+
+test('terrain taller than only one model blocks only when the shorter one is within 2 inches', () => {
+    const tall = man('b', 'b', 20, 18, 3);
+    const far = man('a', 'a', 4, 18, 1);
+    const close = man('a', 'a', 8, 18, 1);
+    assert.equal(lineOfSight(far, tall, [far, tall], [wall(2)]).clear, true);
+    assert.equal(lineOfSight(close, tall, [close, tall], [wall(2)]).clear, false);
+});
+
+test('a model standing on a piece is not blocked by it', () => {
+    const roof = {
+        id: 'r',
+        name: 'Roof',
+        traits: ['blocking', 'climbable'],
+        surfaces: [{ id: 'r1', top: 3, shape: { kind: 'rect', x: 4, y: 14, w: 8, h: 8 } }],
+    };
+    const up = man('a', 'a', 6, 18);
+    const target = man('b', 'b', 20, 18);
+    assert.equal(lineOfSight(up, target, [up, target], [roof]).clear, true);
+});
+
+test('dense terrain blocks a line across it but not one that only leaves it', () => {
+    const woods = {
+        id: 'f',
+        name: 'Woods',
+        traits: ['dense', 'concealing'],
+        surfaces: [{ id: 'f1', top: 1, shape: { kind: 'rect', x: 8, y: 5, w: 6, h: 30 } }],
+    };
+    const a = man('a', 'a', 3, 18);
+    const outside = man('b', 'b', 20, 18);
+    const inside = man('c', 'b', 11, 18);
+    assert.equal(lineOfSight(a, outside, [a, outside], [woods]).clear, false);
+    assert.equal(lineOfSight(a, inside, [a, inside], [woods]).clear, true);
+    assert.equal(lineOfSight(a, inside, [a, inside], [woods]).concealed, true);
+});
+
+test('only enemy models of enough size block; friendly models and markers never do', () => {
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    const foe = man('e', 'b', 10, 18);
+    const friend = man('f', 'a', 10, 18);
+    const small = man('s', 'b', 10, 18, 1);
+    const marker = man('m', 'b', 10, 18, 5, { marker: true });
+    assert.equal(lineOfSight(a, b, [a, b, foe], []).clear, false);
+    assert.equal(lineOfSight(a, b, [a, b, foe], []).blockedBy, 'e');
+    assert.equal(lineOfSight(a, b, [a, b, friend], []).clear, true);
+    assert.equal(lineOfSight(a, b, [a, b, small], []).clear, true);
+    assert.equal(lineOfSight(a, b, [a, b, marker], []).clear, true);
+});
+
+test('a sight line can slip round the edge of a base', () => {
+    // A small enemy beside the straight line does not hide the target.
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    const foe = man('e', 'b', 10, 19.2);
+    assert.equal(lineOfSight(a, b, [a, b, foe], []).clear, true);
+});
+
+test('cover comes from height, or from blocking terrain within 2 inches of the target that a clear line crosses', () => {
+    const a = man('a', 'a', 4, 18);
+    const nearWall = man('b', 'b', 12.2, 18, 3);
+    const farWall = man('c', 'b', 20, 18, 3);
+    assert.equal(lineOfSight(a, nearWall, [a, nearWall], [wall(1)]).cover, 'terrain');
+    assert.equal(lineOfSight(a, farWall, [a, farWall], [wall(1)]).cover, null);
+    const hill = {
+        id: 'h',
+        name: 'Hill',
+        traits: ['climbable'],
+        surfaces: [{ id: 'h1', top: 2, shape: { kind: 'rect', x: 18, y: 14, w: 6, h: 8 } }],
+    };
+    const high = man('d', 'b', 21, 18);
+    assert.equal(lineOfSight(a, high, [a, high], [hill]).cover, 'height');
+});
+
+test('models in base contact always see each other, and distances to shapes work', () => {
+    const a = man('a', 'a', 10, 18);
+    const b = man('b', 'b', 10.9, 18);
+    assert.equal(lineOfSight(a, b, [a, b], [wall(9, 9.5, 1)]).clear, true);
+    assert.equal(distanceToShape({ kind: 'rect', x: 0, y: 0, w: 2, h: 2 }, 5, 1), 3);
+    assert.equal(distanceToShape({ kind: 'circle', cx: 0, cy: 0, r: 1 }, 4, 0), 3);
+    assert.equal(
+        distanceToShape(
+            {
+                kind: 'poly',
+                points: [
+                    [0, 0],
+                    [4, 0],
+                    [0, 4],
+                ],
+            },
+            1,
+            1,
+        ),
+        0,
+    );
+});
+
+test('only climbable terrain holds a model up', () => {
+    const steep = { id: 's', name: 'Steep', traits: ['blocking', 'impassable'], surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 } }] };
+    assert.equal(restingSupport({ x: 5, y: 5, baseMm: 30 }, [steep]).elevation, 0);
 });

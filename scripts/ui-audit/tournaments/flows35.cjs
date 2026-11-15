@@ -68,6 +68,24 @@ const L = require('./lib.cjs');
             // 6.08 - 0.787 - 0.984 = 4.3
             if (!/4\.3"/.test(t)) throw new Error(`ruler readout is not 4.3": ${t}`);
         });
+        await L.step(`tabletop (${label}): line of sight is clear in the open and blocked by a wall for a shorter model`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await s.page.click('[data-testid=mode-move]');
+            await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
+            await s.page.click('[data-testid=mode-sight]');
+            await dragTo([18, 4], [18, 32]); // master to master, Sz 3 each: the Ht 2 wall is shorter than both
+            await s.page.waitForSelector('[data-testid=sight-readout]');
+            let t = await s.page.$eval('[data-testid=sight-readout]', (e) => e.innerText);
+            if (!/Master can see Master/.test(t)) throw new Error(`expected a clear line in the open: ${t}`);
+            await dragTo([18, 4], [18, 20]); // master to the minion behind the wall
+            await L.sleep(200);
+            t = await s.page.$eval('[data-testid=sight-readout]', (e) => e.innerText);
+            if (!/cannot see Minion: blocked by Wall/.test(t)) throw new Error(`expected the wall to block: ${t}`);
+            await L.shot(s, `357-sight-${label}`);
+            await s.page.click('[data-testid=mode-move]');
+            await dragTo([18, 20], [12, 32]); // put the minion back
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

@@ -39,7 +39,7 @@ class GameBoardController extends Controller
         $this->guard();
         Gate::authorize('view', $game);
 
-        $game->load(['players.user:id,name', 'players.crewMembers.character:id,base', 'players.crewMembers.customCharacter:id,base']);
+        $game->load(['players.user:id,name', 'players.crewMembers.character:id,base,size', 'players.crewMembers.customCharacter:id,base,size']);
 
         return inertia('Games/Board', [
             'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo, 'deployment' => $game->deployment?->value],
@@ -48,13 +48,7 @@ class GameBoardController extends Controller
                 'name' => $this->playerName($p),
                 'mine' => $this->controls($p, $game),
             ])->values(),
-            'models' => $game->players->flatMap(fn (GamePlayer $p) => $p->crewMembers->map(fn ($m) => [
-                'id' => $m->id,
-                'name' => $m->display_name,
-                'slot' => $p->slot,
-                'base_mm' => $this->baseMm($m),
-                'killed' => (bool) $m->is_killed,
-            ]))->values(),
+            'models' => $this->models($game),
             'positions' => $game->board_state['positions'] ?? (object) [],
             'terrain' => $game->board_state['terrain'] ?? [],
             'markers' => MarkerCatalogue::options(),
@@ -62,6 +56,26 @@ class GameBoardController extends Controller
             'shared_auras' => $game->board_state['auras'] ?? [],
             'deployment_variant' => (int) ($game->board_state['deployment_variant'] ?? 0),
         ]);
+    }
+
+    /** Every crew member on the table, with the slot of the player who owns it. */
+    private function models(Game $game): array
+    {
+        $models = [];
+        foreach ($game->players as $player) {
+            foreach ($player->crewMembers as $member) {
+                $models[] = [
+                    'id' => $member->id,
+                    'name' => $member->display_name,
+                    'slot' => $player->slot,
+                    'base_mm' => $this->baseMm($member),
+                    'sz' => $this->sz($member),
+                    'killed' => (bool) $member->is_killed,
+                ];
+            }
+        }
+
+        return $models;
     }
 
     public function update(UpdateBoardRequest $request, Game $game): RedirectResponse
@@ -292,6 +306,19 @@ class GameBoardController extends Controller
         }
 
         return BaseSizeEnum::ThirtyMM->value;
+    }
+
+    /** The Sz stat from the character card, or the custom card; null when it is not known (the board then assumes 1). */
+    private function sz(GameCrewMember $member): ?int
+    {
+        if ($member->character_id !== null) {
+            return $member->character->size;
+        }
+        if ($member->custom_character_id !== null) {
+            return $member->customCharacter->size;
+        }
+
+        return null;
     }
 
     /** You move your own crew. In a solo game you play both sides. */

@@ -583,3 +583,11 @@ it('lets a beta tester into the board while the flag is off, and shows them the 
     $this->actingAs($b)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 1])->assertNotFound();
     $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 1])->assertRedirect();
 });
+
+it('hands the board each model\'s Sz for sight lines', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $m1->character->update(['size' => 3]);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('models.0.sz', 3));
+});

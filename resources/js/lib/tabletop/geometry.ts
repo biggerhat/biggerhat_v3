@@ -41,6 +41,8 @@ export interface Token {
     marker?: boolean;
     markerId?: number;
     baseMm: number;
+    /** The Sz stat. Missing means unknown: sight lines assume 1. Markers are Sz 0. */
+    sz?: number;
     x: number;
     y: number;
     /** The viewer may not move this model (it belongs to the other player). */
@@ -92,6 +94,8 @@ export interface Support {
 export function restingSupport(token: Pick<Token, 'x' | 'y' | 'baseMm'>, pieces: TerrainPiece[]): Support {
     let best: Support = { surface: null, piece: null, elevation: 0 };
     for (const piece of pieces) {
+        // Only climbable terrain supports a base (p.19): woods, fog and the like are drawn but never stood on.
+        if (!piece.traits.includes('climbable')) continue;
         for (const surface of piece.surfaces) {
             if (surface.top <= best.elevation) continue;
             if (supportFraction(token, surface.shape) >= SUPPORT_MIN) best = { surface, piece, elevation: surface.top };
@@ -441,4 +445,181 @@ export function searchMarkers(options: MarkerOption[], query: string, limit = 12
         .sort((a, b) => a.rank - b.rank || a.o.name.localeCompare(b.o.name))
         .slice(0, limit)
         .map((x) => x.o);
+}
+
+// --- line of sight (p.24-28) and cover (p.19-20, 56) ---
+
+type Pt = { x: number; y: number };
+
+/** Distance from a point to the nearest part of a shape; 0 inside it. */
+export function distanceToShape(shape: Shape, x: number, y: number): number {
+    if (shape.kind === 'rect') {
+        const dx = Math.max(shape.x - x, 0, x - (shape.x + shape.w));
+        const dy = Math.max(shape.y - y, 0, y - (shape.y + shape.h));
+        return Math.hypot(dx, dy);
+    }
+    if (shape.kind === 'circle') return Math.max(0, Math.hypot(x - shape.cx, y - shape.cy) - shape.r);
+    if (pointInShape(shape, x, y)) return 0;
+    let best = Infinity;
+    for (let i = 0, j = shape.points.length - 1; i < shape.points.length; j = i++) {
+        const [ax, ay] = shape.points[j];
+        const [bx, by] = shape.points[i];
+        const len2 = (bx - ax) ** 2 + (by - ay) ** 2;
+        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len2));
+        best = Math.min(best, Math.hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay))));
+    }
+    return best;
+}
+
+/** Shortest distance from a point to a segment. */
+export function distanceToSegment(p: Pt, a: Pt, b: Pt): number {
+    const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / len2));
+    return Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y)));
+}
+
+/** Within this distance of the intervening object, a shorter model is hidden by it (p.24), and a target gets cover from blocking terrain (p.56). */
+export const SIGHT_NEAR = 2;
+const SIGHT_POINTS = 16;
+const SIGHT_STEP = 0.2;
+
+export interface SightResult {
+    /** At least one sight line from the first model reaches the second without being blocked. */
+    clear: boolean;
+    /** A line to draw: a clear one when there is one, else the straight line between centres. */
+    line: { from: Pt; to: Pt };
+    /** What blocks the drawn line when none is clear. */
+    blockedBy: string | null;
+    /** The target gets cover: from height (2+ higher, p.19) or from blocking terrain within 2" that a clear sight line crosses (p.56). */
+    cover: 'height' | 'terrain' | null;
+    /** Every clear line crosses concealing terrain the initiator is not standing in (p.56). */
+    concealed: boolean;
+    initiator: { elevation: number; sz: number };
+    target: { elevation: number; sz: number };
+}
+
+const szOf = (t: Pick<Token, 'sz' | 'marker'>): number => (t.marker ? 0 : (t.sz ?? 1));
+
+/** Does the segment p->q touch the shape? Sampled every 0.2", fine against pieces of at least a few inches. */
+function crossesShape(p: Pt, q: Pt, shape: Shape): boolean {
+    const steps = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / SIGHT_STEP));
+    for (let i = 0; i <= steps; i++) {
+        const k = i / steps;
+        if (pointInShape(shape, p.x + (q.x - p.x) * k, p.y + (q.y - p.y) * k)) return true;
+    }
+    return false;
+}
+
+/** Points on a base's edge, the first facing `toward`. */
+function edgePoints(t: Pt & { baseMm: number }, toward: Pt): Pt[] {
+    const r = baseRadius(t.baseMm);
+    const start = Math.atan2(toward.y - t.y, toward.x - t.x);
+    return Array.from({ length: SIGHT_POINTS }, (_, i) => {
+        const a = start + (i * 2 * Math.PI) / SIGHT_POINTS;
+        return { x: t.x + r * Math.cos(a), y: t.y + r * Math.sin(a) };
+    });
+}
+
+/** Does the segment p->q leave a base (rather than cross it)? Sight lines are never drawn across either base (p.24). */
+const leaves = (c: Pt, from: Pt, to: Pt): boolean => (from.x - c.x) * (to.x - from.x) + (from.y - c.y) * (to.y - from.y) >= 0;
+
+/**
+ * Can `from` see `to`? Draws sight lines between points on the two bases (p.24) and checks each against blocking and dense terrain
+ * and enemy models:
+ * - blocking terrain or an enemy model as tall as both models blocks; shorter than both never does; taller than only one of them
+ *   (the shorter one) blocks when the shorter model's base is within 2" of it. Heights are effective: Sz plus elevation, and the
+ *   terrain's height is its top above the table.
+ * - dense terrain blocks a line that crosses it completely, not one that only enters or leaves it.
+ * - terrain either model stands on never blocks, nor does the part of a piece below them.
+ * - friendly models never block, and markers do not either.
+ * Cover and concealment come from the lines that do get through.
+ */
+export function lineOfSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPiece[]): SightResult {
+    const supportA = restingSupport(from, pieces);
+    const touching = edgeDistance(from, to) <= 0;
+    const supportB = restingSupport(to, pieces);
+    const effA = szOf(from) + supportA.elevation;
+    const effB = szOf(to) + supportB.elevation;
+    const lo = Math.min(effA, effB);
+    const hi = Math.max(effA, effB);
+    const shorter = effA <= effB ? from : to;
+
+    // Terrain that can matter: blocking or dense, minus what either model stands on or above.
+    const surfaces = pieces.flatMap((piece) =>
+        piece.surfaces
+            .filter((s) => ![supportA, supportB].some((sup) => sup.surface?.id === s.id || (sup.piece?.id === piece.id && s.top <= sup.elevation)))
+            .map((s) => ({
+                piece,
+                s,
+                blocking: piece.traits.includes('blocking'),
+                dense: piece.traits.includes('dense'),
+                concealing: piece.traits.includes('concealing'),
+            })),
+    );
+
+    // Enemy models in the way, with their effective size.
+    const enemies = tokens
+        .filter((t) => t.id !== from.id && t.id !== to.id && !t.marker && t.side !== 'n' && t.side !== from.side)
+        .map((t) => ({ t, h: szOf(t) + restingSupport(t, pieces).elevation }));
+
+    const near = (d: number) => d <= SIGHT_NEAR + 1e-9;
+
+    function blocker(p: Pt, q: Pt): string | null {
+        for (const { piece, s, blocking, dense } of surfaces) {
+            if (!blocking && !dense) continue;
+            if (!crossesShape(p, q, s.shape)) continue;
+            if (dense && !pointInShape(s.shape, p.x, p.y) && !pointInShape(s.shape, q.x, q.y)) {
+                // inside somewhere in the middle with both ends outside: the line crosses it completely
+                return piece.name;
+            }
+            if (blocking) {
+                if (s.top >= hi) return piece.name;
+                if (s.top >= lo && near(distanceToShape(s.shape, shorter.x, shorter.y) - baseRadius(shorter.baseMm))) return piece.name;
+            }
+        }
+        for (const { t, h } of enemies) {
+            // a line that only touches a base's edge is still blocked by it
+            if (distanceToSegment(t, p, q) > baseRadius(t.baseMm) + 1e-9) continue;
+            if (h >= hi) return t.name;
+            if (h >= lo && near(edgeDistance(shorter, t))) return t.name;
+        }
+        return null;
+    }
+
+    // Models always see what they are in base contact with (p.24).
+    const A = edgePoints(from, to);
+    const B = edgePoints(to, from);
+    let clearLine: { from: Pt; to: Pt } | null = null;
+    let coverTerrain = false;
+    let allConcealed = true;
+    let anyClear = false;
+    for (const p of A) {
+        for (const q of B) {
+            if (!touching && (!leaves(from, p, q) || !leaves(to, q, p))) continue;
+            if (!touching && blocker(p, q) !== null) continue;
+            anyClear = true;
+            if (!clearLine) clearLine = { from: p, to: q };
+            let covered = false;
+            let concealed = false;
+            for (const { s, blocking, concealing } of surfaces) {
+                const crosses = crossesShape(p, q, s.shape);
+                if (!crosses) continue;
+                if (blocking && near(distanceToShape(s.shape, to.x, to.y) - baseRadius(to.baseMm))) covered = true;
+                if (concealing && !pointInShape(s.shape, from.x, from.y)) concealed = true;
+            }
+            if (covered) coverTerrain = true;
+            if (!concealed) allConcealed = false;
+        }
+    }
+
+    const centre = { from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } };
+    return {
+        clear: anyClear,
+        line: clearLine ?? centre,
+        blockedBy: anyClear ? null : (blocker(centre.from, centre.to) ?? "the other model's own base"),
+        cover: heightCover(supportA.elevation, supportB.elevation) ? 'height' : coverTerrain ? 'terrain' : null,
+        concealed: anyClear && allConcealed,
+        initiator: { elevation: supportA.elevation, sz: szOf(from) },
+        target: { elevation: supportB.elevation, sz: szOf(to) },
+    };
 }

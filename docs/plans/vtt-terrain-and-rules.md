@@ -83,5 +83,17 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   role holds every permission). One check, `TabletopAccess::allows()`, covers the page, the board, every save and the Open board link.
   To add a tester: Admin > Roles, make a role with that permission (group Tabletop), give the role to the user. Both players need access
   to see the board: a tester's opponent without it gets a 404 and no link.
+- Line of sight (Sight mode: press on a model, drag to another; `lineOfSight()` in geometry.ts, p.24-28, 56): 16 points on each base edge,
+  never across a base. A line is blocked by blocking terrain or an enemy model as tall as both models; shorter than both never blocks;
+  taller than only one blocks when the shorter model's base is within 2" of it. Heights are effective (Sz + elevation; terrain height =
+  its top above the table). Dense terrain blocks a line that crosses it completely. Terrain either model stands on (and the part of a
+  piece below them) never blocks; friendly models and markers never block; models in base contact always see each other. Cover = from
+  height (2+ higher) or blocking terrain within 2" of the target that some clear line crosses; concealment = every clear line crosses
+  concealing terrain the initiator is not in. Both directions are shown, because each model draws its own lines. Sz comes from the card
+  (`Character.size`; custom cards may lack it and count as 1). Only climbable pieces hold a model up (p.19): a steep building or woods
+  is never stood on.
+  Reading choices to confirm against play: "any clear line crossing blocking terrain" gives cover (the guide's wording is "at least one
+  of the initiator's sight lines"), the concealment "more than 1 inch" and in-terrain exception are not modelled, building interiors and
+  windows are not modelled, and the p.19 limit on targeting with y actions across elevations is not applied.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

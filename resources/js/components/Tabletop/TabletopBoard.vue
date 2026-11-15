@@ -13,6 +13,7 @@ import {
     describeZone,
     edgeDistance,
     fallHurts,
+    lineOfSight,
     moveCost,
     heightCover,
     movePiece,
@@ -30,10 +31,10 @@ import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
-import { Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, Users } from 'lucide-vue-next';
+import { Eye, Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
-type Mode = 'move' | 'ruler' | 'terrain';
+type Mode = 'move' | 'ruler' | 'sight' | 'terrain';
 type Point = { x: number; y: number };
 
 const MIN_WIDTH = 6;
@@ -135,6 +136,25 @@ const newBase = ref<number>(30);
 
 /** Where the model being moved started, and where it is now: a dashed line with the movement it has cost, kept after the drop until the next touch. */
 const trail = ref<{ from: Point; to: Point; baseMm: number; startElevation: number } | null>(null);
+/** Line of sight: press on a model and drag to another. Each model draws its own sight lines, so both directions are checked. */
+const sight = ref<{ fromId: string; toId: string | null } | null>(null);
+const sightFrom = computed(() => tokens.value.find((t) => t.id === sight.value?.fromId));
+const sightTo = computed(() => tokens.value.find((t) => t.id === sight.value?.toId));
+const sightForward = computed(() =>
+    sightFrom.value && sightTo.value ? lineOfSight(sightFrom.value, sightTo.value, tokens.value, terrain.value) : null,
+);
+const sightBack = computed(() =>
+    sightFrom.value && sightTo.value ? lineOfSight(sightTo.value, sightFrom.value, tokens.value, terrain.value) : null,
+);
+const unknownSz = computed(() => [sightFrom.value, sightTo.value].some((t) => t && !t.marker && t.sz === undefined));
+function describeSight(r: ReturnType<typeof lineOfSight>, who: string, whom: string): string {
+    if (!r.clear) return `${who} cannot see ${whom}: blocked by ${r.blockedBy}.`;
+    const extras = [
+        r.cover === 'height' ? 'cover from height' : r.cover === 'terrain' ? 'cover from terrain' : null,
+        r.concealed ? 'concealment' : null,
+    ].filter(Boolean);
+    return `${who} can see ${whom}${extras.length ? ' (' + extras.join(', ') + ')' : ''}.`;
+}
 const ruler = ref<{ from: Point; to: Point; fromToken: string | null; toToken: string | null } | null>(null);
 
 const levels = computed(() => [0, ...new Set(terrain.value.flatMap((p) => p.surfaces.map((s) => s.top)))].sort((a, b) => a - b));
@@ -286,6 +306,7 @@ let drag:
     | { kind: 'piece'; id: string; from: Point; original: TerrainPiece; before: TerrainPiece[]; moved: boolean }
     | { kind: 'pan'; last: Point }
     | { kind: 'ruler' }
+    | { kind: 'sight' }
     | null = null;
 let pinch: { distance: number; width: number; centre: Point } | null = null;
 
@@ -334,6 +355,7 @@ function onDown(e: PointerEvent) {
     const hit = tokenAt(p);
     note.value = '';
     trail.value = null;
+    sight.value = null;
     if (mode.value === 'terrain') {
         const found = surfaceAt(terrain.value, p.x, p.y);
         if (found) {
@@ -341,6 +363,16 @@ function onDown(e: PointerEvent) {
             drag = { kind: 'piece', id: found.piece.id, from: p, original: found.piece, before: cloneTerrain(terrain.value), moved: false };
         } else {
             selectedPieceId.value = null;
+            drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
+        }
+        return;
+    }
+    if (mode.value === 'sight') {
+        if (hit) {
+            sight.value = { fromId: hit.id, toId: null };
+            selectedId.value = hit.id;
+            drag = { kind: 'sight' };
+        } else {
             drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
         }
         return;
@@ -394,6 +426,9 @@ function onMove(e: PointerEvent) {
         view.value = { ...view.value, x: view.value.x - (e.clientX - drag.last.x) * k, y: view.value.y - (e.clientY - drag.last.y) * k };
         keepInside();
         drag.last = { x: e.clientX, y: e.clientY };
+    } else if (drag.kind === 'sight') {
+        const hit = tokenAt(toBoard(e.clientX, e.clientY));
+        if (sight.value) sight.value = { ...sight.value, toId: hit && hit.id !== sight.value.fromId ? hit.id : null };
     } else if (ruler.value) {
         const p = toBoard(e.clientX, e.clientY);
         const hit = tokenAt(p);
@@ -506,6 +541,7 @@ function resetTable() {
     emit('reset');
     selectedId.value = null;
     ruler.value = null;
+    sight.value = null;
     note.value = '';
     resetView();
 }
@@ -727,6 +763,27 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             {{ fmt(Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y)) }}"
                         </text>
                     </g>
+                    <g v-if="sightForward && sightBack" pointer-events="none" data-testid="sight-line">
+                        <line
+                            v-if="sightBack.clear && !sightForward.clear"
+                            :x1="sightBack.line.to.x"
+                            :y1="sightBack.line.to.y"
+                            :x2="sightBack.line.from.x"
+                            :y2="sightBack.line.from.y"
+                            stroke="hsl(145 65% 42%)"
+                            stroke-width="0.14"
+                            stroke-dasharray="0.4 0.3"
+                        />
+                        <line
+                            :x1="sightForward.line.from.x"
+                            :y1="sightForward.line.from.y"
+                            :x2="sightForward.line.to.x"
+                            :y2="sightForward.line.to.y"
+                            :stroke="sightForward.clear ? 'hsl(145 65% 42%)' : 'hsl(0 75% 55%)'"
+                            stroke-width="0.14"
+                            :stroke-dasharray="sightForward.clear ? undefined : '0.4 0.3'"
+                        />
+                    </g>
                     <g v-if="ruler" pointer-events="none">
                         <line
                             :x1="ruler.from.x"
@@ -764,6 +821,9 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button :variant="mode === 'ruler' ? 'default' : 'outline'" size="sm" data-testid="mode-ruler" @click="mode = 'ruler'"
                     ><Ruler class="mr-1 size-4" />Ruler</Button
                 >
+                <Button :variant="mode === 'sight' ? 'default' : 'outline'" size="sm" data-testid="mode-sight" @click="mode = 'sight'"
+                    ><Eye class="mr-1 size-4" />Sight</Button
+                >
                 <Button :variant="mode === 'terrain' ? 'default' : 'outline'" size="sm" data-testid="mode-terrain" @click="mode = 'terrain'"
                     ><Mountain class="mr-1 size-4" />Terrain</Button
                 >
@@ -785,6 +845,22 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @demo="commitTerrain(sampleTerrain)"
             />
 
+            <div v-if="mode === 'sight' && !sightForward" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="sight-hint">
+                Press on a model and drag to another to check line of sight between them.
+            </div>
+            <div v-if="sightForward && sightBack && sightFrom && sightTo" class="space-y-1 rounded-md border p-3 text-sm" data-testid="sight-readout">
+                <div
+                    :class="sightForward.clear ? 'font-semibold text-green-600 dark:text-green-400' : 'font-semibold text-red-600 dark:text-red-400'"
+                >
+                    {{ describeSight(sightForward, sightFrom.name, sightTo.name) }}
+                </div>
+                <div class="text-muted-foreground">{{ describeSight(sightBack, sightTo.name, sightFrom.name) }}</div>
+                <div class="text-muted-foreground">
+                    Effective Sz: {{ sightFrom.name }} {{ sightForward.initiator.sz + sightForward.initiator.elevation }}, {{ sightTo.name }}
+                    {{ sightForward.target.sz + sightForward.target.elevation }}. Terrain heights are compared with these.
+                    <span v-if="unknownSz">A model without a Sz is counted as Sz 1.</span>
+                </div>
+            </div>
             <div v-if="measure" class="rounded-md border p-3 text-sm" data-testid="ruler-readout">
                 <div class="font-semibold">
                     {{ fmt(measure.inches) }}" <span class="font-normal text-muted-foreground">horizontal, edge to edge</span>

@@ -32,6 +32,7 @@ interface BoardModel {
     name: string;
     slot: number;
     base_mm: number;
+    sz: number | null;
     killed: boolean;
 }
 
@@ -167,6 +168,7 @@ const tokens = computed<Token[]>(() => [
             name: m.name,
             side: m.slot === 1 ? 'a' : 'b',
             baseMm: m.base_mm,
+            sz: m.sz ?? undefined,
             x: at.x,
             y: at.y,
             killed: m.killed,

@@ -6,10 +6,12 @@ use App\Enums\BaseSizeEnum;
 use App\Events\GameBoardAurasChanged;
 use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
+use App\Events\GameBoardSetupChanged;
 use App\Events\GameBoardTerrainChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\UpdateAurasRequest;
 use App\Http\Requests\Games\UpdateBoardRequest;
+use App\Http\Requests\Games\UpdateBoardSetupRequest;
 use App\Http\Requests\Games\UpdateMarkersRequest;
 use App\Http\Requests\Games\UpdateTerrainRequest;
 use App\Models\Game;
@@ -58,6 +60,7 @@ class GameBoardController extends Controller
             'markers' => MarkerCatalogue::options(),
             'placed_markers' => $game->board_state['markers'] ?? [],
             'shared_auras' => $game->board_state['auras'] ?? [],
+            'deployment_variant' => (int) ($game->board_state['deployment_variant'] ?? 0),
         ]);
     }
 
@@ -103,6 +106,23 @@ class GameBoardController extends Controller
         });
 
         broadcast(new GameBoardTerrainChanged($game, $terrain))->toOthers();
+
+        return redirect()->back();
+    }
+
+    /** Either player may turn the deployment zones round; the other sees it too. */
+    public function updateSetup(UpdateBoardSetupRequest $request, Game $game): RedirectResponse
+    {
+        $this->guard();
+
+        $variant = (int) $request->validated('deployment_variant');
+
+        DB::transaction(function () use ($game, $variant) {
+            $locked = Game::query()->lockForUpdate()->findOrFail($game->id);
+            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['deployment_variant' => $variant])]);
+        });
+
+        broadcast(new GameBoardSetupChanged($game, $variant))->toOthers();
 
         return redirect()->back();
     }

@@ -77,5 +77,7 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - Movement readout: dragging a model draws a dashed line from where it started (with a ghost base) labelled with the straight-line
   distance; on drop the note adds climbing (costs movement, p.20) and any drop (1 damage from 2" up, p.20). Straight line only: it
   does not know the model's Wk or enforce anything.
+- Deployment orientation ("Which side") is saved in `board_state.deployment_variant` (0-3), either player can set it, and the other
+  sees the change live. The kind still comes from the game; the overlay on/off stays a personal view.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

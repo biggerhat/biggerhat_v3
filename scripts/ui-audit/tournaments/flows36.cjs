@@ -147,6 +147,18 @@ const L = require('./lib.cjs');
             await open();
             if ((await markers()).length !== start) throw new Error('picking the marker up was not saved');
         });
+        await L.step(`board (${label}): which side the deployment zones sit is kept with the game`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=deployment-variant]');
+            await carol.page.select('[data-testid=deployment-variant]', '2');
+            await L.sleep(1200);
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=deployment-variant]');
+            const kept = await carol.page.$eval('[data-testid=deployment-variant]', (e) => e.value);
+            if (kept !== '2') throw new Error(`the orientation came back as ${kept}`);
+            await carol.page.select('[data-testid=deployment-variant]', '0'); // leave it as found
+            await L.sleep(1200);
+        });
         await L.step(`board (${label}): an aura shown to the other player is saved with the game`, carol, async () => {
             const hit = async (selector) => {
                 await carol.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
@@ -209,6 +221,7 @@ const L = require('./lib.cjs');
                             if (event === '.GameBoardTerrainChanged') window.__boardTerrain = cb;
                             if (event === '.GameBoardMarkersChanged') window.__boardMarkers = cb;
                             if (event === '.GameBoardAurasChanged') window.__boardAuras = cb;
+                            if (event === '.GameBoardSetupChanged') window.__boardSetup = cb;
                             return ch;
                         },
                     };
@@ -284,6 +297,12 @@ const L = require('./lib.cjs');
         await live.page.waitForFunction(() => document.querySelectorAll('[data-shared=true]').length === 1, { timeout: 5000 });
         await live.page.evaluate(() => window.__boardAuras({ auras: [] }));
         await live.page.waitForFunction(() => document.querySelectorAll('[data-shared=true]').length === 0, { timeout: 5000 });
+    });
+
+    await L.step('board: the other player turning the deployment round shows without a reload', live, async () => {
+        await live.page.waitForFunction(() => typeof window.__boardSetup === 'function', { timeout: 9000 });
+        await live.page.evaluate(() => window.__boardSetup({ deployment_variant: 3 }));
+        await live.page.waitForFunction(() => document.querySelector('[data-testid=deployment-variant]')?.value === '3', { timeout: 5000 });
     });
 
     const outsider = await L.session(browser, 'alice@example.test');

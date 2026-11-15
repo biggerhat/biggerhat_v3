@@ -50,6 +50,8 @@ const props = withDefaults(
         placeAs?: { side: 'a' | 'b'; label: string }[];
         /** Auras players have chosen to show both sides, saved with the game. Without it, auras are private to this browser. */
         sharedAuras?: Aura[];
+        /** Which way round the deployment zones sit, when the game keeps it for both players. */
+        deploymentVariant?: number;
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -65,6 +67,7 @@ const emit = defineEmits<{
     remove: [id: string];
     reset: [];
     terrainChanged: [pieces: TerrainPiece[]];
+    variantChanged: [variant: number];
     auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
 }>();
 
@@ -113,7 +116,17 @@ const selectedId = ref<string | null>(null);
 const mode = ref<Mode>('move');
 const level = ref<number | 'all'>('all');
 const deployment = ref<'none' | DeploymentKind>(props.deployment ?? 'none');
-const variant = ref(0);
+const variant = ref(props.deploymentVariant ?? 0);
+watch(
+    () => props.deploymentVariant,
+    (next) => {
+        if (next !== undefined) variant.value = next;
+    },
+);
+function chooseVariant(next: number) {
+    variant.value = next;
+    emit('variantChanged', next);
+}
 const note = ref('');
 const view = ref({ x: 0, y: 0, w: TABLE_SIZE });
 const svg = ref<SVGSVGElement | null>(null);
@@ -797,7 +810,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         v-model="deployment"
                         class="w-full rounded-md border bg-background px-2 py-1.5"
                         data-testid="deployment-select"
-                        @change="variant = 0"
+                        @change="deploymentVariant === undefined && (variant = 0)"
                     >
                         <option value="none">None</option>
                         <option v-for="d in DEPLOYMENT_KINDS" :key="d.value" :value="d.value">{{ d.label }}</option>
@@ -805,7 +818,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </label>
                 <label v-if="variants.length" class="block text-sm">
                     <span class="mb-1 block font-medium">Which side</span>
-                    <select v-model.number="variant" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="deployment-variant">
+                    <select
+                        :value="variant"
+                        class="w-full rounded-md border bg-background px-2 py-1.5"
+                        data-testid="deployment-variant"
+                        @change="chooseVariant(Number(($event.target as HTMLSelectElement).value))"
+                    >
                         <option v-for="v in variants" :key="v.value" :value="v.value">{{ v.label }}</option>
                     </select>
                 </label>

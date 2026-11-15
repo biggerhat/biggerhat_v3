@@ -44,6 +44,7 @@ const props = defineProps<{
     markers: MarkerOption[];
     placed_markers: PlacedMarker[];
     shared_auras: SharedAura[];
+    deployment_variant: number;
 }>();
 
 // Saved positions, plus moves the other player has just made (applied straight from the broadcast).
@@ -75,8 +76,25 @@ watch(
     (next) => (sharedAuras.value = next.map(toAura)),
 );
 
+// Which way round the deployment zones sit, agreed by both players.
+const variant = ref(props.deployment_variant);
+watch(
+    () => props.deployment_variant,
+    (next) => (variant.value = next),
+);
+function variantChanged(next: number) {
+    variant.value = next;
+    router.put(
+        route('games.board.setup', props.game.uuid),
+        { deployment_variant: next },
+        { preserveScroll: true, preserveState: true, only: ['deployment_variant'] },
+    );
+}
+
 let joined = false;
-const resync = () => document.visibilityState === 'visible' && router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras'] });
+const resync = () =>
+    document.visibilityState === 'visible' &&
+    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant'] });
 
 onMounted(async () => {
     document.addEventListener('visibilitychange', resync);
@@ -92,6 +110,9 @@ onMounted(async () => {
         })
         .listen('.GameBoardMarkersChanged', (e: { markers: PlacedMarker[] }) => {
             placed.value = e.markers;
+        })
+        .listen('.GameBoardSetupChanged', (e: { deployment_variant: number }) => {
+            variant.value = e.deployment_variant;
         })
         .listen('.GameBoardAurasChanged', (e: { auras: SharedAura[] }) => {
             sharedAuras.value = e.auras.map(toAura);
@@ -243,6 +264,8 @@ function moved(t: Token) {
             :place-as="placeAs"
             :shared-auras="sharedAuras"
             @aura-change="auraChange"
+            :deployment-variant="variant"
+            @variant-changed="variantChanged"
             @add-marker="addMarker"
             @remove="removeToken"
             @terrain-changed="terrainChanged"

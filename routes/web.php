@@ -427,6 +427,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::put('/{game:uuid}/board', [GameBoardController::class, 'update'])->name('board.update')->middleware('throttle:120,1');
     Route::put('/{game:uuid}/board/terrain', [GameBoardController::class, 'updateTerrain'])->name('board.terrain')->middleware('throttle:60,1');
     Route::put('/{game:uuid}/board/markers', [GameBoardController::class, 'updateMarkers'])->name('board.markers')->middleware('throttle:120,1');
+    Route::put('/{game:uuid}/board/setup', [GameBoardController::class, 'updateSetup'])->name('board.setup')->middleware('throttle:60,1');
     Route::put('/{game:uuid}/board/auras', [GameBoardController::class, 'updateAuras'])->name('board.auras')->middleware('throttle:120,1');
     Route::post('/{game:uuid}/join', [GameController::class, 'confirmJoin'])->name('join.confirm')->middleware('throttle:20,1');
     Route::post('/{game:uuid}/abandon', [GameController::class, 'abandon'])->name('abandon');

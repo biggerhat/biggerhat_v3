@@ -5,6 +5,7 @@ use App\Enums\DeploymentEnum;
 use App\Events\GameBoardAurasChanged;
 use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
+use App\Events\GameBoardSetupChanged;
 use App\Events\GameBoardTerrainChanged;
 use App\Models\Character;
 use App\Models\CustomCharacter;
@@ -536,4 +537,33 @@ it('keeps aura sharing to people in the game, and behind the flag', function () 
 
     Feature::for(null)->deactivate('experiment-tabletop');
     $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [sharedAura('a1', $m1->id)]])->assertNotFound();
+});
+
+it('keeps the deployment orientation with the game for both players, and tells the other one', function () {
+    Event::fake([GameBoardSetupChanged::class]);
+    [$game, $m1] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 3, 'y' => 3]]]);
+
+    $this->actingAs($b)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 2])->assertRedirect();
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('deployment_variant', 2)->has('positions'));
+    expect($game->fresh()->board_state['positions'])->toHaveCount(1);
+    Event::assertDispatched(GameBoardSetupChanged::class, fn ($e) => $e->deploymentVariant === 2 && $e->broadcastOn()[0]->name === 'presence-game.'.$game->uuid);
+});
+
+it('starts the deployment orientation at zero and refuses a bad one', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('deployment_variant', 0));
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 4])->assertSessionHasErrors('deployment_variant');
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), [])->assertSessionHasErrors('deployment_variant');
+});
+
+it('keeps the orientation to people in the game, and behind the flag', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs(User::factory()->create())->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 1])->assertForbidden();
+
+    Feature::for(null)->deactivate('experiment-tabletop');
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 1])->assertNotFound();
 });

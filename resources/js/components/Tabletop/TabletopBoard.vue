@@ -29,12 +29,13 @@ import {
     type TerrainPiece,
     type Token,
 } from '@/lib/tabletop/geometry';
+import CharacterPicker, { type CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
 import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { newPieceId } from '@/lib/tabletop/terrainPresets';
-import { Eye, Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, Users } from 'lucide-vue-next';
+import { Eye, Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, User, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 type Mode = 'move' | 'ruler' | 'sight' | 'terrain';
@@ -58,6 +59,8 @@ const props = withDefaults(
         deploymentVariant?: number;
         /** Someone watching: no terrain editing, and the deployment orientation is theirs alone. */
         readOnly?: boolean;
+        /** Where to search character cards to add to the table (the sandbox). Without it only blank models can be added. */
+        characterSearchUrl?: string;
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -575,6 +578,20 @@ const measure = computed(() => {
     return { inches, rise, cover: a && b ? heightCover(elevationOf(a), elevationOf(b)) : false };
 });
 
+const characterDialog = ref(false);
+const characterKey = ref(0);
+function openCharacterDialog() {
+    characterKey.value++;
+    characterDialog.value = true;
+}
+/** A real card: its name, base size, Sz and Sp. New models fan out so several added in a row do not sit on top of each other. */
+function addCharacter(c: CharacterOption) {
+    const nudge = (tokens.value.filter((t) => !t.marker).length % 6) * 1.2;
+    const at = clampToTable({ baseMm: c.base_mm, x: view.value.x + view.value.w / 2 + nudge, y: view.value.y + view.value.w / 2 + nudge });
+    emit('add', { name: c.name, side: newSide.value, baseMm: c.base_mm, sz: c.sz, sp: c.sp, ...at });
+    note.value = `${c.name} added (${c.base_mm} mm base, Sz ${c.sz}, Sp ${c.sp}). Drag it into place.`;
+    characterDialog.value = false;
+}
 function addToken() {
     emit('add', {
         name: `${props.sideNames[newSide.value]} ${tokens.value.filter((t) => t.side === newSide.value).length + 1}`,
@@ -1203,6 +1220,22 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     table</span
                 >
             </div>
+            <Dialog v-if="characterSearchUrl" v-model:open="characterDialog">
+                <DialogContent class="max-w-md" data-testid="character-dialog">
+                    <DialogHeader>
+                        <DialogTitle>Add a character</DialogTitle>
+                        <DialogDescription>Puts the card on the table at its real base size, with its Sz and Sp.</DialogDescription>
+                    </DialogHeader>
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium">Side</span>
+                        <select v-model="newSide" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="character-side">
+                            <option value="a">{{ sideNames.a }}</option>
+                            <option value="b">{{ sideNames.b }}</option>
+                        </select>
+                    </label>
+                    <CharacterPicker :key="characterKey" :url="characterSearchUrl" @add="addCharacter" />
+                </DialogContent>
+            </Dialog>
             <Dialog v-model:open="markerDialog">
                 <DialogContent class="max-w-md" data-testid="marker-dialog">
                     <DialogHeader>
@@ -1235,8 +1268,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         <option v-for="mm in BASE_SIZES_MM" :key="mm" :value="mm">{{ mm }} mm</option>
                     </select>
                 </label>
+                <Button v-if="characterSearchUrl" size="sm" variant="outline" data-testid="character-open" @click="openCharacterDialog"
+                    ><User class="mr-1 size-4" />Add a character</Button
+                >
                 <Button size="sm" data-testid="add-token" @click="addToken"><Plus class="mr-1 size-4" />Add model</Button>
-                <Button size="sm" variant="ghost" @click="resetTable">Reset table</Button>
+                <Button size="sm" variant="ghost" data-testid="reset-table" @click="resetTable">Reset table</Button>
             </div>
         </div>
     </div>

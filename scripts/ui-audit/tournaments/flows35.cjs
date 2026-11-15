@@ -295,6 +295,41 @@ const L = require('./lib.cjs');
             }
             await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 0, { timeout: 5000 });
         });
+        await L.step(`tabletop (${label}): a character card can be searched for and added at its own size, Sz and Sp`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=character-open]');
+            await s.page.$eval('[data-testid=character-open]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.click('[data-testid=character-open]');
+            await s.page.waitForSelector('[data-testid=character-search]');
+            await s.page.type('[data-testid=character-search]', 'seedlady');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=character-result]').length === 2, { timeout: 5000 });
+            await s.page.$eval('[data-testid=character-search]', (i) => {
+                i.value = '';
+                i.dispatchEvent(new Event('input'));
+            });
+            await s.page.type('[data-testid=character-search]', 'alpha seedlady');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=character-result]').length === 1, { timeout: 5000 });
+            const stats = await s.page.$eval('[data-testid=character-stats]', (e) => e.innerText);
+            if (!/50 mm/.test(stats) || !/Sz 3/.test(stats) || !/Sp 6/.test(stats)) throw new Error(`unexpected stats: ${stats}`);
+            await s.page.click('[data-testid=character-add]');
+            await s.page
+                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 7, { timeout: 5000 })
+                .catch(async () => {
+                    throw new Error(`after adding there are ${(await s.page.$$('[data-testid^=token-]')).length} models`);
+                });
+            await L.expectText(s, /Seedlady Alpha added \(50 mm base, Sz 3, Sp 6\)/);
+            // drawn at its real base size: the new model has a 50 mm (0.984") radius
+            const radii = await s.page.$$eval('[data-testid^=token-] circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
+            if (Math.abs(radii[radii.length - 1] - 25 / 25.4) > 0.01) throw new Error(`the new model should have a 50 mm base: ${radii}`);
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
+            await s.page.$eval('[data-testid=reset-table]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.click('[data-testid=reset-table]');
+            await s.page
+                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 6, { timeout: 5000 })
+                .catch(async () => {
+                    throw new Error(`reset left ${(await s.page.$$('[data-testid^=token-]')).length} models`);
+                });
+        });
         await L.step(`tabletop (${label}): adding a model works`, s, async () => {
             // centre the button first: on a phone the fixed tab bar can sit over a button scrolled to the very bottom
             await s.page.$eval('[data-testid=add-token]', (b) => b.scrollIntoView({ block: 'center' }));

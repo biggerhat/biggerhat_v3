@@ -112,4 +112,8 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   `/games/{uuid}/board/watch`, linked from the observe page as "Watch the board" (behind the same flag or beta permission, signed in or
   not). Every model, marker and the terrain is locked and the editor is hidden. Watchers are not on the players' live channel, so the page
   refreshes itself every 8 seconds while the tab is showing. Their auras and deployment overlay are private to them.
+- Sandbox characters: "Add a character" opens a dialog that searches the standard character cards by name (every word must match;
+  `GET /tools/tabletop/characters?q=`, throttled, same flag or beta permission as the page, hidden cards left out). Each result shows
+  faction, base, Sz and Sp; adding it puts the model on the table at its real base size with its Sz and Sp, for the chosen side, so
+  line of sight and the Walk ring work for it. "Add model" still adds a blank model. Game boards take their crews from the game instead.
 - Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (reported against a Walk, never stopped), an interior model for buildings, numeric editing of a polygon's corners.

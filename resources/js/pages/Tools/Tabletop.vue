@@ -70,6 +70,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             :tokens="tokens"
             :terrain="terrain"
             :markers="props.markers"
+            :character-search-url="route('tools.tabletop.characters')"
             sandbox
             @add-marker="addMarker"
             @terrain-changed="terrainChanged"

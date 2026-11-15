@@ -48,9 +48,13 @@ const L = require('./lib.cjs');
         });
         await L.step(`tabletop (${label}): dragging a model onto the tower roof raises it to Ht 3`, s, async () => {
             await dragTo([22, 4], [10, 8]); // the minion, onto the Ht 3 roof
-            await L.expectText(s, /elevation 3/i);
+            await L.expectText(s, /climbed 3"/i);
+            // the move is drawn: a dashed line from where it started, labelled with the distance
+            await s.page.waitForSelector('[data-testid=move-trail]');
+            const dist = await s.page.$eval('[data-testid=move-trail-label]', (e) => e.textContent.trim());
+            if (!/^\d+(\.\d)?"$/.test(dist)) throw new Error(`unexpected trail label: ${dist}`);
             await dragTo([10, 8], [5.5, 5.5]); // then up onto the Ht 5 upper level
-            await L.expectText(s, /elevation 5/i);
+            await L.expectText(s, /climbed 2"/i);
             await dragTo([5.5, 5.5], [20, 12]); // and off to the table: a drop of 5
             await L.expectText(s, /1 irreducible damage/i);
         });

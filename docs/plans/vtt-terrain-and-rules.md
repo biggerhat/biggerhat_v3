@@ -74,5 +74,8 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - Shared auras: an aura is private to the browser (localStorage) until its owner presses "Show to the other player". Shared auras are saved
   in `board_state.auras` ({id, owner_id (crew id or marker id), range, locked, x, y}), drawn with an outer ring, live for both players, and
   only the model's or marker's owner can change or withdraw them (up to 3 per model). A marker's shared auras go when it is picked up.
+- Movement readout: dragging a model draws a dashed line from where it started (with a ghost base) labelled with the straight-line
+  distance; on drop the note adds climbing (costs movement, p.20) and any drop (1 damage from 2" up, p.20). Straight line only: it
+  does not know the model's Wk or enforce anything.
 - Not yet: a link from the game screen, scenario terrain (the board uses
   the demo table), a layout editor, enforcement of climb and jump costs.

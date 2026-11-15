@@ -156,6 +156,22 @@ export function fallDistance(from: number, to: number): number {
 
 export const fallHurts = (from: number, to: number): boolean => fallDistance(from, to) >= FALL_DAMAGE_FROM;
 
+/**
+ * Movement spent getting from one spot to another in a straight line: the horizontal distance (centre to centre, which is how far
+ * the whole base travelled) plus any climb, because climbing costs movement for the vertical distance (p.20). Dropping costs
+ * nothing as a fall, so it is reported on its own.
+ */
+export function moveCost(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    fromElevation: number,
+    toElevation: number,
+): { ground: number; climb: number; drop: number; total: number } {
+    const ground = Math.hypot(to.x - from.x, to.y - from.y);
+    const climb = Math.max(0, toElevation - fromElevation);
+    return { ground, climb, drop: fallDistance(fromElevation, toElevation), total: ground + climb };
+}
+
 /** Effective Sz of a model: its Sz plus the height it stands on (p.19). */
 export const effectiveSize = (sz: number, elevation: number): number => sz + elevation;
 

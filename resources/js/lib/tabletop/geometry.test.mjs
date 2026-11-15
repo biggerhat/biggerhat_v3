@@ -15,6 +15,7 @@ import {
     heightCover,
     inZone,
     modelsWithin,
+    moveCost,
     movePiece,
     pieceBounds,
     pointInShape,
@@ -375,4 +376,14 @@ test('marker search needs every word, in any order, and puts names that start wi
         searchMarkers(list, 'sch').map((o) => o.name),
         ['Scheme Marker'],
     );
+});
+
+test('moving costs the ground covered plus any climb, and a drop is reported apart', () => {
+    const flat = moveCost({ x: 0, y: 0 }, { x: 3, y: 4 }, 0, 0);
+    assert.equal(flat.ground, 5);
+    assert.equal(flat.total, 5);
+    const up = moveCost({ x: 0, y: 0 }, { x: 3, y: 4 }, 0, 2);
+    assert.deepEqual([up.climb, up.drop, up.total], [2, 0, 7]);
+    const down = moveCost({ x: 0, y: 0 }, { x: 0, y: 6 }, 3, 0);
+    assert.deepEqual([down.climb, down.drop, down.total], [0, 3, 6]);
 });

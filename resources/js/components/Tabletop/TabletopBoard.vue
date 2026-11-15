@@ -13,6 +13,7 @@ import {
     describeZone,
     edgeDistance,
     fallHurts,
+    moveCost,
     heightCover,
     movePiece,
     restingSupport,
@@ -119,6 +120,8 @@ const svg = ref<SVGSVGElement | null>(null);
 const newSide = ref<'a' | 'b'>('a');
 const newBase = ref<number>(30);
 
+/** Where the model being moved started, and where it is now: a dashed line with the movement it has cost, kept after the drop until the next touch. */
+const trail = ref<{ from: Point; to: Point; baseMm: number; startElevation: number } | null>(null);
 const ruler = ref<{ from: Point; to: Point; fromToken: string | null; toToken: string | null } | null>(null);
 
 const levels = computed(() => [0, ...new Set(terrain.value.flatMap((p) => p.surfaces.map((s) => s.top)))].sort((a, b) => a - b));
@@ -317,6 +320,7 @@ function onDown(e: PointerEvent) {
     const p = toBoard(e.clientX, e.clientY);
     const hit = tokenAt(p);
     note.value = '';
+    trail.value = null;
     if (mode.value === 'terrain') {
         const found = surfaceAt(terrain.value, p.x, p.y);
         if (found) {
@@ -339,6 +343,7 @@ function onDown(e: PointerEvent) {
             return;
         }
         drag = { kind: 'token', id: hit.id, dx: hit.x - p.x, dy: hit.y - p.y, startElevation: elevationOf(hit) };
+        trail.value = { from: { x: hit.x, y: hit.y }, to: { x: hit.x, y: hit.y }, baseMm: hit.baseMm, startElevation: elevationOf(hit) };
     } else {
         selectedId.value = null;
         drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
@@ -361,6 +366,7 @@ function onMove(e: PointerEvent) {
         if (!t) return;
         const p = toBoard(e.clientX, e.clientY);
         Object.assign(t, clampToTable({ ...t, x: p.x + drag.dx, y: p.y + drag.dy }));
+        if (trail.value) trail.value = { ...trail.value, to: { x: t.x, y: t.y } };
     } else if (drag.kind === 'piece') {
         const p = toBoard(e.clientX, e.clientY);
         // Snap to half inches so a table lays out tidily.
@@ -395,9 +401,16 @@ function onUp(e: PointerEvent) {
         if (t) {
             emit('moved', { ...t });
             const now = elevationOf(t);
-            if (fallHurts(drag.startElevation, now))
-                note.value = `${t.name} dropped from elevation ${drag.startElevation} to ${now}: 1 irreducible damage if this was a fall.`;
-            else if (now !== drag.startElevation) note.value = `${t.name} is now at elevation ${now}.`;
+            const cost = moveCost(trail.value?.from ?? t, t, drag.startElevation, now);
+            if (cost.ground < 0.05) {
+                trail.value = null;
+            } else {
+                const parts = [`${t.name} moved ${fmt(cost.ground)}"`];
+                if (cost.climb > 0) parts.push(`climbed ${fmt(cost.climb)}" (counts as movement): ${fmt(cost.total)}" in all`);
+                if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(cost.drop)}": 1 irreducible damage if this was a fall`);
+                else if (cost.drop > 0) parts.push(`down ${fmt(cost.drop)}" to elevation ${now}`);
+                note.value = parts.join(', ') + '. Straight-line distance.';
+            }
         }
     }
     if (drag?.kind === 'piece' && drag.moved) {
@@ -659,6 +672,46 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         />
                         <text :x="t.x" :y="t.y + 0.3" text-anchor="middle" font-size="0.85" fill="white" font-weight="600" pointer-events="none">
                             {{ tokenLabel(t) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}
+                        </text>
+                    </g>
+                    <g
+                        v-if="trail && Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y) >= 0.05"
+                        pointer-events="none"
+                        data-testid="move-trail"
+                    >
+                        <circle
+                            :cx="trail.from.x"
+                            :cy="trail.from.y"
+                            :r="baseRadius(trail.baseMm)"
+                            fill="none"
+                            stroke="hsl(var(--foreground))"
+                            stroke-width="0.07"
+                            stroke-dasharray="0.2 0.2"
+                            opacity="0.6"
+                        />
+                        <line
+                            :x1="trail.from.x"
+                            :y1="trail.from.y"
+                            :x2="trail.to.x"
+                            :y2="trail.to.y"
+                            stroke="hsl(var(--foreground))"
+                            stroke-width="0.1"
+                            stroke-dasharray="0.4 0.3"
+                            opacity="0.7"
+                        />
+                        <text
+                            :x="(trail.from.x + trail.to.x) / 2"
+                            :y="(trail.from.y + trail.to.y) / 2 - 0.4"
+                            text-anchor="middle"
+                            font-size="0.9"
+                            font-weight="600"
+                            fill="hsl(var(--foreground))"
+                            stroke="hsl(var(--background))"
+                            stroke-width="0.22"
+                            paint-order="stroke"
+                            data-testid="move-trail-label"
+                        >
+                            {{ fmt(Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y)) }}"
                         </text>
                     </g>
                     <g v-if="ruler" pointer-events="none">

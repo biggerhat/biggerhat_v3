@@ -58,6 +58,17 @@ const L = require('./lib.cjs');
             await dragTo([5.5, 5.5], [20, 12]); // and off to the table: a drop of 5
             await L.expectText(s, /1 irreducible damage/i);
         });
+        await L.step(`tabletop (${label}): a model dropped on another base, or on impassable ground, is flagged`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await s.page.click('[data-testid=mode-move]');
+            await dragTo([12, 32], [24, 31.3]); // the minion onto the red henchman
+            await L.expectText(s, /overlaps Henchman's base/i);
+            await s.page.waitForSelector('[data-problem=true]');
+            await s.page.waitForSelector('[data-testid=placement-warning]');
+            await dragTo([24, 31.3], [12, 32]); // put it back
+            await s.page.waitForFunction(() => !document.querySelector('[data-problem=true]'), { timeout: 5000 });
+        });
         await L.step(`tabletop (${label}): the ruler measures edge to edge between two models`, s, async () => {
             await L.visit(s, '/tools/tabletop');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');

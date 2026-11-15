@@ -20,6 +20,7 @@ import {
     moveCost,
     movePiece,
     pieceBounds,
+    placementProblems,
     pointInShape,
     restingSupport,
     rotatePiece90,
@@ -549,4 +550,28 @@ test('every ready-made table follows the guide: 45-65% covered, three to eight t
             }
         }
     }
+});
+
+test('bases may touch but not overlap, and nothing ends on impassable terrain', () => {
+    const a = man('a', 'a', 10, 10);
+    const touching = man('b', 'b', 10 + 30 / 25.4, 10);
+    const overlapping = man('c', 'b', 10.5, 10);
+    const marker = man('m', 'b', 10, 10, 0, { marker: true });
+    assert.deepEqual(placementProblems(a, [a, touching], []), []);
+    assert.equal(placementProblems(a, [a, overlapping], [])[0].kind, 'overlap');
+    assert.deepEqual(placementProblems(a, [a, marker], []), [], 'a marker can be stood on');
+    assert.deepEqual(placementProblems(a, [a, { ...overlapping, killed: true }], []), [], 'a model out of play does not count');
+    const steep = {
+        id: 's',
+        name: 'Steep',
+        traits: ['blocking', 'impassable'],
+        surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 9.8, y: 0, w: 5, h: 20 } }],
+    };
+    assert.equal(placementProblems(a, [a], [steep])[0].kind, 'impassable');
+    const bog = { id: 'b', name: 'Bog', traits: ['hazardous'], surfaces: [{ id: 'b1', top: 0.5, shape: { kind: 'circle', cx: 10, cy: 10, r: 3 } }] };
+    assert.equal(placementProblems(a, [a], [bog])[0].kind, 'hazardous');
+    assert.deepEqual(
+        placementProblems(a, [a], [{ ...steep, surfaces: [{ ...steep.surfaces[0], shape: { kind: 'rect', x: 20, y: 0, w: 5, h: 5 } }] }]),
+        [],
+    );
 });

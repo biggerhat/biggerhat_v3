@@ -623,3 +623,32 @@ export function lineOfSight(from: Token, to: Token, tokens: Token[], pieces: Ter
         target: { elevation: supportB.elevation, sz: szOf(to) },
     };
 }
+
+// --- where a model may stand ---
+
+export interface PlacementProblem {
+    kind: 'overlap' | 'impassable' | 'hazardous';
+    text: string;
+}
+
+/**
+ * Problems with where a model stands. Bases may touch but not overlap another model's base, and nothing ends a move on impassable
+ * terrain (p.20: a model that would is moved to the nearest legal spot). Hazardous terrain is only flagged. Markers and models removed
+ * from play do not count.
+ */
+export function placementProblems(token: Token, tokens: Token[], pieces: TerrainPiece[]): PlacementProblem[] {
+    if (token.marker || token.killed) return [];
+    const problems: PlacementProblem[] = [];
+    for (const other of tokens) {
+        if (other.id === token.id || other.marker || other.killed) continue;
+        if (Math.hypot(token.x - other.x, token.y - other.y) < baseRadius(token.baseMm) + baseRadius(other.baseMm) - 1e-6)
+            problems.push({ kind: 'overlap', text: `overlaps ${other.name}'s base` });
+    }
+    for (const piece of pieces) {
+        const touches = piece.surfaces.some((s) => supportFraction(token, s.shape) > 0);
+        if (!touches) continue;
+        if (piece.traits.includes('impassable')) problems.push({ kind: 'impassable', text: `is on ${piece.name}, which is impassable` });
+        else if (piece.traits.includes('hazardous')) problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
+    }
+    return problems;
+}

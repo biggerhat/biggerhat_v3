@@ -17,6 +17,7 @@ import {
     moveCost,
     heightCover,
     movePiece,
+    placementProblems,
     restingSupport,
     surfaceAt,
     modelsWithin,
@@ -256,6 +257,8 @@ const activeAuras = computed(() =>
 );
 const insideOf = (id: string) => activeAuras.value.find((a) => a.aura.id === id)?.inside ?? [];
 const caught = computed(() => new Set(activeAuras.value.flatMap((a) => a.inside.map((t) => t.id))));
+/** Models standing where they should not: on another base, or on impassable terrain. */
+const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, terrain.value)])));
 const selected = computed(() => tokens.value.find((t) => t.id === selectedId.value) ?? null);
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
 const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value, variant.value)));
@@ -458,6 +461,11 @@ function onUp(e: PointerEvent) {
                 if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(cost.drop)}": 1 irreducible damage if this was a fall`);
                 else if (cost.drop > 0) parts.push(`down ${fmt(cost.drop)}" to elevation ${now}`);
                 note.value = parts.join(', ') + '. Straight-line distance.';
+            }
+            const trouble = problems.value.get(t.id) ?? [];
+            if (trouble.length) {
+                note.value =
+                    `${t.name} ${trouble.map((p) => p.text).join(' and ')}. ${trouble.some((p) => p.kind !== 'hazardous') ? 'Move it to the nearest legal spot.' : ''} ${note.value}`.trim();
             }
         }
     }
@@ -714,7 +722,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             :r="baseRadius(t.baseMm)"
                             :fill="sideColour(t.side)"
                             fill-opacity="0.9"
-                            :stroke="t.id === selectedId ? 'hsl(var(--foreground))' : caught.has(t.id) ? 'hsl(45 95% 55%)' : 'white'"
+                            :stroke="
+                                t.id === selectedId
+                                    ? 'hsl(var(--foreground))'
+                                    : problems.get(t.id)?.some((p) => p.kind !== 'hazardous')
+                                      ? 'hsl(0 85% 60%)'
+                                      : caught.has(t.id)
+                                        ? 'hsl(45 95% 55%)'
+                                        : 'white'
+                            "
+                            :data-problem="problems.get(t.id)?.length ? 'true' : undefined"
                             :stroke-width="t.id === selectedId ? 0.16 : 0.08"
                             :stroke-dasharray="t.marker && t.id !== selectedId ? '0.35 0.25' : undefined"
                             :data-marker="t.marker ? 'true' : undefined"
@@ -916,6 +933,15 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         }}<span v-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
                         >.
                     </div>
+                    <p v-if="problems.get(selected.id)?.length" class="mt-2 text-amber-600 dark:text-amber-400" data-testid="placement-warning">
+                        {{ selected.name }}
+                        {{
+                            problems
+                                .get(selected.id)!
+                                .map((p) => p.text)
+                                .join(' and ')
+                        }}.
+                    </p>
                     <div class="mt-3 border-t pt-3" data-testid="aura-controls">
                         <div class="mb-2 flex items-center justify-between">
                             <span class="font-medium"

@@ -59,10 +59,10 @@ export const sampleTerrain: TerrainPiece[] = [
 ];
 
 export const sampleTokens: Token[] = [
-    { id: 'a1', sz: 3, name: 'Master', side: 'a', baseMm: 50, x: 18, y: 4 },
-    { id: 'a2', sz: 2, name: 'Henchman', side: 'a', baseMm: 40, x: 12, y: 5 },
-    { id: 'a3', sz: 1, name: 'Minion', side: 'a', baseMm: 30, x: 22, y: 4 },
-    { id: 'b1', sz: 3, name: 'Master', side: 'b', baseMm: 50, x: 18, y: 32 },
-    { id: 'b2', sz: 2, name: 'Henchman', side: 'b', baseMm: 40, x: 24, y: 31 },
-    { id: 'b3', sz: 1, name: 'Minion', side: 'b', baseMm: 30, x: 12, y: 32 },
+    { id: 'a1', sp: 5, sz: 3, name: 'Master', side: 'a', baseMm: 50, x: 18, y: 4 },
+    { id: 'a2', sp: 5, sz: 2, name: 'Henchman', side: 'a', baseMm: 40, x: 12, y: 5 },
+    { id: 'a3', sp: 5, sz: 1, name: 'Minion', side: 'a', baseMm: 30, x: 22, y: 4 },
+    { id: 'b1', sp: 5, sz: 3, name: 'Master', side: 'b', baseMm: 50, x: 18, y: 32 },
+    { id: 'b2', sp: 5, sz: 2, name: 'Henchman', side: 'b', baseMm: 40, x: 24, y: 31 },
+    { id: 'b3', sp: 5, sz: 1, name: 'Minion', side: 'b', baseMm: 30, x: 12, y: 32 },
 ];

@@ -52,7 +52,9 @@ const L = require('./lib.cjs');
             // the move is drawn: a dashed line from where it started, labelled with the distance
             await s.page.waitForSelector('[data-testid=move-trail]');
             const dist = await s.page.$eval('[data-testid=move-trail-label]', (e) => e.textContent.trim());
-            if (!/^\d+(\.\d)?"$/.test(dist)) throw new Error(`unexpected trail label: ${dist}`);
+            if (!/^\d+(\.\d)?" of 5"$/.test(dist)) throw new Error(`unexpected trail label: ${dist}`);
+            if (!(await s.page.$('[data-testid=walk-reach]'))) throw new Error('a model with a Sp shows how far a Walk reaches');
+            await L.expectText(s, /more than a Walk \(Sp 5\)/i); // 12 across and 3 up is more than a Walk of 5
             await dragTo([10, 8], [5.5, 5.5]); // then up onto the Ht 5 upper level
             await L.expectText(s, /climbed 2"/i);
             await dragTo([5.5, 5.5], [20, 12]); // and off to the table: a drop of 5

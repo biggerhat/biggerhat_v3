@@ -15,6 +15,7 @@ import {
     fallHurts,
     lineOfSight,
     moveCost,
+    walkBudget,
     heightCover,
     movePiece,
     placementProblems,
@@ -187,7 +188,15 @@ const newSide = ref<'a' | 'b'>('a');
 const newBase = ref<number>(30);
 
 /** Where the model being moved started, and where it is now: a dashed line with the movement it has cost, kept after the drop until the next touch. */
-const trail = ref<{ from: Point; to: Point; baseMm: number; startElevation: number } | null>(null);
+const trail = ref<{ id: string; from: Point; to: Point; baseMm: number; startElevation: number; sp?: number } | null>(null);
+/** What the move so far costs, and how that compares with a Walk (Sp) when the card says. */
+const trailCost = computed(() => {
+    const t = trail.value;
+    const token = t ? tokens.value.find((x) => x.id === t.id) : undefined;
+    if (!t || !token) return null;
+    const cost = moveCost(t.from, t.to, t.startElevation, elevationOf(token));
+    return { cost, walk: t.sp !== undefined ? walkBudget(t.sp, cost) : null };
+});
 /** Line of sight: press on a model and drag to another. Each model draws its own sight lines, so both directions are checked. */
 const sight = ref<{ fromId: string; toId: string | null } | null>(null);
 const sightFrom = computed(() => tokens.value.find((t) => t.id === sight.value?.fromId));
@@ -446,7 +455,14 @@ function onDown(e: PointerEvent) {
             return;
         }
         drag = { kind: 'token', id: hit.id, dx: hit.x - p.x, dy: hit.y - p.y, startElevation: elevationOf(hit) };
-        trail.value = { from: { x: hit.x, y: hit.y }, to: { x: hit.x, y: hit.y }, baseMm: hit.baseMm, startElevation: elevationOf(hit) };
+        trail.value = {
+            id: hit.id,
+            from: { x: hit.x, y: hit.y },
+            to: { x: hit.x, y: hit.y },
+            baseMm: hit.baseMm,
+            startElevation: elevationOf(hit),
+            sp: hit.marker ? undefined : hit.sp,
+        };
     } else {
         selectedId.value = null;
         drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
@@ -515,6 +531,13 @@ function onUp(e: PointerEvent) {
                 if (cost.climb > 0) parts.push(`climbed ${fmt(cost.climb)}" (counts as movement): ${fmt(cost.total)}" in all`);
                 if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(cost.drop)}": 1 irreducible damage if this was a fall`);
                 else if (cost.drop > 0) parts.push(`down ${fmt(cost.drop)}" to elevation ${now}`);
+                const walk = trailCost.value?.walk;
+                if (walk)
+                    parts.push(
+                        walk.within
+                            ? `${fmt(walk.left)}" left of a Walk (Sp ${trail.value?.sp})`
+                            : `${fmt(-walk.left)}" more than a Walk (Sp ${trail.value?.sp})`,
+                    );
                 note.value = parts.join(', ') + '. Straight-line distance.';
             }
             const trouble = problems.value.get(t.id) ?? [];
@@ -801,6 +824,17 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         data-testid="move-trail"
                     >
                         <circle
+                            v-if="trail.sp !== undefined"
+                            :cx="trail.from.x"
+                            :cy="trail.from.y"
+                            :r="trail.sp"
+                            fill="hsl(145 65% 42% / 0.06)"
+                            stroke="hsl(145 65% 42%)"
+                            stroke-width="0.08"
+                            stroke-dasharray="0.6 0.4"
+                            data-testid="walk-reach"
+                        />
+                        <circle
                             :cx="trail.from.x"
                             :cy="trail.from.y"
                             :r="baseRadius(trail.baseMm)"
@@ -826,13 +860,15 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             text-anchor="middle"
                             font-size="0.9"
                             font-weight="600"
-                            fill="hsl(var(--foreground))"
+                            :fill="trailCost?.walk && !trailCost.walk.within ? 'hsl(0 85% 62%)' : 'hsl(var(--foreground))'"
                             stroke="hsl(var(--background))"
                             stroke-width="0.22"
                             paint-order="stroke"
                             data-testid="move-trail-label"
                         >
-                            {{ fmt(Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y)) }}"
+                            {{ fmt(trailCost?.cost.total ?? Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y)) }}"{{
+                                trail.sp !== undefined ? ` of ${trail.sp}"` : ''
+                            }}
                         </text>
                     </g>
                     <g v-if="outline && outline.length" pointer-events="none" data-testid="outline-preview">

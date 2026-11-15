@@ -31,6 +31,7 @@ import {
     tallClimbablePieces,
     terrainCoverage,
     translateShape,
+    walkBudget,
     withinAura,
 } from './geometry.ts';
 import { TERRAIN_LAYOUTS } from './terrainLayouts.ts';
@@ -574,4 +575,12 @@ test('bases may touch but not overlap, and nothing ends on impassable terrain', 
         placementProblems(a, [a], [{ ...steep, surfaces: [{ ...steep.surfaces[0], shape: { kind: 'rect', x: 20, y: 0, w: 5, h: 5 } }] }]),
         [],
     );
+});
+
+test('a move is compared with a Walk of Sp inches', () => {
+    assert.ok(Math.abs(walkBudget(5, { total: 4.2 }).left - 0.8) < 1e-9);
+    assert.equal(walkBudget(5, { total: 4.2 }).within, true);
+    assert.equal(walkBudget(5, { total: 5 }).within, true);
+    assert.equal(walkBudget(5, { total: 6.5 }).within, false);
+    assert.ok(Math.abs(walkBudget(5, { total: 6.5 }).left + 1.5) < 1e-9);
 });

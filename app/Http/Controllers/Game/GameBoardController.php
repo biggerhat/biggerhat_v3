@@ -39,7 +39,7 @@ class GameBoardController extends Controller
         $this->guard();
         Gate::authorize('view', $game);
 
-        $game->load(['players.user:id,name', 'players.crewMembers.character:id,base,size', 'players.crewMembers.customCharacter:id,base,size']);
+        $game->load(['players.user:id,name', 'players.crewMembers.character:id,base,size,speed', 'players.crewMembers.customCharacter:id,base,size,speed']);
 
         return inertia('Games/Board', [
             'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo, 'deployment' => $game->deployment?->value],
@@ -70,6 +70,7 @@ class GameBoardController extends Controller
                     'slot' => $player->slot,
                     'base_mm' => $this->baseMm($member),
                     'sz' => $this->sz($member),
+                    'sp' => $this->sp($member),
                     'killed' => (bool) $member->is_killed,
                 ];
             }
@@ -316,6 +317,19 @@ class GameBoardController extends Controller
         }
         if ($member->custom_character_id !== null) {
             return $member->customCharacter->size;
+        }
+
+        return null;
+    }
+
+    /** The Sp stat as printed on the card: a Walk moves up to this many inches. Null when unknown. */
+    private function sp(GameCrewMember $member): ?int
+    {
+        if ($member->character_id !== null) {
+            return $member->character->speed;
+        }
+        if ($member->custom_character_id !== null) {
+            return $member->customCharacter->speed;
         }
 
         return null;

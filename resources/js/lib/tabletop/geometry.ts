@@ -43,6 +43,8 @@ export interface Token {
     baseMm: number;
     /** The Sz stat. Missing means unknown: sight lines assume 1. Markers are Sz 0. */
     sz?: number;
+    /** The Sp stat: a Walk moves up to this many inches. Missing means unknown. */
+    sp?: number;
     x: number;
     y: number;
     /** The viewer may not move this model (it belongs to the other player). */
@@ -174,6 +176,15 @@ export function moveCost(
     const ground = Math.hypot(to.x - from.x, to.y - from.y);
     const climb = Math.max(0, toElevation - fromElevation);
     return { ground, climb, drop: fallDistance(fromElevation, toElevation), total: ground + climb };
+}
+
+/**
+ * How a move compares with a Walk (Sp inches, p.20: climbing counts as movement). `left` is negative when it went further than one
+ * Walk, which then takes more than one action. Straight line only, and Sp as printed: effects that change it are not known here.
+ */
+export function walkBudget(sp: number, cost: { total: number }): { left: number; within: boolean } {
+    const left = sp - cost.total;
+    return { left, within: left >= -1e-9 };
 }
 
 /** Effective Sz of a model: its Sz plus the height it stands on (p.19). */

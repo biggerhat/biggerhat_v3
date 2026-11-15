@@ -105,4 +105,7 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - Draw an outline (terrain mode): tap corners on the board (snapped to half inches, 3 to 16), tap the first corner again or press
   Finish to close it into a polygon piece (blocking, climbable, Ht 2 to start; edit traits and Ht like any piece, drag or turn it). Its size
   has no number fields, so reshape by drawing again. Undo removes it.
-- Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (only reported), an interior model for buildings, numeric editing of a polygon's corners.
+- Walk reach: a model with a Sp (from the card; custom cards have one) shows a green ring of Sp inches around where it started while
+  dragged, the label reads "4.2\" of 5\"" (climbing counts, p.20) and goes red past a Walk, and the drop note says how much is left or how
+  far over. Sp is as printed: effects that change it are not known, and a model may take more than one action to move.
+- Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (reported against a Walk, never stopped), an interior model for buildings, numeric editing of a polygon's corners.

@@ -99,4 +99,4 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   for half the table and turned 180 degrees for the other half so neither side has better ground; a test holds every one to the guide's
   advice (45-65% covered, 3-8 standable Ht 2+ pieces, nothing overlapping, all on the table, symmetric). Loading one replaces the
   table and can be undone. Not tied to a scenario yet: the game's scenario does not choose a layout.
-- Not yet: a link from the game screen, a layout editor, enforcement of climb and jump costs.
+- Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (only reported), drawn polygon outlines, an interior model for buildings.

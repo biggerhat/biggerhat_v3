@@ -9,7 +9,9 @@ $carol = $mk('Carol', 'carol@example.test');
 $dave = $mk('Dave', 'dave@example.test');
 
 // A master with a title, so score entry has leaders to pick (the picker lists masters of the player's faction).
-\App\Models\Character::factory()->create(['name' => 'Seedlady Alpha', 'title' => null, 'station' => 'master', 'faction' => 'guild', 'base' => 50, 'size' => 3, 'speed' => 6]);
+\App\Models\Token::factory()->create(['name' => 'Focus']);
+\App\Models\Token::factory()->create(['name' => 'Shielded']);
+\App\Models\Character::factory()->create(['name' => 'Seedlady Alpha', 'title' => null, 'station' => 'master', 'faction' => 'guild', 'base' => 50, 'size' => 3, 'speed' => 6, 'health' => 9]);
 \App\Models\Character::factory()->create(['name' => 'Seedlady Beta', 'title' => null, 'station' => 'minion', 'faction' => 'guild', 'base' => 30, 'size' => 1, 'speed' => 5]);
 \App\Models\Character::factory()->create(['name' => 'Rasputina', 'title' => 'Winter Witch', 'station' => 'master', 'faction' => 'arcanists']);
 

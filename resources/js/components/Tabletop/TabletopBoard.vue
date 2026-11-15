@@ -25,12 +25,14 @@ import {
     type Aura,
     type DeploymentKind,
     type MarkerOption,
+    type ModelInfo,
     type Shape,
     type TerrainPiece,
     type Token,
 } from '@/lib/tabletop/geometry';
 import CharacterPicker, { type CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
 import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
+import ModelInfoPanel from '@/components/Tabletop/ModelInfoPanel.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
@@ -61,6 +63,8 @@ const props = withDefaults(
         readOnly?: boolean;
         /** Where to search character cards to add to the table (the sandbox). Without it only blank models can be added. */
         characterSearchUrl?: string;
+        /** Tokens a model can carry. Without them the panel still shows health, activation and notes. */
+        tokenOptions?: { id: number; name: string }[];
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -77,6 +81,7 @@ const emit = defineEmits<{
     reset: [];
     terrainChanged: [pieces: TerrainPiece[]];
     variantChanged: [variant: number];
+    modelChange: [id: string, patch: Partial<ModelInfo>];
     auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
 }>();
 
@@ -588,8 +593,16 @@ function openCharacterDialog() {
 function addCharacter(c: CharacterOption) {
     const nudge = (tokens.value.filter((t) => !t.marker).length % 6) * 1.2;
     const at = clampToTable({ baseMm: c.base_mm, x: view.value.x + view.value.w / 2 + nudge, y: view.value.y + view.value.w / 2 + nudge });
-    emit('add', { name: c.name, side: newSide.value, baseMm: c.base_mm, sz: c.sz, sp: c.sp, ...at });
-    note.value = `${c.name} added (${c.base_mm} mm base, Sz ${c.sz}, Sp ${c.sp}). Drag it into place.`;
+    emit('add', {
+        name: c.name,
+        side: newSide.value,
+        baseMm: c.base_mm,
+        sz: c.sz,
+        sp: c.sp,
+        info: { health: c.health, maxHealth: c.health, tokens: [] },
+        ...at,
+    });
+    note.value = `${c.name} added (${c.base_mm} mm base, Sz ${c.sz}, Sp ${c.sp}, ${c.health} health). Drag it into place.`;
     characterDialog.value = false;
 }
 function addToken() {
@@ -833,6 +846,44 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             :stroke-dasharray="t.marker && t.id !== selectedId ? '0.35 0.25' : undefined"
                             :data-marker="t.marker ? 'true' : undefined"
                         />
+                        <g v-if="t.info?.maxHealth" pointer-events="none" :data-testid="`hp-${t.id}`">
+                            <rect
+                                :x="t.x - baseRadius(t.baseMm)"
+                                :y="t.y + baseRadius(t.baseMm) + 0.12"
+                                :width="baseRadius(t.baseMm) * 2"
+                                height="0.28"
+                                fill="hsl(var(--background))"
+                                stroke="hsl(var(--foreground) / 0.6)"
+                                stroke-width="0.05"
+                            />
+                            <rect
+                                :x="t.x - baseRadius(t.baseMm)"
+                                :y="t.y + baseRadius(t.baseMm) + 0.12"
+                                :width="baseRadius(t.baseMm) * 2 * Math.min(1, (t.info.health ?? t.info.maxHealth) / t.info.maxHealth)"
+                                height="0.28"
+                                :fill="(t.info.health ?? t.info.maxHealth) / t.info.maxHealth <= 0.34 ? 'hsl(0 80% 55%)' : 'hsl(145 60% 42%)'"
+                            />
+                        </g>
+                        <g v-if="t.info?.tokens.length" pointer-events="none">
+                            <circle
+                                :cx="t.x + baseRadius(t.baseMm) * 0.8"
+                                :cy="t.y - baseRadius(t.baseMm) * 0.8"
+                                r="0.42"
+                                fill="hsl(190 70% 38%)"
+                                stroke="white"
+                                stroke-width="0.06"
+                            />
+                            <text
+                                :x="t.x + baseRadius(t.baseMm) * 0.8"
+                                :y="t.y - baseRadius(t.baseMm) * 0.8 + 0.2"
+                                text-anchor="middle"
+                                font-size="0.55"
+                                fill="white"
+                                font-weight="700"
+                            >
+                                {{ t.info.tokens.length }}
+                            </text>
+                        </g>
                         <text :x="t.x" :y="t.y + 0.3" text-anchor="middle" font-size="0.85" fill="white" font-weight="600" pointer-events="none">
                             {{ tokenLabel(t) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}
                         </text>
@@ -1072,6 +1123,14 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         }}<span v-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
                         >.
                     </div>
+                    <ModelInfoPanel
+                        v-if="!selected.marker"
+                        :token="selected"
+                        :token-options="tokenOptions ?? []"
+                        :can-edit="!selected.locked"
+                        :editable-max="sandbox"
+                        @change="emit('modelChange', selected.id, $event)"
+                    />
                     <p v-if="problems.get(selected.id)?.length" class="mt-2 text-amber-600 dark:text-amber-400" data-testid="placement-warning">
                         {{ selected.name }}
                         {{

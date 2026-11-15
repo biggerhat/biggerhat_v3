@@ -10,6 +10,7 @@ export interface CharacterOption {
     base_mm: number;
     sz: number;
     sp: number;
+    health: number;
 }
 
 const props = defineProps<{ url: string }>();
@@ -80,7 +81,7 @@ onUnmounted(() => {
                 <span class="min-w-0 flex-1">
                     <span class="block truncate">{{ c.name }}</span>
                     <span class="block text-xs text-muted-foreground" data-testid="character-stats"
-                        >{{ c.faction }} · {{ c.base_mm }} mm · Sz {{ c.sz }} · Sp {{ c.sp }}</span
+                        >{{ c.faction }} · {{ c.base_mm }} mm · Sz {{ c.sz }} · Sp {{ c.sp }} · Wd {{ c.health }}</span
                     >
                 </span>
                 <Button size="sm" variant="outline" :aria-label="`Add ${c.name}`" data-testid="character-add" @click="emit('add', c)">Add</Button>

@@ -14,6 +14,7 @@ use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\Marker;
+use App\Models\Token;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -628,4 +629,30 @@ it('hands the board each model\'s Sz for sight lines', function () {
 
     $this->actingAs($a)->get(route('games.board', $game->uuid))
         ->assertInertia(fn (Assert $page) => $page->where('models.0.sz', 3)->where('models.0.sp', 6));
+});
+
+it('hands the board each model\'s tracker state and the tokens it can carry', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $focus = Token::factory()->create(['name' => 'Focus']);
+    $m1->update(['current_health' => 4, 'max_health' => 9, 'is_activated' => true, 'attached_tokens' => [['id' => $focus->id, 'name' => 'Focus']], 'notes' => 'Hiding']);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('models.0.health', 4)
+            ->where('models.0.max_health', 9)
+            ->where('models.0.activated', true)
+            ->where('models.0.tokens.0.name', 'Focus')
+            ->where('models.0.notes', 'Hiding')
+            ->where('token_options.0.name', 'Focus'));
+});
+
+it('lets a player change their model through the tracker\'s own endpoint', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $m1->update(['current_health' => 9, 'max_health' => 9]);
+
+    $this->actingAs($a)->patchJson(route('games.play.crew.update', ['game' => $game->uuid, 'gameCrewMember' => $m1->id]), ['current_health' => 5, 'is_activated' => true, 'notes' => 'Hurt'])->assertOk();
+    $this->actingAs($b)->patchJson(route('games.play.crew.update', ['game' => $game->uuid, 'gameCrewMember' => $m1->id]), ['current_health' => 1])->assertForbidden();
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('models.0.health', 5)->where('models.0.activated', true)->where('models.0.notes', 'Hurt'));
 });

@@ -317,9 +317,45 @@ const L = require('./lib.cjs');
                 .catch(async () => {
                     throw new Error(`after adding there are ${(await s.page.$$('[data-testid^=token-]')).length} models`);
                 });
-            await L.expectText(s, /Seedlady Alpha added \(50 mm base, Sz 3, Sp 6\)/);
+            await L.expectText(s, /Seedlady Alpha added \(50 mm base, Sz 3, Sp 6, 9 health\)/);
+            // The card's health comes with it, and the model panel tracks it: health, a token and activation, kept on the device.
+            const lastCircle = async () => {
+                await s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+                return s.page.evaluate(() => {
+                    const cs = document.querySelectorAll('[data-testid^=token-] > circle');
+                    const c = cs[cs.length - 1];
+                    const r = c.getBoundingClientRect();
+                    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                });
+            };
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
+            const at = await lastCircle();
+            await s.page.mouse.click(at.x, at.y);
+            await s.page.waitForSelector('[data-testid=model-info]', { timeout: 4000 }).catch(async () => {
+                const panel = await s.page.evaluate(() => document.querySelector('[data-testid=selected-panel]')?.innerText ?? 'no panel');
+                throw new Error(`no model panel after clicking at ${Math.round(at.x)},${Math.round(at.y)}: ${panel.slice(0, 200)}`);
+            });
+            const hp = () => s.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
+            if ((await hp()) !== '9 / 9') throw new Error(`expected 9 / 9, saw ${await hp()}`);
+            const press = async (id) => {
+                await s.page.$eval(`[data-testid=${id}]`, (b) => b.scrollIntoView({ block: 'center' }));
+                await s.page.click(`[data-testid=${id}]`);
+            };
+            await press('health-minus');
+            await press('health-minus');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=health-value]').innerText.trim() === '7 / 9', { timeout: 5000 });
+            await s.page.$eval('[data-testid=token-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            const focus = await s.page.$$eval('[data-testid=token-add] option', (os) => os.find((o) => o.textContent === 'Focus')?.value);
+            await s.page.select('[data-testid=token-add]', focus);
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=model-token]').length === 1, { timeout: 5000 });
+            await press('model-activated');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=model-activated]').innerText.trim() === 'Activated', {
+                timeout: 5000,
+            });
+            if (!(await s.page.$('[data-testid^=hp-]'))) throw new Error('the board should draw a health bar on the model');
+            await L.shot(s, `359-model-info-${label}`);
             // drawn at its real base size: the new model has a 50 mm (0.984") radius
-            const radii = await s.page.$$eval('[data-testid^=token-] circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
+            const radii = await s.page.$$eval('[data-testid^=token-] > circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
             if (Math.abs(radii[radii.length - 1] - 25 / 25.4) > 0.01) throw new Error(`the new model should have a 50 mm base: ${radii}`);
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
             await s.page.$eval('[data-testid=reset-table]', (b) => b.scrollIntoView({ block: 'center' }));

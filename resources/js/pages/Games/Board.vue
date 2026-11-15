@@ -2,7 +2,18 @@
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
-import { TABLE_SIZE, baseRadius, type Aura, type DeploymentKind, type MarkerOption, type TerrainPiece, type Token } from '@/lib/tabletop/geometry';
+import { useGameApi } from '@/composables/useGameApi';
+import { useToast } from '@/composables/useToast';
+import {
+    TABLE_SIZE,
+    baseRadius,
+    type Aura,
+    type ModelInfo,
+    type DeploymentKind,
+    type MarkerOption,
+    type TerrainPiece,
+    type Token,
+} from '@/lib/tabletop/geometry';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import { loadEcho } from '@/lib/echo';
@@ -35,6 +46,11 @@ interface BoardModel {
     sz: number | null;
     sp: number | null;
     killed: boolean;
+    health: number | null;
+    max_health: number | null;
+    activated: boolean;
+    tokens: { id: number; name: string }[];
+    notes: string | null;
 }
 
 const props = defineProps<{
@@ -48,6 +64,7 @@ const props = defineProps<{
     markers: MarkerOption[];
     placed_markers: PlacedMarker[];
     shared_auras: SharedAura[];
+    token_options: { id: number; name: string }[];
     deployment_variant: number;
 }>();
 
@@ -96,10 +113,11 @@ function variantChanged(next: number) {
     );
 }
 
+let modelsTimer: ReturnType<typeof setTimeout> | null = null;
 let joined = false;
 const resync = () =>
     document.visibilityState === 'visible' &&
-    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant'] });
+    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'models'] });
 
 let poll: ReturnType<typeof setInterval> | null = null;
 onMounted(async () => {
@@ -122,6 +140,11 @@ onMounted(async () => {
         .listen('.GameBoardMarkersChanged', (e: { markers: PlacedMarker[] }) => {
             placed.value = e.markers;
         })
+        .listen('.GameCrewMemberUpdated', () => {
+            // the play screen changed a model (health, tokens, a kill): look again, once if several arrive together
+            if (modelsTimer) clearTimeout(modelsTimer);
+            modelsTimer = setTimeout(() => router.reload({ only: ['models'] }), 400);
+        })
         .listen('.GameBoardSetupChanged', (e: { deployment_variant: number }) => {
             variant.value = e.deployment_variant;
         })
@@ -132,16 +155,55 @@ onMounted(async () => {
 onUnmounted(() => {
     document.removeEventListener('visibilitychange', resync);
     if (poll) clearInterval(poll);
+    if (modelsTimer) clearTimeout(modelsTimer);
     if (joined) window.Echo?.leave(`game.${props.game.uuid}`);
 });
+
+// The crew as the game tracker keeps it: health, activation, tokens. Changed here, they are saved through the tracker's own endpoint, so
+// the play screen shows the same thing.
+const liveModels = ref<BoardModel[]>(props.models.map((m) => ({ ...m })));
+watch(
+    () => props.models,
+    (next) => (liveModels.value = next.map((m) => ({ ...m }))),
+    { deep: true },
+);
+const gameApi = useGameApi();
+const toast = useToast();
+async function modelChange(id: string, patch: Partial<ModelInfo>) {
+    if (props.read_only) return;
+    const body: Record<string, unknown> = {};
+    if (patch.health !== undefined) body.current_health = patch.health;
+    if (patch.activated !== undefined) body.is_activated = patch.activated;
+    if (patch.tokens !== undefined) body.attached_tokens = patch.tokens;
+    if (patch.notes !== undefined) body.notes = patch.notes;
+    if (!Object.keys(body).length) return;
+    // show it at once; put it back if the game refuses
+    liveModels.value = liveModels.value.map((m) =>
+        String(m.id) === id
+            ? {
+                  ...m,
+                  health: patch.health ?? m.health,
+                  activated: patch.activated ?? m.activated,
+                  tokens: patch.tokens ?? m.tokens,
+                  notes: patch.notes !== undefined ? patch.notes : m.notes,
+              }
+            : m,
+    );
+    const res = await gameApi.patch<{ error?: string }>(route('games.play.crew.update', { game: props.game.uuid, gameCrewMember: id }), body);
+    if (!res.ok) {
+        toast.error(res.data.error ?? (res.status === 409 || res.status === 422 ? 'The game is not in progress.' : 'That change was not saved.'));
+        router.reload({ only: ['models'] });
+    }
+}
 
 const playerFor = (slot: number) => props.players.find((p) => p.slot === slot);
 const sideNames = computed(() => ({ a: playerFor(1)?.name ?? 'Player 1', b: playerFor(2)?.name ?? 'Player 2' }));
 
 /** Models with no saved position line up along their side's table edge (slot 1 on top, slot 2 on the bottom), 1.5" apart at least. */
 function defaultSpot(model: BoardModel): { x: number; y: number } {
-    const row = props.models.filter((m) => m.slot === model.slot);
-    const index = row.indexOf(model);
+    // match by id: the models on the table are copies of the props, so identity would not find them
+    const row = liveModels.value.filter((m) => m.slot === model.slot);
+    const index = row.findIndex((m) => m.id === model.id);
     const step = Math.min(4, (TABLE_SIZE - 2) / Math.max(row.length, 1));
     const start = (TABLE_SIZE - step * (row.length - 1)) / 2;
     return { x: start + step * index, y: model.slot === 1 ? 2 + baseRadius(model.base_mm) : TABLE_SIZE - 2 - baseRadius(model.base_mm) };
@@ -172,7 +234,7 @@ const placeAs = computed(() =>
 const tokens = computed<Token[]>(() => [
     // markers first, so they draw underneath the models and a model on top of one is the one you pick up
     ...markerTokens.value,
-    ...props.models.map((m): Token => {
+    ...liveModels.value.map((m): Token => {
         const at = live.value[String(m.id)] ?? defaultSpot(m);
         return {
             id: String(m.id),
@@ -184,6 +246,13 @@ const tokens = computed<Token[]>(() => [
             x: at.x,
             y: at.y,
             killed: m.killed,
+            info: {
+                health: m.health ?? undefined,
+                maxHealth: m.max_health ?? undefined,
+                activated: m.activated,
+                tokens: m.tokens,
+                notes: m.notes ?? undefined,
+            },
             locked: props.read_only || !playerFor(m.slot)?.mine,
         };
     }),
@@ -283,6 +352,8 @@ function moved(t: Token) {
             :place-as="placeAs"
             :shared-auras="sharedAuras"
             :read-only="read_only"
+            :token-options="token_options"
+            @model-change="modelChange"
             @aura-change="auraChange"
             :deployment-variant="variant"
             @variant-changed="variantChanged"

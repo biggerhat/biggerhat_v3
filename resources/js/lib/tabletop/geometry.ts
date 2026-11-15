@@ -32,6 +32,15 @@ export interface TerrainPiece {
     surfaces: Surface[];
 }
 
+/** What the game tracker keeps about a model: health, activation, tokens on it and a note. */
+export interface ModelInfo {
+    health?: number;
+    maxHealth?: number;
+    activated?: boolean;
+    tokens: { id: number; name: string }[];
+    notes?: string;
+}
+
 export interface Token {
     id: string;
     name: string;
@@ -47,6 +56,8 @@ export interface Token {
     sp?: number;
     x: number;
     y: number;
+    /** Health, activation, tokens and notes. Missing on markers. */
+    info?: ModelInfo;
     /** The viewer may not move this model (it belongs to the other player). */
     locked?: boolean;
     /** Removed from play in the game tracker: drawn faded. */

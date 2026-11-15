@@ -116,4 +116,11 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   `GET /tools/tabletop/characters?q=`, throttled, same flag or beta permission as the page, hidden cards left out). Each result shows
   faction, base, Sz and Sp; adding it puts the model on the table at its real base size with its Sz and Sp, for the chosen side, so
   line of sight and the Walk ring work for it. "Add model" still adds a blank model. Game boards take their crews from the game instead.
+- Model panel (select a model): the tracker's essentials for that model, `ModelInfoPanel.vue` — activated, health (stepper and pips),
+  tokens (add from the tokens table, remove) and a note. On a game board it reads and writes the game tracker's own crew member
+  (`GameCrewMember` health, `is_activated`, `attached_tokens`, `notes`) through the tracker's `games.play.crew.update` endpoint, so the play
+  screen and the board always agree; the board refreshes when the play screen changes a model (`GameCrewMemberUpdated`), and only the
+  player who owns the model can change it (the endpoint's own policy; the game must be in progress). Models are drawn with a health bar
+  and a count of tokens on them. In the sandbox the same panel is kept on the device (a card added from the search brings its health;
+  a blank model can have a maximum health set). Not here: upgrades, injuries, replace, summon, kill/revive — use the play screen.
 - Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (reported against a Walk, never stopped), an interior model for buildings, numeric editing of a polygon's corners.

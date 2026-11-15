@@ -14,12 +14,13 @@ it('hides the tabletop until its feature flag is on', function () {
     $this->get(route('tools.tabletop'))->assertNotFound();
 });
 
-it('renders the tabletop page when the flag is on', function () {
+it('renders the tabletop page when the flag is on, with the tokens a model can carry', function () {
     Feature::for(null)->activate('experiment-tabletop');
+    \App\Models\Token::factory()->create(['name' => 'Shielded']);
 
     $this->get(route('tools.tabletop'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Tools/Tabletop'));
+        ->assertInertia(fn (Assert $page) => $page->component('Tools/Tabletop')->where('token_options.0.name', 'Shielded'));
 });
 
 it('lets a beta tester open the tabletop while the flag is off, and nobody else', function () {
@@ -58,6 +59,7 @@ it('searches character cards for the sandbox with base, Sz and Sp', function () 
         ->assertJsonPath('characters.0.sp', 5)
         ->assertJsonPath('characters.1.name', 'Pandora, Gifted Lady');
     $this->getJson(route('tools.tabletop.characters', ['q' => 'gifted pandora']))->assertJsonCount(1, 'characters');
+    $this->getJson(route('tools.tabletop.characters', ['q' => 'silurid']))->assertJsonPath('characters.0.health', fn ($h) => is_int($h));
     $this->getJson(route('tools.tabletop.characters', ['q' => 'nobody']))->assertJsonCount(0, 'characters');
 });
 

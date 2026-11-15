@@ -19,6 +19,7 @@ use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
+use App\Support\Tabletop\TokenCatalogue;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -61,6 +62,7 @@ class GameBoardController extends Controller
         return inertia('Games/Board', [
             'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo, 'deployment' => $game->deployment?->value],
             'read_only' => $readOnly,
+            'token_options' => TokenCatalogue::options(),
             'players' => $game->players->map(fn (GamePlayer $p) => [
                 'slot' => $p->slot,
                 'name' => $this->playerName($p),
@@ -90,6 +92,15 @@ class GameBoardController extends Controller
                     'sz' => $this->sz($member),
                     'sp' => $this->sp($member),
                     'killed' => (bool) $member->is_killed,
+                    'health' => $member->current_health,
+                    'max_health' => $member->max_health,
+                    'activated' => (bool) $member->is_activated,
+                    'tokens' => collect($member->attached_tokens ?? [])
+                        ->filter(fn ($t) => is_array($t) && isset($t['id']))
+                        ->map(fn (array $t) => ['id' => (int) $t['id'], 'name' => (string) ($t['name'] ?? 'Token')])
+                        ->values()
+                        ->all(),
+                    'notes' => $member->notes,
                 ];
             }
         }

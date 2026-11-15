@@ -7,7 +7,7 @@ const L = require('./lib.cjs');
     const hscroll = (s) => s.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     const circle = (s, nth) =>
         s.page.evaluate((i) => {
-            const c = document.querySelectorAll('[data-testid^=token-] circle')[i];
+            const c = document.querySelectorAll('[data-testid^=token-] > circle')[i];
             const r = c.getBoundingClientRect();
             return { cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')), px: r.left + r.width / 2, py: r.top + r.height / 2 };
         }, nth);
@@ -46,11 +46,14 @@ const L = require('./lib.cjs');
             await carol.page.mouse.move(before.px + 40, before.py + 80, { steps: 6 });
             await carol.page.mouse.up();
             await L.sleep(1200); // the save is a background request
+            const dropped = await circle(carol, 0);
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid^=token-]');
             const after = await circle(carol, 0);
             if (Math.abs(after.cx - before.cx) < 0.5 && Math.abs(after.cy - before.cy) < 0.5)
-                throw new Error('the model went back to where it started');
+                throw new Error(
+                    `the model went back to where it started (before ${before.cx},${before.cy}; dropped ${dropped.cx},${dropped.cy}; after ${after.cx},${after.cy})`,
+                );
         });
         await L.step(`board (${label}): terrain laid out on the game's table is saved with the game`, carol, async () => {
             const centre = (testid) => carol.page.$eval(`[data-testid=${testid}]`, (b) => b.scrollIntoView({ block: 'center' }));
@@ -146,6 +149,47 @@ const L = require('./lib.cjs');
             await L.sleep(1200);
             await open();
             if ((await markers()).length !== start) throw new Error('picking the marker up was not saved');
+        });
+        await L.step(`board (${label}): a model's health changed on the board is saved with the game`, carol, async () => {
+            const open = async () => {
+                await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                await carol.page.waitForSelector('[data-testid^=token-]');
+            };
+            const select = async (i) => {
+                await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+                const c = await circle(carol, i);
+                await carol.page.mouse.click(c.px, c.py);
+                await carol.page.waitForSelector('[data-testid=model-info]');
+            };
+            const hp = () => carol.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
+            const press = async (id) => {
+                await carol.page.$eval(`[data-testid=${id}]`, (b) => b.scrollIntoView({ block: 'center' }));
+                await carol.page.click(`[data-testid=${id}]`);
+            };
+            await open();
+            const count = (await carol.page.$$('[data-testid^=token-]')).length;
+            let index = -1;
+            for (let i = 0; i < count && index < 0; i++) {
+                await select(i);
+                if (!(await carol.page.$eval('[data-testid=health-minus]', (b) => b.disabled).catch(() => true))) index = i;
+            }
+            if (index < 0) throw new Error('no model of mine could change health');
+            const before = await hp();
+            const [cur, max] = before.split(' / ').map(Number);
+            await press('health-minus');
+            await carol.page.waitForFunction(
+                (t) => document.querySelector('[data-testid=health-value]').innerText.trim() === t,
+                { timeout: 5000 },
+                `${cur - 1} / ${max}`,
+            );
+            await L.sleep(1200);
+            await open();
+            await select(index);
+            const kept = await hp();
+            if (kept !== `${cur - 1} / ${max}`) throw new Error(`health came back as ${kept}, expected ${cur - 1} / ${max}`);
+            await L.shot(carol, `367-board-model-info-${label}`);
+            await press('health-plus'); // leave it as found
+            await L.sleep(1200);
         });
         await L.step(`board (${label}): which side the deployment zones sit is kept with the game`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
@@ -244,7 +288,7 @@ const L = require('./lib.cjs');
         await live.page.evaluate((i) => window.__boardMoved({ positions: { [i]: { x: 20, y: 18 } } }), id);
         await L.sleep(300);
         const at = await live.page.evaluate(() => {
-            const c = document.querySelectorAll('[data-testid^=token-] circle')[1];
+            const c = document.querySelectorAll('[data-testid^=token-] > circle')[1];
             return { cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')) };
         });
         if (Math.abs(at.cx - 20) > 0.01 || Math.abs(at.cy - 18) > 0.01) throw new Error(`model did not move: ${JSON.stringify(at)}`);

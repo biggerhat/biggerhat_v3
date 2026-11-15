@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
-import type { MarkerOption, TerrainPiece, Token } from '@/lib/tabletop/geometry';
+import type { MarkerOption, ModelInfo, TerrainPiece, Token } from '@/lib/tabletop/geometry';
 import { sampleTerrain, sampleTokens } from '@/lib/tabletop/sampleTable';
 import { Head } from '@inertiajs/vue3';
 import { onMounted, ref, watch } from 'vue';
 
-const props = defineProps<{ markers: MarkerOption[] }>();
+const props = defineProps<{ markers: MarkerOption[]; token_options: { id: number; name: string }[] }>();
 
 // Sandbox: the demo table with free-standing models. Nothing leaves this device.
 const STORAGE_KEY = 'tabletop-spike-v1';
@@ -36,6 +36,9 @@ watch(
 
 const moved = (t: Token) => (tokens.value = tokens.value.map((x) => (x.id === t.id ? t : x)));
 const add = (t: Omit<Token, 'id'>) => tokens.value.push({ ...t, id: `n${Date.now().toString(36)}` });
+/** Health, activation, tokens and notes for a model: kept with the token, on this device. */
+const modelChange = (id: string, patch: Partial<ModelInfo>) =>
+    (tokens.value = tokens.value.map((t) => (t.id === id ? { ...t, info: { tokens: [], ...t.info, ...patch } } : t)));
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
 const reset = () => {
     tokens.value = sampleTokens.map((t) => ({ ...t }));
@@ -70,6 +73,8 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             :tokens="tokens"
             :terrain="terrain"
             :markers="props.markers"
+            :token-options="props.token_options"
+            @model-change="modelChange"
             :character-search-url="route('tools.tabletop.characters')"
             sandbox
             @add-marker="addMarker"

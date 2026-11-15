@@ -42,11 +42,11 @@ const reset = () => {
     terrain.value = JSON.parse(JSON.stringify(sampleTerrain));
 };
 /** Markers go underneath the models, so a model sitting on a marker is still the one you pick up. */
-const addMarker = (m: { markerId: number; name: string; baseMm: number; x: number; y: number }) =>
+const addMarker = (m: { markerId: number; name: string; baseMm: number; side: 'a' | 'b'; x: number; y: number }) =>
     tokens.value.unshift({
         id: `m${Date.now().toString(36)}`,
         name: m.name,
-        side: 'n',
+        side: m.side,
         baseMm: m.baseMm,
         x: m.x,
         y: m.y,

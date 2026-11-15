@@ -93,10 +93,12 @@ const L = require('./lib.cjs');
                 );
             const open = async () => {
                 await L.visit(carol, `/games/${L.ids.play_game}/board`);
-                await carol.page.waitForSelector('[data-testid=marker-picker]');
+                await carol.page.waitForSelector('[data-testid=marker-open]');
             };
             await open();
             const start = (await markers()).length;
+            await hit('[data-testid=marker-open]');
+            await carol.page.waitForSelector('[data-testid=marker-picker]');
             await carol.page.type('[data-testid=marker-search]', 'corpse');
             const row = await carol.page.$eval('[data-testid=marker-result]', (r) => r.innerText.replace(/\s+/g, ' '));
             if (!/Corpse Marker/.test(row) || !/40 mm/.test(row)) throw new Error(`unexpected result row: ${row}`);
@@ -212,13 +214,13 @@ const L = require('./lib.cjs');
         await live.page.evaluate(() =>
             window.__boardMarkers({
                 markers: [
-                    { id: 'mx1', marker_id: 1, x: 10, y: 10 },
-                    { id: 'mx2', marker_id: 1, x: 20, y: 20 },
+                    { id: 'mx1', marker_id: 1, owner: 1, x: 10, y: 10 },
+                    { id: 'mx2', marker_id: 1, owner: 2, x: 20, y: 20 },
                 ],
             }),
         );
         await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 2, { timeout: 5000 });
-        await live.page.evaluate(() => window.__boardMarkers({ markers: [{ id: 'mx2', marker_id: 1, x: 22, y: 22 }] }));
+        await live.page.evaluate(() => window.__boardMarkers({ markers: [{ id: 'mx2', marker_id: 1, owner: 2, x: 22, y: 22 }] }));
         await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 1, { timeout: 5000 });
         await live.page.evaluate(() => window.__boardMarkers({ markers: [] }));
         await live.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 0, { timeout: 5000 });

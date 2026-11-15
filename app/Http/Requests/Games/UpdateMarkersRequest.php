@@ -12,7 +12,7 @@ class UpdateMarkersRequest extends FormRequest
     }
 
     /**
-     * Markers are placed, moved and picked up by either player. A request upserts some and removes some, so two players
+     * Markers belong to the player who placed them (`owner` is their slot); only the owner moves or picks one up. A request upserts some and removes some, so two players
      * working at once do not replace each other's markers. Only the marker's id on the table and its kind are sent: its
      * name and base size always come from the markers table.
      *
@@ -24,6 +24,7 @@ class UpdateMarkersRequest extends FormRequest
             'upsert' => ['sometimes', 'array', 'max:20'],
             'upsert.*.id' => ['required', 'string', 'max:40', 'regex:/^[A-Za-z0-9_-]+$/'],
             'upsert.*.marker_id' => ['required', 'integer', 'exists:markers,id'],
+            'upsert.*.owner' => ['required', 'integer', 'in:1,2'],
             'upsert.*.x' => ['required', 'numeric', 'between:0,36'],
             'upsert.*.y' => ['required', 'numeric', 'between:0,36'],
             'remove' => ['sometimes', 'array', 'max:20'],

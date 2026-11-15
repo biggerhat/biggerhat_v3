@@ -11,6 +11,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 interface PlacedMarker {
     id: string;
     marker_id: number;
+    /** The slot of the player who placed it: only they move or pick it up. */
+    owner: number;
     x: number;
     y: number;
 }
@@ -96,14 +98,20 @@ const markerTokens = computed<Token[]>(() =>
         return {
             id: pm.id,
             name: option?.name ?? 'Marker',
-            side: 'n',
+            side: pm.owner === 2 ? 'b' : 'a',
             baseMm: option?.base_mm ?? 30,
             x: pm.x,
             y: pm.y,
             marker: true,
             markerId: pm.marker_id,
+            locked: !playerFor(pm.owner)?.mine,
         };
     }),
+);
+
+/** The sides this viewer places markers for: their own, or both in a solo game. */
+const placeAs = computed(() =>
+    props.players.filter((p) => p.mine).map((p) => ({ side: p.slot === 1 ? ('a' as const) : ('b' as const), label: p.name })),
 );
 
 const tokens = computed<Token[]>(() => [
@@ -134,7 +142,7 @@ function terrainChanged(pieces: TerrainPiece[]) {
 }
 
 /** One request per change: upsert some markers and/or remove some. The server merges, so the other player's edits are kept. */
-function saveMarkers(change: { upsert?: { id: string; marker_id: number; x: number; y: number }[]; remove?: string[] }) {
+function saveMarkers(change: { upsert?: { id: string; marker_id: number; owner: number; x: number; y: number }[]; remove?: string[] }) {
     router.put(route('games.board.markers', props.game.uuid), JSON.parse(JSON.stringify(change)), {
         preserveScroll: true,
         preserveState: true,
@@ -142,10 +150,11 @@ function saveMarkers(change: { upsert?: { id: string; marker_id: number; x: numb
     });
 }
 
-function addMarker(m: { markerId: number; x: number; y: number }) {
+function addMarker(m: { markerId: number; side: 'a' | 'b'; x: number; y: number }) {
+    const owner = m.side === 'a' ? 1 : 2;
     const id = `m${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
-    placed.value = [...placed.value, { id, marker_id: m.markerId, x: m.x, y: m.y }];
-    saveMarkers({ upsert: [{ id, marker_id: m.markerId, x: m.x, y: m.y }] });
+    placed.value = [...placed.value, { id, marker_id: m.markerId, owner, x: m.x, y: m.y }];
+    saveMarkers({ upsert: [{ id, marker_id: m.markerId, owner, x: m.x, y: m.y }] });
 }
 
 function removeToken(id: string) {
@@ -158,7 +167,7 @@ function removeToken(id: string) {
 function moved(t: Token) {
     if (t.marker && t.markerId !== undefined) {
         placed.value = placed.value.map((pm) => (pm.id === t.id ? { ...pm, x: t.x, y: t.y } : pm));
-        saveMarkers({ upsert: [{ id: t.id, marker_id: t.markerId, x: t.x, y: t.y }] });
+        saveMarkers({ upsert: [{ id: t.id, marker_id: t.markerId, owner: t.side === 'b' ? 2 : 1, x: t.x, y: t.y }] });
         return;
     }
     router.put(
@@ -189,6 +198,7 @@ function moved(t: Token) {
             :tokens="tokens"
             :terrain="liveTerrain"
             :markers="markers"
+            :place-as="placeAs"
             @add-marker="addMarker"
             @remove="removeToken"
             @terrain-changed="terrainChanged"

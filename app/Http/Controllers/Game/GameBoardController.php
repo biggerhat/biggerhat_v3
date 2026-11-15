@@ -24,7 +24,8 @@ use Laravel\Pennant\Feature;
 
 class GameBoardController extends Controller
 {
-    private const MAX_MARKERS = 60;
+    /** Each player can have this many markers on the table at once. */
+    private const MARKERS_PER_PLAYER = 5;
 
     public function show(Game $game): Response|ResponseFactory
     {
@@ -100,34 +101,54 @@ class GameBoardController extends Controller
         return redirect()->back();
     }
 
-    /** Either player may place, move or pick up markers. Applied under a lock, so simultaneous edits both survive. */
+    /**
+     * Each player owns the markers they place and can only move or pick up their own (in a solo game you play both sides).
+     * A player can have five on the table. Applied under a lock, so simultaneous edits both survive.
+     */
     public function updateMarkers(UpdateMarkersRequest $request, Game $game): RedirectResponse
     {
         $this->guard();
 
+        $game->load('players');
+        $mine = $game->players->filter(fn (GamePlayer $p) => $this->controls($p, $game))->pluck('slot')->map(fn ($s) => (int) $s)->all();
         $upsert = collect($request->validated('upsert') ?? []);
         $remove = collect($request->validated('remove') ?? [])->all();
-        $tooMany = false;
+        $problem = null;
         $result = [];
 
-        DB::transaction(function () use ($game, $upsert, $remove, &$tooMany, &$result) {
+        DB::transaction(function () use ($game, $upsert, $remove, $mine, &$problem, &$result) {
             $locked = Game::query()->lockForUpdate()->findOrFail($game->id);
             $placed = collect($locked->board_state['markers'] ?? [])->keyBy('id');
+            $allowed = fn (?array $existing): bool => $existing === null || ! isset($existing['owner']) || in_array((int) $existing['owner'], $mine, true);
 
             foreach ($remove as $id) {
+                if (! $allowed($placed->get($id))) {
+                    $problem = 'forbidden';
+
+                    return;
+                }
                 $placed->forget($id);
             }
             foreach ($upsert as $m) {
+                $existing = $placed->get($m['id']);
+                $owner = $existing['owner'] ?? (int) $m['owner'];
+                // Moving one of yours, or placing a new one for a side you play. Never someone else's.
+                if (! $allowed($existing) || ($existing === null && ! in_array((int) $owner, $mine, true))) {
+                    $problem = 'forbidden';
+
+                    return;
+                }
                 $placed->put($m['id'], [
                     'id' => $m['id'],
                     'marker_id' => (int) $m['marker_id'],
+                    'owner' => (int) $owner,
                     'x' => round((float) $m['x'], 2),
                     'y' => round((float) $m['y'], 2),
                 ]);
             }
 
-            if ($placed->count() > self::MAX_MARKERS) {
-                $tooMany = true;
+            if ($placed->groupBy('owner')->contains(fn ($group) => $group->count() > self::MARKERS_PER_PLAYER)) {
+                $problem = 'limit';
 
                 return;
             }
@@ -136,8 +157,9 @@ class GameBoardController extends Controller
             $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['markers' => $result])]);
         });
 
-        if ($tooMany) {
-            throw ValidationException::withMessages(['upsert' => 'A table can hold up to '.self::MAX_MARKERS.' markers.']);
+        abort_if($problem === 'forbidden', 403, 'You can only move or pick up your own markers.');
+        if ($problem === 'limit') {
+            throw ValidationException::withMessages(['upsert' => 'Each player can have up to '.self::MARKERS_PER_PLAYER.' markers on the table.']);
         }
 
         broadcast(new GameBoardMarkersChanged($game, $result))->toOthers();

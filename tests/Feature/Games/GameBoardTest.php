@@ -290,9 +290,9 @@ it('does not offer the board link to someone watching the game', function () {
         ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', false));
 });
 
-function placed(string $id, int $markerId, float $x = 10, float $y = 10): array
+function placed(string $id, int $markerId, float $x = 10, float $y = 10, int $owner = 1): array
 {
-    return ['id' => $id, 'marker_id' => $markerId, 'x' => $x, 'y' => $y];
+    return ['id' => $id, 'marker_id' => $markerId, 'owner' => $owner, 'x' => $x, 'y' => $y];
 }
 
 it('hands the board the marker catalogue with base sizes', function () {
@@ -309,14 +309,14 @@ it('hands the board the marker catalogue with base sizes', function () {
             ->where('placed_markers', []));
 });
 
-it('lets either player place a marker, and hands it back with the board', function () {
+it('lets a player place a marker for themselves, and hands it back with the board, owner included', function () {
     [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
     $marker = Marker::factory()->create(['base' => 40]);
 
-    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 12.345, 20)]])->assertRedirect();
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 12.345, 20, 2)]])->assertRedirect();
 
     $this->actingAs($a)->get(route('games.board', $game->uuid))
-        ->assertInertia(fn (Assert $page) => $page->has('placed_markers', 1)->where('placed_markers.0.marker_id', $marker->id)->where('placed_markers.0.x', 12.35));
+        ->assertInertia(fn (Assert $page) => $page->has('placed_markers', 1)->where('placed_markers.0.marker_id', $marker->id)->where('placed_markers.0.x', 12.35)->where('placed_markers.0.owner', 2));
 });
 
 it('moves and picks up markers without disturbing the others', function () {
@@ -324,12 +324,36 @@ it('moves and picks up markers without disturbing the others', function () {
     $marker = Marker::factory()->create();
 
     $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id), placed('m2', $marker->id, 5, 5)]]);
-    // The other player moves m1 while the first removes m2: both edits survive.
-    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 30, 30)]]);
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('n1', $marker->id, 8, 8, 2)]]);
+    // Each works on their own: one moves m1 while the other removes n1 and the first removes m2.
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 30, 30)]]);
     $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['remove' => ['m2']]);
 
+    $saved = collect($game->fresh()->board_state['markers'])->keyBy('id');
+    expect($saved->keys()->all())->toEqual(['m1', 'n1'])->and($saved['m1']['x'])->toEqual(30)->and($saved['m1']['owner'])->toBe(1);
+});
+
+it('lets only the owner move or pick up a marker, and nobody place one for the other player', function () {
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $marker = Marker::factory()->create();
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id)]]);
+
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 30, 30, 2)]])->assertForbidden();
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['remove' => ['m1']])->assertForbidden();
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('x1', $marker->id, 5, 5, 1)]])->assertForbidden();
+
     $saved = collect($game->fresh()->board_state['markers']);
-    expect($saved)->toHaveCount(1)->and($saved->first()['id'])->toBe('m1')->and($saved->first()['x'])->toEqual(30);
+    expect($saved)->toHaveCount(1)->and($saved->first()['x'])->toEqual(10)->and($saved->first()['owner'])->toBe(1);
+});
+
+it('lets a solo player place and move markers for either side', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create(), solo: true);
+    $marker = Marker::factory()->create();
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id), placed('n1', $marker->id, 4, 4, 2)]])->assertRedirect();
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['remove' => ['n1']])->assertRedirect();
+
+    expect($game->fresh()->board_state['markers'])->toHaveCount(1);
 });
 
 it('keeps positions and terrain when markers change', function () {
@@ -364,23 +388,26 @@ it('rejects bad marker requests', function (array $body) {
     expect($game->fresh()->board_state)->toBeNull();
 })->with([
     'nothing to change' => [[]],
-    'unknown marker' => [['upsert' => [['id' => 'm1', 'marker_id' => 99999, 'x' => 1, 'y' => 1]]]],
-    'off the table' => [['upsert' => [['id' => 'm1', 'marker_id' => 1, 'x' => 40, 'y' => 1]]]],
-    'bad id' => [['upsert' => [['id' => 'no spaces!', 'marker_id' => 1, 'x' => 1, 'y' => 1]]]],
-    'missing y' => [['upsert' => [['id' => 'm1', 'marker_id' => 1, 'x' => 1]]]],
-    'too many at once' => [['upsert' => array_map(fn ($i) => ['id' => "m$i", 'marker_id' => 1, 'x' => 1, 'y' => 1], range(1, 21))]],
+    'unknown marker' => [['upsert' => [['id' => 'm1', 'marker_id' => 99999, 'owner' => 1, 'x' => 1, 'y' => 1]]]],
+    'off the table' => [['upsert' => [['id' => 'm1', 'marker_id' => 1, 'owner' => 1, 'x' => 40, 'y' => 1]]]],
+    'bad id' => [['upsert' => [['id' => 'no spaces!', 'marker_id' => 1, 'owner' => 1, 'x' => 1, 'y' => 1]]]],
+    'missing y' => [['upsert' => [['id' => 'm1', 'marker_id' => 1, 'owner' => 1, 'x' => 1]]]],
+    'no owner' => [['upsert' => [['id' => 'm1', 'marker_id' => 1, 'x' => 1, 'y' => 1]]]],
+    'too many at once' => [['upsert' => array_map(fn ($i) => ['id' => "m$i", 'marker_id' => 1, 'owner' => 1, 'x' => 1, 'y' => 1], range(1, 21))]],
 ]);
 
-it('refuses a table with more than 60 markers', function () {
-    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+it('lets each player have five markers, not six', function () {
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
     $marker = Marker::factory()->create();
-    foreach (range(0, 2) as $batch) {
-        $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("m$batch-$i", $marker->id), range(1, 20))])->assertRedirect();
-    }
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("m$i", $marker->id), range(1, 5))])->assertRedirect();
 
-    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('one-too-many', $marker->id)]])->assertSessionHasErrors('upsert');
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('sixth', $marker->id)]])->assertSessionHasErrors('upsert');
+    // The other player's five are their own.
+    $this->actingAs($b)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("n$i", $marker->id, 3, 3, 2), range(1, 5))])->assertRedirect();
+    // Moving one you already have is not a sixth.
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => [placed('m1', $marker->id, 20, 20)]])->assertRedirect();
 
-    expect($game->fresh()->board_state['markers'])->toHaveCount(60);
+    expect($game->fresh()->board_state['markers'])->toHaveCount(10);
 });
 
 it('keeps marker edits to people in the game, and behind the flag', function () {

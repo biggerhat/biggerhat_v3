@@ -26,9 +26,10 @@ import {
     type Token,
 } from '@/lib/tabletop/geometry';
 import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
-import { Lock, LockOpen, Maximize, Minus, Mountain, Plus, Ruler, Trash2 } from 'lucide-vue-next';
+import { Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 type Mode = 'move' | 'ruler' | 'terrain';
@@ -44,6 +45,8 @@ const props = withDefaults(
         sideNames?: { a: string; b: string };
         /** Markers that can be placed (name and base size from the markers table). Without them the picker is hidden. */
         markers?: MarkerOption[];
+        /** The sides this viewer may place markers for. Each side can have MARKERS_PER_SIDE on the table. The sandbox offers both. */
+        placeAs?: { side: 'a' | 'b'; label: string }[];
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -55,7 +58,7 @@ const props = withDefaults(
 const emit = defineEmits<{
     moved: [token: Token];
     add: [token: Omit<Token, 'id'>];
-    addMarker: [marker: { markerId: number; name: string; baseMm: number; x: number; y: number }];
+    addMarker: [marker: { markerId: number; name: string; baseMm: number; side: 'a' | 'b'; x: number; y: number }];
     remove: [id: string];
     reset: [];
     terrainChanged: [pieces: TerrainPiece[]];
@@ -391,12 +394,36 @@ function addToken() {
         y: view.value.y + view.value.w / 2,
     });
 }
+/** Markers belong to whoever placed them, and each side can have this many on the table. */
+const MARKERS_PER_SIDE = 5;
+const markerDialog = ref(false);
+/** A fresh search box each time the dialog opens. */
+const pickerKey = ref(0);
+const openMarkerDialog = () => {
+    pickerKey.value++;
+    markerDialog.value = true;
+};
+const markerSides = computed(
+    () =>
+        props.placeAs ??
+        (props.sandbox
+            ? [
+                  { side: 'a' as const, label: props.sideNames.a },
+                  { side: 'b' as const, label: props.sideNames.b },
+              ]
+            : []),
+);
+const markerSide = ref<'a' | 'b'>(markerSides.value[0]?.side ?? 'a');
+const markersOf = (side: 'a' | 'b') => props.tokens.filter((t) => t.marker && t.side === side).length;
+const markerRoom = computed(() => MARKERS_PER_SIDE - markersOf(markerSide.value));
 function placeMarker(m: MarkerOption) {
+    if (markerRoom.value <= 0) return;
     // Fan new markers out a little so several added in a row do not sit exactly on top of each other.
     const nudge = (tokens.value.filter((t) => t.marker).length % 6) * 1.2;
     const at = clampToTable({ baseMm: m.base_mm, x: view.value.x + view.value.w / 2 + nudge, y: view.value.y + view.value.w / 2 + nudge });
-    emit('addMarker', { markerId: m.id, name: m.name, baseMm: m.base_mm, ...at });
+    emit('addMarker', { markerId: m.id, name: m.name, baseMm: m.base_mm, side: markerSide.value, ...at });
     note.value = `${m.name} added (${m.base_mm} mm base). Drag it into place.`;
+    markerDialog.value = false;
 }
 function removeSelected() {
     if (selectedId.value) emit('remove', selectedId.value);
@@ -777,7 +804,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         </div>
                     </div>
                     <Button
-                        v-if="sandbox || selected.marker"
+                        v-if="sandbox || (selected.marker && !selected.locked)"
                         class="mt-2"
                         variant="outline"
                         size="sm"
@@ -791,7 +818,39 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 >
             </div>
 
-            <MarkerPicker v-if="markers && mode !== 'terrain'" :markers="markers" @add="placeMarker" />
+            <div v-if="markers && markerSides.length && mode !== 'terrain'" class="flex flex-wrap items-center gap-2 text-sm">
+                <Button variant="outline" size="sm" data-testid="marker-open" @click="openMarkerDialog"
+                    ><MapPin class="mr-1 size-4" />Add marker</Button
+                >
+                <span class="text-muted-foreground" data-testid="marker-count"
+                    >{{
+                        markerSides.map((s) => `${markerSides.length > 1 ? `${s.label}: ` : ''}${markersOf(s.side)}/${MARKERS_PER_SIDE}`).join(', ')
+                    }}
+                    markers</span
+                >
+            </div>
+            <Dialog v-model:open="markerDialog">
+                <DialogContent class="max-w-md" data-testid="marker-dialog">
+                    <DialogHeader>
+                        <DialogTitle>Add a marker</DialogTitle>
+                        <DialogDescription>
+                            Markers are yours: only you can move or pick them up. You can have {{ MARKERS_PER_SIDE }} on the table.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <label v-if="markerSides.length > 1" class="block text-sm">
+                        <span class="mb-1 block font-medium">Place for</span>
+                        <select v-model="markerSide" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="marker-side">
+                            <option v-for="s in markerSides" :key="s.side" :value="s.side">
+                                {{ s.label }} ({{ markersOf(s.side) }}/{{ MARKERS_PER_SIDE }})
+                            </option>
+                        </select>
+                    </label>
+                    <p v-if="markerRoom <= 0" class="text-sm text-amber-600 dark:text-amber-400" data-testid="marker-full">
+                        That is {{ MARKERS_PER_SIDE }} markers already. Pick one up to place another.
+                    </p>
+                    <MarkerPicker :key="pickerKey" :markers="markers ?? []" :disabled="markerRoom <= 0" @add="placeMarker" />
+                </DialogContent>
+            </Dialog>
 
             <div v-if="sandbox" class="flex flex-wrap items-end gap-2 text-sm">
                 <label>

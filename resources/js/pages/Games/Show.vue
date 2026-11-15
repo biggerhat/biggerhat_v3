@@ -1012,7 +1012,10 @@ const setupLeaveGuard = () => {
         if (targetUrl.pathname === window.location.pathname) return;
 
         // The game's own tabletop board is part of the game, not a way out of it.
-        if (targetUrl.pathname === `${window.location.pathname.replace(/\/$/, '')}/board`) return;
+        const here = window.location.pathname.replace(/\/$/, '');
+        if (targetUrl.pathname === `${here}/board`) return;
+        // ...and so is the read-only board a watcher is sent to from the observe page.
+        if (targetUrl.pathname === `${here.replace(/\/observe$/, '')}/board/watch`) return;
 
         event.preventDefault();
         pendingNavigation.value = () => {
@@ -3009,13 +3012,13 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     Back to Games
                 </Link>
                 <Link
-                    v-if="tabletop_enabled && !isObserver"
-                    :href="route('games.board', game.uuid)"
+                    v-if="tabletop_enabled"
+                    :href="isObserver ? route('games.board.watch', game.uuid) : route('games.board', game.uuid)"
                     class="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
                     data-testid="open-board"
                 >
                     <Grid3x3 class="h-4 w-4" />
-                    Open board
+                    {{ isObserver ? 'Watch the board' : 'Open board' }}
                 </Link>
             </div>
 

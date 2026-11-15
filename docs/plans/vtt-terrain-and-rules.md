@@ -108,4 +108,8 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - Walk reach: a model with a Sp (from the card; custom cards have one) shows a green ring of Sp inches around where it started while
   dragged, the label reads "4.2\" of 5\"" (climbing counts, p.20) and goes red past a Walk, and the drop note says how much is left or how
   far over. Sp is as printed: effects that change it are not known, and a model may take more than one action to move.
+- Watching: when a game is observable (the same switch as the observe page), anyone can open a read-only board at
+  `/games/{uuid}/board/watch`, linked from the observe page as "Watch the board" (behind the same flag or beta permission, signed in or
+  not). Every model, marker and the terrain is locked and the editor is hidden. Watchers are not on the players' live channel, so the page
+  refreshes itself every 8 seconds while the tab is showing. Their auras and deployment overlay are private to them.
 - Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (reported against a Walk, never stopped), an interior model for buildings, numeric editing of a polygon's corners.

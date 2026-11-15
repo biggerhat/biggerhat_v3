@@ -305,6 +305,28 @@ const L = require('./lib.cjs');
         await live.page.waitForFunction(() => document.querySelector('[data-testid=deployment-variant]')?.value === '3', { timeout: 5000 });
     });
 
+    const watcher = await L.session(browser, 'alice@example.test');
+    await L.step('board: a watcher of an observable game sees the board read-only and gets a link from the observe page', watcher, async () => {
+        await L.visit(watcher, `/games/${L.ids.play_game}/observe`);
+        await watcher.page.waitForSelector('[data-testid=open-board]');
+        const label = await watcher.page.$eval('[data-testid=open-board]', (a) => a.innerText.trim());
+        if (!/Watch the board/i.test(label)) throw new Error(`observer link says "${label}"`);
+        await watcher.page.click('[data-testid=open-board]');
+        await watcher.page.waitForSelector('[data-testid=watch-note]', { timeout: 9000 });
+        await watcher.page.waitForSelector('[data-testid^=token-]');
+        if (await watcher.page.$('[data-testid=mode-terrain]')) throw new Error('a watcher should not get the terrain editor');
+        if (await watcher.page.$('[data-testid=marker-open]')) throw new Error('a watcher should not be able to add markers');
+        // dragging a model does nothing: it stays where it was
+        const before = await circle(watcher, 0);
+        await watcher.page.mouse.move(before.px, before.py);
+        await watcher.page.mouse.down();
+        await watcher.page.mouse.move(before.px + 50, before.py + 50, { steps: 5 });
+        await watcher.page.mouse.up();
+        const after = await circle(watcher, 0);
+        if (Math.abs(after.cx - before.cx) > 0.01 || Math.abs(after.cy - before.cy) > 0.01) throw new Error('a watcher moved a model');
+        await L.shot(watcher, '366-board-watch');
+    });
+
     const outsider = await L.session(browser, 'alice@example.test');
     await L.step('board: someone who is not in the game gets a 403', outsider, async () => {
         const res = await outsider.page.goto(`${L.BASE}/games/${L.ids.play_game}/board`, { waitUntil: 'networkidle2' });

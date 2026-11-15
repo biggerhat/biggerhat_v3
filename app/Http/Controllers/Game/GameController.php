@@ -549,8 +549,9 @@ class GameController extends Controller
             'observer_scheme_intel' => fn () => $context === GameShowContext::Observer ? $this->buildObserverSchemeIntel($game) : null,
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => ! $isSelf,
-            // Pre-release: the tabletop link only appears for players while the flag is on, or for beta testers holding the permission.
-            'tabletop_enabled' => $isSelf && TabletopAccess::allows(auth()->user()),
+            // Pre-release: the tabletop link only appears while the flag is on, or for beta testers holding the permission. Players get the
+            // board; people watching an observable game get a read-only one.
+            'tabletop_enabled' => ($isSelf || $game->is_observable) && TabletopAccess::allows(auth()->user()),
         ];
 
         // Loot catalog: lazily loaded only for Bonanza in-progress games, used by

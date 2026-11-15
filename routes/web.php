@@ -406,6 +406,7 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
 // Public game routes (no auth required)
 Route::get('/games/public', [GameController::class, 'publicIndex'])->name('games.public');
 Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
+Route::get('/games/{game:uuid}/board/watch', [GameBoardController::class, 'watch'])->name('games.board.watch');
 Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary');
 
 // Game join — outside auth so we can show a login prompt with return URL

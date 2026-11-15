@@ -285,12 +285,50 @@ it('offers the board link on the game screen to players while the flag is on', f
         ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', false));
 });
 
-it('does not offer the board link to someone watching the game', function () {
+it('offers people watching an observable game the read-only board link', function () {
     [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
     $game->update(['is_observable' => true]);
 
     $this->actingAs(User::factory()->create())->get(route('games.observe', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', true));
+
+    Feature::for(null)->deactivate('experiment-tabletop');
+    $this->actingAs(User::factory()->create())->get(route('games.observe', $game->uuid))
         ->assertInertia(fn (Assert $page) => $page->where('tabletop_enabled', false));
+});
+
+it('shows a watcher the board read-only, with nothing theirs to move', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $game->update(['is_observable' => true, 'board_state' => ['positions' => [(string) $m1->id => ['x' => 7, 'y' => 8]], 'terrain' => [terrainPiece()]]]);
+
+    $this->actingAs(User::factory()->create())->get(route('games.board.watch', $game->uuid))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Games/Board')
+            ->where('read_only', true)
+            ->where('players.0.mine', false)
+            ->where('players.1.mine', false)
+            ->has('models', 2)
+            ->where('positions.'.$m1->id.'.x', 7)
+            ->has('terrain', 1));
+});
+
+it('lets a signed-out visitor watch an observable game, and hides games that are not observable or the flag is off', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->get(route('games.board.watch', $game->uuid))->assertNotFound();
+
+    $game->update(['is_observable' => true]);
+    $this->get(route('games.board.watch', $game->uuid))->assertOk()->assertInertia(fn (Assert $page) => $page->where('read_only', true));
+
+    Feature::for(null)->deactivate('experiment-tabletop');
+    $this->get(route('games.board.watch', $game->uuid))->assertNotFound();
+});
+
+it('marks the players board as not read-only', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('read_only', false)->where('players.0.mine', true));
 });
 
 function placed(string $id, int $markerId, float $x = 10, float $y = 10, int $owner = 1): array

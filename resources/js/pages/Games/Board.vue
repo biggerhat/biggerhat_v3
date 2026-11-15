@@ -39,6 +39,8 @@ interface BoardModel {
 
 const props = defineProps<{
     game: { uuid: string; is_solo: boolean; deployment: DeploymentKind | null };
+    /** Someone watching an observable game: nothing can be changed, and the page refreshes itself. */
+    read_only?: boolean;
     players: { slot: number; name: string; mine: boolean }[];
     models: BoardModel[];
     positions: Record<string, { x: number; y: number }>;
@@ -86,6 +88,7 @@ watch(
 );
 function variantChanged(next: number) {
     variant.value = next;
+    if (props.read_only) return;
     router.put(
         route('games.board.setup', props.game.uuid),
         { deployment_variant: next },
@@ -98,8 +101,14 @@ const resync = () =>
     document.visibilityState === 'visible' &&
     router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant'] });
 
+let poll: ReturnType<typeof setInterval> | null = null;
 onMounted(async () => {
     document.addEventListener('visibilitychange', resync);
+    if (props.read_only) {
+        // Observers are not on the players' live channel, so look again every few seconds while the tab is showing.
+        poll = setInterval(resync, 8000);
+        return;
+    }
     const echo = await loadEcho();
     if (!echo) return;
     joined = true;
@@ -122,6 +131,7 @@ onMounted(async () => {
 });
 onUnmounted(() => {
     document.removeEventListener('visibilitychange', resync);
+    if (poll) clearInterval(poll);
     if (joined) window.Echo?.leave(`game.${props.game.uuid}`);
 });
 
@@ -149,7 +159,7 @@ const markerTokens = computed<Token[]>(() =>
             y: pm.y,
             marker: true,
             markerId: pm.marker_id,
-            locked: !playerFor(pm.owner)?.mine,
+            locked: props.read_only || !playerFor(pm.owner)?.mine,
         };
     }),
 );
@@ -174,7 +184,7 @@ const tokens = computed<Token[]>(() => [
             x: at.x,
             y: at.y,
             killed: m.killed,
-            locked: !playerFor(m.slot)?.mine,
+            locked: props.read_only || !playerFor(m.slot)?.mine,
         };
     }),
 ]);
@@ -249,14 +259,19 @@ function moved(t: Token) {
     <Head title="Game board (preview)" />
     <PageBanner title="Game board">
         <template #subtitle>
-            <div class="px-2 text-sm text-muted-foreground">
+            <div v-if="read_only" class="px-2 text-sm text-muted-foreground" data-testid="watch-note">
+                You are watching. The board refreshes by itself every few seconds and cannot be changed from here.
+            </div>
+            <div v-else class="px-2 text-sm text-muted-foreground">
                 Your crew is on the table. Drag your own models; the other crew is locked. Either player can lay out the terrain. Everything is saved
                 to the game.
             </div>
         </template>
         <template #actions>
             <Button as-child variant="outline" size="sm">
-                <Link :href="route('games.show', game.uuid)"><ArrowLeft class="mr-1 size-4" />Back to the game</Link>
+                <Link :href="read_only ? route('games.observe', game.uuid) : route('games.show', game.uuid)"
+                    ><ArrowLeft class="mr-1 size-4" />Back to the game</Link
+                >
             </Button>
         </template>
     </PageBanner>
@@ -267,6 +282,7 @@ function moved(t: Token) {
             :markers="markers"
             :place-as="placeAs"
             :shared-auras="sharedAuras"
+            :read-only="read_only"
             @aura-change="auraChange"
             :deployment-variant="variant"
             @variant-changed="variantChanged"

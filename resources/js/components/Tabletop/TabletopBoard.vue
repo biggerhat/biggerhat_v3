@@ -56,6 +56,8 @@ const props = withDefaults(
         sharedAuras?: Aura[];
         /** Which way round the deployment zones sit, when the game keeps it for both players. */
         deploymentVariant?: number;
+        /** Someone watching: no terrain editing, and the deployment orientation is theirs alone. */
+        readOnly?: boolean;
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -179,7 +181,7 @@ watch(
 );
 function chooseVariant(next: number) {
     variant.value = next;
-    emit('variantChanged', next);
+    if (!props.readOnly) emit('variantChanged', next);
 }
 const note = ref('');
 const view = ref({ x: 0, y: 0, w: TABLE_SIZE });
@@ -951,7 +953,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button :variant="mode === 'sight' ? 'default' : 'outline'" size="sm" data-testid="mode-sight" @click="mode = 'sight'"
                     ><Eye class="mr-1 size-4" />Sight</Button
                 >
-                <Button :variant="mode === 'terrain' ? 'default' : 'outline'" size="sm" data-testid="mode-terrain" @click="mode = 'terrain'"
+                <Button
+                    v-if="!readOnly"
+                    :variant="mode === 'terrain' ? 'default' : 'outline'"
+                    size="sm"
+                    data-testid="mode-terrain"
+                    @click="mode = 'terrain'"
                     ><Mountain class="mr-1 size-4" />Terrain</Button
                 >
                 <Button variant="outline" size="sm" aria-label="Zoom in" @click="zoomBy(0.8)"><Plus class="size-4" /></Button>

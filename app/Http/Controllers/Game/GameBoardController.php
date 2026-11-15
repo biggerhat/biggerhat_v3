@@ -39,14 +39,32 @@ class GameBoardController extends Controller
         $this->guard();
         Gate::authorize('view', $game);
 
+        return $this->render($game, readOnly: false);
+    }
+
+    /**
+     * A read-only board for anyone watching a game its players made observable (the same switch as the observe page). Observers
+     * are not on the game's live channel, so this page refreshes itself instead.
+     */
+    public function watch(Game $game): Response|ResponseFactory
+    {
+        $this->guard();
+        abort_unless($game->is_observable, 404);
+
+        return $this->render($game, readOnly: true);
+    }
+
+    private function render(Game $game, bool $readOnly): Response|ResponseFactory
+    {
         $game->load(['players.user:id,name', 'players.crewMembers.character:id,base,size,speed', 'players.crewMembers.customCharacter:id,base,size,speed']);
 
         return inertia('Games/Board', [
             'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo, 'deployment' => $game->deployment?->value],
+            'read_only' => $readOnly,
             'players' => $game->players->map(fn (GamePlayer $p) => [
                 'slot' => $p->slot,
                 'name' => $this->playerName($p),
-                'mine' => $this->controls($p, $game),
+                'mine' => ! $readOnly && $this->controls($p, $game),
             ])->values(),
             'models' => $this->models($game),
             'positions' => $game->board_state['positions'] ?? (object) [],

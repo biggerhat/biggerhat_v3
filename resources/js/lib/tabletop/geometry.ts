@@ -190,6 +190,32 @@ export function moveCost(
 }
 
 /**
+ * Movement spent along a path of waypoints, a leg at a time: each leg is the ground covered plus any climb on that leg (p.20), so
+ * going 2" one way and 5" another costs 7" (plus climbing), not the straight line between the ends. Drops are summed apart, as in
+ * `moveCost`.
+ */
+export function pathCost(points: { x: number; y: number; elev: number }[]): {
+    ground: number;
+    climb: number;
+    drop: number;
+    total: number;
+    legs: number[];
+} {
+    let ground = 0;
+    let climb = 0;
+    let drop = 0;
+    const legs: number[] = [];
+    for (let i = 1; i < points.length; i++) {
+        const leg = moveCost(points[i - 1], points[i], points[i - 1].elev, points[i].elev);
+        ground += leg.ground;
+        climb += leg.climb;
+        drop += leg.drop;
+        legs.push(leg.ground);
+    }
+    return { ground, climb, drop, total: ground + climb, legs };
+}
+
+/**
  * How a move compares with a Walk (Sp inches, p.20: climbing counts as movement). `left` is negative when it went further than one
  * Walk, which then takes more than one action. Straight line only, and Sp as printed: effects that change it are not known here.
  */

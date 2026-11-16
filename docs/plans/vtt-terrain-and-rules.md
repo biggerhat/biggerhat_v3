@@ -123,4 +123,8 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
   player who owns the model can change it (the endpoint's own policy; the game must be in progress). Models are drawn with a health bar
   and a count of tokens on them. In the sandbox the same panel is kept on the device (a card added from the search brings its health;
   a blank model can have a maximum health set). Not here: upgrades, injuries, replace, summon, kill/revive — use the play screen.
+- Step move (the Step button in Move mode, `pathCost()`): with it on, grabbing the same model again carries on from where it was
+  dropped, so the legs add up (2\" one way then 5\" another is 7\", each leg's climbing counted, p.20). The trail draws the whole path with
+  a length on each leg and the running total against the Walk (Sp); tapping empty ground, grabbing another model or pressing Start over
+  begins again. With Step off every drag is measured on its own, as before. Legs are straight lines and nothing is enforced.
 - Not yet: tying a table to the game's scenario, enforcement of climb and jump costs (reported against a Walk, never stopped), an interior model for buildings, numeric editing of a polygon's corners.

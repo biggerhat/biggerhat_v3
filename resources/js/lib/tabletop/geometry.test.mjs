@@ -19,6 +19,7 @@ import {
     modelsWithin,
     moveCost,
     movePiece,
+    pathCost,
     pieceBounds,
     placementProblems,
     pointInShape,
@@ -583,4 +584,23 @@ test('a move is compared with a Walk of Sp inches', () => {
     assert.equal(walkBudget(5, { total: 5 }).within, true);
     assert.equal(walkBudget(5, { total: 6.5 }).within, false);
     assert.ok(Math.abs(walkBudget(5, { total: 6.5 }).left + 1.5) < 1e-9);
+});
+
+test('a stepped move costs each leg: 2 inches then 5 inches is 7, plus any climbing', () => {
+    const flat = pathCost([
+        { x: 0, y: 0, elev: 0 },
+        { x: 2, y: 0, elev: 0 },
+        { x: 2, y: 5, elev: 0 },
+    ]);
+    assert.equal(flat.ground, 7);
+    assert.equal(flat.total, 7);
+    assert.deepEqual(flat.legs, [2, 5]);
+    const climbing = pathCost([
+        { x: 0, y: 0, elev: 0 },
+        { x: 3, y: 0, elev: 0 },
+        { x: 3, y: 4, elev: 2 },
+        { x: 3, y: 8, elev: 0 },
+    ]);
+    assert.deepEqual([climbing.ground, climbing.climb, climbing.drop, climbing.total], [11, 2, 2, 13]);
+    assert.equal(pathCost([{ x: 1, y: 1, elev: 0 }]).total, 0);
 });

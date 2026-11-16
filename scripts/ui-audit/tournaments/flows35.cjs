@@ -71,6 +71,29 @@ const L = require('./lib.cjs');
             await dragTo([24, 31.3], [12, 32]); // put it back
             await s.page.waitForFunction(() => !document.querySelector('[data-problem=true]'), { timeout: 5000 });
         });
+        await L.step(`tabletop (${label}): a stepped move adds its legs: 2 inches then 5 inches is 7`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await s.page.click('[data-testid=mode-move]');
+            await s.page.$eval('[data-testid=step-toggle]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.click('[data-testid=step-toggle]');
+            await s.page.waitForSelector('[data-testid=step-help]');
+            await dragTo([18, 4], [18, 6]); // the master: 2" down
+            await dragTo([18, 6], [18, 11]); // then 5" more
+            await s.page.waitForSelector('[data-testid=move-trail-path]');
+            const legs = await s.page.$$eval('[data-testid=move-trail-leg]', (e) => e.map((x) => x.textContent.trim()));
+            if (legs.length !== 2) throw new Error(`expected two leg labels, saw ${legs}`);
+            const total = await s.page.$eval('[data-testid=move-trail-label]', (e) => e.textContent.trim());
+            if (!/^7(\.\d)?" of 5"$/.test(total)) throw new Error(`the stepped total should be 7" of 5", saw ${total}`);
+            await L.expectText(s, /moved 7(\.\d)?" \(2(\.\d)?" \+ 5(\.\d)?"\)/);
+            await L.expectText(s, /more than a Walk \(Sp 5\)/i);
+            // without Step, a second drag starts a fresh measure
+            await s.page.click('[data-testid=step-toggle]');
+            await dragTo([18, 11], [18, 13]);
+            await L.expectText(s, /moved 2(\.\d)?"/);
+            if ((await s.page.$$('[data-testid=move-trail-leg]')).length) throw new Error('a plain drag should not keep earlier legs');
+            await s.page.click('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): the ruler measures edge to edge between two models`, s, async () => {
             await L.visit(s, '/tools/tabletop');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');

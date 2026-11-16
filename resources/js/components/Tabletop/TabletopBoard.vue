@@ -15,6 +15,7 @@ import {
     fallHurts,
     lineOfSight,
     moveCost,
+    pathCost,
     walkBudget,
     heightCover,
     movePiece,
@@ -37,7 +38,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { newPieceId } from '@/lib/tabletop/terrainPresets';
-import { Eye, Lock, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, User, Users } from 'lucide-vue-next';
+import { Eye, Lock, Route, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, User, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 type Mode = 'move' | 'ruler' | 'sight' | 'terrain';
@@ -198,14 +199,39 @@ const newSide = ref<'a' | 'b'>('a');
 const newBase = ref<number>(30);
 
 /** Where the model being moved started, and where it is now: a dashed line with the movement it has cost, kept after the drop until the next touch. */
-const trail = ref<{ id: string; from: Point; to: Point; baseMm: number; startElevation: number; sp?: number } | null>(null);
+const trail = ref<{
+    id: string;
+    from: Point;
+    to: Point;
+    baseMm: number;
+    startElevation: number;
+    sp?: number;
+    /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. */
+    path: { x: number; y: number; elev: number }[];
+} | null>(null);
+/** Step move: grabbing the same model again carries on from where it was dropped, so legs add up (2" one way, then 5" another is 7"). */
+const stepMove = ref(false);
 /** What the move so far costs, and how that compares with a Walk (Sp) when the card says. */
 const trailCost = computed(() => {
     const t = trail.value;
     const token = t ? tokens.value.find((x) => x.id === t.id) : undefined;
     if (!t || !token) return null;
-    const cost = moveCost(t.from, t.to, t.startElevation, elevationOf(token));
+    const cost = pathCost([...t.path, { x: t.to.x, y: t.to.y, elev: elevationOf(token) }]);
     return { cost, walk: t.sp !== undefined ? walkBudget(t.sp, cost) : null };
+});
+const trailPoints = computed<Point[]>(() => (trail.value ? [...trail.value.path.map((q) => ({ x: q.x, y: q.y })), { ...trail.value.to }] : []));
+const trailLength = computed(() =>
+    trailPoints.value.reduce((sum, q, i, all) => (i ? sum + Math.hypot(q.x - all[i - 1].x, q.y - all[i - 1].y) : 0), 0),
+);
+/** A small length on each leg once there is more than one. */
+const trailLegLabels = computed(() => {
+    const pts = trailPoints.value;
+    if (pts.length < 3) return [];
+    return pts.slice(1).map((q, i) => ({
+        x: (q.x + pts[i].x) / 2,
+        y: (q.y + pts[i].y) / 2 - 0.35,
+        length: Math.hypot(q.x - pts[i].x, q.y - pts[i].y),
+    }));
 });
 /** Line of sight: press on a model and drag to another. Each model draws its own sight lines, so both directions are checked. */
 const sight = ref<{ fromId: string; toId: string | null } | null>(null);
@@ -427,7 +453,9 @@ function onDown(e: PointerEvent) {
     const p = toBoard(e.clientX, e.clientY);
     const hit = tokenAt(p);
     note.value = '';
-    trail.value = null;
+    // a stepped move goes on when the same model is grabbed again; anything else starts afresh
+    const carryOn = stepMove.value && mode.value === 'move' && !!hit && !hit.locked && trail.value?.id === hit.id;
+    if (!carryOn) trail.value = null;
     sight.value = null;
     if (mode.value === 'terrain') {
         if (outline.value) {
@@ -465,14 +493,22 @@ function onDown(e: PointerEvent) {
             return;
         }
         drag = { kind: 'token', id: hit.id, dx: hit.x - p.x, dy: hit.y - p.y, startElevation: elevationOf(hit) };
-        trail.value = {
-            id: hit.id,
-            from: { x: hit.x, y: hit.y },
-            to: { x: hit.x, y: hit.y },
-            baseMm: hit.baseMm,
-            startElevation: elevationOf(hit),
-            sp: hit.marker ? undefined : hit.sp,
-        };
+        const here = { x: hit.x, y: hit.y, elev: elevationOf(hit) };
+        if (carryOn && trail.value) {
+            const last = trail.value.path[trail.value.path.length - 1];
+            const moved = !last || Math.hypot(last.x - here.x, last.y - here.y) >= 0.05;
+            trail.value = { ...trail.value, path: moved ? [...trail.value.path, here] : trail.value.path, to: { x: hit.x, y: hit.y } };
+        } else {
+            trail.value = {
+                id: hit.id,
+                from: { x: hit.x, y: hit.y },
+                to: { x: hit.x, y: hit.y },
+                baseMm: hit.baseMm,
+                startElevation: elevationOf(hit),
+                sp: hit.marker ? undefined : hit.sp,
+                path: [here],
+            };
+        }
     } else {
         selectedId.value = null;
         drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
@@ -533,14 +569,16 @@ function onUp(e: PointerEvent) {
         if (t) {
             emit('moved', { ...t });
             const now = elevationOf(t);
-            const cost = moveCost(trail.value?.from ?? t, t, drag.startElevation, now);
-            if (cost.ground < 0.05) {
+            const cost = trailCost.value?.cost ?? pathCost([{ x: t.x, y: t.y, elev: now }]);
+            const legs = cost.legs;
+            const leg = moveCost(trail.value?.path.at(-1) ?? t, t, drag.startElevation, now);
+            if (leg.ground < 0.05 && !stepMove.value) {
                 trail.value = null;
-            } else {
-                const parts = [`${t.name} moved ${fmt(cost.ground)}"`];
+            } else if (cost.ground >= 0.05) {
+                const parts = [`${t.name} moved ${fmt(cost.ground)}"${legs.length > 1 ? ` (${legs.map((l) => fmt(l) + '"').join(' + ')})` : ''}`];
                 if (cost.climb > 0) parts.push(`climbed ${fmt(cost.climb)}" (counts as movement): ${fmt(cost.total)}" in all`);
-                if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(cost.drop)}": 1 irreducible damage if this was a fall`);
-                else if (cost.drop > 0) parts.push(`down ${fmt(cost.drop)}" to elevation ${now}`);
+                if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(leg.drop)}": 1 irreducible damage if this was a fall`);
+                else if (leg.drop > 0) parts.push(`down ${fmt(leg.drop)}" to elevation ${now}`);
                 const walk = trailCost.value?.walk;
                 if (walk)
                     parts.push(
@@ -548,7 +586,7 @@ function onUp(e: PointerEvent) {
                             ? `${fmt(walk.left)}" left of a Walk (Sp ${trail.value?.sp})`
                             : `${fmt(-walk.left)}" more than a Walk (Sp ${trail.value?.sp})`,
                     );
-                note.value = parts.join(', ') + '. Straight-line distance.';
+                note.value = parts.join(', ') + (legs.length > 1 ? '. Each leg is a straight line.' : '. Straight-line distance.');
             }
             const trouble = problems.value.get(t.id) ?? [];
             if (trouble.length) {
@@ -888,11 +926,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             {{ tokenLabel(t) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}
                         </text>
                     </g>
-                    <g
-                        v-if="trail && Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y) >= 0.05"
-                        pointer-events="none"
-                        data-testid="move-trail"
-                    >
+                    <g v-if="trail && trailLength >= 0.05" pointer-events="none" data-testid="move-trail">
                         <circle
                             v-if="trail.sp !== undefined"
                             :cx="trail.from.x"
@@ -914,19 +948,43 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             stroke-dasharray="0.2 0.2"
                             opacity="0.6"
                         />
-                        <line
-                            :x1="trail.from.x"
-                            :y1="trail.from.y"
-                            :x2="trail.to.x"
-                            :y2="trail.to.y"
+                        <polyline
+                            :points="trailPoints.map((q) => `${q.x},${q.y}`).join(' ')"
+                            fill="none"
                             stroke="hsl(var(--foreground))"
                             stroke-width="0.1"
                             stroke-dasharray="0.4 0.3"
                             opacity="0.7"
+                            data-testid="move-trail-path"
+                        />
+                        <circle
+                            v-for="(q, i) in trailPoints.slice(1, -1)"
+                            :key="i"
+                            :cx="q.x"
+                            :cy="q.y"
+                            r="0.2"
+                            fill="hsl(var(--foreground))"
+                            opacity="0.8"
                         />
                         <text
-                            :x="(trail.from.x + trail.to.x) / 2"
-                            :y="(trail.from.y + trail.to.y) / 2 - 0.4"
+                            v-for="(leg, i) in trailLegLabels"
+                            :key="`leg-${i}`"
+                            :x="leg.x"
+                            :y="leg.y"
+                            text-anchor="middle"
+                            font-size="0.7"
+                            fill="hsl(var(--foreground))"
+                            stroke="hsl(var(--background))"
+                            stroke-width="0.2"
+                            paint-order="stroke"
+                            opacity="0.85"
+                            data-testid="move-trail-leg"
+                        >
+                            {{ fmt(leg.length) }}"
+                        </text>
+                        <text
+                            :x="trail.to.x"
+                            :y="trail.to.y - baseRadius(trail.baseMm) - 0.5"
                             text-anchor="middle"
                             font-size="0.9"
                             font-weight="600"
@@ -936,9 +994,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             paint-order="stroke"
                             data-testid="move-trail-label"
                         >
-                            {{ fmt(trailCost?.cost.total ?? Math.hypot(trail.to.x - trail.from.x, trail.to.y - trail.from.y)) }}"{{
-                                trail.sp !== undefined ? ` of ${trail.sp}"` : ''
-                            }}
+                            {{ fmt(trailCost?.cost.total ?? trailLength) }}"{{ trail.sp !== undefined ? ` of ${trail.sp}"` : '' }}
                         </text>
                     </g>
                     <g v-if="outline && outline.length" pointer-events="none" data-testid="outline-preview">
@@ -1022,6 +1078,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     ><Eye class="mr-1 size-4" />Sight</Button
                 >
                 <Button
+                    v-if="mode === 'move'"
+                    :variant="stepMove ? 'default' : 'outline'"
+                    size="sm"
+                    :aria-pressed="stepMove"
+                    title="Step move: grab the same model again to add another leg to the move"
+                    data-testid="step-toggle"
+                    @click="stepMove = !stepMove"
+                    ><Route class="mr-1 size-4" />Step</Button
+                >
+                <Button
                     v-if="!readOnly"
                     :variant="mode === 'terrain' ? 'default' : 'outline'"
                     size="sm"
@@ -1053,6 +1119,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @undo-corner="undoCorner"
             />
 
+            <div v-if="mode === 'move' && stepMove" class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm" data-testid="step-help">
+                <span class="min-w-0 flex-1 text-muted-foreground"
+                    >Step move: drag a model, let go, then drag the same model again. The legs add up. Tap empty ground to start over.</span
+                >
+                <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
+            </div>
             <div v-if="mode === 'sight' && !sightForward" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="sight-hint">
                 Press on a model and drag to another to check line of sight between them.
             </div>

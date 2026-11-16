@@ -36,6 +36,11 @@ class FeatureFlagsServiceProvider extends ServiceProvider
             'description' => 'Side-by-side character stat comparison page.',
             'default' => false,
         ],
+        'experiment-tabletop' => [
+            'label' => 'Tabletop (preview)',
+            'description' => 'Virtual tabletop: a 36 inch board with to-scale bases, multi-level terrain, auras and markers, saved with each game. While off, users with the use_tabletop_beta permission (and super admins) can still use it.',
+            'default' => false,
+        ],
     ];
 
     public function boot(): void

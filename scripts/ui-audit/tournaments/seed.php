@@ -9,6 +9,10 @@ $carol = $mk('Carol', 'carol@example.test');
 $dave = $mk('Dave', 'dave@example.test');
 
 // A master with a title, so score entry has leaders to pick (the picker lists masters of the player's faction).
+\App\Models\Token::factory()->create(['name' => 'Focus']);
+\App\Models\Token::factory()->create(['name' => 'Shielded']);
+\App\Models\Character::factory()->create(['name' => 'Seedlady Alpha', 'title' => null, 'station' => 'master', 'faction' => 'guild', 'base' => 50, 'size' => 3, 'speed' => 6, 'health' => 9]);
+\App\Models\Character::factory()->create(['name' => 'Seedlady Beta', 'title' => null, 'station' => 'minion', 'faction' => 'guild', 'base' => 30, 'size' => 1, 'speed' => 5]);
 \App\Models\Character::factory()->create(['name' => 'Rasputina', 'title' => 'Winter Witch', 'station' => 'master', 'faction' => 'arcanists']);
 
 // --- T1: running Gaining Grounds event with self-reporting
@@ -149,13 +153,18 @@ App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $crewGame
 $crewBuild = App\Models\CrewBuild::factory()->create(['user_id' => $dave->id, 'name' => 'Dave Tracker Crew', 'faction' => 'guild', 'encounter_size' => 50]);
 
 // --- A solo game already in play with full crews on both sides (play-screen review / flows)
-$playGame = App\Models\Game::factory()->solo()->inProgress()->create(['creator_id' => $carol->id, 'strategy_id' => $strategy->id, 'current_turn' => 2, 'status' => App\Enums\GameStatusEnum::InProgress]);
+$playGame = App\Models\Game::factory()->solo()->inProgress()->create(['creator_id' => $carol->id, 'strategy_id' => $strategy->id, 'current_turn' => 2, 'is_observable' => true, 'status' => App\Enums\GameStatusEnum::InProgress]);
 $pp1 = App\Models\GamePlayer::factory()->create(['game_id' => $playGame->id, 'user_id' => $carol->id, 'slot' => 1, 'faction' => 'bayou', 'role' => App\Enums\GameRoleEnum::Attacker, 'master_name' => 'Pandora', 'soulstone_pool' => 5]);
 $pp2 = App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $playGame->id, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Defender, 'master_name' => 'Lady Justice', 'soulstone_pool' => 4]);
 foreach ([[$pp1, 'bayou', [['Pandora', 'master', 'leader', 0, 10], ['Silurid', 'minion', 'in-keyword', 6, 6], ['Swampfiend', 'minion', 'in-keyword', 5, 7], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Mad Gremlin', 'minion', 'in-keyword', 8, 9]]], [$pp2, 'guild', [['Lady Justice', 'master', 'leader', 0, 10], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Hound', 'minion', 'in-keyword', 4, 5], ['Judge', 'minion', 'in-keyword', 9, 9]]]] as [$pl, $fac, $rows]) {
     foreach ($rows as $i => [$nm, $st, $cat, $cost, $hp]) {
         App\Models\GameCrewMember::factory()->create(['game_id' => $playGame->id, 'game_player_id' => $pl->id, 'character_id' => null, 'display_name' => $nm, 'faction' => $fac, 'station' => $st, 'hiring_category' => $cat, 'cost' => $cost, 'current_health' => $hp, 'max_health' => $hp, 'sort_order' => $i]);
     }
+}
+
+\Laravel\Pennant\Feature::for(null)->activate('experiment-tabletop');
+foreach ([['Scheme Marker', 30], ['Strategy Marker', 30], ['Blast Marker', 50], ['Corpse Marker', 40], ['Scrap Marker', 30], ['Marker of the Dead', 30]] as [$markerName, $markerBase]) {
+    App\Models\Marker::factory()->create(['name' => $markerName, 'base' => $markerBase]);
 }
 
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";

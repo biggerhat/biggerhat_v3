@@ -101,6 +101,7 @@ import {
     UserRound,
     Users,
     X,
+    Grid3x3,
 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
@@ -288,6 +289,7 @@ const props = defineProps<{
         power_bar_count: number | null;
     }[];
     is_observer: boolean;
+    tabletop_enabled?: boolean;
     campaign_context: {
         /** The CampaignGame row's own id — null when no CampaignGame link
          *  exists for this game (see buildCampaignContextForSoloFallback).
@@ -1008,6 +1010,12 @@ const setupLeaveGuard = () => {
         // so hash fragments and trailing slashes don't falsely trigger the guard.
         const targetUrl = new URL(visit.url.toString(), window.location.origin);
         if (targetUrl.pathname === window.location.pathname) return;
+
+        // The game's own tabletop board is part of the game, not a way out of it.
+        const here = window.location.pathname.replace(/\/$/, '');
+        if (targetUrl.pathname === `${here}/board`) return;
+        // ...and so is the read-only board a watcher is sent to from the observe page.
+        if (targetUrl.pathname === `${here.replace(/\/observe$/, '')}/board/watch`) return;
 
         event.preventDefault();
         pendingNavigation.value = () => {
@@ -2995,13 +3003,24 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </ul>
             </div>
 
-            <Link
-                :href="route('games.index')"
-                class="group mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-                <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                Back to Games
-            </Link>
+            <div class="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+                <Link
+                    :href="route('games.index')"
+                    class="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                    <ArrowLeft class="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                    Back to Games
+                </Link>
+                <Link
+                    v-if="tabletop_enabled"
+                    :href="isObserver ? route('games.board.watch', game.uuid) : route('games.board', game.uuid)"
+                    class="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
+                    data-testid="open-board"
+                >
+                    <Grid3x3 class="h-4 w-4" />
+                    {{ isObserver ? 'Watch the board' : 'Open board' }}
+                </Link>
+            </div>
 
             <!-- Observer banner -->
             <div v-if="isObserver" class="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">

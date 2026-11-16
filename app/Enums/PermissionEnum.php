@@ -270,6 +270,11 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::Campaign)]
     case UseCampaignMode = 'use_campaign_mode';
 
+    // Beta access to the virtual tabletop. While the `experiment-tabletop` feature flag is off, users holding this permission
+    // (and super_admin) can still open the tabletop and the game board. Give it to a role, then give the role to the testers.
+    #[PermissionGroup(PermissionGroupEnum::Tabletop)]
+    case UseTabletopBeta = 'use_tabletop_beta';
+
     // Broad catalog-admin perms. One trio governs every Index-of-the-Untold
     // catalog table (archetypes, equipment, injuries, advancements, totems,
     // crew-card effects, weekly events, etc.) because the catalogs are small

@@ -50,6 +50,7 @@ class Game extends Model
             'format' => GameFormatEnum::class,
             'scheme_pool' => 'array',
             'loot_state' => 'array',
+            'board_state' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'is_tie' => 'boolean',

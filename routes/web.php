@@ -28,6 +28,7 @@ use App\Http\Controllers\Database\TriggerController;
 use App\Http\Controllers\Database\UpgradeController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\Game\GameBoardController;
 use App\Http\Controllers\Game\GameController;
 use App\Http\Controllers\Game\GamePlayController;
 use App\Http\Controllers\Game\GameSetupController;
@@ -324,6 +325,8 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/bonanza-loot-deck', BonanzaLootDeckController::class)->name('bonanza_loot_deck');
     Route::get('/bonanza-loot-deck/print', PrintBonanzaLootDeckController::class)->name('bonanza_loot_deck.print');
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
+    Route::get('/tabletop', \App\Http\Controllers\TabletopController::class)->name('tabletop');
+    Route::get('/tabletop/characters', \App\Http\Controllers\TabletopCharactersController::class)->name('tabletop.characters')->middleware('throttle:60,1');
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
         Route::get('/upgrades/share/{shareCode}', [CustomUpgradeController::class, 'share'])->name('upgrades.share');
@@ -404,6 +407,7 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
 // Public game routes (no auth required)
 Route::get('/games/public', [GameController::class, 'publicIndex'])->name('games.public');
 Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
+Route::get('/games/{game:uuid}/board/watch', [GameBoardController::class, 'watch'])->name('games.board.watch');
 Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary');
 
 // Game join — outside auth so we can show a login prompt with return URL
@@ -421,6 +425,12 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::put('/{game:uuid}/scenario', [GameController::class, 'updateScenario'])->name('scenario.update');
     Route::post('/{game:uuid}/regenerate', [GameController::class, 'regenerateScenario'])->name('scenario.regenerate');
     Route::delete('/{game:uuid}', [GameController::class, 'destroy'])->name('destroy');
+    Route::get('/{game:uuid}/board', [GameBoardController::class, 'show'])->name('board');
+    Route::put('/{game:uuid}/board', [GameBoardController::class, 'update'])->name('board.update')->middleware('throttle:120,1');
+    Route::put('/{game:uuid}/board/terrain', [GameBoardController::class, 'updateTerrain'])->name('board.terrain')->middleware('throttle:60,1');
+    Route::put('/{game:uuid}/board/markers', [GameBoardController::class, 'updateMarkers'])->name('board.markers')->middleware('throttle:120,1');
+    Route::put('/{game:uuid}/board/setup', [GameBoardController::class, 'updateSetup'])->name('board.setup')->middleware('throttle:60,1');
+    Route::put('/{game:uuid}/board/auras', [GameBoardController::class, 'updateAuras'])->name('board.auras')->middleware('throttle:120,1');
     Route::post('/{game:uuid}/join', [GameController::class, 'confirmJoin'])->name('join.confirm')->middleware('throttle:20,1');
     Route::post('/{game:uuid}/abandon', [GameController::class, 'abandon'])->name('abandon');
     Route::post('/{game:uuid}/toggle-observable', [GameController::class, 'toggleObservable'])->name('toggle_observable');

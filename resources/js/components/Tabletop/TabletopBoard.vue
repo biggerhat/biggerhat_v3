@@ -255,8 +255,8 @@ function describeSight(r: ReturnType<typeof lineOfSight>, who: string, whom: str
     return `${who} can see ${whom}${extras.length ? ' (' + extras.join(', ') + ')' : ''}.`;
 }
 /**
- * While aiming, one line leaves each side of the model's base and points straight at the aim: your finger, or the centre of the model or
- * marker it is over. Each is traced through the sight rules, so it shows what it reaches and where terrain or an enemy stops it.
+ * While aiming, one line leaves each side of the model's base straight in the direction of the aim: your finger, or the centre of the model
+ * or marker it is over. Each is traced through the sight rules, so it shows what it reaches and where terrain or an enemy stops it.
  */
 const sideLines = computed(() => {
     const from = sightFrom.value;
@@ -1108,7 +1108,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             </template>
                             <circle :cx="l.start.x" :cy="l.start.y" r="0.2" fill="hsl(145 65% 42%)" />
                         </template>
-                        <circle :cx="sideLines[0].end.x" :cy="sideLines[0].end.y" r="0.25" fill="hsl(var(--foreground))" />
+                        <circle v-if="sight?.aim" :cx="sight.aim.x" :cy="sight.aim.y" r="0.25" fill="hsl(var(--foreground))" />
                     </g>
                     <g v-if="ruler" pointer-events="none">
                         <line
@@ -1199,8 +1199,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
             </div>
             <div v-if="mode === 'sight' && !sightForward" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="sight-hint">
-                Press on a model and drag. A line leaves each side of its base and points at your finger. Drop on another model or marker to check
-                line of sight between them.
+                Press on a model and drag. A line leaves each side of its base in the direction of your finger. Drop on another model or marker to
+                check line of sight between them.
             </div>
             <div v-if="mode === 'sight' && sideLines.length" class="space-y-1 rounded-md border p-3 text-sm" data-testid="side-readout">
                 <div v-for="l in sideLines" :key="l.side" data-testid="side-summary">

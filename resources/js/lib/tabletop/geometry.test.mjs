@@ -609,7 +609,7 @@ test('a stepped move costs each leg: 2 inches then 5 inches is 7, plus any climb
 
 // --- side sight lines ---
 
-test('side lines leave the two sides of the base square to the aim and both point at it', () => {
+test('side lines leave the two sides of the base square to the aim and run parallel in its direction', () => {
     const a = man('a', 'a', 10, 18);
     const lines = sideSightLines(a, { x: 20, y: 18 });
     assert.deepEqual(
@@ -619,7 +619,7 @@ test('side lines leave the two sides of the base square to the aim and both poin
     for (const l of lines) {
         assert.ok(Math.abs(Math.hypot(l.start.x - 10, l.start.y - 18) - baseRadius(30)) < 1e-9);
         assert.ok(Math.abs(l.start.x - 10) < 1e-9); // square to a horizontal aim
-        assert.deepEqual(l.end, { x: 20, y: 18 });
+        assert.ok(Math.abs(l.end.x - 20) < 1e-9 && Math.abs(l.end.y - l.start.y) < 1e-9); // straight off the base, not converging
     }
     assert.ok(Math.abs(lines[0].start.y - lines[1].start.y) > 2 * baseRadius(30) - 1e-9);
     assert.equal(sideSightLines(a, { x: 10.2, y: 18 }), null); // inside its own base
@@ -684,4 +684,60 @@ test('a model standing on a tall piece looks over terrain that would stop one on
     assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, w]).models[0].blockedBy, null);
     assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, wall(4)]).models[0].blockedBy, 'Wall');
     assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [wall(3)]).models[0].blockedBy, 'Wall');
+});
+
+// --- the rules guide's own sight line examples (pp.25-26) ---
+
+test('guide example 2: a Ht 3 wall blocks Sz 2 models, unless a line can pass its end', () => {
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    const full = wall(3);
+    assert.equal(lineOfSight(a, b, [a, b], [full]).clear, false);
+    // a wall covering only the lower part of the bases' width leaves the upper lines open
+    const partial = { id: 'w', name: 'Wall', traits: ['blocking'], surfaces: [{ id: 'w1', top: 3, shape: rect(9, 18.2, 2, 12) }] };
+    assert.equal(lineOfSight(a, b, [a, b], [partial]).clear, true);
+});
+
+test('guide example 3: smaller enemies and friendly models are ignored, an equal enemy blocks what is behind it', () => {
+    const fb = man('fb', 'a', 4, 18, 2);
+    const survivor = man('s', 'b', 8, 18, 1);
+    const golem = man('g', 'a', 12, 18, 4);
+    const rooster = man('r', 'b', 16, 18, 2);
+    const borg = man('x', 'b', 20, 18, 2);
+    const all = [fb, survivor, golem, rooster, borg];
+    assert.equal(lineOfSight(fb, rooster, all, []).clear, true);
+    const toBorg = lineOfSight(fb, borg, all, []);
+    assert.equal(toBorg.clear, false);
+    assert.equal(toBorg.blockedBy, 'r');
+    // and a guideline drawn straight along shows the same: the Rooster Rider is reached, Borgmann is hidden by it
+    const seen = traceLine(fb, { x: 4.6, y: 18 }, { x: 22, y: 18 }, all, []).models;
+    assert.deepEqual(
+        seen.map((m) => [m.id, m.blockedBy]),
+        [
+            ['s', null],
+            ['g', null],
+            ['r', null],
+            ['x', 'r'],
+        ],
+    );
+});
+
+test('guide examples 4 and 5: a wall as tall as both models blocks however close, one shorter than both does not', () => {
+    const fb = man('fb', 'a', 4, 18, 2);
+    const borg = man('b', 'b', 12, 18, 2);
+    assert.equal(lineOfSight(fb, borg, [fb, borg], [wall(3, 7, 1)]).clear, false);
+    assert.equal(lineOfSight(fb, borg, [fb, borg], [wall(3, 5, 1)]).clear, false); // right beside Firebranded
+    assert.equal(lineOfSight(fb, borg, [fb, borg], [wall(1, 7, 1)]).clear, true);
+});
+
+test('guide dense terrain example: seen into the fog, not through it', () => {
+    const fog = { id: 'f', name: 'Fog', traits: ['dense', 'concealing'], surfaces: [{ id: 'f1', top: 3, shape: rect(8, 10, 6, 16) }] };
+    const ophelia = man('o', 'a', 4, 18);
+    const jack = man('j', 'b', 10, 18);
+    const montresor = man('m', 'b', 18, 18);
+    const all = [ophelia, jack, montresor];
+    const toJack = lineOfSight(ophelia, jack, all, [fog]);
+    assert.equal(toJack.clear, true);
+    assert.equal(toJack.concealed, true); // concealment against attacks on him
+    assert.equal(lineOfSight(ophelia, montresor, all, [fog]).clear, false);
 });

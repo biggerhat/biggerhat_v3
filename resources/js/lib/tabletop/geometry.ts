@@ -679,7 +679,7 @@ function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPi
     return { supportA, supportB, surfaces, near, blocker };
 }
 
-// --- side sight lines: one line from each side of a base, pointing at where you are aiming ---
+// --- side sight lines: one line from each side of a base, running parallel in the direction of the aim ---
 
 export interface SideLine {
     side: 'left' | 'right';
@@ -701,8 +701,8 @@ export function sideSightLines(owner: Pick<Token, 'x' | 'y' | 'baseMm'>, aim: Pt
     const nx = -dy / d;
     const ny = dx / d;
     return [
-        { side: 'left', start: { x: owner.x + nx * r, y: owner.y + ny * r }, end: aim },
-        { side: 'right', start: { x: owner.x - nx * r, y: owner.y - ny * r }, end: aim },
+        { side: 'left', start: { x: owner.x + nx * r, y: owner.y + ny * r }, end: { x: owner.x + nx * r + dx, y: owner.y + ny * r + dy } },
+        { side: 'right', start: { x: owner.x - nx * r, y: owner.y - ny * r }, end: { x: owner.x - nx * r + dx, y: owner.y - ny * r + dy } },
     ];
 }
 

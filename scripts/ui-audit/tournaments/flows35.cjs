@@ -122,7 +122,7 @@ const L = require('./lib.cjs');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([18, 20], [12, 32]); // put the minion back
         });
-        await L.step(`tabletop (${label}): a line leaves each side of the base and points at the finger or the model dropped on`, s, async () => {
+        await L.step(`tabletop (${label}): a line leaves each side of the base straight in the direction of the finger`, s, async () => {
             await L.visit(s, '/tools/tabletop');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
@@ -141,17 +141,26 @@ const L = require('./lib.cjs');
                 );
                 if (Math.abs(d - 0.984) > 0.05) throw new Error(`the ${side} line should start on the base edge, ${d}" from the centre`);
             }
-            await dragTo([18, 4], [18, 20]); // drop on the minion behind the wall
+            // the lines run parallel, straight off the base: they do not close in on the aim
+            const gap = async () =>
+                s.page.evaluate(() => {
+                    const [l, r] = ['left', 'right'].map((k) => document.querySelector(`[data-testid=side-line-${k}]`));
+                    const g = (n) => Number(l.getAttribute(n)) - Number(r.getAttribute(n));
+                    return { start: Math.hypot(g('x1'), g('y1')), end: Math.hypot(g('x2'), g('y2')) };
+                });
+            await dragTo([18, 4], [19, 20]); // aim just beside the minion behind the wall: one line crosses it
             await L.sleep(200);
+            const g1 = await gap();
+            if (Math.abs(g1.start - g1.end) > 0.05) throw new Error(`the lines should stay parallel, gap ${g1.start}" then ${g1.end}"`);
             t = await summaries();
-            if (!t.every((x) => /Minion \(hidden by Wall/.test(x))) throw new Error(`expected the wall to hide the minion: ${t.join(' | ')}`);
+            if (!t.some((x) => /Minion \(hidden by Wall/.test(x)))
+                throw new Error(`expected a line to reach the minion behind the wall: ${t.join(' | ')}`);
             await s.page.waitForSelector('[data-testid=side-hidden]');
-            await dragTo([18, 4], [18, 32]); // the other master, over the wall
+            await dragTo([18, 4], [18, 32]); // dropped on the other master: both lines run down its sides, and the full check still appears
             await L.sleep(200);
-            t = await summaries();
-            if (!t.every((x) => /Master \(in sight\)/.test(x))) throw new Error(`expected the far master in sight: ${t.join(' | ')}`);
-            await s.page.waitForSelector('[data-testid=side-seen]');
-            await s.page.waitForSelector('[data-testid=sight-readout]'); // dropping on a model still gives the full check
+            await s.page.waitForSelector('[data-testid=sight-readout]');
+            const g2 = await gap();
+            if (Math.abs(g2.start - g2.end) > 0.05) throw new Error(`the lines should stay parallel, gap ${g2.start}" then ${g2.end}"`);
             await L.shot(s, `358-side-lines-${label}`);
             await dragTo([2, 30], [3, 31]); // empty ground: the lines go away
             if (await s.page.$('[data-testid=side-lines]')) throw new Error('the lines should clear on the next press');

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
     AURAS_PER_MODEL,
-    GUIDELINE_MAX,
     auraOrigin,
     auraRadius,
     baseRadius,
@@ -14,14 +13,12 @@ import {
     distanceToShape,
     edgeDistance,
     fallHurts,
-    guidelineEnds,
     heightCover,
     inZone,
     lineOfSight,
     modelsWithin,
     moveCost,
     movePiece,
-    newGuideline,
     pathCost,
     pieceBounds,
     placementProblems,
@@ -30,11 +27,12 @@ import {
     rotatePiece90,
     searchMarkers,
     shapeBounds,
+    sideSightLines,
     supportFraction,
     surfaceAt,
     tallClimbablePieces,
     terrainCoverage,
-    traceGuideline,
+    traceLine,
     translateShape,
     walkBudget,
     withinAura,
@@ -609,25 +607,29 @@ test('a stepped move costs each leg: 2 inches then 5 inches is 7, plus any climb
     assert.equal(pathCost([{ x: 1, y: 1, elev: 0 }]).total, 0);
 });
 
-// --- sight guidelines ---
+// --- side sight lines ---
 
-test('a guideline starts on the base edge and its far end travels with the model', () => {
+test('side lines leave the two sides of the base square to the aim and both point at it', () => {
     const a = man('a', 'a', 10, 18);
-    const g = newGuideline('g1', a, { x: 20, y: 18 });
-    const { start, end } = guidelineEnds(g, a);
-    assert.ok(Math.abs(start.x - (10 + baseRadius(30))) < 1e-9 && Math.abs(start.y - 18) < 1e-9);
-    assert.ok(Math.abs(end.x - 20) < 1e-9 || Math.abs(end.x - 22) < 1e-9); // aimed toward the target, at most 12" long
-    const moved = guidelineEnds(g, { ...a, x: 12 });
-    assert.ok(Math.abs(moved.end.x - end.x - 2) < 1e-9);
-    assert.equal(GUIDELINE_MAX, 3);
+    const lines = sideSightLines(a, { x: 20, y: 18 });
+    assert.deepEqual(
+        lines.map((l) => l.side),
+        ['left', 'right'],
+    );
+    for (const l of lines) {
+        assert.ok(Math.abs(Math.hypot(l.start.x - 10, l.start.y - 18) - baseRadius(30)) < 1e-9);
+        assert.ok(Math.abs(l.start.x - 10) < 1e-9); // square to a horizontal aim
+        assert.deepEqual(l.end, { x: 20, y: 18 });
+    }
+    assert.ok(Math.abs(lines[0].start.y - lines[1].start.y) > 2 * baseRadius(30) - 1e-9);
+    assert.equal(sideSightLines(a, { x: 10.2, y: 18 }), null); // inside its own base
 });
 
-test('a guideline sees the models it reaches, nearest first, and is stopped by tall terrain', () => {
+test('a line sees the models it reaches, nearest first, and is stopped by tall terrain', () => {
     const a = man('a', 'a', 4, 18);
     const b = man('b', 'b', 16, 18);
-    const g = newGuideline('g1', a, { x: 16, y: 18 });
-    const { start, end } = guidelineEnds(g, a);
-    const open = traceGuideline(a, start, { x: 18, y: 18 }, [a, b], []);
+    const start = { x: 4 + baseRadius(30), y: 18 };
+    const open = traceLine(a, start, { x: 18, y: 18 }, [a, b], []);
     assert.deepEqual(
         open.models.map((m) => [m.id, m.blockedBy]),
         [['b', null]],
@@ -635,28 +637,27 @@ test('a guideline sees the models it reaches, nearest first, and is stopped by t
     // an enemy as tall as the viewer ends the drawn line at its edge: it is seen, nothing beyond it is
     assert.ok(open.stopAt && Math.abs(open.stopAt.x - (16 - baseRadius(30))) < 0.3);
     assert.equal(open.blockedBy, 'b');
-    assert.equal(traceGuideline(a, start, { x: 12, y: 18 }, [a, b], []).stopAt, null);
-    assert.ok(end.x > 4);
+    assert.equal(traceLine(a, start, { x: 12, y: 18 }, [a, b], []).stopAt, null);
 
-    const shut = traceGuideline(a, start, { x: 18, y: 18 }, [a, b], [wall(2)]);
+    const shut = traceLine(a, start, { x: 18, y: 18 }, [a, b], [wall(2)]);
     assert.equal(shut.models[0].blockedBy, 'Wall');
     assert.ok(shut.stopAt && shut.stopAt.x >= 9 - 0.3 && shut.stopAt.x <= 9 + 0.3);
     assert.equal(shut.blockedBy, 'Wall');
 
     // terrain shorter than the model does not stop it
-    const low = traceGuideline(a, start, { x: 18, y: 18 }, [a, b], [wall(1)]);
+    const low = traceLine(a, start, { x: 18, y: 18 }, [a, b], [wall(1)]);
     assert.ok(low.stopAt && low.stopAt.x > 15);
     assert.equal(low.models[0].blockedBy, null);
 });
 
-test('a guideline stops short of a model it does not reach, and an enemy in the way hides one behind it', () => {
+test('a line stops short of a model it does not reach, and an enemy in the way hides one behind it', () => {
     const a = man('a', 'a', 4, 18);
     const b = man('b', 'b', 16, 18);
-    const short = traceGuideline(a, { x: 4.6, y: 18 }, { x: 10, y: 18 }, [a, b], []);
+    const short = traceLine(a, { x: 4.6, y: 18 }, { x: 10, y: 18 }, [a, b], []);
     assert.equal(short.models.length, 0);
 
     const front = man('f', 'b', 9, 18);
-    const lined = traceGuideline(a, { x: 4.6, y: 18 }, { x: 20, y: 18 }, [a, front, b], []);
+    const lined = traceLine(a, { x: 4.6, y: 18 }, { x: 20, y: 18 }, [a, front, b], []);
     assert.deepEqual(
         lined.models.map((m) => m.id),
         ['f', 'b'],
@@ -667,7 +668,7 @@ test('a guideline stops short of a model it does not reach, and an enemy in the 
 
     // markers are never seen
     const marker = { id: 'm', name: 'Marker', side: 'n', marker: true, baseMm: 30, x: 8, y: 18 };
-    assert.equal(traceGuideline(a, { x: 4.6, y: 18 }, { x: 12, y: 18 }, [a, marker], []).models.length, 0);
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 12, y: 18 }, [a, marker], []).models.length, 0);
 });
 
 test('a model standing on a tall piece looks over terrain that would stop one on the ground', () => {
@@ -680,7 +681,7 @@ test('a model standing on a tall piece looks over terrain that would stop one on
     const a = man('a', 'a', 4, 18);
     const b = man('b', 'b', 16, 18);
     const w = wall(3); // as tall as the viewer on the ground (2) but not the viewer on the tower (4)
-    assert.equal(traceGuideline(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, w]).models[0].blockedBy, null);
-    assert.equal(traceGuideline(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, wall(4)]).models[0].blockedBy, 'Wall');
-    assert.equal(traceGuideline(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [wall(3)]).models[0].blockedBy, 'Wall');
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, w]).models[0].blockedBy, null);
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, wall(4)]).models[0].blockedBy, 'Wall');
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [wall(3)]).models[0].blockedBy, 'Wall');
 });

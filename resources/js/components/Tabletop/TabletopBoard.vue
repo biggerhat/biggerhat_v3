@@ -4,7 +4,6 @@ import {
     BASE_SIZES_MM,
     AURAS_PER_MODEL,
     DEPLOYMENT_KINDS,
-    GUIDELINE_MAX,
     TABLE_SIZE,
     auraOrigin,
     auraRadius,
@@ -12,12 +11,8 @@ import {
     clampToTable,
     deploymentZones,
     describeZone,
-    edgeAngleToward,
     edgeDistance,
     fallHurts,
-    guidelineEnds,
-    newGuideline,
-    traceGuideline,
     lineOfSight,
     moveCost,
     pathCost,
@@ -26,11 +21,12 @@ import {
     movePiece,
     placementProblems,
     restingSupport,
+    sideSightLines,
     surfaceAt,
+    traceLine,
     modelsWithin,
     type Aura,
     type DeploymentKind,
-    type Guideline,
     type MarkerOption,
     type ModelInfo,
     type Shape,
@@ -240,7 +236,7 @@ const trailLegLabels = computed(() => {
     }));
 });
 /** Line of sight: press on a model and drag to another. Each model draws its own sight lines, so both directions are checked. */
-const sight = ref<{ fromId: string; toId: string | null } | null>(null);
+const sight = ref<{ fromId: string; toId: string | null; aim: Point | null } | null>(null);
 const sightFrom = computed(() => tokens.value.find((t) => t.id === sight.value?.fromId));
 const sightTo = computed(() => tokens.value.find((t) => t.id === sight.value?.toId));
 const sightForward = computed(() =>
@@ -258,50 +254,32 @@ function describeSight(r: ReturnType<typeof lineOfSight>, who: string, whom: str
     ].filter(Boolean);
     return `${who} can see ${whom}${extras.length ? ' (' + extras.join(', ') + ')' : ''}.`;
 }
-// Sight guidelines: up to three lines per model that leave its base edge and that you aim by dragging their two ends. Each one is traced
-// through the same sight rules, so it shows what it reaches and where terrain or an enemy stops it. A view aid kept on this device.
-const guidelines = ref<Guideline[]>([]);
-const guideLines = computed(() =>
-    guidelines.value.flatMap((g) => {
-        const owner = tokens.value.find((t) => t.id === g.tokenId);
-        if (!owner) return [];
-        const { start, end } = guidelineEnds(g, owner);
-        const trace = traceGuideline(owner, start, end, tokens.value, terrain.value);
+/**
+ * While aiming, one line leaves each side of the model's base and points straight at the aim: your finger, or the centre of the model or
+ * marker it is over. Each is traced through the sight rules, so it shows what it reaches and where terrain or an enemy stops it.
+ */
+const sideLines = computed(() => {
+    const from = sightFrom.value;
+    const aim = sight.value?.aim;
+    const lines = from && aim ? sideSightLines(from, aim) : null;
+    if (!from || !lines) return [];
+    return lines.map((l) => {
+        const trace = traceLine(from, l.start, l.end, tokens.value, terrain.value);
         const reached = trace.models.flatMap((m) => {
             const token = tokens.value.find((t) => t.id === m.id);
             return token ? [{ ...m, token }] : [];
         });
-        return [{ g, owner, start, end, trace, reached }];
-    }),
-);
-const guidesOf = (id: string) => guideLines.value.filter((l) => l.owner.id === id);
-function addGuideline(owner: Token) {
-    if (owner.marker || guidesOf(owner.id).length >= GUIDELINE_MAX) return;
-    const foes = tokens.value.filter((t) => t.id !== owner.id && !t.marker && t.side !== 'n' && t.side !== owner.side);
-    const nearest = foes.sort((a, b) => Math.hypot(a.x - owner.x, a.y - owner.y) - Math.hypot(b.x - owner.x, b.y - owner.y))[0] ?? null;
-    guidelines.value = [...guidelines.value, newGuideline(`g${Date.now().toString(36)}${guidelines.value.length}`, owner, nearest)];
-}
-const removeGuideline = (id: string) => (guidelines.value = guidelines.value.filter((g) => g.id !== id));
-function describeGuide(l: (typeof guideLines.value)[number]): string {
+        return { ...l, trace, reached };
+    });
+});
+function describeSide(l: (typeof sideLines.value)[number]): string {
     const parts = l.reached.length
-        ? l.reached.map((m) => (m.blockedBy ? `${m.name} (hidden by ${m.blockedBy})` : `${m.name} (in sight)`)).join(', ')
-        : 'It reaches no model.';
+        ? 'Reaches ' + l.reached.map((m) => (m.blockedBy ? `${m.name} (hidden by ${m.blockedBy})` : `${m.name} (in sight)`)).join(', ') + '.'
+        : 'Reaches no model.';
     const stop = l.trace.stopAt
-        ? ` Stopped by ${l.trace.blockedBy} ${fmt(Math.hypot(l.trace.stopAt.x - l.start.x, l.trace.stopAt.y - l.start.y))}" along.`
+        ? ` Anything past ${l.trace.blockedBy} is hidden, ${fmt(Math.hypot(l.trace.stopAt.x - l.start.x, l.trace.stopAt.y - l.start.y))}" along.`
         : '';
-    return `${l.reached.length ? 'Reaches ' : ''}${parts}${stop}`;
-}
-/** A guideline end under this point, the far end first because it sits on top. */
-function guideHandleAt(p: Point): { id: string; part: 'start' | 'end' } | null {
-    for (let i = guideLines.value.length - 1; i >= 0; i--) {
-        const l = guideLines.value[i];
-        if (Math.hypot(l.end.x - p.x, l.end.y - p.y) <= 0.9) return { id: l.g.id, part: 'end' };
-    }
-    for (let i = guideLines.value.length - 1; i >= 0; i--) {
-        const l = guideLines.value[i];
-        if (Math.hypot(l.start.x - p.x, l.start.y - p.y) <= 0.45) return { id: l.g.id, part: 'start' };
-    }
-    return null;
+    return parts + stop;
 }
 const ruler = ref<{ from: Point; to: Point; fromToken: string | null; toToken: string | null } | null>(null);
 
@@ -457,7 +435,6 @@ let drag:
     | { kind: 'pan'; last: Point }
     | { kind: 'ruler' }
     | { kind: 'sight' }
-    | { kind: 'guide'; id: string; part: 'start' | 'end' }
     | null = null;
 let pinch: { distance: number; width: number; centre: Point } | null = null;
 
@@ -525,15 +502,8 @@ function onDown(e: PointerEvent) {
         return;
     }
     if (mode.value === 'sight') {
-        const handle = guideHandleAt(p);
-        if (handle) {
-            const line = guideLines.value.find((l) => l.g.id === handle.id);
-            if (line) selectedId.value = line.owner.id;
-            drag = { kind: 'guide', ...handle };
-            return;
-        }
         if (hit) {
-            sight.value = { fromId: hit.id, toId: null };
+            sight.value = { fromId: hit.id, toId: null, aim: null };
             selectedId.value = hit.id;
             drag = { kind: 'sight' };
         } else {
@@ -605,20 +575,13 @@ function onMove(e: PointerEvent) {
         view.value = { ...view.value, x: view.value.x - (e.clientX - drag.last.x) * k, y: view.value.y - (e.clientY - drag.last.y) * k };
         keepInside();
         drag.last = { x: e.clientX, y: e.clientY };
-    } else if (drag.kind === 'guide') {
-        const id = drag.id;
-        const g = guidelines.value.find((x) => x.id === id);
-        const owner = g ? tokens.value.find((t) => t.id === g.tokenId) : null;
-        if (!g || !owner) return;
-        const p = toBoard(e.clientX, e.clientY);
-        guidelines.value = guidelines.value.map((x) => {
-            if (x.id !== id) return x;
-            if (drag?.kind === 'guide' && drag.part === 'start') return { ...x, edgeAngle: edgeAngleToward(owner, p) };
-            return { ...x, dx: Math.min(TABLE_SIZE, Math.max(0, p.x)) - owner.x, dy: Math.min(TABLE_SIZE, Math.max(0, p.y)) - owner.y };
-        });
     } else if (drag.kind === 'sight') {
-        const hit = tokenAt(toBoard(e.clientX, e.clientY));
-        if (sight.value) sight.value = { ...sight.value, toId: hit && hit.id !== sight.value.fromId ? hit.id : null };
+        const p = toBoard(e.clientX, e.clientY);
+        const hit = tokenAt(p);
+        if (sight.value) {
+            const target = hit && hit.id !== sight.value.fromId ? hit : null;
+            sight.value = { ...sight.value, toId: target?.id ?? null, aim: target ? { x: target.x, y: target.y } : p };
+        }
     } else if (ruler.value) {
         const p = toBoard(e.clientX, e.clientY);
         const hit = tokenAt(p);
@@ -768,7 +731,6 @@ function resetTable() {
     selectedId.value = null;
     ruler.value = null;
     sight.value = null;
-    guidelines.value = [];
     note.value = '';
     resetView();
 }
@@ -1108,19 +1070,19 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             :stroke-dasharray="sightForward.clear ? undefined : '0.4 0.3'"
                         />
                     </g>
-                    <g v-if="mode !== 'terrain' && guideLines.length" pointer-events="none" data-testid="guidelines">
-                        <g v-for="l in guideLines" :key="l.g.id" :data-testid="`guideline-${l.owner.id}`">
+                    <g v-if="sideLines.length" pointer-events="none" data-testid="side-lines">
+                        <template v-for="l in sideLines" :key="l.side">
                             <circle
                                 v-for="m in l.reached"
-                                :key="m.id"
+                                :key="`${l.side}-${m.id}`"
                                 :cx="m.token.x"
                                 :cy="m.token.y"
                                 :r="baseRadius(m.token.baseMm) + 0.22"
                                 fill="none"
                                 :stroke="m.blockedBy ? 'hsl(0 75% 55%)' : 'hsl(145 65% 42%)'"
-                                :stroke-width="0.12"
+                                stroke-width="0.12"
                                 :stroke-dasharray="m.blockedBy ? '0.3 0.2' : undefined"
-                                :data-testid="m.blockedBy ? 'guideline-hidden' : 'guideline-seen'"
+                                :data-testid="m.blockedBy ? 'side-hidden' : 'side-seen'"
                             />
                             <line
                                 :x1="l.start.x"
@@ -1130,7 +1092,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 stroke="hsl(145 65% 42%)"
                                 stroke-width="0.16"
                                 stroke-linecap="round"
-                                data-testid="guideline-clear"
+                                :data-testid="`side-line-${l.side}`"
                             />
                             <template v-if="l.trace.stopAt">
                                 <line
@@ -1141,44 +1103,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     stroke="hsl(0 75% 55%)"
                                     stroke-width="0.12"
                                     stroke-dasharray="0.4 0.3"
-                                    data-testid="guideline-stopped"
                                 />
-                                <circle :cx="l.trace.stopAt.x" :cy="l.trace.stopAt.y" r="0.22" fill="hsl(0 75% 55%)" data-testid="guideline-stop" />
+                                <circle :cx="l.trace.stopAt.x" :cy="l.trace.stopAt.y" r="0.22" fill="hsl(0 75% 55%)" data-testid="side-stop" />
                             </template>
-                            <template v-if="mode === 'sight'">
-                                <circle
-                                    :cx="l.start.x"
-                                    :cy="l.start.y"
-                                    r="0.3"
-                                    fill="hsl(var(--background))"
-                                    stroke="hsl(145 65% 42%)"
-                                    stroke-width="0.12"
-                                    :data-testid="`guideline-start-${l.owner.id}`"
-                                />
-                                <circle
-                                    :cx="l.end.x"
-                                    :cy="l.end.y"
-                                    r="0.5"
-                                    fill="hsl(var(--background) / 0.85)"
-                                    :stroke="l.trace.stopAt ? 'hsl(0 75% 55%)' : 'hsl(145 65% 42%)'"
-                                    stroke-width="0.16"
-                                    :data-testid="`guideline-end-${l.owner.id}`"
-                                />
-                                <text
-                                    :x="l.end.x"
-                                    :y="l.end.y - 0.8"
-                                    text-anchor="middle"
-                                    font-size="0.85"
-                                    font-weight="600"
-                                    fill="hsl(var(--foreground))"
-                                    stroke="hsl(var(--background))"
-                                    stroke-width="0.2"
-                                    paint-order="stroke"
-                                >
-                                    {{ fmt(l.trace.length) }}"
-                                </text>
-                            </template>
-                        </g>
+                            <circle :cx="l.start.x" :cy="l.start.y" r="0.2" fill="hsl(145 65% 42%)" />
+                        </template>
+                        <circle :cx="sideLines[0].end.x" :cy="sideLines[0].end.y" r="0.25" fill="hsl(var(--foreground))" />
                     </g>
                     <g v-if="ruler" pointer-events="none">
                         <line
@@ -1269,41 +1199,17 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
             </div>
             <div v-if="mode === 'sight' && !sightForward" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="sight-hint">
-                Press on a model and drag to another to check line of sight between them.
+                Press on a model and drag. A line leaves each side of its base and points at your finger. Drop on another model or marker to check
+                line of sight between them.
             </div>
-            <div v-if="mode === 'sight'" class="space-y-2 rounded-md border p-3 text-sm" data-testid="guideline-panel">
-                <div class="flex items-center justify-between gap-2">
-                    <span class="font-semibold">Sight guidelines</span>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        data-testid="guideline-add"
-                        :disabled="!selected || !!selected.marker || guidesOf(selected.id).length >= GUIDELINE_MAX"
-                        @click="selected && addGuideline(selected)"
-                        >Add a guideline</Button
-                    >
+            <div v-if="mode === 'sight' && sideLines.length" class="space-y-1 rounded-md border p-3 text-sm" data-testid="side-readout">
+                <div v-for="l in sideLines" :key="l.side" data-testid="side-summary">
+                    <span class="font-semibold capitalize">{{ l.side }} side:</span> {{ describeSide(l) }}
                 </div>
-                <p v-if="!guideLines.length" class="text-muted-foreground" data-testid="guideline-hint">
-                    Pick a model, then add a guideline (up to {{ GUIDELINE_MAX }} each). It leaves the edge of the base. Drag the small dot to slide
-                    where it starts, and the large ring to aim and lengthen it. Green is clear; red dashes begin where terrain or an enemy stops it,
-                    and rings show which models it reaches.
-                </p>
-                <ul v-else class="space-y-2">
-                    <li v-for="l in guideLines" :key="l.g.id" class="flex items-start gap-2" data-testid="guideline-row">
-                        <div class="min-w-0 flex-1">
-                            <div class="font-medium">{{ l.owner.name }}</div>
-                            <div class="text-muted-foreground" data-testid="guideline-summary">{{ describeGuide(l) }}</div>
-                        </div>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            :aria-label="`Remove this guideline from ${l.owner.name}`"
-                            data-testid="guideline-remove"
-                            @click="removeGuideline(l.g.id)"
-                            ><Trash2 class="size-4"
-                        /></Button>
-                    </li>
-                </ul>
+                <div class="text-muted-foreground">
+                    Green is clear; red dashes start where terrain or an enemy at least as tall as the model stops the line. Rings show which models a
+                    line reaches. Cover and concealment come from the model-to-model check below.
+                </div>
             </div>
             <div v-if="sightForward && sightBack && sightFrom && sightTo" class="space-y-1 rounded-md border p-3 text-sm" data-testid="sight-readout">
                 <div

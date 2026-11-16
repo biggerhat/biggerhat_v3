@@ -122,46 +122,39 @@ const L = require('./lib.cjs');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([18, 20], [12, 32]); // put the minion back
         });
-        await L.step(`tabletop (${label}): a sight guideline is aimed from a model's edge and says what it reaches`, s, async () => {
+        await L.step(`tabletop (${label}): a line leaves each side of the base and points at the finger or the model dropped on`, s, async () => {
             await L.visit(s, '/tools/tabletop');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
             await s.page.click('[data-testid=mode-sight]');
-            await s.page.waitForSelector('[data-testid=guideline-panel]');
-            await dragTo([18, 4], [18, 4.1]); // a tap on the master selects it
-            await hit('[data-testid=guideline-add]');
-            await s.page.waitForSelector('[data-testid^=guideline-end-]');
-            await toBoardTop();
-            const endAt = async () =>
-                s.page.$eval('[data-testid^=guideline-end-]', (c) => [Number(c.getAttribute('cx')), Number(c.getAttribute('cy'))]);
-            const summary = () => s.page.$eval('[data-testid=guideline-summary]', (e) => e.innerText);
-            // the start dot sits on the base edge, a 50 mm base's radius (0.98") from the model's centre
-            const startOk = await s.page.$eval('[data-testid^=guideline-start-]', (c) =>
-                Math.hypot(Number(c.getAttribute('cx')) - 18, Number(c.getAttribute('cy')) - 4),
-            );
-            if (Math.abs(startOk - 0.984) > 0.05) throw new Error(`the guideline should start on the base edge, started ${startOk}" from the centre`);
-            await dragTo(await endAt(), [18, 20]); // aim the far ring at the minion behind the wall
+            const summaries = () => s.page.$$eval('[data-testid=side-summary]', (els) => els.map((e) => e.innerText));
+            await dragTo([18, 4], [28, 14]); // aim at empty ground
+            await s.page.waitForSelector('[data-testid=side-line-left]');
+            await s.page.waitForSelector('[data-testid=side-line-right]');
+            let t = await summaries();
+            if (t.length !== 2 || !t.every((x) => /Reaches no model/.test(x))) throw new Error(`empty ground should reach nothing: ${t.join(' | ')}`);
+            // each line starts on the base edge, a 50 mm base's radius (0.98") from the centre, square to the aim
+            for (const side of ['left', 'right']) {
+                const d = await s.page.$eval(`[data-testid=side-line-${side}]`, (l) =>
+                    Math.hypot(Number(l.getAttribute('x1')) - 18, Number(l.getAttribute('y1')) - 4),
+                );
+                if (Math.abs(d - 0.984) > 0.05) throw new Error(`the ${side} line should start on the base edge, ${d}" from the centre`);
+            }
+            await dragTo([18, 4], [18, 20]); // drop on the minion behind the wall
             await L.sleep(200);
-            let t = await summary();
-            if (!/Minion \(hidden by Wall/.test(t)) throw new Error(`expected the wall to hide the minion: ${t}`);
-            await s.page.waitForSelector('[data-testid=guideline-hidden]');
-            await dragTo(await endAt(), [18, 32]); // then at the other master, over the wall
+            t = await summaries();
+            if (!t.every((x) => /Minion \(hidden by Wall/.test(x))) throw new Error(`expected the wall to hide the minion: ${t.join(' | ')}`);
+            await s.page.waitForSelector('[data-testid=side-hidden]');
+            await dragTo([18, 4], [18, 32]); // the other master, over the wall
             await L.sleep(200);
-            t = await summary();
-            if (!/Master \(in sight\)/.test(t)) throw new Error(`expected the far master in sight: ${t}`);
-            await s.page.waitForSelector('[data-testid=guideline-seen]');
-            await L.shot(s, `358-guideline-${label}`);
-            // the start dot slides round the edge: pull it to the far side of the base
-            const [sx, sy] = await s.page.$eval('[data-testid^=guideline-start-]', (c) => [
-                Number(c.getAttribute('cx')),
-                Number(c.getAttribute('cy')),
-            ]);
-            await dragTo([sx, sy], [18, 2]);
-            const moved = await s.page.$eval('[data-testid^=guideline-start-]', (c) => Number(c.getAttribute('cy')));
-            if (moved > 3.2) throw new Error(`the start dot should have slid to the top of the base, cy ${moved}`);
-            await hit('[data-testid=guideline-remove]');
-            if (await s.page.$('[data-testid^=guideline-end-]')) throw new Error('the guideline should be gone');
+            t = await summaries();
+            if (!t.every((x) => /Master \(in sight\)/.test(x))) throw new Error(`expected the far master in sight: ${t.join(' | ')}`);
+            await s.page.waitForSelector('[data-testid=side-seen]');
+            await s.page.waitForSelector('[data-testid=sight-readout]'); // dropping on a model still gives the full check
+            await L.shot(s, `358-side-lines-${label}`);
+            await dragTo([2, 30], [3, 31]); // empty ground: the lines go away
+            if (await s.page.$('[data-testid=side-lines]')) throw new Error('the lines should clear on the next press');
             await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {

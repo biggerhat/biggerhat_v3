@@ -679,42 +679,34 @@ function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPi
     return { supportA, supportB, surfaces, near, blocker };
 }
 
-// --- sight guidelines: a line from a model's edge that you aim yourself ---
+// --- side sight lines: one line from each side of a base, pointing at where you are aiming ---
 
-export interface Guideline {
-    id: string;
-    tokenId: string;
-    /** Where on the base edge the line starts, as an angle in radians around the model's centre. */
-    edgeAngle: number;
-    /** The far end, as an offset from the model's centre, so the line travels with the model. */
-    dx: number;
-    dy: number;
+export interface SideLine {
+    side: 'left' | 'right';
+    start: Pt;
+    end: Pt;
 }
 
-export const GUIDELINE_MAX = 3;
-
-/** The two ends of a guideline on the board. */
-export function guidelineEnds(g: Guideline, owner: Pick<Token, 'x' | 'y' | 'baseMm'>): { start: Pt; end: Pt } {
+/**
+ * The two lines that leave the sides of `owner`'s base (the points square to the aim) and point straight at `aim`.
+ * Null when the aim is inside the base, where there is no direction to speak of.
+ */
+export function sideSightLines(owner: Pick<Token, 'x' | 'y' | 'baseMm'>, aim: Pt): SideLine[] | null {
+    const dx = aim.x - owner.x;
+    const dy = aim.y - owner.y;
+    const d = Math.hypot(dx, dy);
     const r = baseRadius(owner.baseMm);
-    return {
-        start: { x: owner.x + r * Math.cos(g.edgeAngle), y: owner.y + r * Math.sin(g.edgeAngle) },
-        end: { x: owner.x + g.dx, y: owner.y + g.dy },
-    };
+    if (d <= r + 1e-6) return null;
+    // square to the aim: left and right as seen looking from the model toward the aim
+    const nx = -dy / d;
+    const ny = dx / d;
+    return [
+        { side: 'left', start: { x: owner.x + nx * r, y: owner.y + ny * r }, end: aim },
+        { side: 'right', start: { x: owner.x - nx * r, y: owner.y - ny * r }, end: aim },
+    ];
 }
 
-/** A new guideline leaving the side of `owner` that faces `toward`, 12" long (or as far as the target). */
-export function newGuideline(id: string, owner: Pick<Token, 'id' | 'x' | 'y'>, toward: Pt | null): Guideline {
-    const angle = toward ? Math.atan2(toward.y - owner.y, toward.x - owner.x) : Math.PI / 2;
-    const reach = toward ? Math.min(12, Math.max(2, Math.hypot(toward.x - owner.x, toward.y - owner.y))) : 6;
-    return { id, tokenId: owner.id, edgeAngle: angle, dx: Math.cos(angle) * reach, dy: Math.sin(angle) * reach };
-}
-
-/** Keep the start on the edge: aiming the start handle at a point turns it to face that point. */
-export function edgeAngleToward(owner: Pick<Token, 'x' | 'y'>, p: Pt): number {
-    return Math.atan2(p.y - owner.y, p.x - owner.x);
-}
-
-export interface GuidelineSeen {
+export interface TraceSeen {
     id: string;
     name: string;
     /** Distance along the line to where it first touches this model's base. */
@@ -723,9 +715,9 @@ export interface GuidelineSeen {
     blockedBy: string | null;
 }
 
-export interface GuidelineTrace {
+export interface LineTrace {
     /** Every model the line touches, nearest first. */
-    models: GuidelineSeen[];
+    models: TraceSeen[];
     /** Where the line is first stopped by something as tall as the model it leaves, or null if nothing stops it. */
     stopAt: Pt | null;
     blockedBy: string | null;
@@ -746,17 +738,17 @@ function entryAlong(start: Pt, dir: Pt, length: number, c: Pt, r: number): numbe
 }
 
 /**
- * Follow a guideline from `from` and say what it sees. For every model the line touches, the stretch up to that model is run through
+ * Follow a sight line from `from` and say what it sees. For every model the line touches, the stretch up to that model is run through
  * the same sight rules as a full check (blocking and dense terrain, enemy models in the way, heights compared with that model).
- * The line itself is drawn as stopped where terrain or an enemy at least as tall as `from` first gets in the way, so it can be read
+ * The line is drawn as stopped where terrain or an enemy at least as tall as `from` first gets in the way, so it can be read
  * at a glance. Markers are not seen and never stop it.
  */
-export function traceGuideline(from: Token, start: Pt, end: Pt, tokens: Token[], pieces: TerrainPiece[]): GuidelineTrace {
+export function traceLine(from: Token, start: Pt, end: Pt, tokens: Token[], pieces: TerrainPiece[]): LineTrace {
     const length = Math.hypot(end.x - start.x, end.y - start.y);
     if (length < 1e-6) return { models: [], stopAt: null, blockedBy: null, length: 0 };
     const dir = { x: (end.x - start.x) / length, y: (end.y - start.y) / length };
 
-    const models: GuidelineSeen[] = [];
+    const models: TraceSeen[] = [];
     for (const t of tokens) {
         if (t.id === from.id || t.marker) continue;
         const along = entryAlong(start, dir, length, t, baseRadius(t.baseMm));

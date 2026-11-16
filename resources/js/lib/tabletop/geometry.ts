@@ -583,8 +583,50 @@ const leaves = (c: Pt, from: Pt, to: Pt): boolean => (from.x - c.x) * (to.x - fr
  * Cover and concealment come from the lines that do get through.
  */
 export function lineOfSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPiece[]): SightResult {
-    const supportA = restingSupport(from, pieces);
+    const { supportA, supportB, surfaces, near, blocker } = prepareSight(from, to, tokens, pieces);
     const touching = edgeDistance(from, to) <= 0;
+
+    // Models always see what they are in base contact with (p.24).
+    const A = edgePoints(from, to);
+    const B = edgePoints(to, from);
+    let clearLine: { from: Pt; to: Pt } | null = null;
+    let coverTerrain = false;
+    let allConcealed = true;
+    let anyClear = false;
+    for (const p of A) {
+        for (const q of B) {
+            if (!touching && (!leaves(from, p, q) || !leaves(to, q, p))) continue;
+            if (!touching && blocker(p, q) !== null) continue;
+            anyClear = true;
+            if (!clearLine) clearLine = { from: p, to: q };
+            let covered = false;
+            let concealed = false;
+            for (const { s, blocking, concealing } of surfaces) {
+                const crosses = crossesShape(p, q, s.shape);
+                if (!crosses) continue;
+                if (blocking && near(distanceToShape(s.shape, to.x, to.y) - baseRadius(to.baseMm))) covered = true;
+                if (concealing && !pointInShape(s.shape, from.x, from.y)) concealed = true;
+            }
+            if (covered) coverTerrain = true;
+            if (!concealed) allConcealed = false;
+        }
+    }
+
+    const centre = { from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } };
+    return {
+        clear: anyClear,
+        line: clearLine ?? centre,
+        blockedBy: anyClear ? null : (blocker(centre.from, centre.to) ?? "the other model's own base"),
+        cover: heightCover(supportA.elevation, supportB.elevation) ? 'height' : coverTerrain ? 'terrain' : null,
+        concealed: anyClear && allConcealed,
+        initiator: { elevation: supportA.elevation, sz: szOf(from) },
+        target: { elevation: supportB.elevation, sz: szOf(to) },
+    };
+}
+
+/** The terrain and models that can stand between two models, and the test for whether one sight line is stopped by them. */
+function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPiece[]) {
+    const supportA = restingSupport(from, pieces);
     const supportB = restingSupport(to, pieces);
     const effA = szOf(from) + supportA.elevation;
     const effB = szOf(to) + supportB.elevation;
@@ -634,42 +676,113 @@ export function lineOfSight(from: Token, to: Token, tokens: Token[], pieces: Ter
         return null;
     }
 
-    // Models always see what they are in base contact with (p.24).
-    const A = edgePoints(from, to);
-    const B = edgePoints(to, from);
-    let clearLine: { from: Pt; to: Pt } | null = null;
-    let coverTerrain = false;
-    let allConcealed = true;
-    let anyClear = false;
-    for (const p of A) {
-        for (const q of B) {
-            if (!touching && (!leaves(from, p, q) || !leaves(to, q, p))) continue;
-            if (!touching && blocker(p, q) !== null) continue;
-            anyClear = true;
-            if (!clearLine) clearLine = { from: p, to: q };
-            let covered = false;
-            let concealed = false;
-            for (const { s, blocking, concealing } of surfaces) {
-                const crosses = crossesShape(p, q, s.shape);
-                if (!crosses) continue;
-                if (blocking && near(distanceToShape(s.shape, to.x, to.y) - baseRadius(to.baseMm))) covered = true;
-                if (concealing && !pointInShape(s.shape, from.x, from.y)) concealed = true;
-            }
-            if (covered) coverTerrain = true;
-            if (!concealed) allConcealed = false;
+    return { supportA, supportB, surfaces, near, blocker };
+}
+
+// --- sight guidelines: a line from a model's edge that you aim yourself ---
+
+export interface Guideline {
+    id: string;
+    tokenId: string;
+    /** Where on the base edge the line starts, as an angle in radians around the model's centre. */
+    edgeAngle: number;
+    /** The far end, as an offset from the model's centre, so the line travels with the model. */
+    dx: number;
+    dy: number;
+}
+
+export const GUIDELINE_MAX = 3;
+
+/** The two ends of a guideline on the board. */
+export function guidelineEnds(g: Guideline, owner: Pick<Token, 'x' | 'y' | 'baseMm'>): { start: Pt; end: Pt } {
+    const r = baseRadius(owner.baseMm);
+    return {
+        start: { x: owner.x + r * Math.cos(g.edgeAngle), y: owner.y + r * Math.sin(g.edgeAngle) },
+        end: { x: owner.x + g.dx, y: owner.y + g.dy },
+    };
+}
+
+/** A new guideline leaving the side of `owner` that faces `toward`, 12" long (or as far as the target). */
+export function newGuideline(id: string, owner: Pick<Token, 'id' | 'x' | 'y'>, toward: Pt | null): Guideline {
+    const angle = toward ? Math.atan2(toward.y - owner.y, toward.x - owner.x) : Math.PI / 2;
+    const reach = toward ? Math.min(12, Math.max(2, Math.hypot(toward.x - owner.x, toward.y - owner.y))) : 6;
+    return { id, tokenId: owner.id, edgeAngle: angle, dx: Math.cos(angle) * reach, dy: Math.sin(angle) * reach };
+}
+
+/** Keep the start on the edge: aiming the start handle at a point turns it to face that point. */
+export function edgeAngleToward(owner: Pick<Token, 'x' | 'y'>, p: Pt): number {
+    return Math.atan2(p.y - owner.y, p.x - owner.x);
+}
+
+export interface GuidelineSeen {
+    id: string;
+    name: string;
+    /** Distance along the line to where it first touches this model's base. */
+    along: number;
+    /** Null when the line gets there; otherwise what stops it. */
+    blockedBy: string | null;
+}
+
+export interface GuidelineTrace {
+    /** Every model the line touches, nearest first. */
+    models: GuidelineSeen[];
+    /** Where the line is first stopped by something as tall as the model it leaves, or null if nothing stops it. */
+    stopAt: Pt | null;
+    blockedBy: string | null;
+    length: number;
+}
+
+/** Where along start->end a circle of radius r at (cx, cy) is first entered; 0 when the start is already inside. */
+function entryAlong(start: Pt, dir: Pt, length: number, c: Pt, r: number): number | null {
+    const fx = start.x - c.x;
+    const fy = start.y - c.y;
+    const b = fx * dir.x + fy * dir.y;
+    const k = fx * fx + fy * fy - r * r;
+    if (k <= 0) return 0;
+    const disc = b * b - k;
+    if (disc < 0) return null;
+    const t = -b - Math.sqrt(disc);
+    return t >= 0 && t <= length ? t : null;
+}
+
+/**
+ * Follow a guideline from `from` and say what it sees. For every model the line touches, the stretch up to that model is run through
+ * the same sight rules as a full check (blocking and dense terrain, enemy models in the way, heights compared with that model).
+ * The line itself is drawn as stopped where terrain or an enemy at least as tall as `from` first gets in the way, so it can be read
+ * at a glance. Markers are not seen and never stop it.
+ */
+export function traceGuideline(from: Token, start: Pt, end: Pt, tokens: Token[], pieces: TerrainPiece[]): GuidelineTrace {
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    if (length < 1e-6) return { models: [], stopAt: null, blockedBy: null, length: 0 };
+    const dir = { x: (end.x - start.x) / length, y: (end.y - start.y) / length };
+
+    const models: GuidelineSeen[] = [];
+    for (const t of tokens) {
+        if (t.id === from.id || t.marker) continue;
+        const along = entryAlong(start, dir, length, t, baseRadius(t.baseMm));
+        if (along === null) continue;
+        const entry = { x: start.x + dir.x * along, y: start.y + dir.y * along };
+        const blockedBy = prepareSight(from, t, tokens, pieces).blocker(start, entry);
+        models.push({ id: t.id, name: t.name, along, blockedBy });
+    }
+    models.sort((a, b) => a.along - b.along);
+
+    // The first place a model of this height could no longer see past, found by walking the line.
+    const generic = prepareSight(from, from, tokens, pieces).blocker;
+    let stopAt: Pt | null = null;
+    let blockedBy: string | null = null;
+    const step = 0.25;
+    for (let d = step; d <= length + 1e-9; d += step) {
+        const at = Math.min(d, length);
+        const q = { x: start.x + dir.x * at, y: start.y + dir.y * at };
+        const b = generic(start, q);
+        if (b) {
+            stopAt = q;
+            blockedBy = b;
+            break;
         }
     }
-
-    const centre = { from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } };
-    return {
-        clear: anyClear,
-        line: clearLine ?? centre,
-        blockedBy: anyClear ? null : (blocker(centre.from, centre.to) ?? "the other model's own base"),
-        cover: heightCover(supportA.elevation, supportB.elevation) ? 'height' : coverTerrain ? 'terrain' : null,
-        concealed: anyClear && allConcealed,
-        initiator: { elevation: supportA.elevation, sz: szOf(from) },
-        target: { elevation: supportB.elevation, sz: szOf(to) },
-    };
+    return { models, stopAt, blockedBy, length };
 }
 
 // --- where a model may stand ---

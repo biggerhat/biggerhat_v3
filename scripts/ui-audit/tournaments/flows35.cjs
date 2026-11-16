@@ -28,6 +28,29 @@ const L = require('./lib.cjs');
             await s.page.click(selector);
         };
         const toBoardTop = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+        // The sandbox ships no models of its own (only database characters and markers can be added), so the browser flows lay a known
+        // set on the table through the page's storage, then reload.
+        const DEMO = [
+            { id: 'a1', sp: 5, sz: 3, name: 'Master', side: 'a', baseMm: 50, x: 18, y: 4 },
+            { id: 'a2', sp: 5, sz: 2, name: 'Henchman', side: 'a', baseMm: 40, x: 12, y: 5 },
+            { id: 'a3', sp: 5, sz: 1, name: 'Minion', side: 'a', baseMm: 30, x: 22, y: 4 },
+            { id: 'b1', sp: 5, sz: 3, name: 'Master', side: 'b', baseMm: 50, x: 18, y: 32 },
+            { id: 'b2', sp: 5, sz: 2, name: 'Henchman', side: 'b', baseMm: 40, x: 24, y: 31 },
+            { id: 'b3', sp: 5, sz: 1, name: 'Minion', side: 'b', baseMm: 30, x: 12, y: 32 },
+        ];
+        const openSandbox = async (models = DEMO) => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.evaluate((tokens) => {
+                let saved = {};
+                try {
+                    saved = JSON.parse(localStorage.getItem('tabletop-spike-v2')) || {};
+                } catch {
+                    // start from nothing
+                }
+                localStorage.setItem('tabletop-spike-v2', JSON.stringify({ ...saved, tokens }));
+            }, models);
+            await L.visit(s, '/tools/tabletop');
+        };
         const dragTo = async (from, to) => {
             const a = await pixel(...from);
             const b = await pixel(...to);
@@ -39,7 +62,7 @@ const L = require('./lib.cjs');
         };
 
         await L.step(`tabletop (${label}): board renders with terrain levels and both crews`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await L.expectText(s, /Ht 5/);
             if ((await s.page.$$('[data-testid^=token-]')).length !== 6) throw new Error('expected 6 demo models');
@@ -61,7 +84,7 @@ const L = require('./lib.cjs');
             await L.expectText(s, /1 irreducible damage/i);
         });
         await L.step(`tabletop (${label}): a model dropped on another base, or on impassable ground, is flagged`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [24, 31.3]); // the minion onto the red henchman
@@ -72,7 +95,7 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => !document.querySelector('[data-problem=true]'), { timeout: 5000 });
         });
         await L.step(`tabletop (${label}): a stepped move adds its legs: 2 inches then 5 inches is 7`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await s.page.$eval('[data-testid=step-toggle]', (b) => b.scrollIntoView({ block: 'center' }));
@@ -95,7 +118,7 @@ const L = require('./lib.cjs');
             await s.page.click('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): the ruler measures edge to edge between two models`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-ruler]');
             await dragTo([12, 5], [18, 4]); // henchman (40mm) to master (50mm), centres 6.08" apart
@@ -105,7 +128,7 @@ const L = require('./lib.cjs');
             if (!/4\.3"/.test(t)) throw new Error(`ruler readout is not 4.3": ${t}`);
         });
         await L.step(`tabletop (${label}): line of sight is clear in the open and blocked by a wall for a shorter model`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
@@ -123,7 +146,7 @@ const L = require('./lib.cjs');
             await dragTo([18, 20], [12, 32]); // put the minion back
         });
         await L.step(`tabletop (${label}): a line leaves each side of the base straight in the direction of the finger`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
@@ -173,7 +196,7 @@ const L = require('./lib.cjs');
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
         });
         await L.step(`tabletop (${label}): all four deployments draw their real shapes and a centerline`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             // What each deployment draws for side A: a rectangle strip, an L-shaped flank, a quarter circle, a triangle.
             const expected = { standard: 'polygon', flank: 'polygon', corner: 'circle', wedge: 'polygon' };
@@ -205,10 +228,9 @@ const L = require('./lib.cjs');
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
         });
         await L.step(`tabletop (${label}): an aura starts at the base edge and shows who is inside`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
-            await L.clickText(s, /^Reset table$/i, 'button'); // earlier steps moved models; the table is saved on this device
-            await s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView()); // the Reset button sits below the board on a phone
+            await s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView()); // the controls sit below the board on a phone
             const a = await pixel(18, 4); // the blue master, 50 mm base, with the henchman (12, 5) and minion (22, 4) around it
             await s.page.mouse.click(a.x, a.y);
             await hit('[data-testid=aura-add]');
@@ -278,7 +300,7 @@ const L = require('./lib.cjs');
             if (await s.page.$('[data-testid=aura-a1]')) throw new Error('aura was not removed');
         });
         await L.step(`tabletop (${label}): markers from the list can be added, at their own base size`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             // The picker lives in a dialog, so the page itself carries no list.
             await s.page.waitForSelector('[data-testid=marker-open]');
             if (await s.page.$('[data-testid=marker-picker]')) throw new Error('the marker list should not sit on the page');
@@ -363,7 +385,7 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 0, { timeout: 5000 });
         });
         await L.step(`tabletop (${label}): a character card can be searched for and added at its own size, Sz and Sp`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=character-open]');
             await s.page.$eval('[data-testid=character-open]', (b) => b.scrollIntoView({ block: 'center' }));
             await s.page.click('[data-testid=character-open]');
@@ -427,24 +449,25 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
             await s.page.$eval('[data-testid=reset-table]', (b) => b.scrollIntoView({ block: 'center' }));
             await s.page.click('[data-testid=reset-table]');
+            // reset clears the models (nothing blank comes back) and the hint says how to start again
             await s.page
-                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 6, { timeout: 5000 })
+                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 0, { timeout: 5000 })
                 .catch(async () => {
                     throw new Error(`reset left ${(await s.page.$$('[data-testid^=token-]')).length} models`);
                 });
+            await s.page.waitForSelector('[data-testid=empty-table]');
         });
-        await L.step(`tabletop (${label}): adding a model works`, s, async () => {
-            // centre the button first: on a phone the fixed tab bar can sit over a button scrolled to the very bottom
-            await s.page.$eval('[data-testid=add-token]', (b) => b.scrollIntoView({ block: 'center' }));
-            await s.page.click('[data-testid=add-token]');
-            await s.page
-                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 7, { timeout: 5000 })
-                .catch(async () => {
-                    throw new Error(`model was not added: ${(await s.page.$$('[data-testid^=token-]')).length} on the table`);
-                });
+        await L.step(`tabletop (${label}): the sandbox offers no blank models and starts empty`, s, async () => {
+            await s.page.evaluate(() => localStorage.removeItem('tabletop-spike-v2'));
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=empty-table]');
+            if ((await s.page.$$('[data-testid^=token-]')).length !== 0) throw new Error('the sandbox should start with no models');
+            if (await s.page.$('[data-testid=add-token]')) throw new Error('there should be no blank "Add model" button');
+            await s.page.waitForSelector('[data-testid=character-open]');
+            await L.expectText(s, /Add a character/);
         });
         await L.step(`tabletop (${label}): the terrain editor selects, edits, moves, adds, turns, undoes and clears pieces`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             const toBoard = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
             const centreOn = (testid) => s.page.$eval(`[data-testid=${testid}]`, (b) => b.scrollIntoView({ block: 'center' }));
@@ -544,7 +567,7 @@ const L = require('./lib.cjs');
             await click('terrain-demo');
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             // It is all kept on this device: reload and the demo table is still there, still in terrain mode's reach.
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await L.expectText(s, /Ht 5/);
         });

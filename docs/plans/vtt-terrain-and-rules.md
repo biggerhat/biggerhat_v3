@@ -115,7 +115,9 @@ default terrain sets (a city table, a hills table) cover the common case, and a 
 - Sandbox characters: "Add a character" opens a dialog that searches the standard character cards by name (every word must match;
   `GET /tools/tabletop/characters?q=`, throttled, same flag or beta permission as the page, hidden cards left out). Each result shows
   faction, base, Sz and Sp; adding it puts the model on the table at its real base size with its Sz and Sp, for the chosen side, so
-  line of sight and the Walk ring work for it. "Add model" still adds a blank model. Game boards take their crews from the game instead.
+  line of sight and the Walk ring work for it. There are no blank or demo models: the sandbox table starts empty and only characters and
+  markers from the database can be put on it (saved in `tabletop-spike-v2`; the earlier blank models are dropped). Game boards take
+  their crews from the game instead.
 - Model panel (select a model): the tracker's essentials for that model, `ModelInfoPanel.vue` — activated, health (stepper and pips),
   tokens (add from the tokens table, remove) and a note. On a game board it reads and writes the game tracker's own crew member
   (`GameCrewMember` health, `is_activated`, `attached_tokens`, `notes`) through the tracker's `games.play.crew.update` endpoint, so the play

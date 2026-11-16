@@ -2,15 +2,16 @@
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import type { MarkerOption, ModelInfo, TerrainPiece, Token } from '@/lib/tabletop/geometry';
-import { sampleTerrain, sampleTokens } from '@/lib/tabletop/sampleTable';
+import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { Head } from '@inertiajs/vue3';
 import { onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{ markers: MarkerOption[]; token_options: { id: number; name: string }[] }>();
 
-// Sandbox: the demo table with free-standing models. Nothing leaves this device.
-const STORAGE_KEY = 'tabletop-spike-v1';
-const tokens = ref<Token[]>(sampleTokens.map((t) => ({ ...t })));
+// Sandbox: the demo terrain, with models you add from the character cards and markers from the database. Nothing leaves this device.
+// v2: the first version kept free-standing blank models, which are gone.
+const STORAGE_KEY = 'tabletop-spike-v2';
+const tokens = ref<Token[]>([]);
 const terrain = ref<TerrainPiece[]>(JSON.parse(JSON.stringify(sampleTerrain)));
 
 onMounted(() => {
@@ -19,7 +20,7 @@ onMounted(() => {
         if (Array.isArray(saved?.tokens)) tokens.value = saved.tokens;
         if (Array.isArray(saved?.terrain)) terrain.value = saved.terrain;
     } catch {
-        // storage unavailable: the table simply starts from the demo layout
+        // storage unavailable: the table simply starts empty
     }
 });
 watch(
@@ -41,7 +42,7 @@ const modelChange = (id: string, patch: Partial<ModelInfo>) =>
     (tokens.value = tokens.value.map((t) => (t.id === id ? { ...t, info: { tokens: [], ...t.info, ...patch } } : t)));
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
 const reset = () => {
-    tokens.value = sampleTokens.map((t) => ({ ...t }));
+    tokens.value = [];
     terrain.value = JSON.parse(JSON.stringify(sampleTerrain));
 };
 /** Markers go underneath the models, so a model sitting on a marker is still the one you pick up. */
@@ -64,7 +65,8 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
     <PageBanner title="Tabletop">
         <template #subtitle>
             <div class="px-2 text-sm text-muted-foreground">
-                Preview: a 36" x 36" board with to-scale bases, terrain on several levels and a ruler. Positions stay on this device.
+                Preview: a 36" x 36" board with terrain on several levels and a ruler. Add characters and markers from the database to put them on the
+                table at their real base size. Everything stays on this device.
             </div>
         </template>
     </PageBanner>

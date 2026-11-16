@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
 import {
-    BASE_SIZES_MM,
     AURAS_PER_MODEL,
     DEPLOYMENT_KINDS,
     TABLE_SIZE,
@@ -198,7 +197,6 @@ const note = ref('');
 const view = ref({ x: 0, y: 0, w: TABLE_SIZE });
 const svg = ref<SVGSVGElement | null>(null);
 const newSide = ref<'a' | 'b'>('a');
-const newBase = ref<number>(30);
 
 /** Where the model being moved started, and where it is now: a dashed line with the movement it has cost, kept after the drop until the next touch. */
 const trail = ref<{
@@ -675,15 +673,6 @@ function addCharacter(c: CharacterOption) {
     });
     note.value = `${c.name} added (${c.base_mm} mm base, Sz ${c.sz}, Sp ${c.sp}, ${c.health} health). Drag it into place.`;
     characterDialog.value = false;
-}
-function addToken() {
-    emit('add', {
-        name: `${props.sideNames[newSide.value]} ${tokens.value.filter((t) => t.side === newSide.value).length + 1}`,
-        side: newSide.value,
-        baseMm: newBase.value,
-        x: view.value.x + view.value.w / 2,
-        y: view.value.y + view.value.w / 2,
-    });
 }
 /** Markers belong to whoever placed them, and each side can have this many of each kind on the table. */
 const MARKERS_PER_KIND = 5;
@@ -1468,6 +1457,9 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </DialogContent>
             </Dialog>
 
+            <p v-if="sandbox && !tokens.some((t) => !t.marker)" class="text-sm text-muted-foreground" data-testid="empty-table">
+                The table has no models yet. Add a character to put its model on the table at its real base size, with its Sz, Sp and health.
+            </p>
             <div v-if="sandbox" class="flex flex-wrap items-end gap-2 text-sm">
                 <label>
                     <span class="mb-1 block font-medium">Side</span>
@@ -1476,16 +1468,9 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         <option value="b">{{ sideNames.b }}</option>
                     </select>
                 </label>
-                <label>
-                    <span class="mb-1 block font-medium">Base</span>
-                    <select v-model="newBase" class="rounded-md border bg-background px-2 py-1.5">
-                        <option v-for="mm in BASE_SIZES_MM" :key="mm" :value="mm">{{ mm }} mm</option>
-                    </select>
-                </label>
                 <Button v-if="characterSearchUrl" size="sm" variant="outline" data-testid="character-open" @click="openCharacterDialog"
                     ><User class="mr-1 size-4" />Add a character</Button
                 >
-                <Button size="sm" data-testid="add-token" @click="addToken"><Plus class="mr-1 size-4" />Add model</Button>
                 <Button size="sm" variant="ghost" data-testid="reset-table" @click="resetTable">Reset table</Button>
             </div>
         </div>

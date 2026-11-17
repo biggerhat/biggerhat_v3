@@ -809,6 +809,27 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=model-fix-spot]'), { timeout: 5000 });
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): the table check measures a ready-made table against the Gaining Grounds guidelines`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await hit('[data-testid=table-load]');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            await s.page.$eval('[data-testid=table-check]', (d) => (d.open = true));
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=table-check-item]').length >= 4, { timeout: 8000 });
+            const labels = await s.page.$$eval('[data-testid=table-check-item]', (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ')));
+            if (!labels.some((l) => /Sight-blocking terrain/.test(l))) throw new Error(`expected the sight terrain check: ${labels.join(' | ')}`);
+            if (labels.some((l) => /Open sight lines between the zones/.test(l))) throw new Error('the lanes check needs a deployment');
+            // with a deployment chosen the lanes and the zones are measured too
+            await s.page.select('[data-testid=deployment-select]', 'standard');
+            await s.page.waitForFunction(() => [...document.querySelectorAll('[data-testid=table-check-item]')].some((e) => /Open sight lines between the zones/.test(e.innerText)), { timeout: 8000 });
+            const unreachable = await s.page.$$eval('[data-testid=table-check-item]', (els) => els.map((e) => e.innerText).find((t) => /Unreachable areas/.test(t)));
+            if (!/zone A/.test(unreachable || '')) throw new Error(`the unreachable check should measure each zone: ${unreachable}`);
+            await s.page.select('[data-testid=deployment-select]', 'none');
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

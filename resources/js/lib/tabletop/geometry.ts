@@ -1513,3 +1513,218 @@ export function jumpCheck(start: Pt & { baseMm: number; under?: boolean }, start
         reasons.push(`${name} (Ht ${fmtNum(top)}) is in the way: nothing taller than where it jumped from may be jumped over`);
     return { distance: Math.hypot(end.x - start.x, end.y - start.y), reasons, endElevation: endSupport.elevation };
 }
+
+// ---- the table check (Gaining Grounds One, Table Setup, and Adjusted Rules) ----------------------------------------------------------
+
+/** The area of a shape in square inches. */
+export function shapeArea(shape: Shape): number {
+    if (shape.kind === 'rect') return shape.w * shape.h;
+    if (shape.kind === 'circle') return Math.PI * shape.r ** 2;
+    if (shape.kind === 'ellipse') return Math.PI * shape.rx * shape.ry;
+    const p = shape.points;
+    return Math.abs(p.reduce((sum, a, i) => sum + (a[0] * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * a[1]), 0)) / 2;
+}
+
+export interface TableCheckItem {
+    id: string;
+    /** 'ok' is within what the guide suggests, 'note' is worth a look, 'info' is a count with no target. */
+    status: 'ok' | 'note' | 'info';
+    label: string;
+    text: string;
+}
+
+/** A 50 mm lane (Gaining Grounds: paths and chokepoints should be at least this wide), in inches. */
+export const LANE_MIN = 50 / MM_PER_INCH;
+
+const disrupts = (p: TerrainPiece) => p.traits.some((t) => t === 'blocking' || t === 'dense' || t === 'concealing');
+
+/** Points along a shape's outline, no further apart than `spacing`. */
+function outlinePoints(shape: Shape, spacing = 0.5): Pt[] {
+    const out: Pt[] = [];
+    for (const [a, b] of outlineEdges(shape)) {
+        const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / spacing));
+        for (let i = 0; i < n; i++) out.push({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n });
+    }
+    return out;
+}
+
+/** The smallest gap between two pieces (0 if they touch or overlap), from the outlines of every level. */
+function pieceGap(a: TerrainPiece, b: TerrainPiece): number {
+    let best = Infinity;
+    for (const sa of a.surfaces)
+        for (const sb of b.surfaces) {
+            for (const p of outlinePoints(sa.shape)) best = Math.min(best, distanceToShape(sb.shape, p.x, p.y));
+            for (const p of outlinePoints(sb.shape)) best = Math.min(best, distanceToShape(sa.shape, p.x, p.y));
+        }
+    return best;
+}
+
+/** The fraction of sight lines from one deployment zone to the other that no sight-disrupting terrain interrupts (an estimate: a grid of points in each). */
+function openLanes(pieces: TerrainPiece[], zones: DeploymentZones): number {
+    const grid = (shape: Shape) => {
+        const b = shapeBounds(shape);
+        const pts: Pt[] = [];
+        for (let x = Math.max(0.5, b.minX); x <= Math.min(TABLE_SIZE - 0.5, b.maxX); x += 3)
+            for (let y = Math.max(0.5, b.minY); y <= Math.min(TABLE_SIZE - 0.5, b.maxY); y += 3) if (pointInShape(shape, x, y)) pts.push({ x, y });
+        return pts;
+    };
+    const a = grid(zones.a);
+    const b = grid(zones.b);
+    // Terrain that gets in the way of a model of Sz 2: anything that blocks at that height, anything dense, anything concealing.
+    const stops = pieces.filter((p) =>
+        p.traits.some((t) => t === 'dense' || t === 'concealing' || (t === 'blocking' && p.surfaces.some((s) => s.top >= 2))),
+    );
+    if (!a.length || !b.length) return 0;
+    let open = 0;
+    for (const p of a) for (const q of b) if (!stops.some((piece) => piece.surfaces.some((s) => crossesShape(p, q, s.shape)))) open++;
+    return open / (a.length * b.length);
+}
+
+/**
+ * The table-building guidelines from Gaining Grounds One, measured on the pieces: how much of the terrain disrupts sight and how it is split,
+ * lanes between the deployment zones, gaps narrower than 50mm, and areas nobody can walk to (which should not take up more than a fifth of a
+ * deployment zone). Estimates to help a table's maker; the TO has the last word.
+ */
+export function tableChecks(pieces: TerrainPiece[], zones?: DeploymentZones | null): TableCheckItem[] {
+    const out: TableCheckItem[] = [];
+    if (!pieces.length) return out;
+    const total = pieces.length;
+    const sight = pieces.filter(disrupts);
+    const share = sight.length / total;
+    out.push({
+        id: 'disrupt',
+        status: total < 3 || (share >= 0.65 && share <= 0.95) ? 'ok' : 'note',
+        label: 'Sight-blocking terrain',
+        text: `${sight.length} of ${total} pieces block, thicken or hide sight (${Math.round(share * 100)}%). The guide asks for roughly 80%.`,
+    });
+    const concealing = pieces.filter((p) => p.traits.includes('concealing')).length;
+    const blocking = pieces.filter((p) => p.traits.includes('blocking')).length;
+    const dense = pieces.filter((p) => p.traits.includes('dense'));
+    const denseAlone = dense.filter((p) => !p.traits.includes('concealing') && !p.traits.includes('blocking')).length;
+    const split = concealing + blocking ? concealing / (concealing + blocking) : 0.5;
+    const notes: string[] = [];
+    if (concealing + blocking >= 4 && (split < 0.3 || split > 0.7))
+        notes.push(`${concealing} concealing and ${blocking} blocking is not an even split`);
+    if (dense.length >= 3 && denseAlone / dense.length > 0.5) notes.push('dense terrain is best paired with another trait');
+    const huge = pieces.filter(
+        (p) => p.traits.includes('concealing') && Math.max(...p.surfaces.map((s) => shapeArea(s.shape))) > 0.12 * TABLE_SIZE ** 2,
+    );
+    if (huge.length) notes.push(`${huge.map((p) => p.name).join(', ')} covers a large swath of the table with concealing terrain`);
+    out.push({
+        id: 'mix',
+        status: notes.length ? 'note' : 'ok',
+        label: 'Mix of sight terrain',
+        text: notes.length ? `${notes.join('; ')}.` : `${concealing} concealing and ${blocking} blocking, split reasonably evenly.`,
+    });
+    if (zones) {
+        const open = openLanes(pieces, zones);
+        out.push({
+            id: 'lanes',
+            status: open <= 0.2 ? 'ok' : 'note',
+            label: 'Open sight lines between the zones',
+            text: `About ${Math.round(open * 100)}% of lines from one deployment zone to the other are unhindered. The guide asks for very few.`,
+        });
+    }
+    // gaps narrower than 50mm between solid pieces, or between a piece and the table edge
+    const solid = pieces.filter((p) => p.traits.includes('impassable') || (p.traits.includes('blocking') && p.surfaces.some((s) => s.top >= 1)));
+    const narrow: string[] = [];
+    for (let i = 0; i < solid.length; i++) {
+        for (let j = i + 1; j < solid.length; j++) {
+            const gap = pieceGap(solid[i], solid[j]);
+            if (gap > 0.05 && gap < LANE_MIN) narrow.push(`${solid[i].name} and ${solid[j].name}`);
+        }
+        const b = pieceBounds(solid[i]);
+        const edge = Math.min(b.minX, b.minY, TABLE_SIZE - b.maxX, TABLE_SIZE - b.maxY);
+        if (edge > 0.05 && edge < LANE_MIN) narrow.push(`${solid[i].name} and the table edge`);
+    }
+    out.push({
+        id: 'lanes-width',
+        status: narrow.length ? 'note' : 'ok',
+        label: 'Lanes and chokepoints',
+        text: narrow.length
+            ? `Gaps under 50mm (about ${Math.round(LANE_MIN * 10) / 10}") between ${[...new Set(narrow)].slice(0, 4).join('; ')}. Models must be able to pass.`
+            : 'No gap between solid pieces is narrower than 50mm.',
+    });
+    // areas no one can walk to: a 0.5" grid, blocked within a 30mm base's reach of impassable terrain, flood-filled from the largest open area
+    const impassable = pieces.filter((p) => p.traits.includes('impassable'));
+    const N = Math.round(TABLE_SIZE / 0.5);
+    const r = baseRadius(30);
+    const blockedCell = (i: number, j: number) => {
+        const x = (i + 0.5) * 0.5;
+        const y = (j + 0.5) * 0.5;
+        return impassable.some((p) => p.surfaces.some((s) => distanceToShape(s.shape, x, y) < r));
+    };
+    const blocked = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => blockedCell(i, j)));
+    const label = Array.from({ length: N }, () => new Array<number>(N).fill(0));
+    const sizes: number[] = [0];
+    for (let i = 0; i < N; i++)
+        for (let j = 0; j < N; j++) {
+            if (blocked[i][j] || label[i][j]) continue;
+            const id = sizes.length;
+            sizes.push(0);
+            const stack: [number, number][] = [[i, j]];
+            label[i][j] = id;
+            while (stack.length) {
+                const [ci, cj] = stack.pop()!;
+                sizes[id]++;
+                for (const [di, dj] of [
+                    [1, 0],
+                    [-1, 0],
+                    [0, 1],
+                    [0, -1],
+                ]) {
+                    const ni = ci + di;
+                    const nj = cj + dj;
+                    if (ni < 0 || nj < 0 || ni >= N || nj >= N || blocked[ni][nj] || label[ni][nj]) continue;
+                    label[ni][nj] = id;
+                    stack.push([ni, nj]);
+                }
+            }
+        }
+    const main = sizes.indexOf(Math.max(...sizes.slice(1)));
+    const unreachableAt = (x: number, y: number) => {
+        const i = Math.min(N - 1, Math.floor(x / 0.5));
+        const j = Math.min(N - 1, Math.floor(y / 0.5));
+        return label[i][j] !== main;
+    };
+    let lost = 0;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (label[i][j] !== main) lost++;
+    const lostShare = lost / (N * N);
+    const parts: string[] = [`${Math.round(lostShare * 100)}% of the table cannot be walked to by a 30mm model`];
+    let zoneBad = false;
+    if (zones) {
+        for (const [name, zone] of [
+            ['A', zones.a],
+            ['B', zones.b],
+        ] as const) {
+            const b = shapeBounds(zone);
+            let cells = 0;
+            let bad = 0;
+            for (let x = Math.max(0.25, b.minX); x < Math.min(TABLE_SIZE, b.maxX); x += 0.5)
+                for (let y = Math.max(0.25, b.minY); y < Math.min(TABLE_SIZE, b.maxY); y += 0.5)
+                    if (pointInShape(zone, x, y)) {
+                        cells++;
+                        if (unreachableAt(x, y)) bad++;
+                    }
+            const frac = cells ? bad / cells : 0;
+            parts.push(`${Math.round(frac * 100)}% of zone ${name}`);
+            if (frac > 0.2) zoneBad = true;
+        }
+    }
+    out.push({
+        id: 'unreachable',
+        status: zoneBad ? 'note' : 'ok',
+        label: 'Unreachable areas',
+        text: `${parts.join('; ')}. No more than 20% of a deployment zone should be unreachable, and nothing can be placed there.`,
+    });
+    // movement terrain: counts only
+    const count = (trait: string) => pieces.filter((p) => p.traits.includes(trait)).length;
+    const scatter = pieces.filter((p) => p.traits.includes('destructible') && Math.max(...p.surfaces.map((s) => shapeArea(s.shape))) < 12).length;
+    out.push({
+        id: 'movement',
+        status: 'info',
+        label: 'Movement terrain',
+        text: `${count('impassable')} impassable, ${count('hazardous')} hazardous, ${count('severe')} severe, and ${scatter} small destructible piece${scatter === 1 ? '' : 's'} (scatter). The guide wants mostly impassable with hazardous and severe terrain sparingly.`,
+    });
+    return out;
+}

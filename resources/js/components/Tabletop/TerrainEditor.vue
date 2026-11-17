@@ -17,19 +17,24 @@ import {
     setShapeAngle,
     shapeAngle,
     shapeBounds,
+    tableChecks,
     tallClimbablePieces,
     terrainCoverage,
+    type DeploymentZones,
     type Surface,
+    type TableCheckItem,
     type TerrainPiece,
     type TerrainTrait,
 } from '@/lib/tabletop/geometry';
 import { TERRAIN_KIND_LABELS, TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
 import { ChevronDown, Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
     pieces: TerrainPiece[];
     selectedId: string | null;
+    /** The chosen deployment's zones, for the checks that need them. */
+    zones?: DeploymentZones | null;
     /** Where new pieces appear: the middle of what the board is showing. */
     anchor: { x: number; y: number };
     canUndo: boolean;
@@ -96,6 +101,20 @@ const selected = computed(() => props.pieces.find((p) => p.id === props.selected
 // The guide's advice for a standard table (p.60): roughly 45-65% covered, three to eight standable pieces of Ht 2 or more.
 const coverage = computed(() => Math.round(terrainCoverage(props.pieces) * 100));
 const tall = computed(() => tallClimbablePieces(props.pieces));
+/**
+ * The Gaining Grounds table guidelines, measured on the pieces. They take a moment, so they are worked out only while the fold is open and a
+ * little after the table stops changing.
+ */
+const checkOpen = ref(false);
+const checks = ref<TableCheckItem[]>([]);
+let checkTimer: ReturnType<typeof setTimeout> | null = null;
+function refreshChecks() {
+    if (checkTimer) clearTimeout(checkTimer);
+    if (!checkOpen.value) return;
+    checkTimer = setTimeout(() => (checks.value = tableChecks(props.pieces, props.zones ?? null)), 250);
+}
+watch([() => props.pieces, () => props.zones, checkOpen], refreshChecks);
+const checkNotes = computed(() => checks.value.filter((c) => c.status === 'note').length);
 const coverageOk = computed(() => coverage.value >= 45 && coverage.value <= 65);
 const tallOk = computed(() => tall.value >= 3 && tall.value <= 8);
 
@@ -234,6 +253,32 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 Climbable Ht 2+ pieces: {{ tall }} <span class="text-muted-foreground">(aim for 3-8)</span>
             </div>
         </div>
+
+        <details class="group rounded-md border" data-testid="table-check" @toggle="checkOpen = ($event.target as HTMLDetailsElement).open">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-2 p-3 [&::-webkit-details-marker]:hidden">
+                <span class="font-medium">Table check</span>
+                <span class="min-w-0 flex-1 truncate text-right text-muted-foreground" data-testid="table-check-summary">{{
+                    !checkOpen
+                        ? 'Gaining Grounds guidelines'
+                        : !pieces.length
+                          ? 'add some terrain'
+                          : checkNotes
+                            ? `${checkNotes} to look at`
+                            : 'all within the guide'
+                }}</span>
+                <ChevronDown class="size-4 shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <ul class="space-y-2 border-t p-3 text-xs">
+                <li v-if="!pieces.length" class="text-muted-foreground">Add some terrain to check the table.</li>
+                <li v-for="c in checks" :key="c.id" :data-status="c.status" data-testid="table-check-item">
+                    <span class="font-medium" :class="c.status === 'note' ? 'text-amber-500' : ''">{{ c.label }}</span>
+                    <span class="block text-muted-foreground">{{ c.text }}</span>
+                </li>
+                <li v-if="pieces.length && !zones" class="text-muted-foreground">
+                    Choose a deployment in the Table section to check the lanes between the zones and how much of each is reachable.
+                </li>
+            </ul>
+        </details>
 
         <div class="space-y-2 rounded-md border p-3" data-testid="terrain-add-panel">
             <div class="flex flex-wrap items-end gap-2">

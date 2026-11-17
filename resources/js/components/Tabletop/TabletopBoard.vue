@@ -2095,6 +2095,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @undo="undoTerrain"
                 @clear="commitTerrain([])"
                 :terrain-images="terrainImages"
+                :zones="zones"
                 :inside-shown="!!selectedPiece && cutaway(selectedPiece)"
                 @toggle-inside="toggleInside"
                 :active-surface-id="activeSurface?.id ?? null"

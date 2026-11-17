@@ -23,6 +23,9 @@ import {
     pieceBounds,
     placementProblems,
     placeReach,
+    tableChecks,
+    shapeArea,
+    LANE_MIN,
     jumpCheck,
     IGNORABLE_TRAITS,
     whereabouts,
@@ -1164,4 +1167,59 @@ test('markers: they may overlap models, but not impassable terrain; a model may 
     assert.deepEqual(placementProblems({ ...model, ...spot }, [model, strategy], []), []);
     // a model beside it is fine
     assert.deepEqual(placementProblems(man('n', 'b', 25, 20, 2), [strategy], []), []);
+});
+
+test('the table check: sight terrain share and mix, lanes between zones, narrow gaps and unreachable areas', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const piece = (id, traits, shape, top = 3) => ({ id, name: id, traits, surfaces: [{ id: `${id}-1`, top, shape }] });
+    const byId = (checks, id) => checks.find((c) => c.id === id);
+    assert.deepEqual(tableChecks([], null), []);
+    assert.equal(shapeArea(rect(0, 0, 4, 3)), 12);
+    assert.ok(Math.abs(shapeArea({ kind: 'circle', cx: 0, cy: 0, r: 2 }) - Math.PI * 4) < 1e-9);
+    assert.ok(LANE_MIN > 1.96 && LANE_MIN < 1.98, '50mm is about 1.97 inches');
+
+    // mostly sight terrain, split evenly: fine
+    const good = [piece('a', ['blocking'], rect(2, 2, 4, 4)), piece('b', ['blocking'], rect(10, 2, 4, 4)), piece('c', ['concealing', 'dense'], rect(20, 2, 4, 4)), piece('d', ['concealing'], rect(28, 2, 4, 4)), piece('e', ['impassable'], rect(2, 20, 4, 4))];
+    const checks = tableChecks(good, null);
+    assert.equal(byId(checks, 'disrupt').status, 'ok');
+    assert.equal(byId(checks, 'mix').status, 'ok');
+    assert.equal(byId(checks, 'lanes'), undefined, 'lanes need a deployment');
+    // all concealing and no blocking is not an even split; and one huge concealing piece
+    const lopsided = [1, 2, 3, 4, 5].map((i) => piece(`c${i}`, ['concealing'], rect(2 + i * 6, 2, 4, 4)));
+    assert.equal(byId(tableChecks(lopsided, null), 'mix').status, 'note');
+    const swath = [piece('fog', ['concealing', 'dense'], rect(2, 2, 24, 12), 0.5), piece('x', ['blocking'], rect(30, 30, 3, 3)), piece('y', ['blocking'], rect(2, 30, 3, 3))];
+    assert.match(byId(tableChecks(swath, null), 'mix').text, /large swath/);
+
+    // lanes between the deployment zones: open ground is all open sight, a wall across the middle shuts it
+    const zones = deploymentZones('standard');
+    const open = byId(tableChecks([piece('far', ['impassable'], rect(0, 0, 2, 2))], zones), 'lanes');
+    assert.equal(open.status, 'note');
+    const wall = piece('wall', ['blocking'], rect(0, 17, 36, 2), 4);
+    assert.equal(byId(tableChecks([wall], zones), 'lanes').status, 'ok');
+
+    // gaps narrower than 50mm
+    const close = [piece('p', ['blocking'], rect(5, 5, 4, 4)), piece('q', ['blocking'], rect(10, 5, 4, 4))]; // 1" apart
+    assert.equal(byId(tableChecks(close, null), 'lanes-width').status, 'note');
+    assert.match(byId(tableChecks(close, null), 'lanes-width').text, /p and q/);
+    const wide = [piece('p', ['blocking'], rect(5, 5, 4, 4)), piece('q', ['blocking'], rect(13, 5, 4, 4))]; // 4" apart
+    assert.equal(byId(tableChecks(wide, null), 'lanes-width').status, 'ok');
+    assert.match(byId(tableChecks([piece('e', ['blocking'], rect(1, 10, 4, 4))], null), 'lanes-width').text, /table edge/, 'a piece 1" from the edge');
+
+    // an enclosed pocket inside deployment zone A cannot be walked to
+    const ring = (x, y, s) => [
+        piece(`n${x}`, ['impassable'], rect(x, y, s, 1)),
+        piece(`s${x}`, ['impassable'], rect(x, y + s - 1, s, 1)),
+        piece(`w${x}`, ['impassable'], rect(x, y, 1, s)),
+        piece(`e${x}`, ['impassable'], rect(x + s - 1, y, 1, s)),
+    ];
+    const walled = byId(tableChecks(ring(10, 2, 6), zones), 'unreachable');
+    assert.match(walled.text, /zone A/);
+    const none = byId(tableChecks([piece('lone', ['impassable'], rect(10, 2, 2, 2))], zones), 'unreachable');
+    assert.equal(none.status, 'ok');
+    // a huge impassable block taking over a zone is flagged
+    const block = byId(tableChecks([piece('mass', ['impassable'], rect(0, 0, 36, 7))], zones), 'unreachable');
+    assert.equal(block.status, 'note');
+    const move = byId(tableChecks(good, null), 'movement');
+    assert.equal(move.status, 'info');
+    assert.match(move.text, /1 impassable/);
 });

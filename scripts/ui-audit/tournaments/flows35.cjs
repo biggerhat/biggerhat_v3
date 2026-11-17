@@ -135,6 +135,11 @@ const L = require('./lib.cjs');
             const t = await s.page.$eval('[data-testid=ruler-readout]', (e) => e.innerText);
             // 6.08 - 0.787 - 0.984 = 4.3
             if (!/4\.3"/.test(t)) throw new Error(`ruler readout is not 4.3": ${t}`);
+            // the ruler is a switch: pressing it again puts it away, with what it measured, and models move again
+            await s.page.click('[data-testid=mode-ruler]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=ruler-readout]'), { timeout: 5000 });
+            if ((await s.page.$eval('[data-testid=mode-ruler]', (b) => b.getAttribute('aria-pressed'))) !== 'false') throw new Error('the ruler button should be off');
+            if ((await s.page.$eval('[data-testid=mode-move]', (b) => b.className.includes('bg-primary'))) !== true) throw new Error('turning the ruler off should go back to Move');
         });
         await L.step(`tabletop (${label}): line of sight is clear in the open and blocked by a wall for a shorter model`, s, async () => {
             await openSandbox();

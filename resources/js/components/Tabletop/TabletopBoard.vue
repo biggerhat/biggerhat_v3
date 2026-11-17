@@ -267,7 +267,11 @@ const selectedId = ref<string | null>(null);
 const mode = ref<Mode>('move');
 watch(mode, (m) => {
     if (m !== 'terrain') outline.value = null;
+    // The ruler is a tool: when it is switched off, what it measured goes with it.
+    if (m !== 'ruler') ruler.value = null;
 });
+/** The Ruler button is a switch: on to measure, off to put the ruler away and go back to moving models. */
+const toggleRuler = () => (mode.value = mode.value === 'ruler' ? 'move' : 'ruler');
 
 const level = ref<number | 'all'>('all');
 const deployment = ref<'none' | DeploymentKind>(props.deployment ?? 'none');
@@ -1672,7 +1676,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
         <div class="space-y-4">
             <div class="flex flex-wrap gap-2">
                 <Button :variant="mode === 'move' ? 'default' : 'outline'" size="sm" data-testid="mode-move" @click="mode = 'move'">Move</Button>
-                <Button :variant="mode === 'ruler' ? 'default' : 'outline'" size="sm" data-testid="mode-ruler" @click="mode = 'ruler'"
+                <Button
+                    :variant="mode === 'ruler' ? 'default' : 'outline'"
+                    size="sm"
+                    data-testid="mode-ruler"
+                    :aria-pressed="mode === 'ruler'"
+                    @click="toggleRuler"
                     ><Ruler class="mr-1 size-4" />Ruler</Button
                 >
                 <Button

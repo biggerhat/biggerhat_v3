@@ -30,6 +30,7 @@ class Marker extends Model
     {
         return [
             'is_general' => 'boolean',
+            'is_strategy' => 'boolean',
         ];
     }
 

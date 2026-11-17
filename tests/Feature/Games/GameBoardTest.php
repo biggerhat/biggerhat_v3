@@ -781,3 +781,15 @@ it('remembers the terrain traits a model is unaffected by, and refuses an unknow
     $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['flying']]]])->assertSessionHasErrors('positions.'.$id.'.ignores.0');
     $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['severe', 'severe']]]])->assertSessionHasErrors();
 });
+
+it('does not count Strategy markers towards the five of a kind', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $turf = Marker::factory()->strategy()->create();
+    $scheme = Marker::factory()->create();
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("t$i", $turf->id), range(1, 8))])->assertRedirect();
+    expect($game->fresh()->board_state['markers'])->toHaveCount(8);
+
+    // an ordinary marker is still held to five
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("s$i", $scheme->id), range(1, 6))])->assertSessionHasErrors('upsert');
+});

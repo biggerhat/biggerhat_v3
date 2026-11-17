@@ -17,6 +17,7 @@ use App\Http\Requests\Games\UpdateTerrainRequest;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
+use App\Models\Marker;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
@@ -240,7 +241,10 @@ class GameBoardController extends Controller
                 ]);
             }
 
-            if ($placed->groupBy(fn ($m) => ($m['owner'] ?? 0).'-'.$m['marker_id'])->contains(fn ($group) => $group->count() > self::MARKERS_PER_PLAYER)) {
+            // Strategy markers do not count towards the limit of five of a kind (p.45).
+            $strategy = Marker::query()->whereIn('id', $placed->pluck('marker_id')->unique())->where('is_strategy', true)->pluck('id')->all();
+            $limited = $placed->reject(fn ($m) => in_array((int) $m['marker_id'], $strategy, true));
+            if ($limited->groupBy(fn ($m) => ($m['owner'] ?? 0).'-'.$m['marker_id'])->contains(fn ($group) => $group->count() > self::MARKERS_PER_PLAYER)) {
                 $problem = 'limit';
 
                 return;

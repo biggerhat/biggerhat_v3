@@ -1142,3 +1142,26 @@ test('a jump (p.22): no higher than it began, at most 1" lower, and over nothing
     // level ground to level ground is a legal jump
     assert.deepEqual(jumpCheck({ x: 2, y: 2, baseMm: 30 }, 0, man('j', 'a', 6, 2, 2), []).reasons, []);
 });
+
+test('markers: they may overlap models, but not impassable terrain; a model may not end a move on a Strategy marker', () => {
+    const steep = { id: 's', name: 'Steep', traits: ['blocking', 'impassable'], surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 10, y: 10, w: 4, h: 4 } }] };
+    const marker = (id, x, y, extra = {}) => ({ id, name: `${id} marker`, side: 'a', baseMm: 30, x, y, marker: true, markerId: 1, ...extra });
+    const model = man('m', 'b', 20, 20, 2);
+    // a plain marker on a model is not a problem for either
+    const plain = marker('plain', 20.2, 20);
+    assert.deepEqual(placementProblems(model, [model, plain], []), []);
+    assert.deepEqual(placementProblems(plain, [model, plain], []), []);
+    // a marker on impassable terrain is
+    assert.equal(placementProblems(marker('bad', 12, 12), [], [steep])[0].kind, 'impassable');
+    assert.deepEqual(placementProblems(marker('ok', 5, 5), [], [steep]), []);
+    // a Strategy marker: the model on it is flagged, and goes off it
+    const strategy = marker('turf', 20.2, 20, { strategy: true });
+    const problems = placementProblems(model, [model, strategy], []);
+    assert.equal(problems[0].kind, 'overlap');
+    assert.match(problems[0].text, /Strategy marker but not end a move/);
+    const spot = nearestLegalSpot(model, [model, strategy], []);
+    assert.ok(spot, 'it can be moved off');
+    assert.deepEqual(placementProblems({ ...model, ...spot }, [model, strategy], []), []);
+    // a model beside it is fine
+    assert.deepEqual(placementProblems(man('n', 'b', 25, 20, 2), [strategy], []), []);
+});

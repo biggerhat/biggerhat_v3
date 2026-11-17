@@ -113,3 +113,13 @@ it('ships a built-in image file for every table surface and terrain kind', funct
         expect(file_exists(public_path("images/tabletop/terrain/{$key}.svg")))->toBeTrue("missing terrain {$key}");
     }
 });
+
+it('tells the tabletop which markers are Strategy markers', function () {
+    Feature::for(null)->activate('experiment-tabletop');
+    \App\Models\Marker::factory()->strategy()->create(['name' => 'Turf Marker']);
+    \App\Models\Marker::factory()->create(['name' => 'Scheme Marker']);
+
+    $this->get(route('tools.tabletop'))->assertInertia(fn (Assert $page) => $page
+        ->where('markers', fn ($markers) => collect($markers)->firstWhere('name', 'Turf Marker')['strategy'] === true
+            && collect($markers)->firstWhere('name', 'Scheme Marker')['strategy'] === false));
+});

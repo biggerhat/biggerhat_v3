@@ -91,6 +91,8 @@ export interface Token {
     killed?: boolean;
     /** Beneath the archway it overlaps (a bridge) rather than on top of it. */
     under?: boolean;
+    /** A Strategy marker (p.46): a model may move through it but may not end a move on it. */
+    strategy?: boolean;
     /** Terrain traits this model is unaffected by (p.57): blocking, concealing and dense are about the sight lines it draws; hazardous, severe and impassable about how it moves. */
     ignores?: string[];
 }
@@ -769,6 +771,8 @@ export interface MarkerOption {
     id: number;
     name: string;
     base_mm: number;
+    /** A Strategy marker (p.46). */
+    strategy?: boolean;
 }
 
 /** Search the marker list: every word typed must appear in the name, in any order, ignoring case. Names starting with the text come first. */
@@ -1096,12 +1100,30 @@ export interface PlacementProblem {
  * from play do not count.
  */
 export function placementProblems(token: Token, tokens: Token[], pieces: TerrainPiece[]): PlacementProblem[] {
-    if (token.marker || token.killed) return [];
+    if (token.killed) return [];
     const problems: PlacementProblem[] = [];
+    // A marker may overlap models and other markers, but may not be made on impassable terrain (p.45).
+    if (token.marker) {
+        for (const piece of pieces) {
+            if (piece.traits.includes('impassable') && piece.surfaces.some((s) => supportFraction(token, s.shape) > 0))
+                problems.push({
+                    kind: 'impassable',
+                    text: `is on ${piece.name}, which is impassable (a marker may not be put on impassable terrain)`,
+                });
+        }
+        return problems;
+    }
     for (const other of tokens) {
-        if (other.id === token.id || other.marker || other.killed) continue;
+        if (other.id === token.id || other.killed) continue;
+        // Models usually move through and overlap markers, but a Strategy marker may be moved through, not ended on (p.46).
+        if (other.marker && !other.strategy) continue;
         if (Math.hypot(token.x - other.x, token.y - other.y) < baseRadius(token.baseMm) + baseRadius(other.baseMm) - 1e-6)
-            problems.push({ kind: 'overlap', text: `overlaps ${other.name}'s base` });
+            problems.push({
+                kind: 'overlap',
+                text: other.marker
+                    ? `ends on the ${other.name}: a model may move through a Strategy marker but not end a move on it`
+                    : `overlaps ${other.name}'s base`,
+            });
     }
     for (const piece of pieces) {
         const touches = piece.surfaces.some((s) => supportFraction(token, s.shape) > 0);
@@ -1487,6 +1509,7 @@ export function jumpCheck(start: Pt & { baseMm: number; under?: boolean }, start
             }
         }
     }
-    for (const [name, top] of stoppers) reasons.push(`${name} (Ht ${fmtNum(top)}) is in the way: nothing taller than where it jumped from may be jumped over`);
+    for (const [name, top] of stoppers)
+        reasons.push(`${name} (Ht ${fmtNum(top)}) is in the way: nothing taller than where it jumped from may be jumped over`);
     return { distance: Math.hypot(end.x - start.x, end.y - start.y), reasons, endElevation: endSupport.elevation };
 }

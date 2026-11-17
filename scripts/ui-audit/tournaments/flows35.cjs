@@ -785,6 +785,30 @@ const L = require('./lib.cjs');
             if (!/not a legal jump: a jump cannot end higher than it began/.test(t)) throw new Error(`jumping up is not a jump: ${t}`);
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): a model may move through a Strategy marker but not end a move on it`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=marker-open]');
+            await hit('[data-testid=marker-open]');
+            await s.page.waitForSelector('[data-testid=marker-picker]');
+            await s.page.type('[data-testid=marker-search]', 'strategy');
+            await hit('[data-testid=marker-add]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=marker-picker]'), { timeout: 5000 });
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 1, { timeout: 5000 });
+            const marker = await s.page.$eval('[data-marker=true]', (c) => ({ x: Number(c.getAttribute('cx')), y: Number(c.getAttribute('cy')) }));
+            // the marker says what it is
+            await toBoardTop();
+            const m = await pixel(marker.x, marker.y);
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=strategy-note]');
+            // a model dropped on it is flagged, and can be moved off
+            await dragTo([12, 32], [marker.x + 0.2, marker.y + 0.2]);
+            await s.page.waitForSelector('[data-testid=model-fix-spot]');
+            const t = await s.page.$eval('[data-testid=placement-warning]', (e) => e.innerText);
+            if (!/Strategy marker but not end a move/.test(t)) throw new Error(`expected the Strategy marker rule: ${t}`);
+            await hit('[data-testid=model-fix-spot]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=model-fix-spot]'), { timeout: 5000 });
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

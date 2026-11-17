@@ -216,6 +216,7 @@ const addMarker = (m: { markerId: number; name: string; baseMm: number; side: 'a
         y: m.y,
         marker: true,
         markerId: m.markerId,
+        strategy: props.markers.find((o) => o.id === m.markerId)?.strategy || undefined,
     });
 const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
 </script>

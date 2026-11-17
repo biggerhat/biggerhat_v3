@@ -2189,6 +2189,9 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         >.
                     </div>
                     <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
+                    <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
+                        Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
+                    </p>
                     <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
                         <summary
                             class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"

@@ -246,6 +246,7 @@ const markerTokens = computed<Token[]>(() =>
             y: pm.y,
             marker: true,
             markerId: pm.marker_id,
+            strategy: option?.strategy || undefined,
             locked: props.read_only || !playerFor(pm.owner)?.mine,
         };
     }),

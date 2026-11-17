@@ -44,6 +44,7 @@ const props = defineProps({
 const formInfo = ref({
     name: null,
     base: null,
+    is_strategy: false,
     description: null,
     characters: [] as string[],
     upgrades: [] as string[],
@@ -57,6 +58,7 @@ onMounted(() => {
     formInfo.value.name = props.marker?.name ?? null;
     formInfo.value.description = props.marker?.description ?? null;
     formInfo.value.base = Number(props.marker?.base) ?? null;
+    formInfo.value.is_strategy = !!props.marker?.is_strategy;
 
     props.marker?.characters?.forEach((c: any) => {
         formInfo.value.characters.push(c.slug);
@@ -102,6 +104,18 @@ onMounted(() => {
                                 </SelectContent>
                             </Select>
                             <InputError :message="usePage().props.errors.base" />
+                        </div>
+                        <div class="flex flex-col space-y-1.5">
+                            <label class="flex cursor-pointer items-start gap-2 text-sm">
+                                <input v-model="formInfo.is_strategy" type="checkbox" class="mt-1 size-4" data-testid="marker-is-strategy" />
+                                <span>
+                                    <span class="font-medium">Strategy marker</span>
+                                    <span class="block text-muted-foreground"
+                                        >Neutral to every crew, outside the limit of five of a kind, and a model may move through it but not end a
+                                        move on it. The tabletop applies those rules.</span
+                                    >
+                                </span>
+                            </label>
                         </div>
                         <div class="flex flex-col space-y-1.5">
                             <SearchableMultiselect v-model="formInfo.characters" placeholder="Linked Characters" :options="props.all_characters" />

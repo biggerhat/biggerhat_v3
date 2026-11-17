@@ -20,7 +20,14 @@ import {
     walkBudget,
     heightCover,
     dragShapeHandle,
+    coverAt,
     insertCorner,
+    insideOf as buildingOf,
+    interiorShape,
+    moveOpening,
+    openingSpan,
+    wallProblem,
+    wallSegments,
     movePiece,
     pieceBounds,
     placementProblems,
@@ -29,6 +36,7 @@ import {
     rotatePiece,
     shapeCentre,
     shapeHandles,
+    settleUnder,
     sideSightLines,
     surfaceAt,
     traceLine,
@@ -141,9 +149,17 @@ const activeSurface = computed(() => {
 });
 /** Inches on the table that cover `px` screen pixels, so handles stay finger-sized however far the board is zoomed. */
 const pxToUnits = (px: number): number => (px * view.value.w) / (svg.value?.getBoundingClientRect().width || 640);
-const handles = computed<ShapeHandle[]>(() =>
-    mode.value === 'terrain' && !outline.value && activeSurface.value ? shapeHandles(activeSurface.value.shape) : [],
-);
+const handles = computed<ShapeHandle[]>(() => {
+    if (mode.value !== 'terrain' || outline.value || !activeSurface.value) return [];
+    const openings = (selectedPiece.value?.interior?.openings ?? []).map((o, i) => ({
+        id: `opening-${i}`,
+        kind: 'opening' as const,
+        index: i,
+        x: o.x,
+        y: o.y,
+    }));
+    return [...shapeHandles(activeSurface.value.shape), ...openings];
+});
 /** The dot above a selected piece that turns it, with the middle it turns about. */
 const rotateGrip = computed(() => {
     const piece = selectedPiece.value;
@@ -308,6 +324,8 @@ const trail = ref<{
     sp?: number;
     /** How it is moving: a Walk, a Walk that ignores terrain (Flight), or a place within `range` (Leap) that is not movement at all. */
     kind: MoveKind;
+    /** The building it started inside, if any (a place cannot cross a wall). */
+    inside: string | null;
     range: number;
     whole: boolean;
     /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. */
@@ -612,11 +630,10 @@ function gripAt(p: Point): boolean {
         };
         return true;
     }
+    const rank = (h: ShapeHandle) => (h.kind === 'opening' ? 0 : h.kind === 'mid' ? 2 : 1);
     const hit = [...handles.value]
         .filter((h) => near(h))
-        .sort(
-            (a, b) => (a.kind === 'mid' ? 1 : 0) - (b.kind === 'mid' ? 1 : 0) || Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y),
-        )[0];
+        .sort((a, b) => rank(a) - rank(b) || Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
     if (!hit) return false;
     const before = cloneTerrain(terrain.value);
     if (hit.kind === 'mid') {
@@ -760,6 +777,7 @@ function onDown(e: PointerEvent) {
                 startElevation: elevationOf(hit),
                 sp: hit.marker ? undefined : hit.sp,
                 kind: moveKind.value,
+                inside: buildingOf(hit, terrain.value)?.id ?? null,
                 range: placeRange.value,
                 whole: placeWhole.value,
                 path: [here],
@@ -813,8 +831,15 @@ function onMove(e: PointerEvent) {
             const surfaceId = drag.surfaceId;
             const base = drag.original.surfaces.find((s) => s.id === surfaceId);
             if (!base) return;
-            const shape = dragShapeHandle(base.shape, grip, p);
-            next = movePiece({ ...drag.original, surfaces: drag.original.surfaces.map((s) => (s.id === surfaceId ? { ...s, shape } : s)) }, 0, 0);
+            if (grip.kind === 'opening') {
+                // a door or window slides along the walls
+                const opening = drag.original.interior?.openings[grip.index];
+                if (!opening) return;
+                next = moveOpening(drag.original, opening.id, p);
+            } else {
+                const shape = dragShapeHandle(base.shape, grip, p);
+                next = movePiece({ ...drag.original, surfaces: drag.original.surfaces.map((s) => (s.id === surfaceId ? { ...s, shape } : s)) }, 0, 0);
+            }
         }
         terrain.value = terrain.value.map((x) => (x.id === id ? next : x));
         drag.moved = true;
@@ -842,6 +867,32 @@ function onMove(e: PointerEvent) {
     }
 }
 
+/** What the selected model overlaps that it could be beneath: an archway, or the roof of an enterable building. It is under (inside) it or on top of it. */
+const selectedCover = computed(() => (selected.value && !selected.value.marker ? coverAt(selected.value, terrain.value) : null));
+/** The gaps in an enterable building's walls, ready to draw: where each runs and what it is. */
+const openingSpans = (piece: TerrainPiece) =>
+    (piece.interior?.openings ?? []).flatMap((o) => {
+        const span = openingSpan(piece, o);
+        return span ? [{ id: o.id, kind: o.kind, a: span[0], b: span[1] }] : [];
+    });
+/** Buildings whose roof is faded so the inside shows: one by one, or all of them. */
+const insideShown = ref<Set<string>>(new Set());
+const showAllInsides = ref(false);
+const anyEnterable = computed(() => terrain.value.some((p) => p.interior));
+const cutaway = (p: TerrainPiece): boolean => !!p.interior && (showAllInsides.value || insideShown.value.has(p.id));
+function toggleInside(id: string) {
+    const next = new Set(insideShown.value);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    insideShown.value = next;
+}
+function setUnder(t: Token, under: boolean) {
+    const token = tokens.value.find((x) => x.id === t.id);
+    if (!token) return;
+    if (under) token.under = true;
+    else delete token.under;
+    emit('moved', { ...token });
+}
 /** What a place says, in words: how far it went against its range, and what it skipped (p.17). */
 function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
     const from = { x: tr.from.x, y: tr.from.y, baseMm: tr.baseMm };
@@ -858,6 +909,8 @@ function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
         (p) => p.kind === 'hazardous',
     );
     if (hazards) parts.push('it began or ended in hazardous terrain, which counts as having moved through it');
+    if ((buildingOf(t, terrain.value)?.id ?? null) !== tr.inside)
+        parts.push('a place cannot move a model into or out of a building, so it does not happen: put it back');
     return parts.join(', ') + '. Terrain and sight in between are ignored, and nothing is spent climbing or falling.';
 }
 
@@ -868,6 +921,11 @@ function onUp(e: PointerEvent) {
         const id = drag.id;
         const t = tokens.value.find((x) => x.id === id);
         if (t) {
+            // Put down over a bridge: beneath it if it came from below the deck, on it if it was already that high.
+            if (!t.marker) {
+                if (settleUnder(t, drag.startElevation, terrain.value)) t.under = true;
+                else delete t.under;
+            }
             emit('moved', { ...t });
             const now = elevationOf(t);
             const cost = trailCost.value?.cost ?? pathCost([{ x: t.x, y: t.y, elev: now }]);
@@ -891,6 +949,15 @@ function onUp(e: PointerEvent) {
                             : `${fmt(-walk.left)}" more than a Walk (Sp ${trail.value?.sp})`,
                     );
                 note.value = parts.join(', ') + (legs.length > 1 ? '. Each leg is a straight line.' : '. Straight-line distance.');
+            }
+            // A walk into or out of a building has to go through a door (p.58).
+            const wasInside = trail.value?.inside ?? null;
+            if (trail.value && trail.value.kind !== 'place' && !t.marker && (buildingOf(t, terrain.value)?.id ?? null) !== wasInside) {
+                const legs = [...trail.value.path, { x: t.x, y: t.y }];
+                const walls = terrain.value.flatMap((pc) =>
+                    pc.interior ? legs.slice(1).flatMap((q, i) => wallProblem(pc, legs[i], q, t.baseMm) ?? []) : [],
+                );
+                if (walls.length) note.value = `${t.name} ${[...new Set(walls)].join(' and ')}. ${note.value}`.trim();
             }
             const trouble = problems.value.get(t.id) ?? [];
             if (trouble.length) {
@@ -1025,6 +1092,9 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     @wheel="onWheel"
                 >
                     <defs>
+                        <pattern id="arch-hatch" patternUnits="userSpaceOnUse" width="0.7" height="0.7" patternTransform="rotate(45)">
+                            <line x1="0" y1="0" x2="0" y2="0.7" stroke="hsl(var(--foreground) / 0.45)" stroke-width="0.12" />
+                        </pattern>
                         <pattern
                             v-if="tableChoice?.fit === 'tile'"
                             id="table-tex"
@@ -1133,7 +1203,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         <g
                             v-for="surface in [...piece.surfaces].sort((a, b) => a.top - b.top)"
                             :key="surface.id"
-                            :opacity="dimmed(surface.top) ? 0.12 : 1"
+                            :opacity="dimmed(surface.top) ? 0.12 : cutaway(piece) ? 0.14 : 1"
                         >
                             <component
                                 :is="shapeTag(surface.shape)"
@@ -1151,6 +1221,14 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :stroke="mode === 'terrain' && piece.id === selectedPieceId ? 'hsl(45 95% 55%)' : 'hsl(var(--foreground) / 0.55)'"
                                 :stroke-width="mode === 'terrain' && piece.id === selectedPieceId ? 0.22 : 0.07"
                             />
+                            <component
+                                :is="shapeTag(surface.shape)"
+                                v-if="surface.under !== undefined"
+                                v-bind="shapeAttrs(surface.shape)"
+                                fill="url(#arch-hatch)"
+                                pointer-events="none"
+                                data-testid="archway"
+                            />
                             <text
                                 v-if="surface.top > 0"
                                 :x="labelAt(surface.shape).x"
@@ -1160,7 +1238,47 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 pointer-events="none"
                             >
                                 Ht {{ surface.top }}
+                                <template v-if="surface.under !== undefined">· arch {{ surface.under }}</template>
                             </text>
+                        </g>
+                        <g
+                            v-if="piece.interior"
+                            pointer-events="none"
+                            data-testid="building-interior"
+                            :data-piece="piece.id"
+                            :data-cutaway="cutaway(piece) ? 'true' : undefined"
+                        >
+                            <template v-if="cutaway(piece)">
+                                <component
+                                    :is="shapeTag(interiorShape(piece)!)"
+                                    v-bind="shapeAttrs(interiorShape(piece)!)"
+                                    fill="hsl(var(--foreground) / 0.1)"
+                                    data-testid="building-floor"
+                                />
+                                <line
+                                    v-for="(w, n) in wallSegments(piece)"
+                                    :key="`wall-${n}`"
+                                    :x1="w[0].x"
+                                    :y1="w[0].y"
+                                    :x2="w[1].x"
+                                    :y2="w[1].y"
+                                    stroke="hsl(var(--foreground))"
+                                    stroke-width="0.32"
+                                    stroke-linecap="round"
+                                    data-testid="building-wall"
+                                />
+                            </template>
+                            <line
+                                v-for="o in openingSpans(piece)"
+                                :key="o.id"
+                                :x1="o.a.x"
+                                :y1="o.a.y"
+                                :x2="o.b.x"
+                                :y2="o.b.y"
+                                :stroke="o.kind === 'door' ? 'hsl(35 90% 55%)' : 'hsl(200 85% 65%)'"
+                                :stroke-width="o.kind === 'door' ? 0.34 : 0.2"
+                                :data-testid="`building-${o.kind}`"
+                            />
                         </g>
                     </template>
                     <g v-if="handles.length || rotateGrip" pointer-events="none" data-testid="terrain-handles">
@@ -1277,7 +1395,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             "
                             :data-problem="problems.get(t.id)?.length ? 'true' : undefined"
                             :stroke-width="t.id === selectedId ? 0.16 : 0.08"
-                            :stroke-dasharray="t.marker && t.id !== selectedId ? '0.35 0.25' : undefined"
+                            :stroke-dasharray="t.under ? '0.3 0.2' : t.marker && t.id !== selectedId ? '0.35 0.25' : undefined"
+                            :data-under="t.under ? 'true' : undefined"
                             :data-marker="t.marker ? 'true' : undefined"
                         />
                         <g v-if="t.info?.maxHealth" pointer-events="none" :data-testid="`hp-${t.id}`">
@@ -1536,6 +1655,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button :variant="mode === 'ruler' ? 'default' : 'outline'" size="sm" data-testid="mode-ruler" @click="mode = 'ruler'"
                     ><Ruler class="mr-1 size-4" />Ruler</Button
                 >
+                <Button
+                    v-if="anyEnterable"
+                    :variant="showAllInsides ? 'default' : 'outline'"
+                    size="sm"
+                    :aria-pressed="showAllInsides"
+                    title="Fade the roofs of enterable buildings so the inside shows"
+                    data-testid="show-insides"
+                    @click="showAllInsides = !showAllInsides"
+                    >Insides</Button
+                >
                 <Button v-if="guidedId" :variant="mode === 'sight' ? 'default' : 'outline'" size="sm" data-testid="mode-sight" @click="mode = 'sight'"
                     ><Eye class="mr-1 size-4" />Aim</Button
                 >
@@ -1611,6 +1740,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @demo="commitTerrain(sampleTerrain)"
                 @layout="commitTerrain($event)"
                 :terrain-images="terrainImages"
+                :inside-shown="!!selectedPiece && cutaway(selectedPiece)"
+                @toggle-inside="toggleInside"
                 :active-surface-id="activeSurface?.id ?? null"
                 :vertex-selected="pickedVertex !== null"
                 @select-surface="activeSurfaceId = $event"
@@ -1742,8 +1873,35 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     </div>
                     <div class="text-muted-foreground">
                         At {{ fmt(selected.x) }}", {{ fmt(selected.y) }}". Elevation {{ elevationOf(selected)
-                        }}<span v-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
+                        }}<span v-if="selected.under && selectedCover">
+                            {{ ' ' + (selectedCover.kind === 'building' ? 'inside' : 'under') + ' ' + selectedCover.piece.name }}</span
+                        ><span v-else-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
                         >.
+                    </div>
+                    <div v-if="selectedCover && !selected.locked" class="mt-2 flex flex-wrap items-center gap-1" data-testid="under-toggle">
+                        <Button
+                            size="sm"
+                            :variant="selected.under ? 'default' : 'outline'"
+                            data-testid="model-under"
+                            @click="setUnder(selected, true)"
+                            >{{ selectedCover.kind === 'building' ? 'Inside' : 'Under' }} {{ selectedCover.piece.name }}</Button
+                        >
+                        <Button
+                            size="sm"
+                            :variant="selected.under ? 'outline' : 'default'"
+                            data-testid="model-on"
+                            @click="setUnder(selected, false)"
+                            >{{ selectedCover.kind === 'building' ? 'On the roof' : 'On top' }}</Button
+                        >
+                        <Button
+                            v-if="selectedCover.kind === 'building'"
+                            size="sm"
+                            :variant="cutaway(selectedCover.piece) ? 'default' : 'outline'"
+                            :aria-pressed="cutaway(selectedCover.piece)"
+                            data-testid="model-show-inside"
+                            @click="toggleInside(selectedCover.piece.id)"
+                            >Show inside</Button
+                        >
                     </div>
                     <Button
                         v-if="!selected.marker"

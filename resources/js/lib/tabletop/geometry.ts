@@ -25,6 +25,27 @@ export interface Surface {
     id: string;
     shape: Shape;
     top: number;
+    /**
+     * An archway beneath this level (the open part of a Bridge, p.57): models whose Sz plus elevation fits under this height stand and walk
+     * beneath it, and sight passes under it. Models that are "under" do not stand on this level.
+     */
+    under?: number;
+}
+
+/** A door or window in the wall of an enterable building: the middle of the gap, on the building's outline, and how wide it is. */
+export interface Opening {
+    id: string;
+    kind: 'door' | 'window';
+    x: number;
+    y: number;
+    w: number;
+}
+
+/** What makes a building enterable (the Advanced Building Rules, p.58): the floor inside and the openings in its walls. Its inside is the outline of its lowest level. */
+export interface Interior {
+    /** The elevation of the floor inside: models inside stand at this height, not on the roof. */
+    floor: number;
+    openings: Opening[];
 }
 
 export interface TerrainPiece {
@@ -34,6 +55,8 @@ export interface TerrainPiece {
     kind?: string;
     traits: string[];
     surfaces: Surface[];
+    /** Present when the building can be entered. */
+    interior?: Interior;
 }
 
 /** What the game tracker keeps about a model: health, activation, tokens on it and a note. */
@@ -66,6 +89,8 @@ export interface Token {
     locked?: boolean;
     /** Removed from play in the game tracker: drawn faded. */
     killed?: boolean;
+    /** Beneath the archway it overlaps (a bridge) rather than on top of it. */
+    under?: boolean;
 }
 
 export const mmToInches = (mm: number): number => mm / MM_PER_INCH;
@@ -154,6 +179,44 @@ export function supportFraction(token: Pick<Token, 'x' | 'y' | 'baseMm'>, shape:
     return pts.filter(([x, y]) => pointInShape(shape, x, y)).length / pts.length;
 }
 
+/** The archway a base overlaps (any part of it), if there is one: the level and the piece it belongs to. */
+export function archwayAt(token: Pick<Token, 'x' | 'y' | 'baseMm'>, pieces: TerrainPiece[]): { piece: TerrainPiece; surface: Surface } | null {
+    for (const piece of pieces) {
+        for (const surface of piece.surfaces) {
+            if (surface.under !== undefined && supportFraction(token, surface.shape) > 0) return { piece, surface };
+        }
+    }
+    return null;
+}
+
+/**
+ * What a base overlaps that it could be beneath: an archway (a bridge) or the roof of an enterable building. `roof` is the height of the
+ * highest level, which is how high a model must already be to be on top of it rather than under or inside.
+ */
+export function coverAt(
+    token: Pick<Token, 'x' | 'y' | 'baseMm'>,
+    pieces: TerrainPiece[],
+): { kind: 'archway' | 'building'; piece: TerrainPiece; roof: number } | null {
+    const arch = archwayAt(token, pieces);
+    if (arch) return { kind: 'archway', piece: arch.piece, roof: arch.surface.top };
+    for (const piece of pieces) {
+        const region = interiorShape(piece);
+        if (piece.interior && region && supportFraction(token, region) > 0)
+            return { kind: 'building', piece, roof: Math.max(...piece.surfaces.map((x) => x.top)) };
+    }
+    return null;
+}
+
+/**
+ * Whether a model that has just been put down is under the archway it overlaps (or inside the building it overlaps) or on top of it. One
+ * that came from below the roof is under or inside; one that was already as high is on it. undefined when it overlaps neither.
+ */
+export function settleUnder(token: Pick<Token, 'x' | 'y' | 'baseMm'>, startElevation: number, pieces: TerrainPiece[]): boolean | undefined {
+    const cover = coverAt(token, pieces);
+    if (!cover) return undefined;
+    return startElevation < cover.roof - 1e-9;
+}
+
 export interface Support {
     /** The surface the base rests on, or null for the bare table. */
     surface: Surface | null;
@@ -163,16 +226,22 @@ export interface Support {
 }
 
 /** A base rests on the highest surface holding at least half of it; otherwise on the table (p.19-20). */
-export function restingSupport(token: Pick<Token, 'x' | 'y' | 'baseMm'>, pieces: TerrainPiece[]): Support {
+export function restingSupport(token: Pick<Token, 'x' | 'y' | 'baseMm' | 'under'>, pieces: TerrainPiece[]): Support {
     let best: Support = { surface: null, piece: null, elevation: 0 };
     for (const piece of pieces) {
         // Only climbable terrain supports a base (p.19): woods, fog and the like are drawn but never stood on.
         if (!piece.traits.includes('climbable')) continue;
         for (const surface of piece.surfaces) {
+            // A model beneath an archway, or inside a building, is not standing on it.
+            if (token.under && (surface.under !== undefined || piece.interior)) continue;
             if (surface.top <= best.elevation) continue;
             if (supportFraction(token, surface.shape) >= SUPPORT_MIN) best = { surface, piece, elevation: surface.top };
         }
     }
+    // Inside an enterable building a model stands on its floor.
+    const building = token.under ? insideOf(token, pieces) : null;
+    if (building?.interior && building.interior.floor >= best.elevation)
+        best = { surface: null, piece: building, elevation: building.interior.floor };
     return best;
 }
 
@@ -592,7 +661,7 @@ export function setShapeAngle(shape: Shape, deg: number): Shape {
 
 // ---- reshaping a level by dragging its handles -----------------------------------------------------------------------------------
 
-export type HandleKind = 'corner' | 'edge' | 'radius' | 'vertex' | 'mid';
+export type HandleKind = 'corner' | 'edge' | 'radius' | 'vertex' | 'mid' | 'opening';
 export interface ShapeHandle {
     /** Stable within a shape: corner-0..3, edge-0..3 (rx/ry ends), radius, vertex-N, mid-N (the middle of the edge after corner N). */
     id: string;
@@ -762,6 +831,7 @@ export interface SightResult {
 }
 
 const szOf = (t: Pick<Token, 'sz' | 'marker'>): number => (t.marker ? 0 : (t.sz ?? 1));
+const fmtNum = (n: number): string => String(Math.round(n * 10) / 10);
 
 /** Does the segment p->q touch the shape? Sampled every 0.2", fine against pieces of at least a few inches. */
 function crossesShape(p: Pt, q: Pt, shape: Shape): boolean {
@@ -843,6 +913,10 @@ export function lineOfSight(from: Token, to: Token, tokens: Token[], pieces: Ter
 function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPiece[]) {
     const supportA = restingSupport(from, pieces);
     const supportB = restingSupport(to, pieces);
+    // A model inside a building does not ignore it (p.58): its walls block, except through its doors and windows.
+    const insideA = from.under ? insideOf(from, pieces) : null;
+    const insideB = to.under ? insideOf(to, pieces) : null;
+    const walled = pieces.filter((pc) => pc.interior && (pc.id === insideA?.id || pc.id === insideB?.id));
     const effA = szOf(from) + supportA.elevation;
     const effB = szOf(to) + supportB.elevation;
     const lo = Math.min(effA, effB);
@@ -850,17 +924,23 @@ function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPi
     const shorter = effA <= effB ? from : to;
 
     // Terrain that can matter: blocking or dense, minus what either model stands on or above.
-    const surfaces = pieces.flatMap((piece) =>
-        piece.surfaces
-            .filter((s) => ![supportA, supportB].some((sup) => sup.surface?.id === s.id || (sup.piece?.id === piece.id && s.top <= sup.elevation)))
-            .map((s) => ({
-                piece,
-                s,
-                blocking: piece.traits.includes('blocking'),
-                dense: piece.traits.includes('dense'),
-                concealing: piece.traits.includes('concealing'),
-            })),
-    );
+    const surfaces = pieces
+        .filter((piece) => !walled.includes(piece))
+        .flatMap((piece) =>
+            piece.surfaces
+                .filter(
+                    (s) => ![supportA, supportB].some((sup) => sup.surface?.id === s.id || (sup.piece?.id === piece.id && s.top <= sup.elevation)),
+                )
+                // Sight passes under an archway when both models fit beneath it.
+                .filter((s) => s.under === undefined || hi > s.under + 1e-9)
+                .map((s) => ({
+                    piece,
+                    s,
+                    blocking: piece.traits.includes('blocking'),
+                    dense: piece.traits.includes('dense'),
+                    concealing: piece.traits.includes('concealing'),
+                })),
+        );
 
     // Enemy models in the way, with their effective size.
     const enemies = tokens
@@ -870,6 +950,10 @@ function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPi
     const near = (d: number) => d <= SIGHT_NEAR + 1e-9;
 
     function blocker(p: Pt, q: Pt): string | null {
+        for (const piece of walled) {
+            const wall = wallBlocks(piece, p, q, insideA?.id === piece.id && insideB?.id === piece.id);
+            if (wall) return piece.name;
+        }
         for (const { piece, s, blocking, dense } of surfaces) {
             if (!blocking && !dense) continue;
             if (!crossesShape(p, q, s.shape)) continue;
@@ -1015,6 +1099,17 @@ export function placementProblems(token: Token, tokens: Token[], pieces: Terrain
     for (const piece of pieces) {
         const touches = piece.surfaces.some((s) => supportFraction(token, s.shape) > 0);
         if (!touches) continue;
+        // Under an archway only a model that fits beneath it may stand there (p.57: Sz plus elevation lower than the archway).
+        const arch = token.under ? piece.surfaces.find((s) => s.under !== undefined && supportFraction(token, s.shape) > 0) : undefined;
+        if (arch && arch.under !== undefined) {
+            const height = szOf(token) + restingSupport(token, pieces).elevation;
+            if (height > arch.under + 1e-9)
+                problems.push({
+                    kind: 'impassable',
+                    text: `is too tall (Sz ${fmtNum(height)}) to fit under ${piece.name}, whose archway is ${fmtNum(arch.under)}" high`,
+                });
+            continue;
+        }
         if (piece.traits.includes('impassable')) problems.push({ kind: 'impassable', text: `is on ${piece.name}, which is impassable` });
         else {
             if (piece.traits.includes('hazardous')) problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
@@ -1024,3 +1119,193 @@ export function placementProblems(token: Token, tokens: Token[], pieces: Terrain
     }
     return problems;
 }
+
+// ---- enterable buildings: inside, walls, doors and windows (Advanced Building Rules, p.58) ---------------------------------------------
+
+/** The inside of an enterable building: the outline of its lowest level. null when the piece cannot be entered. */
+export function interiorShape(piece: TerrainPiece): Shape | null {
+    if (!piece.interior || !piece.surfaces.length) return null;
+    return [...piece.surfaces].sort((a, b) => a.top - b.top)[0].shape;
+}
+
+/** The enterable building a model is inside: it is under the roof, and any part of its base is within the interior (p.58). */
+export function insideOf(token: Pick<Token, 'x' | 'y' | 'baseMm' | 'under'>, pieces: TerrainPiece[]): TerrainPiece | null {
+    if (!token.under) return null;
+    for (const piece of pieces) {
+        const region = interiorShape(piece);
+        if (region && supportFraction(token, region) > 0) return piece;
+    }
+    return null;
+}
+
+/** The edges of a shape's outline, as pairs of points. */
+function outlineEdges(shape: Shape): [Pt, Pt][] {
+    const pts = shapeOutline(shape);
+    return pts.map((a, i) => {
+        const b = pts[(i + 1) % pts.length];
+        return [
+            { x: a[0], y: a[1] },
+            { x: b[0], y: b[1] },
+        ];
+    });
+}
+
+/** Where a segment crosses the outline of a shape. */
+export function segmentCrossings(p: Pt, q: Pt, shape: Shape): Pt[] {
+    const out: Pt[] = [];
+    for (const [a, b] of outlineEdges(shape)) {
+        const d = (q.x - p.x) * (b.y - a.y) - (q.y - p.y) * (b.x - a.x);
+        if (Math.abs(d) < 1e-12) continue;
+        const t = ((a.x - p.x) * (b.y - a.y) - (a.y - p.y) * (b.x - a.x)) / d;
+        const u = ((a.x - p.x) * (q.y - p.y) - (a.y - p.y) * (q.x - p.x)) / d;
+        if (t >= -1e-9 && t <= 1 + 1e-9 && u >= -1e-9 && u <= 1 + 1e-9) out.push({ x: p.x + t * (q.x - p.x), y: p.y + t * (q.y - p.y) });
+    }
+    return out;
+}
+
+/** The nearest point on a shape's outline to a point, and which edge it is on. */
+export function nearestOnOutline(shape: Shape, x: number, y: number): { x: number; y: number; edge: number } {
+    let best = { x, y, edge: 0, d: Infinity };
+    outlineEdges(shape).forEach(([a, b], i) => {
+        const len2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * (b.x - a.x) + (y - a.y) * (b.y - a.y)) / len2));
+        const px = a.x + t * (b.x - a.x);
+        const py = a.y + t * (b.y - a.y);
+        const d = Math.hypot(x - px, y - py);
+        if (d < best.d) best = { x: px, y: py, edge: i, d };
+    });
+    return { x: best.x, y: best.y, edge: best.edge };
+}
+
+/** The two ends of an opening's gap, along the wall it is in. null when the building has no inside. */
+export function openingSpan(piece: TerrainPiece, opening: Opening): [Pt, Pt] | null {
+    const region = interiorShape(piece);
+    if (!region) return null;
+    const near = nearestOnOutline(region, opening.x, opening.y);
+    const [a, b] = outlineEdges(region)[near.edge];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const dx = (b.x - a.x) / len;
+    const dy = (b.y - a.y) / len;
+    const h = opening.w / 2;
+    return [
+        { x: near.x - dx * h, y: near.y - dy * h },
+        { x: near.x + dx * h, y: near.y + dy * h },
+    ];
+}
+
+/** Is a point on the wall inside one of the building's openings of an allowed kind, wide enough for `minWidth`? */
+export function passesOpening(piece: TerrainPiece, point: Pt, kinds: Opening['kind'][] = ['door', 'window'], minWidth = 0): boolean {
+    return (piece.interior?.openings ?? []).some((o) => {
+        if (!kinds.includes(o.kind) || o.w + 1e-9 < minWidth) return false;
+        const span = openingSpan(piece, o);
+        return !!span && distanceToSegment(point, span[0], span[1]) <= 0.08;
+    });
+}
+
+/**
+ * Does the building's wall stop a sight line when one of the models is inside it? Models inside the same building see each other. Otherwise the
+ * line must cross the wall through an open door or window; the wall above and below one does not block a line into or out of the building.
+ */
+export function wallBlocks(piece: TerrainPiece, p: Pt, q: Pt, bothInside: boolean): boolean {
+    const region = interiorShape(piece);
+    if (!region || bothInside) return false;
+    const hits = segmentCrossings(p, q, region);
+    if (!hits.length) return false;
+    return !hits.every((h) => passesOpening(piece, h));
+}
+
+/**
+ * What stops a model walking from one spot to another into or out of a building: it has to go through a door (or hole) at least as wide as its
+ * base (p.58); a window does not let it through. null when the walk is fine.
+ */
+export function wallProblem(piece: TerrainPiece, from: Pt, to: Pt, baseMm: number): string | null {
+    const region = interiorShape(piece);
+    if (!region) return null;
+    const need = baseRadius(baseMm) * 2;
+    const hits = segmentCrossings(from, to, region);
+    if (!hits.length) return null;
+    const ok = hits.every((h) => passesOpening(piece, h, ['door'], need - 1e-9));
+    if (ok) return null;
+    const door = (piece.interior?.openings ?? []).some((o) => o.kind === 'door' && o.w + 1e-9 >= need);
+    return door
+        ? `goes through the wall of ${piece.name}: a model enters by a door`
+        : `goes through the wall of ${piece.name}, which has no door as wide as its ${Math.round(need * 10) / 10}" base`;
+}
+
+/** Make a building enterable: a floor at ground level and a door in the middle of its longest wall. */
+export function makeEnterable(piece: TerrainPiece): TerrainPiece {
+    const next: TerrainPiece = { ...piece, interior: { floor: 0, openings: [] } };
+    return addOpening(next, 'door') ?? next;
+}
+
+export const OPENINGS_MAX = 8;
+
+/** A new door or window in the middle of the longest wall that has the fewest openings so far; null when the building is full or has no inside. */
+export function addOpening(piece: TerrainPiece, kind: Opening['kind']): TerrainPiece | null {
+    const region = interiorShape(piece);
+    if (!region || !piece.interior || piece.interior.openings.length >= OPENINGS_MAX) return null;
+    const edges = outlineEdges(region);
+    const used = (i: number) => piece.interior!.openings.filter((o) => nearestOnOutline(region, o.x, o.y).edge === i).length;
+    const edge = edges
+        .map((e, i) => ({ e, i, len: Math.hypot(e[1].x - e[0].x, e[1].y - e[0].y) }))
+        .sort((a, b) => used(a.i) - used(b.i) || b.len - a.len)[0];
+    const w = Math.min(kind === 'door' ? 2 : 1.5, edge.len);
+    const opening: Opening = {
+        id: `o${Date.now().toString(36)}${piece.interior.openings.length}`,
+        kind,
+        x: (edge.e[0].x + edge.e[1].x) / 2,
+        y: (edge.e[0].y + edge.e[1].y) / 2,
+        w,
+    };
+    return { ...piece, interior: { ...piece.interior, openings: [...piece.interior.openings, opening] } };
+}
+
+/** Slide an opening along the walls to the point nearest where it was dragged (snapped to half inches along the wall). */
+export function moveOpening(piece: TerrainPiece, id: string, to: Pt): TerrainPiece {
+    const region = interiorShape(piece);
+    if (!region || !piece.interior) return piece;
+    const near = nearestOnOutline(region, to.x, to.y);
+    const snap = (n: number) => Math.round(n * 2) / 2;
+    const snapped = nearestOnOutline(region, snap(near.x), snap(near.y));
+    return {
+        ...piece,
+        interior: { ...piece.interior, openings: piece.interior.openings.map((o) => (o.id === id ? { ...o, x: snapped.x, y: snapped.y } : o)) },
+    };
+}
+
+/** Take the interior (and so its openings) away again. */
+export function makeSolid(piece: TerrainPiece): TerrainPiece {
+    const next: TerrainPiece = { ...piece };
+    delete next.interior;
+    return next;
+}
+
+/** The stretches of an enterable building's outline that are solid wall: every edge, minus the gaps of its doors and windows. */
+export function wallSegments(piece: TerrainPiece): [Pt, Pt][] {
+    const region = interiorShape(piece);
+    if (!region) return [];
+    const edges = outlineEdges(region);
+    const out: [Pt, Pt][] = [];
+    edges.forEach(([a, b], i) => {
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        if (len < 1e-9) return;
+        const gaps = (piece.interior?.openings ?? [])
+            .filter((o) => nearestOnOutline(region, o.x, o.y).edge === i)
+            .map((o) => {
+                const near = nearestOnOutline(region, o.x, o.y);
+                const t = Math.hypot(near.x - a.x, near.y - a.y) / len;
+                const half = o.w / 2 / len;
+                return [Math.max(0, t - half), Math.min(1, t + half)] as [number, number];
+            })
+            .sort((x, y) => x[0] - y[0]);
+        let from = 0;
+        for (const [g0, g1] of gaps) {
+            if (g0 > from + 1e-6) out.push([lerpPt(a, b, from), lerpPt(a, b, g0)]);
+            from = Math.max(from, g1);
+        }
+        if (from < 1 - 1e-6) out.push([lerpPt(a, b, from), lerpPt(a, b, 1)]);
+    });
+    return out;
+}
+
+const lerpPt = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });

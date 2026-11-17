@@ -23,6 +23,18 @@ import {
     pieceBounds,
     placementProblems,
     placeReach,
+    archwayAt,
+    coverAt,
+    insideOf,
+    wallProblem,
+    makeEnterable,
+    addOpening,
+    moveOpening,
+    makeSolid,
+    nearestOnOutline,
+    openingSpan,
+    OPENINGS_MAX,
+    settleUnder,
     placeCheck,
     mmToInches,
     rotateAbout,
@@ -871,4 +883,121 @@ test('a place is measured from the closest point of the starting base, not by th
     assert.equal(far.within, false);
     assert.ok(Math.abs(far.over - 2) < 1e-9);
     assert.equal(placeCheck(6, start, { x: 10.2, y: 10, baseMm: 30 }).gap, 0, 'overlapping bases have no gap');
+});
+
+test('a bridge: a model beneath the archway is not on the deck, sight passes under it, and only a model that fits may stand there', () => {
+    const bridge = {
+        id: 'br',
+        name: 'Bridge',
+        traits: ['blocking', 'climbable'],
+        surfaces: [{ id: 'br-1', top: 3, under: 2, shape: { kind: 'rect', x: 10, y: 15, w: 12, h: 4 } }],
+    };
+    const below = man('u', 'a', 16, 17, 1, { under: true });
+    const above = man('o', 'a', 16, 17, 1);
+    assert.equal(restingSupport(below, [bridge]).elevation, 0, 'beneath it, on the ground');
+    assert.equal(restingSupport(above, [bridge]).elevation, 3, 'on it, at the deck');
+    assert.equal(archwayAt(below, [bridge])?.piece.id, 'br');
+    assert.equal(archwayAt(man('z', 'a', 2, 2), [bridge]), null);
+    assert.equal(settleUnder(below, 0, [bridge]), true, 'came from the ground: went under');
+    assert.equal(settleUnder(below, 3, [bridge]), false, 'was already as high as the deck: on it');
+    assert.equal(settleUnder(man('z', 'a', 2, 2), 0, [bridge]), undefined);
+    // sight under the bridge: two small models see each other through the archway; a tall one does not
+    const a = man('a', 'a', 4, 17, 1);
+    const b = man('b', 'b', 28, 17, 1);
+    assert.equal(lineOfSight(a, b, [a, b], [bridge]).clear, true, 'Sz 1 models fit under the 2" archway');
+    const tall = man('t', 'b', 28, 17, 3);
+    assert.equal(lineOfSight(a, tall, [a, tall], [bridge]).clear, false, 'a Sz 3 model does not fit, so the deck blocks');
+    const noArch = { ...bridge, surfaces: [{ ...bridge.surfaces[0], under: undefined }] };
+    assert.equal(lineOfSight(a, b, [a, b], [noArch]).clear, false, 'a solid piece of the same size would block');
+    // fit
+    const big = man('g', 'a', 16, 17, 3, { under: true });
+    assert.equal(placementProblems(big, [big], [bridge])[0].kind, 'impassable');
+    assert.match(placementProblems(big, [big], [bridge])[0].text, /too tall/);
+    assert.deepEqual(placementProblems(below, [below], [bridge]), []);
+});
+
+const house = (extra = {}) => ({
+    id: 'h',
+    name: 'House',
+    traits: ['blocking', 'climbable'],
+    surfaces: [{ id: 'h-1', top: 3, shape: { kind: 'rect', x: 10, y: 10, w: 6, h: 6 } }],
+    interior: {
+        floor: 0,
+        openings: [
+            { id: 'door', kind: 'door', x: 13, y: 16, w: 2 },
+            { id: 'win', kind: 'window', x: 16, y: 13, w: 1.5 },
+        ],
+    },
+    ...extra,
+});
+
+test('inside a building: under the roof, standing on the floor, and on the roof when high enough', () => {
+    const h = house();
+    const inside = man('i', 'a', 13, 13, 2, { under: true });
+    const onRoof = man('r', 'a', 13, 13, 2);
+    assert.equal(insideOf(inside, [h])?.id, 'h');
+    assert.equal(insideOf(onRoof, [h]), null, 'not under the roof, so not inside');
+    assert.equal(restingSupport(inside, [h]).elevation, 0, 'on the ground floor');
+    assert.equal(restingSupport(inside, [house({ interior: { ...h.interior, floor: 1 } })]).elevation, 1, 'on a raised floor');
+    assert.equal(restingSupport(onRoof, [h]).elevation, 3, 'on the roof');
+    assert.equal(coverAt(inside, [h])?.kind, 'building');
+    assert.equal(settleUnder(man('g', 'a', 13, 13), 0, [h]), true, 'came from the ground: inside');
+    assert.equal(settleUnder(man('g', 'a', 13, 13), 3, [h]), false, 'came from the roof: on it');
+    assert.equal(insideOf(man('o', 'a', 3, 3, 2, { under: true }), [h]), null);
+});
+
+test('sight into and out of a building goes through its doors and windows, not its walls', () => {
+    const h = house();
+    const inside = man('i', 'a', 13, 13, 2, { under: true });
+    const south = man('s', 'b', 13, 24, 2); // straight out through the door
+    const east = man('e', 'b', 24, 13, 2); // out through the window
+    const west = man('w', 'b', 2, 13, 2); // a wall with no opening
+    assert.equal(lineOfSight(inside, south, [inside, south], [h]).clear, true, 'through the open door');
+    assert.equal(lineOfSight(south, inside, [inside, south], [h]).clear, true, 'and back again');
+    assert.equal(lineOfSight(inside, east, [inside, east], [h]).clear, true, 'through the window');
+    assert.equal(lineOfSight(inside, west, [inside, west], [h]).clear, false, 'the wall blocks');
+    assert.equal(lineOfSight(inside, west, [inside, west], [h]).blockedBy, 'House');
+    const mate = man('m', 'a', 14, 14, 2, { under: true });
+    assert.equal(lineOfSight(inside, mate, [inside, mate], [h]).clear, true, 'two models in the same building see each other');
+    // neither inside: the building is just a blocking piece, openings do not matter
+    const a = man('a', 'a', 13, 4, 2);
+    assert.equal(lineOfSight(a, south, [a, south], [h]).clear, false, 'a line through the whole building is blocked');
+    // the same models on the roof ignore the building they stand on
+    const roof = man('r', 'a', 13, 13, 2);
+    assert.equal(lineOfSight(roof, west, [roof, west], [h]).clear, true, 'a model on the roof sees out over the walls');
+});
+
+test('walking into a building needs a door as wide as the base', () => {
+    const h = house();
+    const door = { x: 13, y: 22 };
+    assert.equal(wallProblem(h, door, { x: 13, y: 13 }, 30), null, 'in through the 2" door');
+    assert.match(wallProblem(h, { x: 22, y: 13 }, { x: 13, y: 13 }, 30), /enters by a door/, 'a window is not a way in');
+    assert.match(wallProblem(h, { x: 2, y: 13 }, { x: 13, y: 13 }, 30), /through the wall of House/, 'through a plain wall');
+    const narrow = house({ interior: { floor: 0, openings: [{ id: 'd', kind: 'door', x: 13, y: 16, w: 1 }] } });
+    assert.match(wallProblem(narrow, door, { x: 13, y: 13 }, 30), /no door as wide/, 'a 1" door is narrower than a 30 mm base');
+    assert.equal(wallProblem(narrow, door, { x: 13, y: 13 }, 20), null, 'but not than a 20 mm base');
+    assert.equal(wallProblem(h, { x: 12, y: 12 }, { x: 14, y: 14 }, 30), null, 'moving about inside crosses no wall');
+});
+
+test('making a building enterable, and moving its doors along the walls', () => {
+    const solid = { id: 's', name: 'Hall', traits: ['blocking', 'climbable'], surfaces: [{ id: 's-1', top: 3, shape: { kind: 'rect', x: 4, y: 4, w: 8, h: 4 } }] };
+    const e = makeEnterable(solid);
+    assert.equal(e.interior.openings.length, 1);
+    const d = e.interior.openings[0];
+    assert.equal(d.kind, 'door');
+    assert.ok(Math.abs(nearestOnOutline(solid.surfaces[0].shape, d.x, d.y).x - d.x) < 1e-9, 'on the outline');
+    const win = addOpening(e, 'window');
+    assert.equal(win.interior.openings.length, 2);
+    assert.notDeepEqual([win.interior.openings[1].x, win.interior.openings[1].y], [d.x, d.y], 'a second opening goes on another wall');
+    const moved = moveOpening(win, d.id, { x: 20, y: 6 });
+    const m = moved.interior.openings.find((o) => o.id === d.id);
+    assert.equal(m.x, 12, 'pulled to the nearest wall');
+    assert.equal(m.y, 6);
+    const span = openingSpan(moved, m);
+    assert.ok(Math.abs(Math.hypot(span[1].x - span[0].x, span[1].y - span[0].y) - m.w) < 1e-9, 'the gap is as wide as the opening');
+    let full = e;
+    for (let i = 0; i < 20; i++) full = addOpening(full, 'window') ?? full;
+    assert.equal(full.interior.openings.length, OPENINGS_MAX);
+    assert.equal(addOpening(full, 'door'), null);
+    assert.equal(makeSolid(e).interior, undefined);
 });

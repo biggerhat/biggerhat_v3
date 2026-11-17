@@ -272,6 +272,69 @@ const L = require('./lib.cjs');
             await L.shot(s, `364-place-walk-${label}`);
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): a model can go under a bridge's archway, climb onto the deck, and a tall one does not fit`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await s.page.waitForSelector('[data-testid=archway]');
+            const under = (id) => s.page.$eval(`[data-testid=token-${id}] circle`, (c) => c.getAttribute('data-under'));
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // the Sz 1 minion walks from the ground under the Ht 3 deck: beneath it, still on the ground
+            await toBoardTop();
+            await dragTo([12, 32], [12, 28]);
+            if ((await under('b3')) !== 'true') throw new Error('a model that came from the ground should be under the bridge');
+            await s.page.waitForSelector('[data-testid=under-toggle]');
+            await L.expectText(s, /Elevation 0\s+under Bridge/);
+            // climb onto the deck with the toggle
+            await hit('[data-testid=model-on]');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=token-b3] circle')?.getAttribute('data-under') === null, { timeout: 5000 });
+            await L.expectText(s, /Elevation 3 on Bridge/);
+            await hit('[data-testid=model-under]');
+            await L.expectText(s, /Elevation 0\s+under Bridge/);
+            // the Sz 3 master does not fit under a 2" archway
+            await toBoardTop();
+            await dragTo([18, 32], [12, 28]);
+            const t = await note();
+            if (!/too tall/.test(t)) throw new Error(`expected a too-tall warning: ${t}`);
+            await L.shot(s, `365-bridge-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a building can be made enterable, shown cut away, and a model walks in by the door but not through a wall`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'building');
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForSelector('[data-testid=terrain-enterable]');
+            await hit('[data-testid=terrain-enterable]');
+            await s.page.waitForSelector('[data-testid=terrain-floor]');
+            await hit('[data-testid=terrain-add-window]');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=terrain-opening]').length === 2, { timeout: 5000 });
+            await s.page.waitForSelector('[data-testid=building-door]');
+            await s.page.waitForSelector('[data-testid=building-window]');
+            const door = await s.page.$eval('[data-testid="handle-opening-0"]', (e) => ({ x: Number(e.dataset.x), y: Number(e.dataset.y) }));
+            // the roof fades and walls show when the inside is shown
+            if (await s.page.$('[data-testid=building-wall]')) throw new Error('walls should only draw in the cutaway');
+            await hit('[data-testid=terrain-show-inside]');
+            await s.page.waitForSelector('[data-testid=building-wall]');
+            await s.page.waitForSelector('[data-testid=building-floor]');
+            await L.shot(s, `366-building-cutaway-${label}`);
+            // walk the Sz 1 minion in through the door, which is in the top wall
+            await hit('[data-testid=mode-move]');
+            await toBoardTop();
+            const outside = { x: door.x, y: door.y - 3 };
+            await dragTo([12, 32], [outside.x, outside.y]);
+            await dragTo([outside.x, outside.y], [door.x, door.y + 1.5]);
+            const t1 = await s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            if (/through the wall/.test(t1)) throw new Error(`the door is a way in: ${t1}`);
+            if ((await s.page.$eval('[data-testid=token-b3] circle', (c) => c.getAttribute('data-under'))) !== 'true') throw new Error('a model in the building should be inside it');
+            await L.expectText(s, /inside Building/);
+            // and out through the left wall, which has no opening
+            await toBoardTop();
+            await dragTo([door.x, door.y + 1.5], [door.x - 6, door.y + 1.5]);
+            const t2 = await s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            if (!/through the wall of Building/.test(t2)) throw new Error(`expected a wall warning: ${t2}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): terrain is drawn with its texture, and a table surface can be chosen and is kept`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');

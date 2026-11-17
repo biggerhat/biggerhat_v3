@@ -16,7 +16,7 @@ class GameBoardMoved implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     /**
-     * @param  array<string, array{x: float|int, y: float|int}>  $positions  Crew member id => inches from the table corner.
+     * @param  array<string, array{x: float|int, y: float|int, under?: bool}>  $positions  Crew member id => inches from the table corner.
      */
     public function __construct(
         public Game $game,

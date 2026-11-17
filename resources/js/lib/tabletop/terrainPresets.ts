@@ -105,8 +105,9 @@ const RAW_PRESETS: TerrainPreset[] = [
     },
     {
         key: 'bridge',
-        label: 'Bridge walkway (Ht 3)',
-        make: (id, x, y) => piece(id, 'Bridge walkway', ['climbable'], [{ id: `${id}-1`, shape: rect(x - 6, y - 1.25, 12, 2.5), top: 3 }]),
+        label: 'Bridge (walkway Ht 3, archway Ht 2 beneath)',
+        make: (id, x, y) =>
+            piece(id, 'Bridge', ['blocking', 'climbable'], [{ id: `${id}-1`, shape: rect(x - 6, y - 1.25, 12, 2.5), top: 3, under: 2 }]),
     },
     {
         key: 'fog',

@@ -8,6 +8,10 @@ import {
     TERRAIN_TRAITS,
     clampSize,
     clampTop,
+    OPENINGS_MAX,
+    addOpening,
+    makeEnterable,
+    makeSolid,
     movePiece,
     rotatePiece,
     setShapeAngle,
@@ -34,6 +38,8 @@ const props = defineProps<{
     drawing?: number | null;
     /** The textures on offer, kind to picture (an admin may have replaced the built-in ones). */
     terrainImages?: Record<string, string>;
+    /** The selected building has its roof faded so the inside shows. */
+    insideShown?: boolean;
     /** The level whose handles are showing on the board. */
     activeSurfaceId?: string | null;
     /** A corner of a drawn outline is picked on the board, so it can be taken away. */
@@ -52,6 +58,7 @@ const emit = defineEmits<{
     cancelDraw: [];
     undoCorner: [];
     selectSurface: [id: string];
+    toggleInside: [id: string];
     removeCorner: [];
 }>();
 
@@ -62,6 +69,25 @@ const backgrounds = computed(() =>
         .map((key) => ({ key, label: TERRAIN_KIND_LABELS[key] ?? key }))
         .sort((a, b) => a.label.localeCompare(b.label)),
 );
+/** Enterable buildings: on or off, a door or window more, a gap's width, one fewer. */
+const toggleEnterable = (piece: TerrainPiece, on: boolean) => replace(on ? makeEnterable(piece) : makeSolid(piece));
+const newOpening = (piece: TerrainPiece, kind: 'door' | 'window') => {
+    const next = addOpening(piece, kind);
+    if (next) replace(next);
+};
+const setOpeningWidth = (piece: TerrainPiece, id: string, w: number) =>
+    piece.interior &&
+    replace({
+        ...piece,
+        interior: {
+            ...piece.interior,
+            openings: piece.interior.openings.map((o) => (o.id === id ? { ...o, w: Math.max(0.5, Math.min(6, Math.round(w * 2) / 2)) } : o)),
+        },
+    });
+const removeOpening = (piece: TerrainPiece, id: string) =>
+    piece.interior && replace({ ...piece, interior: { ...piece.interior, openings: piece.interior.openings.filter((o) => o.id !== id) } });
+const setFloor = (piece: TerrainPiece, n: number) =>
+    piece.interior && replace({ ...piece, interior: { ...piece.interior, floor: Math.max(0, Math.min(12, Math.round(n * 2) / 2)) } });
 function setBackground(piece: TerrainPiece, key: string) {
     const next: TerrainPiece = { ...piece };
     if (key) next.kind = key;
@@ -145,6 +171,17 @@ function removeLevel(piece: TerrainPiece, surfaceId: string) {
     if (piece.surfaces.length > 1) replace({ ...piece, surfaces: piece.surfaces.filter((s) => s.id !== surfaceId) });
 }
 
+/** An archway beneath a level (a bridge): switch it on, or off. The height models must fit under is kept between half an inch and the level's own height. */
+function setArchway(piece: TerrainPiece, s: Surface, on: boolean) {
+    patchSurface(piece, s.id, (x) => {
+        const next: Surface = { ...x };
+        if (on) next.under = Math.max(0.5, Math.min(2, x.top));
+        else delete next.under;
+        return next;
+    });
+}
+const setUnder = (piece: TerrainPiece, s: Surface, n: number) =>
+    patchSurface(piece, s.id, (x) => ({ ...x, under: Math.max(0.5, Math.min(x.top, Math.round(n * 2) / 2)) }));
 const setTop = (piece: TerrainPiece, s: Surface, top: number) => patchSurface(piece, s.id, (x) => ({ ...x, top: clampTop(top) }));
 
 /** Resize about the centre so the piece stays where it was put; a bigger piece is nudged back if it would cross the table edge. */
@@ -292,6 +329,86 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 </select>
             </label>
 
+            <div class="space-y-2 rounded-md border p-2" data-testid="terrain-interior">
+                <label class="flex cursor-pointer items-center gap-1 font-medium" title="A model can walk in through a door and fight inside">
+                    <input
+                        type="checkbox"
+                        :checked="!!selected.interior"
+                        data-testid="terrain-enterable"
+                        @change="toggleEnterable(selected, ($event.target as HTMLInputElement).checked)"
+                    />
+                    Can be entered
+                </label>
+                <template v-if="selected.interior">
+                    <p class="text-muted-foreground">
+                        The inside is the outline of its lowest level. A model inside stands on the floor and is seen only through doors and windows;
+                        drag the dots on the walls to slide them.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <label class="flex items-center gap-1"
+                            >Floor Ht
+                            <input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                max="12"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                data-testid="terrain-floor"
+                                :value="selected.interior.floor"
+                                @change="setFloor(selected, numberFrom($event))"
+                        /></label>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            data-testid="terrain-add-door"
+                            :disabled="selected.interior.openings.length >= OPENINGS_MAX"
+                            @click="newOpening(selected, 'door')"
+                            >Add door</Button
+                        >
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            data-testid="terrain-add-window"
+                            :disabled="selected.interior.openings.length >= OPENINGS_MAX"
+                            @click="newOpening(selected, 'window')"
+                            >Add window</Button
+                        >
+                        <Button
+                            size="sm"
+                            :variant="insideShown ? 'default' : 'outline'"
+                            :aria-pressed="insideShown"
+                            data-testid="terrain-show-inside"
+                            @click="emit('toggleInside', selected.id)"
+                            >Show inside</Button
+                        >
+                    </div>
+                    <div v-for="o in selected.interior.openings" :key="o.id" class="flex flex-wrap items-center gap-2" data-testid="terrain-opening">
+                        <span class="w-14 capitalize">{{ o.kind }}</span>
+                        <label class="flex items-center gap-1"
+                            >W
+                            <input
+                                type="number"
+                                step="0.5"
+                                min="0.5"
+                                max="6"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                data-testid="terrain-opening-w"
+                                :value="o.w"
+                                @change="setOpeningWidth(selected, o.id, numberFrom($event))"
+                            />"</label
+                        >
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-label="Remove this opening"
+                            data-testid="terrain-opening-remove"
+                            @click="removeOpening(selected, o.id)"
+                            ><Trash2 class="size-4"
+                        /></Button>
+                    </div>
+                </template>
+            </div>
+
             <fieldset>
                 <legend class="mb-1 font-medium">Traits</legend>
                 <div class="flex flex-wrap gap-1">
@@ -380,6 +497,33 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                         <Button size="sm" variant="outline" aria-label="Raise" data-testid="terrain-ht-plus" @click="setTop(selected, s, s.top + 0.5)"
                             ><Plus class="size-4"
                         /></Button>
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <label
+                            class="flex cursor-pointer items-center gap-1"
+                            title="A bridge: models that fit under it can stand and walk beneath, and sight passes under it"
+                        >
+                            <input
+                                type="checkbox"
+                                :checked="s.under !== undefined"
+                                data-testid="terrain-archway"
+                                @change="setArchway(selected, s, ($event.target as HTMLInputElement).checked)"
+                            />
+                            Archway beneath
+                        </label>
+                        <label v-if="s.under !== undefined" class="flex items-center gap-1"
+                            >up to Ht
+                            <input
+                                type="number"
+                                step="0.5"
+                                min="0.5"
+                                :max="s.top"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                aria-label="Archway height in inches"
+                                data-testid="terrain-under"
+                                :value="s.under"
+                                @change="setUnder(selected, s, numberFrom($event))"
+                        /></label>
                     </div>
                     <div v-if="s.shape.kind === 'rect'" class="mt-2 flex flex-wrap items-center gap-2">
                         <label class="flex items-center gap-1"

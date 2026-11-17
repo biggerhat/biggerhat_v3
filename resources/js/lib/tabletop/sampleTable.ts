@@ -57,8 +57,8 @@ export const sampleTerrain: TerrainPiece[] = [
     {
         id: 'bridge',
         kind: 'bridge',
-        name: 'Bridge walkway (Ht 3, clear archway beneath)',
-        traits: ['climbable'],
-        surfaces: [{ id: 'bridge-walk', shape: { kind: 'rect', x: 6, y: 27, w: 12, h: 2.5 }, top: 3 }],
+        name: 'Bridge (walkway Ht 3, archway Ht 2 beneath)',
+        traits: ['blocking', 'climbable'],
+        surfaces: [{ id: 'bridge-walk', shape: { kind: 'rect', x: 4, y: 27, w: 12, h: 2.5 }, top: 3, under: 2 }],
     },
 ];

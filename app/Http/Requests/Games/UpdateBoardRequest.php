@@ -22,6 +22,8 @@ class UpdateBoardRequest extends FormRequest
             'positions' => ['required', 'array', 'min:1', 'max:60'],
             'positions.*.x' => ['required', 'numeric', 'between:0,36'],
             'positions.*.y' => ['required', 'numeric', 'between:0,36'],
+            // Beneath the archway of a bridge rather than on top of it.
+            'positions.*.under' => ['nullable', 'boolean'],
         ];
     }
 }

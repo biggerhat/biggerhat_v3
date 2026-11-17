@@ -728,3 +728,42 @@ it('lets any piece be given a texture kind or none, and keeps an outline\'s back
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$outline(null)]])->assertSessionHasNoErrors();
     expect($game->fresh()->board_state['terrain'][0]['kind'] ?? null)->toBeNull();
 });
+
+it('saves an archway beneath a level and refuses a silly one', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $bridge = fn ($under) => ['id' => 'b1', 'name' => 'Bridge', 'traits' => ['blocking', 'climbable'], 'surfaces' => [['id' => 'b1-1', 'top' => 3, 'under' => $under, 'shape' => ['kind' => 'rect', 'x' => 6, 'y' => 12, 'w' => 12, 'h' => 3]]]];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(2)]])->assertSessionHasNoErrors();
+    expect($game->fresh()->board_state['terrain'][0]['surfaces'][0]['under'])->toBe(2);
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(null)]])->assertSessionHasNoErrors();
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(0)]])->assertSessionHasErrors('terrain.0.surfaces.0.under');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(40)]])->assertSessionHasErrors('terrain.0.surfaces.0.under');
+});
+
+it('remembers that a model is under a bridge, and forgets it when it moves out', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'under' => true]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][(string) $m1->id])->toEqual(['x' => 10, 'y' => 13, 'under' => true]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 20, 'y' => 13]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][(string) $m1->id])->toEqual(['x' => 20, 'y' => 13]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 20, 'y' => 13, 'under' => 'maybe']]])->assertSessionHasErrors('positions.'.$m1->id.'.under');
+});
+
+it('saves an enterable building with its doors and windows, and refuses a bad opening', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $house = fn (array $interior) => ['id' => 'h1', 'name' => 'House', 'traits' => ['blocking', 'climbable'], 'interior' => $interior, 'surfaces' => [['id' => 'h1-1', 'top' => 3, 'shape' => ['kind' => 'rect', 'x' => 10, 'y' => 10, 'w' => 6, 'h' => 6]]]];
+    $door = ['id' => 'd1', 'kind' => 'door', 'x' => 13, 'y' => 16, 'w' => 2];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => [$door, [...$door, 'id' => 'w1', 'kind' => 'window', 'x' => 16, 'y' => 13, 'w' => 1.5]]])]])->assertSessionHasNoErrors();
+    $saved = $game->fresh()->board_state['terrain'][0]['interior'];
+    expect($saved['floor'])->toBe(0)->and($saved['openings'])->toHaveCount(2)->and($saved['openings'][1]['kind'])->toBe('window');
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 1, 'openings' => []])]])->assertSessionHasNoErrors();
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => [[...$door, 'kind' => 'portal']]])]])->assertSessionHasErrors('terrain.0.interior.openings.0.kind');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => [[...$door, 'w' => 20]]])]])->assertSessionHasErrors('terrain.0.interior.openings.0.w');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 40, 'openings' => []])]])->assertSessionHasErrors('terrain.0.interior.floor');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => array_fill(0, 9, $door)])]])->assertSessionHasErrors('terrain.0.interior.openings');
+});

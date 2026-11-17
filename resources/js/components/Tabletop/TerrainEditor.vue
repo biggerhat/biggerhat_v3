@@ -23,7 +23,6 @@ import {
     type TerrainPiece,
     type TerrainTrait,
 } from '@/lib/tabletop/geometry';
-import { TERRAIN_LAYOUTS } from '@/lib/tabletop/terrainLayouts';
 import { TERRAIN_KIND_LABELS, TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
 import { Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -51,8 +50,6 @@ const emit = defineEmits<{
     select: [id: string | null];
     undo: [];
     clear: [];
-    demo: [];
-    layout: [pieces: TerrainPiece[]];
     draw: [];
     finishDraw: [];
     cancelDraw: [];
@@ -94,8 +91,6 @@ function setBackground(piece: TerrainPiece, key: string) {
     else delete next.kind;
     replace(next);
 }
-const layoutKey = ref(TERRAIN_LAYOUTS[0].key);
-const layout = computed(() => TERRAIN_LAYOUTS.find((l) => l.key === layoutKey.value) ?? TERRAIN_LAYOUTS[0]);
 const selected = computed(() => props.pieces.find((p) => p.id === props.selectedId) ?? null);
 
 // The guide's advice for a standard table (p.60): roughly 45-65% covered, three to eight standable pieces of Ht 2 or more.
@@ -257,23 +252,10 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 <Button size="sm" variant="ghost" data-testid="outline-cancel" @click="emit('cancelDraw')">Cancel</Button>
             </div>
         </div>
-        <div class="space-y-1" data-testid="terrain-layouts">
-            <div class="flex items-end gap-2">
-                <label class="min-w-0 flex-1 text-sm">
-                    <span class="mb-1 block font-medium">Ready-made table</span>
-                    <select v-model="layoutKey" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="terrain-layout">
-                        <option v-for="l in TERRAIN_LAYOUTS" :key="l.key" :value="l.key">{{ l.label }}</option>
-                    </select>
-                </label>
-                <Button size="sm" variant="outline" data-testid="terrain-layout-load" @click="emit('layout', layout.pieces())">Use it</Button>
-            </div>
-            <p class="text-xs text-muted-foreground">{{ layout.description }} Replaces the table; Undo brings yours back.</p>
-        </div>
         <div class="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" data-testid="terrain-undo" :disabled="!canUndo" @click="emit('undo')"
                 ><Undo2 class="mr-1 size-4" />Undo</Button
             >
-            <Button size="sm" variant="outline" data-testid="terrain-demo" @click="emit('demo')">Demo table</Button>
             <Button size="sm" variant="outline" data-testid="terrain-clear" :disabled="!pieces.length" @click="emit('clear')">Clear table</Button>
         </div>
 

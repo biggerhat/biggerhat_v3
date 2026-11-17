@@ -168,3 +168,16 @@ it('tells the game board page which layouts are yours', function () {
 
     $this->actingAs($me)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->has('layouts', 1)->where('layouts.0.name', 'Kept'));
 });
+
+it('saves a game table with the visibility chosen, private by default, and refuses an unknown one', function () {
+    $me = User::factory()->create();
+    $game = layoutGame($me);
+
+    $this->actingAs($me)->post(route('games.board.layout', $game->uuid), ['name' => 'Quiet'])->assertRedirect();
+    $this->actingAs($me)->post(route('games.board.layout', $game->uuid), ['name' => 'Loud', 'visibility' => 'public'])->assertRedirect();
+    $this->actingAs($me)->post(route('games.board.layout', $game->uuid), ['name' => 'Odd', 'visibility' => 'everyone'])->assertSessionHasErrors('visibility');
+
+    expect(TabletopLayout::where('name', 'Quiet')->first()->visibility())->toBe('private')
+        ->and(TabletopLayout::where('name', 'Loud')->first()->visibility())->toBe('public')
+        ->and(TabletopLayout::where('name', 'Odd')->exists())->toBeFalse();
+});

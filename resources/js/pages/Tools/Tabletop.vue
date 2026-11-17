@@ -232,8 +232,8 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
         <div v-if="fresh" class="mb-3 space-y-2 rounded-md border border-amber-500/60 p-3 text-sm" data-testid="new-table">
             <div class="font-medium">A new table</div>
             <p class="text-muted-foreground">
-                It starts empty. Use the Terrain button to add pieces or a ready-made table, then name it and save it. Your own sandbox table on this
-                device is not touched.
+                It starts empty. Add pieces in the Terrain tab, or press Load table for a ready-made one, then name it and save it. Your own sandbox
+                table on this device is not touched.
             </p>
             <form class="flex flex-wrap items-end gap-2" @submit.prevent="saveNew">
                 <label class="min-w-0 flex-1">
@@ -265,7 +265,8 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             :token-options="props.token_options"
             :table-images="props.table_images"
             :layouts="layouts"
-            :layout-target="{ kind: 'sandbox' }"
+            :layout-target="fresh || editing ? undefined : { kind: 'sandbox' }"
+            :initial-mode="fresh || editing ? 'terrain' : 'move'"
             :signed-in="signedIn"
             :table-image="tableImage"
             :terrain-images="props.terrain_images"

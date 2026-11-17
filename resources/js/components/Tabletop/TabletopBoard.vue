@@ -54,13 +54,14 @@ import CharacterPicker, { type CharacterOption } from '@/components/Tabletop/Cha
 import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import ModelInfoPanel from '@/components/Tabletop/ModelInfoPanel.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import LayoutLibrary from '@/components/Tabletop/LayoutLibrary.vue';
+import TableLoadDialog from '@/components/Tabletop/TableLoadDialog.vue';
+import TableSaveDialog from '@/components/Tabletop/TableSaveDialog.vue';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import type { LayoutSaveTarget, SavedLayout } from '@/lib/tabletop/layouts';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { shapeAttrs, shapeTag } from '@/lib/tabletop/shapeDraw';
 import { newPieceId } from '@/lib/tabletop/terrainPresets';
-import { Eye, Lock, Route, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, User, Users } from 'lucide-vue-next';
+import { Eye, FolderOpen, Lock, Route, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Save, Trash2, User, Users } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 
 type Mode = 'move' | 'ruler' | 'sight' | 'terrain';
@@ -88,6 +89,8 @@ const props = withDefaults(
         layouts?: SavedLayout[];
         layoutTarget?: LayoutSaveTarget;
         signedIn?: boolean;
+        /** The tab the board opens on: models (the default), or terrain for a new or edited table. */
+        initialMode?: 'move' | 'terrain';
         /** The chosen surface (a key from tableImages); without one, or if it is gone, the table is grass. A game keeps it for both players. */
         tableImage?: string | null;
         /** A texture for each kind of terrain: kind => url. It repeats every TEXTURE_TILE inches across the pieces of that kind. */
@@ -264,12 +267,24 @@ watch(
     { deep: true },
 );
 const selectedId = ref<string | null>(null);
-const mode = ref<Mode>('move');
+const mode = ref<Mode>(props.initialMode ?? 'move');
 watch(mode, (m) => {
     if (m !== 'terrain') outline.value = null;
     // The ruler is a tool: when it is switched off, what it measured goes with it.
     if (m !== 'ruler') ruler.value = null;
 });
+/** The two tabs at the top of the side column: working with models, or with terrain. The ruler and the aim are tools of the models tab. */
+const activeTab = computed<'move' | 'terrain'>(() => (mode.value === 'terrain' ? 'terrain' : 'move'));
+const openTab = (tab: 'move' | 'terrain') => {
+    mode.value = tab;
+};
+const tabClass = (active: boolean) =>
+    `flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+        active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+    }`;
+/** Load table and Save table: dialogs. */
+const loadOpen = ref(false);
+const saveOpen = ref(false);
 /** The Ruler button is a switch: on to measure, off to put the ruler away and go back to moving models. */
 const toggleRuler = () => (mode.value = mode.value === 'ruler' ? 'move' : 'ruler');
 
@@ -323,10 +338,12 @@ const DEFAULT_TABLE = 'grass';
 const tableChoice = computed(
     () => props.tableImages?.find((t) => t.key === tableKey.value) ?? props.tableImages?.find((t) => t.key === DEFAULT_TABLE) ?? null,
 );
-/** Put a saved layout on the table: its pieces, and the surface it was set up on when that surface is still on offer. */
-function loadLayout(l: SavedLayout) {
-    commitTerrain(l.terrain);
-    if (l.table_image && props.tableImages?.some((t) => t.key === l.table_image)) chooseTable(l.table_image);
+/** Put a table on the board: its pieces, and the surface it was set up on when that surface is still on offer (undoable like any terrain change). */
+function loadTable(t: { name: string; terrain: TerrainPiece[]; tableImage: string | null }) {
+    commitTerrain(t.terrain);
+    const key = t.tableImage;
+    if (key && props.tableImages?.some((x) => x.key === key)) chooseTable(key);
+    note.value = `Loaded "${t.name}".`;
 }
 function chooseTable(key: string) {
     tableKey.value = key;
@@ -1674,8 +1691,77 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
         </div>
 
         <div class="space-y-4">
-            <div class="flex flex-wrap gap-2">
-                <Button :variant="mode === 'move' ? 'default' : 'outline'" size="sm" data-testid="mode-move" @click="mode = 'move'">Move</Button>
+            <!-- What to work on: models, or terrain -->
+            <div
+                v-if="!readOnly"
+                role="tablist"
+                aria-label="What to work on"
+                class="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+                data-testid="mode-tabs"
+                @keydown.right.prevent="openTab('terrain')"
+                @keydown.left.prevent="openTab('move')"
+            >
+                <button
+                    type="button"
+                    role="tab"
+                    :aria-selected="activeTab === 'move'"
+                    :tabindex="activeTab === 'move' ? 0 : -1"
+                    :class="tabClass(activeTab === 'move')"
+                    data-testid="mode-move"
+                    @click="openTab('move')"
+                >
+                    <Users class="mr-1.5 size-4" />Move
+                </button>
+                <button
+                    type="button"
+                    role="tab"
+                    :aria-selected="activeTab === 'terrain'"
+                    :tabindex="activeTab === 'terrain' ? 0 : -1"
+                    :class="tabClass(activeTab === 'terrain')"
+                    data-testid="mode-terrain"
+                    @click="openTab('terrain')"
+                >
+                    <Mountain class="mr-1.5 size-4" />Terrain
+                </button>
+            </div>
+
+            <!-- The table itself: load or keep one, the view, the surface -->
+            <div class="space-y-2 rounded-md border p-2" data-testid="table-bar">
+                <div class="flex flex-wrap items-center gap-2">
+                    <Button
+                        v-if="layouts !== undefined"
+                        size="sm"
+                        variant="outline"
+                        :disabled="readOnly"
+                        data-testid="table-load"
+                        @click="loadOpen = true"
+                        ><FolderOpen class="mr-1 size-4" />Load table</Button
+                    >
+                    <Button v-if="layoutTarget" size="sm" variant="outline" data-testid="table-save" @click="saveOpen = true"
+                        ><Save class="mr-1 size-4" />Save table</Button
+                    >
+                    <span class="ml-auto flex gap-1">
+                        <Button variant="outline" size="sm" aria-label="Zoom in" @click="zoomBy(0.8)"><Plus class="size-4" /></Button>
+                        <Button variant="outline" size="sm" aria-label="Zoom out" @click="zoomBy(1.25)"><Minus class="size-4" /></Button>
+                        <Button variant="outline" size="sm" aria-label="Fit the whole table" @click="resetView"><Maximize class="size-4" /></Button>
+                    </span>
+                </div>
+                <label v-if="tableImages?.length" class="block text-sm">
+                    <span class="mb-1 block font-medium">Table surface</span>
+                    <select
+                        :value="tableChoice?.key ?? ''"
+                        class="w-full rounded-md border bg-background px-2 py-1.5"
+                        :disabled="readOnly"
+                        data-testid="table-select"
+                        @change="chooseTable(($event.target as HTMLSelectElement).value)"
+                    >
+                        <option v-for="t in tableImages" :key="t.key" :value="t.key">{{ t.name }}</option>
+                    </select>
+                </label>
+            </div>
+
+            <!-- Tools for working with models -->
+            <div v-if="activeTab === 'move'" class="flex flex-wrap items-center gap-2" data-testid="move-tools">
                 <Button
                     :variant="mode === 'ruler' ? 'default' : 'outline'"
                     size="sm"
@@ -1683,16 +1769,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     :aria-pressed="mode === 'ruler'"
                     @click="toggleRuler"
                     ><Ruler class="mr-1 size-4" />Ruler</Button
-                >
-                <Button
-                    v-if="anyEnterable"
-                    :variant="showAllInsides ? 'default' : 'outline'"
-                    size="sm"
-                    :aria-pressed="showAllInsides"
-                    title="Fade the roofs of enterable buildings so the inside shows"
-                    data-testid="show-insides"
-                    @click="showAllInsides = !showAllInsides"
-                    >Insides</Button
                 >
                 <Button v-if="guidedId" :variant="mode === 'sight' ? 'default' : 'outline'" size="sm" data-testid="mode-sight" @click="mode = 'sight'"
                     ><Eye class="mr-1 size-4" />Aim</Button
@@ -1743,17 +1819,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         >Whole base</Button
                     >
                 </template>
-                <Button
-                    v-if="!readOnly"
-                    :variant="mode === 'terrain' ? 'default' : 'outline'"
-                    size="sm"
-                    data-testid="mode-terrain"
-                    @click="mode = 'terrain'"
-                    ><Mountain class="mr-1 size-4" />Terrain</Button
-                >
-                <Button variant="outline" size="sm" aria-label="Zoom in" @click="zoomBy(0.8)"><Plus class="size-4" /></Button>
-                <Button variant="outline" size="sm" aria-label="Zoom out" @click="zoomBy(1.25)"><Minus class="size-4" /></Button>
-                <Button variant="outline" size="sm" aria-label="Fit the whole table" @click="resetView"><Maximize class="size-4" /></Button>
             </div>
 
             <TerrainEditor
@@ -1766,8 +1831,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @select="selectedPieceId = $event"
                 @undo="undoTerrain"
                 @clear="commitTerrain([])"
-                @demo="commitTerrain(sampleTerrain)"
-                @layout="commitTerrain($event)"
                 :terrain-images="terrainImages"
                 :inside-shown="!!selectedPiece && cutaway(selectedPiece)"
                 @toggle-inside="toggleInside"
@@ -1780,16 +1843,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @finish-draw="finishOutline"
                 @cancel-draw="cancelOutline"
                 @undo-corner="undoCorner"
-            />
-            <LayoutLibrary
-                v-if="layoutTarget"
-                :layouts="layouts ?? []"
-                :terrain="terrain"
-                :table-image="tableKey"
-                :target="layoutTarget"
-                :signed-in="!!signedIn"
-                :read-only="readOnly"
-                @load="loadLayout"
             />
 
             <div
@@ -1848,55 +1901,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         >. The higher model gets cover.</span
                     >
                 </div>
-            </div>
-
-            <label class="block text-sm">
-                <span class="mb-1 block font-medium">Level shown</span>
-                <select v-model="level" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="level-select">
-                    <option value="all">All levels</option>
-                    <option v-for="l in levels" :key="l" :value="l">{{ l === 0 ? 'Table only' : `Up to Ht ${l}` }}</option>
-                </select>
-            </label>
-            <div class="space-y-2">
-                <label v-if="tableImages?.length" class="block text-sm">
-                    <span class="mb-1 block font-medium">Table surface</span>
-                    <select
-                        :value="tableChoice?.key ?? ''"
-                        class="w-full rounded-md border bg-background px-2 py-1.5"
-                        :disabled="readOnly"
-                        data-testid="table-select"
-                        @change="chooseTable(($event.target as HTMLSelectElement).value)"
-                    >
-                        <option v-for="t in tableImages" :key="t.key" :value="t.key">{{ t.name }}</option>
-                    </select>
-                </label>
-                <label class="block text-sm">
-                    <span class="mb-1 block font-medium">Deployment</span>
-                    <select
-                        v-model="deployment"
-                        class="w-full rounded-md border bg-background px-2 py-1.5"
-                        data-testid="deployment-select"
-                        @change="deploymentVariant === undefined && (variant = 0)"
-                    >
-                        <option value="none">None</option>
-                        <option v-for="d in DEPLOYMENT_KINDS" :key="d.value" :value="d.value">{{ d.label }}</option>
-                    </select>
-                </label>
-                <label class="flex cursor-pointer items-center gap-2 text-sm" title="The two centre axes and the middle of each 18-inch quarter">
-                    <input v-model="tableLines" type="checkbox" class="size-4" data-testid="table-lines-toggle" />
-                    <span>Show table lines <span class="text-muted-foreground">(centre axes and quarter centres)</span></span>
-                </label>
-                <label v-if="variants.length" class="block text-sm">
-                    <span class="mb-1 block font-medium">Which side</span>
-                    <select
-                        :value="variant"
-                        class="w-full rounded-md border bg-background px-2 py-1.5"
-                        data-testid="deployment-variant"
-                        @change="chooseVariant(Number(($event.target as HTMLSelectElement).value))"
-                    >
-                        <option v-for="v in variants" :key="v.value" :value="v.value">{{ v.label }}</option>
-                    </select>
-                </label>
             </div>
 
             <div v-if="mode !== 'terrain'" class="rounded-md border p-3 text-sm" data-testid="selected-panel">
@@ -2136,10 +2140,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </DialogContent>
             </Dialog>
 
-            <p v-if="sandbox && !tokens.some((t) => !t.marker)" class="text-sm text-muted-foreground" data-testid="empty-table">
+            <p v-if="sandbox && mode !== 'terrain' && !tokens.some((t) => !t.marker)" class="text-sm text-muted-foreground" data-testid="empty-table">
                 The table has no models yet. Add a character to put its model on the table at its real base size, with its Sz, Sp and health.
             </p>
-            <div v-if="sandbox" class="flex flex-wrap items-end gap-2 text-sm">
+            <div v-if="sandbox && mode !== 'terrain'" class="flex flex-wrap items-end gap-2 text-sm">
                 <label>
                     <span class="mb-1 block font-medium">Side</span>
                     <select v-model="newSide" class="rounded-md border bg-background px-2 py-1.5">
@@ -2150,8 +2154,77 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button v-if="characterSearchUrl" size="sm" variant="outline" data-testid="character-open" @click="openCharacterDialog"
                     ><User class="mr-1 size-4" />Add a character</Button
                 >
-                <Button size="sm" variant="ghost" data-testid="reset-table" @click="resetTable">Reset table</Button>
             </div>
+
+            <section class="space-y-3 rounded-md border p-3" aria-labelledby="view-heading" data-testid="view-settings">
+                <h3 id="view-heading" class="text-sm font-semibold">View</h3>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium">Level shown</span>
+                    <select v-model="level" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="level-select">
+                        <option value="all">All levels</option>
+                        <option v-for="l in levels" :key="l" :value="l">{{ l === 0 ? 'Table only' : `Up to Ht ${l}` }}</option>
+                    </select>
+                </label>
+                <div class="space-y-2">
+                    <label class="block text-sm">
+                        <span class="mb-1 block font-medium">Deployment</span>
+                        <select
+                            v-model="deployment"
+                            class="w-full rounded-md border bg-background px-2 py-1.5"
+                            data-testid="deployment-select"
+                            @change="deploymentVariant === undefined && (variant = 0)"
+                        >
+                            <option value="none">None</option>
+                            <option v-for="d in DEPLOYMENT_KINDS" :key="d.value" :value="d.value">{{ d.label }}</option>
+                        </select>
+                    </label>
+                    <label class="flex cursor-pointer items-center gap-2 text-sm" title="The two centre axes and the middle of each 18-inch quarter">
+                        <input v-model="tableLines" type="checkbox" class="size-4" data-testid="table-lines-toggle" />
+                        <span>Show table lines <span class="text-muted-foreground">(centre axes and quarter centres)</span></span>
+                    </label>
+                    <label v-if="variants.length" class="block text-sm">
+                        <span class="mb-1 block font-medium">Which side</span>
+                        <select
+                            :value="variant"
+                            class="w-full rounded-md border bg-background px-2 py-1.5"
+                            data-testid="deployment-variant"
+                            @change="chooseVariant(Number(($event.target as HTMLSelectElement).value))"
+                        >
+                            <option v-for="v in variants" :key="v.value" :value="v.value">{{ v.label }}</option>
+                        </select>
+                    </label>
+                </div>
+
+                <Button
+                    v-if="anyEnterable"
+                    :variant="showAllInsides ? 'default' : 'outline'"
+                    size="sm"
+                    :aria-pressed="showAllInsides"
+                    title="Fade the roofs of enterable buildings so the inside shows"
+                    data-testid="show-insides"
+                    @click="showAllInsides = !showAllInsides"
+                    >Show insides of buildings</Button
+                >
+                <Button v-if="sandbox" size="sm" variant="ghost" data-testid="reset-table" @click="resetTable">Reset table</Button>
+            </section>
+
+            <TableLoadDialog
+                v-if="layouts !== undefined"
+                v-model:open="loadOpen"
+                :layouts="layouts"
+                :signed-in="!!signedIn"
+                :table-images="tableImages"
+                :terrain-images="terrainImages"
+                @load="loadTable"
+            />
+            <TableSaveDialog
+                v-if="layoutTarget"
+                v-model:open="saveOpen"
+                :terrain="terrain"
+                :table-image="tableKey"
+                :target="layoutTarget"
+                :signed-in="!!signedIn"
+            />
         </div>
     </div>
 </template>

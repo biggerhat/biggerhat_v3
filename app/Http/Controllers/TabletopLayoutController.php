@@ -12,6 +12,7 @@ use App\Support\Tabletop\TabletopImages;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -88,6 +89,7 @@ class TabletopLayoutController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:500'],
+            'visibility' => ['sometimes', Rule::in(['private', 'link', 'public'])],
         ]);
         $terrain = $game->board_state['terrain'] ?? [];
         if (! is_array($terrain) || $terrain === []) {
@@ -102,6 +104,7 @@ class TabletopLayoutController extends Controller
             'terrain' => array_values($terrain),
             'table_image' => in_array($game->board_state['table_image'] ?? null, TabletopImages::tableKeys(), true) ? $game->board_state['table_image'] : null,
             'copied_from' => $game->uuid,
+            ...TabletopLayout::flagsFor($data['visibility'] ?? 'private'),
         ]);
 
         return redirect()->back();

@@ -61,6 +61,7 @@ const L = require('./lib.cjs');
             await L.visit(s, '/tools/tabletop');
         };
         const dragTo = async (from, to) => {
+            await toBoardTop();
             const a = await pixel(...from);
             const b = await pixel(...to);
             await s.page.mouse.move(a.x, a.y);
@@ -139,7 +140,7 @@ const L = require('./lib.cjs');
             await s.page.click('[data-testid=mode-ruler]');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=ruler-readout]'), { timeout: 5000 });
             if ((await s.page.$eval('[data-testid=mode-ruler]', (b) => b.getAttribute('aria-pressed'))) !== 'false') throw new Error('the ruler button should be off');
-            if ((await s.page.$eval('[data-testid=mode-move]', (b) => b.className.includes('bg-primary'))) !== true) throw new Error('turning the ruler off should go back to Move');
+            if ((await s.page.$eval('[data-testid=mode-move]', (b) => b.getAttribute('aria-selected'))) !== 'true') throw new Error('turning the ruler off should go back to Move');
         });
         await L.step(`tabletop (${label}): line of sight is clear in the open and blocked by a wall for a shorter model`, s, async () => {
             await openSandbox();
@@ -456,36 +457,26 @@ const L = require('./lib.cjs');
             await L.shot(s, `361-shape-handles-${label}`);
             await hit('[data-testid=reset-table]');
         });
-        await L.step(`tabletop (${label}): a table can be saved, loaded back, shared by link and opened from the link`, s, async () => {
+        await L.step(`tabletop (${label}): a table can be saved from the board and loaded back from the Load table dialog`, s, async () => {
             await openSandbox();
-            await s.page.waitForSelector('[data-testid=layout-library]');
-            const items = () => s.page.$$eval('[data-testid=layout-item]', (e) => e.length);
-            const openLibrary = () => s.page.$eval('[data-testid=layout-library]', (d) => (d.open = true));
-            await openLibrary();
-            const had = await items();
-            await s.page.type('[data-testid=layout-name]', 'Harness table');
-            await hit('[data-testid=layout-save]');
-            await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid=layout-item]').length > n, { timeout: 8000 }, had);
-            const saved = await items();
-            // clear the table, then load the saved one back
+            await s.page.waitForSelector('[data-testid=table-save]');
+            await hit('[data-testid=table-save]');
+            await s.page.waitForSelector('[data-testid=save-dialog]');
+            await s.page.type('[data-testid=save-table-name]', 'Harness table');
+            await s.page.$eval('[data-testid=save-table-confirm]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]'), { timeout: 8000 });
+            // clear the table, then bring it back: the dialog lists the ready-made tables and mine
             await hit('[data-testid=mode-terrain]');
             await hit('[data-testid=terrain-clear]');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
-            await openLibrary();
-            await hit('[data-testid=layout-load]');
+            await hit('[data-testid=table-load]');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            const defaults = await s.page.$$eval('[data-testid=load-default]', (e) => e.length);
+            if (defaults < 4) throw new Error(`expected the ready-made tables in the dialog, saw ${defaults}`);
+            await s.page.waitForSelector('[data-testid=load-mine][data-name="Harness table"]');
+            await L.shot(s, `362-load-dialog-${label}`);
+            await s.page.$eval('[data-testid=load-mine][data-name="Harness table"]', (b) => b.click());
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
-            // share it, and open it by its link
-            await openLibrary();
-            await s.page.select('[data-testid=layout-visibility]', 'link');
-            await s.page.waitForSelector('[data-testid=layout-link]', { timeout: 8000 });
-            const uuid = await s.page.$eval('[data-testid=layout-item]', (e) => e.dataset.uuid);
-            await L.visit(s, `/tools/tabletop?layout=${uuid}`);
-            await s.page.waitForSelector('[data-testid=incoming-layout]');
-            await L.expectText(s, /Harness table/);
-            await L.shot(s, `362-shared-layout-${label}`);
-            await hit('[data-testid=incoming-leave]');
-            await s.page.waitForFunction(() => !document.querySelector('[data-testid=incoming-layout]'), { timeout: 8000 });
-            if ((await items()) !== saved) throw new Error(`expected ${saved} saved tables, saw ${await items()}`);
             await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): the Tabletop page lists my tables with thumbnails, lists public ones, and a table can be edited and saved back`, s, async () => {
@@ -504,6 +495,13 @@ const L = require('./lib.cjs');
             // the gallery search narrows it
             await s.page.type('[data-testid=gallery-search]', 'zzzz-nothing');
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=gallery-table]').length === 0, { timeout: 8000 });
+            // open it in the sandbox to look: a banner says whose it is, and Back returns to the sandbox
+            await hit('[data-testid=table-open]');
+            await s.page.waitForSelector('[data-testid=incoming-layout]');
+            await L.expectText(s, /Harness table/);
+            await L.shot(s, `362-shared-layout-${label}`);
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=my-table]');
             // edit: the table opens in the sandbox, saving is off until something changes
             await hit('[data-testid=table-edit]');
             await s.page.waitForSelector('[data-testid=editing-note]');
@@ -916,6 +914,7 @@ const L = require('./lib.cjs');
                 [34, 34],
                 [31, 34.5],
             ]) {
+                await toBoardTop(); // the controls sit further down the page now, so bring the board back before each tap
                 const at = await pixel(x, y);
                 await s.page.mouse.click(at.x, at.y);
             }
@@ -939,15 +938,20 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             if (/Covered: [1-9]/.test(await stats())) throw new Error(`an empty table has no coverage: ${await stats()}`);
             // A ready-made table fills it in one go and is undoable.
-            await s.page.select('[data-testid=terrain-layout]', 'hills');
-            await click('terrain-layout-load');
+            await click('table-load');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]'), { timeout: 5000 });
             await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             const covered = Number(((await stats()).match(/Covered: (\d+)%/) || [])[1]);
             if (covered < 45 || covered > 65) throw new Error(`a ready-made table should cover 45-65%: ${await stats()}`);
             await L.shot(s, `358-terrain-layout-${label}`);
             await click('terrain-undo');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
-            await click('terrain-demo');
+            await click('table-load');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            await s.page.$eval('[data-testid=load-default][data-key=demo]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]'), { timeout: 5000 });
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             // It is all kept on this device: reload and the demo table is still there, still in terrain mode's reach.
             await openSandbox();

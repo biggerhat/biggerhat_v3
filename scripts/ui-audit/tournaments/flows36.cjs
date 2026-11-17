@@ -205,15 +205,21 @@ const L = require('./lib.cjs');
         });
         await L.step(`board (${label}): the game's table can be saved to my tables`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
-            await carol.page.waitForSelector('[data-testid=layout-library]');
+            await carol.page.waitForSelector('[data-testid=table-save]');
             await carol.page.$eval('[data-testid=mode-terrain]', (b) => b.click());
             await carol.page.waitForSelector('[data-testid=terrain-add]');
             await carol.page.$eval('[data-testid=terrain-add]', (b) => b.click());
             await L.sleep(1200);
-            await carol.page.$eval('[data-testid=layout-library]', (d) => (d.open = true));
-            await carol.page.type('[data-testid=layout-name]', 'Game table');
-            await carol.page.$eval('[data-testid=layout-save]', (b) => b.click());
-            await carol.page.waitForFunction(() => document.querySelectorAll('[data-testid=layout-item]').length >= 1, { timeout: 8000 });
+            await carol.page.$eval('[data-testid=table-save]', (b) => b.click());
+            await carol.page.waitForSelector('[data-testid=save-dialog]');
+            await carol.page.type('[data-testid=save-table-name]', 'Game table');
+            await carol.page.$eval('[data-testid=save-table-confirm]', (b) => b.click());
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]'), { timeout: 8000 });
+            // it is now one of the viewer's tables, in the Load table dialog
+            await carol.page.$eval('[data-testid=table-load]', (b) => b.click());
+            await carol.page.waitForSelector('[data-testid=load-mine][data-name="Game table"]', { timeout: 8000 });
+            await carol.page.keyboard.press('Escape');
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]'), { timeout: 5000 });
             await carol.page.$eval('[data-testid=terrain-clear]', (b) => b.click()); // leave the table as found
             await L.sleep(1200);
         });

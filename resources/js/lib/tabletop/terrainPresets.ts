@@ -234,6 +234,31 @@ const RAW_PRESETS: TerrainPreset[] = [
     },
 ];
 
+/** The names of the textures a piece can be drawn with (the terrain kinds; the same keys as the server's list). */
+export const TERRAIN_KIND_LABELS: Record<string, string> = {
+    building: 'Roof tiles',
+    tower: 'Stone tower',
+    steep: 'Rock face',
+    wall: 'Stone wall',
+    fence: 'Wooden fence',
+    crates: 'Crates',
+    hill: 'Grassy hill',
+    bridge: 'Planks',
+    fog: 'Fog',
+    block: 'Concrete',
+    round: 'Boulders',
+    woods: 'Woods',
+    tree: 'Tree crowns',
+    brambles: 'Brambles',
+    river: 'Water',
+    deepwater: 'Deep water',
+    marsh: 'Marsh',
+    tallgrass: 'Tall grass',
+    rubble: 'Rubble',
+    acid: 'Acid',
+    fire: 'Fire',
+};
+
 /** An id that is unique enough for a table of up to 40 pieces, and safe for the server's id rule. */
 export const newPieceId = (): string => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
 

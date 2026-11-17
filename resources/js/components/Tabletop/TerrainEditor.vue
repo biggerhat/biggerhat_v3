@@ -20,7 +20,7 @@ import {
     type TerrainTrait,
 } from '@/lib/tabletop/geometry';
 import { TERRAIN_LAYOUTS } from '@/lib/tabletop/terrainLayouts';
-import { TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
+import { TERRAIN_KIND_LABELS, TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
 import { Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -32,6 +32,8 @@ const props = defineProps<{
     canUndo: boolean;
     /** Corners placed so far while drawing an outline, or null when not drawing. */
     drawing?: number | null;
+    /** The textures on offer, kind to picture (an admin may have replaced the built-in ones). */
+    terrainImages?: Record<string, string>;
     /** The level whose handles are showing on the board. */
     activeSurfaceId?: string | null;
     /** A corner of a drawn outline is picked on the board, so it can be taken away. */
@@ -54,6 +56,18 @@ const emit = defineEmits<{
 }>();
 
 const presetKey = ref(TERRAIN_PRESETS[0].key);
+/** The backgrounds a piece can be given: every texture the table has. */
+const backgrounds = computed(() =>
+    Object.keys(props.terrainImages ?? {})
+        .map((key) => ({ key, label: TERRAIN_KIND_LABELS[key] ?? key }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+);
+function setBackground(piece: TerrainPiece, key: string) {
+    const next: TerrainPiece = { ...piece };
+    if (key) next.kind = key;
+    else delete next.kind;
+    replace(next);
+}
 const layoutKey = ref(TERRAIN_LAYOUTS[0].key);
 const layout = computed(() => TERRAIN_LAYOUTS.find((l) => l.key === layoutKey.value) ?? TERRAIN_LAYOUTS[0]);
 const selected = computed(() => props.pieces.find((p) => p.id === props.selectedId) ?? null);
@@ -264,6 +278,19 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                     ><Trash2 class="mr-1 size-4" />Delete</Button
                 >
             </div>
+
+            <label v-if="backgrounds.length" class="block">
+                <span class="mb-1 block font-medium">Background</span>
+                <select
+                    class="w-full rounded-md border bg-background px-2 py-1.5"
+                    data-testid="terrain-background"
+                    :value="selected.kind ?? ''"
+                    @change="setBackground(selected, ($event.target as HTMLSelectElement).value)"
+                >
+                    <option value="">Plain (just the height tint)</option>
+                    <option v-for="b in backgrounds" :key="b.key" :value="b.key">{{ b.label }}</option>
+                </select>
+            </label>
 
             <fieldset>
                 <legend class="mb-1 font-medium">Traits</legend>

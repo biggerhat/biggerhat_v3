@@ -718,3 +718,13 @@ it('saves turned rectangles and ovals, and refuses a bad ellipse or angle', func
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece([...$turned, 'angle' => 900])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.angle');
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece(['kind' => 'ellipse', 'cx' => 5, 'cy' => 5, 'rx' => 2])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.ry');
 });
+
+it('lets any piece be given a texture kind or none, and keeps an outline\'s background', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $outline = fn (?string $kind) => ['id' => 'o1', 'name' => 'Outline', 'kind' => $kind, 'traits' => [], 'surfaces' => [['id' => 'o1-1', 'top' => 0, 'shape' => ['kind' => 'poly', 'points' => [[1, 1], [6, 1], [6, 5], [3, 7]]]]]];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$outline('marsh')]])->assertSessionHasNoErrors();
+    expect($game->fresh()->board_state['terrain'][0]['kind'])->toBe('marsh');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$outline(null)]])->assertSessionHasNoErrors();
+    expect($game->fresh()->board_state['terrain'][0]['kind'] ?? null)->toBeNull();
+});

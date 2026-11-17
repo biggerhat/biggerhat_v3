@@ -1475,6 +1475,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @clear="commitTerrain([])"
                 @demo="commitTerrain(sampleTerrain)"
                 @layout="commitTerrain($event)"
+                :terrain-images="terrainImages"
                 :active-surface-id="activeSurface?.id ?? null"
                 :vertex-selected="pickedVertex !== null"
                 @select-surface="activeSurfaceId = $event"

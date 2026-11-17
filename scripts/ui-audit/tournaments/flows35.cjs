@@ -287,6 +287,21 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=terrain-remove-corner]').disabled, { timeout: 5000 });
             await hit('[data-testid=terrain-remove-corner]');
             await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid^="handle-vertex-"]').length === n, { timeout: 5000 }, before);
+            // any piece, an outline included, can be given a background
+            const textured = (kind) =>
+                s.page.waitForFunction(
+                    (k, want) => [...document.querySelectorAll('[data-testid=terrain-texture]')].some((e) => e.getAttribute('data-kind') === k) === want,
+                    { timeout: 5000 },
+                    kind,
+                    true,
+                );
+            await s.page.select('[data-testid=terrain-background]', 'woods');
+            await textured('woods');
+            await s.page.select('[data-testid=terrain-background]', '');
+            await s.page.waitForFunction(
+                () => ![...document.querySelectorAll('[data-testid=terrain-texture]')].some((e) => e.getAttribute('data-kind') === 'woods'),
+                { timeout: 5000 },
+            );
             await L.shot(s, `361-shape-handles-${label}`);
             await hit('[data-testid=reset-table]');
         });

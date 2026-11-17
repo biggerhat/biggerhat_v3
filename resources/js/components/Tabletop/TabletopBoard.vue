@@ -1811,7 +1811,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     data-testid="mode-move"
                     @click="openTab('move')"
                 >
-                    <Users class="mr-1.5 size-4" />Move
+                    <Users class="mr-1.5 size-4" />Models
                 </button>
                 <button
                     type="button"
@@ -1920,7 +1920,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             <div
                 v-if="activeTab === 'move'"
                 role="tabpanel"
-                aria-label="Move"
+                aria-label="Models"
                 class="flex flex-wrap items-center gap-2 rounded-md border p-2"
                 data-testid="move-tools"
             >
@@ -2044,7 +2044,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             <div v-if="guidedId && (mode === 'sight' || sideLines.length)" class="space-y-2 rounded-md border p-3 text-sm" data-testid="guide-panel">
                 <p v-if="mode === 'sight'" class="text-muted-foreground" data-testid="guide-hint">
                     Press or drag on the board to aim {{ tokens.find((t) => t.id === guidedId)?.name }}'s guidelines, or press a model or marker to
-                    point at it. The Move tab goes back to moving models.
+                    point at it. The Models tab goes back to moving models.
                 </p>
                 <div v-if="sideLines.length" data-testid="side-readout">
                     <div v-for="l in sideLines" :key="l.side" data-testid="side-summary">

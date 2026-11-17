@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
+import TableThumbnail from '@/components/Tabletop/TableThumbnail.vue';
 import { Button } from '@/components/ui/button';
+import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import type { RequestPayload } from '@inertiajs/core';
 import type { MarkerOption, ModelInfo, TerrainPiece, Token } from '@/lib/tabletop/geometry';
 import type { SharedData } from '@/types';
 import type { SavedLayout } from '@/lib/tabletop/layouts';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
+import { TERRAIN_LAYOUTS } from '@/lib/tabletop/terrainLayouts';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -28,6 +31,21 @@ const props = defineProps<{
 const page = usePage<SharedData>();
 const signedIn = computed(() => !!page.props.auth.user);
 const toast = useToast();
+const confirm = useConfirm();
+/** The page's title and the line under it, by what the page is being used for. */
+const heading = computed(() =>
+    props.fresh
+        ? { title: 'New table', subtitle: 'Set up terrain on a 36" x 36" table, then name it and save it to your tables.' }
+        : props.editing
+          ? { title: 'Edit table', subtitle: 'Change the terrain and surface of one of your saved tables, then save the changes.' }
+          : props.incoming_layout
+            ? { title: 'Tabletop', subtitle: 'A saved table, opened on the board to look at. Your own sandbox table has not been changed.' }
+            : {
+                  title: 'Tabletop',
+                  subtitle:
+                      'Preview: a 36" x 36" board with terrain on several levels and a ruler. Add characters and markers from the database to put them on the table at their real base size. Everything stays on this device.',
+              },
+);
 /** While a layout opened by link is on the table nothing is written to this device, so the sandbox table kept here is not lost. */
 const previewing = ref(!!props.incoming_layout || props.fresh);
 const keepIncoming = () => (previewing.value = false);
@@ -146,27 +164,47 @@ const reset = () => {
     tokens.value = [];
     terrain.value = props.fresh ? [] : JSON.parse(JSON.stringify(sampleTerrain));
 };
-/** A new table: name it and keep it, then go back to the list. Needs at least one piece of terrain. */
+/** A new table: name it, say who can see it and keep it, then go back to the list. Needs at least one piece of terrain. */
 const newName = ref('');
+const newDescription = ref('');
+const newVisibility = ref<SavedLayout['visibility']>('private');
+const newError = ref('');
 function saveNew() {
     const name = newName.value.trim();
     if (!name || !terrain.value.length || saving.value) return;
     saving.value = true;
+    newError.value = '';
     router.post(
         route('tools.tabletop.layouts.store'),
-        { name, terrain: JSON.parse(JSON.stringify(terrain.value)), table_image: tableImage.value } as unknown as RequestPayload,
+        {
+            name,
+            description: newDescription.value.trim() || null,
+            visibility: newVisibility.value,
+            terrain: JSON.parse(JSON.stringify(terrain.value)),
+            table_image: tableImage.value,
+        } as unknown as RequestPayload,
         {
             onSuccess: () => {
                 toast.success(`Saved "${name}"`);
                 router.visit(route('tools.tabletop.tables'));
             },
             onError: (e) => {
-                toast.error(Object.values(e)[0] ?? 'That did not work');
+                newError.value = Object.values(e)[0] ?? 'That did not work';
             },
             onFinish: () => (saving.value = false),
         },
     );
 }
+/** Ready-made tables to begin from, instead of an empty board. */
+const startingPoints = TERRAIN_LAYOUTS.map((l) => ({ key: l.key, name: l.label, description: l.description, terrain: l.pieces() }));
+const startFrom = (pieces: TerrainPiece[]) => (terrain.value = JSON.parse(JSON.stringify(pieces)));
+/** Leaving with work on the table asks first. */
+async function leave(hasWork: boolean, title: string, message: string) {
+    if (hasWork && !(await confirm({ title, message, confirmLabel: 'Leave', destructive: true }))) return;
+    router.visit(route('tools.tabletop.tables'));
+}
+const cancelNew = () => leave(terrain.value.length > 0, 'Discard this table?', 'The terrain you have set up will be lost.');
+const leaveEditing = () => leave(dirty.value, 'Leave without saving?', 'The changes you made to this table will be lost.');
 /** Markers go underneath the models, so a model sitting on a marker is still the one you pick up. */
 const addMarker = (m: { markerId: number; name: string; baseMm: number; side: 'a' | 'b'; x: number; y: number }) =>
     tokens.value.unshift({
@@ -183,17 +221,14 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
 </script>
 
 <template>
-    <Head title="Tabletop (preview)" />
-    <PageBanner title="Tabletop">
+    <Head :title="`${heading.title} (preview)`" />
+    <PageBanner :title="heading.title">
         <template #subtitle>
-            <div class="px-2 text-sm text-muted-foreground">
-                Preview: a 36" x 36" board with terrain on several levels and a ruler. Add characters and markers from the database to put them on the
-                table at their real base size. Everything stays on this device.
-            </div>
+            <div class="px-2 text-sm text-muted-foreground" data-testid="page-subtitle">{{ heading.subtitle }}</div>
         </template>
     </PageBanner>
     <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
-        <div v-if="incoming_layout" class="mb-3 space-y-2 rounded-md border border-amber-500/60 p-3 text-sm" data-testid="incoming-layout">
+        <div v-if="incoming_layout" class="mb-3 space-y-2 rounded-md border bg-muted/40 p-3 text-sm" data-testid="incoming-layout">
             <div class="font-medium">
                 {{
                     editing
@@ -214,9 +249,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             </p>
             <div class="flex flex-wrap gap-2">
                 <Button v-if="editing" size="sm" data-testid="editing-save" :disabled="!dirty || saving" @click="saveChanges">Save changes</Button>
-                <Button v-if="editing" size="sm" variant="outline" as-child data-testid="editing-back"
-                    ><Link :href="route('tools.tabletop.tables')">Back to my tables</Link></Button
-                >
+                <Button v-if="editing" size="sm" variant="outline" data-testid="editing-back" @click="leaveEditing">Back to my tables</Button>
                 <Button v-if="signedIn" size="sm" :variant="editing ? 'outline' : 'default'" data-testid="incoming-copy" @click="copyIncoming">{{
                     editing ? 'Save as a new table' : 'Save a copy to my tables'
                 }}</Button>
@@ -229,32 +262,76 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
                 >
             </div>
         </div>
-        <div v-if="fresh" class="mb-3 space-y-2 rounded-md border border-amber-500/60 p-3 text-sm" data-testid="new-table">
-            <div class="font-medium">A new table</div>
-            <p class="text-muted-foreground">
-                It starts empty. Add pieces in the Terrain tab, or press Load table for a ready-made one, then name it and save it. Your own sandbox
-                table on this device is not touched.
-            </p>
+        <div
+            v-if="fresh"
+            class="sticky top-0 z-20 -mx-2 mb-3 space-y-1 border-b bg-background/95 px-2 py-2 backdrop-blur sm:mx-0 sm:rounded-md sm:border sm:px-3"
+            data-testid="new-table"
+        >
             <form class="flex flex-wrap items-end gap-2" @submit.prevent="saveNew">
-                <label class="min-w-0 flex-1">
+                <label class="min-w-[10rem] flex-1 text-sm">
                     <span class="mb-1 block font-medium">Name</span>
                     <input
                         v-model="newName"
                         maxlength="80"
                         placeholder="e.g. City streets"
                         class="w-full rounded-md border bg-background px-2 py-1.5"
+                        :aria-describedby="newError ? 'new-table-error' : undefined"
+                        :aria-invalid="!!newError"
                         data-testid="new-table-name"
                     />
+                </label>
+                <label class="text-sm">
+                    <span class="mb-1 block font-medium">Who can see it</span>
+                    <select v-model="newVisibility" class="rounded-md border bg-background px-2 py-1.5" data-testid="new-table-visibility">
+                        <option value="private">Private</option>
+                        <option value="link">Anyone with the link</option>
+                        <option value="public">Public</option>
+                    </select>
                 </label>
                 <Button type="submit" size="sm" :disabled="!newName.trim() || !terrain.length || saving" data-testid="new-table-save"
                     >Save table</Button
                 >
-                <Button size="sm" variant="outline" as-child data-testid="new-table-cancel"
-                    ><Link :href="route('tools.tabletop.tables')">Cancel</Link></Button
-                >
+                <Button type="button" size="sm" variant="outline" data-testid="new-table-cancel" @click="cancelNew">Cancel</Button>
             </form>
-            <p v-if="!terrain.length" class="text-muted-foreground">Add at least one piece of terrain to save it.</p>
+            <p v-if="newError" id="new-table-error" class="text-sm text-destructive" role="alert" data-testid="new-table-error">{{ newError }}</p>
+            <p v-else-if="!terrain.length" class="text-xs text-muted-foreground">
+                Add a piece in the Terrain tab, or start from one below, to be able to save.
+            </p>
+            <details class="text-sm">
+                <summary class="cursor-pointer text-xs text-muted-foreground">Add a description</summary>
+                <textarea
+                    v-model="newDescription"
+                    rows="2"
+                    maxlength="500"
+                    placeholder="What is this table for?"
+                    class="mt-1 w-full rounded-md border bg-background px-2 py-1.5"
+                    data-testid="new-table-description"
+                />
+            </details>
         </div>
+        <section v-if="fresh && !terrain.length" class="mb-3 space-y-2" aria-labelledby="starting-heading" data-testid="starting-points">
+            <h2 id="starting-heading" class="text-sm font-semibold">Start from a ready-made table, or add pieces yourself</h2>
+            <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                <button
+                    v-for="l in startingPoints"
+                    :key="l.key"
+                    type="button"
+                    class="space-y-1 rounded-md border p-2 text-left transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                    data-testid="starting-point"
+                    :data-key="l.key"
+                    @click="startFrom(l.terrain)"
+                >
+                    <TableThumbnail
+                        :uid="`start-${l.key}`"
+                        :terrain="l.terrain"
+                        :table-image="null"
+                        :table-images="props.table_images"
+                        :terrain-images="props.terrain_images"
+                    />
+                    <span class="block truncate text-sm font-medium">{{ l.name }}</span>
+                </button>
+            </div>
+        </section>
         <p v-if="signedIn && !incoming_layout && !fresh" class="mb-2 text-sm">
             <Link :href="route('tools.tabletop.tables')" class="underline" data-testid="my-tables-link">My tables and the public gallery</Link>
         </p>

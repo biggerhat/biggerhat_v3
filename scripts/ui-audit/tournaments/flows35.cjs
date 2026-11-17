@@ -551,15 +551,34 @@ const L = require('./lib.cjs');
             await s.page.evaluate(() => window.scrollTo(0, 0));
             await L.shot(s, `368-new-table-top-${label}`);
             if (!(await s.page.$eval('[data-testid=new-table-save]', (b) => b.disabled))) throw new Error('an empty table cannot be saved');
+            // the page says what it is for, and offers ready-made tables to begin from
+            const sub = await s.page.$eval('[data-testid=page-subtitle]', (e) => e.innerText);
+            if (!/name it and save it/.test(sub)) throw new Error(`the heading should describe a new table: ${sub}`);
+            const starts = await s.page.$$eval('[data-testid=starting-point]', (e) => e.length);
+            if (starts < 3) throw new Error(`expected ready-made starting points, saw ${starts}`);
+            // leaving with work on the table asks first; with none it just goes
+            await s.page.$eval('[data-testid=starting-point][data-key=hills]', (b) => b.click());
+            await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=starting-points]'), { timeout: 5000 });
+            await hit('[data-testid=new-table-cancel]');
+            await s.page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((b) => /Leave/.test(b.innerText)), { timeout: 5000 });
+            await s.page.evaluate(() => [...document.querySelectorAll('[role=dialog] button')].find((b) => /Cancel/.test(b.innerText)).click());
+            await s.page.waitForFunction(() => !document.querySelector('[role=dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
             await s.page.select('[data-testid=terrain-preset]', 'wall');
             await hit('[data-testid=terrain-add]');
             await s.page.type('[data-testid=new-table-name]', 'Fresh table');
+            await s.page.select('[data-testid=new-table-visibility]', 'public');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=new-table-save]').disabled, { timeout: 5000 });
             await hit('[data-testid=new-table-save]');
             await s.page.waitForSelector('[data-testid=my-tables]', { timeout: 10000 });
             await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid=my-table]').length > n, { timeout: 8000 }, before);
             const names = await s.page.$$eval('[data-testid=my-table-name]', (els) => els.map((e) => e.innerText));
             if (!names.includes('Fresh table')) throw new Error(`the new table should be listed: ${names}`);
+            const badge = await s.page.$$eval('[data-testid=my-table]', (cards) => {
+                const card = cards.find((c) => /Fresh table/.test(c.innerText));
+                return card ? card.querySelector('[data-testid=my-table-visibility]').innerText : '';
+            });
+            if (!/Public/.test(badge)) throw new Error(`the table was made public, the card says: ${badge}`);
             // the sandbox on this device was not touched
             await openSandbox();
             await s.page.waitForSelector('[data-testid=token-a1]');

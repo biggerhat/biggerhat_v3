@@ -333,6 +333,40 @@ const trailLegLabels = computed(() => {
 });
 /** Line of sight: press on a model and drag to another. Each model draws its own sight lines, so both directions are checked. */
 const sight = ref<{ fromId: string; toId: string | null; aim: Point | null } | null>(null);
+/**
+ * Sight guidelines left switched on for one model (from its panel): the side lines stay on the board, follow the model as it moves, and
+ * are aimed by dragging in Sight mode. Without it they only show while a finger is down in Sight mode.
+ */
+const guidedId = ref<string | null>(null);
+/** Where the lines first point: the nearest model on the other side, or else across the table. */
+function defaultAim(t: Token): Point {
+    const foes = tokens.value.filter((o) => !o.marker && !o.killed && o.id !== t.id && o.side !== t.side && o.side !== 'n');
+    const near = foes.sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))[0];
+    if (near) return { x: near.x, y: near.y };
+    return { x: TABLE_SIZE / 2, y: t.y < TABLE_SIZE / 2 ? t.y + 8 : t.y - 8 };
+}
+function toggleGuide(t: Token) {
+    if (guidedId.value === t.id) {
+        guidedId.value = null;
+        sight.value = null;
+        if (mode.value === 'sight') mode.value = 'move';
+        return;
+    }
+    guidedId.value = t.id;
+    const aim = defaultAim(t);
+    sight.value = { fromId: t.id, toId: null, aim };
+    mode.value = 'sight';
+}
+watch(
+    () => tokens.value.some((t) => t.id === guidedId.value),
+    (still) => {
+        if (!still && guidedId.value) {
+            guidedId.value = null;
+            sight.value = null;
+            if (mode.value === 'sight') mode.value = 'move';
+        }
+    },
+);
 const sightFrom = computed(() => tokens.value.find((t) => t.id === sight.value?.fromId));
 const sightTo = computed(() => tokens.value.find((t) => t.id === sight.value?.toId));
 const sightForward = computed(() =>
@@ -660,7 +694,7 @@ function onDown(e: PointerEvent) {
     // a stepped move goes on when the same model is grabbed again; anything else starts afresh
     const carryOn = stepMove.value && mode.value === 'move' && !!hit && !hit.locked && trail.value?.id === hit.id;
     if (!carryOn) trail.value = null;
-    sight.value = null;
+    if (!guidedId.value) sight.value = null;
     if (mode.value === 'terrain') {
         if (outline.value) {
             addCorner(p);
@@ -679,14 +713,11 @@ function onDown(e: PointerEvent) {
         }
         return;
     }
-    if (mode.value === 'sight') {
-        if (hit) {
-            sight.value = { fromId: hit.id, toId: null, aim: null };
-            selectedId.value = hit.id;
-            drag = { kind: 'sight' };
-        } else {
-            drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
-        }
+    if (mode.value === 'sight' && guidedId.value && sight.value) {
+        // the guided model keeps its lines: a press aims them at the finger, or at the model or marker pressed
+        const target = hit && hit.id !== guidedId.value ? hit : null;
+        sight.value = { ...sight.value, toId: target?.id ?? null, aim: target ? { x: target.x, y: target.y } : p };
+        drag = { kind: 'sight' };
         return;
     }
     if (mode.value === 'ruler') {
@@ -926,6 +957,8 @@ function resetTable() {
     selectedId.value = null;
     ruler.value = null;
     sight.value = null;
+    guidedId.value = null;
+    if (mode.value === 'sight') mode.value = 'move';
     note.value = '';
     resetView();
 }
@@ -1437,8 +1470,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button :variant="mode === 'ruler' ? 'default' : 'outline'" size="sm" data-testid="mode-ruler" @click="mode = 'ruler'"
                     ><Ruler class="mr-1 size-4" />Ruler</Button
                 >
-                <Button :variant="mode === 'sight' ? 'default' : 'outline'" size="sm" data-testid="mode-sight" @click="mode = 'sight'"
-                    ><Eye class="mr-1 size-4" />Sight</Button
+                <Button v-if="guidedId" :variant="mode === 'sight' ? 'default' : 'outline'" size="sm" data-testid="mode-sight" @click="mode = 'sight'"
+                    ><Eye class="mr-1 size-4" />Aim</Button
                 >
                 <Button
                     v-if="mode === 'move'"
@@ -1503,11 +1536,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 >
                 <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
             </div>
-            <div v-if="mode === 'sight' && !sightForward" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="sight-hint">
-                Press on a model and drag. A line leaves each side of its base in the direction of your finger. Drop on another model or marker to
-                check line of sight between them.
+            <div v-if="mode === 'sight' && guidedId" class="rounded-md border p-3 text-sm text-muted-foreground" data-testid="guide-hint">
+                {{ tokens.find((t) => t.id === guidedId)?.name }} has its sight guidelines on. Press or drag anywhere on the board to aim them, or
+                press a model or marker to point at it. Switch to Move to pick another model, and switch them off in the model's panel.
             </div>
-            <div v-if="mode === 'sight' && sideLines.length" class="space-y-1 rounded-md border p-3 text-sm" data-testid="side-readout">
+            <div v-if="sideLines.length" class="space-y-1 rounded-md border p-3 text-sm" data-testid="side-readout">
                 <div v-for="l in sideLines" :key="l.side" data-testid="side-summary">
                     <span class="font-semibold capitalize">{{ l.side }} side:</span> {{ describeSide(l) }}
                 </div>
@@ -1595,6 +1628,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         }}<span v-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
                         >.
                     </div>
+                    <Button
+                        v-if="!selected.marker"
+                        size="sm"
+                        class="mt-2"
+                        :variant="guidedId === selected.id ? 'default' : 'outline'"
+                        :aria-pressed="guidedId === selected.id"
+                        data-testid="model-guide"
+                        @click="toggleGuide(selected)"
+                        ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
+                    >
                     <ModelInfoPanel
                         v-if="!selected.marker"
                         :token="selected"

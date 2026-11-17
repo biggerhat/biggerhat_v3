@@ -28,6 +28,15 @@ const L = require('./lib.cjs');
             await s.page.click(selector);
         };
         const toBoardTop = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+        // Sight guidelines are switched on from a model's panel: select the model at a spot on the table, then press its toggle.
+        const guideOn = async (x, y) => {
+            await toBoardTop();
+            const m = await pixel(x, y);
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=model-guide]');
+            await hit('[data-testid=model-guide]');
+            await toBoardTop();
+        };
         // The sandbox ships no models of its own (only database characters and markers can be added), so the browser flows lay a known
         // set on the table through the page's storage, then reload.
         const DEMO = [
@@ -132,7 +141,7 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
-            await s.page.click('[data-testid=mode-sight]');
+            await guideOn(18, 4);
             await dragTo([18, 4], [18, 32]); // master to master, Sz 3 each: the Ht 2 wall is shorter than both
             await s.page.waitForSelector('[data-testid=sight-readout]');
             let t = await s.page.$eval('[data-testid=sight-readout]', (e) => e.innerText);
@@ -150,7 +159,7 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
-            await s.page.click('[data-testid=mode-sight]');
+            await guideOn(18, 4);
             const summaries = () => s.page.$$eval('[data-testid=side-summary]', (els) => els.map((e) => e.innerText));
             await dragTo([18, 4], [28, 14]); // aim at empty ground
             await s.page.waitForSelector('[data-testid=side-line-left]');
@@ -185,8 +194,41 @@ const L = require('./lib.cjs');
             const g2 = await gap();
             if (Math.abs(g2.start - g2.end) > 0.05) throw new Error(`the lines should stay parallel, gap ${g2.start}" then ${g2.end}"`);
             await L.shot(s, `358-side-lines-${label}`);
-            await dragTo([2, 30], [3, 31]); // empty ground: the lines go away
-            if (await s.page.$('[data-testid=side-lines]')) throw new Error('the lines should clear on the next press');
+            await dragTo([2, 30], [3, 31]); // empty ground: the lines stay, aimed there
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            await toBoardTop();
+            await hit('[data-testid=model-guide]'); // the toggle switches them off
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=side-lines]'), { timeout: 5000 });
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): sight guidelines can be switched on from a model's panel and stay on, aimed by dragging`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await toBoardTop();
+            const m = await pixel(18, 4); // the first master
+            await s.page.mouse.click(m.x, m.y); // Move mode: selects it
+            await s.page.waitForSelector('[data-testid=model-guide]');
+            await hit('[data-testid=model-guide]');
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            await s.page.waitForSelector('[data-testid=guide-hint]');
+            const lineEnd = () => s.page.$eval('[data-testid=side-line-left]', (l) => `${l.getAttribute('x2')},${l.getAttribute('y2')}`);
+            const first = await lineEnd();
+            // pressing empty ground in Sight mode re-aims them, and they stay after the finger lifts
+            await toBoardTop();
+            await dragTo([2, 20], [3, 21]);
+            const second = await lineEnd();
+            if (first === second) throw new Error('aiming should move the lines');
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            // they follow the model when it moves
+            await hit('[data-testid=mode-move]');
+            await toBoardTop();
+            await dragTo([18, 4], [18, 8]);
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            const moved = await s.page.$eval('[data-testid=side-line-left]', (l) => Number(l.getAttribute('y1')));
+            if (moved < 6) throw new Error(`the lines should follow the model down the table, saw y1=${moved}`);
+            await hit('[data-testid=model-guide]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=side-lines]'), { timeout: 5000 });
+            await L.shot(s, `363-sight-guide-${label}`);
             await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): terrain is drawn with its texture, and a table surface can be chosen and is kept`, s, async () => {

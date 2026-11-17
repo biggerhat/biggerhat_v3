@@ -16,7 +16,7 @@ const rect = (x: number, y: number, w: number, h: number) => ({ kind: 'rect' as 
 const circle = (cx: number, cy: number, r: number) => ({ kind: 'circle' as const, cx, cy, r });
 
 /** Standard pieces from the guide (p.57-58), centred near (x, y). Heights are the elevation a model stands at. */
-export const TERRAIN_PRESETS: TerrainPreset[] = [
+const RAW_PRESETS: TerrainPreset[] = [
     {
         key: 'building',
         label: 'Building (flat roof, Ht 3)',
@@ -103,3 +103,6 @@ export const TERRAIN_PRESETS: TerrainPreset[] = [
 
 /** An id that is unique enough for a table of up to 40 pieces, and safe for the server's id rule. */
 export const newPieceId = (): string => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+
+/** Every piece a preset makes carries the preset's key, which picks its texture. */
+export const TERRAIN_PRESETS: TerrainPreset[] = RAW_PRESETS.map((p) => ({ ...p, make: (id, x, y) => ({ ...p.make(id, x, y), kind: p.key }) }));

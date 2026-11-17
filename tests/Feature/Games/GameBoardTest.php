@@ -656,3 +656,40 @@ it('lets a player change their model through the tracker\'s own endpoint', funct
     $this->actingAs($a)->get(route('games.board', $game->uuid))
         ->assertInertia(fn (Assert $page) => $page->where('models.0.health', 5)->where('models.0.activated', true)->where('models.0.notes', 'Hurt'));
 });
+
+it('keeps the table surface with the game for both players, and tells the other one', function () {
+    Event::fake([GameBoardSetupChanged::class]);
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', null)->has('table_images', 5)->has('terrain_images', 12));
+    $this->actingAs($b)->put(route('games.board.setup', $game->uuid), ['table_image' => 'cobble'])->assertRedirect();
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', 'cobble')->where('deployment_variant', 0));
+    Event::assertDispatched(GameBoardSetupChanged::class, fn ($e) => $e->tableImage === 'cobble');
+
+    // changing the deployment afterwards keeps the surface, and null puts the plain table back
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 3])->assertRedirect();
+    expect($game->fresh()->board_state)->toMatchArray(['table_image' => 'cobble', 'deployment_variant' => 3]);
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => null])->assertRedirect();
+    expect($game->fresh()->board_state)->not->toHaveKey('table_image')->and($game->fresh()->board_state['deployment_variant'])->toBe(3);
+});
+
+it('refuses a table surface that is not on offer, and offers uploaded ones', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $upload = \App\Models\TabletopImage::factory()->create(['name' => 'Marble floor']);
+
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => 'lava'])->assertSessionHasErrors('table_image');
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => 'i'.$upload->id])->assertRedirect();
+    expect($game->fresh()->board_state['table_image'])->toBe('i'.$upload->id);
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->has('table_images', 6));
+});
+
+it('keeps each terrain piece\'s kind so it is drawn with its texture, and refuses an unknown kind', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $piece = fn (string $kind) => ['id' => 'p1', 'name' => 'Tower', 'kind' => $kind, 'traits' => ['blocking'], 'surfaces' => [['id' => 'p1-1', 'top' => 3, 'shape' => ['kind' => 'rect', 'x' => 4, 'y' => 4, 'w' => 6, 'h' => 6]]]];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece('tower')]])->assertRedirect();
+    expect($game->fresh()->board_state['terrain'][0]['kind'])->toBe('tower');
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece('spaceship')]])->assertSessionHasErrors('terrain.0.kind');
+});

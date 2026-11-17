@@ -77,3 +77,39 @@ it('hides the character search until the flag is on, or for beta testers', funct
     $tester->givePermissionTo(PermissionEnum::UseTabletopBeta->value);
     $this->actingAs($tester)->getJson(route('tools.tabletop.characters', ['q' => 'lady']))->assertOk();
 });
+
+it('offers the built-in table surfaces and terrain textures, with active uploads added to them', function () {
+    Feature::for(null)->activate('experiment-tabletop');
+    \App\Models\TabletopImage::factory()->create(['name' => 'Marble floor', 'image_path' => 'tabletop/marble.webp']);
+    \App\Models\TabletopImage::factory()->inactive()->create(['name' => 'Hidden floor']);
+
+    $this->get(route('tools.tabletop'))->assertInertia(fn (Assert $page) => $page
+        ->has('table_images', 6)
+        ->where('table_images.0', ['key' => 'felt', 'name' => 'Green felt', 'url' => '/images/tabletop/tables/felt.svg', 'fit' => 'tile'])
+        ->where('table_images.5.name', 'Marble floor')
+        ->where('table_images.5.fit', 'cover')
+        ->where('terrain_images.tower', '/images/tabletop/terrain/tower.svg')
+        ->has('terrain_images', 12));
+});
+
+it('lets an uploaded terrain texture replace the built-in one for its kind, unless inactive', function () {
+    Feature::for(null)->activate('experiment-tabletop');
+    $granite = \App\Models\TabletopImage::factory()->terrain('tower')->create(['image_path' => 'tabletop/granite.webp']);
+    \App\Models\TabletopImage::factory()->terrain('wall')->inactive()->create(['image_path' => 'tabletop/off.webp']);
+
+    $this->get(route('tools.tabletop'))->assertInertia(fn (Assert $page) => $page
+        ->where('terrain_images.tower', fn ($url) => str_ends_with($url, 'tabletop/granite.webp'))
+        ->where('terrain_images.wall', '/images/tabletop/terrain/wall.svg'));
+
+    $granite->update(['is_active' => false]);
+    $this->get(route('tools.tabletop'))->assertInertia(fn (Assert $page) => $page->where('terrain_images.tower', '/images/tabletop/terrain/tower.svg'));
+});
+
+it('ships a built-in image file for every table surface and terrain kind', function () {
+    foreach (array_keys(\App\Support\Tabletop\TabletopImages::DEFAULT_TABLES) as $key) {
+        expect(file_exists(public_path("images/tabletop/tables/{$key}.svg")))->toBeTrue("missing table {$key}");
+    }
+    foreach (array_keys(\App\Support\Tabletop\TabletopImages::TERRAIN_KINDS) as $key) {
+        expect(file_exists(public_path("images/tabletop/terrain/{$key}.svg")))->toBeTrue("missing terrain {$key}");
+    }
+});

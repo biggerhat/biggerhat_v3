@@ -23,9 +23,29 @@ const turn = (s: Shape): Shape =>
 const rect = (x: number, y: number, w: number, h: number): Shape => ({ kind: 'rect', x, y, w, h });
 const circle = (cx: number, cy: number, r: number): Shape => ({ kind: 'circle', cx, cy, r });
 
+/** Which kind of terrain each piece is, so it is drawn with that kind's texture. */
+const KIND_OF: Record<string, string> = {
+    bldg: 'building',
+    hall: 'building',
+    house: 'building',
+    shed: 'building',
+    block: 'block',
+    tower: 'tower',
+    mill: 'tower',
+    wall: 'wall',
+    steep: 'steep',
+    crates: 'crates',
+    fog: 'fog',
+    hill: 'hill',
+    rocks: 'round',
+    woods: 'woods',
+    thicket: 'woods',
+};
+
 const piece = (id: string, name: string, traits: string[], levels: [Shape, number][]): TerrainPiece => ({
     id,
     name,
+    kind: KIND_OF[id],
     traits,
     surfaces: levels.map(([shape, top], i) => ({ id: `${id}-${i + 1}`, shape, top })),
 });

@@ -189,6 +189,28 @@ const L = require('./lib.cjs');
             if (await s.page.$('[data-testid=side-lines]')) throw new Error('the lines should clear on the next press');
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): terrain is drawn with its texture, and a table surface can be chosen and is kept`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            const textured = await s.page.$$eval('[data-testid=terrain-texture]', (els) =>
+                [...new Set(els.map((e) => e.getAttribute('data-kind')))].sort(),
+            );
+            if (!['crates', 'hill', 'tower', 'wall'].every((k) => textured.includes(k)))
+                throw new Error(`expected textures on the demo terrain, saw ${textured}`);
+            if (await s.page.$('[data-testid=table-surface]')) throw new Error('the table should start plain');
+            await hit('[data-testid=table-select]');
+            const options = await s.page.$$eval('[data-testid=table-select] option', (os) => os.map((o) => o.value));
+            if (options.length !== 6) throw new Error(`expected plain plus five built-in surfaces, saw ${options}`);
+            await s.page.select('[data-testid=table-select]', 'felt');
+            await s.page.waitForSelector('[data-testid=table-surface]');
+            await toBoardTop();
+            await L.shot(s, `359-table-surface-${label}`);
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=table-surface]'); // kept on this device
+            await hit('[data-testid=table-select]');
+            await s.page.select('[data-testid=table-select]', '');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=table-surface]'), { timeout: 5000 });
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

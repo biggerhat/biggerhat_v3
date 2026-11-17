@@ -66,6 +66,9 @@ const props = defineProps<{
     shared_auras: SharedAura[];
     token_options: { id: number; name: string }[];
     deployment_variant: number;
+    table_image: string | null;
+    table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
+    terrain_images: Record<string, string>;
 }>();
 
 // Saved positions, plus moves the other player has just made (applied straight from the broadcast).
@@ -113,11 +116,27 @@ function variantChanged(next: number) {
     );
 }
 
+// The table surface, agreed by both players like the deployment orientation.
+const tableImage = ref<string | null>(props.table_image);
+watch(
+    () => props.table_image,
+    (next) => (tableImage.value = next),
+);
+function tableImageChanged(next: string | null) {
+    tableImage.value = next;
+    if (props.read_only) return;
+    router.put(
+        route('games.board.setup', props.game.uuid),
+        { table_image: next },
+        { preserveScroll: true, preserveState: true, only: ['table_image'] },
+    );
+}
+
 let modelsTimer: ReturnType<typeof setTimeout> | null = null;
 let joined = false;
 const resync = () =>
     document.visibilityState === 'visible' &&
-    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'models'] });
+    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'table_image', 'models'] });
 
 let poll: ReturnType<typeof setInterval> | null = null;
 onMounted(async () => {
@@ -145,8 +164,9 @@ onMounted(async () => {
             if (modelsTimer) clearTimeout(modelsTimer);
             modelsTimer = setTimeout(() => router.reload({ only: ['models'] }), 400);
         })
-        .listen('.GameBoardSetupChanged', (e: { deployment_variant: number }) => {
+        .listen('.GameBoardSetupChanged', (e: { deployment_variant: number; table_image: string | null }) => {
             variant.value = e.deployment_variant;
+            tableImage.value = e.table_image;
         })
         .listen('.GameBoardAurasChanged', (e: { auras: SharedAura[] }) => {
             sharedAuras.value = e.auras.map(toAura);
@@ -357,6 +377,10 @@ function moved(t: Token) {
             @aura-change="auraChange"
             :deployment-variant="variant"
             @variant-changed="variantChanged"
+            :table-images="table_images"
+            :table-image="tableImage"
+            :terrain-images="terrain_images"
+            @table-image-changed="tableImageChanged"
             @add-marker="addMarker"
             @remove="removeToken"
             @terrain-changed="terrainChanged"

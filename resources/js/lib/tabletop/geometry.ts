@@ -28,6 +28,8 @@ export interface Surface {
 export interface TerrainPiece {
     id: string;
     name: string;
+    /** Which kind of terrain it is (a preset key such as 'tower'), so it is drawn with that kind's texture. */
+    kind?: string;
     traits: string[];
     surfaces: Surface[];
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Games;
 
+use App\Support\Tabletop\TabletopImages;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,6 +28,8 @@ class UpdateTerrainRequest extends FormRequest
             'terrain' => ['present', 'array', 'max:40'],
             'terrain.*.id' => ['required', 'string', 'max:40', 'regex:/^[A-Za-z0-9_-]+$/', 'distinct'],
             'terrain.*.name' => ['required', 'string', 'max:60'],
+            // Which kind of terrain this is (a preset key), so it is drawn with that kind's texture.
+            'terrain.*.kind' => ['nullable', 'string', Rule::in(array_keys(TabletopImages::TERRAIN_KINDS))],
             'terrain.*.traits' => ['present', 'array', 'max:7'],
             'terrain.*.traits.*' => ['string', Rule::in(self::TRAITS), 'distinct'],
             'terrain.*.surfaces' => ['required', 'array', 'min:1', 'max:6'],

@@ -7,6 +7,7 @@ import type { TerrainPiece } from './geometry';
 export const sampleTerrain: TerrainPiece[] = [
     {
         id: 'tower',
+        kind: 'tower',
         name: 'Tower (flat roof, Ht 3, upper level Ht 5)',
         traits: ['blocking', 'climbable'],
         surfaces: [
@@ -16,6 +17,7 @@ export const sampleTerrain: TerrainPiece[] = [
     },
     {
         id: 'hill',
+        kind: 'hill',
         name: 'Hill (Ht 1, crest Ht 2)',
         traits: ['blocking', 'climbable'],
         surfaces: [
@@ -37,12 +39,14 @@ export const sampleTerrain: TerrainPiece[] = [
     },
     {
         id: 'wall',
+        kind: 'wall',
         name: 'Wall (Ht 2)',
         traits: ['blocking', 'climbable'],
         surfaces: [{ id: 'wall-top', shape: { kind: 'rect', x: 14, y: 17, w: 8, h: 1.5 }, top: 2 }],
     },
     {
         id: 'crates',
+        kind: 'crates',
         name: 'Crates (Ht 1, stacked Ht 2)',
         traits: ['blocking', 'climbable', 'destructible'],
         surfaces: [
@@ -52,6 +56,7 @@ export const sampleTerrain: TerrainPiece[] = [
     },
     {
         id: 'bridge',
+        kind: 'bridge',
         name: 'Bridge walkway (Ht 3, clear archway beneath)',
         traits: ['climbable'],
         surfaces: [{ id: 'bridge-walk', shape: { kind: 'rect', x: 6, y: 27, w: 12, h: 2.5 }, top: 3 }],

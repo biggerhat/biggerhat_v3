@@ -61,6 +61,12 @@ const props = withDefaults(
         sharedAuras?: Aura[];
         /** Which way round the deployment zones sit, when the game keeps it for both players. */
         deploymentVariant?: number;
+        /** Table surfaces to choose from. A built-in one repeats as a tile; an uploaded one stretches over the whole table. */
+        tableImages?: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
+        /** The chosen surface (a key from tableImages), or null for the plain table. A game keeps it for both players. */
+        tableImage?: string | null;
+        /** A texture for each kind of terrain: kind => url. It repeats every TEXTURE_TILE inches across the pieces of that kind. */
+        terrainImages?: Record<string, string>;
         /** Someone watching: no terrain editing, and the deployment orientation is theirs alone. */
         readOnly?: boolean;
         /** Where to search character cards to add to the table (the sandbox). Without it only blank models can be added. */
@@ -83,6 +89,7 @@ const emit = defineEmits<{
     reset: [];
     terrainChanged: [pieces: TerrainPiece[]];
     variantChanged: [variant: number];
+    tableImageChanged: [key: string | null];
     modelChange: [id: string, patch: Partial<ModelInfo>];
     auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
 }>();
@@ -193,6 +200,26 @@ function chooseVariant(next: number) {
     variant.value = next;
     if (!props.readOnly) emit('variantChanged', next);
 }
+/** The table surface and terrain textures. A texture is drawn under the height tint, so the levels still read. */
+const TEXTURE_TILE = 6;
+const tableKey = ref<string | null>(props.tableImage ?? null);
+watch(
+    () => props.tableImage,
+    (next) => {
+        if (next !== undefined) tableKey.value = next;
+    },
+);
+const tableChoice = computed(() => props.tableImages?.find((t) => t.key === tableKey.value) ?? null);
+function chooseTable(key: string) {
+    tableKey.value = key === '' ? null : key;
+    if (!props.readOnly) emit('tableImageChanged', tableKey.value);
+}
+/** The textures in use on the table, one pattern each. A kind without a texture is drawn plain. */
+const textures = computed(() => {
+    const kinds = new Set(terrain.value.map((p) => p.kind).filter((k): k is string => !!k && !!props.terrainImages?.[k]));
+    return [...kinds].map((kind) => ({ kind, url: props.terrainImages![kind] }));
+});
+const textureOf = (piece: TerrainPiece) => (piece.kind && props.terrainImages?.[piece.kind] ? `url(#tex-${piece.kind})` : null);
 const note = ref('');
 const view = ref({ x: 0, y: 0, w: TABLE_SIZE });
 const svg = ref<SVGSVGElement | null>(null);
@@ -408,6 +435,8 @@ const tokenLabel = (t: Token) =>
         : t.name.slice(0, 1);
 
 const surfaceFill = (top: number) => `hsl(var(--primary) / ${Math.min(0.1 + top * 0.09, 0.6)})`;
+/** Over a texture the height tint is lighter, so the picture still reads and the levels still tell apart. */
+const texturedFill = (top: number) => `hsl(var(--primary) / ${Math.min(0.03 + top * 0.035, 0.25)})`;
 const dimmed = (elevation: number) => level.value !== 'all' && elevation > level.value;
 
 function shapeAttrs(shape: Shape): Record<string, number | string> {
@@ -745,7 +774,47 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     @pointercancel="onUp"
                     @wheel="onWheel"
                 >
+                    <defs>
+                        <pattern
+                            v-if="tableChoice?.fit === 'tile'"
+                            id="table-tex"
+                            patternUnits="userSpaceOnUse"
+                            :width="TEXTURE_TILE"
+                            :height="TEXTURE_TILE"
+                        >
+                            <image :href="tableChoice.url" :width="TEXTURE_TILE" :height="TEXTURE_TILE" preserveAspectRatio="none" />
+                        </pattern>
+                        <pattern
+                            v-for="t in textures"
+                            :id="`tex-${t.kind}`"
+                            :key="t.kind"
+                            patternUnits="userSpaceOnUse"
+                            :width="TEXTURE_TILE"
+                            :height="TEXTURE_TILE"
+                        >
+                            <image :href="t.url" :width="TEXTURE_TILE" :height="TEXTURE_TILE" preserveAspectRatio="none" />
+                        </pattern>
+                    </defs>
                     <rect x="0" y="0" :width="TABLE_SIZE" :height="TABLE_SIZE" fill="hsl(var(--muted))" />
+                    <rect
+                        v-if="tableChoice?.fit === 'tile'"
+                        x="0"
+                        y="0"
+                        :width="TABLE_SIZE"
+                        :height="TABLE_SIZE"
+                        fill="url(#table-tex)"
+                        data-testid="table-surface"
+                    />
+                    <image
+                        v-else-if="tableChoice"
+                        :href="tableChoice.url"
+                        x="0"
+                        y="0"
+                        :width="TABLE_SIZE"
+                        :height="TABLE_SIZE"
+                        preserveAspectRatio="xMidYMid slice"
+                        data-testid="table-surface"
+                    />
                     <path
                         v-for="n in 35"
                         :key="`g${n}`"
@@ -816,8 +885,17 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         >
                             <component
                                 :is="shapeTag(surface.shape)"
+                                v-if="textureOf(piece)"
                                 v-bind="shapeAttrs(surface.shape)"
-                                :fill="surfaceFill(surface.top)"
+                                :fill="textureOf(piece)!"
+                                pointer-events="none"
+                                data-testid="terrain-texture"
+                                :data-kind="piece.kind"
+                            />
+                            <component
+                                :is="shapeTag(surface.shape)"
+                                v-bind="shapeAttrs(surface.shape)"
+                                :fill="textureOf(piece) ? texturedFill(surface.top) : surfaceFill(surface.top)"
                                 :stroke="mode === 'terrain' && piece.id === selectedPieceId ? 'hsl(45 95% 55%)' : 'hsl(var(--foreground) / 0.55)'"
                                 :stroke-width="mode === 'terrain' && piece.id === selectedPieceId ? 0.22 : 0.07"
                             />
@@ -1232,6 +1310,19 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </select>
             </label>
             <div class="space-y-2">
+                <label v-if="tableImages?.length" class="block text-sm">
+                    <span class="mb-1 block font-medium">Table surface</span>
+                    <select
+                        :value="tableKey ?? ''"
+                        class="w-full rounded-md border bg-background px-2 py-1.5"
+                        :disabled="readOnly"
+                        data-testid="table-select"
+                        @change="chooseTable(($event.target as HTMLSelectElement).value)"
+                    >
+                        <option value="">Plain</option>
+                        <option v-for="t in tableImages" :key="t.key" :value="t.key">{{ t.name }}</option>
+                    </select>
+                </label>
                 <label class="block text-sm">
                     <span class="mb-1 block font-medium">Deployment</span>
                     <select

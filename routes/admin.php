@@ -49,6 +49,7 @@ use App\Http\Controllers\Admin\ScheduleAdminController;
 use App\Http\Controllers\Admin\SchemeAdminController;
 use App\Http\Controllers\Admin\SessionsAdminController;
 use App\Http\Controllers\Admin\StrategyAdminController;
+use App\Http\Controllers\Admin\TabletopImageAdminController;
 use App\Http\Controllers\Admin\TokenAdminController;
 use App\Http\Controllers\Admin\TournamentOverrideAdminController;
 use App\Http\Controllers\Admin\TransmissionAdminController;
@@ -127,6 +128,15 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
             Route::get('/edit/{cardArt}', 'edit')->name('edit');
             Route::post('/update/{cardArt}', 'update')->name('update');
             Route::post('/delete/{cardArt}', 'delete')->name('delete');
+        });
+
+        Route::controller(TabletopImageAdminController::class)->prefix('tabletop-images')->name('tabletop_images.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/store', 'store')->name('store');
+            Route::get('/edit/{tabletopImage}', 'edit')->name('edit');
+            Route::post('/update/{tabletopImage}', 'update')->name('update');
+            Route::post('/delete/{tabletopImage}', 'delete')->name('delete');
         });
 
         Route::controller(CustomCardModerationAdminController::class)->prefix('custom-cards')->name('custom_cards.')->group(function () {

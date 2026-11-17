@@ -6,28 +6,35 @@ import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { Head } from '@inertiajs/vue3';
 import { onMounted, ref, watch } from 'vue';
 
-const props = defineProps<{ markers: MarkerOption[]; token_options: { id: number; name: string }[] }>();
+const props = defineProps<{
+    markers: MarkerOption[];
+    token_options: { id: number; name: string }[];
+    table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
+    terrain_images: Record<string, string>;
+}>();
 
 // Sandbox: the demo terrain, with models you add from the character cards and markers from the database. Nothing leaves this device.
 // v2: the first version kept free-standing blank models, which are gone.
 const STORAGE_KEY = 'tabletop-spike-v2';
 const tokens = ref<Token[]>([]);
 const terrain = ref<TerrainPiece[]>(JSON.parse(JSON.stringify(sampleTerrain)));
+const tableImage = ref<string | null>(null);
 
 onMounted(() => {
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
         if (Array.isArray(saved?.tokens)) tokens.value = saved.tokens;
         if (Array.isArray(saved?.terrain)) terrain.value = saved.terrain;
+        if (typeof saved?.tableImage === 'string') tableImage.value = saved.tableImage;
     } catch {
         // storage unavailable: the table simply starts empty
     }
 });
 watch(
-    [tokens, terrain],
+    [tokens, terrain, tableImage],
     () => {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tokens: tokens.value, terrain: terrain.value }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tokens: tokens.value, terrain: terrain.value, tableImage: tableImage.value }));
         } catch {
             // ignore
         }
@@ -76,6 +83,10 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             :terrain="terrain"
             :markers="props.markers"
             :token-options="props.token_options"
+            :table-images="props.table_images"
+            :table-image="tableImage"
+            :terrain-images="props.terrain_images"
+            @table-image-changed="(k) => (tableImage = k)"
             @model-change="modelChange"
             :character-search-url="route('tools.tabletop.characters')"
             sandbox

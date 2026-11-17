@@ -201,6 +201,19 @@ function setAngle(piece: TerrainPiece, s: Surface, deg: number) {
     replace(movePiece({ ...piece, surfaces }, 0, 0));
 }
 const numberFrom = (e: Event) => Number((e.target as HTMLInputElement).value) || 0;
+/** One line for a folded level: its height and size. */
+function levelSummary(s: Surface): string {
+    const sh = s.shape;
+    const size =
+        sh.kind === 'rect'
+            ? `${sh.w}x${sh.h}`
+            : sh.kind === 'circle'
+              ? `radius ${sh.r}`
+              : sh.kind === 'ellipse'
+                ? `${sh.rx * 2}x${sh.ry * 2}`
+                : `${sh.points.length} corners`;
+    return `Ht ${s.top} · ${size}${s.under !== undefined ? ' · archway' : ''}`;
+}
 const levelLabel = (piece: TerrainPiece, s: Surface) => {
     const order = [...piece.surfaces].sort((a, b) => a.top - b.top);
     return `Level ${order.indexOf(s) + 1}`;
@@ -215,10 +228,10 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 <span class="text-muted-foreground">{{ pieces.length }} piece{{ pieces.length === 1 ? '' : 's' }}</span>
             </div>
             <div :class="!pieces.length || coverageOk ? 'text-foreground' : 'text-amber-500'">
-                Covered: {{ coverage }}% <span class="text-muted-foreground">(the guide suggests 45 to 65%)</span>
+                Covered: {{ coverage }}% <span class="text-muted-foreground">(aim for 45-65%)</span>
             </div>
             <div :class="!pieces.length || tallOk ? 'text-foreground' : 'text-amber-500'">
-                Climbable Ht 2+ pieces: {{ tall }} <span class="text-muted-foreground">(the guide suggests 3 to 8)</span>
+                Climbable Ht 2+ pieces: {{ tall }} <span class="text-muted-foreground">(aim for 3-8)</span>
             </div>
         </div>
 
@@ -451,199 +464,207 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                         ><Layers class="mr-1 size-4" />Add level</Button
                     >
                 </div>
-                <div
+                <details
                     v-for="s in selected.surfaces"
                     :key="s.id"
-                    class="mb-2 rounded-md border p-2"
+                    class="group mb-2 rounded-md border"
                     :class="s.id === activeSurfaceId ? 'border-amber-500/70' : ''"
+                    :open="selected.surfaces.length === 1 || s.id === activeSurfaceId"
                     data-testid="terrain-level"
                 >
-                    <div class="mb-2 flex items-center justify-between">
-                        <button
-                            type="button"
-                            class="font-medium underline-offset-2 hover:underline"
-                            title="Show this level's handles on the board"
-                            data-testid="terrain-level-pick"
-                            @click="emit('selectSurface', s.id)"
-                        >
-                            {{ levelLabel(selected, s) }}{{ s.id === activeSurfaceId ? ' (handles shown)' : '' }}
-                        </button>
-                        <Button
-                            v-if="selected.surfaces.length > 1"
-                            size="sm"
-                            variant="ghost"
-                            aria-label="Remove this level"
-                            data-testid="terrain-remove-level"
-                            @click="removeLevel(selected, s.id)"
-                            ><Trash2 class="size-4"
-                        /></Button>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-1">
-                        <span class="text-muted-foreground">Ht</span>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            aria-label="Lower"
-                            data-testid="terrain-ht-minus"
-                            @click="setTop(selected, s, s.top - 0.5)"
-                            ><Minus class="size-4"
-                        /></Button>
-                        <input
-                            type="number"
-                            inputmode="decimal"
-                            class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                            :min="SURFACE_MIN_TOP"
-                            :max="SURFACE_MAX_TOP"
-                            step="0.5"
-                            aria-label="Height in inches"
-                            data-testid="terrain-ht"
-                            :value="s.top"
-                            @change="setTop(selected, s, numberFrom($event))"
-                        />
-                        <Button size="sm" variant="outline" aria-label="Raise" data-testid="terrain-ht-plus" @click="setTop(selected, s, s.top + 0.5)"
-                            ><Plus class="size-4"
-                        /></Button>
-                    </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <label
-                            class="flex cursor-pointer items-center gap-1"
-                            title="A bridge: models that fit under it can stand and walk beneath, and sight passes under it"
-                        >
+                    <summary
+                        class="flex cursor-pointer list-none items-center justify-between gap-2 p-2 [&::-webkit-details-marker]:hidden"
+                        title="Show this level's handles on the board"
+                        data-testid="terrain-level-pick"
+                        @click="emit('selectSurface', s.id)"
+                    >
+                        <span class="font-medium">{{ levelLabel(selected, s) }}</span>
+                        <span class="min-w-0 flex-1 truncate text-right text-muted-foreground">{{ levelSummary(s) }}</span>
+                        <ChevronDown class="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div class="space-y-2 border-t p-2">
+                        <div v-if="selected.surfaces.length > 1" class="flex justify-end">
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                aria-label="Remove this level"
+                                data-testid="terrain-remove-level"
+                                @click="removeLevel(selected, s.id)"
+                                ><Trash2 class="mr-1 size-4" />Remove level</Button
+                            >
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1">
+                            <span class="text-muted-foreground">Ht</span>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                aria-label="Lower"
+                                data-testid="terrain-ht-minus"
+                                @click="setTop(selected, s, s.top - 0.5)"
+                                ><Minus class="size-4"
+                            /></Button>
                             <input
-                                type="checkbox"
-                                :checked="s.under !== undefined"
-                                data-testid="terrain-archway"
-                                @change="setArchway(selected, s, ($event.target as HTMLInputElement).checked)"
+                                type="number"
+                                inputmode="decimal"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                :min="SURFACE_MIN_TOP"
+                                :max="SURFACE_MAX_TOP"
+                                step="0.5"
+                                aria-label="Height in inches"
+                                data-testid="terrain-ht"
+                                :value="s.top"
+                                @change="setTop(selected, s, numberFrom($event))"
                             />
-                            Archway beneath
-                        </label>
-                        <label v-if="s.under !== undefined" class="flex items-center gap-1"
-                            >up to Ht
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0.5"
-                                :max="s.top"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                aria-label="Archway height in inches"
-                                data-testid="terrain-under"
-                                :value="s.under"
-                                @change="setUnder(selected, s, numberFrom($event))"
-                        /></label>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                aria-label="Raise"
+                                data-testid="terrain-ht-plus"
+                                @click="setTop(selected, s, s.top + 0.5)"
+                                ><Plus class="size-4"
+                            /></Button>
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <label
+                                class="flex cursor-pointer items-center gap-1"
+                                title="A bridge: models that fit under it can stand and walk beneath, and sight passes under it"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :checked="s.under !== undefined"
+                                    data-testid="terrain-archway"
+                                    @change="setArchway(selected, s, ($event.target as HTMLInputElement).checked)"
+                                />
+                                Archway beneath
+                            </label>
+                            <label v-if="s.under !== undefined" class="flex items-center gap-1"
+                                >up to Ht
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    :max="s.top"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    aria-label="Archway height in inches"
+                                    data-testid="terrain-under"
+                                    :value="s.under"
+                                    @change="setUnder(selected, s, numberFrom($event))"
+                            /></label>
+                        </div>
+                        <div v-if="s.shape.kind === 'rect'" class="mt-2 flex flex-wrap items-center gap-2">
+                            <label class="flex items-center gap-1"
+                                >W
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    :max="TABLE_SIZE"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-w"
+                                    :value="s.shape.w"
+                                    @change="resize(selected, s, { w: numberFrom($event) })"
+                                />"</label
+                            >
+                            <label class="flex items-center gap-1"
+                                >D
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    :max="TABLE_SIZE"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-h"
+                                    :value="s.shape.h"
+                                    @change="resize(selected, s, { h: numberFrom($event) })"
+                                />"</label
+                            >
+                            <label class="flex items-center gap-1"
+                                >Turn
+                                <input
+                                    type="number"
+                                    step="5"
+                                    min="-90"
+                                    max="90"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-angle"
+                                    :value="shapeAngle(s.shape)"
+                                    @change="setAngle(selected, s, numberFrom($event))"
+                                />°</label
+                            >
+                        </div>
+                        <div v-else-if="s.shape.kind === 'ellipse'" class="mt-2 flex flex-wrap items-center gap-2">
+                            <label class="flex items-center gap-1"
+                                >Rx
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    :max="TABLE_SIZE"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-rx"
+                                    :value="s.shape.rx"
+                                    @change="resize(selected, s, { rx: numberFrom($event) })"
+                                />"</label
+                            >
+                            <label class="flex items-center gap-1"
+                                >Ry
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    :max="TABLE_SIZE"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-ry"
+                                    :value="s.shape.ry"
+                                    @change="resize(selected, s, { ry: numberFrom($event) })"
+                                />"</label
+                            >
+                            <label class="flex items-center gap-1"
+                                >Turn
+                                <input
+                                    type="number"
+                                    step="5"
+                                    min="-90"
+                                    max="90"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-angle"
+                                    :value="shapeAngle(s.shape)"
+                                    @change="setAngle(selected, s, numberFrom($event))"
+                                />°</label
+                            >
+                        </div>
+                        <div v-else-if="s.shape.kind === 'circle'" class="mt-2 flex items-center gap-2">
+                            <label class="flex items-center gap-1"
+                                >Radius
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    :max="TABLE_SIZE"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-r"
+                                    :value="s.shape.r"
+                                    @change="resize(selected, s, { r: numberFrom($event) })"
+                            /></label>
+                            <span class="text-muted-foreground">inches</span>
+                        </div>
+                        <div v-else class="mt-2 space-y-1 text-muted-foreground">
+                            <p>
+                                Custom outline with {{ s.shape.kind === 'poly' ? s.shape.points.length : 0 }} corners. Drag a corner on the board to
+                                reshape it, or drag the dot in the middle of an edge to add one.
+                            </p>
+                            <Button
+                                v-if="s.id === activeSurfaceId"
+                                size="sm"
+                                variant="outline"
+                                data-testid="terrain-remove-corner"
+                                :disabled="!vertexSelected || (s.shape.kind === 'poly' && s.shape.points.length <= 3)"
+                                @click="emit('removeCorner')"
+                                ><Trash2 class="mr-1 size-4" />Remove the picked corner</Button
+                            >
+                        </div>
                     </div>
-                    <div v-if="s.shape.kind === 'rect'" class="mt-2 flex flex-wrap items-center gap-2">
-                        <label class="flex items-center gap-1"
-                            >W
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0.5"
-                                :max="TABLE_SIZE"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-w"
-                                :value="s.shape.w"
-                                @change="resize(selected, s, { w: numberFrom($event) })"
-                            />"</label
-                        >
-                        <label class="flex items-center gap-1"
-                            >D
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0.5"
-                                :max="TABLE_SIZE"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-h"
-                                :value="s.shape.h"
-                                @change="resize(selected, s, { h: numberFrom($event) })"
-                            />"</label
-                        >
-                        <label class="flex items-center gap-1"
-                            >Turn
-                            <input
-                                type="number"
-                                step="5"
-                                min="-90"
-                                max="90"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-angle"
-                                :value="shapeAngle(s.shape)"
-                                @change="setAngle(selected, s, numberFrom($event))"
-                            />°</label
-                        >
-                    </div>
-                    <div v-else-if="s.shape.kind === 'ellipse'" class="mt-2 flex flex-wrap items-center gap-2">
-                        <label class="flex items-center gap-1"
-                            >Rx
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0.5"
-                                :max="TABLE_SIZE"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-rx"
-                                :value="s.shape.rx"
-                                @change="resize(selected, s, { rx: numberFrom($event) })"
-                            />"</label
-                        >
-                        <label class="flex items-center gap-1"
-                            >Ry
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0.5"
-                                :max="TABLE_SIZE"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-ry"
-                                :value="s.shape.ry"
-                                @change="resize(selected, s, { ry: numberFrom($event) })"
-                            />"</label
-                        >
-                        <label class="flex items-center gap-1"
-                            >Turn
-                            <input
-                                type="number"
-                                step="5"
-                                min="-90"
-                                max="90"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-angle"
-                                :value="shapeAngle(s.shape)"
-                                @change="setAngle(selected, s, numberFrom($event))"
-                            />°</label
-                        >
-                    </div>
-                    <div v-else-if="s.shape.kind === 'circle'" class="mt-2 flex items-center gap-2">
-                        <label class="flex items-center gap-1"
-                            >Radius
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0.5"
-                                :max="TABLE_SIZE"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-r"
-                                :value="s.shape.r"
-                                @change="resize(selected, s, { r: numberFrom($event) })"
-                        /></label>
-                        <span class="text-muted-foreground">inches</span>
-                    </div>
-                    <div v-else class="mt-2 space-y-1 text-muted-foreground">
-                        <p>
-                            Custom outline with {{ s.shape.kind === 'poly' ? s.shape.points.length : 0 }} corners. Drag a corner on the board to
-                            reshape it, or drag the dot in the middle of an edge to add one.
-                        </p>
-                        <Button
-                            v-if="s.id === activeSurfaceId"
-                            size="sm"
-                            variant="outline"
-                            data-testid="terrain-remove-corner"
-                            :disabled="!vertexSelected || (s.shape.kind === 'poly' && s.shape.points.length <= 3)"
-                            @click="emit('removeCorner')"
-                            ><Trash2 class="mr-1 size-4" />Remove the picked corner</Button
-                        >
-                    </div>
-                </div>
+                </details>
                 <p class="text-muted-foreground">
                     A model stands at the height of the highest level that holds at least half its base. Drag the piece on the board to move it; drag
                     the dots on its edge to reshape it and the dot above it to turn it.

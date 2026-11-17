@@ -89,7 +89,7 @@ it('offers the built-in table surfaces and terrain textures, with active uploads
         ->where('table_images.6.name', 'Marble floor')
         ->where('table_images.6.fit', 'cover')
         ->where('terrain_images.tower', '/images/tabletop/terrain/tower.svg')
-        ->has('terrain_images', 12));
+        ->has('terrain_images', 21));
 });
 
 it('lets an uploaded terrain texture replace the built-in one for its kind, unless inactive', function () {

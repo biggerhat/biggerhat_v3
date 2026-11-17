@@ -42,7 +42,7 @@ it('lists what was added and the built-in images', function () {
             ->where('images.0.name', 'Marble floor')
             ->where('images.1.terrain_label', 'Tower')
             ->has('defaults.tables', 6)
-            ->has('defaults.terrain', 12));
+            ->has('defaults.terrain', 21));
 });
 
 it('adds a table surface', function () {

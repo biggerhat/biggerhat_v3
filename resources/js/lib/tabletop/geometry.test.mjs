@@ -325,7 +325,7 @@ test('every preset builds a valid piece on the table', async () => {
         const p = preset.make('x', 18, 18);
         assert.ok(p.surfaces.length >= 1 && p.surfaces.length <= 6, `${preset.key}: surface count`);
         assert.ok(
-            p.traits.every((t) => ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible'].includes(t)),
+            p.traits.every((t) => ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'].includes(t)),
             `${preset.key}: traits`,
         );
         const b = pieceBounds(p);
@@ -574,6 +574,8 @@ test('bases may touch but not overlap, and nothing ends on impassable terrain', 
     assert.equal(placementProblems(a, [a], [steep])[0].kind, 'impassable');
     const bog = { id: 'b', name: 'Bog', traits: ['hazardous'], surfaces: [{ id: 'b1', top: 0.5, shape: { kind: 'circle', cx: 10, cy: 10, r: 3 } }] };
     assert.equal(placementProblems(a, [a], [bog])[0].kind, 'hazardous');
+    const mud = { ...bog, id: 'm', name: 'Mud', traits: ['severe'] };
+    assert.deepEqual(placementProblems(a, [a], [mud]).map((p) => p.kind), ['severe']);
     assert.deepEqual(
         placementProblems(a, [a], [{ ...steep, surfaces: [{ ...steep.surfaces[0], shape: { kind: 'rect', x: 20, y: 0, w: 5, h: 5 } }] }]),
         [],
@@ -740,4 +742,22 @@ test('guide dense terrain example: seen into the fog, not through it', () => {
     assert.equal(toJack.clear, true);
     assert.equal(toJack.concealed, true); // concealment against attacks on him
     assert.equal(lineOfSight(ophelia, montresor, all, [fog]).clear, false);
+});
+
+test('ground terrain presets: woods are dense, tall grass conceals without blocking, rivers and marsh are severe, water cannot be stood in', async () => {
+    const { TERRAIN_PRESETS } = await import('./terrainPresets.ts');
+    const make = (key, x = 18, y = 18) => TERRAIN_PRESETS.find((p) => p.key === key).make('t', x, y);
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 32, 18);
+    assert.equal(lineOfSight(a, b, [a, b], [make('woods')]).clear, false, 'a line across woods is blocked');
+    const grass = lineOfSight(a, b, [a, b], [make('tallgrass')]);
+    assert.equal(grass.clear, true, 'tall grass does not block');
+    assert.equal(grass.concealed, true, 'but it conceals');
+    assert.equal(lineOfSight(a, b, [a, b], [make('tree', 18, 18)]).clear, false, 'a tree in the way blocks');
+    assert.equal(lineOfSight(a, b, [a, b], [make('tree', 18, 24)]).clear, true, 'a tree off to one side does not');
+    for (const key of ['river', 'marsh', 'rubble', 'brambles']) assert.ok(make(key).traits.includes('severe'), `${key} is severe`);
+    for (const key of ['brambles', 'acid', 'fire']) assert.ok(make(key).traits.includes('hazardous'), `${key} is hazardous`);
+    const inDeep = man('d', 'a', 18, 18);
+    assert.equal(placementProblems(inDeep, [inDeep], [make('deepwater')])[0].kind, 'impassable');
+    assert.deepEqual(placementProblems(inDeep, [inDeep], [make('river')]).map((p) => p.kind), ['severe']);
 });

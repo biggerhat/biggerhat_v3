@@ -216,6 +216,23 @@ const L = require('./lib.cjs');
                 timeout: 5000,
             });
         });
+        await L.step(`tabletop (${label}): trees, rivers, marsh, hazards and the other ground terrain can be added and are textured`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            const kinds = ['woods', 'tree', 'brambles', 'river', 'deepwater', 'marsh', 'tallgrass', 'rubble', 'acid', 'fire'];
+            for (const k of kinds) {
+                await s.page.select('[data-testid=terrain-preset]', k);
+                await hit('[data-testid=terrain-add]');
+            }
+            await s.page.waitForFunction(() => /15 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            const seen = await s.page.$$eval('[data-testid=terrain-texture]', (els) => els.map((e) => e.getAttribute('data-kind')));
+            const missing = kinds.filter((k) => !seen.includes(k));
+            if (missing.length) throw new Error(`no texture drawn for ${missing.join(', ')}`);
+            await s.page.waitForSelector('[data-testid=trait-severe]');
+            await L.shot(s, `360-ground-terrain-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

@@ -654,7 +654,7 @@ function onUp(e: PointerEvent) {
             const trouble = problems.value.get(t.id) ?? [];
             if (trouble.length) {
                 note.value =
-                    `${t.name} ${trouble.map((p) => p.text).join(' and ')}. ${trouble.some((p) => p.kind !== 'hazardous') ? 'Move it to the nearest legal spot.' : ''} ${note.value}`.trim();
+                    `${t.name} ${trouble.map((p) => p.text).join(' and ')}. ${trouble.some((p) => p.kind === 'overlap' || p.kind === 'impassable') ? 'Move it to the nearest legal spot.' : ''} ${note.value}`.trim();
             }
         }
     }
@@ -978,7 +978,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             :stroke="
                                 t.id === selectedId
                                     ? 'hsl(var(--foreground))'
-                                    : problems.get(t.id)?.some((p) => p.kind !== 'hazardous')
+                                    : problems.get(t.id)?.some((p) => p.kind === 'overlap' || p.kind === 'impassable')
                                       ? 'hsl(0 85% 60%)'
                                       : caught.has(t.id)
                                         ? 'hsl(45 95% 55%)'

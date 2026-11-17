@@ -377,7 +377,7 @@ export const inZone = (shape: Shape, x: number, y: number): boolean => x >= 0 &&
 
 // ---- terrain editing -------------------------------------------------------------------------------------------------------------
 
-export const TERRAIN_TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible'] as const;
+export const TERRAIN_TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'] as const;
 export type TerrainTrait = (typeof TERRAIN_TRAITS)[number];
 export const SURFACE_MIN_TOP = 0.5;
 export const SURFACE_MAX_TOP = 12;
@@ -782,13 +782,13 @@ export function traceLine(from: Token, start: Pt, end: Pt, tokens: Token[], piec
 // --- where a model may stand ---
 
 export interface PlacementProblem {
-    kind: 'overlap' | 'impassable' | 'hazardous';
+    kind: 'overlap' | 'impassable' | 'hazardous' | 'severe';
     text: string;
 }
 
 /**
  * Problems with where a model stands. Bases may touch but not overlap another model's base, and nothing ends a move on impassable
- * terrain (p.20: a model that would is moved to the nearest legal spot). Hazardous terrain is only flagged. Markers and models removed
+ * terrain (p.20: a model that would is moved to the nearest legal spot). Hazardous and severe terrain are only flagged. Markers and models removed
  * from play do not count.
  */
 export function placementProblems(token: Token, tokens: Token[], pieces: TerrainPiece[]): PlacementProblem[] {
@@ -803,7 +803,10 @@ export function placementProblems(token: Token, tokens: Token[], pieces: Terrain
         const touches = piece.surfaces.some((s) => supportFraction(token, s.shape) > 0);
         if (!touches) continue;
         if (piece.traits.includes('impassable')) problems.push({ kind: 'impassable', text: `is on ${piece.name}, which is impassable` });
-        else if (piece.traits.includes('hazardous')) problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
+        else {
+            if (piece.traits.includes('hazardous')) problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
+            if (piece.traits.includes('severe')) problems.push({ kind: 'severe', text: `is in severe terrain (${piece.name}), where movement costs double` });
+        }
     }
     return problems;
 }

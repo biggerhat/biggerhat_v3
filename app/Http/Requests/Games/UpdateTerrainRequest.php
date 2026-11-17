@@ -8,7 +8,7 @@ use Illuminate\Validation\Rule;
 
 class UpdateTerrainRequest extends FormRequest
 {
-    public const TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible'];
+    public const TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'];
 
     public function authorize(): bool
     {
@@ -30,8 +30,8 @@ class UpdateTerrainRequest extends FormRequest
             'terrain.*.name' => ['required', 'string', 'max:60'],
             // Which kind of terrain this is (a preset key), so it is drawn with that kind's texture.
             'terrain.*.kind' => ['nullable', 'string', Rule::in(array_keys(TabletopImages::TERRAIN_KINDS))],
-            'terrain.*.traits' => ['present', 'array', 'max:7'],
-            'terrain.*.traits.*' => ['string', Rule::in(self::TRAITS), 'distinct'],
+            'terrain.*.traits' => ['present', 'array', 'max:8'],
+            'terrain.*.traits.*' => ['string', Rule::in(self::TRAITS)],
             'terrain.*.surfaces' => ['required', 'array', 'min:1', 'max:6'],
             'terrain.*.surfaces.*.id' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/'],
             'terrain.*.surfaces.*.top' => ['required', 'numeric', 'between:0.5,12'],

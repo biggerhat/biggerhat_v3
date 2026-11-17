@@ -661,7 +661,7 @@ it('keeps the table surface with the game for both players, and tells the other 
     Event::fake([GameBoardSetupChanged::class]);
     [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
 
-    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', null)->has('table_images', 6)->has('terrain_images', 12));
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', null)->has('table_images', 6)->has('terrain_images', 21));
     $this->actingAs($b)->put(route('games.board.setup', $game->uuid), ['table_image' => 'cobble'])->assertRedirect();
 
     $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', 'cobble')->where('deployment_variant', 0));
@@ -692,4 +692,13 @@ it('keeps each terrain piece\'s kind so it is drawn with its texture, and refuse
     expect($game->fresh()->board_state['terrain'][0]['kind'])->toBe('tower');
 
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece('spaceship')]])->assertSessionHasErrors('terrain.0.kind');
+});
+
+it('accepts every ground terrain kind and the severe trait', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $kinds = ['woods', 'tree', 'brambles', 'river', 'deepwater', 'marsh', 'tallgrass', 'rubble', 'acid', 'fire'];
+    $terrain = collect($kinds)->map(fn ($k, $i) => ['id' => "p$i", 'name' => ucfirst($k), 'kind' => $k, 'traits' => ['severe', 'hazardous', 'concealing', 'dense'], 'surfaces' => [['id' => "p$i-1", 'top' => 0.5, 'shape' => ['kind' => 'circle', 'cx' => 6 + $i * 2, 'cy' => 6, 'r' => 1]]]])->all();
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => $terrain])->assertSessionHasNoErrors()->assertRedirect();
+    expect(collect($game->fresh()->board_state['terrain'])->pluck('kind')->all())->toBe($kinds);
 });

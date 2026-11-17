@@ -39,6 +39,15 @@ class TabletopImages
         'block' => 'Block',
         'round' => 'Round feature',
         'woods' => 'Woods',
+        'tree' => 'Tree',
+        'brambles' => 'Brambles',
+        'river' => 'River',
+        'deepwater' => 'Deep water',
+        'marsh' => 'Marsh',
+        'tallgrass' => 'Tall grass',
+        'rubble' => 'Rubble',
+        'acid' => 'Acid pool',
+        'fire' => 'Burning ground',
     ];
 
     /**

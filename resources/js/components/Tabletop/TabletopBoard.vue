@@ -1797,7 +1797,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 v-if="!readOnly"
                 role="tablist"
                 aria-label="What to work on"
-                class="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+                class="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 max-lg:sticky max-lg:top-1 max-lg:z-20 max-lg:shadow-md"
                 data-testid="mode-tabs"
                 @keydown.right.prevent="openTab('terrain')"
                 @keydown.left.prevent="openTab('move')"

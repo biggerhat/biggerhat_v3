@@ -659,6 +659,11 @@ const L = require('./lib.cjs');
                     return r.top < window.innerHeight && r.bottom > 0;
                 });
                 if (!inView) throw new Error('the chip should bring the panel into view');
+                // the tabs stay pinned at the top of the screen however far down the column you are
+                await s.page.evaluate(() => window.scrollBy(0, 4000));
+                await L.sleep(300);
+                const top = await s.page.$eval('[data-testid=mode-tabs]', (e) => e.getBoundingClientRect().top);
+                if (top < 0 || top > 40) throw new Error(`the Models and Terrain tabs should stay at the top of a phone screen, top is ${top}`);
             }
             await hit('[data-testid=reset-table]');
         });

@@ -697,7 +697,7 @@ it('keeps each terrain piece\'s kind so it is drawn with its texture, and refuse
 it('accepts every ground terrain kind and the severe trait', function () {
     [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
     $kinds = ['woods', 'tree', 'brambles', 'river', 'deepwater', 'marsh', 'tallgrass', 'rubble', 'acid', 'fire'];
-    $terrain = collect($kinds)->map(fn ($k, $i) => ['id' => "p$i", 'name' => ucfirst($k), 'kind' => $k, 'traits' => ['severe', 'hazardous', 'concealing', 'dense'], 'surfaces' => [['id' => "p$i-1", 'top' => 0.5, 'shape' => ['kind' => 'circle', 'cx' => 6 + $i * 2, 'cy' => 6, 'r' => 1]]]])->all();
+    $terrain = collect($kinds)->map(fn ($k, $i) => ['id' => "p$i", 'name' => ucfirst($k), 'kind' => $k, 'traits' => ['severe', 'hazardous', 'concealing', 'dense'], 'surfaces' => [['id' => "p$i-1", 'top' => 0, 'shape' => ['kind' => 'circle', 'cx' => 6 + $i * 2, 'cy' => 6, 'r' => 1]]]])->all();
 
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => $terrain])->assertSessionHasNoErrors()->assertRedirect();
     expect(collect($game->fresh()->board_state['terrain'])->pluck('kind')->all())->toBe($kinds);

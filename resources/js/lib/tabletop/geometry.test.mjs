@@ -311,7 +311,7 @@ test('the guide wants three to eight standable pieces of Ht 2 or more', () => {
 });
 
 test('editor input is kept to half inches inside the allowed range', () => {
-    assert.equal(clampTop(0), 0.5);
+    assert.equal(clampTop(0), 0);
     assert.equal(clampTop(99), 12);
     assert.equal(clampTop(2.3), 2.5);
     assert.equal(clampSize(0), 0.5);
@@ -331,7 +331,7 @@ test('every preset builds a valid piece on the table', async () => {
         const b = pieceBounds(p);
         assert.ok(b.minX >= 0 && b.minY >= 0 && b.maxX <= 36 && b.maxY <= 36, `${preset.key}: fits the table when centred`);
         assert.ok(
-            p.surfaces.every((s) => s.top >= 0.5 && s.top <= 12),
+            p.surfaces.every((s) => s.top >= 0 && s.top <= 12),
             `${preset.key}: heights`,
         );
     }
@@ -537,7 +537,7 @@ test('every ready-made table follows the guide: 45-65% covered, three to eight t
         for (const s of pieces.flatMap((p) => p.surfaces)) {
             const b = shapeBounds(s.shape);
             assert.ok(b.minX >= 0 && b.minY >= 0 && b.maxX <= 36 && b.maxY <= 36, `${layout.key}: ${s.id} is on the table`);
-            assert.ok(s.top >= 0.5 && s.top <= 12);
+            assert.ok(s.top >= 0 && s.top <= 12);
         }
         for (let x = 0.25; x < 36; x += 0.5) {
             for (let y = 0.25; y < 36; y += 0.5) {
@@ -760,4 +760,18 @@ test('ground terrain presets: woods are dense, tall grass conceals without block
     const inDeep = man('d', 'a', 18, 18);
     assert.equal(placementProblems(inDeep, [inDeep], [make('deepwater')])[0].kind, 'impassable');
     assert.deepEqual(placementProblems(inDeep, [inDeep], [make('river')]).map((p) => p.kind), ['severe']);
+});
+
+test('flat ground terrain has no height: models on it stand at ground level and it never blocks by height', async () => {
+    const { TERRAIN_PRESETS } = await import('./terrainPresets.ts');
+    for (const key of ['river', 'deepwater', 'marsh', 'rubble', 'brambles', 'acid', 'fire', 'tallgrass', 'woods', 'fog']) {
+        const p = TERRAIN_PRESETS.find((x) => x.key === key).make('t', 18, 18);
+        assert.ok(p.surfaces.every((s) => s.top === 0), `${key} is flat`);
+    }
+    const river = TERRAIN_PRESETS.find((x) => x.key === 'river').make('t', 18, 18);
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 32, 18);
+    assert.equal(lineOfSight(a, b, [a, b], [river]).clear, true);
+    const wader = man('w', 'a', 18, 18);
+    assert.equal(restingSupport(wader, [river]).elevation, 0);
 });

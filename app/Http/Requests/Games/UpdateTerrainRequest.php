@@ -34,7 +34,7 @@ class UpdateTerrainRequest extends FormRequest
             'terrain.*.traits.*' => ['string', Rule::in(self::TRAITS)],
             'terrain.*.surfaces' => ['required', 'array', 'min:1', 'max:6'],
             'terrain.*.surfaces.*.id' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/'],
-            'terrain.*.surfaces.*.top' => ['required', 'numeric', 'between:0.5,12'],
+            'terrain.*.surfaces.*.top' => ['required', 'numeric', 'between:0,12'],
             'terrain.*.surfaces.*.shape.kind' => ['required', Rule::in(['rect', 'circle', 'poly'])],
             'terrain.*.surfaces.*.shape.x' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', ...$coord],
             'terrain.*.surfaces.*.shape.y' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', ...$coord],

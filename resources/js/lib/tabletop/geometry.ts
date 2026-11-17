@@ -379,7 +379,7 @@ export const inZone = (shape: Shape, x: number, y: number): boolean => x >= 0 &&
 
 export const TERRAIN_TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'] as const;
 export type TerrainTrait = (typeof TERRAIN_TRAITS)[number];
-export const SURFACE_MIN_TOP = 0.5;
+export const SURFACE_MIN_TOP = 0;
 export const SURFACE_MAX_TOP = 12;
 export const PIECE_MAX = 40;
 export const SURFACES_PER_PIECE = 6;

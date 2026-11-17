@@ -87,12 +87,12 @@ const RAW_PRESETS: TerrainPreset[] = [
     {
         key: 'fog',
         label: 'Fog bank (concealing, dense)',
-        make: (id, x, y) => piece(id, 'Fog bank', ['concealing', 'dense'], [{ id: `${id}-1`, shape: circle(x, y, 3), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Fog bank', ['concealing', 'dense'], [{ id: `${id}-1`, shape: circle(x, y, 3), top: 0 }]),
     },
     {
         key: 'woods',
         label: 'Woods (dense, concealing, severe)',
-        make: (id, x, y) => piece(id, 'Woods', ['concealing', 'dense', 'severe'], [{ id: `${id}-1`, shape: circle(x, y, 4), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Woods', ['concealing', 'dense', 'severe'], [{ id: `${id}-1`, shape: circle(x, y, 4), top: 0 }]),
     },
     {
         key: 'tree',
@@ -102,42 +102,42 @@ const RAW_PRESETS: TerrainPreset[] = [
     {
         key: 'brambles',
         label: 'Brambles (hazardous, severe)',
-        make: (id, x, y) => piece(id, 'Brambles', ['hazardous', 'severe'], [{ id: `${id}-1`, shape: circle(x, y, 2.5), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Brambles', ['hazardous', 'severe'], [{ id: `${id}-1`, shape: circle(x, y, 2.5), top: 0 }]),
     },
     {
         key: 'river',
         label: 'River (ford, severe)',
-        make: (id, x, y) => piece(id, 'River', ['severe'], [{ id: `${id}-1`, shape: rect(x - 8, y - 1.5, 16, 3), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'River', ['severe'], [{ id: `${id}-1`, shape: rect(x - 8, y - 1.5, 16, 3), top: 0 }]),
     },
     {
         key: 'deepwater',
         label: 'Deep water (impassable)',
-        make: (id, x, y) => piece(id, 'Deep water', ['impassable'], [{ id: `${id}-1`, shape: rect(x - 6, y - 2, 12, 4), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Deep water', ['impassable'], [{ id: `${id}-1`, shape: rect(x - 6, y - 2, 12, 4), top: 0 }]),
     },
     {
         key: 'marsh',
         label: 'Marsh (severe)',
-        make: (id, x, y) => piece(id, 'Marsh', ['severe'], [{ id: `${id}-1`, shape: circle(x, y, 3.5), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Marsh', ['severe'], [{ id: `${id}-1`, shape: circle(x, y, 3.5), top: 0 }]),
     },
     {
         key: 'tallgrass',
         label: 'Tall grass (concealing)',
-        make: (id, x, y) => piece(id, 'Tall grass', ['concealing'], [{ id: `${id}-1`, shape: circle(x, y, 3), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Tall grass', ['concealing'], [{ id: `${id}-1`, shape: circle(x, y, 3), top: 0 }]),
     },
     {
         key: 'rubble',
         label: 'Rubble (severe)',
-        make: (id, x, y) => piece(id, 'Rubble', ['severe'], [{ id: `${id}-1`, shape: rect(x - 2.5, y - 2, 5, 4), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Rubble', ['severe'], [{ id: `${id}-1`, shape: rect(x - 2.5, y - 2, 5, 4), top: 0 }]),
     },
     {
         key: 'acid',
         label: 'Acid pool (hazardous)',
-        make: (id, x, y) => piece(id, 'Acid pool', ['hazardous'], [{ id: `${id}-1`, shape: circle(x, y, 2.5), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Acid pool', ['hazardous'], [{ id: `${id}-1`, shape: circle(x, y, 2.5), top: 0 }]),
     },
     {
         key: 'fire',
         label: 'Burning ground (hazardous, concealing)',
-        make: (id, x, y) => piece(id, 'Burning ground', ['hazardous', 'concealing'], [{ id: `${id}-1`, shape: circle(x, y, 2.5), top: 0.5 }]),
+        make: (id, x, y) => piece(id, 'Burning ground', ['hazardous', 'concealing'], [{ id: `${id}-1`, shape: circle(x, y, 2.5), top: 0 }]),
     },
     {
         key: 'block',

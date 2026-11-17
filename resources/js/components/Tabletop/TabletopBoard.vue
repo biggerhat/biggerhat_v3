@@ -905,6 +905,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :stroke-width="mode === 'terrain' && piece.id === selectedPieceId ? 0.22 : 0.07"
                             />
                             <text
+                                v-if="surface.top > 0"
                                 :x="labelAt(surface.shape).x"
                                 :y="labelAt(surface.shape).y"
                                 font-size="0.9"

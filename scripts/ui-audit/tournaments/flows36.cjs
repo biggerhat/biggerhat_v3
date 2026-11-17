@@ -56,7 +56,11 @@ const L = require('./lib.cjs');
                 );
         });
         await L.step(`board (${label}): terrain laid out on the game's table is saved with the game`, carol, async () => {
-            const centre = (testid) => carol.page.$eval(`[data-testid=${testid}]`, (b) => b.scrollIntoView({ block: 'center' }));
+            const centre = (testid) => carol.page.$eval(`[data-testid=${testid}]`, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             const click = async (testid) => {
                 await centre(testid);
                 await carol.page.click(`[data-testid=${testid}]`);
@@ -87,7 +91,11 @@ const L = require('./lib.cjs');
         });
         await L.step(`board (${label}): a marker from the list is placed at its base size and saved with the game`, carol, async () => {
             const hit = async (selector) => {
-                await carol.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
+                await carol.page.$eval(selector, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
                 await carol.page.click(selector);
             };
             const markers = () =>
@@ -163,7 +171,11 @@ const L = require('./lib.cjs');
             };
             const hp = () => carol.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
             const press = async (id) => {
-                await carol.page.$eval(`[data-testid=${id}]`, (b) => b.scrollIntoView({ block: 'center' }));
+                await carol.page.$eval(`[data-testid=${id}]`, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
                 await carol.page.click(`[data-testid=${id}]`);
             };
             await open();
@@ -214,12 +226,12 @@ const L = require('./lib.cjs');
             await carol.page.waitForSelector('[data-testid=save-dialog]');
             await carol.page.type('[data-testid=save-table-name]', 'Game table');
             await carol.page.$eval('[data-testid=save-table-confirm]', (b) => b.click());
-            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]'), { timeout: 8000 });
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 8000 });
             // it is now one of the viewer's tables, in the Load table dialog
             await carol.page.$eval('[data-testid=table-load]', (b) => b.click());
             await carol.page.waitForSelector('[data-testid=load-mine][data-name="Game table"]', { timeout: 8000 });
             await carol.page.keyboard.press('Escape');
-            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]'), { timeout: 5000 });
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
             await carol.page.$eval('[data-testid=terrain-clear]', (b) => b.click()); // leave the table as found
             await L.sleep(1200);
         });
@@ -228,7 +240,11 @@ const L = require('./lib.cjs');
             await carol.page.waitForSelector('[data-testid=table-select]');
             const surface = () => carol.page.$eval('[data-testid=table-surface]', (e) => e.getAttribute('data-surface'));
             if ((await surface()) !== 'grass') throw new Error(`the table should start as grass, saw ${await surface()}`);
-            await carol.page.$eval('[data-testid=table-select]', (b) => b.scrollIntoView({ block: 'center' }));
+            await carol.page.$eval('[data-testid=table-select]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await carol.page.select('[data-testid=table-select]', 'cobble');
             await carol.page.waitForFunction(() => document.querySelector('[data-testid=table-surface]')?.getAttribute('data-surface') === 'cobble', {
                 timeout: 5000,
@@ -239,13 +255,21 @@ const L = require('./lib.cjs');
             const kept = await carol.page.$eval('[data-testid=table-select]', (e) => e.value);
             if (kept !== 'cobble') throw new Error(`the surface came back as ${kept}`);
             await L.shot(carol, `368-board-table-surface-${label}`);
-            await carol.page.$eval('[data-testid=table-select]', (b) => b.scrollIntoView({ block: 'center' }));
+            await carol.page.$eval('[data-testid=table-select]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await carol.page.select('[data-testid=table-select]', 'grass'); // leave it as found
             await L.sleep(1200);
         });
         await L.step(`board (${label}): an aura shown to the other player is saved with the game`, carol, async () => {
             const hit = async (selector) => {
-                await carol.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
+                await carol.page.$eval(selector, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
                 await carol.page.click(selector);
             };
             const open = async () => {

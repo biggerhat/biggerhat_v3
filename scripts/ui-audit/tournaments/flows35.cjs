@@ -24,8 +24,19 @@ const L = require('./lib.cjs');
             );
         // Click a control after centring it: on a phone the fixed tab bar can sit over a button scrolled to the very bottom.
         const hit = async (selector) => {
-            await s.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
+            // the Table section is collapsed until opened: open whatever the control sits in
+            await s.page.$eval(selector, (b) => {
+                const d = b.closest('details');
+                if (d && !d.open) d.open = true;
+                b.scrollIntoView({ block: 'center' });
+            });
             await s.page.click(selector);
+            if (selector.includes('reset-table')) {
+                // Reset asks first
+                await s.page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((b) => /Reset table/.test(b.innerText)), { timeout: 5000 });
+                await s.page.evaluate(() => [...document.querySelectorAll('[role=dialog] button')].find((b) => /Reset table/.test(b.innerText)).click());
+                await s.page.waitForFunction(() => !document.querySelector('[role=dialog]'), { timeout: 5000 });
+            }
         };
         const toBoardTop = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
         // Sight guidelines are switched on from a model's panel: select the model at a spot on the table, then press its toggle.
@@ -108,7 +119,11 @@ const L = require('./lib.cjs');
             await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
-            await s.page.$eval('[data-testid=step-toggle]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=step-toggle]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await s.page.click('[data-testid=step-toggle]');
             await s.page.waitForSelector('[data-testid=step-help]');
             await dragTo([18, 4], [18, 6]); // the master: 2" down
@@ -125,7 +140,7 @@ const L = require('./lib.cjs');
             await dragTo([18, 11], [18, 13]);
             await L.expectText(s, /moved 2(\.\d)?"/);
             if ((await s.page.$$('[data-testid=move-trail-leg]')).length) throw new Error('a plain drag should not keep earlier legs');
-            await s.page.click('[data-testid=reset-table]');
+            await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): the ruler measures edge to edge between two models`, s, async () => {
             await openSandbox();
@@ -242,7 +257,7 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
             // a place: the minion is put down 4" away over the wall, ignoring it
-            await s.page.select('[data-testid=move-kind]', 'place');
+            await hit('[data-testid=move-kind-place]');
             await s.page.waitForSelector('[data-testid=place-range]');
             await s.page.$eval('[data-testid=place-range]', (i) => {
                 i.value = '6';
@@ -263,14 +278,14 @@ const L = require('./lib.cjs');
             await hit('[data-testid=place-whole]');
             if ((await s.page.$eval('[data-testid=place-whole]', (b) => b.getAttribute('aria-pressed'))) !== 'true') throw new Error('whole base did not toggle');
             // a Flight walk: height is ignored, the Walk still counts
-            await s.page.select('[data-testid=move-kind]', 'fly');
+            await hit('[data-testid=move-kind-fly]');
             await toBoardTop();
             await dragTo([12, 18], [12, 22]);
             t = await note();
             if (!/ignoring terrain height/.test(t) || !/of a Walk/.test(t)) throw new Error(`expected a Flight readout against a Walk: ${t}`);
             if (await s.page.$('[data-testid=place-reach]')) throw new Error('a Flight walk has no place ring');
             // and a plain Walk reads as before
-            await s.page.select('[data-testid=move-kind]', 'walk');
+            await hit('[data-testid=move-kind-walk]');
             await toBoardTop();
             await dragTo([12, 22], [12, 26]);
             t = await note();
@@ -464,7 +479,7 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=save-dialog]');
             await s.page.type('[data-testid=save-table-name]', 'Harness table');
             await s.page.$eval('[data-testid=save-table-confirm]', (b) => b.click());
-            await s.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]'), { timeout: 8000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 8000 });
             // clear the table, then bring it back: the dialog lists the ready-made tables and mine
             await hit('[data-testid=mode-terrain]');
             await hit('[data-testid=terrain-clear]');
@@ -477,6 +492,7 @@ const L = require('./lib.cjs');
             await L.shot(s, `362-load-dialog-${label}`);
             await s.page.$eval('[data-testid=load-mine][data-name="Harness table"]', (b) => b.click());
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
             await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): the Tabletop page lists my tables with thumbnails, lists public ones, and a table can be edited and saved back`, s, async () => {
@@ -560,6 +576,8 @@ const L = require('./lib.cjs');
             // with a deployment chosen the deployment's own centerline is still there, with no big label on it
             await s.page.select('[data-testid=deployment-select]', 'standard');
             await s.page.waitForSelector('[data-testid=centerline]');
+            const summary = await s.page.$eval('[data-testid=table-summary]', (e) => e.innerText);
+            if (!/Standard/.test(summary) || !/lines on/.test(summary)) throw new Error(`the Table section should say what is set: ${summary}`);
             if ((await s.page.$eval('body', (b) => b.innerText)).includes('CENTERLINE')) throw new Error('the centerline needs no label');
             await toBoardTop();
             await L.shot(s, `369-table-lines-${label}`);
@@ -569,6 +587,61 @@ const L = require('./lib.cjs');
             await hit('[data-testid=table-lines-toggle]');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=table-lines]'), { timeout: 5000 });
             await s.page.select('[data-testid=deployment-select]', 'none');
+        });
+        await L.step(`tabletop (${label}): the side column, photographed in each state for design review`, s, async () => {
+            const SHOTS = process.env.SHOTS;
+            const column = async (name) => {
+                const el = await s.page.$('[data-testid=side-column]');
+                await el.screenshot({ path: `${SHOTS}/${name}-${label}.png` });
+            };
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=side-column]');
+            await column('col-1-move-nothing-selected');
+            await toBoardTop();
+            const m = await pixel(18, 4);
+            await s.page.mouse.click(m.x, m.y); // the first master
+            await s.page.waitForSelector('[data-testid=model-guide]');
+            await column('col-2-move-model-selected');
+            await hit('[data-testid=model-guide]');
+            await s.page.waitForSelector('[data-testid=side-readout]');
+            await column('col-3-move-guidelines-on');
+            await hit('[data-testid=model-guide]');
+            await hit('[data-testid=mode-terrain]');
+            await toBoardTop();
+            const roof = await pixel(10, 8);
+            await s.page.mouse.click(roof.x, roof.y); // the tower
+            await s.page.waitForSelector('[data-testid=terrain-piece]');
+            await column('col-4-terrain-piece-selected');
+            await hit('[data-testid=terrain-enterable]');
+            await s.page.waitForSelector('[data-testid=terrain-floor]');
+            await column('col-5-terrain-enterable');
+            await hit('[data-testid=mode-move]');
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a selected model's panel is one tap away on a phone, and the chip never shows on a desktop`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await toBoardTop();
+            const m = await pixel(18, 4);
+            await s.page.mouse.click(m.x, m.y); // the first master
+            await s.page.waitForSelector('[data-testid=selected-panel] [data-testid=model-guide]');
+            await L.sleep(500);
+            const chip = await s.page.$('[data-testid=selection-chip]');
+            if (label === 'desktop') {
+                if (chip) throw new Error('the selection chip is for phones only');
+            } else {
+                if (!chip) throw new Error('on a phone the panel is below the board, so a chip should offer to go to it');
+                const text = await s.page.$eval('[data-testid=selection-chip]', (e) => e.innerText);
+                if (!/Master/.test(text)) throw new Error(`the chip should name the selection: ${text}`);
+                await s.page.click('[data-testid=selection-chip]');
+                await s.page.waitForFunction(() => !document.querySelector('[data-testid=selection-chip]'), { timeout: 5000 });
+                const inView = await s.page.$eval('[data-testid=selected-panel]', (e) => {
+                    const r = e.getBoundingClientRect();
+                    return r.top < window.innerHeight && r.bottom > 0;
+                });
+                if (!inView) throw new Error('the chip should bring the panel into view');
+            }
+            await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
@@ -650,9 +723,17 @@ const L = require('./lib.cjs');
             const walked = await s.page.$eval('[data-testid=token-a1] circle', (c) => Number(c.getAttribute('cy')));
             if (Math.abs(walked - 14) > 0.3) throw new Error(`master did not walk to y=14 (cy ${walked})`);
             // A second and a third aura on the same model; then no more.
-            await s.page.$eval('[data-testid=aura-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=aura-add]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await hit('[data-testid=aura-add]');
-            await s.page.$eval('[data-testid=aura-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=aura-add]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await hit('[data-testid=aura-add]');
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=aura-a1]').length === 3, { timeout: 5000 });
             if (!(await s.page.$eval('[data-testid=aura-add]', (b) => b.disabled))) throw new Error('a fourth aura should not be allowed');
@@ -665,7 +746,11 @@ const L = require('./lib.cjs');
             }
             await L.shot(s, `353-tabletop-auras-${label}`);
             // Unlock the first: it jumps back to the model.
-            await s.page.$eval('[data-testid=aura-row-0] [data-testid=aura-lock]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=aura-row-0] [data-testid=aura-lock]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await hit('[data-testid=aura-row-0] [data-testid=aura-lock]');
             await L.sleep(200);
             const after = await s.page.evaluate(() =>
@@ -768,7 +853,11 @@ const L = require('./lib.cjs');
         await L.step(`tabletop (${label}): a character card can be searched for and added at its own size, Sz and Sp`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=character-open]');
-            await s.page.$eval('[data-testid=character-open]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=character-open]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await s.page.click('[data-testid=character-open]');
             await s.page.waitForSelector('[data-testid=character-search]');
             await s.page.type('[data-testid=character-search]', 'seedlady');
@@ -808,13 +897,21 @@ const L = require('./lib.cjs');
             const hp = () => s.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
             if ((await hp()) !== '9 / 9') throw new Error(`expected 9 / 9, saw ${await hp()}`);
             const press = async (id) => {
-                await s.page.$eval(`[data-testid=${id}]`, (b) => b.scrollIntoView({ block: 'center' }));
+                await s.page.$eval(`[data-testid=${id}]`, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
                 await s.page.click(`[data-testid=${id}]`);
             };
             await press('health-minus');
             await press('health-minus');
             await s.page.waitForFunction(() => document.querySelector('[data-testid=health-value]').innerText.trim() === '7 / 9', { timeout: 5000 });
-            await s.page.$eval('[data-testid=token-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=token-add]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             const focus = await s.page.$$eval('[data-testid=token-add] option', (os) => os.find((o) => o.textContent === 'Focus')?.value);
             await s.page.select('[data-testid=token-add]', focus);
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=model-token]').length === 1, { timeout: 5000 });
@@ -828,8 +925,7 @@ const L = require('./lib.cjs');
             const radii = await s.page.$$eval('[data-testid^=token-] > circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
             if (Math.abs(radii[radii.length - 1] - 25 / 25.4) > 0.01) throw new Error(`the new model should have a 50 mm base: ${radii}`);
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
-            await s.page.$eval('[data-testid=reset-table]', (b) => b.scrollIntoView({ block: 'center' }));
-            await s.page.click('[data-testid=reset-table]');
+            await hit('[data-testid=reset-table]');
             // reset clears the models (nothing blank comes back) and the hint says how to start again
             await s.page
                 .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 0, { timeout: 5000 })
@@ -851,7 +947,11 @@ const L = require('./lib.cjs');
             await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             const toBoard = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
-            const centreOn = (testid) => s.page.$eval(`[data-testid=${testid}]`, (b) => b.scrollIntoView({ block: 'center' }));
+            const centreOn = (testid) => s.page.$eval(`[data-testid=${testid}]`, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             const click = async (testid) => {
                 await centreOn(testid);
                 await s.page.click(`[data-testid=${testid}]`);
@@ -941,7 +1041,7 @@ const L = require('./lib.cjs');
             await click('table-load');
             await s.page.waitForSelector('[data-testid=load-dialog]');
             await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
-            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]'), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
             await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             const covered = Number(((await stats()).match(/Covered: (\d+)%/) || [])[1]);
             if (covered < 45 || covered > 65) throw new Error(`a ready-made table should cover 45-65%: ${await stats()}`);
@@ -951,7 +1051,7 @@ const L = require('./lib.cjs');
             await click('table-load');
             await s.page.waitForSelector('[data-testid=load-dialog]');
             await s.page.$eval('[data-testid=load-default][data-key=demo]', (b) => b.click());
-            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]'), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             // It is all kept on this device: reload and the demo table is still there, still in terrain mode's reach.
             await openSandbox();

@@ -24,7 +24,7 @@ import {
     type TerrainTrait,
 } from '@/lib/tabletop/geometry';
 import { TERRAIN_KIND_LABELS, TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
-import { Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
+import { ChevronDown, Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -208,55 +208,57 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
 </script>
 
 <template>
-    <div class="space-y-3 text-sm" data-testid="terrain-editor">
+    <div class="space-y-3 text-sm" role="tabpanel" aria-label="Terrain" data-testid="terrain-editor">
         <div class="rounded-md border p-3" data-testid="terrain-stats">
             <div class="flex items-center justify-between">
                 <span class="font-medium">Table</span>
                 <span class="text-muted-foreground">{{ pieces.length }} piece{{ pieces.length === 1 ? '' : 's' }}</span>
             </div>
-            <div :class="coverageOk ? 'text-foreground' : 'text-amber-500'">
+            <div :class="!pieces.length || coverageOk ? 'text-foreground' : 'text-amber-500'">
                 Covered: {{ coverage }}% <span class="text-muted-foreground">(the guide suggests 45 to 65%)</span>
             </div>
-            <div :class="tallOk ? 'text-foreground' : 'text-amber-500'">
+            <div :class="!pieces.length || tallOk ? 'text-foreground' : 'text-amber-500'">
                 Climbable Ht 2+ pieces: {{ tall }} <span class="text-muted-foreground">(the guide suggests 3 to 8)</span>
             </div>
         </div>
 
-        <div class="flex flex-wrap items-end gap-2">
-            <label class="min-w-0 flex-1">
-                <span class="mb-1 block font-medium">Add a piece</span>
-                <select v-model="presetKey" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="terrain-preset">
-                    <option v-for="p in TERRAIN_PRESETS" :key="p.key" :value="p.key">{{ p.label }}</option>
-                </select>
-            </label>
-            <Button size="sm" data-testid="terrain-add" @click="addPiece"><Plus class="mr-1 size-4" />Add</Button>
-        </div>
-        <Button size="sm" variant="outline" data-testid="terrain-draw" :disabled="drawing !== null && drawing !== undefined" @click="emit('draw')"
-            ><PenLine class="mr-1 size-4" />Draw an outline</Button
-        >
-        <div
-            v-if="drawing !== null && drawing !== undefined"
-            class="space-y-2 rounded-md border border-amber-500/60 p-3 text-sm"
-            data-testid="outline-help"
-        >
-            <div class="font-medium">Drawing an outline</div>
-            <p class="text-muted-foreground">
-                Tap the board to place corners ({{ drawing }} so far). Tap the first corner again, or press Finish, to close the shape. Corners snap
-                to half inches.
-            </p>
-            <div class="flex flex-wrap gap-2">
-                <Button size="sm" data-testid="outline-finish" :disabled="drawing < 3" @click="emit('finishDraw')">Finish</Button>
-                <Button size="sm" variant="outline" data-testid="outline-undo" :disabled="drawing < 1" @click="emit('undoCorner')"
-                    >Undo corner</Button
-                >
-                <Button size="sm" variant="ghost" data-testid="outline-cancel" @click="emit('cancelDraw')">Cancel</Button>
+        <div class="space-y-2 rounded-md border p-3" data-testid="terrain-add-panel">
+            <div class="flex flex-wrap items-end gap-2">
+                <label class="min-w-0 flex-1">
+                    <span class="mb-1 block font-medium">Add a piece</span>
+                    <select v-model="presetKey" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="terrain-preset">
+                        <option v-for="p in TERRAIN_PRESETS" :key="p.key" :value="p.key">{{ p.label }}</option>
+                    </select>
+                </label>
+                <Button size="sm" data-testid="terrain-add" @click="addPiece"><Plus class="mr-1 size-4" />Add</Button>
             </div>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" data-testid="terrain-undo" :disabled="!canUndo" @click="emit('undo')"
-                ><Undo2 class="mr-1 size-4" />Undo</Button
+            <Button size="sm" variant="outline" data-testid="terrain-draw" :disabled="drawing !== null && drawing !== undefined" @click="emit('draw')"
+                ><PenLine class="mr-1 size-4" />Draw an outline</Button
             >
-            <Button size="sm" variant="outline" data-testid="terrain-clear" :disabled="!pieces.length" @click="emit('clear')">Clear table</Button>
+            <div
+                v-if="drawing !== null && drawing !== undefined"
+                class="space-y-2 rounded-md border border-amber-500/60 p-3 text-sm"
+                data-testid="outline-help"
+            >
+                <div class="font-medium">Drawing an outline</div>
+                <p class="text-muted-foreground">
+                    Tap the board to place corners ({{ drawing }} so far). Tap the first corner again, or press Finish, to close the shape. Corners
+                    snap to half inches.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <Button size="sm" data-testid="outline-finish" :disabled="drawing < 3" @click="emit('finishDraw')">Finish</Button>
+                    <Button size="sm" variant="outline" data-testid="outline-undo" :disabled="drawing < 1" @click="emit('undoCorner')"
+                        >Undo corner</Button
+                    >
+                    <Button size="sm" variant="ghost" data-testid="outline-cancel" @click="emit('cancelDraw')">Cancel</Button>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" data-testid="terrain-undo" :disabled="!canUndo" @click="emit('undo')"
+                    ><Undo2 class="mr-1 size-4" />Undo</Button
+                >
+                <Button size="sm" variant="outline" data-testid="terrain-clear" :disabled="!pieces.length" @click="emit('clear')">Clear table</Button>
+            </div>
         </div>
 
         <div v-if="selected" class="space-y-3 rounded-md border p-3" data-testid="terrain-piece">
@@ -280,7 +282,7 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                     aria-label="Turn 15 degrees back"
                     data-testid="terrain-rotate-back"
                     @click="replace(rotatePiece(selected, -15))"
-                    ><RotateCcw class="mr-1 size-4" />15°</Button
+                    ><RotateCcw class="mr-1 size-4" />-15°</Button
                 >
                 <Button
                     size="sm"
@@ -288,7 +290,7 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                     aria-label="Turn 15 degrees on"
                     data-testid="terrain-rotate-on"
                     @click="replace(rotatePiece(selected, 15))"
-                    ><RotateCw class="mr-1 size-4" />15°</Button
+                    ><RotateCw class="mr-1 size-4" />+15°</Button
                 >
                 <Button size="sm" variant="outline" data-testid="terrain-duplicate" @click="duplicate(selected)"
                     ><Copy class="mr-1 size-4" />Copy</Button
@@ -311,106 +313,128 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 </select>
             </label>
 
-            <div class="space-y-2 rounded-md border p-2" data-testid="terrain-interior">
-                <label class="flex cursor-pointer items-center gap-1 font-medium" title="A model can walk in through a door and fight inside">
-                    <input
-                        type="checkbox"
-                        :checked="!!selected.interior"
-                        data-testid="terrain-enterable"
-                        @change="toggleEnterable(selected, ($event.target as HTMLInputElement).checked)"
-                    />
-                    Can be entered
-                </label>
-                <template v-if="selected.interior">
-                    <p class="text-muted-foreground">
-                        The inside is the outline of its lowest level. A model inside stands on the floor and is seen only through doors and windows;
-                        drag the dots on the walls to slide them.
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <label class="flex items-center gap-1"
-                            >Floor Ht
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0"
-                                max="12"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-floor"
-                                :value="selected.interior.floor"
-                                @change="setFloor(selected, numberFrom($event))"
-                        /></label>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            data-testid="terrain-add-door"
-                            :disabled="selected.interior.openings.length >= OPENINGS_MAX"
-                            @click="newOpening(selected, 'door')"
-                            >Add door</Button
-                        >
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            data-testid="terrain-add-window"
-                            :disabled="selected.interior.openings.length >= OPENINGS_MAX"
-                            @click="newOpening(selected, 'window')"
-                            >Add window</Button
-                        >
-                        <Button
-                            size="sm"
-                            :variant="insideShown ? 'default' : 'outline'"
-                            :aria-pressed="insideShown"
-                            data-testid="terrain-show-inside"
-                            @click="emit('toggleInside', selected.id)"
-                            >Show inside</Button
-                        >
-                    </div>
-                    <div v-for="o in selected.interior.openings" :key="o.id" class="flex flex-wrap items-center gap-2" data-testid="terrain-opening">
-                        <span class="w-14 capitalize">{{ o.kind }}</span>
-                        <label class="flex items-center gap-1"
-                            >W
-                            <input
-                                type="number"
-                                step="0.5"
-                                min="0.5"
-                                max="6"
-                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                data-testid="terrain-opening-w"
-                                :value="o.w"
-                                @change="setOpeningWidth(selected, o.id, numberFrom($event))"
-                            />"</label
-                        >
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            aria-label="Remove this opening"
-                            data-testid="terrain-opening-remove"
-                            @click="removeOpening(selected, o.id)"
-                            ><Trash2 class="size-4"
-                        /></Button>
-                    </div>
-                </template>
-            </div>
-
-            <fieldset>
-                <legend class="mb-1 font-medium">Traits</legend>
-                <div class="flex flex-wrap gap-1">
-                    <label
-                        v-for="t in TERRAIN_TRAITS"
-                        :key="t"
-                        class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1"
-                        :class="selected.traits.includes(t) ? 'border-primary bg-primary/10' : ''"
-                    >
+            <details class="group rounded-md border" :open="!!selected.interior" data-testid="terrain-interior">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-2 p-2 [&::-webkit-details-marker]:hidden">
+                    <span class="font-medium">Building</span>
+                    <span class="min-w-0 flex-1 truncate text-right text-muted-foreground">{{
+                        selected.interior
+                            ? `enterable, ${selected.interior.openings.length} opening${selected.interior.openings.length === 1 ? '' : 's'}`
+                            : 'solid'
+                    }}</span>
+                    <ChevronDown class="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <div class="space-y-2 border-t p-2">
+                    <label class="flex cursor-pointer items-center gap-1 font-medium" title="A model can walk in through a door and fight inside">
                         <input
                             type="checkbox"
-                            class="sr-only"
-                            :checked="selected.traits.includes(t)"
-                            :data-testid="`trait-${t}`"
-                            @change="toggleTrait(selected, t)"
+                            :checked="!!selected.interior"
+                            data-testid="terrain-enterable"
+                            @change="toggleEnterable(selected, ($event.target as HTMLInputElement).checked)"
                         />
-                        {{ t }}
+                        Can be entered
                     </label>
+                    <template v-if="selected.interior">
+                        <p class="text-muted-foreground">
+                            The inside is the outline of its lowest level. A model inside stands on the floor and is seen only through doors and
+                            windows; drag the dots on the walls to slide them.
+                        </p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <label class="flex items-center gap-1"
+                                >Floor Ht
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    max="12"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-floor"
+                                    :value="selected.interior.floor"
+                                    @change="setFloor(selected, numberFrom($event))"
+                            /></label>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                data-testid="terrain-add-door"
+                                :disabled="selected.interior.openings.length >= OPENINGS_MAX"
+                                @click="newOpening(selected, 'door')"
+                                >Add door</Button
+                            >
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                data-testid="terrain-add-window"
+                                :disabled="selected.interior.openings.length >= OPENINGS_MAX"
+                                @click="newOpening(selected, 'window')"
+                                >Add window</Button
+                            >
+                            <Button
+                                size="sm"
+                                :variant="insideShown ? 'default' : 'outline'"
+                                :aria-pressed="insideShown"
+                                data-testid="terrain-show-inside"
+                                @click="emit('toggleInside', selected.id)"
+                                >Show inside</Button
+                            >
+                        </div>
+                        <div
+                            v-for="o in selected.interior.openings"
+                            :key="o.id"
+                            class="flex flex-wrap items-center gap-2"
+                            data-testid="terrain-opening"
+                        >
+                            <span class="w-14 capitalize">{{ o.kind }}</span>
+                            <label class="flex items-center gap-1"
+                                >W
+                                <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    max="6"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    data-testid="terrain-opening-w"
+                                    :value="o.w"
+                                    @change="setOpeningWidth(selected, o.id, numberFrom($event))"
+                                />"</label
+                            >
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                aria-label="Remove this opening"
+                                data-testid="terrain-opening-remove"
+                                @click="removeOpening(selected, o.id)"
+                                ><Trash2 class="size-4"
+                            /></Button>
+                        </div>
+                    </template>
                 </div>
-            </fieldset>
+            </details>
+
+            <details open class="group rounded-md border" data-testid="terrain-traits">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-2 p-2 [&::-webkit-details-marker]:hidden">
+                    <span class="font-medium">Traits</span>
+                    <span class="min-w-0 flex-1 truncate text-right text-muted-foreground">{{ selected.traits.join(', ') || 'none' }}</span>
+                    <ChevronDown class="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <fieldset class="border-t p-2">
+                    <div class="flex flex-wrap gap-1">
+                        <label
+                            v-for="t in TERRAIN_TRAITS"
+                            :key="t"
+                            class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1"
+                            :class="selected.traits.includes(t) ? 'border-primary bg-primary/10' : ''"
+                        >
+                            <input
+                                type="checkbox"
+                                class="sr-only"
+                                :checked="selected.traits.includes(t)"
+                                :data-testid="`trait-${t}`"
+                                @change="toggleTrait(selected, t)"
+                            />
+                            {{ t }}
+                        </label>
+                    </div>
+                </fieldset>
+            </details>
 
             <div>
                 <div class="mb-1 flex items-center justify-between">
@@ -519,7 +543,8 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 data-testid="terrain-w"
                                 :value="s.shape.w"
                                 @change="resize(selected, s, { w: numberFrom($event) })"
-                        /></label>
+                            />"</label
+                        >
                         <label class="flex items-center gap-1"
                             >D
                             <input
@@ -531,7 +556,8 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 data-testid="terrain-h"
                                 :value="s.shape.h"
                                 @change="resize(selected, s, { h: numberFrom($event) })"
-                        /></label>
+                            />"</label
+                        >
                         <label class="flex items-center gap-1"
                             >Turn
                             <input
@@ -545,7 +571,6 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 @change="setAngle(selected, s, numberFrom($event))"
                             />°</label
                         >
-                        <span class="text-muted-foreground">inches</span>
                     </div>
                     <div v-else-if="s.shape.kind === 'ellipse'" class="mt-2 flex flex-wrap items-center gap-2">
                         <label class="flex items-center gap-1"
@@ -559,7 +584,8 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 data-testid="terrain-rx"
                                 :value="s.shape.rx"
                                 @change="resize(selected, s, { rx: numberFrom($event) })"
-                        /></label>
+                            />"</label
+                        >
                         <label class="flex items-center gap-1"
                             >Ry
                             <input
@@ -571,7 +597,8 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 data-testid="terrain-ry"
                                 :value="s.shape.ry"
                                 @change="resize(selected, s, { ry: numberFrom($event) })"
-                        /></label>
+                            />"</label
+                        >
                         <label class="flex items-center gap-1"
                             >Turn
                             <input
@@ -585,7 +612,6 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 @change="setAngle(selected, s, numberFrom($event))"
                             />°</label
                         >
-                        <span class="text-muted-foreground">inches</span>
                     </div>
                     <div v-else-if="s.shape.kind === 'circle'" class="mt-2 flex items-center gap-2">
                         <label class="flex items-center gap-1"

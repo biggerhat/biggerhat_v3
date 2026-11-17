@@ -23,6 +23,8 @@ import {
     pieceBounds,
     placementProblems,
     placeReach,
+    auraTerrain,
+    AURA_TRAITS,
     tableChecks,
     shapeArea,
     LANE_MIN,
@@ -1222,4 +1224,29 @@ test('the table check: sight terrain share and mix, lanes between zones, narrow 
     const move = byId(tableChecks(good, null), 'movement');
     assert.equal(move.status, 'info');
     assert.match(move.text, /1 impassable/);
+});
+
+test('an aura that counts as terrain: concealing hides a model in it, hazardous is flagged, severe costs double', () => {
+    const owner = man('o', 'a', 18, 18, 2);
+    const mk = (traits, extra = {}) => ({ aura: { id: 'x', ownerId: 'o', range: 3, locked: false, traits, ...extra }, owner });
+    assert.deepEqual(auraTerrain([{ aura: { id: 'n', ownerId: 'o', range: 3, locked: false }, owner }]), [], 'no traits, no terrain');
+    const [smoke] = auraTerrain([mk(['concealing'])]);
+    assert.equal(smoke.traits[0], 'concealing');
+    assert.equal(smoke.surfaces[0].shape.kind, 'circle');
+    assert.ok(Math.abs(smoke.surfaces[0].shape.r - (mmToInches(30) / 2 + 3)) < 1e-9, 'from the edge of the base out to the range');
+    // a model on the far side of the smoke is concealed
+    const a = man('a', 'a', 4, 18, 2);
+    const b = man('b', 'b', 30, 18, 2);
+    assert.equal(lineOfSight(a, b, [a, b], [smoke]).concealed, true);
+    assert.equal(lineOfSight(a, b, [a, b], []).concealed, false);
+    // hazardous and severe, around a model that has moved on: the aura follows the owner
+    const [acid] = auraTerrain([mk(['hazardous'])]);
+    const wader = man('w', 'b', 19, 18, 2);
+    assert.equal(placementProblems(wader, [wader], [acid])[0].kind, 'hazardous');
+    const [mud] = auraTerrain([mk(['severe'])]);
+    assert.ok(terrainAlongLeg({ x: 10, y: 18 }, { x: 26, y: 18 }, 30, [mud]).severe > 3);
+    // locked at a spot, it stays there when the owner moves
+    const [fixed] = auraTerrain([mk(['dense'], { locked: true, x: 5, y: 5 })]);
+    assert.equal(fixed.surfaces[0].shape.cx, 5);
+    assert.deepEqual([...AURA_TRAITS], ['concealing', 'dense', 'hazardous', 'severe']);
 });

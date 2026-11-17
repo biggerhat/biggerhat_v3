@@ -323,6 +323,7 @@ class GameBoardController extends Controller
                     'locked' => (bool) $a['locked'],
                     'x' => $a['locked'] ? round((float) $a['x'], 2) : null,
                     'y' => $a['locked'] ? round((float) $a['y'], 2) : null,
+                    'traits' => ! empty($a['traits']) ? array_values($a['traits']) : null,
                 ], fn ($v) => $v !== null));
             }
 

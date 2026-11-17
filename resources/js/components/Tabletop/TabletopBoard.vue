@@ -6,7 +6,9 @@ import {
     DEPLOYMENT_KINDS,
     TABLE_SIZE,
     auraOrigin,
+    AURA_TRAITS,
     auraRadius,
+    auraTerrain,
     baseRadius,
     clampToTable,
     deploymentZones,
@@ -480,7 +482,7 @@ const trailCost = computed(() => {
     const flown = pathCost(points);
     // What a Walk meets on the way: severe terrain costs double, hazardous terrain is triggered, impassable terrain is in the way. A model that
     // ignores terrain (Flight) or is placed is not asked.
-    const crossed = t.kind === 'walk' && !token.marker ? terrainAlongPath(points, t.baseMm, terrain.value, token.ignores ?? []) : null;
+    const crossed = t.kind === 'walk' && !token.marker ? terrainAlongPath(points, t.baseMm, worldTerrain.value, token.ignores ?? []) : null;
     const cost = { ...flown, total: flown.total + (crossed?.severe ?? 0) };
     // A place is not movement, so it is never measured against a Walk.
     return { cost, crossed, walk: t.sp !== undefined && t.kind !== 'place' ? walkBudget(t.sp, cost) : null };
@@ -538,10 +540,10 @@ watch(
 const sightFrom = computed(() => tokens.value.find((t) => t.id === sight.value?.fromId));
 const sightTo = computed(() => tokens.value.find((t) => t.id === sight.value?.toId));
 const sightForward = computed(() =>
-    sightFrom.value && sightTo.value ? lineOfSight(sightFrom.value, sightTo.value, tokens.value, terrain.value) : null,
+    sightFrom.value && sightTo.value ? lineOfSight(sightFrom.value, sightTo.value, tokens.value, worldTerrain.value) : null,
 );
 const sightBack = computed(() =>
-    sightFrom.value && sightTo.value ? lineOfSight(sightTo.value, sightFrom.value, tokens.value, terrain.value) : null,
+    sightFrom.value && sightTo.value ? lineOfSight(sightTo.value, sightFrom.value, tokens.value, worldTerrain.value) : null,
 );
 const unknownSz = computed(() => [sightFrom.value, sightTo.value].some((t) => t && !t.marker && t.sz === undefined));
 function describeSight(r: ReturnType<typeof lineOfSight>, who: string, whom: string): string {
@@ -562,7 +564,7 @@ const sideLines = computed(() => {
     const lines = from && aim ? sideSightLines(from, aim) : null;
     if (!from || !lines) return [];
     return lines.map((l) => {
-        const trace = traceLine(from, l.start, l.end, tokens.value, terrain.value);
+        const trace = traceLine(from, l.start, l.end, tokens.value, worldTerrain.value);
         const reached = trace.models.flatMap((m) => {
             const token = tokens.value.find((t) => t.id === m.id);
             return token ? [{ ...m, token }] : [];
@@ -646,6 +648,12 @@ function addAura(owner: Token) {
         { id: `a${Date.now().toString(36)}${auras.value.length}`, ownerId: owner.id, range: 6, locked: false },
     ];
 }
+/** Switch one of the terrain traits an aura counts as on or off. */
+function toggleAuraTrait(aura: Aura, trait: string) {
+    const now = aura.traits ?? [];
+    const next = now.includes(trait) ? now.filter((x) => x !== trait) : [...now, trait];
+    patchAura(aura.id, { traits: next.length ? next : undefined });
+}
 function toggleLock(aura: Aura, owner: Token) {
     patchAura(aura.id, aura.locked ? { locked: false, x: undefined, y: undefined } : { locked: true, x: owner.x, y: owner.y });
 }
@@ -678,10 +686,15 @@ const activeAuras = computed(() =>
         return [{ aura, owner, origin, nth, radius: auraRadius(owner, aura.range), inside: modelsWithin(aura, owner, tokens.value) }];
     }),
 );
+/** What sight, walks and placement see: the terrain, and any aura that counts as terrain. */
+const worldTerrain = computed(() => {
+    const extra = auraTerrain(activeAuras.value);
+    return extra.length ? [...terrain.value, ...extra] : terrain.value;
+});
 const insideOf = (id: string) => activeAuras.value.find((a) => a.aura.id === id)?.inside ?? [];
 const caught = computed(() => new Set(activeAuras.value.flatMap((a) => a.inside.map((t) => t.id))));
 /** Models standing where they should not: on another base, or on impassable terrain. */
-const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, terrain.value)])));
+const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, worldTerrain.value)])));
 const selected = computed(() => tokens.value.find((t) => t.id === selectedId.value) ?? null);
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
 const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value, variant.value)));
@@ -1059,7 +1072,7 @@ const illegalHere = (t: Token) => (problems.value.get(t.id) ?? []).some((p) => p
 function moveToLegalSpot(t: Token) {
     const token = tokens.value.find((x) => x.id === t.id);
     if (!token || token.locked) return;
-    const spot = nearestLegalSpot(token, tokens.value, terrain.value);
+    const spot = nearestLegalSpot(token, tokens.value, worldTerrain.value);
     if (!spot) {
         note.value = `There is no legal spot near ${token.name}.`;
         return;
@@ -1096,9 +1109,10 @@ function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
     ];
     const now = elevationOf(t);
     if (now !== tr.startElevation) parts.push(`lands at elevation ${now}`);
-    const hazards = [...placementProblems({ ...t, x: from.x, y: from.y }, tokens.value, terrain.value), ...(problems.value.get(t.id) ?? [])].some(
-        (p) => p.kind === 'hazardous',
-    );
+    const hazards = [
+        ...placementProblems({ ...t, x: from.x, y: from.y }, tokens.value, worldTerrain.value),
+        ...(problems.value.get(t.id) ?? []),
+    ].some((p) => p.kind === 'hazardous');
     if (hazards) parts.push('it began or ended in hazardous terrain, which counts as having moved through it');
     if ((buildingOf(t, terrain.value)?.id ?? null) !== tr.inside)
         parts.push('a place cannot move a model into or out of a building, so it does not happen: put it back');
@@ -2382,6 +2396,26 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     @click="setRange(aura.id, n)"
                                     >{{ n }}"</Button
                                 >
+                            </div>
+                            <div class="mt-2 flex flex-wrap items-center gap-1" data-testid="aura-traits">
+                                <span class="text-xs text-muted-foreground">Counts as</span>
+                                <label
+                                    v-for="trait in AURA_TRAITS"
+                                    :key="trait"
+                                    class="flex cursor-pointer items-center rounded-md border px-2 py-0.5 text-xs"
+                                    :class="aura.traits?.includes(trait) ? 'border-primary bg-primary/10' : ''"
+                                    :title="`The area counts as ${trait} terrain`"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        class="sr-only"
+                                        :checked="!!aura.traits?.includes(trait)"
+                                        :disabled="!canEdit(aura)"
+                                        :data-testid="`aura-trait-${trait}`"
+                                        @change="toggleAuraTrait(aura, trait)"
+                                    />
+                                    {{ trait }}
+                                </label>
                             </div>
                             <p class="mt-2 text-muted-foreground" data-testid="aura-inside">
                                 {{ aura.shared ? (canEdit(aura) ? 'Shown to both players. ' : 'Shown to you by the other player. ') : ''

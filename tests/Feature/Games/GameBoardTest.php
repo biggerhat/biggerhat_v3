@@ -793,3 +793,17 @@ it('does not count Strategy markers towards the five of a kind', function () {
     // an ordinary marker is still held to five
     $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("s$i", $scheme->id), range(1, 6))])->assertSessionHasErrors('upsert');
 });
+
+it('saves the terrain traits a shared aura counts as, and refuses an unknown one', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $aura = fn (array $traits) => ['id' => 'a1', 'owner_id' => (string) $m1->id, 'range' => 3, 'locked' => false, 'traits' => $traits];
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['concealing', 'severe'])]])->assertRedirect();
+    expect($game->fresh()->board_state['auras'][0]['traits'])->toBe(['concealing', 'severe']);
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura([])]])->assertRedirect();
+    expect($game->fresh()->board_state['auras'][0])->not->toHaveKey('traits');
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['blocking'])]])->assertSessionHasErrors('upsert.0.traits.0');
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['dense', 'dense'])]])->assertSessionHasErrors();
+});

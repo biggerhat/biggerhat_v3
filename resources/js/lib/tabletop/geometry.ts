@@ -276,7 +276,12 @@ export interface Aura {
     y?: number;
     /** Shown to the other player too, and saved with the game. Otherwise private to this browser. */
     shared?: boolean;
+    /** Terrain traits the area counts as (aura token terrain, p.57): concealing, dense, hazardous or severe. */
+    traits?: string[];
 }
+
+/** The traits an aura can give the ground it covers. */
+export const AURA_TRAITS = ['concealing', 'dense', 'hazardous', 'severe'] as const;
 
 /** Where an aura is centred, as a base of the owner's size: on the model, or at its locked spot. */
 export function auraOrigin(aura: Aura, owner: Pick<Token, 'x' | 'y' | 'baseMm'>): Pick<Token, 'x' | 'y' | 'baseMm'> {
@@ -1727,4 +1732,29 @@ export function tableChecks(pieces: TerrainPiece[], zones?: DeploymentZones | nu
         text: `${count('impassable')} impassable, ${count('hazardous')} hazardous, ${count('severe')} severe, and ${scatter} small destructible piece${scatter === 1 ? '' : 's'} (scatter). The guide wants mostly impassable with hazardous and severe terrain sparingly.`,
     });
     return out;
+}
+
+/**
+ * Auras that count as terrain (aura token terrain, p.57) as flat circular pieces of terrain, so sight lines, walks and placement treat them
+ * like any other: a concealing aura hides what is in it, a hazardous one is triggered, a severe one costs double. The circle runs from the edge
+ * of the owner's base out to the aura's range, and follows the owner unless the aura is locked.
+ */
+export function auraTerrain(auras: { aura: Aura; owner: Token }[]): TerrainPiece[] {
+    return auras
+        .filter(({ aura }) => aura.traits?.length)
+        .map(({ aura, owner }) => {
+            const origin = auraOrigin(aura, owner);
+            return {
+                id: `aura-${aura.id}`,
+                name: `${owner.name}'s aura`,
+                traits: [...(aura.traits ?? [])],
+                surfaces: [
+                    {
+                        id: `aura-${aura.id}-1`,
+                        top: 0.5,
+                        shape: { kind: 'circle' as const, cx: origin.x, cy: origin.y, r: auraRadius(owner, aura.range) },
+                    },
+                ],
+            };
+        });
 }

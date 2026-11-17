@@ -830,6 +830,24 @@ const L = require('./lib.cjs');
             await s.page.select('[data-testid=deployment-select]', 'none');
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): an aura can count as hazardous terrain around a model`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await toBoardTop();
+            const m = await pixel(18, 4); // the first master
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=aura-add]');
+            await hit('[data-testid=aura-add]');
+            await s.page.waitForSelector('[data-testid=aura-trait-hazardous]');
+            await s.page.$eval('[data-testid=aura-trait-hazardous]', (i) => i.click());
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=aura-trait-hazardous]').checked, { timeout: 5000 });
+            // a model walks into the aura: it is in hazardous terrain
+            await dragTo([12, 32], [18, 8]);
+            await s.page.waitForSelector('[data-testid=placement-warning]');
+            const w = await s.page.$eval('[data-testid=placement-warning]', (e) => e.innerText);
+            if (!/hazardous terrain \(Master's aura\)/.test(w)) throw new Error(`the aura should count as hazardous terrain: ${w}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

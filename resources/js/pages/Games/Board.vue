@@ -38,6 +38,7 @@ interface SharedAura {
     locked: boolean;
     x?: number;
     y?: number;
+    traits?: string[];
 }
 
 interface BoardModel {
@@ -98,7 +99,7 @@ watch(
 );
 
 // Auras either player chose to show both sides. The rest stay private to each browser.
-const toAura = (a: SharedAura): Aura => ({ id: a.id, ownerId: a.owner_id, range: a.range, locked: a.locked, x: a.x, y: a.y });
+const toAura = (a: SharedAura): Aura => ({ id: a.id, ownerId: a.owner_id, range: a.range, locked: a.locked, x: a.x, y: a.y, traits: a.traits });
 const sharedAuras = ref<Aura[]>(props.shared_auras.map(toAura));
 watch(
     () => props.shared_auras,

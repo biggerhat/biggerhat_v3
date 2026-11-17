@@ -701,6 +701,21 @@ const L = require('./lib.cjs');
             if (/severe|impassable/.test(t)) throw new Error(`a Flight walk ignores terrain: ${t}`);
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): a model left over another base can be moved to the nearest legal spot`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            const problem = (id) => s.page.$eval(`[data-testid=token-${id}] circle`, (c) => c.getAttribute('data-problem'));
+            // the minion is dropped right on the henchman's base
+            await dragTo([12, 32], [12.2, 5.2]);
+            await s.page.waitForSelector('[data-testid=model-fix-spot]');
+            if ((await problem('b3')) !== 'true') throw new Error('the overlap should be flagged');
+            await hit('[data-testid=model-fix-spot]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=model-fix-spot]'), { timeout: 5000 });
+            if (await problem('b3')) throw new Error('the model should no longer be flagged once moved to a legal spot');
+            const t = await s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            if (!/to the nearest legal spot/.test(t)) throw new Error(`the note should say what happened: ${t}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

@@ -1361,3 +1361,75 @@ export function terrainAlongPath(points: Pt[], baseMm: number, pieces: TerrainPi
     }
     return out;
 }
+
+// ---- the nearest legal spot (p.20) --------------------------------------------------------------------------------------------------
+
+/**
+ * Where a model that ended somewhere it may not be (over another base, or on impassable terrain) goes instead: the closest spot that is legal,
+ * found by looking outward in rings a quarter inch apart. Hazardous and severe terrain are legal to stand in. null when the model is already
+ * somewhere legal, or when nothing within `maxRadius` is.
+ */
+export function nearestLegalSpot(token: Token, tokens: Token[], pieces: TerrainPiece[], maxRadius = 14, step = 0.25): { x: number; y: number } | null {
+    const legal = (x: number, y: number) =>
+        !placementProblems({ ...token, x, y }, tokens, pieces).some((p) => p.kind === 'overlap' || p.kind === 'impassable');
+    if (legal(token.x, token.y)) return null;
+    for (let r = step; r <= maxRadius + 1e-9; r += step) {
+        const around = Math.max(8, Math.ceil((2 * Math.PI * r) / step));
+        for (let i = 0; i < around; i++) {
+            const a = (i / around) * 2 * Math.PI;
+            const spot = clampToTable({ ...token, x: token.x + r * Math.cos(a), y: token.y + r * Math.sin(a) });
+            if (legal(spot.x, spot.y)) return spot;
+        }
+    }
+    return null;
+}
+
+// ---- where a base is on the table (Table Edge, Half, Corner and Quarter, p.60) -----------------------------------------------------
+
+export interface Whereabouts {
+    /** The 18" quarters any part of the base is in, such as "top-left". */
+    quarters: string[];
+    /** The nearest table edge and the gap from the base to it (0 when touching). */
+    edge: { side: 'top' | 'bottom' | 'left' | 'right'; gap: number };
+    /** The nearest table corner and the gap from the base to it. */
+    corner: { name: string; gap: number };
+    /** With a deployment chosen: whose half of the table the middle of the base is in, or 'line' when the base is on the centerline. */
+    half?: 'a' | 'b' | 'line';
+    /** With a deployment chosen: whose deployment zone the middle of the base is in. */
+    zone?: 'a' | 'b' | null;
+}
+
+/** Where a base sits: quarters, nearest edge and corner, and (given the deployment) half and zone. */
+export function whereabouts(token: Pick<Token, 'x' | 'y' | 'baseMm'>, zones?: DeploymentZones | null): Whereabouts {
+    const r = baseRadius(token.baseMm);
+    const gaps = {
+        left: Math.max(0, token.x - r),
+        right: Math.max(0, TABLE_SIZE - token.x - r),
+        top: Math.max(0, token.y - r),
+        bottom: Math.max(0, TABLE_SIZE - token.y - r),
+    };
+    const side = (Object.keys(gaps) as (keyof typeof gaps)[]).reduce((a, b) => (gaps[b] < gaps[a] ? b : a));
+    const corners = [
+        { name: 'top-left', x: 0, y: 0 },
+        { name: 'top-right', x: TABLE_SIZE, y: 0 },
+        { name: 'bottom-left', x: 0, y: TABLE_SIZE },
+        { name: 'bottom-right', x: TABLE_SIZE, y: TABLE_SIZE },
+    ].map((c) => ({ name: c.name, gap: Math.max(0, Math.hypot(token.x - c.x, token.y - c.y) - r) }));
+    const corner = corners.reduce((a, b) => (b.gap < a.gap ? b : a));
+    const mid = TABLE_SIZE / 2;
+    const rows = [token.y - r < mid ? 'top' : null, token.y + r > mid ? 'bottom' : null].filter(Boolean);
+    const cols = [token.x - r < mid ? 'left' : null, token.x + r > mid ? 'right' : null].filter(Boolean);
+    const quarters = rows.flatMap((row) => cols.map((col) => `${row}-${col}`));
+    const out: Whereabouts = { quarters, edge: { side, gap: gaps[side] }, corner: { name: corner.name, gap: corner.gap } };
+    if (zones) {
+        const [[x1, y1], [x2, y2]] = zones.centerline;
+        const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+        const signed = (px: number, py: number) => ((x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)) / len;
+        const centre = shapeCentre(zones.a);
+        const aSign = Math.sign(signed(centre[0], centre[1])) || 1;
+        const d = signed(token.x, token.y) * aSign;
+        out.half = Math.abs(d) < r ? 'line' : d > 0 ? 'a' : 'b';
+        out.zone = pointInShape(zones.a, token.x, token.y) ? 'a' : pointInShape(zones.b, token.x, token.y) ? 'b' : null;
+    }
+    return out;
+}

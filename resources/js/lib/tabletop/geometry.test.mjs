@@ -23,6 +23,8 @@ import {
     pieceBounds,
     placementProblems,
     placeReach,
+    whereabouts,
+    nearestLegalSpot,
     terrainAlongLeg,
     terrainAlongPath,
     archwayAt,
@@ -1027,4 +1029,59 @@ test('a walk across severe, hazardous and impassable terrain says what it met an
     // a path adds its legs up
     const path = terrainAlongPath([{ x: 10, y: 10 }, { x: 22, y: 10 }, { x: 10, y: 10 }], 30, [river]);
     assert.ok(Math.abs(path.severe - 2 * across.severe) < 0.3);
+});
+
+test('a model in an illegal spot goes to the nearest legal one', () => {
+    const r = mmToInches(30) / 2;
+    const a = man('a', 'a', 10, 10, 2);
+    const onTop = man('b', 'b', 10.4, 10, 2);
+    const spot = nearestLegalSpot(onTop, [a, onTop], []);
+    assert.ok(spot, 'a spot is found');
+    const gap = Math.hypot(spot.x - a.x, spot.y - a.y);
+    assert.ok(gap >= 2 * r - 1e-6 && gap < 2 * r + 0.3, `just clear of the other base, ${gap}" between centres`);
+    assert.ok(Math.hypot(spot.x - onTop.x, spot.y - onTop.y) < 2 * r + 0.1, 'and close to where it was');
+    assert.equal(nearestLegalSpot(man('c', 'b', 20, 20), [a, onTop], []), null, 'a legal model stays where it is');
+    // on impassable terrain it goes to the edge
+    const steep = { id: 's', name: 'Steep', traits: ['blocking', 'impassable'], surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 10, y: 10, w: 4, h: 4 } }] };
+    const stuck = man('d', 'a', 12, 12, 2);
+    const out = nearestLegalSpot(stuck, [stuck], [steep]);
+    assert.ok(out);
+    assert.deepEqual(placementProblems({ ...stuck, ...out }, [stuck], [steep]).filter((p) => p.kind === 'impassable'), []);
+    assert.ok(Math.hypot(out.x - 12, out.y - 12) < 2 + r + 0.3, 'the nearest edge, not across the table');
+    // hazardous terrain is legal to stand in
+    const bog = { id: 'h', name: 'Brambles', traits: ['hazardous'], surfaces: [{ id: 'h1', top: 0, shape: { kind: 'circle', cx: 5, cy: 5, r: 2 } }] };
+    assert.equal(nearestLegalSpot(man('e', 'a', 5, 5), [], [bog]), null);
+    // a model pinned in a corner by a wall of bases still finds somewhere, or says there is nowhere
+    const crowd = [];
+    for (let x = 0; x <= 36; x += 1) for (let y = 0; y <= 36; y += 1) crowd.push(man(`c${x}-${y}`, 'b', x, y));
+    assert.equal(nearestLegalSpot(man('z', 'a', 10, 10), [...crowd], []), null, 'no room anywhere near');
+});
+
+test('where a base is on the table: quarters, nearest edge and corner, and the half and zone of a deployment', () => {
+    const r = mmToInches(30) / 2;
+    const w = whereabouts({ x: 5, y: 4, baseMm: 30 });
+    assert.deepEqual(w.quarters, ['top-left']);
+    assert.equal(w.edge.side, 'top');
+    assert.ok(Math.abs(w.edge.gap - (4 - r)) < 1e-9);
+    assert.equal(w.corner.name, 'top-left');
+    assert.ok(Math.abs(w.corner.gap - (Math.hypot(5, 4) - r)) < 1e-9);
+    // across the middle: all the quarters it touches
+    assert.deepEqual(whereabouts({ x: 18, y: 18, baseMm: 30 }).quarters.sort(), ['bottom-left', 'bottom-right', 'top-left', 'top-right']);
+    assert.deepEqual(whereabouts({ x: 18, y: 5, baseMm: 30 }).quarters.sort(), ['top-left', 'top-right']);
+    assert.equal(whereabouts({ x: 0, y: 20, baseMm: 30 }).edge.gap, 0, 'touching the edge');
+    // a deployment: standard has the centerline across the middle; side a is the top strip
+    const z = deploymentZones('standard');
+    const top = whereabouts({ x: 10, y: 5, baseMm: 30 }, z);
+    assert.equal(top.half, 'a');
+    assert.equal(top.zone, 'a');
+    const bottom = whereabouts({ x: 10, y: 31, baseMm: 30 }, z);
+    assert.equal(bottom.half, 'b');
+    assert.equal(bottom.zone, 'b');
+    const middle = whereabouts({ x: 10, y: 18.2, baseMm: 30 }, z);
+    assert.equal(middle.half, 'line', 'on the centerline');
+    assert.equal(middle.zone, null);
+    const between = whereabouts({ x: 10, y: 13, baseMm: 30 }, z);
+    assert.equal(between.half, 'a');
+    assert.equal(between.zone, null, 'in a half but outside its 8" strip');
+    assert.equal(whereabouts({ x: 10, y: 10, baseMm: 30 }).half, undefined, 'no deployment, no half');
 });

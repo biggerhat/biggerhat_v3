@@ -30,6 +30,7 @@ import {
     wallProblem,
     wallSegments,
     movePiece,
+    nearestLegalSpot,
     pieceBounds,
     placementProblems,
     removeCorner,
@@ -1008,6 +1009,22 @@ function setUnder(t: Token, under: boolean) {
     if (under) token.under = true;
     else delete token.under;
     emit('moved', { ...token });
+}
+/** A model left over another base or on impassable ground goes to the nearest legal spot (p.20). */
+const illegalHere = (t: Token) => (problems.value.get(t.id) ?? []).some((p) => p.kind === 'overlap' || p.kind === 'impassable');
+function moveToLegalSpot(t: Token) {
+    const token = tokens.value.find((x) => x.id === t.id);
+    if (!token || token.locked) return;
+    const spot = nearestLegalSpot(token, tokens.value, terrain.value);
+    if (!spot) {
+        note.value = `There is no legal spot near ${token.name}.`;
+        return;
+    }
+    const away = Math.hypot(spot.x - token.x, spot.y - token.y);
+    Object.assign(token, spot);
+    trail.value = null;
+    emit('moved', { ...token });
+    note.value = `${token.name} moved ${fmt(away)}" to the nearest legal spot.`;
 }
 /** What a place says, in words: how far it went against its range, and what it skipped (p.17). */
 function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
@@ -2157,6 +2174,15 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 .map((p) => p.text)
                                 .join(' and ')
                         }}.
+                        <Button
+                            v-if="illegalHere(selected) && !selected.locked"
+                            size="sm"
+                            variant="outline"
+                            class="mt-1 block"
+                            data-testid="model-fix-spot"
+                            @click="moveToLegalSpot(selected)"
+                            >Move to the nearest legal spot</Button
+                        >
                     </p>
                     <div class="mt-3 border-t pt-3" data-testid="aura-controls">
                         <div class="mb-2 flex items-center justify-between">

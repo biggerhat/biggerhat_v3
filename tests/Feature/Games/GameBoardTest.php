@@ -661,7 +661,7 @@ it('keeps the table surface with the game for both players, and tells the other 
     Event::fake([GameBoardSetupChanged::class]);
     [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
 
-    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', null)->has('table_images', 5)->has('terrain_images', 12));
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', null)->has('table_images', 6)->has('terrain_images', 12));
     $this->actingAs($b)->put(route('games.board.setup', $game->uuid), ['table_image' => 'cobble'])->assertRedirect();
 
     $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', 'cobble')->where('deployment_variant', 0));
@@ -681,7 +681,7 @@ it('refuses a table surface that is not on offer, and offers uploaded ones', fun
     $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => 'lava'])->assertSessionHasErrors('table_image');
     $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => 'i'.$upload->id])->assertRedirect();
     expect($game->fresh()->board_state['table_image'])->toBe('i'.$upload->id);
-    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->has('table_images', 6));
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->has('table_images', 7));
 });
 
 it('keeps each terrain piece\'s kind so it is drawn with its texture, and refuses an unknown kind', function () {

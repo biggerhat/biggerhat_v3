@@ -84,10 +84,10 @@ it('offers the built-in table surfaces and terrain textures, with active uploads
     \App\Models\TabletopImage::factory()->inactive()->create(['name' => 'Hidden floor']);
 
     $this->get(route('tools.tabletop'))->assertInertia(fn (Assert $page) => $page
-        ->has('table_images', 6)
-        ->where('table_images.0', ['key' => 'felt', 'name' => 'Green felt', 'url' => '/images/tabletop/tables/felt.svg', 'fit' => 'tile'])
-        ->where('table_images.5.name', 'Marble floor')
-        ->where('table_images.5.fit', 'cover')
+        ->has('table_images', 7)
+        ->where('table_images.0', ['key' => 'grass', 'name' => 'Grass', 'url' => '/images/tabletop/tables/grass.svg', 'fit' => 'tile'])
+        ->where('table_images.6.name', 'Marble floor')
+        ->where('table_images.6.fit', 'cover')
         ->where('terrain_images.tower', '/images/tabletop/terrain/tower.svg')
         ->has('terrain_images', 12));
 });

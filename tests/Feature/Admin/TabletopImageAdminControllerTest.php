@@ -41,7 +41,7 @@ it('lists what was added and the built-in images', function () {
             ->has('images', 2)
             ->where('images.0.name', 'Marble floor')
             ->where('images.1.terrain_label', 'Tower')
-            ->has('defaults.tables', 5)
+            ->has('defaults.tables', 6)
             ->has('defaults.terrain', 12));
 });
 

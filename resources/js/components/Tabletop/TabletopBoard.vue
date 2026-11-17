@@ -63,7 +63,7 @@ const props = withDefaults(
         deploymentVariant?: number;
         /** Table surfaces to choose from. A built-in one repeats as a tile; an uploaded one stretches over the whole table. */
         tableImages?: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
-        /** The chosen surface (a key from tableImages), or null for the plain table. A game keeps it for both players. */
+        /** The chosen surface (a key from tableImages); without one, or if it is gone, the table is grass. A game keeps it for both players. */
         tableImage?: string | null;
         /** A texture for each kind of terrain: kind => url. It repeats every TEXTURE_TILE inches across the pieces of that kind. */
         terrainImages?: Record<string, string>;
@@ -209,10 +209,13 @@ watch(
         if (next !== undefined) tableKey.value = next;
     },
 );
-const tableChoice = computed(() => props.tableImages?.find((t) => t.key === tableKey.value) ?? null);
+const DEFAULT_TABLE = 'grass';
+const tableChoice = computed(
+    () => props.tableImages?.find((t) => t.key === tableKey.value) ?? props.tableImages?.find((t) => t.key === DEFAULT_TABLE) ?? null,
+);
 function chooseTable(key: string) {
-    tableKey.value = key === '' ? null : key;
-    if (!props.readOnly) emit('tableImageChanged', tableKey.value);
+    tableKey.value = key;
+    if (!props.readOnly) emit('tableImageChanged', key);
 }
 /** The textures in use on the table, one pattern each. A kind without a texture is drawn plain. */
 const textures = computed(() => {
@@ -803,6 +806,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         :width="TABLE_SIZE"
                         :height="TABLE_SIZE"
                         fill="url(#table-tex)"
+                        :data-surface="tableChoice.key"
                         data-testid="table-surface"
                     />
                     <image
@@ -813,6 +817,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         :width="TABLE_SIZE"
                         :height="TABLE_SIZE"
                         preserveAspectRatio="xMidYMid slice"
+                        :data-surface="tableChoice.key"
                         data-testid="table-surface"
                     />
                     <path
@@ -1313,13 +1318,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <label v-if="tableImages?.length" class="block text-sm">
                     <span class="mb-1 block font-medium">Table surface</span>
                     <select
-                        :value="tableKey ?? ''"
+                        :value="tableChoice?.key ?? ''"
                         class="w-full rounded-md border bg-background px-2 py-1.5"
                         :disabled="readOnly"
                         data-testid="table-select"
                         @change="chooseTable(($event.target as HTMLSelectElement).value)"
                     >
-                        <option value="">Plain</option>
                         <option v-for="t in tableImages" :key="t.key" :value="t.key">{{ t.name }}</option>
                     </select>
                 </label>

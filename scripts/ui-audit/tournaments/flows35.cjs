@@ -197,19 +197,24 @@ const L = require('./lib.cjs');
             );
             if (!['crates', 'hill', 'tower', 'wall'].every((k) => textured.includes(k)))
                 throw new Error(`expected textures on the demo terrain, saw ${textured}`);
-            if (await s.page.$('[data-testid=table-surface]')) throw new Error('the table should start plain');
+            const surface = () => s.page.$eval('[data-testid=table-surface]', (e) => e.getAttribute('data-surface'));
+            if ((await surface()) !== 'grass') throw new Error(`the table should start as grass, saw ${await surface()}`);
             await hit('[data-testid=table-select]');
             const options = await s.page.$$eval('[data-testid=table-select] option', (os) => os.map((o) => o.value));
-            if (options.length !== 6) throw new Error(`expected plain plus five built-in surfaces, saw ${options}`);
+            if (options.length !== 6 || options[0] !== 'grass') throw new Error(`expected six built-in surfaces, grass first, saw ${options}`);
             await s.page.select('[data-testid=table-select]', 'felt');
-            await s.page.waitForSelector('[data-testid=table-surface]');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=table-surface]')?.getAttribute('data-surface') === 'felt', {
+                timeout: 5000,
+            });
             await toBoardTop();
             await L.shot(s, `359-table-surface-${label}`);
             await openSandbox();
-            await s.page.waitForSelector('[data-testid=table-surface]'); // kept on this device
+            if ((await surface()) !== 'felt') throw new Error(`the surface should be kept on this device, saw ${await surface()}`);
             await hit('[data-testid=table-select]');
-            await s.page.select('[data-testid=table-select]', '');
-            await s.page.waitForFunction(() => !document.querySelector('[data-testid=table-surface]'), { timeout: 5000 });
+            await s.page.select('[data-testid=table-select]', 'grass');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=table-surface]')?.getAttribute('data-surface') === 'grass', {
+                timeout: 5000,
+            });
         });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');

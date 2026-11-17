@@ -12,8 +12,12 @@ use Illuminate\Support\Facades\Storage;
  */
 class TabletopImages
 {
+    /** The surface a table has until someone picks another. */
+    public const DEFAULT_TABLE = 'grass';
+
     /** Table surfaces that ship with the app: key => label. */
     public const DEFAULT_TABLES = [
+        'grass' => 'Grass',
         'felt' => 'Green felt',
         'cobble' => 'Cobbled street',
         'wood' => 'Wooden boards',

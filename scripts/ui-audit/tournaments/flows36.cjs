@@ -206,10 +206,13 @@ const L = require('./lib.cjs');
         await L.step(`board (${label}): the table surface chosen is kept with the game`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid=table-select]');
-            if (await carol.page.$('[data-testid=table-surface]')) throw new Error('the table should start plain');
+            const surface = () => carol.page.$eval('[data-testid=table-surface]', (e) => e.getAttribute('data-surface'));
+            if ((await surface()) !== 'grass') throw new Error(`the table should start as grass, saw ${await surface()}`);
             await carol.page.$eval('[data-testid=table-select]', (b) => b.scrollIntoView({ block: 'center' }));
             await carol.page.select('[data-testid=table-select]', 'cobble');
-            await carol.page.waitForSelector('[data-testid=table-surface]');
+            await carol.page.waitForFunction(() => document.querySelector('[data-testid=table-surface]')?.getAttribute('data-surface') === 'cobble', {
+                timeout: 5000,
+            });
             await L.sleep(1200);
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid=table-surface]');
@@ -217,7 +220,7 @@ const L = require('./lib.cjs');
             if (kept !== 'cobble') throw new Error(`the surface came back as ${kept}`);
             await L.shot(carol, `368-board-table-surface-${label}`);
             await carol.page.$eval('[data-testid=table-select]', (b) => b.scrollIntoView({ block: 'center' }));
-            await carol.page.select('[data-testid=table-select]', ''); // leave it as found
+            await carol.page.select('[data-testid=table-select]', 'grass'); // leave it as found
             await L.sleep(1200);
         });
         await L.step(`board (${label}): an aura shown to the other player is saved with the game`, carol, async () => {

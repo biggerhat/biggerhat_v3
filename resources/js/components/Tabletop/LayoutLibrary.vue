@@ -88,6 +88,13 @@ async function copyLink(l: SavedLayout) {
     }
 }
 
+const setVisibility = (l: SavedLayout, visibility: string) =>
+    update(
+        l,
+        { visibility },
+        visibility === 'private' ? 'Now private' : visibility === 'public' ? 'Now listed in the public gallery' : 'Anyone with the link can see it',
+    );
+
 const rename = (l: SavedLayout, e: Event) => {
     const value = (e.target as HTMLInputElement).value.trim();
     if (value && value !== l.name) update(l, { name: value });
@@ -136,7 +143,8 @@ const rename = (l: SavedLayout, e: Event) => {
                             @change="rename(l, $event)"
                         />
                         <span class="text-muted-foreground"
-                            >{{ l.pieces }} piece{{ l.pieces === 1 ? '' : 's' }}<template v-if="l.is_shared"> · shared</template></span
+                            >{{ l.pieces }} piece{{ l.pieces === 1 ? '' : 's'
+                            }}<template v-if="l.visibility !== 'private'"> · {{ l.visibility === 'public' ? 'public' : 'shared' }}</template></span
                         >
                     </div>
                     <div class="mt-2 flex flex-wrap gap-1">
@@ -146,14 +154,20 @@ const rename = (l: SavedLayout, e: Event) => {
                         <Button size="sm" variant="outline" data-testid="layout-overwrite" :disabled="!terrain.length" @click="overwrite(l)"
                             ><Save class="mr-1 size-4" />Replace with this table</Button
                         >
-                        <Button
-                            size="sm"
-                            :variant="l.is_shared ? 'default' : 'outline'"
-                            data-testid="layout-share"
-                            :aria-pressed="l.is_shared"
-                            @click="update(l, { is_shared: !l.is_shared }, l.is_shared ? 'No longer shared' : 'Anyone with the link can see it')"
-                            ><Share2 class="mr-1 size-4" />{{ l.is_shared ? 'Shared' : 'Share' }}</Button
-                        >
+                        <label class="flex items-center gap-1 text-xs">
+                            <Share2 class="size-4" />
+                            <span class="sr-only">Who can see it</span>
+                            <select
+                                class="rounded-md border bg-background px-2 py-1 text-sm"
+                                :value="l.visibility"
+                                data-testid="layout-visibility"
+                                @change="setVisibility(l, ($event.target as HTMLSelectElement).value)"
+                            >
+                                <option value="private">Private</option>
+                                <option value="link">Anyone with the link</option>
+                                <option value="public">Public gallery</option>
+                            </select>
+                        </label>
                         <Button v-if="l.is_shared" size="sm" variant="outline" data-testid="layout-link" @click="copyLink(l)"
                             ><Link2 class="mr-1 size-4" />Copy link</Button
                         >

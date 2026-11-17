@@ -18,7 +18,8 @@ use Illuminate\Support\Str;
  * @property string|null $description
  * @property list<array<string, mixed>> $terrain
  * @property string|null $table_image
- * @property bool $is_shared
+ * @property bool $is_shared anyone with the link may look at it and copy it
+ * @property bool $is_public listed in the public gallery (always shared too)
  * @property string|null $copied_from
  * @property-read User $user
  */
@@ -39,6 +40,7 @@ class TabletopLayout extends Model
         return [
             'terrain' => 'array',
             'is_shared' => 'boolean',
+            'is_public' => 'boolean',
         ];
     }
 
@@ -49,6 +51,22 @@ class TabletopLayout extends Model
                 $layout->uuid = (string) Str::uuid();
             }
         });
+    }
+
+    /** How widely it is visible: private, link (anyone with the link) or public (also listed in the gallery). */
+    public function visibility(): string
+    {
+        return $this->is_public ? 'public' : ($this->is_shared ? 'link' : 'private');
+    }
+
+    /**
+     * The two flags a visibility stands for.
+     *
+     * @return array{is_shared: bool, is_public: bool}
+     */
+    public static function flagsFor(string $visibility): array
+    {
+        return ['is_shared' => $visibility !== 'private', 'is_public' => $visibility === 'public'];
     }
 
     /** @return BelongsTo<User, $this> */

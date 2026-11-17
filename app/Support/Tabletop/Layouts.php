@@ -20,6 +20,7 @@ class Layouts
         }
 
         return TabletopLayout::query()
+            ->with('user:id,name')
             ->where('user_id', $user->id)
             ->latest('updated_at')
             ->get()
@@ -38,6 +39,8 @@ class Layouts
             'pieces' => count($layout->terrain),
             'table_image' => $layout->table_image,
             'is_shared' => $layout->is_shared,
+            'is_public' => $layout->is_public,
+            'visibility' => $layout->visibility(),
             'mine' => $viewer !== null && $layout->user_id === $viewer->id,
             'owner' => $layout->relationLoaded('user') ? $layout->user->name : null,
             'copied_from' => $layout->copied_from,

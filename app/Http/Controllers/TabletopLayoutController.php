@@ -30,6 +30,7 @@ class TabletopLayoutController extends Controller
             'description' => $data['description'] ?? null,
             'terrain' => array_values($data['terrain']),
             'table_image' => $data['table_image'] ?? null,
+            ...TabletopLayout::flagsFor($data['visibility'] ?? 'private'),
         ]);
 
         return redirect()->back();
@@ -40,6 +41,10 @@ class TabletopLayoutController extends Controller
         $data = $request->validated();
         if (isset($data['terrain'])) {
             $data['terrain'] = array_values($data['terrain']);
+        }
+        if (isset($data['visibility'])) {
+            $data = [...$data, ...TabletopLayout::flagsFor($data['visibility'])];
+            unset($data['visibility']);
         }
         $layout->update($data);
 

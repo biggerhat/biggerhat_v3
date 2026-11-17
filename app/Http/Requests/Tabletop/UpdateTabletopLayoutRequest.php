@@ -27,7 +27,7 @@ class UpdateTabletopLayoutRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:80'],
             'description' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'is_shared' => ['sometimes', 'boolean'],
+            'visibility' => ['sometimes', Rule::in(['private', 'link', 'public'])],
             'table_image' => ['sometimes', 'nullable', 'string', Rule::in(TabletopImages::tableKeys())],
             // Saving the table as it is now over this layout.
             ...UpdateTerrainRequest::terrainRules(),

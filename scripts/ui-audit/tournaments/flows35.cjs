@@ -471,7 +471,7 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             // share it, and open it by its link
             await openLibrary();
-            await hit('[data-testid=layout-share]');
+            await s.page.select('[data-testid=layout-visibility]', 'link');
             await s.page.waitForSelector('[data-testid=layout-link]', { timeout: 8000 });
             const uuid = await s.page.$eval('[data-testid=layout-item]', (e) => e.dataset.uuid);
             await L.visit(s, `/tools/tabletop?layout=${uuid}`);
@@ -482,6 +482,63 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=incoming-layout]'), { timeout: 8000 });
             if ((await items()) !== saved) throw new Error(`expected ${saved} saved tables, saw ${await items()}`);
             await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): the Tabletop page lists my tables with thumbnails, lists public ones, and a table can be edited and saved back`, s, async () => {
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=my-tables]');
+            await s.page.waitForSelector('[data-testid=open-sandbox]');
+            await s.page.waitForSelector('[data-testid=my-table] [data-testid=table-thumbnail]');
+            const named = await s.page.$$eval('[data-testid=my-table-name]', (els) => els.map((e) => e.innerText));
+            if (!named.includes('Harness table')) throw new Error(`expected the saved table in the list: ${named}`);
+            if (label === 'desktop' && !(await s.page.$('a[href$="/tools/tabletop/tables"]'))) throw new Error('the Tools menu should link to the Tabletop page');
+            // make it public: it appears in the gallery
+            await s.page.select('[data-testid=table-visibility]', 'public');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=gallery-table]').length >= 1, { timeout: 8000 });
+            await s.page.waitForFunction(() => /Public/.test(document.querySelector('[data-testid=my-table-visibility]').innerText), { timeout: 8000 });
+            await L.shot(s, `367-tabletop-tables-${label}`);
+            // the gallery search narrows it
+            await s.page.type('[data-testid=gallery-search]', 'zzzz-nothing');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=gallery-table]').length === 0, { timeout: 8000 });
+            // edit: the table opens in the sandbox, saving is off until something changes
+            await hit('[data-testid=table-edit]');
+            await s.page.waitForSelector('[data-testid=editing-note]');
+            if (!(await s.page.$eval('[data-testid=editing-save]', (b) => b.disabled))) throw new Error('nothing changed yet, so there is nothing to save');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'crates');
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=editing-save]').disabled, { timeout: 5000 });
+            await hit('[data-testid=editing-save]');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=editing-save]').disabled, { timeout: 8000 });
+            // back on the page the table now has one more piece
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=my-table]');
+            await L.expectText(s, /6 pieces/);
+            await openSandbox(); // leave the sandbox open for the next step
+        });
+        await L.step(`tabletop (${label}): a new table starts empty, apart from the sandbox, and is saved with a name`, s, async () => {
+            await openSandbox(); // the sandbox has its demo models and terrain on this device
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=new-table-link]');
+            const before = (await s.page.$$('[data-testid=my-table]')).length;
+            await hit('[data-testid=new-table-link]');
+            await s.page.waitForSelector('[data-testid=new-table]');
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            if ((await s.page.$$('[data-testid^=token-]')).length !== 0) throw new Error('a new table has no models');
+            if (!(await s.page.$eval('[data-testid=new-table-save]', (b) => b.disabled))) throw new Error('an empty table cannot be saved');
+            await s.page.select('[data-testid=terrain-preset]', 'wall');
+            await hit('[data-testid=terrain-add]');
+            await s.page.type('[data-testid=new-table-name]', 'Fresh table');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=new-table-save]').disabled, { timeout: 5000 });
+            await hit('[data-testid=new-table-save]');
+            await s.page.waitForSelector('[data-testid=my-tables]', { timeout: 10000 });
+            await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid=my-table]').length > n, { timeout: 8000 }, before);
+            const names = await s.page.$$eval('[data-testid=my-table-name]', (els) => els.map((e) => e.innerText));
+            if (!names.includes('Fresh table')) throw new Error(`the new table should be listed: ${names}`);
+            // the sandbox on this device was not touched
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=token-a1]');
         });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');

@@ -82,7 +82,7 @@ it('lets the owner rename, share and replace a layout, and nobody else', functio
     $owner = User::factory()->create();
     $layout = TabletopLayout::factory()->for($owner)->create();
 
-    $this->actingAs($owner)->put(route('tools.tabletop.layouts.update', $layout->uuid), ['name' => 'Renamed', 'is_shared' => true])->assertRedirect();
+    $this->actingAs($owner)->put(route('tools.tabletop.layouts.update', $layout->uuid), ['name' => 'Renamed', 'visibility' => 'link'])->assertRedirect();
     expect($layout->fresh()->name)->toBe('Renamed')->and($layout->fresh()->is_shared)->toBeTrue();
 
     $this->actingAs($owner)->put(route('tools.tabletop.layouts.update', $layout->uuid), ['terrain' => layoutTerrain(['name' => 'Keep'])])->assertRedirect();

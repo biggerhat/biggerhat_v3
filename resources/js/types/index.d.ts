@@ -8,6 +8,8 @@ export interface Auth {
     can_publish_posts: boolean;
     can_access_admin: boolean;
     can_view_tos: boolean;
+    /** The pre-release tabletop is on, or the user holds the beta permission. */
+    can_use_tabletop: boolean;
     is_super_admin: boolean;
     is_supporter: boolean;
     impersonating: { as: { id: number; name: string }; leave_url: string } | null;

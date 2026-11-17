@@ -327,6 +327,7 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::get('/tabletop', \App\Http\Controllers\TabletopController::class)->name('tabletop');
     Route::get('/tabletop/characters', \App\Http\Controllers\TabletopCharactersController::class)->name('tabletop.characters')->middleware('throttle:60,1');
+    Route::get('/tabletop/tables', \App\Http\Controllers\TabletopTablesController::class)->middleware('auth')->name('tabletop.tables');
     Route::middleware('auth')->prefix('tabletop/layouts')->name('tabletop.layouts.')->group(function () {
         Route::post('/', [\App\Http\Controllers\TabletopLayoutController::class, 'store'])->name('store')->middleware('throttle:30,1');
         Route::put('/{layout:uuid}', [\App\Http\Controllers\TabletopLayoutController::class, 'update'])->name('update')->middleware('throttle:60,1');

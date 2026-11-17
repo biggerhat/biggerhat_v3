@@ -21,6 +21,7 @@ class StoreTabletopLayoutRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:80'],
             'description' => ['nullable', 'string', 'max:500'],
+            'visibility' => ['sometimes', Rule::in(['private', 'link', 'public'])],
             'table_image' => ['nullable', 'string', Rule::in(TabletopImages::tableKeys())],
             ...UpdateTerrainRequest::terrainRules(),
             // An empty table is not worth keeping.

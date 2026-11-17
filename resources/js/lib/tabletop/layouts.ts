@@ -9,6 +9,9 @@ export interface SavedLayout {
     pieces: number;
     table_image: string | null;
     is_shared: boolean;
+    is_public: boolean;
+    /** Private, anyone with the link, or listed in the public gallery. */
+    visibility: 'private' | 'link' | 'public';
     /** True when it belongs to the viewer. */
     mine: boolean;
     /** Who made it (given for a layout opened by link). */

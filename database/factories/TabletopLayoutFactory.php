@@ -24,6 +24,7 @@ class TabletopLayoutFactory extends Factory
             ],
             'table_image' => null,
             'is_shared' => false,
+            'is_public' => false,
             'copied_from' => null,
         ];
     }
@@ -31,5 +32,10 @@ class TabletopLayoutFactory extends Factory
     public function shared(): static
     {
         return $this->state(['is_shared' => true]);
+    }
+
+    public function public(): static
+    {
+        return $this->state(['is_shared' => true, 'is_public' => true]);
     }
 }

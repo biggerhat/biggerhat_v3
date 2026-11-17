@@ -30,6 +30,10 @@ class TabletopController extends Controller
         return inertia('Tools/Tabletop', [
             'layouts' => Layouts::mine($request->user()),
             'incoming_layout' => $incoming,
+            // Opened to change a table of the viewer's own: the page offers to save the changes back to it.
+            // A new, empty table to set up and save: nothing from the sandbox kept on this device.
+            'fresh' => $incoming === null && $request->boolean('new'),
+            'editing' => $incoming !== null && $incoming['mine'] && $request->boolean('edit'),
             'markers' => MarkerCatalogue::options(),
             'token_options' => TokenCatalogue::options(),
             'table_images' => TabletopImages::tables(),

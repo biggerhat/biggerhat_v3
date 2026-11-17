@@ -22,6 +22,15 @@ import {
     pathCost,
     pieceBounds,
     placementProblems,
+    rotateAbout,
+    rotatePiece,
+    rotateShape,
+    setShapeAngle,
+    shapeHandles,
+    dragShapeHandle,
+    insertCorner,
+    removeCorner,
+    shapeOutline,
     pointInShape,
     restingSupport,
     rotatePiece90,
@@ -774,4 +783,74 @@ test('flat ground terrain has no height: models on it stand at ground level and 
     assert.equal(lineOfSight(a, b, [a, b], [river]).clear, true);
     const wader = man('w', 'a', 18, 18);
     assert.equal(restingSupport(wader, [river]).elevation, 0);
+});
+
+test('a rectangle turned by an angle: containment, bounds and distance follow the turned shape', () => {
+    const bar = { kind: 'rect', x: 10, y: 10, w: 10, h: 2, angle: 45 };
+    assert.equal(pointInShape(bar, 15, 11), true, 'the centre');
+    const far = 15 + 3.5; // along the diagonal, inside
+    assert.equal(pointInShape(bar, far, 11 + 3.5), true);
+    assert.equal(pointInShape(bar, 19, 11), false, 'the unturned end is no longer there');
+    const b = shapeBounds(bar);
+    assert.ok(Math.abs(b.maxX - b.minX - (10 + 2) * Math.SQRT1_2) < 1e-9, 'a bar turned 45 degrees is 12 / sqrt2 wide');
+    assert.ok(distanceToShape(bar, 15, 11) === 0 && distanceToShape(bar, 19, 11) > 1);
+});
+
+test('an ellipse: containment, turn and bounds', () => {
+    const e = { kind: 'ellipse', cx: 10, cy: 10, rx: 4, ry: 2 };
+    assert.equal(pointInShape(e, 13.9, 10), true);
+    assert.equal(pointInShape(e, 10, 12.1), false);
+    const turned = { ...e, angle: 90 };
+    assert.equal(pointInShape(turned, 10, 13.9), true, 'turned a quarter, the long axis is vertical');
+    const b = shapeBounds({ ...e, angle: 90 });
+    assert.ok(Math.abs(b.maxY - b.minY - 8) < 1e-9 && Math.abs(b.maxX - b.minX - 4) < 1e-9);
+    assert.equal(shapeOutline(e).length, 48);
+});
+
+test('rotating a piece by any angle keeps levels together; quarter turns stay axis-aligned', () => {
+    const piece = {
+        id: 'p',
+        name: 'P',
+        traits: [],
+        surfaces: [
+            { id: 'a', top: 1, shape: { kind: 'rect', x: 10, y: 10, w: 8, h: 4 } },
+            { id: 'b', top: 2, shape: { kind: 'circle', cx: 14, cy: 12, r: 1 } },
+        ],
+    };
+    const q = rotatePiece(piece, 90);
+    assert.deepEqual(q.surfaces[0].shape, { kind: 'rect', x: 12, y: 8, w: 4, h: 8 });
+    assert.equal(q.surfaces[0].shape.angle, undefined);
+    const t = rotatePiece(piece, 30);
+    assert.equal(t.surfaces[0].shape.angle, 30);
+    assert.deepEqual(rotatePiece(t, -30).surfaces[0].shape, { kind: 'rect', x: 10, y: 10, w: 8, h: 4 }, 'turning back restores it');
+    assert.equal(rotatePiece(rotatePiece(piece, 60), 30).surfaces[0].shape.w, 4, 'two turns make a quarter, which swaps the sides');
+    const e = rotateShape({ kind: 'ellipse', cx: 5, cy: 5, rx: 3, ry: 1 }, [5, 5], 180);
+    assert.deepEqual(e, { kind: 'ellipse', cx: 5, cy: 5, rx: 3, ry: 1 });
+    assert.deepEqual(setShapeAngle({ kind: 'rect', x: 1, y: 1, w: 2, h: 2, angle: 40 }, 0), { kind: 'rect', x: 1, y: 1, w: 2, h: 2 });
+    assert.deepEqual(rotateAbout([1, 0], [0, 0], 90), [0, 1]);
+});
+
+test('dragging a handle reshapes a level: rectangle corners keep the opposite corner, outlines move and gain or lose corners', () => {
+    const r = { kind: 'rect', x: 10, y: 10, w: 4, h: 2 };
+    const grown = dragShapeHandle(r, { kind: 'corner', index: 2 }, { x: 18.2, y: 15 });
+    assert.deepEqual(grown, { kind: 'rect', x: 10, y: 10, w: 8, h: 5 }, 'the top-left corner stays put and sizes snap to half inches');
+    const flipped = dragShapeHandle(r, { kind: 'corner', index: 2 }, { x: 8, y: 9 });
+    assert.deepEqual([flipped.x, flipped.y, flipped.w, flipped.h], [8, 9, 2, 1], 'dragged past the other corner it still makes a rectangle');
+    const turned = { ...r, angle: 90 };
+    const handles = shapeHandles(turned);
+    assert.equal(handles.length, 4);
+    const out = dragShapeHandle(turned, handles[2], { x: handles[2].x, y: handles[2].y + 2 });
+    assert.equal(out.angle, 90);
+    assert.equal(out.w + out.h, 8, 'a turned rectangle grows along its own axes');
+    assert.equal(dragShapeHandle({ kind: 'circle', cx: 5, cy: 5, r: 1 }, { kind: 'radius', index: 0 }, { x: 8.2, y: 5 }).r, 3);
+    assert.equal(dragShapeHandle({ kind: 'ellipse', cx: 5, cy: 5, rx: 2, ry: 1 }, { kind: 'edge', index: 0 }, { x: 10, y: 5 }).rx, 5);
+    const tri = { kind: 'poly', points: [[0, 0], [4, 0], [4, 4]] };
+    assert.deepEqual(dragShapeHandle(tri, { kind: 'vertex', index: 2 }, { x: 40, y: -3 }).points[2], [36, 0], 'a corner stays on the table');
+    const four = insertCorner(tri, 0);
+    assert.deepEqual(four.points, [[0, 0], [2, 0], [4, 0], [4, 4]]);
+    assert.equal(removeCorner(tri, 0), null, 'three corners is the least');
+    assert.equal(removeCorner(four, 1).points.length, 3);
+    const full = { kind: 'poly', points: Array.from({ length: 16 }, (_, i) => [i, (i * 7) % 5]) };
+    assert.equal(insertCorner(full, 0), null);
+    assert.equal(shapeHandles(tri).filter((h) => h.kind === 'mid').length, 3);
 });

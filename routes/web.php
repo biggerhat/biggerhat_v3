@@ -327,6 +327,12 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::get('/tabletop', \App\Http\Controllers\TabletopController::class)->name('tabletop');
     Route::get('/tabletop/characters', \App\Http\Controllers\TabletopCharactersController::class)->name('tabletop.characters')->middleware('throttle:60,1');
+    Route::middleware('auth')->prefix('tabletop/layouts')->name('tabletop.layouts.')->group(function () {
+        Route::post('/', [\App\Http\Controllers\TabletopLayoutController::class, 'store'])->name('store')->middleware('throttle:30,1');
+        Route::put('/{layout:uuid}', [\App\Http\Controllers\TabletopLayoutController::class, 'update'])->name('update')->middleware('throttle:60,1');
+        Route::delete('/{layout:uuid}', [\App\Http\Controllers\TabletopLayoutController::class, 'destroy'])->name('destroy');
+        Route::post('/{layout:uuid}/copy', [\App\Http\Controllers\TabletopLayoutController::class, 'copy'])->name('copy')->middleware('throttle:30,1');
+    });
     Route::prefix('card-creator')->name('card_creator.')->group(function () {
         Route::get('/share/{shareCode}', [CustomCharacterController::class, 'share'])->name('share');
         Route::get('/upgrades/share/{shareCode}', [CustomUpgradeController::class, 'share'])->name('upgrades.share');
@@ -428,6 +434,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     Route::get('/{game:uuid}/board', [GameBoardController::class, 'show'])->name('board');
     Route::put('/{game:uuid}/board', [GameBoardController::class, 'update'])->name('board.update')->middleware('throttle:120,1');
     Route::put('/{game:uuid}/board/terrain', [GameBoardController::class, 'updateTerrain'])->name('board.terrain')->middleware('throttle:60,1');
+    Route::post('/{game:uuid}/board/layout', [\App\Http\Controllers\TabletopLayoutController::class, 'fromGame'])->name('board.layout')->middleware('throttle:30,1');
     Route::put('/{game:uuid}/board/markers', [GameBoardController::class, 'updateMarkers'])->name('board.markers')->middleware('throttle:120,1');
     Route::put('/{game:uuid}/board/setup', [GameBoardController::class, 'updateSetup'])->name('board.setup')->middleware('throttle:60,1');
     Route::put('/{game:uuid}/board/auras', [GameBoardController::class, 'updateAuras'])->name('board.auras')->middleware('throttle:120,1');

@@ -203,6 +203,20 @@ const L = require('./lib.cjs');
             await carol.page.select('[data-testid=deployment-variant]', '0'); // leave it as found
             await L.sleep(1200);
         });
+        await L.step(`board (${label}): the game's table can be saved to my tables`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=layout-library]');
+            await carol.page.$eval('[data-testid=mode-terrain]', (b) => b.click());
+            await carol.page.waitForSelector('[data-testid=terrain-add]');
+            await carol.page.$eval('[data-testid=terrain-add]', (b) => b.click());
+            await L.sleep(1200);
+            await carol.page.$eval('[data-testid=layout-library]', (d) => (d.open = true));
+            await carol.page.type('[data-testid=layout-name]', 'Game table');
+            await carol.page.$eval('[data-testid=layout-save]', (b) => b.click());
+            await carol.page.waitForFunction(() => document.querySelectorAll('[data-testid=layout-item]').length >= 1, { timeout: 8000 });
+            await carol.page.$eval('[data-testid=terrain-clear]', (b) => b.click()); // leave the table as found
+            await L.sleep(1200);
+        });
         await L.step(`board (${label}): the table surface chosen is kept with the game`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid=table-select]');

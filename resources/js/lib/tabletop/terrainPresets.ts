@@ -3,6 +3,8 @@ import type { TerrainPiece, TerrainTrait } from './geometry';
 export interface TerrainPreset {
     key: string;
     label: string;
+    /** The texture kind when it is not the same as the key (an L-shaped building is drawn like any building). */
+    kind?: string;
     make: (id: string, x: number, y: number) => TerrainPiece;
 }
 
@@ -14,6 +16,28 @@ const piece = (id: string, name: string, traits: TerrainTrait[], surfaces: Terra
 });
 const rect = (x: number, y: number, w: number, h: number) => ({ kind: 'rect' as const, x, y, w, h });
 const circle = (cx: number, cy: number, r: number) => ({ kind: 'circle' as const, cx, cy, r });
+const ellipse = (cx: number, cy: number, rx: number, ry: number, angle?: number) => ({
+    kind: 'ellipse' as const,
+    cx,
+    cy,
+    rx,
+    ry,
+    ...(angle ? { angle } : {}),
+});
+const poly = (points: [number, number][]) => ({ kind: 'poly' as const, points });
+
+/** A river that wanders: a ribbon of the given width along an S-shaped line, as a polygon (14 corners). */
+const windingRibbon = (x: number, y: number, length = 18, width = 3, sway = 2): [number, number][] => {
+    const steps = 6;
+    const centre = Array.from({ length: steps + 1 }, (_, i) => {
+        const t = i / steps;
+        return [x - length / 2 + t * length, y + sway * Math.sin(t * Math.PI * 2)] as [number, number];
+    });
+    const r = (n: number) => Math.round(n * 10) / 10;
+    const top = centre.map(([px, py]) => [r(px), r(py - width / 2)] as [number, number]);
+    const bottom = centre.map(([px, py]) => [r(px), r(py + width / 2)] as [number, number]).reverse();
+    return [...top, ...bottom];
+};
 
 /** Standard pieces from the guide (p.57-58), centred near (x, y). Heights are the elevation a model stands at. */
 const RAW_PRESETS: TerrainPreset[] = [
@@ -90,6 +114,65 @@ const RAW_PRESETS: TerrainPreset[] = [
         make: (id, x, y) => piece(id, 'Fog bank', ['concealing', 'dense'], [{ id: `${id}-1`, shape: circle(x, y, 3), top: 0 }]),
     },
     {
+        key: 'lbuilding',
+        kind: 'building',
+        label: 'L-shaped building (Ht 3)',
+        make: (id, x, y) =>
+            piece(
+                id,
+                'L-shaped building',
+                ['blocking', 'climbable'],
+                [
+                    {
+                        id: `${id}-1`,
+                        shape: poly([
+                            [x - 3, y - 3],
+                            [x + 1, y - 3],
+                            [x + 1, y],
+                            [x + 3, y],
+                            [x + 3, y + 3],
+                            [x - 3, y + 3],
+                        ]),
+                        top: 3,
+                    },
+                ],
+            ),
+    },
+    {
+        key: 'angledwall',
+        kind: 'wall',
+        label: 'Angled wall (Ht 2, turned 30°)',
+        make: (id, x, y) =>
+            piece(id, 'Angled wall', ['blocking', 'climbable'], [{ id: `${id}-1`, shape: { ...rect(x - 4, y - 0.75, 8, 1.5), angle: 30 }, top: 2 }]),
+    },
+    {
+        key: 'ovalhill',
+        kind: 'hill',
+        label: 'Oval hill (Ht 1, crest Ht 2)',
+        make: (id, x, y) =>
+            piece(
+                id,
+                'Oval hill',
+                ['blocking', 'climbable'],
+                [
+                    { id: `${id}-1`, shape: ellipse(x, y, 5.5, 3.5, -15), top: 1 },
+                    { id: `${id}-2`, shape: ellipse(x, y, 3, 1.8, -15), top: 2 },
+                ],
+            ),
+    },
+    {
+        key: 'pond',
+        kind: 'river',
+        label: 'Pond (oval, severe)',
+        make: (id, x, y) => piece(id, 'Pond', ['severe'], [{ id: `${id}-1`, shape: ellipse(x, y, 4, 2.5, 20), top: 0 }]),
+    },
+    {
+        key: 'windingriver',
+        kind: 'river',
+        label: 'Winding river (severe)',
+        make: (id, x, y) => piece(id, 'Winding river', ['severe'], [{ id: `${id}-1`, shape: poly(windingRibbon(x, y)), top: 0 }]),
+    },
+    {
         key: 'woods',
         label: 'Woods (dense, concealing, severe)',
         make: (id, x, y) => piece(id, 'Woods', ['concealing', 'dense', 'severe'], [{ id: `${id}-1`, shape: circle(x, y, 4), top: 0 }]),
@@ -155,4 +238,7 @@ const RAW_PRESETS: TerrainPreset[] = [
 export const newPieceId = (): string => `p${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
 
 /** Every piece a preset makes carries the preset's key, which picks its texture. */
-export const TERRAIN_PRESETS: TerrainPreset[] = RAW_PRESETS.map((p) => ({ ...p, make: (id, x, y) => ({ ...p.make(id, x, y), kind: p.key }) }));
+export const TERRAIN_PRESETS: TerrainPreset[] = RAW_PRESETS.map((p) => ({
+    ...p,
+    make: (id, x, y) => ({ ...p.make(id, x, y), kind: p.kind ?? p.key }),
+}));

@@ -17,9 +17,16 @@ import {
     pathCost,
     walkBudget,
     heightCover,
+    dragShapeHandle,
+    insertCorner,
     movePiece,
+    pieceBounds,
     placementProblems,
+    removeCorner,
     restingSupport,
+    rotatePiece,
+    shapeCentre,
+    shapeHandles,
     sideSightLines,
     surfaceAt,
     traceLine,
@@ -29,6 +36,7 @@ import {
     type MarkerOption,
     type ModelInfo,
     type Shape,
+    type ShapeHandle,
     type TerrainPiece,
     type Token,
 } from '@/lib/tabletop/geometry';
@@ -36,7 +44,9 @@ import CharacterPicker, { type CharacterOption } from '@/components/Tabletop/Cha
 import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import ModelInfoPanel from '@/components/Tabletop/ModelInfoPanel.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import LayoutLibrary from '@/components/Tabletop/LayoutLibrary.vue';
 import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
+import type { LayoutSaveTarget, SavedLayout } from '@/lib/tabletop/layouts';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { newPieceId } from '@/lib/tabletop/terrainPresets';
 import { Eye, Lock, Route, LockOpen, Maximize, MapPin, Minus, Mountain, Plus, Ruler, Trash2, User, Users } from 'lucide-vue-next';
@@ -63,6 +73,10 @@ const props = withDefaults(
         deploymentVariant?: number;
         /** Table surfaces to choose from. A built-in one repeats as a tile; an uploaded one stretches over the whole table. */
         tableImages?: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
+        /** The viewer's saved terrain layouts, and where saving the table sends it. Without a target the saved-tables panel is hidden. */
+        layouts?: SavedLayout[];
+        layoutTarget?: LayoutSaveTarget;
+        signedIn?: boolean;
         /** The chosen surface (a key from tableImages); without one, or if it is gone, the table is grass. A game keeps it for both players. */
         tableImage?: string | null;
         /** A texture for each kind of terrain: kind => url. It repeats every TEXTURE_TILE inches across the pieces of that kind. */
@@ -102,18 +116,67 @@ watch(
     (next) => {
         if (!next) return;
         const grabbed = drag;
-        const held = grabbed?.kind === 'piece' ? terrain.value.find((p) => p.id === grabbed.id) : undefined;
+        const held = grabbed?.kind === 'piece' || grabbed?.kind === 'handle' ? terrain.value.find((p) => p.id === grabbed.id) : undefined;
         terrain.value = cloneTerrain(next).map((p) => (held && p.id === held.id ? held : p));
     },
     { deep: true },
 );
 const selectedPieceId = ref<string | null>(null);
+/** The level of the selected piece whose handles show on the board, and the corner of a drawn outline picked to be removed. */
+const activeSurfaceId = ref<string | null>(null);
+const pickedVertex = ref<number | null>(null);
+/** How far the piece is being turned right now by its rotate handle, in degrees (0 when it is not). */
+const turning = ref(0);
+watch(selectedPieceId, () => {
+    activeSurfaceId.value = null;
+    pickedVertex.value = null;
+});
+const selectedPiece = computed(() => terrain.value.find((p) => p.id === selectedPieceId.value) ?? null);
+const activeSurface = computed(() => {
+    const piece = selectedPiece.value;
+    if (!piece) return null;
+    return piece.surfaces.find((s) => s.id === activeSurfaceId.value) ?? [...piece.surfaces].sort((a, b) => b.top - a.top)[0] ?? null;
+});
+/** Inches on the table that cover `px` screen pixels, so handles stay finger-sized however far the board is zoomed. */
+const pxToUnits = (px: number): number => (px * view.value.w) / (svg.value?.getBoundingClientRect().width || 640);
+const handles = computed<ShapeHandle[]>(() =>
+    mode.value === 'terrain' && !outline.value && activeSurface.value ? shapeHandles(activeSurface.value.shape) : [],
+);
+/** The dot above a selected piece that turns it, with the middle it turns about. */
+const rotateGrip = computed(() => {
+    const piece = selectedPiece.value;
+    if (!piece || mode.value !== 'terrain' || outline.value) return null;
+    const b = pieceBounds(piece);
+    const centre = { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 };
+    const reach = (b.maxY - b.minY) / 2 + pxToUnits(28);
+    const a = (turning.value * Math.PI) / 180;
+    return {
+        centre,
+        reach,
+        x: Math.min(TABLE_SIZE - 0.3, Math.max(0.3, centre.x + reach * Math.sin(a))),
+        y: Math.min(TABLE_SIZE - 0.3, Math.max(0.3, centre.y - reach * Math.cos(a))),
+    };
+});
 /** Layouts before each change, newest last, so a slip of the finger can be undone. */
 const undoStack = ref<TerrainPiece[][]>([]);
 function commitTerrain(next: TerrainPiece[], remember = true) {
     if (remember) undoStack.value = [...undoStack.value.slice(-19), cloneTerrain(terrain.value)];
     terrain.value = cloneTerrain(next);
+    pickedVertex.value = null;
     emit('terrainChanged', cloneTerrain(next));
+}
+/** Take the picked corner off the level that is showing its handles. */
+function removePickedCorner() {
+    const piece = selectedPiece.value;
+    const surface = activeSurface.value;
+    if (!piece || !surface || pickedVertex.value === null) return;
+    const shape = removeCorner(surface.shape, pickedVertex.value);
+    if (!shape) return;
+    commitTerrain(
+        terrain.value.map((p) =>
+            p.id === piece.id ? { ...piece, surfaces: piece.surfaces.map((s) => (s.id === surface.id ? { ...s, shape } : s)) } : p,
+        ),
+    );
 }
 /** Drawing a polygon piece: the corners placed so far (snapped to half inches). The first corner closes it. */
 const outline = ref<Point[] | null>(null);
@@ -213,6 +276,11 @@ const DEFAULT_TABLE = 'grass';
 const tableChoice = computed(
     () => props.tableImages?.find((t) => t.key === tableKey.value) ?? props.tableImages?.find((t) => t.key === DEFAULT_TABLE) ?? null,
 );
+/** Put a saved layout on the table: its pieces, and the surface it was set up on when that surface is still on offer. */
+function loadLayout(l: SavedLayout) {
+    commitTerrain(l.terrain);
+    if (l.table_image && props.tableImages?.some((t) => t.key === l.table_image)) chooseTable(l.table_image);
+}
 function chooseTable(key: string) {
     tableKey.value = key;
     if (!props.readOnly) emit('tableImageChanged', key);
@@ -443,13 +511,25 @@ const texturedFill = (top: number) => `hsl(var(--primary) / ${Math.min(0.03 + to
 const dimmed = (elevation: number) => level.value !== 'all' && elevation > level.value;
 
 function shapeAttrs(shape: Shape): Record<string, number | string> {
-    if (shape.kind === 'rect') return { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
+    if (shape.kind === 'rect') {
+        const base = { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
+        return shape.angle ? { ...base, transform: `rotate(${shape.angle} ${shape.x + shape.w / 2} ${shape.y + shape.h / 2})` } : base;
+    }
     if (shape.kind === 'circle') return { cx: shape.cx, cy: shape.cy, r: shape.r };
+    if (shape.kind === 'ellipse') {
+        const base = { cx: shape.cx, cy: shape.cy, rx: shape.rx, ry: shape.ry };
+        return shape.angle ? { ...base, transform: `rotate(${shape.angle} ${shape.cx} ${shape.cy})` } : base;
+    }
     return { points: shape.points.map((p) => p.join(',')).join(' ') };
 }
-const shapeTag = (shape: Shape) => (shape.kind === 'rect' ? 'rect' : shape.kind === 'circle' ? 'circle' : 'polygon');
+const shapeTag = (shape: Shape) =>
+    shape.kind === 'rect' ? 'rect' : shape.kind === 'circle' ? 'circle' : shape.kind === 'ellipse' ? 'ellipse' : 'polygon';
 const labelAt = (shape: Shape): Point => {
-    if (shape.kind === 'rect') return { x: shape.x + 0.4, y: shape.y + 0.9 };
+    if (shape.kind === 'rect' && !shape.angle) return { x: shape.x + 0.4, y: shape.y + 0.9 };
+    if (shape.kind === 'rect' || shape.kind === 'ellipse') {
+        const [x, y] = shapeCentre(shape);
+        return { x: x - 0.8, y: y + 0.3 };
+    }
     if (shape.kind === 'circle') return { x: shape.cx, y: shape.cy + 0.3 };
     const xs = shape.points.map((p) => p[0]);
     const ys = shape.points.map((p) => p[1]);
@@ -458,10 +538,75 @@ const labelAt = (shape: Shape): Point => {
 
 // --- pointer handling: one finger drags a token or pans, two fingers pinch, wheel zooms ---
 
+/**
+ * Is a press on one of the selected piece's handles? The rotate dot and the shape handles are found by distance, so they stay easy to
+ * hit with a finger; pressing one starts reshaping or turning. A press on a mid-edge dot first puts a corner there.
+ */
+function gripAt(p: Point): boolean {
+    const piece = selectedPiece.value;
+    const surface = activeSurface.value;
+    if (!piece || !surface || outline.value) return false;
+    const reach = pxToUnits(16);
+    const near = (h: Point) => Math.hypot(h.x - p.x, h.y - p.y) <= reach;
+    const grip = rotateGrip.value;
+    if (grip && near(grip)) {
+        drag = {
+            kind: 'handle',
+            id: piece.id,
+            surfaceId: surface.id,
+            grip: 'rotate',
+            original: piece,
+            before: cloneTerrain(terrain.value),
+            moved: false,
+            centre: grip.centre,
+            bearing: (Math.atan2(p.y - grip.centre.y, p.x - grip.centre.x) * 180) / Math.PI,
+        };
+        return true;
+    }
+    const hit = [...handles.value]
+        .filter((h) => near(h))
+        .sort(
+            (a, b) => (a.kind === 'mid' ? 1 : 0) - (b.kind === 'mid' ? 1 : 0) || Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y),
+        )[0];
+    if (!hit) return false;
+    const before = cloneTerrain(terrain.value);
+    if (hit.kind === 'mid') {
+        const shape = insertCorner(surface.shape, hit.index);
+        if (!shape) return false;
+        const grown = { ...piece, surfaces: piece.surfaces.map((s) => (s.id === surface.id ? { ...s, shape } : s)) };
+        terrain.value = terrain.value.map((x) => (x.id === piece.id ? grown : x));
+        drag = {
+            kind: 'handle',
+            id: piece.id,
+            surfaceId: surface.id,
+            grip: { kind: 'vertex', index: hit.index + 1 },
+            original: grown,
+            before,
+            moved: true,
+        };
+        return true;
+    }
+    drag = { kind: 'handle', id: piece.id, surfaceId: surface.id, grip: { kind: hit.kind, index: hit.index }, original: piece, before, moved: false };
+    return true;
+}
+
 const pointers = new Map<number, Point>();
 let drag:
     | { kind: 'token'; id: string; dx: number; dy: number; startElevation: number }
     | { kind: 'piece'; id: string; from: Point; original: TerrainPiece; before: TerrainPiece[]; moved: boolean }
+    | {
+          kind: 'handle';
+          id: string;
+          surfaceId: string;
+          /** Which handle: a shape's own, or the rotate dot. */
+          grip: Pick<ShapeHandle, 'kind' | 'index'> | 'rotate';
+          original: TerrainPiece;
+          before: TerrainPiece[];
+          moved: boolean;
+          /** Rotate only: the middle it turns about and the bearing of the finger when it went down. */
+          centre?: Point;
+          bearing?: number;
+      }
     | { kind: 'pan'; last: Point }
     | { kind: 'ruler' }
     | { kind: 'sight' }
@@ -521,8 +666,11 @@ function onDown(e: PointerEvent) {
             addCorner(p);
             return;
         }
+        const grip = gripAt(p);
+        if (grip) return;
         const found = surfaceAt(terrain.value, p.x, p.y);
         if (found) {
+            if (selectedPieceId.value === found.piece.id) activeSurfaceId.value = found.surface.id;
             selectedPieceId.value = found.piece.id;
             drag = { kind: 'piece', id: found.piece.id, from: p, original: found.piece, before: cloneTerrain(terrain.value), moved: false };
         } else {
@@ -599,6 +747,28 @@ function onMove(e: PointerEvent) {
         const id = drag.id;
         terrain.value = terrain.value.map((x) => (x.id === id ? moved : x));
         if (snap(p.x - drag.from.x) !== 0 || snap(p.y - drag.from.y) !== 0) drag.moved = true;
+    } else if (drag.kind === 'handle') {
+        const p = toBoard(e.clientX, e.clientY);
+        const id = drag.id;
+        let next: TerrainPiece;
+        if (drag.grip === 'rotate') {
+            const c = drag.centre!;
+            const bearing = (Math.atan2(p.y - c.y, p.x - c.x) * 180) / Math.PI;
+            let delta = bearing - (drag.bearing ?? 0);
+            delta = Math.round(((((delta + 180) % 360) + 360) % 360) - 180);
+            delta = Math.round(delta / 5) * 5;
+            turning.value = delta;
+            next = rotatePiece(drag.original, delta);
+        } else {
+            const grip = drag.grip;
+            const surfaceId = drag.surfaceId;
+            const base = drag.original.surfaces.find((s) => s.id === surfaceId);
+            if (!base) return;
+            const shape = dragShapeHandle(base.shape, grip, p);
+            next = movePiece({ ...drag.original, surfaces: drag.original.surfaces.map((s) => (s.id === surfaceId ? { ...s, shape } : s)) }, 0, 0);
+        }
+        terrain.value = terrain.value.map((x) => (x.id === id ? next : x));
+        drag.moved = true;
     } else if (drag.kind === 'pan') {
         const rect = svg.value!.getBoundingClientRect();
         const k = view.value.w / rect.width;
@@ -658,9 +828,13 @@ function onUp(e: PointerEvent) {
             }
         }
     }
-    if (drag?.kind === 'piece' && drag.moved) {
+    if ((drag?.kind === 'piece' || drag?.kind === 'handle') && drag.moved) {
         undoStack.value = [...undoStack.value.slice(-19), drag.before];
         emit('terrainChanged', cloneTerrain(terrain.value));
+    }
+    if (drag?.kind === 'handle') {
+        turning.value = 0;
+        if (typeof drag.grip === 'object' && drag.grip.kind === 'vertex') pickedVertex.value = drag.grip.index;
     }
     if (pointers.size === 0) drag = null;
 }
@@ -916,6 +1090,49 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             </text>
                         </g>
                     </template>
+                    <g v-if="handles.length || rotateGrip" pointer-events="none" data-testid="terrain-handles">
+                        <template v-if="rotateGrip">
+                            <line
+                                :x1="rotateGrip.centre.x"
+                                :y1="rotateGrip.centre.y"
+                                :x2="rotateGrip.x"
+                                :y2="rotateGrip.y"
+                                stroke="hsl(45 95% 55%)"
+                                :stroke-width="pxToUnits(1.5)"
+                                :stroke-dasharray="`${pxToUnits(4)} ${pxToUnits(4)}`"
+                            />
+                            <circle
+                                :cx="rotateGrip.x"
+                                :cy="rotateGrip.y"
+                                :r="pxToUnits(9)"
+                                fill="hsl(45 95% 55%)"
+                                stroke="hsl(var(--background))"
+                                :stroke-width="pxToUnits(2)"
+                                data-testid="handle-rotate"
+                                :data-x="rotateGrip.x"
+                                :data-y="rotateGrip.y"
+                            />
+                        </template>
+                        <circle
+                            v-for="h in handles"
+                            :key="h.id"
+                            :cx="h.x"
+                            :cy="h.y"
+                            :r="pxToUnits(h.kind === 'mid' ? 5 : 8)"
+                            :fill="
+                                h.kind === 'mid'
+                                    ? 'hsl(var(--background))'
+                                    : h.kind === 'vertex' && pickedVertex === h.index
+                                      ? 'hsl(0 85% 60%)'
+                                      : 'hsl(var(--foreground))'
+                            "
+                            stroke="hsl(45 95% 55%)"
+                            :stroke-width="pxToUnits(2)"
+                            :data-testid="`handle-${h.id}`"
+                            :data-x="h.x"
+                            :data-y="h.y"
+                        />
+                    </g>
                     <g
                         v-for="a in activeAuras"
                         :key="`aura-${a.aura.id}`"
@@ -1258,11 +1475,25 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @clear="commitTerrain([])"
                 @demo="commitTerrain(sampleTerrain)"
                 @layout="commitTerrain($event)"
+                :active-surface-id="activeSurface?.id ?? null"
+                :vertex-selected="pickedVertex !== null"
+                @select-surface="activeSurfaceId = $event"
+                @remove-corner="removePickedCorner"
                 :drawing="outline ? outline.length : null"
                 @draw="startOutline"
                 @finish-draw="finishOutline"
                 @cancel-draw="cancelOutline"
                 @undo-corner="undoCorner"
+            />
+            <LayoutLibrary
+                v-if="layoutTarget"
+                :layouts="layouts ?? []"
+                :terrain="terrain"
+                :table-image="tableKey"
+                :target="layoutTarget"
+                :signed-in="!!signedIn"
+                :read-only="readOnly"
+                @load="loadLayout"
             />
 
             <div v-if="mode === 'move' && stepMove" class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm" data-testid="step-help">

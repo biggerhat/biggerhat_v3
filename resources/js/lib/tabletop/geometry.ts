@@ -14,8 +14,10 @@ export const FALL_DAMAGE_FROM = 2;
 export const BASE_SIZES_MM = [30, 40, 50] as const;
 
 export type Shape =
-    | { kind: 'rect'; x: number; y: number; w: number; h: number }
+    /** `angle` (degrees, clockwise on the table) turns it about its own centre; x, y, w and h describe it before the turn. */
+    | { kind: 'rect'; x: number; y: number; w: number; h: number; angle?: number }
     | { kind: 'circle'; cx: number; cy: number; r: number }
+    | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number; angle?: number }
     | { kind: 'poly'; points: [number, number][] };
 
 /** A standable plane. `top` is the elevation in inches of a model standing on it (already the sum of what supports it). */
@@ -69,9 +71,64 @@ export interface Token {
 export const mmToInches = (mm: number): number => mm / MM_PER_INCH;
 export const baseRadius = (baseMm: number): number => mmToInches(baseMm) / 2;
 
+/** Turn a point about a centre by `deg` degrees (clockwise on the table, y pointing down). Quarter turns are exact. */
+export function rotateAbout(p: [number, number], c: [number, number], deg: number): [number, number] {
+    const d = ((deg % 360) + 360) % 360;
+    const dx = p[0] - c[0];
+    const dy = p[1] - c[1];
+    if (d === 0) return [p[0], p[1]];
+    if (d === 90) return [c[0] - dy, c[1] + dx];
+    if (d === 180) return [c[0] - dx, c[1] - dy];
+    if (d === 270) return [c[0] + dy, c[1] - dx];
+    const cs = Math.cos((d * Math.PI) / 180);
+    const sn = Math.sin((d * Math.PI) / 180);
+    return [c[0] + dx * cs - dy * sn, c[1] + dx * sn + dy * cs];
+}
+
+/** How far a rectangle or ellipse is turned, in degrees; 0 for the shapes that have no turn of their own. */
+export const shapeAngle = (shape: Shape): number => (shape.kind === 'rect' || shape.kind === 'ellipse' ? (shape.angle ?? 0) : 0);
+
+/** The middle of a shape (for a drawn outline, the middle of its bounding box). */
+export function shapeCentre(shape: Shape): [number, number] {
+    if (shape.kind === 'rect') return [shape.x + shape.w / 2, shape.y + shape.h / 2];
+    if (shape.kind === 'circle' || shape.kind === 'ellipse') return [shape.cx, shape.cy];
+    const b = shapeBounds(shape);
+    return [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2];
+}
+
+/** A shape as a polygon: its corners as turned, or a ring of points for a curved shape. */
+export function shapeOutline(shape: Shape, ring = 48): [number, number][] {
+    if (shape.kind === 'poly') return shape.points;
+    if (shape.kind === 'rect') {
+        const c = shapeCentre(shape);
+        const corners: [number, number][] = [
+            [shape.x, shape.y],
+            [shape.x + shape.w, shape.y],
+            [shape.x + shape.w, shape.y + shape.h],
+            [shape.x, shape.y + shape.h],
+        ];
+        return shape.angle ? corners.map((p) => rotateAbout(p, c, shape.angle ?? 0)) : corners;
+    }
+    const c: [number, number] = [shape.cx, shape.cy];
+    const rx = shape.kind === 'circle' ? shape.r : shape.rx;
+    const ry = shape.kind === 'circle' ? shape.r : shape.ry;
+    const angle = shape.kind === 'ellipse' ? (shape.angle ?? 0) : 0;
+    return Array.from({ length: ring }, (_, i) => {
+        const t = (i / ring) * Math.PI * 2;
+        return rotateAbout([c[0] + rx * Math.cos(t), c[1] + ry * Math.sin(t)], c, angle);
+    });
+}
+
 export function pointInShape(shape: Shape, x: number, y: number): boolean {
-    if (shape.kind === 'rect') return x >= shape.x && x <= shape.x + shape.w && y >= shape.y && y <= shape.y + shape.h;
+    if (shape.kind === 'rect') {
+        if (shape.angle) [x, y] = rotateAbout([x, y], shapeCentre(shape), -shape.angle);
+        return x >= shape.x && x <= shape.x + shape.w && y >= shape.y && y <= shape.y + shape.h;
+    }
     if (shape.kind === 'circle') return (x - shape.cx) ** 2 + (y - shape.cy) ** 2 <= shape.r ** 2;
+    if (shape.kind === 'ellipse') {
+        if (shape.angle) [x, y] = rotateAbout([x, y], [shape.cx, shape.cy], -shape.angle);
+        return ((x - shape.cx) / shape.rx) ** 2 + ((y - shape.cy) / shape.ry) ** 2 <= 1;
+    }
     let inside = false;
     const p = shape.points;
     for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
@@ -344,8 +401,7 @@ function quarterTurn(shape: Shape): Shape {
         const [cx, cy] = turn([shape.cx, shape.cy]);
         return { ...shape, cx, cy };
     }
-    if (shape.kind === 'rect') return quarterTurn(rectPoly(shape.x, shape.y, shape.w, shape.h));
-    return { kind: 'poly', points: shape.points.map(turn) };
+    return { kind: 'poly', points: shapeOutline(shape).map(turn) };
 }
 
 /**
@@ -363,8 +419,7 @@ export function deploymentZones(kind: DeploymentKind, variant = 0): DeploymentZo
 
 /** Where a zone sits, in words: "top", "bottom-right", and so on. */
 export function describeZone(shape: Shape): string {
-    const pts =
-        shape.kind === 'circle' ? [[shape.cx, shape.cy]] : shape.kind === 'poly' ? shape.points : [[shape.x + shape.w / 2, shape.y + shape.h / 2]];
+    const pts = shape.kind === 'poly' ? shape.points : [shapeCentre(shape)];
     const cx = pts.reduce((n, p) => n + p[0], 0) / pts.length;
     const cy = pts.reduce((n, p) => n + p[1], 0) / pts.length;
     const v = cy < T / 3 ? 'top' : cy > (2 * T) / 3 ? 'bottom' : '';
@@ -392,10 +447,17 @@ export interface Bounds {
 }
 
 export function shapeBounds(shape: Shape): Bounds {
-    if (shape.kind === 'rect') return { minX: shape.x, minY: shape.y, maxX: shape.x + shape.w, maxY: shape.y + shape.h };
+    if (shape.kind === 'rect' && !shape.angle) return { minX: shape.x, minY: shape.y, maxX: shape.x + shape.w, maxY: shape.y + shape.h };
     if (shape.kind === 'circle') return { minX: shape.cx - shape.r, minY: shape.cy - shape.r, maxX: shape.cx + shape.r, maxY: shape.cy + shape.r };
-    const xs = shape.points.map((p) => p[0]);
-    const ys = shape.points.map((p) => p[1]);
+    if (shape.kind === 'ellipse') {
+        const a = ((shape.angle ?? 0) * Math.PI) / 180;
+        const hw = Math.hypot(shape.rx * Math.cos(a), shape.ry * Math.sin(a));
+        const hh = Math.hypot(shape.rx * Math.sin(a), shape.ry * Math.cos(a));
+        return { minX: shape.cx - hw, minY: shape.cy - hh, maxX: shape.cx + hw, maxY: shape.cy + hh };
+    }
+    const pts = shapeOutline(shape);
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
     return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
@@ -411,7 +473,7 @@ export function pieceBounds(piece: TerrainPiece): Bounds {
 
 export function translateShape(shape: Shape, dx: number, dy: number): Shape {
     if (shape.kind === 'rect') return { ...shape, x: shape.x + dx, y: shape.y + dy };
-    if (shape.kind === 'circle') return { ...shape, cx: shape.cx + dx, cy: shape.cy + dy };
+    if (shape.kind === 'circle' || shape.kind === 'ellipse') return { ...shape, cx: shape.cx + dx, cy: shape.cy + dy };
     return { kind: 'poly', points: shape.points.map(([x, y]) => [x + dx, y + dy] as [number, number]) };
 }
 
@@ -456,26 +518,151 @@ export const tallClimbablePieces = (pieces: TerrainPiece[]): number =>
 export const clampTop = (n: number): number => Math.min(SURFACE_MAX_TOP, Math.max(SURFACE_MIN_TOP, Math.round(n * 2) / 2));
 export const clampSize = (n: number): number => Math.min(TABLE_SIZE, Math.max(0.5, Math.round(n * 2) / 2));
 
-/** Turn a piece a quarter turn about its own centre (every level together), kept inside the table. */
-export function rotatePiece90(piece: TerrainPiece): TerrainPiece {
+/** An angle in degrees folded into (-90, 90], which is every distinct turn of a shape that looks the same turned half way round. */
+const foldAngle = (deg: number): number => {
+    let a = ((((deg % 180) + 180) % 180) * 1e6) / 1e6;
+    if (a > 90) a -= 180;
+    return Math.round(a * 1e6) / 1e6;
+};
+
+/** One shape turned about a point. A rectangle or ellipse keeps its own angle; a quarter turn just swaps its sides. */
+export function rotateShape(shape: Shape, about: [number, number], deg: number): Shape {
+    if (shape.kind === 'circle') {
+        const [cx, cy] = rotateAbout([shape.cx, shape.cy], about, deg);
+        return { ...shape, cx, cy };
+    }
+    if (shape.kind === 'poly') return { kind: 'poly', points: shape.points.map((p) => rotateAbout(p, about, deg)) };
+    const [nx, ny] = rotateAbout(shapeCentre(shape), about, deg);
+    let a = foldAngle(shapeAngle(shape) + deg);
+    if (shape.kind === 'rect') {
+        let { w, h } = shape;
+        if (Math.abs(a) === 90) [w, h, a] = [h, w, 0];
+        const out: Shape = { kind: 'rect', x: nx - w / 2, y: ny - h / 2, w, h };
+        return a ? { ...out, angle: a } : out;
+    }
+    let { rx, ry } = shape;
+    if (Math.abs(a) === 90) [rx, ry, a] = [ry, rx, 0];
+    const out: Shape = { kind: 'ellipse', cx: nx, cy: ny, rx, ry };
+    return a ? { ...out, angle: a } : out;
+}
+
+/** Turn a whole piece, every level together, about the middle of its bounds, kept inside the table. */
+export function rotatePiece(piece: TerrainPiece, deg: number): TerrainPiece {
     const b = pieceBounds(piece);
-    const cx = (b.minX + b.maxX) / 2;
-    const cy = (b.minY + b.maxY) / 2;
-    const turn = ([x, y]: [number, number]): [number, number] => [cx - (y - cy), cy + (x - cx)];
-    const surfaces = piece.surfaces.map((s) => {
-        const sh = s.shape;
-        if (sh.kind === 'circle') {
-            const [x, y] = turn([sh.cx, sh.cy]);
-            return { ...s, shape: { ...sh, cx: x, cy: y } };
-        }
-        if (sh.kind === 'rect') {
-            const [x1, y1] = turn([sh.x, sh.y]);
-            const [x2, y2] = turn([sh.x + sh.w, sh.y + sh.h]);
-            return { ...s, shape: { kind: 'rect' as const, x: Math.min(x1, x2), y: Math.min(y1, y2), w: sh.h, h: sh.w } };
-        }
-        return { ...s, shape: { kind: 'poly' as const, points: sh.points.map(turn) } };
-    });
-    return movePiece({ ...piece, surfaces }, 0, 0);
+    const about: [number, number] = [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2];
+    return movePiece({ ...piece, surfaces: piece.surfaces.map((s) => ({ ...s, shape: rotateShape(s.shape, about, deg) })) }, 0, 0);
+}
+
+/** Turn a piece a quarter turn about its own centre (every level together), kept inside the table. */
+export const rotatePiece90 = (piece: TerrainPiece): TerrainPiece => rotatePiece(piece, 90);
+
+/** Set one rectangle or ellipse to an exact angle about its own middle; other shapes are left alone. */
+export function setShapeAngle(shape: Shape, deg: number): Shape {
+    if (shape.kind !== 'rect' && shape.kind !== 'ellipse') return shape;
+    const a = foldAngle(deg);
+    const rest: Shape = { ...shape };
+    delete rest.angle;
+    return a ? { ...rest, angle: a } : rest;
+}
+
+// ---- reshaping a level by dragging its handles -----------------------------------------------------------------------------------
+
+export type HandleKind = 'corner' | 'edge' | 'radius' | 'vertex' | 'mid';
+export interface ShapeHandle {
+    /** Stable within a shape: corner-0..3, edge-0..3 (rx/ry ends), radius, vertex-N, mid-N (the middle of the edge after corner N). */
+    id: string;
+    kind: HandleKind;
+    index: number;
+    x: number;
+    y: number;
+}
+
+export const POLY_MAX_POINTS = 16;
+const snapHalfInch = (n: number): number => Math.round(n * 2) / 2;
+const clampCoord = (n: number): number => Math.min(TABLE_SIZE, Math.max(0, n));
+
+/** Where the handles of a level sit: corners of a rectangle, the ends of an ellipse's axes, a circle's east edge, a drawn outline's corners and edge middles. */
+export function shapeHandles(shape: Shape): ShapeHandle[] {
+    if (shape.kind === 'rect') return shapeOutline(shape).map(([x, y], i) => ({ id: `corner-${i}`, kind: 'corner' as const, index: i, x, y }));
+    if (shape.kind === 'circle') return [{ id: 'radius', kind: 'radius', index: 0, x: shape.cx + shape.r, y: shape.cy }];
+    if (shape.kind === 'ellipse') {
+        const c: [number, number] = [shape.cx, shape.cy];
+        const ends: [number, number][] = [
+            [shape.cx + shape.rx, shape.cy],
+            [shape.cx, shape.cy + shape.ry],
+            [shape.cx - shape.rx, shape.cy],
+            [shape.cx, shape.cy - shape.ry],
+        ];
+        return ends.map((p, i) => {
+            const [x, y] = rotateAbout(p, c, shape.angle ?? 0);
+            return { id: `edge-${i}`, kind: 'edge' as const, index: i, x, y };
+        });
+    }
+    const out: ShapeHandle[] = shape.points.map(([x, y], i) => ({ id: `vertex-${i}`, kind: 'vertex' as const, index: i, x, y }));
+    if (shape.points.length < POLY_MAX_POINTS)
+        shape.points.forEach(([x, y], i) => {
+            const [nx, ny] = shape.points[(i + 1) % shape.points.length];
+            out.push({ id: `mid-${i}`, kind: 'mid', index: i, x: (x + nx) / 2, y: (y + ny) / 2 });
+        });
+    return out;
+}
+
+/**
+ * Drag one handle of a level to a point on the table. A rectangle keeps the opposite corner where it is and follows its own angle; an
+ * ellipse's axis end sets that radius; a circle's handle sets the radius; an outline's corner moves. Sizes and corners snap to half inches.
+ */
+export function dragShapeHandle(shape: Shape, handle: Pick<ShapeHandle, 'kind' | 'index'>, to: { x: number; y: number }): Shape {
+    if (shape.kind === 'rect' && handle.kind === 'corner') {
+        const corners = shapeOutline(shape);
+        const [ox, oy] = corners[(handle.index + 2) % 4];
+        const a = ((shape.angle ?? 0) * Math.PI) / 180;
+        const u = [Math.cos(a), Math.sin(a)];
+        const v = [-Math.sin(a), Math.cos(a)];
+        const dx = to.x - ox;
+        const dy = to.y - oy;
+        const pu = dx * u[0] + dy * u[1];
+        const pv = dx * v[0] + dy * v[1];
+        const w = Math.min(TABLE_SIZE, Math.max(0.5, snapHalfInch(Math.abs(pu))));
+        const h = Math.min(TABLE_SIZE, Math.max(0.5, snapHalfInch(Math.abs(pv))));
+        const su = pu < 0 ? -1 : 1;
+        const sv = pv < 0 ? -1 : 1;
+        const cx = ox + (su * w * u[0] + sv * h * v[0]) / 2;
+        const cy = oy + (su * w * u[1] + sv * h * v[1]) / 2;
+        const out: Shape = { kind: 'rect', x: cx - w / 2, y: cy - h / 2, w, h };
+        return shape.angle ? { ...out, angle: shape.angle } : out;
+    }
+    if (shape.kind === 'circle' && handle.kind === 'radius') {
+        const r = Math.min(TABLE_SIZE, Math.max(0.5, snapHalfInch(Math.hypot(to.x - shape.cx, to.y - shape.cy))));
+        return { ...shape, r };
+    }
+    if (shape.kind === 'ellipse' && handle.kind === 'edge') {
+        const [lx, ly] = rotateAbout([to.x, to.y], [shape.cx, shape.cy], -(shape.angle ?? 0));
+        if (handle.index % 2 === 0) return { ...shape, rx: Math.min(TABLE_SIZE, Math.max(0.5, snapHalfInch(Math.abs(lx - shape.cx)))) };
+        return { ...shape, ry: Math.min(TABLE_SIZE, Math.max(0.5, snapHalfInch(Math.abs(ly - shape.cy)))) };
+    }
+    if (shape.kind === 'poly' && handle.kind === 'vertex') {
+        const points = shape.points.map((p, i) =>
+            i === handle.index ? ([clampCoord(snapHalfInch(to.x)), clampCoord(snapHalfInch(to.y))] as [number, number]) : p,
+        );
+        return { kind: 'poly', points };
+    }
+    return shape;
+}
+
+/** Put a new corner on a drawn outline in the middle of the edge after corner `index`; null when it is full. */
+export function insertCorner(shape: Shape, index: number): Shape | null {
+    if (shape.kind !== 'poly' || shape.points.length >= POLY_MAX_POINTS) return null;
+    const [x, y] = shape.points[index];
+    const [nx, ny] = shape.points[(index + 1) % shape.points.length];
+    const points = [...shape.points];
+    points.splice(index + 1, 0, [snapHalfInch((x + nx) / 2), snapHalfInch((y + ny) / 2)]);
+    return { kind: 'poly', points };
+}
+
+/** Take a corner off a drawn outline; null when only three remain. */
+export function removeCorner(shape: Shape, index: number): Shape | null {
+    if (shape.kind !== 'poly' || shape.points.length <= 3) return null;
+    return { kind: 'poly', points: shape.points.filter((_, i) => i !== index) };
 }
 
 /** A marker a player can put on the table: name and base size come from the markers table. */
@@ -503,17 +690,18 @@ type Pt = { x: number; y: number };
 
 /** Distance from a point to the nearest part of a shape; 0 inside it. */
 export function distanceToShape(shape: Shape, x: number, y: number): number {
-    if (shape.kind === 'rect') {
+    if (shape.kind === 'rect' && !shape.angle) {
         const dx = Math.max(shape.x - x, 0, x - (shape.x + shape.w));
         const dy = Math.max(shape.y - y, 0, y - (shape.y + shape.h));
         return Math.hypot(dx, dy);
     }
     if (shape.kind === 'circle') return Math.max(0, Math.hypot(x - shape.cx, y - shape.cy) - shape.r);
     if (pointInShape(shape, x, y)) return 0;
+    const pts = shapeOutline(shape);
     let best = Infinity;
-    for (let i = 0, j = shape.points.length - 1; i < shape.points.length; j = i++) {
-        const [ax, ay] = shape.points[j];
-        const [bx, by] = shape.points[i];
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [ax, ay] = pts[j];
+        const [bx, by] = pts[i];
         const len2 = (bx - ax) ** 2 + (by - ay) ** 2;
         const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len2));
         best = Math.min(best, Math.hypot(x - (ax + t * (bx - ax)), y - (ay + t * (by - ay))));
@@ -805,7 +993,8 @@ export function placementProblems(token: Token, tokens: Token[], pieces: Terrain
         if (piece.traits.includes('impassable')) problems.push({ kind: 'impassable', text: `is on ${piece.name}, which is impassable` });
         else {
             if (piece.traits.includes('hazardous')) problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
-            if (piece.traits.includes('severe')) problems.push({ kind: 'severe', text: `is in severe terrain (${piece.name}), where movement costs double` });
+            if (piece.traits.includes('severe'))
+                problems.push({ kind: 'severe', text: `is in severe terrain (${piece.name}), where movement costs double` });
         }
     }
     return problems;

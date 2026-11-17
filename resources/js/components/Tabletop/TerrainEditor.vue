@@ -9,7 +9,9 @@ import {
     clampSize,
     clampTop,
     movePiece,
-    rotatePiece90,
+    rotatePiece,
+    setShapeAngle,
+    shapeAngle,
     shapeBounds,
     tallClimbablePieces,
     terrainCoverage,
@@ -19,7 +21,7 @@ import {
 } from '@/lib/tabletop/geometry';
 import { TERRAIN_LAYOUTS } from '@/lib/tabletop/terrainLayouts';
 import { TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
-import { Copy, Layers, PenLine, Minus, Plus, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
+import { Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -30,6 +32,10 @@ const props = defineProps<{
     canUndo: boolean;
     /** Corners placed so far while drawing an outline, or null when not drawing. */
     drawing?: number | null;
+    /** The level whose handles are showing on the board. */
+    activeSurfaceId?: string | null;
+    /** A corner of a drawn outline is picked on the board, so it can be taken away. */
+    vertexSelected?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -43,6 +49,8 @@ const emit = defineEmits<{
     finishDraw: [];
     cancelDraw: [];
     undoCorner: [];
+    selectSurface: [id: string];
+    removeCorner: [];
 }>();
 
 const presetKey = ref(TERRAIN_PRESETS[0].key);
@@ -108,13 +116,15 @@ function addLevel(piece: TerrainPiece) {
     const shape =
         top.shape.kind === 'circle'
             ? { kind: 'circle' as const, cx, cy, r: clampSize(top.shape.r / 2) }
-            : {
-                  kind: 'rect' as const,
-                  x: cx - clampSize((b.maxX - b.minX) / 4),
-                  y: cy - clampSize((b.maxY - b.minY) / 4),
-                  w: clampSize((b.maxX - b.minX) / 2),
-                  h: clampSize((b.maxY - b.minY) / 2),
-              };
+            : top.shape.kind === 'ellipse'
+              ? { ...top.shape, rx: clampSize(top.shape.rx / 2), ry: clampSize(top.shape.ry / 2) }
+              : {
+                    kind: 'rect' as const,
+                    x: cx - clampSize((b.maxX - b.minX) / 4),
+                    y: cy - clampSize((b.maxY - b.minY) / 4),
+                    w: clampSize((b.maxX - b.minX) / 2),
+                    h: clampSize((b.maxY - b.minY) / 2),
+                };
     replace({ ...piece, surfaces: [...piece.surfaces, { id: `${piece.id}-${Date.now().toString(36)}`, shape, top: clampTop(top.top + 1) }] });
 }
 function removeLevel(piece: TerrainPiece, surfaceId: string) {
@@ -124,7 +134,7 @@ function removeLevel(piece: TerrainPiece, surfaceId: string) {
 const setTop = (piece: TerrainPiece, s: Surface, top: number) => patchSurface(piece, s.id, (x) => ({ ...x, top: clampTop(top) }));
 
 /** Resize about the centre so the piece stays where it was put; a bigger piece is nudged back if it would cross the table edge. */
-function resize(piece: TerrainPiece, s: Surface, dims: { w?: number; h?: number; r?: number }) {
+function resize(piece: TerrainPiece, s: Surface, dims: { w?: number; h?: number; r?: number; rx?: number; ry?: number }) {
     const next = piece.surfaces.map((x) => {
         if (x.id !== s.id) return x;
         const sh = x.shape;
@@ -134,9 +144,15 @@ function resize(piece: TerrainPiece, s: Surface, dims: { w?: number; h?: number;
             return { ...x, shape: { ...sh, x: sh.x + (sh.w - w) / 2, y: sh.y + (sh.h - h) / 2, w, h } };
         }
         if (sh.kind === 'circle') return { ...x, shape: { ...sh, r: clampSize(dims.r ?? sh.r) } };
+        if (sh.kind === 'ellipse') return { ...x, shape: { ...sh, rx: clampSize(dims.rx ?? sh.rx), ry: clampSize(dims.ry ?? sh.ry) } };
         return x;
     });
     replace(movePiece({ ...piece, surfaces: next }, 0, 0));
+}
+/** Turn one rectangle or oval to an exact angle about its own middle. */
+function setAngle(piece: TerrainPiece, s: Surface, deg: number) {
+    const surfaces = piece.surfaces.map((x) => (x.id === s.id ? { ...x, shape: setShapeAngle(x.shape, Math.round(deg)) } : x));
+    replace(movePiece({ ...piece, surfaces }, 0, 0));
 }
 const numberFrom = (e: Event) => Number((e.target as HTMLInputElement).value) || 0;
 const levelLabel = (piece: TerrainPiece, s: Surface) => {
@@ -222,8 +238,24 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 />
             </div>
             <div class="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" data-testid="terrain-rotate" @click="replace(rotatePiece90(selected))"
+                <Button size="sm" variant="outline" data-testid="terrain-rotate" @click="replace(rotatePiece(selected, 90))"
                     ><RotateCw class="mr-1 size-4" />Turn 90°</Button
+                >
+                <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label="Turn 15 degrees back"
+                    data-testid="terrain-rotate-back"
+                    @click="replace(rotatePiece(selected, -15))"
+                    ><RotateCcw class="mr-1 size-4" />15°</Button
+                >
+                <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label="Turn 15 degrees on"
+                    data-testid="terrain-rotate-on"
+                    @click="replace(rotatePiece(selected, 15))"
+                    ><RotateCw class="mr-1 size-4" />15°</Button
                 >
                 <Button size="sm" variant="outline" data-testid="terrain-duplicate" @click="duplicate(selected)"
                     ><Copy class="mr-1 size-4" />Copy</Button
@@ -269,9 +301,23 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                         ><Layers class="mr-1 size-4" />Add level</Button
                     >
                 </div>
-                <div v-for="s in selected.surfaces" :key="s.id" class="mb-2 rounded-md border p-2" data-testid="terrain-level">
+                <div
+                    v-for="s in selected.surfaces"
+                    :key="s.id"
+                    class="mb-2 rounded-md border p-2"
+                    :class="s.id === activeSurfaceId ? 'border-amber-500/70' : ''"
+                    data-testid="terrain-level"
+                >
                     <div class="mb-2 flex items-center justify-between">
-                        <span class="font-medium">{{ levelLabel(selected, s) }}</span>
+                        <button
+                            type="button"
+                            class="font-medium underline-offset-2 hover:underline"
+                            title="Show this level's handles on the board"
+                            data-testid="terrain-level-pick"
+                            @click="emit('selectSurface', s.id)"
+                        >
+                            {{ levelLabel(selected, s) }}{{ s.id === activeSurfaceId ? ' (handles shown)' : '' }}
+                        </button>
                         <Button
                             v-if="selected.surfaces.length > 1"
                             size="sm"
@@ -333,6 +379,59 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 :value="s.shape.h"
                                 @change="resize(selected, s, { h: numberFrom($event) })"
                         /></label>
+                        <label class="flex items-center gap-1"
+                            >Turn
+                            <input
+                                type="number"
+                                step="5"
+                                min="-90"
+                                max="90"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                data-testid="terrain-angle"
+                                :value="shapeAngle(s.shape)"
+                                @change="setAngle(selected, s, numberFrom($event))"
+                            />°</label
+                        >
+                        <span class="text-muted-foreground">inches</span>
+                    </div>
+                    <div v-else-if="s.shape.kind === 'ellipse'" class="mt-2 flex flex-wrap items-center gap-2">
+                        <label class="flex items-center gap-1"
+                            >Rx
+                            <input
+                                type="number"
+                                step="0.5"
+                                min="0.5"
+                                :max="TABLE_SIZE"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                data-testid="terrain-rx"
+                                :value="s.shape.rx"
+                                @change="resize(selected, s, { rx: numberFrom($event) })"
+                        /></label>
+                        <label class="flex items-center gap-1"
+                            >Ry
+                            <input
+                                type="number"
+                                step="0.5"
+                                min="0.5"
+                                :max="TABLE_SIZE"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                data-testid="terrain-ry"
+                                :value="s.shape.ry"
+                                @change="resize(selected, s, { ry: numberFrom($event) })"
+                        /></label>
+                        <label class="flex items-center gap-1"
+                            >Turn
+                            <input
+                                type="number"
+                                step="5"
+                                min="-90"
+                                max="90"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                data-testid="terrain-angle"
+                                :value="shapeAngle(s.shape)"
+                                @change="setAngle(selected, s, numberFrom($event))"
+                            />°</label
+                        >
                         <span class="text-muted-foreground">inches</span>
                     </div>
                     <div v-else-if="s.shape.kind === 'circle'" class="mt-2 flex items-center gap-2">
@@ -350,10 +449,25 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                         /></label>
                         <span class="text-muted-foreground">inches</span>
                     </div>
-                    <p v-else class="mt-2 text-muted-foreground">Custom outline. Move it by dragging; change its height here.</p>
+                    <div v-else class="mt-2 space-y-1 text-muted-foreground">
+                        <p>
+                            Custom outline with {{ s.shape.kind === 'poly' ? s.shape.points.length : 0 }} corners. Drag a corner on the board to
+                            reshape it, or drag the dot in the middle of an edge to add one.
+                        </p>
+                        <Button
+                            v-if="s.id === activeSurfaceId"
+                            size="sm"
+                            variant="outline"
+                            data-testid="terrain-remove-corner"
+                            :disabled="!vertexSelected || (s.shape.kind === 'poly' && s.shape.points.length <= 3)"
+                            @click="emit('removeCorner')"
+                            ><Trash2 class="mr-1 size-4" />Remove the picked corner</Button
+                        >
+                    </div>
                 </div>
                 <p class="text-muted-foreground">
-                    A model stands at the height of the highest level that holds at least half its base. Drag the piece on the board to move it.
+                    A model stands at the height of the highest level that holds at least half its base. Drag the piece on the board to move it; drag
+                    the dots on its edge to reshape it and the dot above it to turn it.
                 </p>
             </div>
         </div>

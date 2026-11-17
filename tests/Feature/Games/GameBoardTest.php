@@ -248,7 +248,7 @@ it('rejects a malformed terrain layout', function (array $piece) {
     'no surfaces' => [['surfaces' => []]],
     'too many surfaces' => [['surfaces' => array_fill(0, 7, ['id' => 's', 'top' => 1, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1, 'w' => 2, 'h' => 2]])]],
     'height too tall' => [['surfaces' => [['id' => 's', 'top' => 40, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
-    'off the table' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 50, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
+    'off the table' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 100, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
     'rectangle without a size' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1]]]]],
     'unknown shape' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'star']]]]],
     'polygon with two points' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'poly', 'points' => [[1, 1], [2, 2]]]]]]],
@@ -701,4 +701,20 @@ it('accepts every ground terrain kind and the severe trait', function () {
 
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => $terrain])->assertSessionHasNoErrors()->assertRedirect();
     expect(collect($game->fresh()->board_state['terrain'])->pluck('kind')->all())->toBe($kinds);
+});
+
+it('saves turned rectangles and ovals, and refuses a bad ellipse or angle', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $piece = fn (array $shape, string $id = 'p1') => ['id' => $id, 'name' => 'Shape', 'traits' => [], 'surfaces' => [['id' => "$id-1", 'top' => 1, 'shape' => $shape]]];
+    $turned = ['kind' => 'rect', 'x' => -2.5, 'y' => 10, 'w' => 12, 'h' => 2, 'angle' => 45];
+    $oval = ['kind' => 'ellipse', 'cx' => 12, 'cy' => 12, 'rx' => 4, 'ry' => 2, 'angle' => -20];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece($turned), $piece($oval, 'p2')]])->assertSessionHasNoErrors()->assertRedirect();
+    $saved = $game->fresh()->board_state['terrain'];
+    expect($saved[0]['surfaces'][0]['shape']['angle'])->toBe(45)
+        ->and($saved[1]['surfaces'][0]['shape'])->toMatchArray(['kind' => 'ellipse', 'rx' => 4, 'ry' => 2, 'angle' => -20]);
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece([...$oval, 'rx' => 0])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.rx');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece([...$turned, 'angle' => 900])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.angle');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece(['kind' => 'ellipse', 'cx' => 5, 'cy' => 5, 'rx' => 2])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.ry');
 });

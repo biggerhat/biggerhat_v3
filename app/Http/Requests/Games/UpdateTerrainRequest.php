@@ -22,6 +22,16 @@ class UpdateTerrainRequest extends FormRequest
      */
     public function rules(): array
     {
+        return self::terrainRules();
+    }
+
+    /**
+     * The rules for a `terrain` array, shared with saved layouts.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    public static function terrainRules(): array
+    {
         $coord = ['numeric', 'between:0,36'];
 
         return [
@@ -35,13 +45,17 @@ class UpdateTerrainRequest extends FormRequest
             'terrain.*.surfaces' => ['required', 'array', 'min:1', 'max:6'],
             'terrain.*.surfaces.*.id' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/'],
             'terrain.*.surfaces.*.top' => ['required', 'numeric', 'between:0,12'],
-            'terrain.*.surfaces.*.shape.kind' => ['required', Rule::in(['rect', 'circle', 'poly'])],
-            'terrain.*.surfaces.*.shape.x' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', ...$coord],
-            'terrain.*.surfaces.*.shape.y' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', ...$coord],
+            'terrain.*.surfaces.*.shape.kind' => ['required', Rule::in(['rect', 'circle', 'ellipse', 'poly'])],
+            // A turned rectangle is stored as it was before the turn, so its corner can sit a little off the table.
+            'terrain.*.surfaces.*.shape.x' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', 'numeric', 'between:-36,72'],
+            'terrain.*.surfaces.*.shape.y' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', 'numeric', 'between:-36,72'],
+            'terrain.*.surfaces.*.shape.angle' => ['nullable', 'numeric', 'between:-360,360'],
             'terrain.*.surfaces.*.shape.w' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', 'numeric', 'between:0.5,36'],
             'terrain.*.surfaces.*.shape.h' => ['required_if:terrain.*.surfaces.*.shape.kind,rect', 'numeric', 'between:0.5,36'],
-            'terrain.*.surfaces.*.shape.cx' => ['required_if:terrain.*.surfaces.*.shape.kind,circle', ...$coord],
-            'terrain.*.surfaces.*.shape.cy' => ['required_if:terrain.*.surfaces.*.shape.kind,circle', ...$coord],
+            'terrain.*.surfaces.*.shape.cx' => ['required_if:terrain.*.surfaces.*.shape.kind,circle,ellipse', ...$coord],
+            'terrain.*.surfaces.*.shape.cy' => ['required_if:terrain.*.surfaces.*.shape.kind,circle,ellipse', ...$coord],
+            'terrain.*.surfaces.*.shape.rx' => ['required_if:terrain.*.surfaces.*.shape.kind,ellipse', 'numeric', 'between:0.5,36'],
+            'terrain.*.surfaces.*.shape.ry' => ['required_if:terrain.*.surfaces.*.shape.kind,ellipse', 'numeric', 'between:0.5,36'],
             'terrain.*.surfaces.*.shape.r' => ['required_if:terrain.*.surfaces.*.shape.kind,circle', 'numeric', 'between:0.5,36'],
             'terrain.*.surfaces.*.shape.points' => ['required_if:terrain.*.surfaces.*.shape.kind,poly', 'array', 'min:3', 'max:16'],
             'terrain.*.surfaces.*.shape.points.*' => ['array', 'size:2'],

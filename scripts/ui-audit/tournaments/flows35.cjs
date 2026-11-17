@@ -233,6 +233,95 @@ const L = require('./lib.cjs');
             await L.shot(s, `360-ground-terrain-${label}`);
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): a piece can be reshaped with handles, turned to any angle, and an outline gains and loses corners`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            const handle = (id) => s.page.$eval(`[data-testid="handle-${id}"]`, (e) => ({ x: Number(e.dataset.x), y: Number(e.dataset.y) }));
+            const add = async (key) => {
+                await s.page.select('[data-testid=terrain-preset]', key);
+                await hit('[data-testid=terrain-add]');
+                await s.page.waitForSelector('[data-testid=terrain-handles]');
+            };
+            const val = (id) => s.page.$eval(`[data-testid=${id}]`, (i) => Number(i.value));
+            const drag = async (from, to) => {
+                await toBoardTop();
+                await dragTo(from, to);
+            };
+            // a rectangle: drag its bottom-right corner out
+            await add('block');
+            const w0 = await val('terrain-w');
+            const c = await handle('corner-2');
+            await drag([c.x, c.y], [c.x + 3, c.y + 2]);
+            const w1 = await val('terrain-w');
+            if (w1 !== w0 + 3) throw new Error(`dragging a corner should widen the block by 3", ${w0} then ${w1}`);
+            // the turn buttons and the angle box
+            await hit('[data-testid=terrain-rotate-on]');
+            if ((await val('terrain-angle')) !== 15) throw new Error(`turning 15 degrees should set the angle to 15, saw ${await val('terrain-angle')}`);
+            await s.page.$eval('[data-testid=terrain-angle]', (i) => {
+                i.value = '40';
+                i.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=terrain-angle]').value === '40', { timeout: 5000 });
+            // dragging the rotate dot sideways turns the piece about its middle
+            const dot = await handle('rotate');
+            await drag([dot.x, dot.y], [dot.x + 8, dot.y + 8]);
+            if ((await val('terrain-angle')) === 40) throw new Error('the rotate dot did not turn the piece');
+            await hit('[data-testid=terrain-undo]');
+            // an oval shows its own radii
+            await add('pond');
+            await s.page.waitForSelector('[data-testid=terrain-rx]');
+            const rx0 = await val('terrain-rx');
+            const e = await handle('edge-0');
+            await drag([e.x, e.y], [e.x + 2, e.y]);
+            if ((await val('terrain-rx')) <= rx0) throw new Error('dragging the end of an oval should lengthen it');
+            // an outline: add a corner from the middle of an edge, pick one and take it away
+            await add('lbuilding');
+            const count = () => s.page.$$eval('[data-testid^="handle-vertex-"]', (e) => e.length);
+            const before = await count();
+            const m = await handle('mid-0');
+            await drag([m.x, m.y], [m.x, m.y - 2]);
+            if ((await count()) !== before + 1) throw new Error(`dragging an edge middle should add a corner, ${before} then ${await count()}`);
+            const v = await handle('vertex-1');
+            await drag([v.x, v.y], [v.x, v.y]);
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=terrain-remove-corner]').disabled, { timeout: 5000 });
+            await hit('[data-testid=terrain-remove-corner]');
+            await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid^="handle-vertex-"]').length === n, { timeout: 5000 }, before);
+            await L.shot(s, `361-shape-handles-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a table can be saved, loaded back, shared by link and opened from the link`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=layout-library]');
+            const items = () => s.page.$$eval('[data-testid=layout-item]', (e) => e.length);
+            const openLibrary = () => s.page.$eval('[data-testid=layout-library]', (d) => (d.open = true));
+            await openLibrary();
+            const had = await items();
+            await s.page.type('[data-testid=layout-name]', 'Harness table');
+            await hit('[data-testid=layout-save]');
+            await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid=layout-item]').length > n, { timeout: 8000 }, had);
+            const saved = await items();
+            // clear the table, then load the saved one back
+            await hit('[data-testid=mode-terrain]');
+            await hit('[data-testid=terrain-clear]');
+            await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            await openLibrary();
+            await hit('[data-testid=layout-load]');
+            await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            // share it, and open it by its link
+            await openLibrary();
+            await hit('[data-testid=layout-share]');
+            await s.page.waitForSelector('[data-testid=layout-link]', { timeout: 8000 });
+            const uuid = await s.page.$eval('[data-testid=layout-item]', (e) => e.dataset.uuid);
+            await L.visit(s, `/tools/tabletop?layout=${uuid}`);
+            await s.page.waitForSelector('[data-testid=incoming-layout]');
+            await L.expectText(s, /Harness table/);
+            await L.shot(s, `362-shared-layout-${label}`);
+            await hit('[data-testid=incoming-leave]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=incoming-layout]'), { timeout: 8000 });
+            if ((await items()) !== saved) throw new Error(`expected ${saved} saved tables, saw ${await items()}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

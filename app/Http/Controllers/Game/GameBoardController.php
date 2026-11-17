@@ -17,6 +17,7 @@ use App\Http\Requests\Games\UpdateTerrainRequest;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
+use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
 use App\Support\Tabletop\TabletopImages;
@@ -79,6 +80,7 @@ class GameBoardController extends Controller
             'table_image' => $game->board_state['table_image'] ?? null,
             'table_images' => TabletopImages::tables(),
             'terrain_images' => TabletopImages::terrain(),
+            'layouts' => Layouts::mine(auth()->user()),
         ]);
     }
 

@@ -15,9 +15,9 @@ export interface TerrainLayout {
 const T = 36;
 const turn = (s: Shape): Shape =>
     s.kind === 'rect'
-        ? { kind: 'rect', x: T - s.x - s.w, y: T - s.y - s.h, w: s.w, h: s.h }
-        : s.kind === 'circle'
-          ? { kind: 'circle', cx: T - s.cx, cy: T - s.cy, r: s.r }
+        ? { ...s, x: T - s.x - s.w, y: T - s.y - s.h }
+        : s.kind === 'circle' || s.kind === 'ellipse'
+          ? { ...s, cx: T - s.cx, cy: T - s.cy }
           : { kind: 'poly', points: s.points.map(([x, y]) => [T - x, T - y] as [number, number]) };
 
 const rect = (x: number, y: number, w: number, h: number): Shape => ({ kind: 'rect', x, y, w, h });

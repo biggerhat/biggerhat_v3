@@ -14,7 +14,9 @@ import {
     type TerrainPiece,
     type Token,
 } from '@/lib/tabletop/geometry';
-import { Head, Link, router } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import type { SavedLayout } from '@/lib/tabletop/layouts';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import { loadEcho } from '@/lib/echo';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -69,7 +71,10 @@ const props = defineProps<{
     table_image: string | null;
     table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
     terrain_images: Record<string, string>;
+    /** The viewer's saved terrain layouts. */
+    layouts: SavedLayout[];
 }>();
+const page = usePage<SharedData>();
 
 // Saved positions, plus moves the other player has just made (applied straight from the broadcast).
 const live = ref<Record<string, { x: number; y: number }>>({ ...props.positions });
@@ -378,6 +383,9 @@ function moved(t: Token) {
             :deployment-variant="variant"
             @variant-changed="variantChanged"
             :table-images="table_images"
+            :layouts="layouts"
+            :layout-target="{ kind: 'game', uuid: game.uuid }"
+            :signed-in="!!page.props.auth.user"
             :table-image="tableImage"
             :terrain-images="terrain_images"
             @table-image-changed="tableImageChanged"

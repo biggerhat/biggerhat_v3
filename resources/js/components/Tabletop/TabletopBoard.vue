@@ -271,6 +271,30 @@ watch(mode, (m) => {
 
 const level = ref<number | 'all'>('all');
 const deployment = ref<'none' | DeploymentKind>(props.deployment ?? 'none');
+/** The table's own reference lines (the two centre axes and the middle of each quarter), shown whatever deployment is chosen. Kept on this device. */
+const LINES_KEY = 'tabletop-table-lines';
+const tableLines = ref(false);
+onMounted(() => {
+    try {
+        tableLines.value = localStorage.getItem(LINES_KEY) === '1';
+    } catch {
+        // storage unavailable: off
+    }
+});
+watch(tableLines, (on) => {
+    try {
+        localStorage.setItem(LINES_KEY, on ? '1' : '0');
+    } catch {
+        // ignore
+    }
+});
+/** The middle of each 18" quarter of the table (p.60). */
+const QUARTER_CENTRES = [
+    { x: TABLE_SIZE / 4, y: TABLE_SIZE / 4 },
+    { x: (TABLE_SIZE * 3) / 4, y: TABLE_SIZE / 4 },
+    { x: TABLE_SIZE / 4, y: (TABLE_SIZE * 3) / 4 },
+    { x: (TABLE_SIZE * 3) / 4, y: (TABLE_SIZE * 3) / 4 },
+];
 const variant = ref(props.deploymentVariant ?? 0);
 watch(
     () => props.deploymentVariant,
@@ -1167,24 +1191,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             stroke-dasharray="0.7 0.5"
                             data-testid="centerline"
                         />
-                        <text
-                            :x="TABLE_SIZE / 2"
-                            :y="TABLE_SIZE / 2"
-                            text-anchor="middle"
-                            font-size="0.9"
-                            font-weight="700"
-                            letter-spacing="0.15"
-                            fill="hsl(var(--foreground))"
-                            fill-opacity="0.8"
-                            stroke="hsl(var(--background))"
-                            stroke-width="0.25"
-                            paint-order="stroke"
-                            :transform="`rotate(${Math.round((Math.atan2(zones.centerline[1][1] - zones.centerline[0][1], zones.centerline[1][0] - zones.centerline[0][0]) * 180) / Math.PI)} ${TABLE_SIZE / 2} ${TABLE_SIZE / 2})`"
-                            dy="-0.5"
-                            pointer-events="none"
-                        >
-                            CENTERLINE
-                        </text>
                     </g>
                     <template v-for="piece in terrain" :key="piece.id">
                         <g
@@ -1268,6 +1274,33 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             />
                         </g>
                     </template>
+                    <g v-if="tableLines" pointer-events="none" data-testid="table-lines">
+                        <path
+                            :d="`M${TABLE_SIZE / 2} 0V${TABLE_SIZE}M0 ${TABLE_SIZE / 2}H${TABLE_SIZE}`"
+                            fill="none"
+                            stroke="hsl(var(--foreground))"
+                            stroke-opacity="0.55"
+                            stroke-width="0.09"
+                            stroke-dasharray="0.7 0.5"
+                            data-testid="table-axes"
+                        />
+                        <g v-for="(q, i) in QUARTER_CENTRES" :key="i" data-testid="quarter-centre" :data-x="q.x" :data-y="q.y">
+                            <path
+                                :d="`M${q.x - 0.7} ${q.y}H${q.x + 0.7}M${q.x} ${q.y - 0.7}V${q.y + 0.7}`"
+                                stroke="hsl(var(--background))"
+                                stroke-width="0.3"
+                                stroke-linecap="round"
+                            />
+                            <path
+                                :d="`M${q.x - 0.7} ${q.y}H${q.x + 0.7}M${q.x} ${q.y - 0.7}V${q.y + 0.7}`"
+                                stroke="hsl(var(--foreground))"
+                                stroke-opacity="0.85"
+                                stroke-width="0.12"
+                                stroke-linecap="round"
+                            />
+                            <circle :cx="q.x" :cy="q.y" r="0.2" fill="hsl(var(--foreground))" />
+                        </g>
+                    </g>
                     <g v-if="handles.length || rotateGrip" pointer-events="none" data-testid="terrain-handles">
                         <template v-if="rotateGrip">
                             <line
@@ -1839,6 +1872,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         <option value="none">None</option>
                         <option v-for="d in DEPLOYMENT_KINDS" :key="d.value" :value="d.value">{{ d.label }}</option>
                     </select>
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 text-sm" title="The two centre axes and the middle of each 18-inch quarter">
+                    <input v-model="tableLines" type="checkbox" class="size-4" data-testid="table-lines-toggle" />
+                    <span>Show table lines <span class="text-muted-foreground">(centre axes and quarter centres)</span></span>
                 </label>
                 <label v-if="variants.length" class="block text-sm">
                     <span class="mb-1 block font-medium">Which side</span>

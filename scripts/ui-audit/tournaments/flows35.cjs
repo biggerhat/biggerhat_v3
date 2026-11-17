@@ -526,6 +526,11 @@ const L = require('./lib.cjs');
             await hit('[data-testid=mode-terrain]');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             if ((await s.page.$$('[data-testid^=token-]')).length !== 0) throw new Error('a new table has no models');
+            await toBoardTop();
+            await L.sleep(300);
+            await L.shot(s, `368-new-table-blank-${label}`);
+            await s.page.evaluate(() => window.scrollTo(0, 0));
+            await L.shot(s, `368-new-table-top-${label}`);
             if (!(await s.page.$eval('[data-testid=new-table-save]', (b) => b.disabled))) throw new Error('an empty table cannot be saved');
             await s.page.select('[data-testid=terrain-preset]', 'wall');
             await hit('[data-testid=terrain-add]');
@@ -539,6 +544,28 @@ const L = require('./lib.cjs');
             // the sandbox on this device was not touched
             await openSandbox();
             await s.page.waitForSelector('[data-testid=token-a1]');
+        });
+        await L.step(`tabletop (${label}): table lines mark the centre axes and each quarter's middle, whatever deployment is chosen`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=table-lines-toggle]');
+            if (await s.page.$('[data-testid=table-lines]')) throw new Error('the table lines start hidden');
+            await hit('[data-testid=table-lines-toggle]');
+            await s.page.waitForSelector('[data-testid=table-lines]');
+            const centres = await s.page.$$eval('[data-testid=quarter-centre]', (els) => els.map((e) => `${e.dataset.x},${e.dataset.y}`).sort());
+            if (centres.join('|') !== '27,27|27,9|9,27|9,9') throw new Error(`expected the four quarter centres, saw ${centres}`);
+            await s.page.waitForSelector('[data-testid=table-axes]');
+            // with a deployment chosen the deployment's own centerline is still there, with no big label on it
+            await s.page.select('[data-testid=deployment-select]', 'standard');
+            await s.page.waitForSelector('[data-testid=centerline]');
+            if ((await s.page.$eval('body', (b) => b.innerText)).includes('CENTERLINE')) throw new Error('the centerline needs no label');
+            await toBoardTop();
+            await L.shot(s, `369-table-lines-${label}`);
+            // kept on this device
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=table-lines]');
+            await hit('[data-testid=table-lines-toggle]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=table-lines]'), { timeout: 5000 });
+            await s.page.select('[data-testid=deployment-select]', 'none');
         });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');

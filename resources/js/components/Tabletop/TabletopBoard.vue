@@ -40,6 +40,7 @@ import {
     settleUnder,
     sideSightLines,
     surfaceAt,
+    terrainAlongPath,
     traceLine,
     modelsWithin,
     type Aura,
@@ -471,9 +472,13 @@ const trailCost = computed(() => {
     if (!t || !token) return null;
     const flat = t.kind !== 'walk';
     const points = [...t.path, { x: t.to.x, y: t.to.y, elev: elevationOf(token) }].map((q) => (flat ? { ...q, elev: 0 } : q));
-    const cost = pathCost(points);
+    const flown = pathCost(points);
+    // What a Walk meets on the way: severe terrain costs double, hazardous terrain is triggered, impassable terrain is in the way. A model that
+    // ignores terrain (Flight) or is placed is not asked.
+    const crossed = t.kind === 'walk' && !token.marker ? terrainAlongPath(points, t.baseMm, terrain.value) : null;
+    const cost = { ...flown, total: flown.total + (crossed?.severe ?? 0) };
     // A place is not movement, so it is never measured against a Walk.
-    return { cost, walk: t.sp !== undefined && t.kind !== 'place' ? walkBudget(t.sp, cost) : null };
+    return { cost, crossed, walk: t.sp !== undefined && t.kind !== 'place' ? walkBudget(t.sp, cost) : null };
 });
 const trailPoints = computed<Point[]>(() => (trail.value ? [...trail.value.path.map((q) => ({ x: q.x, y: q.y })), { ...trail.value.to }] : []));
 const trailLength = computed(() =>
@@ -1049,6 +1054,12 @@ function onUp(e: PointerEvent) {
             } else if (cost.ground >= 0.05) {
                 const parts = [`${t.name} moved ${fmt(cost.ground)}"${legs.length > 1 ? ` (${legs.map((l) => fmt(l) + '"').join(' + ')})` : ''}`];
                 if (cost.climb > 0) parts.push(`climbed ${fmt(cost.climb)}" (counts as movement): ${fmt(cost.total)}" in all`);
+                const crossed = trailCost.value?.crossed;
+                if (crossed && crossed.severe >= 0.05)
+                    parts.push(`${fmt(crossed.severe)}" of it in severe terrain, which counts double (${fmt(cost.total)}" of movement in all)`);
+                if (crossed?.hazardous.length) parts.push(`moved through hazardous terrain (${crossed.hazardous.join(', ')})`);
+                if (crossed?.impassable.length)
+                    parts.push(`passes through impassable terrain (${crossed.impassable.join(', ')}), which a Walk cannot do`);
                 if (trail.value?.kind === 'fly') parts.push('ignoring terrain height, so no climbing cost and no fall');
                 else if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(leg.drop)}": 1 irreducible damage if this was a fall`);
                 else if (leg.drop > 0) parts.push(`down ${fmt(leg.drop)}" to elevation ${now}`);

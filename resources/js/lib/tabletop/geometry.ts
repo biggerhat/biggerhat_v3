@@ -1309,3 +1309,55 @@ export function wallSegments(piece: TerrainPiece): [Pt, Pt][] {
 }
 
 const lerpPt = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
+// ---- what a walk crosses on the way (Terrain traits, p.56) ---------------------------------------------------------------------------
+
+export interface LegTerrain {
+    /** Inches of the leg travelled with any part of the base in severe terrain: each costs twice as much movement, so this is the extra cost. */
+    severe: number;
+    /** Hazardous terrain the base touched on the way: moving through it, or into base contact with it, triggers it. */
+    hazardous: string[];
+    /** Impassable terrain the base would have to pass through. */
+    impassable: string[];
+}
+
+const LEG_STEP = 0.1;
+
+/**
+ * Walk a base from one spot to another in a straight line and say which terrain it meets: how far it travels in severe terrain, which
+ * hazardous terrain it touches and which impassable terrain is in the way. Only the ground is looked at (a model on or above a piece is
+ * not "in" it for movement purposes only when it climbs, which is counted as height elsewhere), and the checks are for a Walk: a
+ * model that ignores terrain, or is placed, is not asked.
+ */
+export function terrainAlongLeg(from: Pt, to: Pt, baseMm: number, pieces: TerrainPiece[]): LegTerrain {
+    const r = baseRadius(baseMm);
+    const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / LEG_STEP));
+    const hazardous = new Set<string>();
+    const impassable = new Set<string>();
+    let severeSteps = 0;
+    const meets = (piece: TerrainPiece, x: number, y: number) => piece.surfaces.some((s) => distanceToShape(s.shape, x, y) < r);
+    const traited = (trait: string) => pieces.filter((p) => p.traits.includes(trait));
+    const severe = traited('severe');
+    const hazards = traited('hazardous');
+    const walls = traited('impassable');
+    for (let i = 0; i <= steps; i++) {
+        const x = from.x + ((to.x - from.x) * i) / steps;
+        const y = from.y + ((to.y - from.y) * i) / steps;
+        if (i > 0 && severe.some((p) => meets(p, x, y))) severeSteps++;
+        for (const p of hazards) if (!hazardous.has(p.name) && meets(p, x, y)) hazardous.add(p.name);
+        for (const p of walls) if (!impassable.has(p.name) && meets(p, x, y)) impassable.add(p.name);
+    }
+    return { severe: (severeSteps * Math.hypot(to.x - from.x, to.y - from.y)) / steps, hazardous: [...hazardous], impassable: [...impassable] };
+}
+
+/** A whole path, a leg at a time. */
+export function terrainAlongPath(points: Pt[], baseMm: number, pieces: TerrainPiece[]): LegTerrain {
+    const out: LegTerrain = { severe: 0, hazardous: [], impassable: [] };
+    for (let i = 1; i < points.length; i++) {
+        const leg = terrainAlongLeg(points[i - 1], points[i], baseMm, pieces);
+        out.severe += leg.severe;
+        out.hazardous = [...new Set([...out.hazardous, ...leg.hazardous])];
+        out.impassable = [...new Set([...out.impassable, ...leg.impassable])];
+    }
+    return out;
+}

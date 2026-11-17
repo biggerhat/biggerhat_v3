@@ -23,6 +23,8 @@ import {
     pieceBounds,
     placementProblems,
     placeReach,
+    terrainAlongLeg,
+    terrainAlongPath,
     archwayAt,
     coverAt,
     insideOf,
@@ -1000,4 +1002,29 @@ test('making a building enterable, and moving its doors along the walls', () => 
     assert.equal(full.interior.openings.length, OPENINGS_MAX);
     assert.equal(addOpening(full, 'door'), null);
     assert.equal(makeSolid(e).interior, undefined);
+});
+
+test('a walk across severe, hazardous and impassable terrain says what it met and what it costs extra', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const river = { id: 'r', name: 'River', traits: ['severe'], surfaces: [{ id: 'r1', top: 0, shape: rect(14, 5, 3, 30) }] };
+    const acid = { id: 'a', name: 'Acid pool', traits: ['hazardous'], surfaces: [{ id: 'a1', top: 0, shape: { kind: 'circle', cx: 30, cy: 10, r: 2 } }] };
+    const deep = { id: 'd', name: 'Deep water', traits: ['impassable'], surfaces: [{ id: 'd1', top: 0, shape: rect(5, 20, 4, 4) }] };
+    const r = mmToInches(30) / 2;
+    // across the 3" river: the base is in it from one radius before the bank to one radius past the far bank
+    const across = terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [river, acid, deep]);
+    assert.ok(Math.abs(across.severe - (3 + 2 * r)) < 0.2, `expected about ${3 + 2 * r} in severe terrain, saw ${across.severe}`);
+    assert.deepEqual(across.hazardous, []);
+    assert.deepEqual(across.impassable, []);
+    // not touching it costs nothing extra
+    assert.equal(terrainAlongLeg({ x: 2, y: 10 }, { x: 10, y: 10 }, 30, [river]).severe, 0);
+    // through the acid pool, and past it without touching
+    assert.deepEqual(terrainAlongLeg({ x: 26, y: 10 }, { x: 34, y: 10 }, 30, [acid]).hazardous, ['Acid pool']);
+    assert.deepEqual(terrainAlongLeg({ x: 26, y: 20 }, { x: 34, y: 20 }, 30, [acid]).hazardous, []);
+    // in base contact counts: a base that only grazes the edge
+    assert.deepEqual(terrainAlongLeg({ x: 26, y: 12.4 }, { x: 34, y: 12.4 }, 30, [acid]).hazardous, ['Acid pool']);
+    // the impassable piece is in the way of a walk through it
+    assert.deepEqual(terrainAlongLeg({ x: 2, y: 22 }, { x: 12, y: 22 }, 30, [deep]).impassable, ['Deep water']);
+    // a path adds its legs up
+    const path = terrainAlongPath([{ x: 10, y: 10 }, { x: 22, y: 10 }, { x: 10, y: 10 }], 30, [river]);
+    assert.ok(Math.abs(path.severe - 2 * across.severe) < 0.3);
 });

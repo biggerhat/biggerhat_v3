@@ -667,6 +667,40 @@ const L = require('./lib.cjs');
             }
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): a Walk across a river costs double, and one through deep water is called out`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'river');
+            await hit('[data-testid=terrain-add]');
+            await hit('[data-testid=mode-move]');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // the minion walks straight up the table across the 3" river
+            await dragTo([12, 32], [12, 10]);
+            let t = await note();
+            if (!/in severe terrain, which counts double/.test(t)) throw new Error(`expected the river to cost extra: ${t}`);
+            const label1 = await s.page.$eval('[data-testid=move-trail-label]', (e) => e.textContent.trim());
+            const total = Number((label1.match(/([\d.]+)"/) || [])[1]);
+            if (!(total > 22 + 3)) throw new Error(`22" of walking plus about 4" extra in the river should read well over 25": ${label1}`);
+            // a plain walk with no river in the way reads as before
+            await dragTo([12, 10], [12, 6]);
+            t = await note();
+            if (/severe/.test(t)) throw new Error(`nothing severe was crossed: ${t}`);
+            // deep water is impassable: a walk through it is called out
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'deepwater');
+            await hit('[data-testid=terrain-add]');
+            await hit('[data-testid=mode-move]');
+            await dragTo([12, 6], [22, 22]);
+            t = await note();
+            if (!/impassable terrain \(Deep water\)/.test(t)) throw new Error(`expected the deep water to be called out: ${t}`);
+            // a Flight walk ignores all of it
+            await hit('[data-testid=move-kind-fly]');
+            await dragTo([22, 22], [12, 6]);
+            t = await note();
+            if (/severe|impassable/.test(t)) throw new Error(`a Flight walk ignores terrain: ${t}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

@@ -22,6 +22,9 @@ import {
     pathCost,
     pieceBounds,
     placementProblems,
+    placeReach,
+    placeCheck,
+    mmToInches,
     rotateAbout,
     rotatePiece,
     rotateShape,
@@ -853,4 +856,19 @@ test('dragging a handle reshapes a level: rectangle corners keep the opposite co
     const full = { kind: 'poly', points: Array.from({ length: 16 }, (_, i) => [i, (i * 7) % 5]) };
     assert.equal(insertCorner(full, 0), null);
     assert.equal(shapeHandles(tri).filter((h) => h.kind === 'mid').length, 3);
+});
+
+test('a place is measured from the closest point of the starting base, not by the middle', () => {
+    const r = mmToInches(30) / 2;
+    assert.ok(Math.abs(placeReach(6, 30, 30) - (6 + 2 * r)) < 1e-9, 'a single point of the new base in range: the middle may be 6" plus both radii away');
+    assert.ok(Math.abs(placeReach(6, 30, 30, true) - 6) < 1e-9, 'the whole base in range: the middle may be 6" away');
+    assert.ok(placeReach(6, 50, 30) > placeReach(6, 30, 30), 'a larger starting base reaches further');
+    const start = { x: 10, y: 10, baseMm: 30 };
+    const ok = placeCheck(6, start, { x: 16, y: 10, baseMm: 30 });
+    assert.equal(ok.within, true);
+    assert.ok(Math.abs(ok.gap - (6 - 2 * r)) < 1e-9, 'the gap is edge to edge');
+    const far = placeCheck(6, start, { x: 18, y: 10, baseMm: 30 }, true);
+    assert.equal(far.within, false);
+    assert.ok(Math.abs(far.over - 2) < 1e-9);
+    assert.equal(placeCheck(6, start, { x: 10.2, y: 10, baseMm: 30 }).gap, 0, 'overlapping bases have no gap');
 });

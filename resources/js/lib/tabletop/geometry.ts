@@ -283,6 +283,31 @@ export function walkBudget(sp: number, cost: { total: number }): { left: number;
     return { left, within: left >= -1e-9 };
 }
 
+/**
+ * How far from where it started the middle of a placed model may end (p.17). A place is measured from the closest point of the starting
+ * base: if the effect only needs a single point of the new base within range, the middle may be the range plus both radii away; if the new
+ * base must be completely within range, the range plus the starting radius minus the new one.
+ */
+export function placeReach(range: number, startMm: number, endMm: number, whole = false): number {
+    return range + baseRadius(startMm) + (whole ? -baseRadius(endMm) : baseRadius(endMm));
+}
+
+/** A place compared with its range: the gap between the two bases (0 if they overlap), whether it is in range, and how far past it is when not. */
+export function placeCheck(
+    range: number,
+    from: Pick<Token, 'x' | 'y' | 'baseMm'>,
+    to: Pick<Token, 'x' | 'y' | 'baseMm'>,
+    whole = false,
+): { gap: number; within: boolean; over: number } {
+    const centres = Math.hypot(to.x - from.x, to.y - from.y);
+    const reach = placeReach(range, from.baseMm, to.baseMm, whole);
+    return {
+        gap: Math.max(0, centres - baseRadius(from.baseMm) - baseRadius(to.baseMm)),
+        within: centres <= reach + 1e-9,
+        over: Math.max(0, centres - reach),
+    };
+}
+
 /** Effective Sz of a model: its Sz plus the height it stands on (p.19). */
 export const effectiveSize = (sz: number, elevation: number): number => sz + elevation;
 

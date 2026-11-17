@@ -231,6 +231,47 @@ const L = require('./lib.cjs');
             await L.shot(s, `363-sight-guide-${label}`);
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): a place is measured as a place, a Flight walk ignores terrain height, and a Walk is unchanged`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // a place: the minion is put down 4" away over the wall, ignoring it
+            await s.page.select('[data-testid=move-kind]', 'place');
+            await s.page.waitForSelector('[data-testid=place-range]');
+            await s.page.$eval('[data-testid=place-range]', (i) => {
+                i.value = '6';
+                i.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            await toBoardTop();
+            await dragTo([12, 32], [12, 28]);
+            await s.page.waitForSelector('[data-testid=place-reach]');
+            let t = await note();
+            if (!/placed .* within the 6" place/.test(t) || !/nothing is spent climbing or falling/.test(t)) throw new Error(`expected a place readout: ${t}`);
+            if (/Walk/.test(t)) throw new Error(`a place is not measured against a Walk: ${t}`);
+            // too far for the range
+            await toBoardTop();
+            await dragTo([12, 28], [12, 18]);
+            t = await note();
+            if (!/beyond the 6" place/.test(t)) throw new Error(`expected the place to be too far: ${t}`);
+            // the whole base must be within range: the same short drop still passes, and the toggle is pressed
+            await hit('[data-testid=place-whole]');
+            if ((await s.page.$eval('[data-testid=place-whole]', (b) => b.getAttribute('aria-pressed'))) !== 'true') throw new Error('whole base did not toggle');
+            // a Flight walk: height is ignored, the Walk still counts
+            await s.page.select('[data-testid=move-kind]', 'fly');
+            await toBoardTop();
+            await dragTo([12, 18], [12, 22]);
+            t = await note();
+            if (!/ignoring terrain height/.test(t) || !/of a Walk/.test(t)) throw new Error(`expected a Flight readout against a Walk: ${t}`);
+            if (await s.page.$('[data-testid=place-reach]')) throw new Error('a Flight walk has no place ring');
+            // and a plain Walk reads as before
+            await s.page.select('[data-testid=move-kind]', 'walk');
+            await toBoardTop();
+            await dragTo([12, 22], [12, 26]);
+            t = await note();
+            if (!/moved .*of a Walk/.test(t) || /ignoring terrain height/.test(t)) throw new Error(`expected a plain Walk readout: ${t}`);
+            await L.shot(s, `364-place-walk-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): terrain is drawn with its texture, and a table surface can be chosen and is kept`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');

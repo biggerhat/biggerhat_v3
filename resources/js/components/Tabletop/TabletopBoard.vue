@@ -15,6 +15,8 @@ import {
     lineOfSight,
     moveCost,
     pathCost,
+    placeCheck,
+    placeReach,
     walkBudget,
     heightCover,
     dragShapeHandle,
@@ -304,9 +306,19 @@ const trail = ref<{
     baseMm: number;
     startElevation: number;
     sp?: number;
+    /** How it is moving: a Walk, a Walk that ignores terrain (Flight), or a place within `range` (Leap) that is not movement at all. */
+    kind: MoveKind;
+    range: number;
+    whole: boolean;
     /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. */
     path: { x: number; y: number; elev: number }[];
 } | null>(null);
+type MoveKind = 'walk' | 'fly' | 'place';
+/** Walking spends movement and is stopped by terrain; flying walks but ignores terrain's height; placing picks the model up and puts it down within a range (p.17). */
+const moveKind = ref<MoveKind>('walk');
+const placeRange = ref(6);
+/** Whether the whole base must end within the range, rather than a single point of it. */
+const placeWhole = ref(false);
 /** Step move: grabbing the same model again carries on from where it was dropped, so legs add up (2" one way, then 5" another is 7"). */
 const stepMove = ref(false);
 /** What the move so far costs, and how that compares with a Walk (Sp) when the card says. */
@@ -314,8 +326,11 @@ const trailCost = computed(() => {
     const t = trail.value;
     const token = t ? tokens.value.find((x) => x.id === t.id) : undefined;
     if (!t || !token) return null;
-    const cost = pathCost([...t.path, { x: t.to.x, y: t.to.y, elev: elevationOf(token) }]);
-    return { cost, walk: t.sp !== undefined ? walkBudget(t.sp, cost) : null };
+    const flat = t.kind !== 'walk';
+    const points = [...t.path, { x: t.to.x, y: t.to.y, elev: elevationOf(token) }].map((q) => (flat ? { ...q, elev: 0 } : q));
+    const cost = pathCost(points);
+    // A place is not movement, so it is never measured against a Walk.
+    return { cost, walk: t.sp !== undefined && t.kind !== 'place' ? walkBudget(t.sp, cost) : null };
 });
 const trailPoints = computed<Point[]>(() => (trail.value ? [...trail.value.path.map((q) => ({ x: q.x, y: q.y })), { ...trail.value.to }] : []));
 const trailLength = computed(() =>
@@ -692,7 +707,7 @@ function onDown(e: PointerEvent) {
     const hit = tokenAt(p);
     note.value = '';
     // a stepped move goes on when the same model is grabbed again; anything else starts afresh
-    const carryOn = stepMove.value && mode.value === 'move' && !!hit && !hit.locked && trail.value?.id === hit.id;
+    const carryOn = stepMove.value && moveKind.value !== 'place' && mode.value === 'move' && !!hit && !hit.locked && trail.value?.id === hit.id;
     if (!carryOn) trail.value = null;
     if (!guidedId.value) sight.value = null;
     if (mode.value === 'terrain') {
@@ -744,6 +759,9 @@ function onDown(e: PointerEvent) {
                 baseMm: hit.baseMm,
                 startElevation: elevationOf(hit),
                 sp: hit.marker ? undefined : hit.sp,
+                kind: moveKind.value,
+                range: placeRange.value,
+                whole: placeWhole.value,
                 path: [here],
             };
         }
@@ -824,6 +842,25 @@ function onMove(e: PointerEvent) {
     }
 }
 
+/** What a place says, in words: how far it went against its range, and what it skipped (p.17). */
+function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
+    const from = { x: tr.from.x, y: tr.from.y, baseMm: tr.baseMm };
+    const c = placeCheck(tr.range, from, t, tr.whole);
+    const parts = [
+        `${t.name} placed ${fmt(c.gap)}" from where it started`,
+        c.within
+            ? `within the ${fmt(tr.range)}" place${tr.whole ? ' (the whole base)' : ''}`
+            : `${fmt(c.over)}" beyond the ${fmt(tr.range)}" place${tr.whole ? ' (the whole base)' : ''}`,
+    ];
+    const now = elevationOf(t);
+    if (now !== tr.startElevation) parts.push(`lands at elevation ${now}`);
+    const hazards = [...placementProblems({ ...t, x: from.x, y: from.y }, tokens.value, terrain.value), ...(problems.value.get(t.id) ?? [])].some(
+        (p) => p.kind === 'hazardous',
+    );
+    if (hazards) parts.push('it began or ended in hazardous terrain, which counts as having moved through it');
+    return parts.join(', ') + '. Terrain and sight in between are ignored, and nothing is spent climbing or falling.';
+}
+
 function onUp(e: PointerEvent) {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
@@ -838,10 +875,13 @@ function onUp(e: PointerEvent) {
             const leg = moveCost(trail.value?.path.at(-1) ?? t, t, drag.startElevation, now);
             if (leg.ground < 0.05 && !stepMove.value) {
                 trail.value = null;
+            } else if (trail.value?.kind === 'place') {
+                note.value = placeNote(t, trail.value);
             } else if (cost.ground >= 0.05) {
                 const parts = [`${t.name} moved ${fmt(cost.ground)}"${legs.length > 1 ? ` (${legs.map((l) => fmt(l) + '"').join(' + ')})` : ''}`];
                 if (cost.climb > 0) parts.push(`climbed ${fmt(cost.climb)}" (counts as movement): ${fmt(cost.total)}" in all`);
-                if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(leg.drop)}": 1 irreducible damage if this was a fall`);
+                if (trail.value?.kind === 'fly') parts.push('ignoring terrain height, so no climbing cost and no fall');
+                else if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(leg.drop)}": 1 irreducible damage if this was a fall`);
                 else if (leg.drop > 0) parts.push(`down ${fmt(leg.drop)}" to elevation ${now}`);
                 const walk = trailCost.value?.walk;
                 if (walk)
@@ -855,7 +895,7 @@ function onUp(e: PointerEvent) {
             const trouble = problems.value.get(t.id) ?? [];
             if (trouble.length) {
                 note.value =
-                    `${t.name} ${trouble.map((p) => p.text).join(' and ')}. ${trouble.some((p) => p.kind === 'overlap' || p.kind === 'impassable') ? 'Move it to the nearest legal spot.' : ''} ${note.value}`.trim();
+                    `${t.name} ${trouble.map((p) => p.text).join(' and ')}. ${trouble.some((p) => p.kind === 'overlap' || p.kind === 'impassable') ? (trail.value?.kind === 'place' ? 'A place that cannot fit does not happen: put it back.' : 'Move it to the nearest legal spot.') : ''} ${note.value}`.trim();
             }
         }
     }
@@ -1284,7 +1324,18 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     </g>
                     <g v-if="trail && trailLength >= 0.05" pointer-events="none" data-testid="move-trail">
                         <circle
-                            v-if="trail.sp !== undefined"
+                            v-if="trail.kind === 'place'"
+                            :cx="trail.from.x"
+                            :cy="trail.from.y"
+                            :r="placeReach(trail.range, trail.baseMm, trail.baseMm, trail.whole)"
+                            fill="hsl(265 70% 60% / 0.07)"
+                            stroke="hsl(265 70% 60%)"
+                            stroke-width="0.08"
+                            stroke-dasharray="0.3 0.3"
+                            data-testid="place-reach"
+                        />
+                        <circle
+                            v-else-if="trail.sp !== undefined"
                             :cx="trail.from.x"
                             :cy="trail.from.y"
                             :r="trail.sp"
@@ -1350,7 +1401,22 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             paint-order="stroke"
                             data-testid="move-trail-label"
                         >
-                            {{ fmt(trailCost?.cost.total ?? trailLength) }}"{{ trail.sp !== undefined ? ` of ${trail.sp}"` : '' }}
+                            <template v-if="trail.kind === 'place'">
+                                place
+                                {{
+                                    fmt(
+                                        placeCheck(
+                                            trail.range,
+                                            { x: trail.from.x, y: trail.from.y, baseMm: trail.baseMm },
+                                            { x: trail.to.x, y: trail.to.y, baseMm: trail.baseMm },
+                                            trail.whole,
+                                        ).gap,
+                                    )
+                                }}" of {{ fmt(trail.range) }}"
+                            </template>
+                            <template v-else>
+                                {{ fmt(trailCost?.cost.total ?? trailLength) }}"{{ trail.sp !== undefined ? ` of ${trail.sp}"` : '' }}
+                            </template>
                         </text>
                     </g>
                     <g v-if="outline && outline.length" pointer-events="none" data-testid="outline-preview">
@@ -1483,6 +1549,42 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     @click="stepMove = !stepMove"
                     ><Route class="mr-1 size-4" />Step</Button
                 >
+                <select
+                    v-if="mode === 'move'"
+                    v-model="moveKind"
+                    class="rounded-md border bg-background px-2 py-1.5 text-sm"
+                    aria-label="How the model moves"
+                    title="Walk spends movement and is stopped by terrain. Flight ignores terrain height. A place puts the model down within a range, with no movement."
+                    data-testid="move-kind"
+                >
+                    <option value="walk">Walk</option>
+                    <option value="fly">Walk, ignoring terrain (Flight)</option>
+                    <option value="place">Place within a range (Leap)</option>
+                </select>
+                <template v-if="mode === 'move' && moveKind === 'place'">
+                    <label class="flex items-center gap-1 text-sm"
+                        >Within
+                        <input
+                            v-model.number="placeRange"
+                            type="number"
+                            min="0.5"
+                            max="36"
+                            step="0.5"
+                            class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                            aria-label="Place range in inches"
+                            data-testid="place-range"
+                        />"</label
+                    >
+                    <Button
+                        size="sm"
+                        :variant="placeWhole ? 'default' : 'outline'"
+                        :aria-pressed="placeWhole"
+                        title="Some effects need the whole base within range rather than a single point of it"
+                        data-testid="place-whole"
+                        @click="placeWhole = !placeWhole"
+                        >Whole base</Button
+                    >
+                </template>
                 <Button
                     v-if="!readOnly"
                     :variant="mode === 'terrain' ? 'default' : 'outline'"
@@ -1530,6 +1632,21 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 @load="loadLayout"
             />
 
+            <div
+                v-if="mode === 'move' && moveKind !== 'walk'"
+                class="rounded-md border p-3 text-sm text-muted-foreground"
+                data-testid="move-kind-help"
+            >
+                <template v-if="moveKind === 'place'"
+                    >Place: drag a model to where it may be put down. It is picked up, so terrain and sight in between are ignored and nothing is
+                    spent climbing or falling, but it has to fit where it lands and be within the range, measured from the closest point of its base.
+                    A place that cannot fit does not happen. If it begins or ends in terrain, it counts as having moved through it.</template
+                >
+                <template v-else
+                    >Flight: the model walks but ignores terrain, so climbing costs no movement and a drop does no damage. Only the ground distance
+                    counts against its Walk.</template
+                >
+            </div>
             <div v-if="mode === 'move' && stepMove" class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm" data-testid="step-help">
                 <span class="min-w-0 flex-1 text-muted-foreground"
                     >Step move: drag a model, let go, then drag the same model again. The legs add up. Tap empty ground to start over.</span

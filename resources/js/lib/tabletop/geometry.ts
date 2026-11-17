@@ -91,7 +91,12 @@ export interface Token {
     killed?: boolean;
     /** Beneath the archway it overlaps (a bridge) rather than on top of it. */
     under?: boolean;
+    /** Terrain traits this model is unaffected by (p.57): blocking, concealing and dense are about the sight lines it draws; hazardous, severe and impassable about how it moves. */
+    ignores?: string[];
 }
+
+/** The terrain traits a model can be made unaffected by. */
+export const IGNORABLE_TRAITS = ['blocking', 'concealing', 'dense', 'hazardous', 'severe', 'impassable'] as const;
 
 export const mmToInches = (mm: number): number => mm / MM_PER_INCH;
 export const baseRadius = (baseMm: number): number => mmToInches(baseMm) / 2;
@@ -923,6 +928,8 @@ function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPi
     const hi = Math.max(effA, effB);
     const shorter = effA <= effB ? from : to;
 
+    // The model drawing the lines may be unaffected by some traits (p.57): then that kind of terrain cannot block it or hide its targets.
+    const unaffected = new Set(from.ignores ?? []);
     // Terrain that can matter: blocking or dense, minus what either model stands on or above.
     const surfaces = pieces
         .filter((piece) => !walled.includes(piece))
@@ -936,9 +943,9 @@ function prepareSight(from: Token, to: Token, tokens: Token[], pieces: TerrainPi
                 .map((s) => ({
                     piece,
                     s,
-                    blocking: piece.traits.includes('blocking'),
-                    dense: piece.traits.includes('dense'),
-                    concealing: piece.traits.includes('concealing'),
+                    blocking: piece.traits.includes('blocking') && !unaffected.has('blocking'),
+                    dense: piece.traits.includes('dense') && !unaffected.has('dense'),
+                    concealing: piece.traits.includes('concealing') && !unaffected.has('concealing'),
                 })),
         );
 
@@ -1112,8 +1119,9 @@ export function placementProblems(token: Token, tokens: Token[], pieces: Terrain
         }
         if (piece.traits.includes('impassable')) problems.push({ kind: 'impassable', text: `is on ${piece.name}, which is impassable` });
         else {
-            if (piece.traits.includes('hazardous')) problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
-            if (piece.traits.includes('severe'))
+            if (piece.traits.includes('hazardous') && !token.ignores?.includes('hazardous'))
+                problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
+            if (piece.traits.includes('severe') && !token.ignores?.includes('severe'))
                 problems.push({ kind: 'severe', text: `is in severe terrain (${piece.name}), where movement costs double` });
         }
     }
@@ -1329,7 +1337,7 @@ const LEG_STEP = 0.1;
  * not "in" it for movement purposes only when it climbs, which is counted as height elsewhere), and the checks are for a Walk: a
  * model that ignores terrain, or is placed, is not asked.
  */
-export function terrainAlongLeg(from: Pt, to: Pt, baseMm: number, pieces: TerrainPiece[]): LegTerrain {
+export function terrainAlongLeg(from: Pt, to: Pt, baseMm: number, pieces: TerrainPiece[], ignores: string[] = []): LegTerrain {
     const r = baseRadius(baseMm);
     const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / LEG_STEP));
     const hazardous = new Set<string>();
@@ -1337,9 +1345,9 @@ export function terrainAlongLeg(from: Pt, to: Pt, baseMm: number, pieces: Terrai
     let severeSteps = 0;
     const meets = (piece: TerrainPiece, x: number, y: number) => piece.surfaces.some((s) => distanceToShape(s.shape, x, y) < r);
     const traited = (trait: string) => pieces.filter((p) => p.traits.includes(trait));
-    const severe = traited('severe');
-    const hazards = traited('hazardous');
-    const walls = traited('impassable');
+    const severe = ignores.includes('severe') ? [] : traited('severe');
+    const hazards = ignores.includes('hazardous') ? [] : traited('hazardous');
+    const walls = ignores.includes('impassable') ? [] : traited('impassable');
     for (let i = 0; i <= steps; i++) {
         const x = from.x + ((to.x - from.x) * i) / steps;
         const y = from.y + ((to.y - from.y) * i) / steps;
@@ -1351,10 +1359,10 @@ export function terrainAlongLeg(from: Pt, to: Pt, baseMm: number, pieces: Terrai
 }
 
 /** A whole path, a leg at a time. */
-export function terrainAlongPath(points: Pt[], baseMm: number, pieces: TerrainPiece[]): LegTerrain {
+export function terrainAlongPath(points: Pt[], baseMm: number, pieces: TerrainPiece[], ignores: string[] = []): LegTerrain {
     const out: LegTerrain = { severe: 0, hazardous: [], impassable: [] };
     for (let i = 1; i < points.length; i++) {
-        const leg = terrainAlongLeg(points[i - 1], points[i], baseMm, pieces);
+        const leg = terrainAlongLeg(points[i - 1], points[i], baseMm, pieces, ignores);
         out.severe += leg.severe;
         out.hazardous = [...new Set([...out.hazardous, ...leg.hazardous])];
         out.impassable = [...new Set([...out.impassable, ...leg.impassable])];
@@ -1369,7 +1377,13 @@ export function terrainAlongPath(points: Pt[], baseMm: number, pieces: TerrainPi
  * found by looking outward in rings a quarter inch apart. Hazardous and severe terrain are legal to stand in. null when the model is already
  * somewhere legal, or when nothing within `maxRadius` is.
  */
-export function nearestLegalSpot(token: Token, tokens: Token[], pieces: TerrainPiece[], maxRadius = 14, step = 0.25): { x: number; y: number } | null {
+export function nearestLegalSpot(
+    token: Token,
+    tokens: Token[],
+    pieces: TerrainPiece[],
+    maxRadius = 14,
+    step = 0.25,
+): { x: number; y: number } | null {
     const legal = (x: number, y: number) =>
         !placementProblems({ ...token, x, y }, tokens, pieces).some((p) => p.kind === 'overlap' || p.kind === 'impassable');
     if (legal(token.x, token.y)) return null;
@@ -1432,4 +1446,47 @@ export function whereabouts(token: Pick<Token, 'x' | 'y' | 'baseMm'>, zones?: De
         out.zone = pointInShape(zones.a, token.x, token.y) ? 'a' : pointInShape(zones.b, token.x, token.y) ? 'b' : null;
     }
     return out;
+}
+
+// ---- jumping (p.22) -----------------------------------------------------------------------------------------------------------------
+
+export interface JumpCheck {
+    /** Horizontal distance, centre to centre: a jump is movement, so it counts against the Walk. */
+    distance: number;
+    /** Why it is not a legal jump; empty when it is. */
+    reasons: string[];
+    endElevation: number;
+}
+
+/**
+ * Whether a model could have jumped from one spot to another: it may not end higher than it began, may land at most 1" below, and cannot
+ * go over a terrain piece taller than the elevation it jumped from (an intervening piece whose height is greater than the jumper's elevation
+ * stops the jump). The landing is held to the usual rule that the base is at least half supported, which is how its elevation is found.
+ */
+export function jumpCheck(start: Pt & { baseMm: number; under?: boolean }, startElevation: number, end: Token, pieces: TerrainPiece[]): JumpCheck {
+    const endSupport = restingSupport(end, pieces);
+    const startSupport = restingSupport(start, pieces);
+    const reasons: string[] = [];
+    if (endSupport.elevation > startElevation + 1e-9) reasons.push('a jump cannot end higher than it began');
+    else if (startElevation - endSupport.elevation > 1 + 1e-9)
+        reasons.push(`a jump lands at most 1" below where it began, and this is a ${fmtNum(startElevation - endSupport.elevation)}" drop`);
+    const r = baseRadius(end.baseMm);
+    const steps = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / LEG_STEP));
+    const stoppers = new Map<string, number>();
+    for (const piece of pieces) {
+        for (const s of piece.surfaces) {
+            if (s.top <= startElevation + 1e-9) continue;
+            if (startSupport.surface?.id === s.id || endSupport.surface?.id === s.id) continue;
+            for (let i = 1; i < steps; i++) {
+                const x = start.x + ((end.x - start.x) * i) / steps;
+                const y = start.y + ((end.y - start.y) * i) / steps;
+                if (distanceToShape(s.shape, x, y) < r) {
+                    stoppers.set(piece.name, Math.max(stoppers.get(piece.name) ?? 0, s.top));
+                    break;
+                }
+            }
+        }
+    }
+    for (const [name, top] of stoppers) reasons.push(`${name} (Ht ${fmtNum(top)}) is in the way: nothing taller than where it jumped from may be jumped over`);
+    return { distance: Math.hypot(end.x - start.x, end.y - start.y), reasons, endElevation: endSupport.elevation };
 }

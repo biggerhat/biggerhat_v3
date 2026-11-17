@@ -127,7 +127,8 @@ class GameBoardController extends Controller
 
         $incoming = collect($request->validated('positions'))
             ->filter(fn ($_, $id) => in_array((string) $id, $movable, true))
-            ->map(fn (array $p) => ['x' => round((float) $p['x'], 2), 'y' => round((float) $p['y'], 2)] + (! empty($p['under']) ? ['under' => true] : []));
+            ->map(fn (array $p) => ['x' => round((float) $p['x'], 2), 'y' => round((float) $p['y'], 2)] + (! empty($p['under']) ? ['under' => true] : [])
+                + (! empty($p['ignores']) ? ['ignores' => array_values($p['ignores'])] : []));
 
         abort_if($incoming->isEmpty(), 403, 'You can only move your own models.');
 

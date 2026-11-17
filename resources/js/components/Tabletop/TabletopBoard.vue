@@ -30,6 +30,7 @@ import {
     wallProblem,
     wallSegments,
     movePiece,
+    jumpCheck,
     nearestLegalSpot,
     pieceBounds,
     placementProblems,
@@ -41,7 +42,9 @@ import {
     settleUnder,
     sideSightLines,
     surfaceAt,
+    whereabouts,
     terrainAlongPath,
+    IGNORABLE_TRAITS,
     traceLine,
     modelsWithin,
     type Aura,
@@ -453,12 +456,13 @@ const trail = ref<{
     /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. */
     path: { x: number; y: number; elev: number }[];
 } | null>(null);
-type MoveKind = 'walk' | 'fly' | 'place';
+type MoveKind = 'walk' | 'jump' | 'fly' | 'place';
 /** Walking spends movement and is stopped by terrain; flying walks but ignores terrain's height; placing picks the model up and puts it down within a range (p.17). */
 const moveKind = ref<MoveKind>('walk');
 const placeRange = ref(6);
 const MOVE_KINDS: { value: MoveKind; label: string; hint: string }[] = [
     { value: 'walk', label: 'Walk', hint: 'Spends movement and is stopped by terrain' },
+    { value: 'jump', label: 'Jump', hint: 'Jump a gap: the same height or up to 1" lower, over nothing taller than where it began' },
     { value: 'fly', label: 'Flight', hint: 'A Walk that ignores terrain height' },
     { value: 'place', label: 'Place', hint: 'Puts the model down within a range, with no movement (Leap)' },
 ];
@@ -476,7 +480,7 @@ const trailCost = computed(() => {
     const flown = pathCost(points);
     // What a Walk meets on the way: severe terrain costs double, hazardous terrain is triggered, impassable terrain is in the way. A model that
     // ignores terrain (Flight) or is placed is not asked.
-    const crossed = t.kind === 'walk' && !token.marker ? terrainAlongPath(points, t.baseMm, terrain.value) : null;
+    const crossed = t.kind === 'walk' && !token.marker ? terrainAlongPath(points, t.baseMm, terrain.value, token.ignores ?? []) : null;
     const cost = { ...flown, total: flown.total + (crossed?.severe ?? 0) };
     // A place is not movement, so it is never measured against a Walk.
     return { cost, crossed, walk: t.sp !== undefined && t.kind !== 'place' ? walkBudget(t.sp, cost) : null };
@@ -841,7 +845,13 @@ function onDown(e: PointerEvent) {
     const hit = tokenAt(p);
     note.value = '';
     // a stepped move goes on when the same model is grabbed again; anything else starts afresh
-    const carryOn = stepMove.value && moveKind.value !== 'place' && mode.value === 'move' && !!hit && !hit.locked && trail.value?.id === hit.id;
+    const carryOn =
+        stepMove.value &&
+        (moveKind.value === 'walk' || moveKind.value === 'fly') &&
+        mode.value === 'move' &&
+        !!hit &&
+        !hit.locked &&
+        trail.value?.id === hit.id;
     if (!carryOn) trail.value = null;
     if (!guidedId.value) sight.value = null;
     if (mode.value === 'terrain') {
@@ -1010,6 +1020,40 @@ function setUnder(t: Token, under: boolean) {
     else delete token.under;
     emit('moved', { ...token });
 }
+/** Where the selected base is on the table, in words: quarters, nearest edge and corner, and with a deployment chosen, whose half and zone it is in. */
+const whereText = computed(() => {
+    const t = selected.value;
+    if (!t) return '';
+    const w = whereabouts(t, zones.value);
+    const q = w.quarters;
+    const quarters = q.length === 4 ? 'All four quarters' : q.length === 2 ? `${q[0]} and ${q[1]} quarters` : `${q[0]} quarter`;
+    const parts = [
+        quarters.charAt(0).toUpperCase() + quarters.slice(1),
+        w.edge.gap < 0.05 ? `touching the ${w.edge.side} edge` : `${fmt(w.edge.gap)}" from the ${w.edge.side} edge`,
+        w.corner.gap < 6 ? `${fmt(w.corner.gap)}" from the ${w.corner.name} corner` : null,
+    ];
+    if (w.half) parts.push(w.half === 'line' ? 'on the centerline' : `${props.sideNames[w.half]}'s half`);
+    if (w.zone) parts.push(`in ${props.sideNames[w.zone]}'s deployment zone`);
+    return parts.filter(Boolean).join(' · ');
+});
+/** The terrain traits a model is unaffected by, switched on and off from its panel. */
+function toggleIgnore(t: Token, trait: string) {
+    const token = tokens.value.find((x) => x.id === t.id);
+    if (!token || token.locked) return;
+    const now = token.ignores ?? [];
+    const next = now.includes(trait) ? now.filter((x) => x !== trait) : [...now, trait];
+    if (next.length) token.ignores = next;
+    else delete token.ignores;
+    emit('moved', { ...token });
+}
+const IGNORE_HINTS: Record<string, string> = {
+    blocking: 'Blocking terrain cannot block its sight lines',
+    concealing: 'It ignores concealing terrain when drawing sight lines',
+    dense: 'Dense terrain cannot block its sight lines',
+    hazardous: 'It does not suffer hazardous terrain',
+    severe: 'Severe terrain does not cost it double',
+    impassable: 'It may move through impassable terrain, but not end a move on it',
+};
 /** A model left over another base or on impassable ground goes to the nearest legal spot (p.20). */
 const illegalHere = (t: Token) => (problems.value.get(t.id) ?? []).some((p) => p.kind === 'overlap' || p.kind === 'impassable');
 function moveToLegalSpot(t: Token) {
@@ -1025,6 +1069,20 @@ function moveToLegalSpot(t: Token) {
     trail.value = null;
     emit('moved', { ...token });
     note.value = `${token.name} moved ${fmt(away)}" to the nearest legal spot.`;
+}
+/** What a jump says: how far against the Walk, and whether it was one the rules allow (p.22). */
+function jumpNote(t: Token, tr: NonNullable<typeof trail.value>, startElevation: number): string {
+    const c = jumpCheck({ x: tr.from.x, y: tr.from.y, baseMm: tr.baseMm }, startElevation, t, terrain.value);
+    const parts = [`${t.name} jumped ${fmt(c.distance)}"`];
+    if (tr.sp !== undefined) {
+        const left = tr.sp - c.distance;
+        parts.push(
+            left >= -1e-9 ? `${fmt(left)}" left of a Walk (Sp ${tr.sp}), since a jump is movement` : `${fmt(-left)}" more than a Walk (Sp ${tr.sp})`,
+        );
+    }
+    return c.reasons.length
+        ? `${parts.join(', ')}. That is not a legal jump: ${c.reasons.join('; ')}.`
+        : `${parts.join(', ')}. A legal jump, landing at elevation ${c.endElevation}.`;
 }
 /** What a place says, in words: how far it went against its range, and what it skipped (p.17). */
 function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
@@ -1066,6 +1124,8 @@ function onUp(e: PointerEvent) {
             const leg = moveCost(trail.value?.path.at(-1) ?? t, t, drag.startElevation, now);
             if (leg.ground < 0.05 && !stepMove.value) {
                 trail.value = null;
+            } else if (trail.value?.kind === 'jump') {
+                note.value = jumpNote(t, trail.value, drag.startElevation);
             } else if (trail.value?.kind === 'place') {
                 note.value = placeNote(t, trail.value);
             } else if (cost.ground >= 0.05) {
@@ -2053,7 +2113,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 class="rounded-md border p-3 text-sm text-muted-foreground"
                 data-testid="move-kind-help"
             >
-                <template v-if="moveKind === 'place'"
+                <template v-if="moveKind === 'jump'"
+                    >Jump: drag the model across a gap. It may end at the same height or up to 1" lower, never higher, and nothing between may be
+                    taller than where it began. The distance counts as movement, so it is measured against its Walk. Use Walk and Step to reach the
+                    edge first.</template
+                >
+                <template v-else-if="moveKind === 'place'"
                     >Place: drag a model to where it may be put down. It is picked up, so terrain and sight in between are ignored and nothing is
                     spent climbing or falling, but it has to fit where it lands and be within the range, measured from the closest point of its base.
                     A place that cannot fit does not happen. If it begins or ends in terrain, it counts as having moved through it.</template
@@ -2123,6 +2188,37 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         ><span v-else-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
                         >.
                     </div>
+                    <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
+                    <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
+                        <summary
+                            class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"
+                        >
+                            <span
+                                >Ignores terrain
+                                <span class="text-xs">({{ selected.ignores?.length ? selected.ignores.join(', ') : 'none' }})</span></span
+                            >
+                            <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div class="mt-1 flex flex-wrap gap-1">
+                            <label
+                                v-for="trait in IGNORABLE_TRAITS"
+                                :key="trait"
+                                class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs"
+                                :class="selected.ignores?.includes(trait) ? 'border-primary bg-primary/10' : ''"
+                                :title="IGNORE_HINTS[trait]"
+                            >
+                                <input
+                                    type="checkbox"
+                                    class="sr-only"
+                                    :checked="!!selected.ignores?.includes(trait)"
+                                    :disabled="selected.locked"
+                                    :data-testid="`ignore-${trait}`"
+                                    @change="toggleIgnore(selected, trait)"
+                                />
+                                {{ trait }}
+                            </label>
+                        </div>
+                    </details>
                     <div v-if="selectedCover && !selected.locked" class="mt-2 flex flex-wrap items-center gap-1" data-testid="under-toggle">
                         <Button
                             size="sm"

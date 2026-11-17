@@ -767,3 +767,17 @@ it('saves an enterable building with its doors and windows, and refuses a bad op
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 40, 'openings' => []])]])->assertSessionHasErrors('terrain.0.interior.floor');
     $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => array_fill(0, 9, $door)])]])->assertSessionHasErrors('terrain.0.interior.openings');
 });
+
+it('remembers the terrain traits a model is unaffected by, and refuses an unknown one', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $id = (string) $m1->id;
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['blocking', 'severe']]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][$id])->toEqual(['x' => 10, 'y' => 13, 'ignores' => ['blocking', 'severe']]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][$id])->toEqual(['x' => 10, 'y' => 13]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['flying']]]])->assertSessionHasErrors('positions.'.$id.'.ignores.0');
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['severe', 'severe']]]])->assertSessionHasErrors();
+});

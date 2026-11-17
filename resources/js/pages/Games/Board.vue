@@ -61,7 +61,7 @@ const props = defineProps<{
     read_only?: boolean;
     players: { slot: number; name: string; mine: boolean }[];
     models: BoardModel[];
-    positions: Record<string, { x: number; y: number; under?: boolean }>;
+    positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>;
     terrain: TerrainPiece[];
     markers: MarkerOption[];
     placed_markers: PlacedMarker[];
@@ -77,7 +77,7 @@ const props = defineProps<{
 const page = usePage<SharedData>();
 
 // Saved positions, plus moves the other player has just made (applied straight from the broadcast).
-const live = ref<Record<string, { x: number; y: number; under?: boolean }>>({ ...props.positions });
+const live = ref<Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>>({ ...props.positions });
 watch(
     () => props.positions,
     (next) => (live.value = { ...next }),
@@ -155,7 +155,7 @@ onMounted(async () => {
     if (!echo) return;
     joined = true;
     echo.join(`game.${props.game.uuid}`)
-        .listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number; under?: boolean }> }) => {
+        .listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }> }) => {
             live.value = { ...live.value, ...e.positions };
         })
         .listen('.GameBoardTerrainChanged', (e: { terrain: TerrainPiece[] }) => {
@@ -271,6 +271,7 @@ const tokens = computed<Token[]>(() => [
             x: at.x,
             y: at.y,
             under: 'under' in at ? at.under : undefined,
+            ignores: 'ignores' in at ? at.ignores : undefined,
             killed: m.killed,
             info: {
                 health: m.health ?? undefined,
@@ -344,7 +345,7 @@ function moved(t: Token) {
     }
     router.put(
         route('games.board.update', props.game.uuid),
-        { positions: { [t.id]: { x: t.x, y: t.y, ...(t.under ? { under: true } : {}) } } },
+        { positions: { [t.id]: { x: t.x, y: t.y, ...(t.under ? { under: true } : {}), ...(t.ignores?.length ? { ignores: t.ignores } : {}) } } },
         { preserveScroll: true, preserveState: true, only: ['positions'] },
     );
 }

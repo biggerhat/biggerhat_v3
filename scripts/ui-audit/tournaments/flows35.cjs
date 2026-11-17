@@ -716,6 +716,75 @@ const L = require('./lib.cjs');
             if (!/to the nearest legal spot/.test(t)) throw new Error(`the note should say what happened: ${t}`);
             await hit('[data-testid=reset-table]');
         });
+        await L.step(`tabletop (${label}): a selected model says which quarter, edge and half of the table it is in`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await toBoardTop();
+            const m = await pixel(18, 4); // the first master, straddling the middle line at the top
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=whereabouts]');
+            const where = () => s.page.$eval('[data-testid=whereabouts]', (e) => e.textContent.trim());
+            let t = await where();
+            if (!/top-left and top-right quarters/i.test(t) || !/from the top edge/.test(t)) throw new Error(`expected quarters and an edge: ${t}`);
+            if (/half|deployment zone/.test(t)) throw new Error(`no deployment is chosen, so no half: ${t}`);
+            await s.page.select('[data-testid=deployment-select]', 'standard');
+            await s.page.waitForFunction(() => /Blue's half/.test(document.querySelector('[data-testid=whereabouts]').textContent), { timeout: 5000 });
+            t = await where();
+            if (!/in Blue's deployment zone/.test(t)) throw new Error(`the master starts in its own zone: ${t}`);
+            await s.page.select('[data-testid=deployment-select]', 'none');
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a model that ignores severe terrain is not slowed by a river, and it is kept`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'river');
+            await hit('[data-testid=terrain-add]');
+            await hit('[data-testid=mode-move]');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // select the minion, switch on "severe" in its panel
+            await dragTo([12, 32], [12, 31.5]);
+            await s.page.waitForSelector('[data-testid=ignore-severe]');
+            await s.page.$eval('[data-testid=ignore-severe]', (i) => i.click());
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=ignores-section] summary').innerText.includes('severe'), { timeout: 5000 });
+            await dragTo([12, 31.5], [12, 10]);
+            const t = await note();
+            if (/severe terrain/.test(t)) throw new Error(`a model unaffected by severe terrain is not slowed by it: ${t}`);
+            // and without the switch it is
+            await s.page.$eval('[data-testid=ignore-severe]', (i) => i.click());
+            await dragTo([12, 10], [12, 31]);
+            const u = await note();
+            if (!/severe terrain, which counts double/.test(u)) throw new Error(`without the switch the river costs double: ${u}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a jump from a Ht 3 wall to a Ht 2 wall is legal, and one back up is not`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+            await s.page.evaluate(
+                (rects) => {
+                    const piece = (id, name, top, shape) => ({ id, name, traits: ['blocking', 'climbable'], surfaces: [{ id: `${id}-1`, top, shape }] });
+                    localStorage.setItem(
+                        'tabletop-spike-v2',
+                        JSON.stringify({
+                            tokens: [{ id: 'j1', sp: 6, sz: 2, name: 'Jumper', side: 'a', baseMm: 30, x: 7, y: 12 }],
+                            terrain: [piece('wa', 'Ht 3 wall', 3, rects.a), piece('wb', 'Ht 2 wall', 2, rects.b)],
+                        }),
+                    );
+                },
+                { a: rect(2, 10, 6, 4), b: rect(11, 10, 6, 4) },
+            );
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=token-j1]');
+            await hit('[data-testid=move-kind-jump]');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            await dragTo([7, 12], [12, 12]); // 5 inches across the gap, one inch lower
+            let t = await note();
+            if (!/A legal jump, landing at elevation 2/.test(t)) throw new Error(`expected a legal jump: ${t}`);
+            await dragTo([12, 12], [7, 12]); // and back up: higher than it began
+            t = await note();
+            if (!/not a legal jump: a jump cannot end higher than it began/.test(t)) throw new Error(`jumping up is not a jump: ${t}`);
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');

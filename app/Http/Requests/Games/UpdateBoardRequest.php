@@ -24,6 +24,9 @@ class UpdateBoardRequest extends FormRequest
             'positions.*.y' => ['required', 'numeric', 'between:0,36'],
             // Beneath the archway of a bridge rather than on top of it.
             'positions.*.under' => ['nullable', 'boolean'],
+            // Terrain traits the model is unaffected by (p.57).
+            'positions.*.ignores' => ['nullable', 'array', 'max:6'],
+            'positions.*.ignores.*' => ['string', 'in:blocking,concealing,dense,hazardous,severe,impassable', 'distinct'],
         ];
     }
 }

@@ -23,6 +23,8 @@ import {
     pieceBounds,
     placementProblems,
     placeReach,
+    jumpCheck,
+    IGNORABLE_TRAITS,
     whereabouts,
     nearestLegalSpot,
     terrainAlongLeg,
@@ -1084,4 +1086,59 @@ test('where a base is on the table: quarters, nearest edge and corner, and the h
     assert.equal(between.half, 'a');
     assert.equal(between.zone, null, 'in a half but outside its 8" strip');
     assert.equal(whereabouts({ x: 10, y: 10, baseMm: 30 }).half, undefined, 'no deployment, no half');
+});
+
+test('a model unaffected by a terrain trait ignores it: sight lines and walks', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const wall = { id: 'w', name: 'Wall', traits: ['blocking'], surfaces: [{ id: 'w1', top: 4, shape: rect(16, 5, 2, 30) }] };
+    const fog = { id: 'f', name: 'Fog', traits: ['concealing', 'dense'], surfaces: [{ id: 'f1', top: 0.5, shape: rect(16, 5, 2, 30) }] };
+    const a = man('a', 'a', 4, 18, 2);
+    const b = man('b', 'b', 30, 18, 2);
+    assert.equal(lineOfSight(a, b, [a, b], [wall]).clear, false);
+    const blind = { ...a, ignores: ['blocking'] };
+    assert.equal(lineOfSight(blind, b, [blind, b], [wall]).clear, true, 'a model unaffected by blocking sees past the wall');
+    assert.equal(lineOfSight(a, { ...b, ignores: ['blocking'] }, [a, b], [wall]).clear, false, 'only the model drawing the lines counts');
+    assert.equal(lineOfSight(a, b, [a, b], [fog]).clear, false, 'dense fog blocks');
+    const sees = { ...a, ignores: ['dense'] };
+    const seen = lineOfSight(sees, b, [sees, b], [fog]);
+    assert.equal(seen.clear, true);
+    assert.equal(seen.concealed, true, 'but the target is still concealed unless concealing is ignored too');
+    const both = { ...a, ignores: ['dense', 'concealing'] };
+    assert.equal(lineOfSight(both, b, [both, b], [fog]).concealed, false);
+    // walks
+    const river = { id: 'r', name: 'River', traits: ['severe'], surfaces: [{ id: 'r1', top: 0, shape: rect(14, 5, 3, 30) }] };
+    const acid = { id: 'p', name: 'Acid', traits: ['hazardous'], surfaces: [{ id: 'p1', top: 0, shape: rect(14, 5, 3, 30) }] };
+    assert.ok(terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [river]).severe > 3);
+    assert.equal(terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [river], ['severe']).severe, 0);
+    assert.deepEqual(terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [acid], ['hazardous']).hazardous, []);
+    const m = man('m', 'a', 15, 10, 2, { ignores: ['hazardous', 'severe'] });
+    assert.deepEqual(placementProblems(m, [m], [acid, river]), [], 'standing in terrain it is unaffected by raises nothing');
+    assert.deepEqual(IGNORABLE_TRAITS.length, 6);
+});
+
+test('a jump (p.22): no higher than it began, at most 1" lower, and over nothing taller than where it started', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const wall3 = { id: 'a', name: 'Ht 3 wall', traits: ['blocking', 'climbable'], surfaces: [{ id: 'a1', top: 3, shape: rect(2, 10, 6, 4) }] };
+    const wall2 = { id: 'b', name: 'Ht 2 wall', traits: ['blocking', 'climbable'], surfaces: [{ id: 'b1', top: 2, shape: rect(11, 10, 6, 4) }] };
+    const wall1 = { id: 'c', name: 'Ht 1 wall', traits: ['blocking', 'climbable'], surfaces: [{ id: 'c1', top: 1, shape: rect(20, 10, 4, 4) }] };
+    const pieces = [wall3, wall2, wall1];
+    const start = { x: 7, y: 12, baseMm: 30 };
+    // the guide's example: from the Ht 3 wall to the Ht 2 wall, one inch lower
+    const ok = jumpCheck(start, 3, man('j', 'a', 12, 12, 2), pieces);
+    assert.deepEqual(ok.reasons, []);
+    assert.equal(ok.endElevation, 2);
+    assert.ok(Math.abs(ok.distance - 5) < 1e-9);
+    // landing on the ground is a drop of 3: not a jump
+    assert.match(jumpCheck(start, 3, man('j', 'a', 9.5, 5, 2), pieces).reasons[0], /at most 1" below/);
+    // landing higher than it began
+    assert.match(jumpCheck({ x: 13, y: 12, baseMm: 30 }, 2, man('j', 'a', 5, 12, 2), pieces).reasons[0], /cannot end higher/);
+    // across a piece taller than where it started
+    const tall = { id: 't', name: 'Ht 5 wall', traits: ['blocking'], surfaces: [{ id: 't1', top: 5, shape: rect(9, 11, 1, 2) }] };
+    const blocked = jumpCheck(start, 3, man('j', 'a', 12, 12, 2), [...pieces, tall]);
+    assert.ok(blocked.reasons.some((x) => /Ht 5 wall \(Ht 5\) is in the way/.test(x)), blocked.reasons.join(' | '));
+    // a piece no taller than the starting elevation is jumped over
+    const low = { id: 'l', name: 'Ht 2 fence', traits: [], surfaces: [{ id: 'l1', top: 2, shape: rect(9, 11, 1, 2) }] };
+    assert.deepEqual(jumpCheck(start, 3, man('j', 'a', 12, 12, 2), [...pieces, low]).reasons, []);
+    // level ground to level ground is a legal jump
+    assert.deepEqual(jumpCheck({ x: 2, y: 2, baseMm: 30 }, 0, man('j', 'a', 6, 2, 2), []).reasons, []);
 });

@@ -19,6 +19,8 @@ const props = withDefaults(
         /** Greyed: not a legal choice. */
         dim?: boolean;
         small?: boolean;
+        /** The hand's size: big enough to read and tap. */
+        large?: boolean;
     }>(),
     { card: undefined, jokerSuit: null },
 );
@@ -34,7 +36,7 @@ const label = computed(() =>
     <span
         class="relative inline-flex shrink-0 select-none flex-col items-center justify-center rounded-md border font-semibold shadow-sm"
         :class="[
-            small ? 'h-10 w-7 text-xs' : 'h-14 w-10 text-sm',
+            large ? 'h-[4.5rem] w-[3.25rem] text-lg' : small ? 'h-10 w-7 text-xs' : 'h-14 w-10 text-sm',
             back || card === undefined
                 ? 'border-slate-500 bg-gradient-to-br from-slate-700 to-slate-900 text-slate-300'
                 : black
@@ -51,7 +53,7 @@ const label = computed(() =>
         </template>
         <template v-else>
             <span class="leading-none" :class="card === RED_JOKER ? 'text-red-600' : ''" aria-hidden="true">{{ cardFace(card) }}</span>
-            <GameIcon v-if="suit" :type="suit" :size-em="small ? 1 : 1.3" aria-hidden="true" />
+            <GameIcon v-if="suit" :type="suit" :size-em="large ? 1.6 : small ? 1 : 1.3" aria-hidden="true" />
         </template>
     </span>
 </template>

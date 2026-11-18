@@ -1209,11 +1209,21 @@ const L = require('./lib.cjs');
         await L.step(`tabletop (${label}): the practice Fate deck draws, discards, flips, looks at the top and searches`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=fate-section]');
-            await s.page.$eval('[data-testid=fate-section] summary', (el) => {
+            await s.page.$eval('[data-testid=fate-open]', (el) => {
                 el.scrollIntoView({ block: 'center' });
                 el.click();
             });
             await s.page.waitForSelector('[data-testid=fate-side-1]', { timeout: 5000 });
+            // wide: docked in the column under the button; a phone: a bottom sheet, with the table still on screen above it
+            const phone = await s.page.evaluate(() => window.innerWidth < 1024);
+            await s.page.waitForSelector(phone ? '[data-testid=fate-sheet]' : '[data-testid=fate-docked]', { timeout: 3000 });
+            if (phone) {
+                const covered = await s.page.evaluate(() => {
+                    const sheet = document.querySelector('[data-testid=fate-sheet]').getBoundingClientRect();
+                    return sheet.top > window.innerHeight * 0.3; // the sheet leaves at least the top third free
+                });
+                if (!covered) throw new Error('the Fate sheet should leave the table visible above it');
+            }
             const press = (id) =>
                 s.page.$eval(`[data-testid=${id}]`, (b) => {
                     b.scrollIntoView({ block: 'center' });

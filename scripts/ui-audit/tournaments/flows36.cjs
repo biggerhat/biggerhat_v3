@@ -317,7 +317,7 @@ const L = require('./lib.cjs');
             const openFate = async () => {
                 await L.visit(carol, `/games/${L.ids.play_game}/board`);
                 await carol.page.waitForSelector('[data-testid=fate-section]');
-                await carol.page.$eval('[data-testid=fate-section] summary', (el) => {
+                await carol.page.$eval('[data-testid=fate-open]', (el) => {
                     el.scrollIntoView({ block: 'center' });
                     el.click();
                 });
@@ -587,7 +587,7 @@ const L = require('./lib.cjs');
         if (Math.abs(after.cx - before.cx) > 0.01 || Math.abs(after.cy - before.cy) > 0.01) throw new Error('a watcher moved a model');
         await L.shot(watcher, '366-board-watch');
         // a watcher sees the Fate deck's public cards and counts, never a hand
-        await watcher.page.$eval('[data-testid=fate-section] summary', (el) => {
+        await watcher.page.$eval('[data-testid=fate-open]', (el) => {
             el.scrollIntoView({ block: 'center' });
             el.click();
         });

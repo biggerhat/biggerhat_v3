@@ -10,7 +10,7 @@ import GameAbandonDialog from '@/components/Game/GameAbandonDialog.vue';
 import GameAllCardsDialog from '@/components/Game/GameAllCardsDialog.vue';
 import GameAttachedUpgradeDrawer from '@/components/Game/GameAttachedUpgradeDrawer.vue';
 import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
-import FateSection from '@/components/Fate/FateSection.vue';
+import FateDock from '@/components/Fate/FateDock.vue';
 import GameCompleteDialog from '@/components/Game/GameCompleteDialog.vue';
 import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
 import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
@@ -3029,11 +3029,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Link>
             </div>
 
-            <FateSection
+            <FateDock
                 v-if="tabletop_enabled && game.status === 'in_progress'"
                 :feed="fate"
                 :names="fateNames"
                 :read-only="isObserver"
+                :floating="false"
                 class="mb-4"
                 data-testid="play-fate"
             />

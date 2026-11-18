@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import FateSection from '@/components/Fate/FateSection.vue';
+import FateDock from '@/components/Fate/FateDock.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import type { CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
@@ -363,7 +363,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             @reset="reset"
         >
             <template #fate>
-                <FateSection :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" />
+                <FateDock :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" />
             </template>
         </TabletopBoard>
     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import FateSection from '@/components/Fate/FateSection.vue';
+import FateDock from '@/components/Fate/FateDock.vue';
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
@@ -477,7 +477,7 @@ function moved(t: Token) {
             @moved="moved"
         >
             <template #fate>
-                <FateSection :feed="fate" :names="fateNames" :read-only="read_only" />
+                <FateDock :feed="fate" :names="fateNames" :read-only="read_only" />
             </template>
         </TabletopBoard>
     </div>

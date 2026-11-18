@@ -158,7 +158,7 @@ $pp1 = App\Models\GamePlayer::factory()->create(['game_id' => $playGame->id, 'us
 $pp2 = App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $playGame->id, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Defender, 'master_name' => 'Lady Justice', 'soulstone_pool' => 4]);
 foreach ([[$pp1, 'bayou', [['Pandora', 'master', 'leader', 0, 10], ['Silurid', 'minion', 'in-keyword', 6, 6], ['Swampfiend', 'minion', 'in-keyword', 5, 7], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Bayou Gremlin', 'minion', 'in-keyword', 4, 3], ['Mad Gremlin', 'minion', 'in-keyword', 8, 9]]], [$pp2, 'guild', [['Lady Justice', 'master', 'leader', 0, 10], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Guard', 'minion', 'in-keyword', 5, 7], ['Guild Hound', 'minion', 'in-keyword', 4, 5], ['Judge', 'minion', 'in-keyword', 9, 9]]]] as [$pl, $fac, $rows]) {
     foreach ($rows as $i => [$nm, $st, $cat, $cost, $hp]) {
-        App\Models\GameCrewMember::factory()->create(['game_id' => $playGame->id, 'game_player_id' => $pl->id, 'character_id' => null, 'display_name' => $nm, 'faction' => $fac, 'station' => $st, 'hiring_category' => $cat, 'cost' => $cost, 'current_health' => $hp, 'max_health' => $hp, 'sort_order' => $i]);
+        App\Models\GameCrewMember::factory()->create(['game_id' => $playGame->id, 'game_player_id' => $pl->id, 'character_id' => null, 'display_name' => $nm, 'faction' => $fac, 'station' => $st, 'hiring_category' => $cat, 'cost' => $cost, 'current_health' => $hp, 'max_health' => $hp, 'sort_order' => $i, 'front_image' => $i === 0 ? 'seed/card-front.png' : null]);
     }
 }
 

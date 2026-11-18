@@ -10,6 +10,7 @@ import GameAbandonDialog from '@/components/Game/GameAbandonDialog.vue';
 import GameAllCardsDialog from '@/components/Game/GameAllCardsDialog.vue';
 import GameAttachedUpgradeDrawer from '@/components/Game/GameAttachedUpgradeDrawer.vue';
 import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
+import FateDock from '@/components/Fate/FateDock.vue';
 import GameCompleteDialog from '@/components/Game/GameCompleteDialog.vue';
 import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
 import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
@@ -50,6 +51,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/composables/useConfirm';
 import { csrfHeaders, useGameApi } from '@/composables/useGameApi';
+import { useFateGame } from '@/composables/useFateGame';
 import { useGameChannel } from '@/composables/useGameChannel';
 import { useToast } from '@/composables/useToast';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
@@ -380,6 +382,11 @@ const isCampaign = computed(() => props.game.format === GameFormat.Campaign);
 // that assumes the creator is always slot 1.
 const mySlot = computed(() => myPlayer.value?.slot ?? 1);
 const opponentSlot = computed(() => opponent.value?.slot ?? 2);
+// The Fate deck (pre-release, with the tabletop): the server's, loaded when its section is first opened.
+const fate = useFateGame(props.game.uuid, isObserver.value);
+const fateNames = computed<Record<number, string>>(() =>
+    Object.fromEntries(props.game.players.map((p: any) => [p.slot, p.user?.name ?? p.opponent_name ?? `Player ${p.slot}`])),
+);
 const { onlineMembers, connected: channelConnected } = useGameChannel(isSolo.value && !isObserver.value ? '' : props.game.uuid, isObserver.value);
 const isUserOnline = (userId: number) => onlineMembers.value.some((m) => m.id === userId);
 
@@ -3021,6 +3028,16 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                     {{ isObserver ? 'Watch the board' : 'Open board' }}
                 </Link>
             </div>
+
+            <FateDock
+                v-if="tabletop_enabled && game.status === 'in_progress'"
+                :feed="fate"
+                :names="fateNames"
+                :read-only="isObserver"
+                :floating="false"
+                class="mb-4"
+                data-testid="play-fate"
+            />
 
             <!-- Observer banner -->
             <div v-if="isObserver" class="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-2 text-sm">

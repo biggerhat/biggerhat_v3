@@ -37,6 +37,8 @@ import {
     nearestLegalSpot,
     pieceBounds,
     placementProblems,
+    unreachableAreas,
+    type UnreachableAreas,
     removeCorner,
     restingSupport,
     rotatePiece,
@@ -61,6 +63,11 @@ import {
 } from '@/lib/tabletop/geometry';
 import CharacterPicker, { type CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
 import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
+import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
+import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
+import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
+import FateCardFace from '@/components/Fate/FateCardFace.vue';
+import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
 import ModelInfoPanel from '@/components/Tabletop/ModelInfoPanel.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TableLoadDialog from '@/components/Tabletop/TableLoadDialog.vue';
@@ -88,8 +95,19 @@ import {
     User,
     Users,
 } from 'lucide-vue-next';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { GAME_ICONS } from '@/lib/gameIcons';
+import { RED_JOKER, SUITS, cardFace, cardLabel, cardSuit, type FateFeed, type FateFlip } from '@/lib/fate/fate';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowReactive, shallowRef, watch } from 'vue';
 
+/** A crew member in the shape the play screen's row reads (typed loosely, like the row itself). */
+type CrewMember = {
+    id: number;
+    slot: number;
+    is_killed: boolean;
+    display_name: string;
+    current_health: number | null;
+    max_health: number | null;
+} & Record<string, any>;
 type Mode = 'move' | 'ruler' | 'sight' | 'terrain';
 type Point = { x: number; y: number };
 
@@ -113,6 +131,8 @@ const props = withDefaults(
         tableImages?: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
         /** The viewer's saved terrain layouts, and where saving the table sends it. Without a target the saved-tables panel is hidden. */
         layouts?: SavedLayout[];
+        /** The saved layouts are still on their way (they load after the page). */
+        layoutsLoading?: boolean;
         layoutTarget?: LayoutSaveTarget;
         signedIn?: boolean;
         /** The tab the board opens on: models (the default), or terrain for a new or edited table. */
@@ -127,6 +147,10 @@ const props = withDefaults(
         characterSearchUrl?: string;
         /** Tokens a model can carry. Without them the panel still shows health, activation and notes. */
         tokenOptions?: { id: number; name: string }[];
+        /** The Fate deck (a game's, or the sandbox's practice deck): a model can flip for itself and its result is drawn beside it. */
+        fate?: FateFeed;
+        /** A game's crew as the play screen's rows show it (health, activation, tokens, card). With it the models are listed as those rows and the tabletop options open under the chosen one. */
+        crew?: CrewMember[];
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -145,6 +169,9 @@ const emit = defineEmits<{
     variantChanged: [variant: number];
     tableImageChanged: [key: string | null];
     modelChange: [id: string, patch: Partial<ModelInfo>];
+    replaceModel: [id: string];
+    /** Sandbox: swap a model for another character, keeping what it has picked up. */
+    replaceCharacter: [id: string, character: CharacterOption];
     auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
 }>();
 
@@ -358,7 +385,11 @@ function watchPanel() {
     panelObserver.observe(el);
 }
 watch([selectedId, selectedPieceId, mode], () => nextTick(watchPanel), { flush: 'post' });
-onBeforeUnmount(() => panelObserver?.disconnect());
+onBeforeUnmount(() => {
+    panelObserver?.disconnect();
+    if (moveFrame) cancelAnimationFrame(moveFrame);
+    if (reachTimer) clearTimeout(reachTimer);
+});
 function showPanel() {
     document
         .querySelector('[data-testid=side-column] [data-testid=selected-panel], [data-testid=side-column] [data-testid=terrain-piece]')
@@ -695,8 +726,189 @@ const worldTerrain = computed(() => {
 const insideOf = (id: string) => activeAuras.value.find((a) => a.aura.id === id)?.inside ?? [];
 const caught = computed(() => new Set(activeAuras.value.flatMap((a) => a.inside.map((t) => t.id))));
 /** Models standing where they should not: on another base, or on impassable terrain. */
-const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, worldTerrain.value)])));
+/** The ground nobody can walk to, from the real terrain (worked out once the terrain stops changing). */
+const reach = shallowRef<UnreachableAreas | null>(unreachableAreas(terrain.value));
+let reachTimer: ReturnType<typeof setTimeout> | null = null;
+// a flood fill of the whole table: wait until the terrain stops changing (a piece being dragged changes it every frame)
+watch(terrain, () => {
+    if (reachTimer) clearTimeout(reachTimer);
+    reachTimer = setTimeout(() => (reach.value = unreachableAreas(terrain.value)), 150);
+});
+const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, worldTerrain.value, reach.value)])));
+// Status chips on a base: tokens grouped by name, a short label with a count, at most three chips (the rest fold into "+n"). Cached per info
+// object, which keeps its identity while a model is dragged, so a drag frame does not rebuild them.
+type Chip = { label: string; colour: string };
+const badgeCache = new WeakMap<object, { chips: Chip[] }>();
+const NO_BADGES = { chips: [] as Chip[] };
+function badgesOf(info?: ModelInfo): { chips: Chip[] } {
+    if (!info?.tokens.length) return NO_BADGES;
+    const hit = badgeCache.get(info);
+    if (hit) return hit;
+    const counts = new Map<string, number>();
+    for (const t of info.tokens) counts.set(t.name, (counts.get(t.name) ?? 0) + 1);
+    const chips = [...counts.entries()].map(([name, n]) => {
+        let h = 0;
+        for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
+        return { label: `${name.slice(0, 2)}${n > 1 ? n : ''}`, colour: `hsl(${h} 55% 38%)` };
+    });
+    const shown = chips.slice(0, 3);
+    if (chips.length > 3) shown[2] = { label: `+${chips.length - 2}`, colour: 'hsl(220 10% 40%)' };
+    const out = { chips: shown };
+    badgeCache.set(info, out);
+    return out;
+}
 const selected = computed(() => tokens.value.find((t) => t.id === selectedId.value) ?? null);
+
+// The crew list: one play-screen row per living model, the tabletop options (the selected panel) opening under the chosen one.
+const openCards = ref(new Set<number>());
+const slotEls = shallowReactive<Record<string, HTMLElement>>({});
+const setSlot = (id: number, el: unknown) => {
+    if (el instanceof HTMLElement) slotEls[String(id)] = el;
+    else delete slotEls[String(id)];
+};
+/** A game passes its crew; the sandbox's models are listed the same way, from what they kept of their card. */
+const crewRows = computed<CrewMember[]>(
+    () =>
+        props.crew ??
+        (props.sandbox
+            ? tokens.value
+                  .filter((t) => !t.marker)
+                  .map((t) => ({
+                      id: t.id as unknown as number,
+                      slot: t.side === 'b' ? 2 : 1,
+                      is_killed: false,
+                      display_name: t.name,
+                      faction: t.card?.faction,
+                      defense: t.card?.defense,
+                      willpower: t.card?.willpower,
+                      speed: t.sp,
+                      size: t.sz,
+                      front_image: t.card?.front_image ?? null,
+                      back_image: t.card?.back_image ?? null,
+                      characteristics: [],
+                      attached_upgrades: [],
+                      attached_tokens: t.info?.tokens ?? [],
+                      current_health: t.info?.health ?? null,
+                      max_health: t.info?.maxHealth ?? null,
+                      is_activated: !!t.info?.activated,
+                      notes: t.info?.notes ?? null,
+                  }))
+            : []),
+);
+const crewSides = computed(() =>
+    [1, 2]
+        .map((slot) => ({
+            slot,
+            name: slot === 1 ? (props.sideNames?.a ?? 'Player 1') : (props.sideNames?.b ?? 'Player 2'),
+            living: crewRows.value.filter((m) => m.slot === slot && !m.is_killed),
+            killed: crewRows.value.filter((m) => m.slot === slot && m.is_killed),
+        }))
+        .filter((side) => side.living.length || side.killed.length),
+);
+const canEditCrew = (m: CrewMember) => !props.readOnly && !tokens.value.find((t) => t.id === String(m.id))?.locked;
+const panelTarget = computed(() => (crewRows.value.length && selected.value && !selected.value.marker ? (slotEls[selected.value.id] ?? null) : null));
+const toggleSelect = (m: CrewMember) => (selectedId.value = selectedId.value === String(m.id) ? null : String(m.id));
+const toggleCard = (m: CrewMember) => {
+    const next = new Set(openCards.value);
+    if (!next.delete(m.id)) next.add(m.id);
+    openCards.value = next;
+};
+const crewHealth = (m: CrewMember, health: number) =>
+    emit('modelChange', String(m.id), { health: Math.min(m.max_health ?? health, Math.max(0, health)) });
+const crewPip = (m: CrewMember, pip: number) => crewHealth(m, (m.current_health ?? 0) === pip ? pip - 1 : pip);
+/** A game replaces through its page; the sandbox opens the character search and swaps the model here. */
+const replacing = ref<string | null>(null);
+const replaceFrom = (m: CrewMember) => {
+    if (!props.sandbox) return emit('replaceModel', String(m.id));
+    replacing.value = String(m.id);
+    openCharacterDialog();
+};
+// The tracker's token dialog, for a game and for the sandbox alike: the change goes out as a patch and the page saves it.
+const tokenDialog = ref(false);
+const tokenMemberId = ref<string | null>(null);
+const tokenSearch = ref('');
+const tokenMember = computed(
+    () =>
+        (crewRows.value.find((m) => String(m.id) === tokenMemberId.value) ?? null) as {
+            id: number;
+            display_name: string;
+            attached_tokens: { id: number; name: string }[];
+        } | null,
+);
+const tokenCatalogue = computed(() => (props.tokenOptions ?? []).map((o) => ({ ...o, slug: String(o.id), description: null })));
+const noReferenceTokens = new Set<number>();
+function openTokens(m: CrewMember) {
+    tokenMemberId.value = String(m.id);
+    tokenSearch.value = '';
+    tokenDialog.value = true;
+}
+function toggleModelToken(id: number, name: string) {
+    const m = tokenMember.value;
+    if (!m) return;
+    const has = m.attached_tokens.some((t: { id: number }) => t.id === id);
+    emit('modelChange', String(m.id), {
+        tokens: has ? m.attached_tokens.filter((t: { id: number }) => t.id !== id) : [...m.attached_tokens, { id, name }],
+    });
+}
+const removeModelToken = (id: number) => {
+    const m = tokenMember.value;
+    if (m) emit('modelChange', String(m.id), { tokens: m.attached_tokens.filter((t: { id: number }) => t.id !== id) });
+};
+// The name opens the tracker's card drawer (image, notes); a model with no card just selects.
+const cardMemberId = ref<string | null>(null);
+const cardDrawer = ref(false);
+const cardMember = computed(() => crewRows.value.find((m) => String(m.id) === cardMemberId.value) ?? null);
+const fullscreen = ref<{ src: string; backSrc: string | null; title: string | null } | null>(null);
+const hasCard = (m: CrewMember) =>
+    !!(m.front_image || m.custom_character?.front_image || m.custom_character?.actions?.length || m.custom_character?.abilities?.length);
+function openCard(m: CrewMember) {
+    if (!hasCard(m)) return toggleSelect(m);
+    cardMemberId.value = String(m.id);
+    cardDrawer.value = true;
+}
+const cardNotes = (payload: { notes: string | null }) => {
+    if (cardMember.value) emit('modelChange', String(cardMember.value.id), { notes: payload.notes ?? '' });
+};
+const noUpgradePower = () => 0;
+
+// ----- Fate flips made for a model: the result is drawn beside it, and the model's options can flip -----
+const SUIT_FILL: Record<string, string> = { rams: 'hsl(0 70% 42%)', masks: 'hsl(280 55% 42%)', tomes: 'hsl(215 70% 42%)', crows: 'hsl(140 55% 28%)' };
+const fateSubjects = computed(() => {
+    const out = new Map<string, { flip: FateFlip; cards: { card: number; joker_suit: string | null }[] }>();
+    const state = props.fate?.state.value;
+    if (!state) return out;
+    for (const flip of state.flips) {
+        if (flip.subject) out.set(flip.subject, { flip, cards: state.conflict.filter((c) => c.flip_id === flip.id) });
+    }
+    return out;
+});
+/** What to draw beside a model that has a flip open: the result once there is one, the one card shown, or how many are waiting. */
+function flipBadge(id: string): { text: string; glyph: string; fill: string } | null {
+    const entry = fateSubjects.value.get(id);
+    if (!entry) return null;
+    const pick = entry.flip.chosen ?? (entry.cards.length === 1 ? entry.cards[0] : null);
+    if (!pick) return { text: `${entry.cards.length}?`, glyph: '', fill: 'hsl(220 10% 35%)' };
+    const suit = cardSuit(pick.card) ?? pick.joker_suit;
+    return {
+        text: cardFace(pick.card),
+        glyph: suit ? (GAME_ICONS[suit]?.glyph ?? '') : '',
+        fill: suit ? (SUIT_FILL[suit] ?? 'hsl(220 10% 25%)') : 'hsl(220 10% 25%)',
+    };
+}
+const fateMod = ref(0);
+const fateSuit = ref('rams');
+const slotOfToken = (t: { side: string }) => (t.side === 'b' ? 2 : 1);
+const modelFlip = computed(() => (selected.value ? fateSubjects.value.get(selected.value.id) : undefined));
+async function flipForModel(t: Token) {
+    if (!props.fate) return;
+    await props.fate.start?.();
+    const r = await props.fate.act('flip', { slot: slotOfToken(t), modifier: fateMod.value, label: t.name, subject: t.id });
+    if (!r.error) fateMod.value = 0;
+}
+const chooseForModel = (t: Token, flip: FateFlip, card: number) =>
+    props.fate?.act('choose', { slot: slotOfToken(t), flip: flip.id, card, suit: card === RED_JOKER ? fateSuit.value : undefined });
+const resolveForModel = (t: Token, flip: FateFlip) => props.fate?.act('resolve', { slot: slotOfToken(t), flip: flip.id });
+const noLootCard = () => null;
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
 const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value, variant.value)));
 /** The four ways to place the chosen deployment, named by where each side ends up. */
@@ -939,7 +1151,22 @@ function onMove(e: PointerEvent) {
         if (d > 0) setZoom(pinch.width * (pinch.distance / d), pinch.centre);
         return;
     }
-    if (!drag) return;
+    // A phone reports a move far more often than it can draw one: keep the latest and apply it once a frame.
+    lastMove = { clientX: e.clientX, clientY: e.clientY };
+    if (!moveFrame) {
+        moveFrame = requestAnimationFrame(() => {
+            moveFrame = 0;
+            flushMove();
+        });
+    }
+}
+let moveFrame = 0;
+let lastMove: { clientX: number; clientY: number } | null = null;
+/** Apply the latest pointer position to whatever is being dragged. */
+function flushMove() {
+    const e = lastMove;
+    lastMove = null;
+    if (!e || !drag) return;
     if (drag.kind === 'token') {
         const id = drag.id;
         const t = tokens.value.find((x) => x.id === id);
@@ -1069,11 +1296,12 @@ const IGNORE_HINTS: Record<string, string> = {
     impassable: 'It may move through impassable terrain, but not end a move on it',
 };
 /** A model left over another base or on impassable ground goes to the nearest legal spot (p.20). */
-const illegalHere = (t: Token) => (problems.value.get(t.id) ?? []).some((p) => p.kind === 'overlap' || p.kind === 'impassable');
+const illegalHere = (t: Token) =>
+    (problems.value.get(t.id) ?? []).some((p) => p.kind === 'overlap' || p.kind === 'impassable' || p.kind === 'unreachable');
 function moveToLegalSpot(t: Token) {
     const token = tokens.value.find((x) => x.id === t.id);
     if (!token || token.locked) return;
-    const spot = nearestLegalSpot(token, tokens.value, worldTerrain.value);
+    const spot = nearestLegalSpot(token, tokens.value, worldTerrain.value, undefined, undefined, reach.value);
     if (!spot) {
         note.value = `There is no legal spot near ${token.name}.`;
         return;
@@ -1098,6 +1326,11 @@ function jumpNote(t: Token, tr: NonNullable<typeof trail.value>, startElevation:
         ? `${parts.join(', ')}. That is not a legal jump: ${c.reasons.join('; ')}.`
         : `${parts.join(', ')}. A legal jump, landing at elevation ${c.endElevation}.`;
 }
+/** A hazardous piece's name with its rules card, when it has one. */
+const hazardEffect = (name: string) => {
+    const rules = worldTerrain.value.find((p) => p.name === name)?.rules;
+    return rules ? `${name}: ${rules}` : name;
+};
 /** What a place says, in words: how far it went against its range, and what it skipped (p.17). */
 function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
     const from = { x: tr.from.x, y: tr.from.y, baseMm: tr.baseMm };
@@ -1111,7 +1344,7 @@ function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
     const now = elevationOf(t);
     if (now !== tr.startElevation) parts.push(`lands at elevation ${now}`);
     const hazards = [
-        ...placementProblems({ ...t, x: from.x, y: from.y }, tokens.value, worldTerrain.value),
+        ...placementProblems({ ...t, x: from.x, y: from.y }, tokens.value, worldTerrain.value, reach.value),
         ...(problems.value.get(t.id) ?? []),
     ].some((p) => p.kind === 'hazardous');
     if (hazards) parts.push('it began or ended in hazardous terrain, which counts as having moved through it');
@@ -1121,6 +1354,12 @@ function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
 }
 
 function onUp(e: PointerEvent) {
+    // the last move before the finger lifts must land before the drop is worked out
+    if (moveFrame) {
+        cancelAnimationFrame(moveFrame);
+        moveFrame = 0;
+    }
+    flushMove();
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (drag?.kind === 'token') {
@@ -1149,7 +1388,10 @@ function onUp(e: PointerEvent) {
                 const crossed = trailCost.value?.crossed;
                 if (crossed && crossed.severe >= 0.05)
                     parts.push(`${fmt(crossed.severe)}" of it in severe terrain, which counts double (${fmt(cost.total)}" of movement in all)`);
-                if (crossed?.hazardous.length) parts.push(`moved through hazardous terrain (${crossed.hazardous.join(', ')})`);
+                if (crossed?.hazardous.length)
+                    parts.push(
+                        `moved through hazardous terrain (${crossed.hazardous.map((n) => hazardEffect(n)).join(', ')}), suffered once per activation and from only one piece`,
+                    );
                 if (crossed?.impassable.length)
                     parts.push(`passes through impassable terrain (${crossed.impassable.join(', ')}), which a Walk cannot do`);
                 if (trail.value?.kind === 'fly') parts.push('ignoring terrain height, so no climbing cost and no fall');
@@ -1211,6 +1453,9 @@ const measure = computed(() => {
 });
 
 const characterDialog = ref(false);
+watch(characterDialog, (open) => {
+    if (!open) replacing.value = null;
+});
 const characterKey = ref(0);
 function openCharacterDialog() {
     characterKey.value++;
@@ -1218,6 +1463,13 @@ function openCharacterDialog() {
 }
 /** A real card: its name, base size, Sz and Sp. New models fan out so several added in a row do not sit on top of each other. */
 function addCharacter(c: CharacterOption) {
+    if (replacing.value) {
+        emit('replaceCharacter', replacing.value, c);
+        note.value = `Replaced with ${c.name}.`;
+        replacing.value = null;
+        characterDialog.value = false;
+        return;
+    }
     const nudge = (tokens.value.filter((t) => !t.marker).length % 6) * 1.2;
     const at = clampToTable({ baseMm: c.base_mm, x: view.value.x + view.value.w / 2 + nudge, y: view.value.y + view.value.w / 2 + nudge });
     emit('add', {
@@ -1227,6 +1479,13 @@ function addCharacter(c: CharacterOption) {
         sz: c.sz,
         sp: c.sp,
         info: { health: c.health, maxHealth: c.health, tokens: [] },
+        card: {
+            faction: c.faction_key,
+            defense: c.df ?? undefined,
+            willpower: c.wp ?? undefined,
+            front_image: c.front_image,
+            back_image: c.back_image,
+        },
         ...at,
     });
     note.value = `${c.name} added (${c.base_mm} mm base, Sz ${c.sz}, Sp ${c.sp}, ${c.health} health). Drag it into place.`;
@@ -1610,7 +1869,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             {{ fmt(a.aura.range) }}"
                         </text>
                     </g>
-                    <g v-for="t in tokens" :key="t.id" :opacity="dimmed(elevationOf(t)) ? 0.25 : t.killed ? 0.35 : 1" :data-testid="`token-${t.id}`">
+                    <g
+                        v-for="t in tokens"
+                        :key="t.id"
+                        :opacity="dimmed(elevationOf(t)) ? 0.25 : t.killed ? 0.35 : t.info?.activated ? 0.7 : 1"
+                        :data-testid="`token-${t.id}`"
+                    >
                         <circle
                             :cx="t.x"
                             :cy="t.y"
@@ -1650,24 +1914,76 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :fill="(t.info.health ?? t.info.maxHealth) / t.info.maxHealth <= 0.34 ? 'hsl(0 80% 55%)' : 'hsl(145 60% 42%)'"
                             />
                         </g>
-                        <g v-if="t.info?.tokens.length" pointer-events="none">
+                        <g v-if="badgesOf(t.info).chips.length" pointer-events="none" :data-testid="`badges-${t.id}`">
+                            <g v-for="(c, i) in badgesOf(t.info).chips" :key="c.label">
+                                <circle
+                                    :cx="t.x + (i - (badgesOf(t.info).chips.length - 1) / 2) * 0.85"
+                                    :cy="t.y - baseRadius(t.baseMm) - 0.4"
+                                    r="0.38"
+                                    :fill="c.colour"
+                                    stroke="white"
+                                    stroke-width="0.06"
+                                />
+                                <text
+                                    :x="t.x + (i - (badgesOf(t.info).chips.length - 1) / 2) * 0.85"
+                                    :y="t.y - baseRadius(t.baseMm) - 0.4 + 0.17"
+                                    text-anchor="middle"
+                                    font-size="0.48"
+                                    fill="white"
+                                    font-weight="700"
+                                >
+                                    {{ c.label }}
+                                </text>
+                            </g>
+                        </g>
+                        <g v-if="t.info?.activated" pointer-events="none" :data-testid="`activated-${t.id}`">
                             <circle
-                                :cx="t.x + baseRadius(t.baseMm) * 0.8"
+                                :cx="t.x - baseRadius(t.baseMm) * 0.8"
                                 :cy="t.y - baseRadius(t.baseMm) * 0.8"
-                                r="0.42"
-                                fill="hsl(190 70% 38%)"
-                                stroke="white"
+                                r="0.34"
+                                fill="hsl(var(--background))"
+                                stroke="hsl(var(--foreground) / 0.7)"
                                 stroke-width="0.06"
                             />
+                            <path
+                                :d="`M${t.x - baseRadius(t.baseMm) * 0.8 - 0.16} ${t.y - baseRadius(t.baseMm) * 0.8} l0.12 0.14 l0.22 -0.28`"
+                                fill="none"
+                                stroke="hsl(145 60% 35%)"
+                                stroke-width="0.09"
+                                stroke-linecap="round"
+                            />
+                        </g>
+                        <g v-if="flipBadge(t.id)" pointer-events="none" :data-testid="`fate-badge-${t.id}`">
+                            <rect
+                                :x="t.x + baseRadius(t.baseMm) + 0.2"
+                                :y="t.y - 0.6"
+                                width="1.9"
+                                height="1.2"
+                                rx="0.25"
+                                :fill="flipBadge(t.id)!.fill"
+                                stroke="white"
+                                stroke-width="0.07"
+                            />
                             <text
-                                :x="t.x + baseRadius(t.baseMm) * 0.8"
-                                :y="t.y - baseRadius(t.baseMm) * 0.8 + 0.2"
+                                :x="t.x + baseRadius(t.baseMm) + 0.2 + (flipBadge(t.id)!.glyph ? 0.62 : 0.95)"
+                                :y="t.y + 0.27"
                                 text-anchor="middle"
-                                font-size="0.55"
+                                font-size="0.8"
                                 fill="white"
                                 font-weight="700"
                             >
-                                {{ t.info.tokens.length }}
+                                {{ flipBadge(t.id)!.text }}
+                            </text>
+                            <text
+                                v-if="flipBadge(t.id)!.glyph"
+                                :x="t.x + baseRadius(t.baseMm) + 0.2 + 1.4"
+                                :y="t.y + 0.3"
+                                text-anchor="middle"
+                                font-size="0.85"
+                                fill="white"
+                                font-family="M4E-Symbols"
+                            >
+                                {{ flipBadge(t.id)!.glyph }}
                             </text>
                         </g>
                         <text :x="t.x" :y="t.y + 0.3" text-anchor="middle" font-size="0.85" fill="white" font-weight="600" pointer-events="none">
@@ -2019,6 +2335,9 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     >
                 </div>
             </details>
+
+            <!-- The Fate deck, when the page offers one (a game's, or the sandbox's practice deck) -->
+            <slot name="fate" />
             <!-- Tools for working with models -->
             <div
                 v-if="activeTab === 'move'"
@@ -2192,263 +2511,408 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </div>
             </div>
 
-            <div v-if="mode !== 'terrain'" class="rounded-md border p-3 text-sm" data-testid="selected-panel">
-                <template v-if="selected">
-                    <div class="font-semibold">
-                        {{ selected.name }} <span class="font-normal text-muted-foreground">{{ selected.baseMm }} mm base</span>
-                    </div>
-                    <div class="text-muted-foreground">
-                        At {{ fmt(selected.x) }}", {{ fmt(selected.y) }}". Elevation {{ elevationOf(selected)
-                        }}<span v-if="selected.under && selectedCover">
-                            {{ ' ' + (selectedCover.kind === 'building' ? 'inside' : 'under') + ' ' + selectedCover.piece.name }}</span
-                        ><span v-else-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
-                        >.
-                    </div>
-                    <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
-                    <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
-                        Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
-                    </p>
-                    <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
-                        <summary
-                            class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"
-                        >
-                            <span
-                                >Ignores terrain
-                                <span class="text-xs">({{ selected.ignores?.length ? selected.ignores.join(', ') : 'none' }})</span></span
-                            >
-                            <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
-                        </summary>
-                        <div class="mt-1 flex flex-wrap gap-1">
-                            <label
-                                v-for="trait in IGNORABLE_TRAITS"
-                                :key="trait"
-                                class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs"
-                                :class="selected.ignores?.includes(trait) ? 'border-primary bg-primary/10' : ''"
-                                :title="IGNORE_HINTS[trait]"
-                            >
-                                <input
-                                    type="checkbox"
-                                    class="sr-only"
-                                    :checked="!!selected.ignores?.includes(trait)"
-                                    :disabled="selected.locked"
-                                    :data-testid="`ignore-${trait}`"
-                                    @change="toggleIgnore(selected, trait)"
-                                />
-                                {{ trait }}
-                            </label>
-                        </div>
-                    </details>
-                    <div v-if="selectedCover && !selected.locked" class="mt-2 flex flex-wrap items-center gap-1" data-testid="under-toggle">
-                        <Button
-                            size="sm"
-                            :variant="selected.under ? 'default' : 'outline'"
-                            data-testid="model-under"
-                            @click="setUnder(selected, true)"
-                            >{{ selectedCover.kind === 'building' ? 'Inside' : 'Under' }} {{ selectedCover.piece.name }}</Button
-                        >
-                        <Button
-                            size="sm"
-                            :variant="selected.under ? 'outline' : 'default'"
-                            data-testid="model-on"
-                            @click="setUnder(selected, false)"
-                            >{{ selectedCover.kind === 'building' ? 'On the roof' : 'On top' }}</Button
-                        >
-                        <Button
-                            v-if="selectedCover.kind === 'building'"
-                            size="sm"
-                            :variant="cutaway(selectedCover.piece) ? 'default' : 'outline'"
-                            :aria-pressed="cutaway(selectedCover.piece)"
-                            data-testid="model-show-inside"
-                            @click="toggleInside(selectedCover.piece.id)"
-                            >Show inside</Button
-                        >
-                    </div>
-                    <Button
-                        v-if="!selected.marker"
-                        size="sm"
-                        class="mt-2"
-                        :variant="guidedId === selected.id ? 'default' : 'outline'"
-                        :aria-pressed="guidedId === selected.id"
-                        data-testid="model-guide"
-                        @click="toggleGuide(selected)"
-                        ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
-                    >
-                    <ModelInfoPanel
-                        v-if="!selected.marker"
-                        :token="selected"
-                        :token-options="tokenOptions ?? []"
-                        :can-edit="!selected.locked"
-                        :editable-max="sandbox"
-                        @change="emit('modelChange', selected.id, $event)"
-                    />
-                    <p v-if="problems.get(selected.id)?.length" class="mt-2 text-amber-600 dark:text-amber-400" data-testid="placement-warning">
-                        {{ selected.name }}
-                        {{
-                            problems
-                                .get(selected.id)!
-                                .map((p) => p.text)
-                                .join(' and ')
-                        }}.
-                        <Button
-                            v-if="illegalHere(selected) && !selected.locked"
-                            size="sm"
-                            variant="outline"
-                            class="mt-1 block"
-                            data-testid="model-fix-spot"
-                            @click="moveToLegalSpot(selected)"
-                            >Move to the nearest legal spot</Button
-                        >
-                    </p>
-                    <div class="mt-3 border-t pt-3" data-testid="aura-controls">
-                        <div class="mb-2 flex items-center justify-between">
-                            <span class="font-medium"
-                                >Auras
-                                <span class="font-normal text-muted-foreground"
-                                    >{{ aurasOf(selected.id).length }} of {{ AURAS_PER_MODEL }}</span
-                                ></span
-                            >
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                data-testid="aura-add"
-                                :disabled="aurasOf(selected.id).length >= AURAS_PER_MODEL"
-                                @click="addAura(selected)"
-                                >{{ aurasOf(selected.id).length ? 'Add another' : 'Add aura' }}</Button
-                            >
-                        </div>
+            <div v-if="crewRows.length && mode !== 'terrain'" class="space-y-3" data-testid="crew-list">
+                <template v-for="side in crewSides" :key="side.slot">
+                    <div class="space-y-1">
+                        <div class="text-xs font-medium text-muted-foreground">{{ side.name }}</div>
                         <div
-                            v-for="(aura, i) in aurasOf(selected.id)"
-                            :key="aura.id"
-                            class="mb-3 rounded-md border p-2"
-                            :data-testid="`aura-row-${i}`"
+                            v-for="m in side.living"
+                            :key="m.id"
+                            class="rounded-md"
+                            :class="selectedId === String(m.id) ? 'ring-2 ring-primary' : ''"
+                            :data-testid="`crew-${m.id}`"
                         >
-                            <div class="flex items-center gap-1">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    aria-label="Smaller aura"
-                                    data-testid="aura-minus"
-                                    :disabled="!canEdit(aura)"
-                                    @click="setRange(aura.id, aura.range - 0.5)"
-                                    ><Minus class="size-4"
-                                /></Button>
-                                <input
-                                    type="number"
-                                    inputmode="decimal"
-                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                    :min="AURA_MIN"
-                                    :max="AURA_MAX"
-                                    step="0.5"
-                                    aria-label="Aura range in inches"
-                                    data-testid="aura-range"
-                                    :disabled="!canEdit(aura)"
-                                    :value="aura.range"
-                                    @change="setRange(aura.id, Number(($event.target as HTMLInputElement).value) || AURA_MIN)"
-                                />
-                                <span class="text-muted-foreground">"</span>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    aria-label="Larger aura"
-                                    data-testid="aura-plus"
-                                    :disabled="!canEdit(aura)"
-                                    @click="setRange(aura.id, aura.range + 0.5)"
-                                    ><Plus class="size-4"
-                                /></Button>
-                                <Button
-                                    size="sm"
-                                    :variant="aura.locked ? 'default' : 'outline'"
-                                    :aria-pressed="aura.locked"
-                                    :aria-label="aura.locked ? 'Unlock: follow the model again' : 'Lock this aura where it is'"
-                                    data-testid="aura-lock"
-                                    :disabled="!canEdit(aura)"
-                                    @click="toggleLock(aura, selected)"
-                                >
-                                    <component :is="aura.locked ? Lock : LockOpen" class="size-4" />
-                                </Button>
-                                <Button
-                                    v-if="sharingOn && !selected.locked"
-                                    size="sm"
-                                    :variant="aura.shared ? 'default' : 'outline'"
-                                    :aria-pressed="!!aura.shared"
-                                    :aria-label="aura.shared ? 'Stop showing this aura to the other player' : 'Show this aura to the other player'"
-                                    data-testid="aura-share"
-                                    @click="toggleShare(aura)"
-                                >
-                                    <Users class="size-4" />
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    aria-label="Remove this aura"
-                                    data-testid="aura-remove"
-                                    :disabled="!canEdit(aura)"
-                                    @click="removeAura(aura.id)"
-                                    ><Trash2 class="size-4"
-                                /></Button>
-                            </div>
-                            <div class="mt-2 flex flex-wrap gap-1">
-                                <Button
-                                    v-for="n in AURA_PRESETS"
-                                    :key="n"
-                                    size="sm"
-                                    :variant="aura.range === n ? 'default' : 'outline'"
-                                    :disabled="!canEdit(aura)"
-                                    @click="setRange(aura.id, n)"
-                                    >{{ n }}"</Button
-                                >
-                            </div>
-                            <div class="mt-2 flex flex-wrap items-center gap-1" data-testid="aura-traits">
-                                <span class="text-xs text-muted-foreground">Counts as</span>
-                                <label
-                                    v-for="trait in AURA_TRAITS"
-                                    :key="trait"
-                                    class="flex cursor-pointer items-center rounded-md border px-2 py-0.5 text-xs"
-                                    :class="aura.traits?.includes(trait) ? 'border-primary bg-primary/10' : ''"
-                                    :title="`The area counts as ${trait} terrain`"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        class="sr-only"
-                                        :checked="!!aura.traits?.includes(trait)"
-                                        :disabled="!canEdit(aura)"
-                                        :data-testid="`aura-trait-${trait}`"
-                                        @change="toggleAuraTrait(aura, trait)"
-                                    />
-                                    {{ trait }}
-                                </label>
-                            </div>
-                            <p class="mt-2 text-muted-foreground" data-testid="aura-inside">
-                                {{ aura.shared ? (canEdit(aura) ? 'Shown to both players. ' : 'Shown to you by the other player. ') : ''
-                                }}{{ aura.locked ? 'Locked at ' + fmt(aura.x ?? 0) + '", ' + fmt(aura.y ?? 0) + '". ' : 'Follows the model. ' }}Starts
-                                at the edge of the base.
-                                <template v-if="insideOf(aura.id).length"
-                                    >Within {{ fmt(aura.range) }}":
-                                    {{
-                                        insideOf(aura.id)
-                                            .map((t) => t.name)
-                                            .join(', ')
-                                    }}.</template
-                                >
-                                <template v-else>No other model is within {{ fmt(aura.range) }}".</template>
-                            </p>
+                            <GameCrewMemberRow
+                                :member="m"
+                                :editable="canEditCrew(m)"
+                                :card-open="openCards.has(m.id)"
+                                :is-campaign="false"
+                                board-mode
+                                :upgrade-power-max="noUpgradePower"
+                                :loot-card-by-id="noLootCard"
+                                :loot-card-suit-icon="noLootCard"
+                                @toggle-activated="emit('modelChange', String(m.id), { activated: !m.is_activated })"
+                                @health-delta="(d: number) => crewHealth(m, (m.current_health ?? 0) + d)"
+                                @health-pip="(pip: number) => crewPip(m, pip)"
+                                @remove-token="
+                                    (id: number) => emit('modelChange', String(m.id), { tokens: m.attached_tokens.filter((t: any) => t.id !== id) })
+                                "
+                                @open-tokens="openTokens(m)"
+                                @replace="replaceFrom(m)"
+                                @toggle-card="toggleCard(m)"
+                                :options-open="selectedId === String(m.id)"
+                                @toggle-options="toggleSelect(m)"
+                                @preview="openCard(m)"
+                            />
+                            <div :ref="(el) => setSlot(m.id, el)"></div>
                         </div>
-                    </div>
-                    <div v-if="sandbox || (selected.marker && !selected.locked)" class="mt-3 border-t pt-3">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            class="text-destructive hover:text-destructive"
-                            data-testid="remove-token"
-                            @click="removeSelected"
-                            ><Trash2 class="mr-1 size-4" />{{ selected.marker ? 'Remove marker' : 'Remove model' }}</Button
+                        <button
+                            v-for="m in side.killed"
+                            :key="'killed-' + m.id"
+                            type="button"
+                            class="flex w-full items-center rounded-md border border-border/40 bg-muted/40 px-2 py-1.5 text-left text-sm text-muted-foreground line-through"
+                            @click="toggleSelect(m)"
                         >
+                            {{ m.display_name }}
+                        </button>
                     </div>
                 </template>
-                <span v-else class="text-muted-foreground"
-                    >Tap a model to select it. Drag it to move. Drag the board to pan; pinch or scroll to zoom.</span
-                >
             </div>
+
+            <Teleport :to="panelTarget ?? 'body'" :disabled="!panelTarget">
+                <div
+                    v-if="mode !== 'terrain'"
+                    class="border p-3 text-sm"
+                    :class="panelTarget ? '-mt-1 rounded-b-md border-t-0 bg-muted/30' : 'rounded-md'"
+                    data-testid="selected-panel"
+                >
+                    <div>
+                        <template v-if="selected">
+                            <div class="font-semibold">
+                                {{ selected.name }} <span class="font-normal text-muted-foreground">{{ selected.baseMm }} mm base</span>
+                            </div>
+                            <div class="text-muted-foreground">
+                                At {{ fmt(selected.x) }}", {{ fmt(selected.y) }}". Elevation {{ elevationOf(selected)
+                                }}<span v-if="selected.under && selectedCover">
+                                    {{ ' ' + (selectedCover.kind === 'building' ? 'inside' : 'under') + ' ' + selectedCover.piece.name }}</span
+                                ><span v-else-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
+                                >.
+                            </div>
+                            <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
+                            <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
+                                Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
+                            </p>
+                            <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
+                                <summary
+                                    class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"
+                                >
+                                    <span
+                                        >Ignores terrain
+                                        <span class="text-xs">({{ selected.ignores?.length ? selected.ignores.join(', ') : 'none' }})</span></span
+                                    >
+                                    <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    <label
+                                        v-for="trait in IGNORABLE_TRAITS"
+                                        :key="trait"
+                                        class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs"
+                                        :class="selected.ignores?.includes(trait) ? 'border-primary bg-primary/10' : ''"
+                                        :title="IGNORE_HINTS[trait]"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            class="sr-only"
+                                            :checked="!!selected.ignores?.includes(trait)"
+                                            :disabled="selected.locked"
+                                            :data-testid="`ignore-${trait}`"
+                                            @change="toggleIgnore(selected, trait)"
+                                        />
+                                        {{ trait }}
+                                    </label>
+                                </div>
+                            </details>
+                            <div v-if="selectedCover && !selected.locked" class="mt-2 flex flex-wrap items-center gap-1" data-testid="under-toggle">
+                                <Button
+                                    size="sm"
+                                    :variant="selected.under ? 'default' : 'outline'"
+                                    data-testid="model-under"
+                                    @click="setUnder(selected, true)"
+                                    >{{ selectedCover.kind === 'building' ? 'Inside' : 'Under' }} {{ selectedCover.piece.name }}</Button
+                                >
+                                <Button
+                                    size="sm"
+                                    :variant="selected.under ? 'outline' : 'default'"
+                                    data-testid="model-on"
+                                    @click="setUnder(selected, false)"
+                                    >{{ selectedCover.kind === 'building' ? 'On the roof' : 'On top' }}</Button
+                                >
+                                <Button
+                                    v-if="selectedCover.kind === 'building'"
+                                    size="sm"
+                                    :variant="cutaway(selectedCover.piece) ? 'default' : 'outline'"
+                                    :aria-pressed="cutaway(selectedCover.piece)"
+                                    data-testid="model-show-inside"
+                                    @click="toggleInside(selectedCover.piece.id)"
+                                    >Show inside</Button
+                                >
+                            </div>
+                            <Button
+                                v-if="!selected.marker"
+                                size="sm"
+                                class="mt-2"
+                                :variant="guidedId === selected.id ? 'default' : 'outline'"
+                                :aria-pressed="guidedId === selected.id"
+                                data-testid="model-guide"
+                                @click="toggleGuide(selected)"
+                                ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
+                            >
+                            <!-- a Fate flip for this model: the result shows beside it on the table -->
+                            <div v-if="fate && !selected.marker" class="mt-2 space-y-1.5 rounded-md border p-2" data-testid="model-fate">
+                                <div class="flex flex-wrap items-center gap-1">
+                                    <span class="mr-1 font-medium">Fate flip</span>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        class="px-2"
+                                        aria-label="One more minus"
+                                        :disabled="selected.locked || fateMod <= -3"
+                                        data-testid="model-fate-minus"
+                                        @click="fateMod--"
+                                        ><Minus class="size-4"
+                                    /></Button>
+                                    <span class="min-w-8 text-center font-semibold tabular-nums" data-testid="model-fate-mod">{{
+                                        fateMod > 0 ? `+${fateMod}` : fateMod
+                                    }}</span>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        class="px-2"
+                                        aria-label="One more plus"
+                                        :disabled="selected.locked || fateMod >= 3"
+                                        data-testid="model-fate-plus"
+                                        @click="fateMod++"
+                                        ><Plus class="size-4"
+                                    /></Button>
+                                    <Button
+                                        size="sm"
+                                        :disabled="selected.locked || fate.busy.value"
+                                        data-testid="model-fate-flip"
+                                        @click="flipForModel(selected)"
+                                        >Flip</Button
+                                    >
+                                </div>
+                                <div v-if="modelFlip" class="space-y-1" data-testid="model-fate-flip-open">
+                                    <div class="flex flex-wrap gap-1">
+                                        <template v-for="c in modelFlip.cards" :key="`${c.card}-${c.joker_suit}`">
+                                            <button
+                                                v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(c.card) && !selected.locked"
+                                                type="button"
+                                                class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                                                :aria-label="`Take ${cardLabel(c.card)} as the result`"
+                                                data-testid="model-fate-choose"
+                                                @click="chooseForModel(selected, modelFlip.flip, c.card)"
+                                            >
+                                                <FateCardFace :card="c.card" small />
+                                            </button>
+                                            <FateCardFace
+                                                v-else
+                                                :card="c.card"
+                                                :joker-suit="c.joker_suit"
+                                                small
+                                                :highlight="modelFlip.flip.chosen?.card === c.card"
+                                                :dim="!modelFlip.flip.chosen && !modelFlip.flip.legal.includes(c.card)"
+                                            />
+                                        </template>
+                                    </div>
+                                    <label
+                                        v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(RED_JOKER)"
+                                        class="flex items-center gap-2 text-xs"
+                                    >
+                                        A Red Joker takes the suit
+                                        <select v-model="fateSuit" class="rounded-md border bg-background px-1.5 py-1">
+                                            <option v-for="suit in SUITS" :key="suit" :value="suit">{{ suit }}</option>
+                                        </select>
+                                    </label>
+                                    <p v-if="modelFlip.flip.chosen" class="text-xs" data-testid="model-fate-result">
+                                        Result <span class="font-semibold">{{ cardLabel(modelFlip.flip.chosen.card) }}</span>
+                                    </p>
+                                    <Button
+                                        v-if="!selected.locked"
+                                        size="sm"
+                                        variant="outline"
+                                        :disabled="fate.busy.value || !modelFlip.flip.chosen"
+                                        data-testid="model-fate-done"
+                                        @click="resolveForModel(selected, modelFlip.flip)"
+                                        >Done: discard</Button
+                                    >
+                                </div>
+                            </div>
+                            <ModelInfoPanel
+                                v-if="!selected.marker"
+                                :token="selected"
+                                :can-edit="!selected.locked"
+                                :editable-max="sandbox"
+                                :crew="crewRows.length > 0"
+                                @change="emit('modelChange', selected.id, $event)"
+                            />
+                            <p
+                                v-if="problems.get(selected.id)?.length"
+                                class="mt-2 text-amber-600 dark:text-amber-400"
+                                data-testid="placement-warning"
+                            >
+                                {{ selected.name }}
+                                {{
+                                    problems
+                                        .get(selected.id)!
+                                        .map((p) => p.text)
+                                        .join(' and ')
+                                }}.
+                                <Button
+                                    v-if="illegalHere(selected) && !selected.locked"
+                                    size="sm"
+                                    variant="outline"
+                                    class="mt-1 block"
+                                    data-testid="model-fix-spot"
+                                    @click="moveToLegalSpot(selected)"
+                                    >Move to the nearest legal spot</Button
+                                >
+                            </p>
+                            <div class="mt-3 border-t pt-3" data-testid="aura-controls">
+                                <div class="mb-2 flex items-center justify-between">
+                                    <span class="font-medium"
+                                        >Auras
+                                        <span class="font-normal text-muted-foreground"
+                                            >{{ aurasOf(selected.id).length }} of {{ AURAS_PER_MODEL }}</span
+                                        ></span
+                                    >
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        data-testid="aura-add"
+                                        :disabled="aurasOf(selected.id).length >= AURAS_PER_MODEL"
+                                        @click="addAura(selected)"
+                                        >{{ aurasOf(selected.id).length ? 'Add another' : 'Add aura' }}</Button
+                                    >
+                                </div>
+                                <div
+                                    v-for="(aura, i) in aurasOf(selected.id)"
+                                    :key="aura.id"
+                                    class="mb-3 rounded-md border p-2"
+                                    :data-testid="`aura-row-${i}`"
+                                >
+                                    <div class="flex items-center gap-1">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            aria-label="Smaller aura"
+                                            data-testid="aura-minus"
+                                            :disabled="!canEdit(aura)"
+                                            @click="setRange(aura.id, aura.range - 0.5)"
+                                            ><Minus class="size-4"
+                                        /></Button>
+                                        <input
+                                            type="number"
+                                            inputmode="decimal"
+                                            class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                            :min="AURA_MIN"
+                                            :max="AURA_MAX"
+                                            step="0.5"
+                                            aria-label="Aura range in inches"
+                                            data-testid="aura-range"
+                                            :disabled="!canEdit(aura)"
+                                            :value="aura.range"
+                                            @change="setRange(aura.id, Number(($event.target as HTMLInputElement).value) || AURA_MIN)"
+                                        />
+                                        <span class="text-muted-foreground">"</span>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            aria-label="Larger aura"
+                                            data-testid="aura-plus"
+                                            :disabled="!canEdit(aura)"
+                                            @click="setRange(aura.id, aura.range + 0.5)"
+                                            ><Plus class="size-4"
+                                        /></Button>
+                                        <Button
+                                            size="sm"
+                                            :variant="aura.locked ? 'default' : 'outline'"
+                                            :aria-pressed="aura.locked"
+                                            :aria-label="aura.locked ? 'Unlock: follow the model again' : 'Lock this aura where it is'"
+                                            data-testid="aura-lock"
+                                            :disabled="!canEdit(aura)"
+                                            @click="toggleLock(aura, selected)"
+                                        >
+                                            <component :is="aura.locked ? Lock : LockOpen" class="size-4" />
+                                        </Button>
+                                        <Button
+                                            v-if="sharingOn && !selected.locked"
+                                            size="sm"
+                                            :variant="aura.shared ? 'default' : 'outline'"
+                                            :aria-pressed="!!aura.shared"
+                                            :aria-label="
+                                                aura.shared ? 'Stop showing this aura to the other player' : 'Show this aura to the other player'
+                                            "
+                                            data-testid="aura-share"
+                                            @click="toggleShare(aura)"
+                                        >
+                                            <Users class="size-4" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            aria-label="Remove this aura"
+                                            data-testid="aura-remove"
+                                            :disabled="!canEdit(aura)"
+                                            @click="removeAura(aura.id)"
+                                            ><Trash2 class="size-4"
+                                        /></Button>
+                                    </div>
+                                    <div class="mt-2 flex flex-wrap gap-1">
+                                        <Button
+                                            v-for="n in AURA_PRESETS"
+                                            :key="n"
+                                            size="sm"
+                                            :variant="aura.range === n ? 'default' : 'outline'"
+                                            :disabled="!canEdit(aura)"
+                                            @click="setRange(aura.id, n)"
+                                            >{{ n }}"</Button
+                                        >
+                                    </div>
+                                    <div class="mt-2 flex flex-wrap items-center gap-1" data-testid="aura-traits">
+                                        <span class="text-xs text-muted-foreground">Counts as</span>
+                                        <label
+                                            v-for="trait in AURA_TRAITS"
+                                            :key="trait"
+                                            class="flex cursor-pointer items-center rounded-md border px-2 py-0.5 text-xs"
+                                            :class="aura.traits?.includes(trait) ? 'border-primary bg-primary/10' : ''"
+                                            :title="`The area counts as ${trait} terrain`"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                class="sr-only"
+                                                :checked="!!aura.traits?.includes(trait)"
+                                                :disabled="!canEdit(aura)"
+                                                :data-testid="`aura-trait-${trait}`"
+                                                @change="toggleAuraTrait(aura, trait)"
+                                            />
+                                            {{ trait }}
+                                        </label>
+                                    </div>
+                                    <p class="mt-2 text-muted-foreground" data-testid="aura-inside">
+                                        {{ aura.shared ? (canEdit(aura) ? 'Shown to both players. ' : 'Shown to you by the other player. ') : ''
+                                        }}{{
+                                            aura.locked ? 'Locked at ' + fmt(aura.x ?? 0) + '", ' + fmt(aura.y ?? 0) + '". ' : 'Follows the model. '
+                                        }}Starts at the edge of the base.
+                                        <template v-if="insideOf(aura.id).length"
+                                            >Within {{ fmt(aura.range) }}":
+                                            {{
+                                                insideOf(aura.id)
+                                                    .map((t) => t.name)
+                                                    .join(', ')
+                                            }}.</template
+                                        >
+                                        <template v-else>No other model is within {{ fmt(aura.range) }}".</template>
+                                    </p>
+                                </div>
+                            </div>
+                            <div v-if="sandbox || (selected.marker && !selected.locked)" class="mt-3 border-t pt-3">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    class="text-destructive hover:text-destructive"
+                                    data-testid="remove-token"
+                                    @click="removeSelected"
+                                    ><Trash2 class="mr-1 size-4" />{{ selected.marker ? 'Remove marker' : 'Remove model' }}</Button
+                                >
+                            </div>
+                        </template>
+                        <span v-else class="text-muted-foreground"
+                            >Tap a model to select it. Drag it to move. Drag the board to pan; pinch or scroll to zoom.</span
+                        >
+                    </div>
+                </div>
+            </Teleport>
 
             <div
                 v-if="mode !== 'terrain' && (sandbox || (markers && markerSides.length))"
@@ -2494,13 +2958,41 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </div>
             </div>
 
+            <GameCrewMemberDrawer
+                :open="cardDrawer"
+                :member="cardMember as any"
+                :miniatures="[]"
+                :can-change-sculpt="false"
+                :can-edit-notes="!!cardMember && canEditCrew(cardMember)"
+                @update:open="cardDrawer = $event"
+                @open-fullscreen="fullscreen = { src: $event.src, backSrc: $event.backSrc, title: $event.title }"
+                @notes-change="cardNotes"
+            />
+            <GameCardFullscreenDialog
+                :open="!!fullscreen"
+                :src="fullscreen?.src ?? null"
+                :back-src="fullscreen?.backSrc ?? null"
+                :title="fullscreen?.title ?? null"
+                @update:open="fullscreen = $event ? fullscreen : null"
+            />
+            <GameTokenDialog
+                :open="tokenDialog"
+                :member="tokenMember"
+                :tokens="tokenCatalogue"
+                :reference-token-ids="noReferenceTokens"
+                :search="tokenSearch"
+                @update:open="tokenDialog = $event"
+                @update:search="tokenSearch = $event"
+                @toggle="toggleModelToken"
+                @remove="removeModelToken"
+            />
             <Dialog v-if="characterSearchUrl" v-model:open="characterDialog">
                 <DialogContent class="max-w-md" data-testid="character-dialog">
                     <DialogHeader>
-                        <DialogTitle>Add a character</DialogTitle>
+                        <DialogTitle>{{ replacing ? 'Replace with another character' : 'Add a character' }}</DialogTitle>
                         <DialogDescription>Puts the card on the table at its real base size, with its Sz and Sp.</DialogDescription>
                     </DialogHeader>
-                    <label class="block text-sm">
+                    <label v-if="!replacing" class="block text-sm">
                         <span class="mb-1 block font-medium">Side</span>
                         <select v-model="newSide" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="character-side">
                             <option value="a">{{ sideNames.a }}</option>
@@ -2541,6 +3033,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 v-if="layouts !== undefined"
                 v-model:open="loadOpen"
                 :layouts="layouts"
+                :loading="layoutsLoading"
                 :signed-in="!!signedIn"
                 :table-images="tableImages"
                 :terrain-images="terrainImages"

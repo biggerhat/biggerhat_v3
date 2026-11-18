@@ -527,6 +527,7 @@ const L = require('./lib.cjs');
             // edit: the table opens in the sandbox, saving is off until something changes
             await hit('[data-testid=table-edit]');
             await s.page.waitForSelector('[data-testid=editing-note]');
+            if (!(await s.page.$('[data-testid=fate-section]'))) throw new Error('the practice Fate deck should be on the edit page too');
             if (!(await s.page.$eval('[data-testid=editing-save]', (b) => b.disabled))) throw new Error('nothing changed yet, so there is nothing to save');
             await hit('[data-testid=mode-terrain]');
             await s.page.select('[data-testid=terrain-preset]', 'crates');
@@ -557,15 +558,18 @@ const L = require('./lib.cjs');
             await s.page.evaluate(() => window.scrollTo(0, 0));
             await L.shot(s, `368-new-table-top-${label}`);
             if (!(await s.page.$eval('[data-testid=new-table-save]', (b) => b.disabled))) throw new Error('an empty table cannot be saved');
-            // the page says what it is for, and offers ready-made tables to begin from
+            // the page says what it is for
             const sub = await s.page.$eval('[data-testid=page-subtitle]', (e) => e.innerText);
             if (!/name it and save it/.test(sub)) throw new Error(`the heading should describe a new table: ${sub}`);
-            const starts = await s.page.$$eval('[data-testid=starting-point]', (e) => e.length);
-            if (starts < 3) throw new Error(`expected ready-made starting points, saw ${starts}`);
-            // leaving with work on the table asks first; with none it just goes
-            await s.page.$eval('[data-testid=starting-point][data-key=hills]', (b) => b.click());
+            // ready-made tables come from Load table (no separate grid above the board)
+            if (!(await s.page.$('[data-testid=fate-section]'))) throw new Error('the practice Fate deck should be on the new-table page too');
+            if (await s.page.$('[data-testid=starting-points]')) throw new Error('the starting-points grid should be gone');
+            await hit('[data-testid=table-load]');
+            await s.page.waitForSelector('[data-testid=load-default][data-key=hills]', { timeout: 5000 });
+            await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
             await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
-            await s.page.waitForFunction(() => !document.querySelector('[data-testid=starting-points]'), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            // leaving with work on the table asks first; with none it just goes
             await hit('[data-testid=new-table-cancel]');
             await s.page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((b) => /Leave/.test(b.innerText)), { timeout: 5000 });
             await s.page.evaluate(() => [...document.querySelectorAll('[role=dialog] button')].find((b) => /Cancel/.test(b.innerText)).click());
@@ -1122,36 +1126,86 @@ const L = require('./lib.cjs');
                 const panel = await s.page.evaluate(() => document.querySelector('[data-testid=selected-panel]')?.innerText ?? 'no panel');
                 throw new Error(`no model panel after clicking at ${Math.round(at.x)},${Math.round(at.y)}: ${panel.slice(0, 200)}`);
             });
-            const hp = () => s.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
-            if ((await hp()) !== '9 / 9') throw new Error(`expected 9 / 9, saw ${await hp()}`);
-            const press = async (id) => {
-                await s.page.$eval(`[data-testid=${id}]`, (b) => {
-                    const d = b.closest('details');
-                    if (d && !d.open) d.open = true;
-                    b.scrollIntoView({ block: 'center' });
-                });
-                await s.page.click(`[data-testid=${id}]`);
-            };
-            await press('health-minus');
-            await press('health-minus');
-            await s.page.waitForFunction(() => document.querySelector('[data-testid=health-value]').innerText.trim() === '7 / 9', { timeout: 5000 });
-            await s.page.$eval('[data-testid=token-add]', (b) => {
-                    const d = b.closest('details');
-                    if (d && !d.open) d.open = true;
-                    b.scrollIntoView({ block: 'center' });
-                });
-            const focus = await s.page.$$eval('[data-testid=token-add] option', (os) => os.find((o) => o.textContent === 'Focus')?.value);
-            await s.page.select('[data-testid=token-add]', focus);
-            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=model-token]').length === 1, { timeout: 5000 });
-            await press('model-activated');
-            await s.page.waitForFunction(() => document.querySelector('[data-testid=model-activated]').innerText.trim() === 'Activated', {
-                timeout: 5000,
+            // the crew row (the one the play screen uses) carries health and activation; the selected panel rolls down under it
+            const row = '[data-testid=crew-list] [data-testid^=crew-]:has([data-testid=selected-panel])';
+            await s.page.waitForSelector(row, { timeout: 5000 }).catch(() => {
+                throw new Error('the selected model should open its options under its crew row');
             });
+            const hp = () =>
+                s.page.$eval(row, (r) =>
+                    r.innerText
+                        .match(/(\d+)\/(\d+)/)
+                        ?.slice(1, 3)
+                        .join(' / '),
+                );
+            if ((await hp()) !== '9 / 9') throw new Error(`expected 9 / 9, saw ${await hp()}`);
+            const rowPress = (text, attr = 'aria-label') =>
+                s.page.$eval(
+                    row,
+                    (r, t, a) => {
+                        const b = [...r.querySelectorAll('button')].find((x) => x.offsetParent && (x.getAttribute(a) ?? '').startsWith(t));
+                        if (!b) throw new Error(`no visible ${t} button in the row`);
+                        b.scrollIntoView({ block: 'center' });
+                        b.click();
+                    },
+                    text,
+                    attr,
+                );
+            await rowPress('Decrease health');
+            await rowPress('Decrease health');
+            await s.page.waitForFunction((sel) => document.querySelector(sel).innerText.includes('7/9'), { timeout: 5000 }, row);
+            // tokens: the row's Tokens button opens the tracker's token dialog
+            await rowPress('Tokens', 'title');
+            await s.page.waitForSelector('[data-testid=token-option][data-name=Focus]', { timeout: 5000 });
+            await s.page.click('[data-testid=token-option][data-name=Focus]');
+            await s.page.waitForSelector('[data-testid^=badges-]', { timeout: 5000 });
+            await s.page.keyboard.press('Escape');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=token-option]'), { timeout: 5000 });
+            if (await s.page.$('[data-testid=token-add]')) throw new Error('the model panel should not have a token dropdown any more');
+            await rowPress('Mark activated', 'title');
+            await s.page.waitForSelector('[data-testid^=activated-]', { timeout: 5000 });
             if (!(await s.page.$('[data-testid^=hp-]'))) throw new Error('the board should draw a health bar on the model');
+            // status badges: the Focus token is a chip on the base and the activation is a tick
+            await s.page.waitForSelector('[data-testid^=badges-]', { timeout: 5000 });
+            if (!(await s.page.$('[data-testid^=activated-]'))) throw new Error('an activated model should show a tick on its base');
+            // a Fate flip from the model's options: the result is drawn beside it on the table, then discarded
+            await s.page.$eval('[data-testid=model-fate-flip]', (b) => {
+                b.scrollIntoView({ block: 'center' });
+                b.click();
+            });
+            await s.page.waitForSelector('[data-testid^=fate-badge-]', { timeout: 5000 });
+            await s.page.$eval('[data-testid=model-fate-choose]', (b) => b.click());
+            await s.page.waitForSelector('[data-testid=model-fate-result]', { timeout: 5000 });
+            await s.page.$eval('[data-testid=model-fate-done]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid^=fate-badge-]'), { timeout: 5000 });
             await L.shot(s, `359-model-info-${label}`);
             // drawn at its real base size: the new model has a 50 mm (0.984") radius
             const radii = await s.page.$$eval('[data-testid^=token-] > circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
             if (Math.abs(radii[radii.length - 1] - 25 / 25.4) > 0.01) throw new Error(`the new model should have a 50 mm base: ${radii}`);
+            // replace from the row: another character, same place; the token, activation and capped health are kept (desktop shows the button)
+            const replaceBtn = await s.page.$eval(row, (r) => {
+                const b = [...r.querySelectorAll('button')].find((x) => x.offsetParent && /^Replace/.test(x.getAttribute('title') ?? ''));
+                b?.click();
+                return !!b;
+            });
+            if (replaceBtn) {
+                await s.page.waitForSelector('[data-testid=character-search]', { timeout: 5000 });
+                await s.page.type('[data-testid=character-search]', 'seedlady beta');
+                await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=character-result]').length === 1, { timeout: 5000 });
+                await s.page.click('[data-testid=character-add]');
+                await s.page.waitForFunction(
+                    () => {
+                        const cs = [...document.querySelectorAll('[data-testid^=token-] > circle')];
+                        return cs.some((c) => Math.abs(Number(c.getAttribute('r')) - 15 / 25.4) < 0.01);
+                    },
+                    { timeout: 5000 },
+                );
+                const [cur, max] = (await hp()).split(' / ').map(Number);
+                if (!(cur >= 1 && cur <= max && cur <= 7)) throw new Error(`health after replace should be capped by the new maximum: ${cur}/${max}`);
+                if (!(await s.page.$('[data-testid^=activated-]'))) throw new Error('replace should keep the model activated');
+                if (!(await s.page.$('[data-testid^=badges-]'))) throw new Error('replace should keep the model tokens');
+                await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 });
+            }
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
             await hit('[data-testid=reset-table]');
             // reset clears the models (nothing blank comes back) and the hint says how to start again
@@ -1161,6 +1215,87 @@ const L = require('./lib.cjs');
                     throw new Error(`reset left ${(await s.page.$$('[data-testid^=token-]')).length} models`);
                 });
             await s.page.waitForSelector('[data-testid=empty-table]');
+        });
+        await L.step(`tabletop (${label}): the practice Fate deck draws, discards, flips, looks at the top and searches`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=fate-section]');
+            await s.page.$eval('[data-testid=fate-open]', (el) => {
+                el.scrollIntoView({ block: 'center' });
+                el.click();
+            });
+            await s.page.waitForSelector('[data-testid=fate-side-1]', { timeout: 5000 });
+            // wide: docked in the column under the button; a phone: a bottom sheet, with the table still on screen above it
+            const phone = await s.page.evaluate(() => window.innerWidth < 1024);
+            await s.page.waitForSelector(phone ? '[data-testid=fate-sheet]' : '[data-testid=fate-docked]', { timeout: 3000 });
+            if (phone) {
+                const covered = await s.page.evaluate(() => {
+                    const sheet = document.querySelector('[data-testid=fate-sheet]').getBoundingClientRect();
+                    return sheet.top > window.innerHeight * 0.3; // the sheet leaves at least the top third free
+                });
+                if (!covered) throw new Error('the Fate sheet should leave the table visible above it');
+            }
+            const press = (id) =>
+                s.page.$eval(`[data-testid=${id}]`, (b) => {
+                    b.scrollIntoView({ block: 'center' });
+                    b.click();
+                });
+            const settle = () => s.page.waitForFunction(() => !document.querySelector('[role=dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            const handIs = (n) =>
+                s.page.waitForFunction(
+                    (want) => document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.trim() === want,
+                    { timeout: 5000 },
+                    `${n}/7`,
+                );
+            await handIs(0);
+            await press('fate-draw');
+            await handIs(1);
+            await press('fate-refill');
+            await handIs(7);
+            // a hand card opens a menu; discarding it moves it to the face-up pile
+            await s.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-card]', (b) => b.click());
+            await s.page.waitForSelector('[data-testid=fate-card-menu]');
+            await press('fate-menu-discard');
+            await handIs(6);
+            await s.page.waitForSelector('[data-testid=fate-discard-1] [data-testid=fate-discard-card]');
+            // a flip with a plus reveals two cards; take one and resolve
+            await press('fate-plus');
+            await press('fate-flip');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=fate-conflict] > *').length === 2, { timeout: 5000 });
+            await press('fate-choose');
+            await s.page.waitForSelector('[data-testid=fate-result]');
+            await press('fate-resolve');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-conflict]'), { timeout: 5000 });
+            // look at the top card and leave it on the bottom
+            await press('fate-more');
+            await press('fate-peek');
+            await s.page.waitForSelector('[data-testid=fate-peek-dialog]');
+            await s.page.select('[data-testid=fate-peek-row] select', 'bottom');
+            await press('fate-peek-apply');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-peek-dialog]'), { timeout: 5000 });
+            await settle();
+            // search for a card: taking one puts it in the hand
+            await press('fate-search');
+            await s.page.waitForSelector('[data-testid=fate-search-card]');
+            await s.page.$eval('[data-testid=fate-search-card]', (b) => b.click());
+            await handIs(7);
+            await settle();
+            // effects on the other hand: Red draws, Blue asks to see it, Red shows, and Blue puts it away; then a random discard
+            await press('fate-act-2');
+            await press('fate-draw');
+            await press('fate-act-1');
+            await s.page.waitForSelector('[data-testid=fate-ask-reveal]');
+            await press('fate-ask-reveal');
+            await s.page.waitForSelector('[data-testid=fate-prompt]', { timeout: 5000 });
+            await press('fate-prompt-show');
+            await s.page.waitForSelector('[data-testid=fate-answer] [data-testid=fate-answer-dismiss]', { timeout: 5000 });
+            await press('fate-answer-dismiss');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-answer]'), { timeout: 5000 });
+            await press('fate-random-discard');
+            await s.page.waitForSelector('[data-testid=fate-strip-pile-2]', { timeout: 5000 });
+            // the history says what happened, in words
+            await s.page.$eval('[data-testid=fate-history] summary', (el) => el.click());
+            await s.page.waitForFunction(() => /showed their hand to Blue/.test(document.querySelector('[data-testid=fate-history]').innerText), { timeout: 5000 });
+            await L.shot(s, `370-practice-fate-${label}`);
         });
         await L.step(`tabletop (${label}): the sandbox offers no blank models and starts empty`, s, async () => {
             await s.page.evaluate(() => localStorage.removeItem('tabletop-spike-v2'));

@@ -8,6 +8,7 @@ use App\Enums\GameStatusEnum;
 use App\Enums\TokenRemovalTimingEnum;
 use App\Enums\TournamentGameResultEnum;
 use App\Events\GameCrewMemberUpdated;
+use App\Events\GameFateChanged;
 use App\Events\GameStatusChanged;
 use App\Events\GameTurnAdvanced;
 use App\Events\TournamentUpdated;
@@ -39,6 +40,7 @@ use App\Models\Scheme;
 use App\Models\Token;
 use App\Models\TournamentGame;
 use App\Models\Upgrade;
+use App\Services\Fate\FateDeckService;
 use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -991,6 +993,7 @@ class GamePlayController extends Controller
                 ->update(['is_activated' => false]);
 
             $removed = [];
+            $fateShuffled = false;
             $bothDone = $locked->players()->where('is_turn_complete', true)->count() === 2;
             if ($bothDone) {
                 if ($locked->current_turn >= $locked->max_turns) {
@@ -1003,9 +1006,11 @@ class GamePlayController extends Controller
                 $locked->increment('current_turn');
                 $locked->players()->update(['is_turn_complete' => false]);
                 $removed = $this->removeEndOfTurnTokens($locked);
+                // End phase step G: each Fate discard pile goes back into its deck (only in games that use the Fate deck)
+                $fateShuffled = app(FateDeckService::class)->endPhaseIfStarted($locked);
             }
 
-            return ['both_done' => $bothDone, 'game_complete' => false, 'removed_tokens' => $removed];
+            return ['both_done' => $bothDone, 'game_complete' => false, 'removed_tokens' => $removed, 'fate_shuffled' => $fateShuffled];
         });
 
         if (! empty($result['already_finalized'])) {
@@ -1023,6 +1028,9 @@ class GamePlayController extends Controller
 
         if ($result['both_done']) {
             broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
+            if (! empty($result['fate_shuffled'])) {
+                broadcast(new GameFateChanged($game, 'end_phase'))->toOthers();
+            }
         }
 
         broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers();

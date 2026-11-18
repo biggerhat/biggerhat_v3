@@ -9,6 +9,7 @@ use App\Support\Tabletop\TabletopAccess;
 use App\Support\Tabletop\TabletopImages;
 use App\Support\Tabletop\TokenCatalogue;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -28,7 +29,8 @@ class TabletopController extends Controller
         }
 
         return inertia('Tools/Tabletop', [
-            'layouts' => Layouts::mine($request->user()),
+            // Up to fifty layouts with their terrain: loaded after the page is up, so the table appears without waiting for them.
+            'layouts' => Inertia::defer(fn () => Layouts::mine($request->user())),
             'incoming_layout' => $incoming,
             // Opened to change a table of the viewer's own: the page offers to save the changes back to it.
             // A new, empty table to set up and save: nothing from the sandbox kept on this device.

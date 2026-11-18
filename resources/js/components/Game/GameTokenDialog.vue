@@ -103,6 +103,8 @@ const filteredTokens = computed(() => {
                         <button
                             v-for="token in filteredTokens"
                             :key="token.id"
+                            data-testid="token-option"
+                            :data-name="token.name"
                             class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm transition-colors"
                             :class="memberHasToken(token.id) ? 'bg-primary/10 font-medium' : 'hover:bg-accent'"
                             @click="emit('toggle', token.id, token.name)"

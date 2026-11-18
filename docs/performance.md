@@ -82,3 +82,16 @@ inherit them.) HTML and JSON are already gzip-encoded on prod; enabling brotli w
   (`/upgrades/crew` renders ~260 images) substantially.
 - `public/images/TOS/Allegiances/` is empty (only `.gitkeep`), so the enum fallback logos 404 on prod until an
   admin uploads them; `AllegianceLogo.vue` degrades to a shield icon, but each page still issues the failing request.
+
+## Tabletop (sight-guidelines, Nov 2026)
+
+Measured with a Node benchmark on a heavy table (30 models, 40 pieces; a phone is several times slower than the figures here). Per-drag-frame work was the problem, since the board recomputes sight lines, placement problems and path cost on every pointer move:
+
+| Work | Before | After | Change |
+| --- | --- | --- | --- |
+| `placementProblems` for 30 models | 15 ms | 1 ms | `supportFraction` rejects a base outside a shape's cached bounds; the disc sample pattern is built once |
+| Side sight lines (`traceLine` x2) | 8.5 ms | 1.2 ms | the first blocked quarter inch is bisected, not walked |
+| Walk path cost (`terrainAlongPath`) | 2.1 ms | 0.7 ms | bounds reject before `distanceToShape` |
+| Table check, with zones | 205 ms | 25 ms | bounds reject on lanes, a 4.5" grid of sample points, bounds reject in the reachable-area flood |
+
+Also: pointer moves are applied once per animation frame (`flushMove` in `TabletopBoard.vue`; `onUp` flushes the last one) because a phone reports moves faster than it draws. The saved layouts (up to 50, each with its full terrain) are an `Inertia::defer` prop on the Tabletop page and the game board, so the table appears without them; the Load dialog says "loading…" until they arrive. Open item: the board re-renders as one component on each drag frame.

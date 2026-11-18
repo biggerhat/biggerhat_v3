@@ -30,6 +30,7 @@ use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\Game\GameBoardController;
 use App\Http\Controllers\Game\GameController;
+use App\Http\Controllers\Game\GameFateController;
 use App\Http\Controllers\Game\GamePlayController;
 use App\Http\Controllers\Game\GameSetupController;
 use App\Http\Controllers\HatGaminController;
@@ -454,6 +455,34 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/scheme', [GameSetupController::class, 'submitScheme'])->name('scheme');
         Route::post('/swap-roles', [GameSetupController::class, 'swapRoles'])->name('swap_roles');
         Route::post('/opponent-name', [GameSetupController::class, 'updateOpponentName'])->name('opponent_name');
+    });
+
+    // The Fate deck and hands of a full game (pre-release): the server shuffles and deals, a hand goes only to its owner
+    // its own throttle bucket (the third value): unprefixed throttles share one counter per user, so deck traffic would eat the allowance of saving a table
+    Route::prefix('/{game:uuid}/fate')->name('fate.')->middleware('throttle:240,1,fate')->group(function () {
+        Route::get('/', [GameFateController::class, 'show'])->name('show');
+        Route::get('/log', [GameFateController::class, 'log'])->name('log');
+        Route::post('/demand', [GameFateController::class, 'demand'])->name('demand');
+        Route::post('/random-discard', [GameFateController::class, 'randomDiscard'])->name('random_discard');
+        Route::post('/prompts/{prompt}/respond', [GameFateController::class, 'respond'])->whereNumber('prompt')->name('prompts.respond');
+        Route::post('/prompts/{prompt}/dismiss', [GameFateController::class, 'dismiss'])->whereNumber('prompt')->name('prompts.dismiss');
+        Route::post('/draw', [GameFateController::class, 'draw'])->name('draw');
+        Route::post('/refill', [GameFateController::class, 'refill'])->name('refill');
+        Route::post('/discard', [GameFateController::class, 'discard'])->name('discard');
+        Route::post('/flip', [GameFateController::class, 'flip'])->name('flip');
+        Route::post('/choose', [GameFateController::class, 'choose'])->name('choose');
+        Route::post('/cheat', [GameFateController::class, 'cheat'])->name('cheat');
+        Route::post('/cheat/decline', [GameFateController::class, 'declineCheat'])->name('cheat.decline');
+        Route::post('/resolve', [GameFateController::class, 'resolve'])->name('resolve');
+        Route::post('/shuffle', [GameFateController::class, 'shuffle'])->name('shuffle');
+        Route::post('/end-phase', [GameFateController::class, 'endPhase'])->name('end_phase');
+        Route::post('/remove', [GameFateController::class, 'remove'])->name('remove');
+        Route::post('/peek', [GameFateController::class, 'peek'])->name('peek');
+        Route::post('/arrange', [GameFateController::class, 'arrange'])->name('arrange');
+        Route::post('/put', [GameFateController::class, 'put'])->name('put');
+        Route::post('/draw-from-discard', [GameFateController::class, 'drawFromDiscard'])->name('draw_from_discard');
+        Route::post('/search', [GameFateController::class, 'search'])->name('search');
+        Route::post('/search/take', [GameFateController::class, 'searchTake'])->name('search.take');
     });
 
     // Gameplay

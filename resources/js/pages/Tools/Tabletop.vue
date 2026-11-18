@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import FateDock from '@/components/Fate/FateDock.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
-import TableThumbnail from '@/components/Tabletop/TableThumbnail.vue';
+import type { CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
 import { Button } from '@/components/ui/button';
+import { useLocalFate } from '@/composables/useLocalFate';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import type { RequestPayload } from '@inertiajs/core';
@@ -10,7 +12,6 @@ import type { MarkerOption, ModelInfo, TerrainPiece, Token } from '@/lib/tableto
 import type { SharedData } from '@/types';
 import type { SavedLayout } from '@/lib/tabletop/layouts';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
-import { TERRAIN_LAYOUTS } from '@/lib/tabletop/terrainLayouts';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -20,7 +21,7 @@ const props = defineProps<{
     table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
     terrain_images: Record<string, string>;
     /** The viewer's saved terrain layouts. */
-    layouts: SavedLayout[];
+    layouts?: SavedLayout[];
     /** A layout opened by link (somebody else's shared one, or the viewer's own): shown on the table without touching the saved sandbox. */
     incoming_layout: SavedLayout | null;
     /** The incoming layout is the viewer's own, opened to change it: the banner offers to save the changes back. */
@@ -159,8 +160,32 @@ const add = (t: Omit<Token, 'id'>) => tokens.value.push({ ...t, id: `n${Date.now
 /** Health, activation, tokens and notes for a model: kept with the token, on this device. */
 const modelChange = (id: string, patch: Partial<ModelInfo>) =>
     (tokens.value = tokens.value.map((t) => (t.id === id ? { ...t, info: { tokens: [], ...t.info, ...patch } } : t)));
+/** Swap a model for another character: it keeps its place, side, tokens, activation and notes; health is capped at the new maximum (CRG p.48). */
+const replaceCharacter = (id: string, c: CharacterOption) =>
+    (tokens.value = tokens.value.map((t) =>
+        t.id === id
+            ? {
+                  ...t,
+                  name: c.name,
+                  baseMm: c.base_mm,
+                  sz: c.sz,
+                  sp: c.sp,
+                  info: { tokens: [], ...t.info, maxHealth: c.health, health: Math.min(t.info?.health ?? c.health, c.health) },
+                  card: {
+                      faction: c.faction_key,
+                      defense: c.df ?? undefined,
+                      willpower: c.wp ?? undefined,
+                      front_image: c.front_image,
+                      back_image: c.back_image,
+                  },
+              }
+            : t,
+    ));
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
+/** A practice Fate deck for the table (not a game's: nobody to hide a hand from). */
+const fate = useLocalFate();
 const reset = () => {
+    fate.reset();
     tokens.value = [];
     terrain.value = props.fresh ? [] : JSON.parse(JSON.stringify(sampleTerrain));
 };
@@ -196,8 +221,6 @@ function saveNew() {
     );
 }
 /** Ready-made tables to begin from, instead of an empty board. */
-const startingPoints = TERRAIN_LAYOUTS.map((l) => ({ key: l.key, name: l.label, description: l.description, terrain: l.pieces() }));
-const startFrom = (pieces: TerrainPiece[]) => (terrain.value = JSON.parse(JSON.stringify(pieces)));
 /** Leaving with work on the table asks first. */
 async function leave(hasWork: boolean, title: string, message: string) {
     if (hasWork && !(await confirm({ title, message, confirmLabel: 'Leave', destructive: true }))) return;
@@ -296,7 +319,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             </form>
             <p v-if="newError" id="new-table-error" class="text-sm text-destructive" role="alert" data-testid="new-table-error">{{ newError }}</p>
             <p v-else-if="!terrain.length" class="text-xs text-muted-foreground">
-                Add a piece in the Terrain tab, or start from one below, to be able to save.
+                Add a piece in the Terrain tab, or use Load table to start from a ready-made one, to be able to save.
             </p>
             <details class="text-sm">
                 <summary class="cursor-pointer text-xs text-muted-foreground">Add a description</summary>
@@ -310,29 +333,6 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
                 />
             </details>
         </div>
-        <section v-if="fresh && !terrain.length" class="mb-3 space-y-2" aria-labelledby="starting-heading" data-testid="starting-points">
-            <h2 id="starting-heading" class="text-sm font-semibold">Start from a ready-made table, or add pieces yourself</h2>
-            <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                <button
-                    v-for="l in startingPoints"
-                    :key="l.key"
-                    type="button"
-                    class="space-y-1 rounded-md border p-2 text-left transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                    data-testid="starting-point"
-                    :data-key="l.key"
-                    @click="startFrom(l.terrain)"
-                >
-                    <TableThumbnail
-                        :uid="`start-${l.key}`"
-                        :terrain="l.terrain"
-                        :table-image="null"
-                        :table-images="props.table_images"
-                        :terrain-images="props.terrain_images"
-                    />
-                    <span class="block truncate text-sm font-medium">{{ l.name }}</span>
-                </button>
-            </div>
-        </section>
         <p v-if="signedIn && !incoming_layout && !fresh" class="mb-2 text-sm">
             <Link :href="route('tools.tabletop.tables')" class="underline" data-testid="my-tables-link">My tables and the public gallery</Link>
         </p>
@@ -341,8 +341,10 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             :terrain="terrain"
             :markers="props.markers"
             :token-options="props.token_options"
+            :fate="fate"
             :table-images="props.table_images"
-            :layouts="layouts"
+            :layouts="layouts ?? []"
+            :layouts-loading="layouts === undefined"
             :layout-target="fresh || editing ? undefined : { kind: 'sandbox' }"
             :initial-mode="fresh || editing ? 'terrain' : 'move'"
             :signed-in="signedIn"
@@ -357,8 +359,13 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             storage-key="sandbox"
             @moved="moved"
             @add="add"
+            @replace-character="replaceCharacter"
             @remove="remove"
             @reset="reset"
-        />
+        >
+            <template #fate>
+                <FateDock :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" />
+            </template>
+        </TabletopBoard>
     </div>
 </template>

@@ -9,6 +9,19 @@ use Laravel\Pennant\Feature;
 
 beforeEach(fn () => Feature::for(null)->activate('experiment-tabletop'));
 
+/** The saved layouts are a deferred prop: fetch them the way the page does, in the follow-up partial reload. */
+function deferredLayouts($test, User $user, string $component, string $url)
+{
+    $manifest = public_path('build/manifest.json');
+
+    return $test->actingAs($user)->withHeaders([
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => file_exists($manifest) ? hash_file('xxh128', $manifest) : '',
+        'X-Inertia-Partial-Component' => $component,
+        'X-Inertia-Partial-Data' => 'layouts',
+    ])->get($url);
+}
+
 function layoutTerrain(array $overrides = []): array
 {
     return [array_merge([
@@ -52,8 +65,10 @@ it('saves a layout, and lists only your own on the sandbox page', function () {
     $layout = TabletopLayout::where('user_id', $me->id)->firstOrFail();
     expect($layout->name)->toBe('City streets')->and($layout->is_shared)->toBeFalse()->and($layout->table_image)->toBe('cobble');
 
-    $this->actingAs($me)->get(route('tools.tabletop'))->assertInertia(fn (Assert $page) => $page
-        ->has('layouts', 1)->where('layouts.0.name', 'City streets')->where('layouts.0.mine', true)->where('layouts.0.pieces', 1)->where('incoming_layout', null));
+    // the first response carries no layouts (they would be up to fifty tables of terrain); the follow-up reload does
+    $this->actingAs($me)->get(route('tools.tabletop'))->assertInertia(fn (Assert $page) => $page->missing('layouts')->where('incoming_layout', null));
+    deferredLayouts($this, $me, 'Tools/Tabletop', route('tools.tabletop'))->assertOk()->assertJsonPath('props.layouts.0.name', 'City streets')
+        ->assertJsonPath('props.layouts.0.mine', true)->assertJsonPath('props.layouts.0.pieces', 1);
 });
 
 it('rejects a layout with no name, no pieces, a bad piece or an unknown surface', function (array $change, string $field) {
@@ -166,7 +181,8 @@ it('tells the game board page which layouts are yours', function () {
     TabletopLayout::factory()->for($me)->create(['name' => 'Kept']);
     TabletopLayout::factory()->create(['name' => 'Not mine']);
 
-    $this->actingAs($me)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->has('layouts', 1)->where('layouts.0.name', 'Kept'));
+    $this->actingAs($me)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->missing('layouts'));
+    deferredLayouts($this, $me, 'Games/Board', route('games.board', $game->uuid))->assertOk()->assertJsonCount(1, 'props.layouts')->assertJsonPath('props.layouts.0.name', 'Kept');
 });
 
 it('saves a game table with the visibility chosen, private by default, and refuses an unknown one', function () {

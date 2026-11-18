@@ -11,7 +11,7 @@ import { ImagePlus, Loader2, Trash2 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 /** One table's name, terrain notes and photo/layout. Saves on its own so a long list never loses work. */
-const props = defineProps<{ tournamentUuid: string; number: number; detail: TableDetail | null }>();
+const props = defineProps<{ tournamentUuid: string; number: number; detail: TableDetail | null; layouts?: { uuid: string; name: string }[] }>();
 const emit = defineEmits<{ (e: 'saved'): void }>();
 
 const toast = useToast();
@@ -19,6 +19,7 @@ const confirm = useConfirm();
 
 const name = ref(props.detail?.name ?? '');
 const description = ref(props.detail?.description ?? '');
+const layout = ref(props.detail?.layout?.uuid ?? '');
 const file = ref<File | null>(null);
 const removeImage = ref(false);
 const preview = ref<string | null>(null);
@@ -31,6 +32,7 @@ watch(
     (d) => {
         name.value = d?.name ?? '';
         description.value = d?.description ?? '';
+        layout.value = d?.layout?.uuid ?? '';
         file.value = null;
         removeImage.value = false;
         clearPreview();
@@ -48,10 +50,11 @@ const dirty = computed(
     () =>
         name.value !== (props.detail?.name ?? '') ||
         description.value !== (props.detail?.description ?? '') ||
+        layout.value !== (props.detail?.layout?.uuid ?? '') ||
         file.value !== null ||
         removeImage.value,
 );
-const described = computed(() => !!(props.detail?.name || props.detail?.description || props.detail?.image_url));
+const described = computed(() => !!(props.detail?.name || props.detail?.description || props.detail?.image_url || props.detail?.layout));
 
 const pick = (e: Event) => {
     const chosen = (e.target as HTMLInputElement).files?.[0] ?? null;
@@ -92,6 +95,7 @@ const save = async () => {
     const form = new FormData();
     form.append('name', name.value);
     form.append('description', description.value);
+    form.append('layout', layout.value);
     if (file.value) form.append('image', file.value);
     if (removeImage.value) form.append('remove_image', '1');
     if (await send({ method: 'POST', body: form }, route('tournaments.tables.save', [props.tournamentUuid, props.number]))) {
@@ -122,6 +126,19 @@ const clear = async () => {
                 <div class="space-y-1.5">
                     <Label :for="`table-name-${number}`" class="text-xs">Name (optional)</Label>
                     <Input :id="`table-name-${number}`" v-model="name" maxlength="80" placeholder="The Mill" />
+                </div>
+                <div v-if="layouts?.length" class="space-y-1.5">
+                    <Label :for="`table-layout-${number}`" class="text-xs">Saved Tabletop layout (optional)</Label>
+                    <select
+                        :id="`table-layout-${number}`"
+                        v-model="layout"
+                        :data-testid="`table-layout-${number}`"
+                        class="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    >
+                        <option value="">None</option>
+                        <option v-for="l in layouts" :key="l.uuid" :value="l.uuid">{{ l.name }}</option>
+                    </select>
+                    <p class="text-xs text-muted-foreground">Players can open it in Tabletop. It is shared by link.</p>
                 </div>
                 <div class="space-y-1.5">
                     <Label :for="`table-desc-${number}`" class="text-xs">Terrain and notes</Label>

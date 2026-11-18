@@ -113,6 +113,7 @@ const props = defineProps<{
     ruleset: TournamentRuleset;
     /** The organizer's per-table notes, keyed by table number. */
     tables: TableDetails;
+    layouts?: { uuid: string; name: string }[];
     /** The league this event belongs to, and the viewer's own leagues to choose from. */
     series: { uuid: string; name: string } | null;
     my_series: { uuid: string; name: string }[];
@@ -659,8 +660,9 @@ const isEditable = computed(() => !isLocked.value);
                     :tournament="tournament"
                     :ruleset="ruleset"
                     :tables="tables"
+                    :layouts="layouts"
                     :awards="awards"
-                    @saved="reloadProps(['tournament', 'tables', 'awards'])"
+                    @saved="reloadProps(['tournament', 'tables', 'layouts', 'awards'])"
                 />
 
                 <!-- ═══ SETTINGS ═══ -->

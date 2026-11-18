@@ -27,6 +27,7 @@ class MarkerRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'base' => ['required', 'integer', Rule::enum(BaseSizeEnum::class)],
             'description' => ['nullable', 'string'],
+            'is_strategy' => ['sometimes', 'boolean'],
             'characters' => ['nullable', 'array'],
             'characters.*' => ['string', Rule::exists(Character::class, 'slug')],
             'upgrades' => ['nullable', 'array'],

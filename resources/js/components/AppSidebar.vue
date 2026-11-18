@@ -25,6 +25,7 @@ import GameSystemSwitcher from './GameSystemSwitcher.vue';
 const page = usePage<SharedData>();
 const isAuthenticated = computed(() => !!page.props.auth.user);
 const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
+const canUseTabletop = computed(() => !!page.props.auth.can_use_tabletop);
 
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
@@ -81,6 +82,7 @@ const mainNavItems = computed(() =>
     buildMainNav({
         isAuthenticated: isAuthenticated.value,
         canAccessAdmin: canAccessAdmin.value,
+        canUseTabletop: canUseTabletop.value,
         hasChannels: channelIds.value.length > 0,
         factionItems: malifauxFactionItems.value,
     }),

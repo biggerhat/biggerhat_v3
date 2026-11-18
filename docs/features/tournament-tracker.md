@@ -237,3 +237,7 @@ games only (picked = scored + discarded, points, score rate), with a coverage li
 **CSV** (`TournamentInsightsExportController`): `tournaments.insights_csv` (event, organizers), `tournaments.analytics_csv` (`?range=`), `tournaments.series.analytics_csv`. Several tables per file, each with a title row; cells that start with
 `= + - @` are prefixed with `'` so a spreadsheet never runs them (`InsightsCsv::cell`). Throttled 30/hour.
 Shared pieces: `InsightBars`, `InsightTiles`, `InsightBreakdown` (plain div bars, no chart library). Tests: `tests/Feature/Tournament/AnalyticsTest.php`; browser flow `flows34.cjs`.
+
+## Table layouts (Tabletop)
+
+An organizer can attach one of their saved Tabletop layouts to a table (`tournament_tables.tabletop_layout_id`, chosen in `TableEditor.vue`, only offered when they can use Tabletop). Attaching shares the layout by link; players with Tabletop access see an "Open this table in Tabletop" link on their match card (`MyMatchCard.vue`). A table row with only a layout is kept.

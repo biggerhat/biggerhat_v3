@@ -26,6 +26,9 @@ class UpdateAurasRequest extends FormRequest
             'upsert.*.owner_id' => ['required', 'string', 'max:40', 'regex:/^[A-Za-z0-9_-]+$/'],
             'upsert.*.range' => ['required', 'numeric', 'between:0.5,36'],
             'upsert.*.locked' => ['required', 'boolean'],
+            // Terrain traits the area counts as (aura token terrain, p.57).
+            'upsert.*.traits' => ['nullable', 'array', 'max:4'],
+            'upsert.*.traits.*' => ['string', 'in:concealing,dense,hazardous,severe', 'distinct'],
             'upsert.*.x' => ['nullable', 'required_if:upsert.*.locked,true', 'numeric', 'between:0,36'],
             'upsert.*.y' => ['nullable', 'required_if:upsert.*.locked,true', 'numeric', 'between:0,36'],
             'remove' => ['sometimes', 'array', 'max:20'],

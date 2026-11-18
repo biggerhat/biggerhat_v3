@@ -25,6 +25,7 @@ import {
     Heart,
     Home,
     KeyRound,
+    LayoutGrid,
     Library,
     Map,
     Megaphone,
@@ -48,6 +49,8 @@ export interface MainNavContext {
     isAuthenticated: boolean;
     canAccessAdmin: boolean;
     hasChannels: boolean;
+    /** The tabletop is pre-release: its menu entry shows only for the flag or the beta permission. */
+    canUseTabletop?: boolean;
     factionItems: NavItem[];
 }
 
@@ -184,6 +187,17 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     icon: Map,
                     keywords: 'scheme paths chain planner',
                 },
+                ...(ctx.isAuthenticated && ctx.canUseTabletop
+                    ? [
+                          {
+                              title: 'Tabletop',
+                              href: route('tools.tabletop.tables'),
+                              icon: LayoutGrid,
+                              badge: 'Beta',
+                              keywords: 'tabletop vtt virtual table terrain sandbox board setup saved tables',
+                          },
+                      ]
+                    : []),
                 {
                     // Was mislabeled 'Random Character' despite routing to the
                     // filtered picker. 'characters.random' (true single-click

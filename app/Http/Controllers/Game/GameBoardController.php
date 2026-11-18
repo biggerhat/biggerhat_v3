@@ -17,8 +17,11 @@ use App\Http\Requests\Games\UpdateTerrainRequest;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
+use App\Models\Marker;
+use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
+use App\Support\Tabletop\TabletopImages;
 use App\Support\Tabletop\TokenCatalogue;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -75,6 +78,10 @@ class GameBoardController extends Controller
             'placed_markers' => $game->board_state['markers'] ?? [],
             'shared_auras' => $game->board_state['auras'] ?? [],
             'deployment_variant' => (int) ($game->board_state['deployment_variant'] ?? 0),
+            'table_image' => $game->board_state['table_image'] ?? null,
+            'table_images' => TabletopImages::tables(),
+            'terrain_images' => TabletopImages::terrain(),
+            'layouts' => Layouts::mine(auth()->user()),
         ]);
     }
 
@@ -121,7 +128,8 @@ class GameBoardController extends Controller
 
         $incoming = collect($request->validated('positions'))
             ->filter(fn ($_, $id) => in_array((string) $id, $movable, true))
-            ->map(fn (array $p) => ['x' => round((float) $p['x'], 2), 'y' => round((float) $p['y'], 2)]);
+            ->map(fn (array $p) => ['x' => round((float) $p['x'], 2), 'y' => round((float) $p['y'], 2)] + (! empty($p['under']) ? ['under' => true] : [])
+                + (! empty($p['ignores']) ? ['ignores' => array_values($p['ignores'])] : []));
 
         abort_if($incoming->isEmpty(), 403, 'You can only move your own models.');
 
@@ -159,14 +167,30 @@ class GameBoardController extends Controller
     {
         $this->guard();
 
-        $variant = (int) $request->validated('deployment_variant');
+        $data = $request->validated();
+        $variant = 0;
+        $tableImage = null;
 
-        DB::transaction(function () use ($game, $variant) {
+        DB::transaction(function () use ($game, $data, &$variant, &$tableImage) {
             $locked = Game::query()->lockForUpdate()->findOrFail($game->id);
-            $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['deployment_variant' => $variant])]);
+            /** @var array<string, mixed> $board */
+            $board = $locked->board_state ?? [];
+            if (array_key_exists('deployment_variant', $data)) {
+                $board['deployment_variant'] = (int) $data['deployment_variant'];
+            }
+            if (array_key_exists('table_image', $data)) {
+                if ($data['table_image'] === null) {
+                    unset($board['table_image']);
+                } else {
+                    $board['table_image'] = (string) $data['table_image'];
+                }
+            }
+            $locked->update(['board_state' => $board]);
+            $variant = (int) ($board['deployment_variant'] ?? 0);
+            $tableImage = $board['table_image'] ?? null;
         });
 
-        broadcast(new GameBoardSetupChanged($game, $variant))->toOthers();
+        broadcast(new GameBoardSetupChanged($game, $variant, $tableImage))->toOthers();
 
         return redirect()->back();
     }
@@ -217,7 +241,10 @@ class GameBoardController extends Controller
                 ]);
             }
 
-            if ($placed->groupBy(fn ($m) => ($m['owner'] ?? 0).'-'.$m['marker_id'])->contains(fn ($group) => $group->count() > self::MARKERS_PER_PLAYER)) {
+            // Strategy markers do not count towards the limit of five of a kind (p.45).
+            $strategy = Marker::query()->whereIn('id', $placed->pluck('marker_id')->unique())->where('is_strategy', true)->pluck('id')->all();
+            $limited = $placed->reject(fn ($m) => in_array((int) $m['marker_id'], $strategy, true));
+            if ($limited->groupBy(fn ($m) => ($m['owner'] ?? 0).'-'.$m['marker_id'])->contains(fn ($group) => $group->count() > self::MARKERS_PER_PLAYER)) {
                 $problem = 'limit';
 
                 return;
@@ -296,6 +323,7 @@ class GameBoardController extends Controller
                     'locked' => (bool) $a['locked'],
                     'x' => $a['locked'] ? round((float) $a['x'], 2) : null,
                     'y' => $a['locked'] ? round((float) $a['y'], 2) : null,
+                    'traits' => ! empty($a['traits']) ? array_values($a['traits']) : null,
                 ], fn ($v) => $v !== null));
             }
 

@@ -22,4 +22,9 @@ class MarkerFactory extends Factory
             'base' => $this->faker->randomElement(BaseSizeEnum::cases()),
         ];
     }
+
+    public function strategy(): static
+    {
+        return $this->state(['is_strategy' => true]);
+    }
 }

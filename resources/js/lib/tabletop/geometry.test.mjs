@@ -22,15 +22,52 @@ import {
     pathCost,
     pieceBounds,
     placementProblems,
+    placeReach,
+    auraTerrain,
+    AURA_TRAITS,
+    tableChecks,
+    shapeArea,
+    LANE_MIN,
+    jumpCheck,
+    IGNORABLE_TRAITS,
+    whereabouts,
+    nearestLegalSpot,
+    terrainAlongLeg,
+    terrainAlongPath,
+    archwayAt,
+    coverAt,
+    insideOf,
+    wallProblem,
+    makeEnterable,
+    addOpening,
+    moveOpening,
+    makeSolid,
+    nearestOnOutline,
+    openingSpan,
+    OPENINGS_MAX,
+    settleUnder,
+    placeCheck,
+    mmToInches,
+    rotateAbout,
+    rotatePiece,
+    rotateShape,
+    setShapeAngle,
+    shapeHandles,
+    dragShapeHandle,
+    insertCorner,
+    removeCorner,
+    shapeOutline,
     pointInShape,
     restingSupport,
     rotatePiece90,
     searchMarkers,
     shapeBounds,
+    sideSightLines,
     supportFraction,
     surfaceAt,
     tallClimbablePieces,
     terrainCoverage,
+    traceLine,
     translateShape,
     walkBudget,
     withinAura,
@@ -309,7 +346,7 @@ test('the guide wants three to eight standable pieces of Ht 2 or more', () => {
 });
 
 test('editor input is kept to half inches inside the allowed range', () => {
-    assert.equal(clampTop(0), 0.5);
+    assert.equal(clampTop(0), 0);
     assert.equal(clampTop(99), 12);
     assert.equal(clampTop(2.3), 2.5);
     assert.equal(clampSize(0), 0.5);
@@ -323,13 +360,13 @@ test('every preset builds a valid piece on the table', async () => {
         const p = preset.make('x', 18, 18);
         assert.ok(p.surfaces.length >= 1 && p.surfaces.length <= 6, `${preset.key}: surface count`);
         assert.ok(
-            p.traits.every((t) => ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible'].includes(t)),
+            p.traits.every((t) => ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'].includes(t)),
             `${preset.key}: traits`,
         );
         const b = pieceBounds(p);
         assert.ok(b.minX >= 0 && b.minY >= 0 && b.maxX <= 36 && b.maxY <= 36, `${preset.key}: fits the table when centred`);
         assert.ok(
-            p.surfaces.every((s) => s.top >= 0.5 && s.top <= 12),
+            p.surfaces.every((s) => s.top >= 0 && s.top <= 12),
             `${preset.key}: heights`,
         );
     }
@@ -535,7 +572,7 @@ test('every ready-made table follows the guide: 45-65% covered, three to eight t
         for (const s of pieces.flatMap((p) => p.surfaces)) {
             const b = shapeBounds(s.shape);
             assert.ok(b.minX >= 0 && b.minY >= 0 && b.maxX <= 36 && b.maxY <= 36, `${layout.key}: ${s.id} is on the table`);
-            assert.ok(s.top >= 0.5 && s.top <= 12);
+            assert.ok(s.top >= 0 && s.top <= 12);
         }
         for (let x = 0.25; x < 36; x += 0.5) {
             for (let y = 0.25; y < 36; y += 0.5) {
@@ -572,6 +609,8 @@ test('bases may touch but not overlap, and nothing ends on impassable terrain', 
     assert.equal(placementProblems(a, [a], [steep])[0].kind, 'impassable');
     const bog = { id: 'b', name: 'Bog', traits: ['hazardous'], surfaces: [{ id: 'b1', top: 0.5, shape: { kind: 'circle', cx: 10, cy: 10, r: 3 } }] };
     assert.equal(placementProblems(a, [a], [bog])[0].kind, 'hazardous');
+    const mud = { ...bog, id: 'm', name: 'Mud', traits: ['severe'] };
+    assert.deepEqual(placementProblems(a, [a], [mud]).map((p) => p.kind), ['severe']);
     assert.deepEqual(
         placementProblems(a, [a], [{ ...steep, surfaces: [{ ...steep.surfaces[0], shape: { kind: 'rect', x: 20, y: 0, w: 5, h: 5 } }] }]),
         [],
@@ -603,4 +642,622 @@ test('a stepped move costs each leg: 2 inches then 5 inches is 7, plus any climb
     ]);
     assert.deepEqual([climbing.ground, climbing.climb, climbing.drop, climbing.total], [11, 2, 2, 13]);
     assert.equal(pathCost([{ x: 1, y: 1, elev: 0 }]).total, 0);
+});
+
+// --- side sight lines ---
+
+test('side lines leave the two sides of the base square to the aim and run parallel in its direction', () => {
+    const a = man('a', 'a', 10, 18);
+    const lines = sideSightLines(a, { x: 20, y: 18 });
+    assert.deepEqual(
+        lines.map((l) => l.side),
+        ['left', 'right'],
+    );
+    for (const l of lines) {
+        assert.ok(Math.abs(Math.hypot(l.start.x - 10, l.start.y - 18) - baseRadius(30)) < 1e-9);
+        assert.ok(Math.abs(l.start.x - 10) < 1e-9); // square to a horizontal aim
+        assert.ok(Math.abs(l.end.x - 20) < 1e-9 && Math.abs(l.end.y - l.start.y) < 1e-9); // straight off the base, not converging
+    }
+    assert.ok(Math.abs(lines[0].start.y - lines[1].start.y) > 2 * baseRadius(30) - 1e-9);
+    assert.equal(sideSightLines(a, { x: 10.2, y: 18 }), null); // inside its own base
+});
+
+test('a line sees the models it reaches, nearest first, and is stopped by tall terrain', () => {
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    const start = { x: 4 + baseRadius(30), y: 18 };
+    const open = traceLine(a, start, { x: 18, y: 18 }, [a, b], []);
+    assert.deepEqual(
+        open.models.map((m) => [m.id, m.blockedBy]),
+        [['b', null]],
+    );
+    // an enemy as tall as the viewer ends the drawn line at its edge: it is seen, nothing beyond it is
+    assert.ok(open.stopAt && Math.abs(open.stopAt.x - (16 - baseRadius(30))) < 0.3);
+    assert.equal(open.blockedBy, 'b');
+    assert.equal(traceLine(a, start, { x: 12, y: 18 }, [a, b], []).stopAt, null);
+
+    const shut = traceLine(a, start, { x: 18, y: 18 }, [a, b], [wall(2)]);
+    assert.equal(shut.models[0].blockedBy, 'Wall');
+    assert.ok(shut.stopAt && shut.stopAt.x >= 9 - 0.3 && shut.stopAt.x <= 9 + 0.3);
+    assert.equal(shut.blockedBy, 'Wall');
+
+    // terrain shorter than the model does not stop it
+    const low = traceLine(a, start, { x: 18, y: 18 }, [a, b], [wall(1)]);
+    assert.ok(low.stopAt && low.stopAt.x > 15);
+    assert.equal(low.models[0].blockedBy, null);
+});
+
+test('a line stops short of a model it does not reach, and an enemy in the way hides one behind it', () => {
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    const short = traceLine(a, { x: 4.6, y: 18 }, { x: 10, y: 18 }, [a, b], []);
+    assert.equal(short.models.length, 0);
+
+    const front = man('f', 'b', 9, 18);
+    const lined = traceLine(a, { x: 4.6, y: 18 }, { x: 20, y: 18 }, [a, front, b], []);
+    assert.deepEqual(
+        lined.models.map((m) => m.id),
+        ['f', 'b'],
+    );
+    assert.equal(lined.models[0].blockedBy, null);
+    assert.equal(lined.models[1].blockedBy, 'f'); // as tall as both: blocked
+    assert.ok(lined.stopAt && lined.stopAt.x > 8 && lined.stopAt.x < 10);
+
+    // markers are never seen
+    const marker = { id: 'm', name: 'Marker', side: 'n', marker: true, baseMm: 30, x: 8, y: 18 };
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 12, y: 18 }, [a, marker], []).models.length, 0);
+});
+
+test('a model standing on a tall piece looks over terrain that would stop one on the ground', () => {
+    const hill = {
+        id: 'h',
+        name: 'Tower',
+        traits: ['climbable'],
+        surfaces: [{ id: 'h1', top: 2, shape: { kind: 'rect', x: 2, y: 16, w: 5, h: 4 } }],
+    };
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    const w = wall(3); // as tall as the viewer on the ground (2) but not the viewer on the tower (4)
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, w]).models[0].blockedBy, null);
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [hill, wall(4)]).models[0].blockedBy, 'Wall');
+    assert.equal(traceLine(a, { x: 4.6, y: 18 }, { x: 18, y: 18 }, [a, b], [wall(3)]).models[0].blockedBy, 'Wall');
+});
+
+// --- the rules guide's own sight line examples (pp.25-26) ---
+
+test('guide example 2: a Ht 3 wall blocks Sz 2 models, unless a line can pass its end', () => {
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 16, 18);
+    const full = wall(3);
+    assert.equal(lineOfSight(a, b, [a, b], [full]).clear, false);
+    // a wall covering only the lower part of the bases' width leaves the upper lines open
+    const partial = { id: 'w', name: 'Wall', traits: ['blocking'], surfaces: [{ id: 'w1', top: 3, shape: rect(9, 18.2, 2, 12) }] };
+    assert.equal(lineOfSight(a, b, [a, b], [partial]).clear, true);
+});
+
+test('guide example 3: smaller enemies and friendly models are ignored, an equal enemy blocks what is behind it', () => {
+    const fb = man('fb', 'a', 4, 18, 2);
+    const survivor = man('s', 'b', 8, 18, 1);
+    const golem = man('g', 'a', 12, 18, 4);
+    const rooster = man('r', 'b', 16, 18, 2);
+    const borg = man('x', 'b', 20, 18, 2);
+    const all = [fb, survivor, golem, rooster, borg];
+    assert.equal(lineOfSight(fb, rooster, all, []).clear, true);
+    const toBorg = lineOfSight(fb, borg, all, []);
+    assert.equal(toBorg.clear, false);
+    assert.equal(toBorg.blockedBy, 'r');
+    // and a guideline drawn straight along shows the same: the Rooster Rider is reached, Borgmann is hidden by it
+    const seen = traceLine(fb, { x: 4.6, y: 18 }, { x: 22, y: 18 }, all, []).models;
+    assert.deepEqual(
+        seen.map((m) => [m.id, m.blockedBy]),
+        [
+            ['s', null],
+            ['g', null],
+            ['r', null],
+            ['x', 'r'],
+        ],
+    );
+});
+
+test('guide examples 4 and 5: a wall as tall as both models blocks however close, one shorter than both does not', () => {
+    const fb = man('fb', 'a', 4, 18, 2);
+    const borg = man('b', 'b', 12, 18, 2);
+    assert.equal(lineOfSight(fb, borg, [fb, borg], [wall(3, 7, 1)]).clear, false);
+    assert.equal(lineOfSight(fb, borg, [fb, borg], [wall(3, 5, 1)]).clear, false); // right beside Firebranded
+    assert.equal(lineOfSight(fb, borg, [fb, borg], [wall(1, 7, 1)]).clear, true);
+});
+
+test('guide dense terrain example: seen into the fog, not through it', () => {
+    const fog = { id: 'f', name: 'Fog', traits: ['dense', 'concealing'], surfaces: [{ id: 'f1', top: 3, shape: rect(8, 10, 6, 16) }] };
+    const ophelia = man('o', 'a', 4, 18);
+    const jack = man('j', 'b', 10, 18);
+    const montresor = man('m', 'b', 18, 18);
+    const all = [ophelia, jack, montresor];
+    const toJack = lineOfSight(ophelia, jack, all, [fog]);
+    assert.equal(toJack.clear, true);
+    assert.equal(toJack.concealed, true); // concealment against attacks on him
+    assert.equal(lineOfSight(ophelia, montresor, all, [fog]).clear, false);
+});
+
+test('ground terrain presets: woods are dense, tall grass conceals without blocking, rivers and marsh are severe, water cannot be stood in', async () => {
+    const { TERRAIN_PRESETS } = await import('./terrainPresets.ts');
+    const make = (key, x = 18, y = 18) => TERRAIN_PRESETS.find((p) => p.key === key).make('t', x, y);
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 32, 18);
+    assert.equal(lineOfSight(a, b, [a, b], [make('woods')]).clear, false, 'a line across woods is blocked');
+    const grass = lineOfSight(a, b, [a, b], [make('tallgrass')]);
+    assert.equal(grass.clear, true, 'tall grass does not block');
+    assert.equal(grass.concealed, true, 'but it conceals');
+    assert.equal(lineOfSight(a, b, [a, b], [make('tree', 18, 18)]).clear, false, 'a tree in the way blocks');
+    assert.equal(lineOfSight(a, b, [a, b], [make('tree', 18, 24)]).clear, true, 'a tree off to one side does not');
+    for (const key of ['river', 'marsh', 'rubble', 'brambles']) assert.ok(make(key).traits.includes('severe'), `${key} is severe`);
+    for (const key of ['brambles', 'acid', 'fire']) assert.ok(make(key).traits.includes('hazardous'), `${key} is hazardous`);
+    const inDeep = man('d', 'a', 18, 18);
+    assert.equal(placementProblems(inDeep, [inDeep], [make('deepwater')])[0].kind, 'impassable');
+    assert.deepEqual(placementProblems(inDeep, [inDeep], [make('river')]).map((p) => p.kind), ['severe']);
+});
+
+test('flat ground terrain has no height: models on it stand at ground level and it never blocks by height', async () => {
+    const { TERRAIN_PRESETS } = await import('./terrainPresets.ts');
+    for (const key of ['river', 'deepwater', 'marsh', 'rubble', 'brambles', 'acid', 'fire', 'tallgrass', 'woods', 'fog']) {
+        const p = TERRAIN_PRESETS.find((x) => x.key === key).make('t', 18, 18);
+        assert.ok(p.surfaces.every((s) => s.top === 0), `${key} is flat`);
+    }
+    const river = TERRAIN_PRESETS.find((x) => x.key === 'river').make('t', 18, 18);
+    const a = man('a', 'a', 4, 18);
+    const b = man('b', 'b', 32, 18);
+    assert.equal(lineOfSight(a, b, [a, b], [river]).clear, true);
+    const wader = man('w', 'a', 18, 18);
+    assert.equal(restingSupport(wader, [river]).elevation, 0);
+});
+
+test('a rectangle turned by an angle: containment, bounds and distance follow the turned shape', () => {
+    const bar = { kind: 'rect', x: 10, y: 10, w: 10, h: 2, angle: 45 };
+    assert.equal(pointInShape(bar, 15, 11), true, 'the centre');
+    const far = 15 + 3.5; // along the diagonal, inside
+    assert.equal(pointInShape(bar, far, 11 + 3.5), true);
+    assert.equal(pointInShape(bar, 19, 11), false, 'the unturned end is no longer there');
+    const b = shapeBounds(bar);
+    assert.ok(Math.abs(b.maxX - b.minX - (10 + 2) * Math.SQRT1_2) < 1e-9, 'a bar turned 45 degrees is 12 / sqrt2 wide');
+    assert.ok(distanceToShape(bar, 15, 11) === 0 && distanceToShape(bar, 19, 11) > 1);
+});
+
+test('an ellipse: containment, turn and bounds', () => {
+    const e = { kind: 'ellipse', cx: 10, cy: 10, rx: 4, ry: 2 };
+    assert.equal(pointInShape(e, 13.9, 10), true);
+    assert.equal(pointInShape(e, 10, 12.1), false);
+    const turned = { ...e, angle: 90 };
+    assert.equal(pointInShape(turned, 10, 13.9), true, 'turned a quarter, the long axis is vertical');
+    const b = shapeBounds({ ...e, angle: 90 });
+    assert.ok(Math.abs(b.maxY - b.minY - 8) < 1e-9 && Math.abs(b.maxX - b.minX - 4) < 1e-9);
+    assert.equal(shapeOutline(e).length, 48);
+});
+
+test('rotating a piece by any angle keeps levels together; quarter turns stay axis-aligned', () => {
+    const piece = {
+        id: 'p',
+        name: 'P',
+        traits: [],
+        surfaces: [
+            { id: 'a', top: 1, shape: { kind: 'rect', x: 10, y: 10, w: 8, h: 4 } },
+            { id: 'b', top: 2, shape: { kind: 'circle', cx: 14, cy: 12, r: 1 } },
+        ],
+    };
+    const q = rotatePiece(piece, 90);
+    assert.deepEqual(q.surfaces[0].shape, { kind: 'rect', x: 12, y: 8, w: 4, h: 8 });
+    assert.equal(q.surfaces[0].shape.angle, undefined);
+    const t = rotatePiece(piece, 30);
+    assert.equal(t.surfaces[0].shape.angle, 30);
+    assert.deepEqual(rotatePiece(t, -30).surfaces[0].shape, { kind: 'rect', x: 10, y: 10, w: 8, h: 4 }, 'turning back restores it');
+    assert.equal(rotatePiece(rotatePiece(piece, 60), 30).surfaces[0].shape.w, 4, 'two turns make a quarter, which swaps the sides');
+    const e = rotateShape({ kind: 'ellipse', cx: 5, cy: 5, rx: 3, ry: 1 }, [5, 5], 180);
+    assert.deepEqual(e, { kind: 'ellipse', cx: 5, cy: 5, rx: 3, ry: 1 });
+    assert.deepEqual(setShapeAngle({ kind: 'rect', x: 1, y: 1, w: 2, h: 2, angle: 40 }, 0), { kind: 'rect', x: 1, y: 1, w: 2, h: 2 });
+    assert.deepEqual(rotateAbout([1, 0], [0, 0], 90), [0, 1]);
+});
+
+test('dragging a handle reshapes a level: rectangle corners keep the opposite corner, outlines move and gain or lose corners', () => {
+    const r = { kind: 'rect', x: 10, y: 10, w: 4, h: 2 };
+    const grown = dragShapeHandle(r, { kind: 'corner', index: 2 }, { x: 18.2, y: 15 });
+    assert.deepEqual(grown, { kind: 'rect', x: 10, y: 10, w: 8, h: 5 }, 'the top-left corner stays put and sizes snap to half inches');
+    const flipped = dragShapeHandle(r, { kind: 'corner', index: 2 }, { x: 8, y: 9 });
+    assert.deepEqual([flipped.x, flipped.y, flipped.w, flipped.h], [8, 9, 2, 1], 'dragged past the other corner it still makes a rectangle');
+    const turned = { ...r, angle: 90 };
+    const handles = shapeHandles(turned);
+    assert.equal(handles.length, 4);
+    const out = dragShapeHandle(turned, handles[2], { x: handles[2].x, y: handles[2].y + 2 });
+    assert.equal(out.angle, 90);
+    assert.equal(out.w + out.h, 8, 'a turned rectangle grows along its own axes');
+    assert.equal(dragShapeHandle({ kind: 'circle', cx: 5, cy: 5, r: 1 }, { kind: 'radius', index: 0 }, { x: 8.2, y: 5 }).r, 3);
+    assert.equal(dragShapeHandle({ kind: 'ellipse', cx: 5, cy: 5, rx: 2, ry: 1 }, { kind: 'edge', index: 0 }, { x: 10, y: 5 }).rx, 5);
+    const tri = { kind: 'poly', points: [[0, 0], [4, 0], [4, 4]] };
+    assert.deepEqual(dragShapeHandle(tri, { kind: 'vertex', index: 2 }, { x: 40, y: -3 }).points[2], [36, 0], 'a corner stays on the table');
+    const four = insertCorner(tri, 0);
+    assert.deepEqual(four.points, [[0, 0], [2, 0], [4, 0], [4, 4]]);
+    assert.equal(removeCorner(tri, 0), null, 'three corners is the least');
+    assert.equal(removeCorner(four, 1).points.length, 3);
+    const full = { kind: 'poly', points: Array.from({ length: 16 }, (_, i) => [i, (i * 7) % 5]) };
+    assert.equal(insertCorner(full, 0), null);
+    assert.equal(shapeHandles(tri).filter((h) => h.kind === 'mid').length, 3);
+});
+
+test('a place is measured from the closest point of the starting base, not by the middle', () => {
+    const r = mmToInches(30) / 2;
+    assert.ok(Math.abs(placeReach(6, 30, 30) - (6 + 2 * r)) < 1e-9, 'a single point of the new base in range: the middle may be 6" plus both radii away');
+    assert.ok(Math.abs(placeReach(6, 30, 30, true) - 6) < 1e-9, 'the whole base in range: the middle may be 6" away');
+    assert.ok(placeReach(6, 50, 30) > placeReach(6, 30, 30), 'a larger starting base reaches further');
+    const start = { x: 10, y: 10, baseMm: 30 };
+    const ok = placeCheck(6, start, { x: 16, y: 10, baseMm: 30 });
+    assert.equal(ok.within, true);
+    assert.ok(Math.abs(ok.gap - (6 - 2 * r)) < 1e-9, 'the gap is edge to edge');
+    const far = placeCheck(6, start, { x: 18, y: 10, baseMm: 30 }, true);
+    assert.equal(far.within, false);
+    assert.ok(Math.abs(far.over - 2) < 1e-9);
+    assert.equal(placeCheck(6, start, { x: 10.2, y: 10, baseMm: 30 }).gap, 0, 'overlapping bases have no gap');
+});
+
+test('a bridge: a model beneath the archway is not on the deck, sight passes under it, and only a model that fits may stand there', () => {
+    const bridge = {
+        id: 'br',
+        name: 'Bridge',
+        traits: ['blocking', 'climbable'],
+        surfaces: [{ id: 'br-1', top: 3, under: 2, shape: { kind: 'rect', x: 10, y: 15, w: 12, h: 4 } }],
+    };
+    const below = man('u', 'a', 16, 17, 1, { under: true });
+    const above = man('o', 'a', 16, 17, 1);
+    assert.equal(restingSupport(below, [bridge]).elevation, 0, 'beneath it, on the ground');
+    assert.equal(restingSupport(above, [bridge]).elevation, 3, 'on it, at the deck');
+    assert.equal(archwayAt(below, [bridge])?.piece.id, 'br');
+    assert.equal(archwayAt(man('z', 'a', 2, 2), [bridge]), null);
+    assert.equal(settleUnder(below, 0, [bridge]), true, 'came from the ground: went under');
+    assert.equal(settleUnder(below, 3, [bridge]), false, 'was already as high as the deck: on it');
+    assert.equal(settleUnder(man('z', 'a', 2, 2), 0, [bridge]), undefined);
+    // sight under the bridge: two small models see each other through the archway; a tall one does not
+    const a = man('a', 'a', 4, 17, 1);
+    const b = man('b', 'b', 28, 17, 1);
+    assert.equal(lineOfSight(a, b, [a, b], [bridge]).clear, true, 'Sz 1 models fit under the 2" archway');
+    const tall = man('t', 'b', 28, 17, 3);
+    assert.equal(lineOfSight(a, tall, [a, tall], [bridge]).clear, false, 'a Sz 3 model does not fit, so the deck blocks');
+    const noArch = { ...bridge, surfaces: [{ ...bridge.surfaces[0], under: undefined }] };
+    assert.equal(lineOfSight(a, b, [a, b], [noArch]).clear, false, 'a solid piece of the same size would block');
+    // fit
+    const big = man('g', 'a', 16, 17, 3, { under: true });
+    assert.equal(placementProblems(big, [big], [bridge])[0].kind, 'impassable');
+    assert.match(placementProblems(big, [big], [bridge])[0].text, /too tall/);
+    assert.deepEqual(placementProblems(below, [below], [bridge]), []);
+});
+
+const house = (extra = {}) => ({
+    id: 'h',
+    name: 'House',
+    traits: ['blocking', 'climbable'],
+    surfaces: [{ id: 'h-1', top: 3, shape: { kind: 'rect', x: 10, y: 10, w: 6, h: 6 } }],
+    interior: {
+        floor: 0,
+        openings: [
+            { id: 'door', kind: 'door', x: 13, y: 16, w: 2 },
+            { id: 'win', kind: 'window', x: 16, y: 13, w: 1.5 },
+        ],
+    },
+    ...extra,
+});
+
+test('inside a building: under the roof, standing on the floor, and on the roof when high enough', () => {
+    const h = house();
+    const inside = man('i', 'a', 13, 13, 2, { under: true });
+    const onRoof = man('r', 'a', 13, 13, 2);
+    assert.equal(insideOf(inside, [h])?.id, 'h');
+    assert.equal(insideOf(onRoof, [h]), null, 'not under the roof, so not inside');
+    assert.equal(restingSupport(inside, [h]).elevation, 0, 'on the ground floor');
+    assert.equal(restingSupport(inside, [house({ interior: { ...h.interior, floor: 1 } })]).elevation, 1, 'on a raised floor');
+    assert.equal(restingSupport(onRoof, [h]).elevation, 3, 'on the roof');
+    assert.equal(coverAt(inside, [h])?.kind, 'building');
+    assert.equal(settleUnder(man('g', 'a', 13, 13), 0, [h]), true, 'came from the ground: inside');
+    assert.equal(settleUnder(man('g', 'a', 13, 13), 3, [h]), false, 'came from the roof: on it');
+    assert.equal(insideOf(man('o', 'a', 3, 3, 2, { under: true }), [h]), null);
+});
+
+test('sight into and out of a building goes through its doors and windows, not its walls', () => {
+    const h = house();
+    const inside = man('i', 'a', 13, 13, 2, { under: true });
+    const south = man('s', 'b', 13, 24, 2); // straight out through the door
+    const east = man('e', 'b', 24, 13, 2); // out through the window
+    const west = man('w', 'b', 2, 13, 2); // a wall with no opening
+    assert.equal(lineOfSight(inside, south, [inside, south], [h]).clear, true, 'through the open door');
+    assert.equal(lineOfSight(south, inside, [inside, south], [h]).clear, true, 'and back again');
+    assert.equal(lineOfSight(inside, east, [inside, east], [h]).clear, true, 'through the window');
+    assert.equal(lineOfSight(inside, west, [inside, west], [h]).clear, false, 'the wall blocks');
+    assert.equal(lineOfSight(inside, west, [inside, west], [h]).blockedBy, 'House');
+    const mate = man('m', 'a', 14, 14, 2, { under: true });
+    assert.equal(lineOfSight(inside, mate, [inside, mate], [h]).clear, true, 'two models in the same building see each other');
+    // neither inside: the building is just a blocking piece, openings do not matter
+    const a = man('a', 'a', 13, 4, 2);
+    assert.equal(lineOfSight(a, south, [a, south], [h]).clear, false, 'a line through the whole building is blocked');
+    // the same models on the roof ignore the building they stand on
+    const roof = man('r', 'a', 13, 13, 2);
+    assert.equal(lineOfSight(roof, west, [roof, west], [h]).clear, true, 'a model on the roof sees out over the walls');
+});
+
+test('walking into a building needs a door as wide as the base', () => {
+    const h = house();
+    const door = { x: 13, y: 22 };
+    assert.equal(wallProblem(h, door, { x: 13, y: 13 }, 30), null, 'in through the 2" door');
+    assert.match(wallProblem(h, { x: 22, y: 13 }, { x: 13, y: 13 }, 30), /enters by a door/, 'a window is not a way in');
+    assert.match(wallProblem(h, { x: 2, y: 13 }, { x: 13, y: 13 }, 30), /through the wall of House/, 'through a plain wall');
+    const narrow = house({ interior: { floor: 0, openings: [{ id: 'd', kind: 'door', x: 13, y: 16, w: 1 }] } });
+    assert.match(wallProblem(narrow, door, { x: 13, y: 13 }, 30), /no door as wide/, 'a 1" door is narrower than a 30 mm base');
+    assert.equal(wallProblem(narrow, door, { x: 13, y: 13 }, 20), null, 'but not than a 20 mm base');
+    assert.equal(wallProblem(h, { x: 12, y: 12 }, { x: 14, y: 14 }, 30), null, 'moving about inside crosses no wall');
+});
+
+test('making a building enterable, and moving its doors along the walls', () => {
+    const solid = { id: 's', name: 'Hall', traits: ['blocking', 'climbable'], surfaces: [{ id: 's-1', top: 3, shape: { kind: 'rect', x: 4, y: 4, w: 8, h: 4 } }] };
+    const e = makeEnterable(solid);
+    assert.equal(e.interior.openings.length, 1);
+    const d = e.interior.openings[0];
+    assert.equal(d.kind, 'door');
+    assert.ok(Math.abs(nearestOnOutline(solid.surfaces[0].shape, d.x, d.y).x - d.x) < 1e-9, 'on the outline');
+    const win = addOpening(e, 'window');
+    assert.equal(win.interior.openings.length, 2);
+    assert.notDeepEqual([win.interior.openings[1].x, win.interior.openings[1].y], [d.x, d.y], 'a second opening goes on another wall');
+    const moved = moveOpening(win, d.id, { x: 20, y: 6 });
+    const m = moved.interior.openings.find((o) => o.id === d.id);
+    assert.equal(m.x, 12, 'pulled to the nearest wall');
+    assert.equal(m.y, 6);
+    const span = openingSpan(moved, m);
+    assert.ok(Math.abs(Math.hypot(span[1].x - span[0].x, span[1].y - span[0].y) - m.w) < 1e-9, 'the gap is as wide as the opening');
+    let full = e;
+    for (let i = 0; i < 20; i++) full = addOpening(full, 'window') ?? full;
+    assert.equal(full.interior.openings.length, OPENINGS_MAX);
+    assert.equal(addOpening(full, 'door'), null);
+    assert.equal(makeSolid(e).interior, undefined);
+});
+
+test('a walk across severe, hazardous and impassable terrain says what it met and what it costs extra', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const river = { id: 'r', name: 'River', traits: ['severe'], surfaces: [{ id: 'r1', top: 0, shape: rect(14, 5, 3, 30) }] };
+    const acid = { id: 'a', name: 'Acid pool', traits: ['hazardous'], surfaces: [{ id: 'a1', top: 0, shape: { kind: 'circle', cx: 30, cy: 10, r: 2 } }] };
+    const deep = { id: 'd', name: 'Deep water', traits: ['impassable'], surfaces: [{ id: 'd1', top: 0, shape: rect(5, 20, 4, 4) }] };
+    const r = mmToInches(30) / 2;
+    // across the 3" river: the base is in it from one radius before the bank to one radius past the far bank
+    const across = terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [river, acid, deep]);
+    assert.ok(Math.abs(across.severe - (3 + 2 * r)) < 0.2, `expected about ${3 + 2 * r} in severe terrain, saw ${across.severe}`);
+    assert.deepEqual(across.hazardous, []);
+    assert.deepEqual(across.impassable, []);
+    // not touching it costs nothing extra
+    assert.equal(terrainAlongLeg({ x: 2, y: 10 }, { x: 10, y: 10 }, 30, [river]).severe, 0);
+    // through the acid pool, and past it without touching
+    assert.deepEqual(terrainAlongLeg({ x: 26, y: 10 }, { x: 34, y: 10 }, 30, [acid]).hazardous, ['Acid pool']);
+    assert.deepEqual(terrainAlongLeg({ x: 26, y: 20 }, { x: 34, y: 20 }, 30, [acid]).hazardous, []);
+    // in base contact counts: a base that only grazes the edge
+    assert.deepEqual(terrainAlongLeg({ x: 26, y: 12.4 }, { x: 34, y: 12.4 }, 30, [acid]).hazardous, ['Acid pool']);
+    // the impassable piece is in the way of a walk through it
+    assert.deepEqual(terrainAlongLeg({ x: 2, y: 22 }, { x: 12, y: 22 }, 30, [deep]).impassable, ['Deep water']);
+    // a path adds its legs up
+    const path = terrainAlongPath([{ x: 10, y: 10 }, { x: 22, y: 10 }, { x: 10, y: 10 }], 30, [river]);
+    assert.ok(Math.abs(path.severe - 2 * across.severe) < 0.3);
+});
+
+test('a model in an illegal spot goes to the nearest legal one', () => {
+    const r = mmToInches(30) / 2;
+    const a = man('a', 'a', 10, 10, 2);
+    const onTop = man('b', 'b', 10.4, 10, 2);
+    const spot = nearestLegalSpot(onTop, [a, onTop], []);
+    assert.ok(spot, 'a spot is found');
+    const gap = Math.hypot(spot.x - a.x, spot.y - a.y);
+    assert.ok(gap >= 2 * r - 1e-6 && gap < 2 * r + 0.3, `just clear of the other base, ${gap}" between centres`);
+    assert.ok(Math.hypot(spot.x - onTop.x, spot.y - onTop.y) < 2 * r + 0.1, 'and close to where it was');
+    assert.equal(nearestLegalSpot(man('c', 'b', 20, 20), [a, onTop], []), null, 'a legal model stays where it is');
+    // on impassable terrain it goes to the edge
+    const steep = { id: 's', name: 'Steep', traits: ['blocking', 'impassable'], surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 10, y: 10, w: 4, h: 4 } }] };
+    const stuck = man('d', 'a', 12, 12, 2);
+    const out = nearestLegalSpot(stuck, [stuck], [steep]);
+    assert.ok(out);
+    assert.deepEqual(placementProblems({ ...stuck, ...out }, [stuck], [steep]).filter((p) => p.kind === 'impassable'), []);
+    assert.ok(Math.hypot(out.x - 12, out.y - 12) < 2 + r + 0.3, 'the nearest edge, not across the table');
+    // hazardous terrain is legal to stand in
+    const bog = { id: 'h', name: 'Brambles', traits: ['hazardous'], surfaces: [{ id: 'h1', top: 0, shape: { kind: 'circle', cx: 5, cy: 5, r: 2 } }] };
+    assert.equal(nearestLegalSpot(man('e', 'a', 5, 5), [], [bog]), null);
+    // a model pinned in a corner by a wall of bases still finds somewhere, or says there is nowhere
+    const crowd = [];
+    for (let x = 0; x <= 36; x += 1) for (let y = 0; y <= 36; y += 1) crowd.push(man(`c${x}-${y}`, 'b', x, y));
+    assert.equal(nearestLegalSpot(man('z', 'a', 10, 10), [...crowd], []), null, 'no room anywhere near');
+});
+
+test('where a base is on the table: quarters, nearest edge and corner, and the half and zone of a deployment', () => {
+    const r = mmToInches(30) / 2;
+    const w = whereabouts({ x: 5, y: 4, baseMm: 30 });
+    assert.deepEqual(w.quarters, ['top-left']);
+    assert.equal(w.edge.side, 'top');
+    assert.ok(Math.abs(w.edge.gap - (4 - r)) < 1e-9);
+    assert.equal(w.corner.name, 'top-left');
+    assert.ok(Math.abs(w.corner.gap - (Math.hypot(5, 4) - r)) < 1e-9);
+    // across the middle: all the quarters it touches
+    assert.deepEqual(whereabouts({ x: 18, y: 18, baseMm: 30 }).quarters.sort(), ['bottom-left', 'bottom-right', 'top-left', 'top-right']);
+    assert.deepEqual(whereabouts({ x: 18, y: 5, baseMm: 30 }).quarters.sort(), ['top-left', 'top-right']);
+    assert.equal(whereabouts({ x: 0, y: 20, baseMm: 30 }).edge.gap, 0, 'touching the edge');
+    // a deployment: standard has the centerline across the middle; side a is the top strip
+    const z = deploymentZones('standard');
+    const top = whereabouts({ x: 10, y: 5, baseMm: 30 }, z);
+    assert.equal(top.half, 'a');
+    assert.equal(top.zone, 'a');
+    const bottom = whereabouts({ x: 10, y: 31, baseMm: 30 }, z);
+    assert.equal(bottom.half, 'b');
+    assert.equal(bottom.zone, 'b');
+    const middle = whereabouts({ x: 10, y: 18.2, baseMm: 30 }, z);
+    assert.equal(middle.half, 'line', 'on the centerline');
+    assert.equal(middle.zone, null);
+    const between = whereabouts({ x: 10, y: 13, baseMm: 30 }, z);
+    assert.equal(between.half, 'a');
+    assert.equal(between.zone, null, 'in a half but outside its 8" strip');
+    assert.equal(whereabouts({ x: 10, y: 10, baseMm: 30 }).half, undefined, 'no deployment, no half');
+});
+
+test('a model unaffected by a terrain trait ignores it: sight lines and walks', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const wall = { id: 'w', name: 'Wall', traits: ['blocking'], surfaces: [{ id: 'w1', top: 4, shape: rect(16, 5, 2, 30) }] };
+    const fog = { id: 'f', name: 'Fog', traits: ['concealing', 'dense'], surfaces: [{ id: 'f1', top: 0.5, shape: rect(16, 5, 2, 30) }] };
+    const a = man('a', 'a', 4, 18, 2);
+    const b = man('b', 'b', 30, 18, 2);
+    assert.equal(lineOfSight(a, b, [a, b], [wall]).clear, false);
+    const blind = { ...a, ignores: ['blocking'] };
+    assert.equal(lineOfSight(blind, b, [blind, b], [wall]).clear, true, 'a model unaffected by blocking sees past the wall');
+    assert.equal(lineOfSight(a, { ...b, ignores: ['blocking'] }, [a, b], [wall]).clear, false, 'only the model drawing the lines counts');
+    assert.equal(lineOfSight(a, b, [a, b], [fog]).clear, false, 'dense fog blocks');
+    const sees = { ...a, ignores: ['dense'] };
+    const seen = lineOfSight(sees, b, [sees, b], [fog]);
+    assert.equal(seen.clear, true);
+    assert.equal(seen.concealed, true, 'but the target is still concealed unless concealing is ignored too');
+    const both = { ...a, ignores: ['dense', 'concealing'] };
+    assert.equal(lineOfSight(both, b, [both, b], [fog]).concealed, false);
+    // walks
+    const river = { id: 'r', name: 'River', traits: ['severe'], surfaces: [{ id: 'r1', top: 0, shape: rect(14, 5, 3, 30) }] };
+    const acid = { id: 'p', name: 'Acid', traits: ['hazardous'], surfaces: [{ id: 'p1', top: 0, shape: rect(14, 5, 3, 30) }] };
+    assert.ok(terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [river]).severe > 3);
+    assert.equal(terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [river], ['severe']).severe, 0);
+    assert.deepEqual(terrainAlongLeg({ x: 10, y: 10 }, { x: 22, y: 10 }, 30, [acid], ['hazardous']).hazardous, []);
+    const m = man('m', 'a', 15, 10, 2, { ignores: ['hazardous', 'severe'] });
+    assert.deepEqual(placementProblems(m, [m], [acid, river]), [], 'standing in terrain it is unaffected by raises nothing');
+    assert.deepEqual(IGNORABLE_TRAITS.length, 6);
+});
+
+test('a jump (p.22): no higher than it began, at most 1" lower, and over nothing taller than where it started', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const wall3 = { id: 'a', name: 'Ht 3 wall', traits: ['blocking', 'climbable'], surfaces: [{ id: 'a1', top: 3, shape: rect(2, 10, 6, 4) }] };
+    const wall2 = { id: 'b', name: 'Ht 2 wall', traits: ['blocking', 'climbable'], surfaces: [{ id: 'b1', top: 2, shape: rect(11, 10, 6, 4) }] };
+    const wall1 = { id: 'c', name: 'Ht 1 wall', traits: ['blocking', 'climbable'], surfaces: [{ id: 'c1', top: 1, shape: rect(20, 10, 4, 4) }] };
+    const pieces = [wall3, wall2, wall1];
+    const start = { x: 7, y: 12, baseMm: 30 };
+    // the guide's example: from the Ht 3 wall to the Ht 2 wall, one inch lower
+    const ok = jumpCheck(start, 3, man('j', 'a', 12, 12, 2), pieces);
+    assert.deepEqual(ok.reasons, []);
+    assert.equal(ok.endElevation, 2);
+    assert.ok(Math.abs(ok.distance - 5) < 1e-9);
+    // landing on the ground is a drop of 3: not a jump
+    assert.match(jumpCheck(start, 3, man('j', 'a', 9.5, 5, 2), pieces).reasons[0], /at most 1" below/);
+    // landing higher than it began
+    assert.match(jumpCheck({ x: 13, y: 12, baseMm: 30 }, 2, man('j', 'a', 5, 12, 2), pieces).reasons[0], /cannot end higher/);
+    // across a piece taller than where it started
+    const tall = { id: 't', name: 'Ht 5 wall', traits: ['blocking'], surfaces: [{ id: 't1', top: 5, shape: rect(9, 11, 1, 2) }] };
+    const blocked = jumpCheck(start, 3, man('j', 'a', 12, 12, 2), [...pieces, tall]);
+    assert.ok(blocked.reasons.some((x) => /Ht 5 wall \(Ht 5\) is in the way/.test(x)), blocked.reasons.join(' | '));
+    // a piece no taller than the starting elevation is jumped over
+    const low = { id: 'l', name: 'Ht 2 fence', traits: [], surfaces: [{ id: 'l1', top: 2, shape: rect(9, 11, 1, 2) }] };
+    assert.deepEqual(jumpCheck(start, 3, man('j', 'a', 12, 12, 2), [...pieces, low]).reasons, []);
+    // level ground to level ground is a legal jump
+    assert.deepEqual(jumpCheck({ x: 2, y: 2, baseMm: 30 }, 0, man('j', 'a', 6, 2, 2), []).reasons, []);
+});
+
+test('markers: they may overlap models, but not impassable terrain; a model may not end a move on a Strategy marker', () => {
+    const steep = { id: 's', name: 'Steep', traits: ['blocking', 'impassable'], surfaces: [{ id: 's1', top: 4, shape: { kind: 'rect', x: 10, y: 10, w: 4, h: 4 } }] };
+    const marker = (id, x, y, extra = {}) => ({ id, name: `${id} marker`, side: 'a', baseMm: 30, x, y, marker: true, markerId: 1, ...extra });
+    const model = man('m', 'b', 20, 20, 2);
+    // a plain marker on a model is not a problem for either
+    const plain = marker('plain', 20.2, 20);
+    assert.deepEqual(placementProblems(model, [model, plain], []), []);
+    assert.deepEqual(placementProblems(plain, [model, plain], []), []);
+    // a marker on impassable terrain is
+    assert.equal(placementProblems(marker('bad', 12, 12), [], [steep])[0].kind, 'impassable');
+    assert.deepEqual(placementProblems(marker('ok', 5, 5), [], [steep]), []);
+    // a Strategy marker: the model on it is flagged, and goes off it
+    const strategy = marker('turf', 20.2, 20, { strategy: true });
+    const problems = placementProblems(model, [model, strategy], []);
+    assert.equal(problems[0].kind, 'overlap');
+    assert.match(problems[0].text, /Strategy marker but not end a move/);
+    const spot = nearestLegalSpot(model, [model, strategy], []);
+    assert.ok(spot, 'it can be moved off');
+    assert.deepEqual(placementProblems({ ...model, ...spot }, [model, strategy], []), []);
+    // a model beside it is fine
+    assert.deepEqual(placementProblems(man('n', 'b', 25, 20, 2), [strategy], []), []);
+});
+
+test('the table check: sight terrain share and mix, lanes between zones, narrow gaps and unreachable areas', () => {
+    const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+    const piece = (id, traits, shape, top = 3) => ({ id, name: id, traits, surfaces: [{ id: `${id}-1`, top, shape }] });
+    const byId = (checks, id) => checks.find((c) => c.id === id);
+    assert.deepEqual(tableChecks([], null), []);
+    assert.equal(shapeArea(rect(0, 0, 4, 3)), 12);
+    assert.ok(Math.abs(shapeArea({ kind: 'circle', cx: 0, cy: 0, r: 2 }) - Math.PI * 4) < 1e-9);
+    assert.ok(LANE_MIN > 1.96 && LANE_MIN < 1.98, '50mm is about 1.97 inches');
+
+    // mostly sight terrain, split evenly: fine
+    const good = [piece('a', ['blocking'], rect(2, 2, 4, 4)), piece('b', ['blocking'], rect(10, 2, 4, 4)), piece('c', ['concealing', 'dense'], rect(20, 2, 4, 4)), piece('d', ['concealing'], rect(28, 2, 4, 4)), piece('e', ['impassable'], rect(2, 20, 4, 4))];
+    const checks = tableChecks(good, null);
+    assert.equal(byId(checks, 'disrupt').status, 'ok');
+    assert.equal(byId(checks, 'mix').status, 'ok');
+    assert.equal(byId(checks, 'lanes'), undefined, 'lanes need a deployment');
+    // all concealing and no blocking is not an even split; and one huge concealing piece
+    const lopsided = [1, 2, 3, 4, 5].map((i) => piece(`c${i}`, ['concealing'], rect(2 + i * 6, 2, 4, 4)));
+    assert.equal(byId(tableChecks(lopsided, null), 'mix').status, 'note');
+    const swath = [piece('fog', ['concealing', 'dense'], rect(2, 2, 24, 12), 0.5), piece('x', ['blocking'], rect(30, 30, 3, 3)), piece('y', ['blocking'], rect(2, 30, 3, 3))];
+    assert.match(byId(tableChecks(swath, null), 'mix').text, /large swath/);
+
+    // lanes between the deployment zones: open ground is all open sight, a wall across the middle shuts it
+    const zones = deploymentZones('standard');
+    const open = byId(tableChecks([piece('far', ['impassable'], rect(0, 0, 2, 2))], zones), 'lanes');
+    assert.equal(open.status, 'note');
+    const wall = piece('wall', ['blocking'], rect(0, 17, 36, 2), 4);
+    assert.equal(byId(tableChecks([wall], zones), 'lanes').status, 'ok');
+
+    // gaps narrower than 50mm
+    const close = [piece('p', ['blocking'], rect(5, 5, 4, 4)), piece('q', ['blocking'], rect(10, 5, 4, 4))]; // 1" apart
+    assert.equal(byId(tableChecks(close, null), 'lanes-width').status, 'note');
+    assert.match(byId(tableChecks(close, null), 'lanes-width').text, /p and q/);
+    const wide = [piece('p', ['blocking'], rect(5, 5, 4, 4)), piece('q', ['blocking'], rect(13, 5, 4, 4))]; // 4" apart
+    assert.equal(byId(tableChecks(wide, null), 'lanes-width').status, 'ok');
+    assert.match(byId(tableChecks([piece('e', ['blocking'], rect(1, 10, 4, 4))], null), 'lanes-width').text, /table edge/, 'a piece 1" from the edge');
+
+    // an enclosed pocket inside deployment zone A cannot be walked to
+    const ring = (x, y, s) => [
+        piece(`n${x}`, ['impassable'], rect(x, y, s, 1)),
+        piece(`s${x}`, ['impassable'], rect(x, y + s - 1, s, 1)),
+        piece(`w${x}`, ['impassable'], rect(x, y, 1, s)),
+        piece(`e${x}`, ['impassable'], rect(x + s - 1, y, 1, s)),
+    ];
+    const walled = byId(tableChecks(ring(10, 2, 6), zones), 'unreachable');
+    assert.match(walled.text, /zone A/);
+    const none = byId(tableChecks([piece('lone', ['impassable'], rect(10, 2, 2, 2))], zones), 'unreachable');
+    assert.equal(none.status, 'ok');
+    // a huge impassable block taking over a zone is flagged
+    const block = byId(tableChecks([piece('mass', ['impassable'], rect(0, 0, 36, 7))], zones), 'unreachable');
+    assert.equal(block.status, 'note');
+    const move = byId(tableChecks(good, null), 'movement');
+    assert.equal(move.status, 'info');
+    assert.match(move.text, /1 impassable/);
+});
+
+test('an aura that counts as terrain: concealing hides a model in it, hazardous is flagged, severe costs double', () => {
+    const owner = man('o', 'a', 18, 18, 2);
+    const mk = (traits, extra = {}) => ({ aura: { id: 'x', ownerId: 'o', range: 3, locked: false, traits, ...extra }, owner });
+    assert.deepEqual(auraTerrain([{ aura: { id: 'n', ownerId: 'o', range: 3, locked: false }, owner }]), [], 'no traits, no terrain');
+    const [smoke] = auraTerrain([mk(['concealing'])]);
+    assert.equal(smoke.traits[0], 'concealing');
+    assert.equal(smoke.surfaces[0].shape.kind, 'circle');
+    assert.ok(Math.abs(smoke.surfaces[0].shape.r - (mmToInches(30) / 2 + 3)) < 1e-9, 'from the edge of the base out to the range');
+    // a model on the far side of the smoke is concealed
+    const a = man('a', 'a', 4, 18, 2);
+    const b = man('b', 'b', 30, 18, 2);
+    assert.equal(lineOfSight(a, b, [a, b], [smoke]).concealed, true);
+    assert.equal(lineOfSight(a, b, [a, b], []).concealed, false);
+    // hazardous and severe, around a model that has moved on: the aura follows the owner
+    const [acid] = auraTerrain([mk(['hazardous'])]);
+    const wader = man('w', 'b', 19, 18, 2);
+    assert.equal(placementProblems(wader, [wader], [acid])[0].kind, 'hazardous');
+    const [mud] = auraTerrain([mk(['severe'])]);
+    assert.ok(terrainAlongLeg({ x: 10, y: 18 }, { x: 26, y: 18 }, 30, [mud]).severe > 3);
+    // locked at a spot, it stays there when the owner moves
+    const [fixed] = auraTerrain([mk(['dense'], { locked: true, x: 5, y: 5 })]);
+    assert.equal(fixed.surfaces[0].shape.cx, 5);
+    assert.deepEqual([...AURA_TRAITS], ['concealing', 'dense', 'hazardous', 'severe']);
+});
+
+test('special terrain: a piece carries its rules card and a limit, and the table check flags too many', () => {
+    const rect = (x, y) => ({ kind: 'rect', x, y, w: 3, h: 3 });
+    const well = (id, x) => ({ id, name: 'Haunted Well', traits: ['concealing'], rules: 'Models that end an activation within 2" suffer 1 damage.', limit: 1, surfaces: [{ id: `${id}s`, top: 1, shape: rect(x, 5) }] });
+    const special = (pieces) => tableChecks(pieces, null).find((c) => c.id === 'special');
+    assert.equal(tableChecks([{ id: 'p', name: 'Wall', traits: ['blocking'], surfaces: [{ id: 's', top: 3, shape: rect(2, 2) }] }], null).find((c) => c.id === 'special'), undefined);
+    assert.equal(special([well('a', 4)]).status, 'ok');
+    const two = special([well('a', 4), well('b', 12)]);
+    assert.equal(two.status, 'note');
+    assert.match(two.text, /2 Haunted Well \(the card allows 1\)/);
 });

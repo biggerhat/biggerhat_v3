@@ -15,17 +15,37 @@ export interface TerrainLayout {
 const T = 36;
 const turn = (s: Shape): Shape =>
     s.kind === 'rect'
-        ? { kind: 'rect', x: T - s.x - s.w, y: T - s.y - s.h, w: s.w, h: s.h }
-        : s.kind === 'circle'
-          ? { kind: 'circle', cx: T - s.cx, cy: T - s.cy, r: s.r }
+        ? { ...s, x: T - s.x - s.w, y: T - s.y - s.h }
+        : s.kind === 'circle' || s.kind === 'ellipse'
+          ? { ...s, cx: T - s.cx, cy: T - s.cy }
           : { kind: 'poly', points: s.points.map(([x, y]) => [T - x, T - y] as [number, number]) };
 
 const rect = (x: number, y: number, w: number, h: number): Shape => ({ kind: 'rect', x, y, w, h });
 const circle = (cx: number, cy: number, r: number): Shape => ({ kind: 'circle', cx, cy, r });
 
+/** Which kind of terrain each piece is, so it is drawn with that kind's texture. */
+const KIND_OF: Record<string, string> = {
+    bldg: 'building',
+    hall: 'building',
+    house: 'building',
+    shed: 'building',
+    block: 'block',
+    tower: 'tower',
+    mill: 'tower',
+    wall: 'wall',
+    steep: 'steep',
+    crates: 'crates',
+    fog: 'fog',
+    hill: 'hill',
+    rocks: 'round',
+    woods: 'woods',
+    thicket: 'woods',
+};
+
 const piece = (id: string, name: string, traits: string[], levels: [Shape, number][]): TerrainPiece => ({
     id,
     name,
+    kind: KIND_OF[id],
     traits,
     surfaces: levels.map(([shape, top], i) => ({ id: `${id}-${i + 1}`, shape, top })),
 });
@@ -58,7 +78,7 @@ export const TERRAIN_LAYOUTS: TerrainLayout[] = [
             ...pair(piece('wall', 'Wall', BUILD, [[rect(2, 13, 10, 1.5), 2]])),
             ...pair(piece('steep', 'Steep building', ['blocking', 'impassable'], [[rect(25, 11.5, 7, 5), 4]])),
             ...pair(piece('crates', 'Crates', ['blocking', 'climbable', 'destructible'], [[rect(6, 15, 4, 2.5), 1]])),
-            ...centre(piece('fog', 'Fog bank', ['concealing', 'dense'], [[circle(18, 18, 3.5), 0.5]])),
+            ...centre(piece('fog', 'Fog bank', ['concealing', 'dense'], [[circle(18, 18, 3.5), 0]])),
         ],
     },
     {
@@ -74,7 +94,7 @@ export const TERRAIN_LAYOUTS: TerrainLayout[] = [
             ),
             ...pair(piece('house', 'Ruined house', BUILD, [[rect(20, 2, 12, 9), 3]])),
             ...pair(piece('rocks', 'Rocks', ['blocking', 'climbable'], [[circle(26, 15, 2.5), 2]])),
-            ...centre(piece('woods', 'Woods', ['concealing', 'dense'], [[circle(18, 18, 4.5), 0.5]])),
+            ...centre(piece('woods', 'Woods', ['concealing', 'dense'], [[circle(18, 18, 4.5), 0]])),
         ],
     },
     {
@@ -91,7 +111,7 @@ export const TERRAIN_LAYOUTS: TerrainLayout[] = [
             ),
             ...pair(piece('shed', 'Sheds', BUILD, [[rect(2, 15, 10, 2.5), 2]])),
             ...pair(piece('wall', 'Wall', BUILD, [[rect(16, 13.5, 7, 1.5), 2]])),
-            ...centre(piece('thicket', 'Thicket', ['concealing', 'dense'], [[circle(18, 18, 2.5), 0.5]])),
+            ...centre(piece('thicket', 'Thicket', ['concealing', 'dense'], [[circle(18, 18, 2.5), 0]])),
         ],
     },
 ];

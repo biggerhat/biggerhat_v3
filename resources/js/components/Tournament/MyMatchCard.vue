@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import TableTerrain from '@/components/Tournament/TableTerrain.vue';
 import type { TableDetail } from '@/types/tournament';
 import { Textarea } from '@/components/ui/textarea';
+import type { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { Gamepad2, Loader2, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -109,6 +110,7 @@ const scoreLine = computed(() => {
 // ─── Self-reporting ───
 const fields = computed(() => props.scoreFields ?? []);
 const opponentName = computed(() => opponent.value.name ?? 'your opponent');
+const canUseTabletop = computed(() => !!usePage<SharedData>().props.auth?.can_use_tabletop);
 const reportError = computed(() => (usePage().props.errors as Record<string, string> | undefined)?.report ?? null);
 const canReport = computed(
     () =>
@@ -177,6 +179,13 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                 <RoundClock v-if="inProgress" :started-at="round.started_at" :limit-minutes="roundTimeLimit" class="ml-auto" />
             </div>
 
+            <Link
+                v-if="!game.is_bye && tableDetail?.layout && canUseTabletop"
+                :href="route('tools.tabletop', { layout: tableDetail.layout.uuid })"
+                class="text-sm text-primary underline-offset-2 hover:underline"
+                data-testid="table-layout-link"
+                >Open this table in Tabletop: {{ tableDetail.layout.name }}</Link
+            >
             <TableTerrain
                 v-if="!game.is_bye && tableDetail && (tableDetail.description || tableDetail.image_url)"
                 :detail="tableDetail"

@@ -248,7 +248,7 @@ it('rejects a malformed terrain layout', function (array $piece) {
     'no surfaces' => [['surfaces' => []]],
     'too many surfaces' => [['surfaces' => array_fill(0, 7, ['id' => 's', 'top' => 1, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1, 'w' => 2, 'h' => 2]])]],
     'height too tall' => [['surfaces' => [['id' => 's', 'top' => 40, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
-    'off the table' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 50, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
+    'off the table' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 100, 'y' => 1, 'w' => 2, 'h' => 2]]]]],
     'rectangle without a size' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'rect', 'x' => 1, 'y' => 1]]]]],
     'unknown shape' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'star']]]]],
     'polygon with two points' => [['surfaces' => [['id' => 's', 'top' => 2, 'shape' => ['kind' => 'poly', 'points' => [[1, 1], [2, 2]]]]]]],
@@ -655,4 +655,167 @@ it('lets a player change their model through the tracker\'s own endpoint', funct
 
     $this->actingAs($a)->get(route('games.board', $game->uuid))
         ->assertInertia(fn (Assert $page) => $page->where('models.0.health', 5)->where('models.0.activated', true)->where('models.0.notes', 'Hurt'));
+});
+
+it('keeps the table surface with the game for both players, and tells the other one', function () {
+    Event::fake([GameBoardSetupChanged::class]);
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', null)->has('table_images', 6)->has('terrain_images', 21));
+    $this->actingAs($b)->put(route('games.board.setup', $game->uuid), ['table_image' => 'cobble'])->assertRedirect();
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('table_image', 'cobble')->where('deployment_variant', 0));
+    Event::assertDispatched(GameBoardSetupChanged::class, fn ($e) => $e->tableImage === 'cobble');
+
+    // changing the deployment afterwards keeps the surface, and null puts the plain table back
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['deployment_variant' => 3])->assertRedirect();
+    expect($game->fresh()->board_state)->toMatchArray(['table_image' => 'cobble', 'deployment_variant' => 3]);
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => null])->assertRedirect();
+    expect($game->fresh()->board_state)->not->toHaveKey('table_image')->and($game->fresh()->board_state['deployment_variant'])->toBe(3);
+});
+
+it('refuses a table surface that is not on offer, and offers uploaded ones', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $upload = \App\Models\TabletopImage::factory()->create(['name' => 'Marble floor']);
+
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => 'lava'])->assertSessionHasErrors('table_image');
+    $this->actingAs($a)->put(route('games.board.setup', $game->uuid), ['table_image' => 'i'.$upload->id])->assertRedirect();
+    expect($game->fresh()->board_state['table_image'])->toBe('i'.$upload->id);
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->has('table_images', 7));
+});
+
+it('keeps each terrain piece\'s kind so it is drawn with its texture, and refuses an unknown kind', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $piece = fn (string $kind) => ['id' => 'p1', 'name' => 'Tower', 'kind' => $kind, 'traits' => ['blocking'], 'surfaces' => [['id' => 'p1-1', 'top' => 3, 'shape' => ['kind' => 'rect', 'x' => 4, 'y' => 4, 'w' => 6, 'h' => 6]]]];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece('tower')]])->assertRedirect();
+    expect($game->fresh()->board_state['terrain'][0]['kind'])->toBe('tower');
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece('spaceship')]])->assertSessionHasErrors('terrain.0.kind');
+});
+
+it('accepts every ground terrain kind and the severe trait', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $kinds = ['woods', 'tree', 'brambles', 'river', 'deepwater', 'marsh', 'tallgrass', 'rubble', 'acid', 'fire'];
+    $terrain = collect($kinds)->map(fn ($k, $i) => ['id' => "p$i", 'name' => ucfirst($k), 'kind' => $k, 'traits' => ['severe', 'hazardous', 'concealing', 'dense'], 'surfaces' => [['id' => "p$i-1", 'top' => 0, 'shape' => ['kind' => 'circle', 'cx' => 6 + $i * 2, 'cy' => 6, 'r' => 1]]]])->all();
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => $terrain])->assertSessionHasNoErrors()->assertRedirect();
+    expect(collect($game->fresh()->board_state['terrain'])->pluck('kind')->all())->toBe($kinds);
+});
+
+it('saves turned rectangles and ovals, and refuses a bad ellipse or angle', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $piece = fn (array $shape, string $id = 'p1') => ['id' => $id, 'name' => 'Shape', 'traits' => [], 'surfaces' => [['id' => "$id-1", 'top' => 1, 'shape' => $shape]]];
+    $turned = ['kind' => 'rect', 'x' => -2.5, 'y' => 10, 'w' => 12, 'h' => 2, 'angle' => 45];
+    $oval = ['kind' => 'ellipse', 'cx' => 12, 'cy' => 12, 'rx' => 4, 'ry' => 2, 'angle' => -20];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece($turned), $piece($oval, 'p2')]])->assertSessionHasNoErrors()->assertRedirect();
+    $saved = $game->fresh()->board_state['terrain'];
+    expect($saved[0]['surfaces'][0]['shape']['angle'])->toBe(45)
+        ->and($saved[1]['surfaces'][0]['shape'])->toMatchArray(['kind' => 'ellipse', 'rx' => 4, 'ry' => 2, 'angle' => -20]);
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece([...$oval, 'rx' => 0])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.rx');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece([...$turned, 'angle' => 900])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.angle');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece(['kind' => 'ellipse', 'cx' => 5, 'cy' => 5, 'rx' => 2])]])->assertSessionHasErrors('terrain.0.surfaces.0.shape.ry');
+});
+
+it('lets any piece be given a texture kind or none, and keeps an outline\'s background', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $outline = fn (?string $kind) => ['id' => 'o1', 'name' => 'Outline', 'kind' => $kind, 'traits' => [], 'surfaces' => [['id' => 'o1-1', 'top' => 0, 'shape' => ['kind' => 'poly', 'points' => [[1, 1], [6, 1], [6, 5], [3, 7]]]]]];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$outline('marsh')]])->assertSessionHasNoErrors();
+    expect($game->fresh()->board_state['terrain'][0]['kind'])->toBe('marsh');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$outline(null)]])->assertSessionHasNoErrors();
+    expect($game->fresh()->board_state['terrain'][0]['kind'] ?? null)->toBeNull();
+});
+
+it('saves an archway beneath a level and refuses a silly one', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $bridge = fn ($under) => ['id' => 'b1', 'name' => 'Bridge', 'traits' => ['blocking', 'climbable'], 'surfaces' => [['id' => 'b1-1', 'top' => 3, 'under' => $under, 'shape' => ['kind' => 'rect', 'x' => 6, 'y' => 12, 'w' => 12, 'h' => 3]]]];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(2)]])->assertSessionHasNoErrors();
+    expect($game->fresh()->board_state['terrain'][0]['surfaces'][0]['under'])->toBe(2);
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(null)]])->assertSessionHasNoErrors();
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(0)]])->assertSessionHasErrors('terrain.0.surfaces.0.under');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$bridge(40)]])->assertSessionHasErrors('terrain.0.surfaces.0.under');
+});
+
+it('remembers that a model is under a bridge, and forgets it when it moves out', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'under' => true]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][(string) $m1->id])->toEqual(['x' => 10, 'y' => 13, 'under' => true]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 20, 'y' => 13]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][(string) $m1->id])->toEqual(['x' => 20, 'y' => 13]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 20, 'y' => 13, 'under' => 'maybe']]])->assertSessionHasErrors('positions.'.$m1->id.'.under');
+});
+
+it('saves an enterable building with its doors and windows, and refuses a bad opening', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $house = fn (array $interior) => ['id' => 'h1', 'name' => 'House', 'traits' => ['blocking', 'climbable'], 'interior' => $interior, 'surfaces' => [['id' => 'h1-1', 'top' => 3, 'shape' => ['kind' => 'rect', 'x' => 10, 'y' => 10, 'w' => 6, 'h' => 6]]]];
+    $door = ['id' => 'd1', 'kind' => 'door', 'x' => 13, 'y' => 16, 'w' => 2];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => [$door, [...$door, 'id' => 'w1', 'kind' => 'window', 'x' => 16, 'y' => 13, 'w' => 1.5]]])]])->assertSessionHasNoErrors();
+    $saved = $game->fresh()->board_state['terrain'][0]['interior'];
+    expect($saved['floor'])->toBe(0)->and($saved['openings'])->toHaveCount(2)->and($saved['openings'][1]['kind'])->toBe('window');
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 1, 'openings' => []])]])->assertSessionHasNoErrors();
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => [[...$door, 'kind' => 'portal']]])]])->assertSessionHasErrors('terrain.0.interior.openings.0.kind');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => [[...$door, 'w' => 20]]])]])->assertSessionHasErrors('terrain.0.interior.openings.0.w');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 40, 'openings' => []])]])->assertSessionHasErrors('terrain.0.interior.floor');
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$house(['floor' => 0, 'openings' => array_fill(0, 9, $door)])]])->assertSessionHasErrors('terrain.0.interior.openings');
+});
+
+it('remembers the terrain traits a model is unaffected by, and refuses an unknown one', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $id = (string) $m1->id;
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['blocking', 'severe']]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][$id])->toEqual(['x' => 10, 'y' => 13, 'ignores' => ['blocking', 'severe']]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13]]])->assertRedirect();
+    expect($game->fresh()->board_state['positions'][$id])->toEqual(['x' => 10, 'y' => 13]);
+
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['flying']]]])->assertSessionHasErrors('positions.'.$id.'.ignores.0');
+    $this->actingAs($a)->put(route('games.board.update', $game->uuid), ['positions' => [$m1->id => ['x' => 10, 'y' => 13, 'ignores' => ['severe', 'severe']]]])->assertSessionHasErrors();
+});
+
+it('does not count Strategy markers towards the five of a kind', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $turf = Marker::factory()->strategy()->create();
+    $scheme = Marker::factory()->create();
+
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("t$i", $turf->id), range(1, 8))])->assertRedirect();
+    expect($game->fresh()->board_state['markers'])->toHaveCount(8);
+
+    // an ordinary marker is still held to five
+    $this->actingAs($a)->put(route('games.board.markers', $game->uuid), ['upsert' => array_map(fn ($i) => placed("s$i", $scheme->id), range(1, 6))])->assertSessionHasErrors('upsert');
+});
+
+it('saves the terrain traits a shared aura counts as, and refuses an unknown one', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $aura = fn (array $traits) => ['id' => 'a1', 'owner_id' => (string) $m1->id, 'range' => 3, 'locked' => false, 'traits' => $traits];
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['concealing', 'severe'])]])->assertRedirect();
+    expect($game->fresh()->board_state['auras'][0]['traits'])->toBe(['concealing', 'severe']);
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura([])]])->assertRedirect();
+    expect($game->fresh()->board_state['auras'][0])->not->toHaveKey('traits');
+
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['blocking'])]])->assertSessionHasErrors('upsert.0.traits.0');
+    $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['dense', 'dense'])]])->assertSessionHasErrors();
+});
+
+it('saves a rules card and a limit on special terrain, and refuses an absurd limit', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $put = fn (array $extra) => $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece($extra)]]);
+
+    $put(['rules' => 'Models within 2" suffer 1 damage.', 'limit' => 1])->assertRedirect();
+    $piece = $game->fresh()->board_state['terrain'][0];
+    expect($piece['rules'])->toBe('Models within 2" suffer 1 damage.')->and($piece['limit'])->toBe(1);
+
+    $put(['limit' => 9])->assertSessionHasErrors('terrain.0.limit');
+    $put(['rules' => str_repeat('x', 601)])->assertSessionHasErrors('terrain.0.rules');
 });

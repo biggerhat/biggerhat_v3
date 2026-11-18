@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tournament;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tournaments\TournamentTableRequest;
+use App\Models\TabletopLayout;
 use App\Models\Tournament;
 use App\Models\TournamentTable;
 use Illuminate\Http\JsonResponse;
@@ -40,7 +41,13 @@ class TournamentTableController extends Controller
         $name = $this->clean($validated['name'] ?? null);
         $description = $this->clean($validated['description'] ?? null);
 
-        if ($name === null && $description === null && $imagePath === null) {
+        $layout = ! empty($validated['layout']) ? TabletopLayout::where('uuid', $validated['layout'])->first() : null;
+        if ($layout && ! $layout->is_shared) {
+            // Players open it by link, so it has to be shareable.
+            $layout->update(['is_shared' => true]);
+        }
+
+        if ($name === null && $description === null && $imagePath === null && $layout === null) {
             if ($table->exists) {
                 $table->delete();
             }
@@ -49,7 +56,7 @@ class TournamentTableController extends Controller
             return response()->json(['success' => true, 'table' => null]);
         }
 
-        $table->fill(['name' => $name, 'description' => $description, 'image_path' => $imagePath])->save();
+        $table->fill(['name' => $name, 'description' => $description, 'image_path' => $imagePath, 'tabletop_layout_id' => $layout?->id])->save();
         $this->broadcastUpdate($tournament, 'tables_updated');
 
         return response()->json(['success' => true, 'table' => $table->fresh()]);

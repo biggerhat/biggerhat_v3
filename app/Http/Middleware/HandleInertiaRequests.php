@@ -13,6 +13,7 @@ use App\Models\TOS\UnitSculpt;
 use App\Models\User;
 use App\Models\WishlistItem;
 use App\Support\AdminNav;
+use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -92,6 +93,8 @@ class HandleInertiaRequests extends Middleware
                 'can_publish_posts' => $request->user()?->can('publish_posts'),
                 'can_access_admin' => $this->canAccessAdmin($request),
                 'can_view_tos' => (bool) $request->user()?->can('view_tos'),
+                // The pre-release tabletop: the flag is on, or the user holds the beta permission.
+                'can_use_tabletop' => TabletopAccess::allows($request->user()),
                 'is_super_admin' => $isSuperAdmin,
                 'is_supporter' => (bool) $request->user()?->isSupporter(),
                 'impersonating' => $request->user() && app('impersonate')->isImpersonating()

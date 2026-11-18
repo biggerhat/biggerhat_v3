@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
 import type { ModelInfo, Token } from '@/lib/tabletop/geometry';
-import { Check, Circle, Heart, Minus, Plus, X } from 'lucide-vue-next';
+import { Check, ChevronDown, Circle, Heart, Minus, Plus, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 /**
@@ -125,9 +125,14 @@ const saveNote = () => {
             <span v-else class="text-muted-foreground">No health tracked.</span>
         </div>
 
-        <div data-testid="model-tokens">
-            <div class="mb-1 text-muted-foreground">Tokens</div>
-            <div class="flex flex-wrap items-center gap-1.5">
+        <details class="group" :open="info.tokens.length > 0" data-testid="model-tokens">
+            <summary class="flex cursor-pointer list-none items-center justify-between text-muted-foreground [&::-webkit-details-marker]:hidden">
+                <span
+                    >Tokens <span class="text-xs">({{ info.tokens.length || 'none' }})</span></span
+                >
+                <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
+            </summary>
+            <div class="mt-1 flex flex-wrap items-center gap-1.5">
                 <span v-if="!info.tokens.length" class="text-muted-foreground">None.</span>
                 <span
                     v-for="t in info.tokens"
@@ -158,19 +163,24 @@ const saveNote = () => {
                 <option value="">Add a token...</option>
                 <option v-for="o in free" :key="o.id" :value="String(o.id)">{{ o.name }}</option>
             </select>
-        </div>
+        </details>
 
-        <label class="block">
-            <span class="mb-1 block text-muted-foreground">Notes</span>
+        <details class="group" :open="note.length > 0" data-testid="model-notes-section">
+            <summary class="flex cursor-pointer list-none items-center justify-between text-muted-foreground [&::-webkit-details-marker]:hidden">
+                <span
+                    >Notes <span class="text-xs">({{ note.length ? 'written' : 'none' }})</span></span
+                >
+                <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
+            </summary>
             <textarea
                 v-model="note"
                 rows="2"
                 maxlength="500"
-                class="w-full rounded-md border bg-background px-2 py-1.5"
+                class="mt-1 w-full rounded-md border bg-background px-2 py-1.5"
                 :disabled="!canEdit"
                 data-testid="model-notes"
                 @blur="saveNote"
             />
-        </label>
+        </details>
     </div>
 </template>

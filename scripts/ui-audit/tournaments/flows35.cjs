@@ -24,11 +24,61 @@ const L = require('./lib.cjs');
             );
         // Click a control after centring it: on a phone the fixed tab bar can sit over a button scrolled to the very bottom.
         const hit = async (selector) => {
-            await s.page.$eval(selector, (b) => b.scrollIntoView({ block: 'center' }));
+            // the Table section is collapsed until opened: open whatever the control sits in
+            await s.page.$eval(selector, (b) => {
+                const d = b.closest('details');
+                if (d && !d.open) d.open = true;
+                b.scrollIntoView({ block: 'center' });
+            });
             await s.page.click(selector);
+            if (selector.includes('reset-table')) {
+                // Reset asks first
+                await s.page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((b) => /Reset table/.test(b.innerText)), { timeout: 5000 });
+                await s.page.evaluate(() => [...document.querySelectorAll('[role=dialog] button')].find((b) => /Reset table/.test(b.innerText)).click());
+                await s.page.waitForFunction(() => !document.querySelector('[role=dialog]'), { timeout: 5000 });
+            }
+        };
+        const addItem = async (id) => {
+            await s.page.waitForFunction(() => document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+    await hit('[data-testid=add-menu]');
+            await s.page.waitForSelector(`[data-testid=${id}]`);
+            await s.page.$eval(`[data-testid=${id}]`, (e) => e.click());
         };
         const toBoardTop = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+        // Sight guidelines are switched on from a model's panel: select the model at a spot on the table, then press its toggle.
+        const guideOn = async (x, y) => {
+            await toBoardTop();
+            const m = await pixel(x, y);
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=model-guide]');
+            await hit('[data-testid=model-guide]');
+            await toBoardTop();
+        };
+        // The sandbox ships no models of its own (only database characters and markers can be added), so the browser flows lay a known
+        // set on the table through the page's storage, then reload.
+        const DEMO = [
+            { id: 'a1', sp: 5, sz: 3, name: 'Master', side: 'a', baseMm: 50, x: 18, y: 4 },
+            { id: 'a2', sp: 5, sz: 2, name: 'Henchman', side: 'a', baseMm: 40, x: 12, y: 5 },
+            { id: 'a3', sp: 5, sz: 1, name: 'Minion', side: 'a', baseMm: 30, x: 22, y: 4 },
+            { id: 'b1', sp: 5, sz: 3, name: 'Master', side: 'b', baseMm: 50, x: 18, y: 32 },
+            { id: 'b2', sp: 5, sz: 2, name: 'Henchman', side: 'b', baseMm: 40, x: 24, y: 31 },
+            { id: 'b3', sp: 5, sz: 1, name: 'Minion', side: 'b', baseMm: 30, x: 12, y: 32 },
+        ];
+        const openSandbox = async (models = DEMO) => {
+            await L.visit(s, '/tools/tabletop');
+            await s.page.evaluate((tokens) => {
+                let saved = {};
+                try {
+                    saved = JSON.parse(localStorage.getItem('tabletop-spike-v2')) || {};
+                } catch {
+                    // start from nothing
+                }
+                localStorage.setItem('tabletop-spike-v2', JSON.stringify({ ...saved, tokens }));
+            }, models);
+            await L.visit(s, '/tools/tabletop');
+        };
         const dragTo = async (from, to) => {
+            await toBoardTop();
             const a = await pixel(...from);
             const b = await pixel(...to);
             await s.page.mouse.move(a.x, a.y);
@@ -39,7 +89,7 @@ const L = require('./lib.cjs');
         };
 
         await L.step(`tabletop (${label}): board renders with terrain levels and both crews`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await L.expectText(s, /Ht 5/);
             if ((await s.page.$$('[data-testid^=token-]')).length !== 6) throw new Error('expected 6 demo models');
@@ -61,7 +111,7 @@ const L = require('./lib.cjs');
             await L.expectText(s, /1 irreducible damage/i);
         });
         await L.step(`tabletop (${label}): a model dropped on another base, or on impassable ground, is flagged`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [24, 31.3]); // the minion onto the red henchman
@@ -72,10 +122,14 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => !document.querySelector('[data-problem=true]'), { timeout: 5000 });
         });
         await L.step(`tabletop (${label}): a stepped move adds its legs: 2 inches then 5 inches is 7`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
-            await s.page.$eval('[data-testid=step-toggle]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=step-toggle]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await s.page.click('[data-testid=step-toggle]');
             await s.page.waitForSelector('[data-testid=step-help]');
             await dragTo([18, 4], [18, 6]); // the master: 2" down
@@ -92,10 +146,10 @@ const L = require('./lib.cjs');
             await dragTo([18, 11], [18, 13]);
             await L.expectText(s, /moved 2(\.\d)?"/);
             if ((await s.page.$$('[data-testid=move-trail-leg]')).length) throw new Error('a plain drag should not keep earlier legs');
-            await s.page.click('[data-testid=reset-table]');
+            await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): the ruler measures edge to edge between two models`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-ruler]');
             await dragTo([12, 5], [18, 4]); // henchman (40mm) to master (50mm), centres 6.08" apart
@@ -103,13 +157,18 @@ const L = require('./lib.cjs');
             const t = await s.page.$eval('[data-testid=ruler-readout]', (e) => e.innerText);
             // 6.08 - 0.787 - 0.984 = 4.3
             if (!/4\.3"/.test(t)) throw new Error(`ruler readout is not 4.3": ${t}`);
+            // the ruler is a switch: pressing it again puts it away, with what it measured, and models move again
+            await s.page.click('[data-testid=mode-ruler]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=ruler-readout]'), { timeout: 5000 });
+            if ((await s.page.$eval('[data-testid=mode-ruler]', (b) => b.getAttribute('aria-pressed'))) !== 'false') throw new Error('the ruler button should be off');
+            if ((await s.page.$eval('[data-testid=mode-move]', (b) => b.getAttribute('aria-selected'))) !== 'true') throw new Error('turning the ruler off should go back to Move');
         });
         await L.step(`tabletop (${label}): line of sight is clear in the open and blocked by a wall for a shorter model`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
-            await s.page.click('[data-testid=mode-sight]');
+            await guideOn(18, 4);
             await dragTo([18, 4], [18, 32]); // master to master, Sz 3 each: the Ht 2 wall is shorter than both
             await s.page.waitForSelector('[data-testid=sight-readout]');
             let t = await s.page.$eval('[data-testid=sight-readout]', (e) => e.innerText);
@@ -122,6 +181,696 @@ const L = require('./lib.cjs');
             await s.page.click('[data-testid=mode-move]');
             await dragTo([18, 20], [12, 32]); // put the minion back
         });
+        await L.step(`tabletop (${label}): a line leaves each side of the base straight in the direction of the finger`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await s.page.click('[data-testid=mode-move]');
+            await dragTo([12, 32], [18, 20]); // the Sz 1 minion steps up behind the Ht 2 wall
+            await guideOn(18, 4);
+            const summaries = () => s.page.$$eval('[data-testid=side-summary]', (els) => els.map((e) => e.innerText));
+            await dragTo([18, 4], [28, 14]); // aim at empty ground
+            await s.page.waitForSelector('[data-testid=side-line-left]');
+            await s.page.waitForSelector('[data-testid=side-line-right]');
+            let t = await summaries();
+            if (t.length !== 2 || !t.every((x) => /Reaches no model/.test(x))) throw new Error(`empty ground should reach nothing: ${t.join(' | ')}`);
+            // each line starts on the base edge, a 50 mm base's radius (0.98") from the centre, square to the aim
+            for (const side of ['left', 'right']) {
+                const d = await s.page.$eval(`[data-testid=side-line-${side}]`, (l) =>
+                    Math.hypot(Number(l.getAttribute('x1')) - 18, Number(l.getAttribute('y1')) - 4),
+                );
+                if (Math.abs(d - 0.984) > 0.05) throw new Error(`the ${side} line should start on the base edge, ${d}" from the centre`);
+            }
+            // the lines run parallel, straight off the base: they do not close in on the aim
+            const gap = async () =>
+                s.page.evaluate(() => {
+                    const [l, r] = ['left', 'right'].map((k) => document.querySelector(`[data-testid=side-line-${k}]`));
+                    const g = (n) => Number(l.getAttribute(n)) - Number(r.getAttribute(n));
+                    return { start: Math.hypot(g('x1'), g('y1')), end: Math.hypot(g('x2'), g('y2')) };
+                });
+            await dragTo([18, 4], [19, 20]); // aim just beside the minion behind the wall: one line crosses it
+            await L.sleep(200);
+            const g1 = await gap();
+            if (Math.abs(g1.start - g1.end) > 0.05) throw new Error(`the lines should stay parallel, gap ${g1.start}" then ${g1.end}"`);
+            t = await summaries();
+            if (!t.some((x) => /Minion \(hidden by Wall/.test(x)))
+                throw new Error(`expected a line to reach the minion behind the wall: ${t.join(' | ')}`);
+            await s.page.waitForSelector('[data-testid=side-hidden]');
+            await dragTo([18, 4], [18, 32]); // dropped on the other master: both lines run down its sides, and the full check still appears
+            await L.sleep(200);
+            await s.page.waitForSelector('[data-testid=sight-readout]');
+            const g2 = await gap();
+            if (Math.abs(g2.start - g2.end) > 0.05) throw new Error(`the lines should stay parallel, gap ${g2.start}" then ${g2.end}"`);
+            await L.shot(s, `358-side-lines-${label}`);
+            await dragTo([2, 30], [3, 31]); // empty ground: the lines stay, aimed there
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            await toBoardTop();
+            await hit('[data-testid=model-guide]'); // the toggle switches them off
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=side-lines]'), { timeout: 5000 });
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): sight guidelines can be switched on from a model's panel and stay on, aimed by dragging`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await toBoardTop();
+            const m = await pixel(18, 4); // the first master
+            await s.page.mouse.click(m.x, m.y); // Move mode: selects it
+            await s.page.waitForSelector('[data-testid=model-guide]');
+            await hit('[data-testid=model-guide]');
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            await s.page.waitForSelector('[data-testid=guide-hint]');
+            const lineEnd = () => s.page.$eval('[data-testid=side-line-left]', (l) => `${l.getAttribute('x2')},${l.getAttribute('y2')}`);
+            const first = await lineEnd();
+            // pressing empty ground in Sight mode re-aims them, and they stay after the finger lifts
+            await toBoardTop();
+            await dragTo([2, 20], [3, 21]);
+            const second = await lineEnd();
+            if (first === second) throw new Error('aiming should move the lines');
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            // they follow the model when it moves
+            await hit('[data-testid=mode-move]');
+            await toBoardTop();
+            await dragTo([18, 4], [18, 8]);
+            await s.page.waitForSelector('[data-testid=side-lines]');
+            const moved = await s.page.$eval('[data-testid=side-line-left]', (l) => Number(l.getAttribute('y1')));
+            if (moved < 6) throw new Error(`the lines should follow the model down the table, saw y1=${moved}`);
+            await hit('[data-testid=model-guide]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=side-lines]'), { timeout: 5000 });
+            await L.shot(s, `363-sight-guide-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a place is measured as a place, a Flight walk ignores terrain height, and a Walk is unchanged`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // a place: the minion is put down 4" away over the wall, ignoring it
+            await hit('[data-testid=move-kind-place]');
+            await s.page.waitForSelector('[data-testid=place-range]');
+            await s.page.$eval('[data-testid=place-range]', (i) => {
+                i.value = '6';
+                i.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            await toBoardTop();
+            await dragTo([12, 32], [12, 28]);
+            await s.page.waitForSelector('[data-testid=place-reach]');
+            let t = await note();
+            if (!/placed .* within the 6" place/.test(t) || !/nothing is spent climbing or falling/.test(t)) throw new Error(`expected a place readout: ${t}`);
+            if (/Walk/.test(t)) throw new Error(`a place is not measured against a Walk: ${t}`);
+            // too far for the range
+            await toBoardTop();
+            await dragTo([12, 28], [12, 18]);
+            t = await note();
+            if (!/beyond the 6" place/.test(t)) throw new Error(`expected the place to be too far: ${t}`);
+            // the whole base must be within range: the same short drop still passes, and the toggle is pressed
+            await hit('[data-testid=place-whole]');
+            if ((await s.page.$eval('[data-testid=place-whole]', (b) => b.getAttribute('aria-pressed'))) !== 'true') throw new Error('whole base did not toggle');
+            // a Flight walk: height is ignored, the Walk still counts
+            await hit('[data-testid=move-kind-fly]');
+            await toBoardTop();
+            await dragTo([12, 18], [12, 22]);
+            t = await note();
+            if (!/ignoring terrain height/.test(t) || !/of a Walk/.test(t)) throw new Error(`expected a Flight readout against a Walk: ${t}`);
+            if (await s.page.$('[data-testid=place-reach]')) throw new Error('a Flight walk has no place ring');
+            // and a plain Walk reads as before
+            await hit('[data-testid=move-kind-walk]');
+            await toBoardTop();
+            await dragTo([12, 22], [12, 26]);
+            t = await note();
+            if (!/moved .*of a Walk/.test(t) || /ignoring terrain height/.test(t)) throw new Error(`expected a plain Walk readout: ${t}`);
+            await L.shot(s, `364-place-walk-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a model can go under a bridge's archway, climb onto the deck, and a tall one does not fit`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await s.page.waitForSelector('[data-testid=archway]');
+            const under = (id) => s.page.$eval(`[data-testid=token-${id}] circle`, (c) => c.getAttribute('data-under'));
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // the Sz 1 minion walks from the ground under the Ht 3 deck: beneath it, still on the ground
+            await toBoardTop();
+            await dragTo([12, 32], [12, 28]);
+            if ((await under('b3')) !== 'true') throw new Error('a model that came from the ground should be under the bridge');
+            await s.page.waitForSelector('[data-testid=under-toggle]');
+            await L.expectText(s, /Elevation 0\s+under Bridge/);
+            // climb onto the deck with the toggle
+            await hit('[data-testid=model-on]');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=token-b3] circle')?.getAttribute('data-under') === null, { timeout: 5000 });
+            await L.expectText(s, /Elevation 3 on Bridge/);
+            await hit('[data-testid=model-under]');
+            await L.expectText(s, /Elevation 0\s+under Bridge/);
+            // the Sz 3 master does not fit under a 2" archway
+            await toBoardTop();
+            await dragTo([18, 32], [12, 28]);
+            const t = await note();
+            if (!/too tall/.test(t)) throw new Error(`expected a too-tall warning: ${t}`);
+            await L.shot(s, `365-bridge-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a building can be made enterable, shown cut away, and a model walks in by the door but not through a wall`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'building');
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForSelector('[data-testid=terrain-enterable]');
+            await hit('[data-testid=terrain-enterable]');
+            await s.page.waitForSelector('[data-testid=terrain-floor]');
+            await hit('[data-testid=terrain-add-window]');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=terrain-opening]').length === 2, { timeout: 5000 });
+            await s.page.waitForSelector('[data-testid=building-door]');
+            await s.page.waitForSelector('[data-testid=building-window]');
+            const door = await s.page.$eval('[data-testid="handle-opening-0"]', (e) => ({ x: Number(e.dataset.x), y: Number(e.dataset.y) }));
+            // the roof fades and walls show when the inside is shown
+            if (await s.page.$('[data-testid=building-wall]')) throw new Error('walls should only draw in the cutaway');
+            await hit('[data-testid=terrain-show-inside]');
+            await s.page.waitForSelector('[data-testid=building-wall]');
+            await s.page.waitForSelector('[data-testid=building-floor]');
+            await L.shot(s, `366-building-cutaway-${label}`);
+            // walk the Sz 1 minion in through the door, which is in the top wall
+            await hit('[data-testid=mode-move]');
+            await toBoardTop();
+            const outside = { x: door.x, y: door.y - 3 };
+            await dragTo([12, 32], [outside.x, outside.y]);
+            await dragTo([outside.x, outside.y], [door.x, door.y + 1.5]);
+            const t1 = await s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            if (/through the wall/.test(t1)) throw new Error(`the door is a way in: ${t1}`);
+            if ((await s.page.$eval('[data-testid=token-b3] circle', (c) => c.getAttribute('data-under'))) !== 'true') throw new Error('a model in the building should be inside it');
+            await L.expectText(s, /inside Building/);
+            // and out through the left wall, which has no opening
+            await toBoardTop();
+            await dragTo([door.x, door.y + 1.5], [door.x - 6, door.y + 1.5]);
+            const t2 = await s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            if (!/through the wall of Building/.test(t2)) throw new Error(`expected a wall warning: ${t2}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): terrain is drawn with its texture, and a table surface can be chosen and is kept`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            const textured = await s.page.$$eval('[data-testid=terrain-texture]', (els) =>
+                [...new Set(els.map((e) => e.getAttribute('data-kind')))].sort(),
+            );
+            if (!['crates', 'hill', 'tower', 'wall'].every((k) => textured.includes(k)))
+                throw new Error(`expected textures on the demo terrain, saw ${textured}`);
+            const surface = () => s.page.$eval('[data-testid=table-surface]', (e) => e.getAttribute('data-surface'));
+            if ((await surface()) !== 'grass') throw new Error(`the table should start as grass, saw ${await surface()}`);
+            await hit('[data-testid=table-select]');
+            const options = await s.page.$$eval('[data-testid=table-select] option', (os) => os.map((o) => o.value));
+            if (options.length !== 6 || options[0] !== 'grass') throw new Error(`expected six built-in surfaces, grass first, saw ${options}`);
+            await s.page.select('[data-testid=table-select]', 'felt');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=table-surface]')?.getAttribute('data-surface') === 'felt', {
+                timeout: 5000,
+            });
+            await toBoardTop();
+            await L.shot(s, `359-table-surface-${label}`);
+            await openSandbox();
+            if ((await surface()) !== 'felt') throw new Error(`the surface should be kept on this device, saw ${await surface()}`);
+            await hit('[data-testid=table-select]');
+            await s.page.select('[data-testid=table-select]', 'grass');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=table-surface]')?.getAttribute('data-surface') === 'grass', {
+                timeout: 5000,
+            });
+        });
+        await L.step(`tabletop (${label}): trees, rivers, marsh, hazards and the other ground terrain can be added and are textured`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            const kinds = ['woods', 'tree', 'brambles', 'river', 'deepwater', 'marsh', 'tallgrass', 'rubble', 'acid', 'fire'];
+            for (const k of kinds) {
+                await s.page.select('[data-testid=terrain-preset]', k);
+                await hit('[data-testid=terrain-add]');
+            }
+            await s.page.waitForFunction(() => /15 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            const seen = await s.page.$$eval('[data-testid=terrain-texture]', (els) => els.map((e) => e.getAttribute('data-kind')));
+            const missing = kinds.filter((k) => !seen.includes(k));
+            if (missing.length) throw new Error(`no texture drawn for ${missing.join(', ')}`);
+            await s.page.waitForSelector('[data-testid=trait-severe]');
+            await L.shot(s, `360-ground-terrain-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a piece can be reshaped with handles, turned to any angle, and an outline gains and loses corners`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            const handle = (id) => s.page.$eval(`[data-testid="handle-${id}"]`, (e) => ({ x: Number(e.dataset.x), y: Number(e.dataset.y) }));
+            const add = async (key) => {
+                await s.page.select('[data-testid=terrain-preset]', key);
+                await hit('[data-testid=terrain-add]');
+                await s.page.waitForSelector('[data-testid=terrain-handles]');
+            };
+            const val = (id) => s.page.$eval(`[data-testid=${id}]`, (i) => Number(i.value));
+            const drag = async (from, to) => {
+                await toBoardTop();
+                await dragTo(from, to);
+            };
+            // a rectangle: drag its bottom-right corner out
+            await add('block');
+            const w0 = await val('terrain-w');
+            const c = await handle('corner-2');
+            await drag([c.x, c.y], [c.x + 3, c.y + 2]);
+            const w1 = await val('terrain-w');
+            if (w1 !== w0 + 3) throw new Error(`dragging a corner should widen the block by 3", ${w0} then ${w1}`);
+            // the turn buttons and the angle box
+            await hit('[data-testid=terrain-rotate-on]');
+            if ((await val('terrain-angle')) !== 15) throw new Error(`turning 15 degrees should set the angle to 15, saw ${await val('terrain-angle')}`);
+            await s.page.$eval('[data-testid=terrain-angle]', (i) => {
+                i.value = '40';
+                i.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=terrain-angle]').value === '40', { timeout: 5000 });
+            // dragging the rotate dot sideways turns the piece about its middle
+            const dot = await handle('rotate');
+            await drag([dot.x, dot.y], [dot.x + 8, dot.y + 8]);
+            if ((await val('terrain-angle')) === 40) throw new Error('the rotate dot did not turn the piece');
+            await hit('[data-testid=terrain-undo]');
+            // an oval shows its own radii
+            await add('pond');
+            await s.page.waitForSelector('[data-testid=terrain-rx]');
+            const rx0 = await val('terrain-rx');
+            const e = await handle('edge-0');
+            await drag([e.x, e.y], [e.x + 2, e.y]);
+            if ((await val('terrain-rx')) <= rx0) throw new Error('dragging the end of an oval should lengthen it');
+            // an outline: add a corner from the middle of an edge, pick one and take it away
+            await add('lbuilding');
+            const count = () => s.page.$$eval('[data-testid^="handle-vertex-"]', (e) => e.length);
+            const before = await count();
+            const m = await handle('mid-0');
+            await drag([m.x, m.y], [m.x, m.y - 2]);
+            if ((await count()) !== before + 1) throw new Error(`dragging an edge middle should add a corner, ${before} then ${await count()}`);
+            const v = await handle('vertex-1');
+            await drag([v.x, v.y], [v.x, v.y]);
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=terrain-remove-corner]').disabled, { timeout: 5000 });
+            await hit('[data-testid=terrain-remove-corner]');
+            await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid^="handle-vertex-"]').length === n, { timeout: 5000 }, before);
+            // any piece, an outline included, can be given a background
+            const textured = (kind) =>
+                s.page.waitForFunction(
+                    (k, want) => [...document.querySelectorAll('[data-testid=terrain-texture]')].some((e) => e.getAttribute('data-kind') === k) === want,
+                    { timeout: 5000 },
+                    kind,
+                    true,
+                );
+            await s.page.select('[data-testid=terrain-background]', 'woods');
+            await textured('woods');
+            await s.page.select('[data-testid=terrain-background]', '');
+            await s.page.waitForFunction(
+                () => ![...document.querySelectorAll('[data-testid=terrain-texture]')].some((e) => e.getAttribute('data-kind') === 'woods'),
+                { timeout: 5000 },
+            );
+            await L.shot(s, `361-shape-handles-${label}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a table can be saved from the board and loaded back from the Load table dialog`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=table-save]');
+            await hit('[data-testid=table-save]');
+            await s.page.waitForSelector('[data-testid=save-dialog]');
+            await s.page.type('[data-testid=save-table-name]', 'Harness table');
+            await s.page.$eval('[data-testid=save-table-confirm]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 8000 });
+            // clear the table, then bring it back: the dialog lists the ready-made tables and mine
+            await hit('[data-testid=mode-terrain]');
+            await hit('[data-testid=terrain-clear]');
+            await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            await hit('[data-testid=table-load]');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            const defaults = await s.page.$$eval('[data-testid=load-default]', (e) => e.length);
+            if (defaults < 4) throw new Error(`expected the ready-made tables in the dialog, saw ${defaults}`);
+            await s.page.waitForSelector('[data-testid=load-mine][data-name="Harness table"]');
+            await L.shot(s, `362-load-dialog-${label}`);
+            await s.page.$eval('[data-testid=load-mine][data-name="Harness table"]', (b) => b.click());
+            await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): the Tabletop page lists my tables with thumbnails, lists public ones, and a table can be edited and saved back`, s, async () => {
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=my-tables]');
+            await s.page.waitForSelector('[data-testid=open-sandbox]');
+            await s.page.waitForSelector('[data-testid=my-table] [data-testid=table-thumbnail]');
+            const named = await s.page.$$eval('[data-testid=my-table-name]', (els) => els.map((e) => e.innerText));
+            if (!named.includes('Harness table')) throw new Error(`expected the saved table in the list: ${named}`);
+            if (label === 'desktop' && !(await s.page.$('a[href$="/tools/tabletop/tables"]'))) throw new Error('the Tools menu should link to the Tabletop page');
+            // make it public: it appears in the gallery
+            await s.page.select('[data-testid=table-visibility]', 'public');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=gallery-table]').length >= 1, { timeout: 8000 });
+            await s.page.waitForFunction(() => /Public/.test(document.querySelector('[data-testid=my-table-visibility]').innerText), { timeout: 8000 });
+            await L.shot(s, `367-tabletop-tables-${label}`);
+            // the gallery search narrows it
+            await s.page.type('[data-testid=gallery-search]', 'zzzz-nothing');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=gallery-table]').length === 0, { timeout: 8000 });
+            // open it in the sandbox to look: a banner says whose it is, and Back returns to the sandbox
+            await hit('[data-testid=table-open]');
+            await s.page.waitForSelector('[data-testid=incoming-layout]');
+            await L.expectText(s, /Harness table/);
+            await L.shot(s, `362-shared-layout-${label}`);
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=my-table]');
+            // edit: the table opens in the sandbox, saving is off until something changes
+            await hit('[data-testid=table-edit]');
+            await s.page.waitForSelector('[data-testid=editing-note]');
+            if (!(await s.page.$eval('[data-testid=editing-save]', (b) => b.disabled))) throw new Error('nothing changed yet, so there is nothing to save');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'crates');
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=editing-save]').disabled, { timeout: 5000 });
+            await hit('[data-testid=editing-save]');
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=editing-save]').disabled, { timeout: 8000 });
+            // back on the page the table now has one more piece
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=my-table]');
+            await L.expectText(s, /6 pieces/);
+            await openSandbox(); // leave the sandbox open for the next step
+        });
+        await L.step(`tabletop (${label}): a new table starts empty, apart from the sandbox, and is saved with a name`, s, async () => {
+            await openSandbox(); // the sandbox has its demo models and terrain on this device
+            await L.visit(s, '/tools/tabletop/tables');
+            await s.page.waitForSelector('[data-testid=new-table-link]');
+            const before = (await s.page.$$('[data-testid=my-table]')).length;
+            await hit('[data-testid=new-table-link]');
+            await s.page.waitForSelector('[data-testid=new-table]');
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            if ((await s.page.$$('[data-testid^=token-]')).length !== 0) throw new Error('a new table has no models');
+            await toBoardTop();
+            await L.sleep(300);
+            await L.shot(s, `368-new-table-blank-${label}`);
+            await s.page.evaluate(() => window.scrollTo(0, 0));
+            await L.shot(s, `368-new-table-top-${label}`);
+            if (!(await s.page.$eval('[data-testid=new-table-save]', (b) => b.disabled))) throw new Error('an empty table cannot be saved');
+            // the page says what it is for, and offers ready-made tables to begin from
+            const sub = await s.page.$eval('[data-testid=page-subtitle]', (e) => e.innerText);
+            if (!/name it and save it/.test(sub)) throw new Error(`the heading should describe a new table: ${sub}`);
+            const starts = await s.page.$$eval('[data-testid=starting-point]', (e) => e.length);
+            if (starts < 3) throw new Error(`expected ready-made starting points, saw ${starts}`);
+            // leaving with work on the table asks first; with none it just goes
+            await s.page.$eval('[data-testid=starting-point][data-key=hills]', (b) => b.click());
+            await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=starting-points]'), { timeout: 5000 });
+            await hit('[data-testid=new-table-cancel]');
+            await s.page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((b) => /Leave/.test(b.innerText)), { timeout: 5000 });
+            await s.page.evaluate(() => [...document.querySelectorAll('[role=dialog] button')].find((b) => /Cancel/.test(b.innerText)).click());
+            await s.page.waitForFunction(() => !document.querySelector('[role=dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            await s.page.select('[data-testid=terrain-preset]', 'wall');
+            await hit('[data-testid=terrain-add]');
+            await s.page.type('[data-testid=new-table-name]', 'Fresh table');
+            await s.page.select('[data-testid=new-table-visibility]', 'public');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=new-table-save]').disabled, { timeout: 5000 });
+            await hit('[data-testid=new-table-save]');
+            await s.page.waitForSelector('[data-testid=my-tables]', { timeout: 10000 });
+            await s.page.waitForFunction((n) => document.querySelectorAll('[data-testid=my-table]').length > n, { timeout: 8000 }, before);
+            const names = await s.page.$$eval('[data-testid=my-table-name]', (els) => els.map((e) => e.innerText));
+            if (!names.includes('Fresh table')) throw new Error(`the new table should be listed: ${names}`);
+            const badge = await s.page.$$eval('[data-testid=my-table]', (cards) => {
+                const card = cards.find((c) => /Fresh table/.test(c.innerText));
+                return card ? card.querySelector('[data-testid=my-table-visibility]').innerText : '';
+            });
+            if (!/Public/.test(badge)) throw new Error(`the table was made public, the card says: ${badge}`);
+            // the sandbox on this device was not touched
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=token-a1]');
+        });
+        await L.step(`tabletop (${label}): table lines mark the centre axes and each quarter's middle, whatever deployment is chosen`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=table-lines-toggle]');
+            if (await s.page.$('[data-testid=table-lines]')) throw new Error('the table lines start hidden');
+            await hit('[data-testid=table-lines-toggle]');
+            await s.page.waitForSelector('[data-testid=table-lines]');
+            const centres = await s.page.$$eval('[data-testid=quarter-centre]', (els) => els.map((e) => `${e.dataset.x},${e.dataset.y}`).sort());
+            if (centres.join('|') !== '27,27|27,9|9,27|9,9') throw new Error(`expected the four quarter centres, saw ${centres}`);
+            await s.page.waitForSelector('[data-testid=table-axes]');
+            // with a deployment chosen the deployment's own centerline is still there, with no big label on it
+            await s.page.select('[data-testid=deployment-select]', 'standard');
+            await s.page.waitForSelector('[data-testid=centerline]');
+            const summary = await s.page.$eval('[data-testid=table-summary]', (e) => e.innerText);
+            if (!/Standard/.test(summary) || !/lines on/.test(summary)) throw new Error(`the Table section should say what is set: ${summary}`);
+            if ((await s.page.$eval('body', (b) => b.innerText)).includes('CENTERLINE')) throw new Error('the centerline needs no label');
+            await toBoardTop();
+            await L.shot(s, `369-table-lines-${label}`);
+            // kept on this device
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=table-lines]');
+            await hit('[data-testid=table-lines-toggle]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=table-lines]'), { timeout: 5000 });
+            await s.page.select('[data-testid=deployment-select]', 'none');
+        });
+        await L.step(`tabletop (${label}): the side column, photographed in each state for design review`, s, async () => {
+            const SHOTS = process.env.SHOTS;
+            const column = async (name) => {
+                const el = await s.page.$('[data-testid=side-column]');
+                await el.screenshot({ path: `${SHOTS}/${name}-${label}.png` });
+            };
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=side-column]');
+            await column('col-1-move-nothing-selected');
+            await toBoardTop();
+            const m = await pixel(18, 4);
+            await s.page.mouse.click(m.x, m.y); // the first master
+            await s.page.waitForSelector('[data-testid=model-guide]');
+            await column('col-2-move-model-selected');
+            await hit('[data-testid=model-guide]');
+            await s.page.waitForSelector('[data-testid=side-readout]');
+            await column('col-3-move-guidelines-on');
+            await hit('[data-testid=model-guide]');
+            await hit('[data-testid=mode-terrain]');
+            await toBoardTop();
+            const roof = await pixel(10, 8);
+            await s.page.mouse.click(roof.x, roof.y); // the tower
+            await s.page.waitForSelector('[data-testid=terrain-piece]');
+            await column('col-4-terrain-piece-selected');
+            await hit('[data-testid=terrain-enterable]');
+            await s.page.waitForSelector('[data-testid=terrain-floor]');
+            await column('col-5-terrain-enterable');
+            await hit('[data-testid=mode-move]');
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a selected model's panel is one tap away on a phone, and the chip never shows on a desktop`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await toBoardTop();
+            const m = await pixel(18, 4);
+            await s.page.mouse.click(m.x, m.y); // the first master
+            await s.page.waitForSelector('[data-testid=selected-panel] [data-testid=model-guide]');
+            await L.sleep(500);
+            const chip = await s.page.$('[data-testid=selection-chip]');
+            if (label === 'desktop') {
+                if (chip) throw new Error('the selection chip is for phones only');
+            } else {
+                if (!chip) throw new Error('on a phone the panel is below the board, so a chip should offer to go to it');
+                const text = await s.page.$eval('[data-testid=selection-chip]', (e) => e.innerText);
+                if (!/Master/.test(text)) throw new Error(`the chip should name the selection: ${text}`);
+                await s.page.click('[data-testid=selection-chip]');
+                await s.page.waitForFunction(() => !document.querySelector('[data-testid=selection-chip]'), { timeout: 5000 });
+                const inView = await s.page.$eval('[data-testid=selected-panel]', (e) => {
+                    const r = e.getBoundingClientRect();
+                    return r.top < window.innerHeight && r.bottom > 0;
+                });
+                if (!inView) throw new Error('the chip should bring the panel into view');
+                // the tabs stay pinned at the top of the screen however far down the column you are
+                await s.page.evaluate(() => window.scrollBy(0, 4000));
+                await L.sleep(300);
+                const top = await s.page.$eval('[data-testid=mode-tabs]', (e) => e.getBoundingClientRect().top);
+                if (top < 0 || top > 40) throw new Error(`the Models and Terrain tabs should stay at the top of a phone screen, top is ${top}`);
+            }
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a Walk across a river costs double, and one through deep water is called out`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'river');
+            await hit('[data-testid=terrain-add]');
+            await hit('[data-testid=mode-move]');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // the minion walks straight up the table across the 3" river
+            await dragTo([12, 32], [12, 10]);
+            let t = await note();
+            if (!/in severe terrain, which counts double/.test(t)) throw new Error(`expected the river to cost extra: ${t}`);
+            const label1 = await s.page.$eval('[data-testid=move-trail-label]', (e) => e.textContent.trim());
+            const total = Number((label1.match(/([\d.]+)"/) || [])[1]);
+            if (!(total > 22 + 3)) throw new Error(`22" of walking plus about 4" extra in the river should read well over 25": ${label1}`);
+            // a plain walk with no river in the way reads as before
+            await dragTo([12, 10], [12, 6]);
+            t = await note();
+            if (/severe/.test(t)) throw new Error(`nothing severe was crossed: ${t}`);
+            // deep water is impassable: a walk through it is called out
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'deepwater');
+            await hit('[data-testid=terrain-add]');
+            await hit('[data-testid=mode-move]');
+            await dragTo([12, 6], [22, 22]);
+            t = await note();
+            if (!/impassable terrain \(Deep water\)/.test(t)) throw new Error(`expected the deep water to be called out: ${t}`);
+            // a Flight walk ignores all of it
+            await hit('[data-testid=move-kind-fly]');
+            await dragTo([22, 22], [12, 6]);
+            t = await note();
+            if (/severe|impassable/.test(t)) throw new Error(`a Flight walk ignores terrain: ${t}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a model left over another base can be moved to the nearest legal spot`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            const problem = (id) => s.page.$eval(`[data-testid=token-${id}] circle`, (c) => c.getAttribute('data-problem'));
+            // the minion is dropped right on the henchman's base
+            await dragTo([12, 32], [12.2, 5.2]);
+            await s.page.waitForSelector('[data-testid=model-fix-spot]');
+            if ((await problem('b3')) !== 'true') throw new Error('the overlap should be flagged');
+            await hit('[data-testid=model-fix-spot]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=model-fix-spot]'), { timeout: 5000 });
+            if (await problem('b3')) throw new Error('the model should no longer be flagged once moved to a legal spot');
+            const t = await s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            if (!/to the nearest legal spot/.test(t)) throw new Error(`the note should say what happened: ${t}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a selected model says which quarter, edge and half of the table it is in`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await toBoardTop();
+            const m = await pixel(18, 4); // the first master, straddling the middle line at the top
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=whereabouts]');
+            const where = () => s.page.$eval('[data-testid=whereabouts]', (e) => e.textContent.trim());
+            let t = await where();
+            if (!/top-left and top-right quarters/i.test(t) || !/from the top edge/.test(t)) throw new Error(`expected quarters and an edge: ${t}`);
+            if (/half|deployment zone/.test(t)) throw new Error(`no deployment is chosen, so no half: ${t}`);
+            await s.page.select('[data-testid=deployment-select]', 'standard');
+            await s.page.waitForFunction(() => /Blue's half/.test(document.querySelector('[data-testid=whereabouts]').textContent), { timeout: 5000 });
+            t = await where();
+            if (!/in Blue's deployment zone/.test(t)) throw new Error(`the master starts in its own zone: ${t}`);
+            await s.page.select('[data-testid=deployment-select]', 'none');
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a model that ignores severe terrain is not slowed by a river, and it is kept`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.select('[data-testid=terrain-preset]', 'river');
+            await hit('[data-testid=terrain-add]');
+            await hit('[data-testid=mode-move]');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            // select the minion, switch on "severe" in its panel
+            await dragTo([12, 32], [12, 31.5]);
+            await s.page.waitForSelector('[data-testid=ignore-severe]');
+            await s.page.$eval('[data-testid=ignore-severe]', (i) => i.click());
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=ignores-section] summary').innerText.includes('severe'), { timeout: 5000 });
+            await dragTo([12, 31.5], [12, 10]);
+            const t = await note();
+            if (/severe terrain/.test(t)) throw new Error(`a model unaffected by severe terrain is not slowed by it: ${t}`);
+            // and without the switch it is
+            await s.page.$eval('[data-testid=ignore-severe]', (i) => i.click());
+            await dragTo([12, 10], [12, 31]);
+            const u = await note();
+            if (!/severe terrain, which counts double/.test(u)) throw new Error(`without the switch the river costs double: ${u}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a jump from a Ht 3 wall to a Ht 2 wall is legal, and one back up is not`, s, async () => {
+            await L.visit(s, '/tools/tabletop');
+            const rect = (x, y, w, h) => ({ kind: 'rect', x, y, w, h });
+            await s.page.evaluate(
+                (rects) => {
+                    const piece = (id, name, top, shape) => ({ id, name, traits: ['blocking', 'climbable'], surfaces: [{ id: `${id}-1`, top, shape }] });
+                    localStorage.setItem(
+                        'tabletop-spike-v2',
+                        JSON.stringify({
+                            tokens: [{ id: 'j1', sp: 6, sz: 2, name: 'Jumper', side: 'a', baseMm: 30, x: 7, y: 12 }],
+                            terrain: [piece('wa', 'Ht 3 wall', 3, rects.a), piece('wb', 'Ht 2 wall', 2, rects.b)],
+                        }),
+                    );
+                },
+                { a: rect(2, 10, 6, 4), b: rect(11, 10, 6, 4) },
+            );
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=token-j1]');
+            await hit('[data-testid=move-kind-jump]');
+            const note = () => s.page.$eval('[data-testid=tabletop-note]', (e) => e.innerText);
+            await dragTo([7, 12], [12, 12]); // 5 inches across the gap, one inch lower
+            let t = await note();
+            if (!/A legal jump, landing at elevation 2/.test(t)) throw new Error(`expected a legal jump: ${t}`);
+            await dragTo([12, 12], [7, 12]); // and back up: higher than it began
+            t = await note();
+            if (!/not a legal jump: a jump cannot end higher than it began/.test(t)) throw new Error(`jumping up is not a jump: ${t}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): a model may move through a Strategy marker but not end a move on it`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=add-menu]');
+            await addItem('marker-open');
+            await s.page.waitForSelector('[data-testid=marker-picker]');
+            await s.page.type('[data-testid=marker-search]', 'strategy');
+            await hit('[data-testid=marker-add]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=marker-picker]'), { timeout: 5000 });
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 1, { timeout: 5000 });
+            const marker = await s.page.$eval('[data-marker=true]', (c) => ({ x: Number(c.getAttribute('cx')), y: Number(c.getAttribute('cy')) }));
+            // the marker says what it is
+            await toBoardTop();
+            const m = await pixel(marker.x, marker.y);
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=strategy-note]');
+            // a model dropped on it is flagged, and can be moved off
+            await dragTo([12, 32], [marker.x + 0.2, marker.y + 0.2]);
+            await s.page.waitForSelector('[data-testid=model-fix-spot]');
+            const t = await s.page.$eval('[data-testid=placement-warning]', (e) => e.innerText);
+            if (!/Strategy marker but not end a move/.test(t)) throw new Error(`expected the Strategy marker rule: ${t}`);
+            await hit('[data-testid=model-fix-spot]');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=model-fix-spot]'), { timeout: 5000 });
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): the table check measures a ready-made table against the Gaining Grounds guidelines`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await hit('[data-testid=table-load]');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            await s.page.$eval('[data-testid=table-check]', (d) => (d.open = true));
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=table-check-item]').length >= 4, { timeout: 8000 });
+            const labels = await s.page.$$eval('[data-testid=table-check-item]', (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ')));
+            if (!labels.some((l) => /Sight-blocking terrain/.test(l))) throw new Error(`expected the sight terrain check: ${labels.join(' | ')}`);
+            if (labels.some((l) => /Open sight lines between the zones/.test(l))) throw new Error('the lanes check needs a deployment');
+            // with a deployment chosen the lanes and the zones are measured too
+            await s.page.select('[data-testid=deployment-select]', 'standard');
+            await s.page.waitForFunction(() => [...document.querySelectorAll('[data-testid=table-check-item]')].some((e) => /Open sight lines between the zones/.test(e.innerText)), { timeout: 8000 });
+            const unreachable = await s.page.$$eval('[data-testid=table-check-item]', (els) => els.map((e) => e.innerText).find((t) => /Unreachable areas/.test(t)));
+            if (!/zone A/.test(unreachable || '')) throw new Error(`the unreachable check should measure each zone: ${unreachable}`);
+            await s.page.select('[data-testid=deployment-select]', 'none');
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): an aura can count as hazardous terrain around a model`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await toBoardTop();
+            const m = await pixel(18, 4); // the first master
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=aura-add]');
+            await hit('[data-testid=aura-add]');
+            await s.page.waitForSelector('[data-testid=aura-trait-hazardous]');
+            await s.page.$eval('[data-testid=aura-trait-hazardous]', (i) => i.click());
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=aura-trait-hazardous]').checked, { timeout: 5000 });
+            // a model walks into the aura: it is in hazardous terrain
+            await dragTo([12, 32], [18, 8]);
+            await s.page.waitForSelector('[data-testid=placement-warning]');
+            const w = await s.page.$eval('[data-testid=placement-warning]', (e) => e.innerText);
+            if (!/hazardous terrain \(Master's aura\)/.test(w)) throw new Error(`the aura should count as hazardous terrain: ${w}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): special terrain carries a rules card and the table check counts its limit`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.waitForSelector('[data-testid=terrain-add]');
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForSelector('[data-testid=terrain-rules-text]');
+            await s.page.$eval('[data-testid=terrain-rules]', (d) => (d.open = true));
+            await s.page.type('[data-testid=terrain-rules-text]', 'Models within 2 inches suffer 1 damage.');
+            await s.page.$eval('[data-testid=terrain-rules-text]', (t) => t.dispatchEvent(new Event('change', { bubbles: true })));
+            await s.page.waitForFunction(() => /special terrain/.test(document.querySelector('[data-testid=terrain-rules] summary')?.innerText || ''), { timeout: 5000 });
+            await s.page.select('[data-testid=terrain-limit]', '1');
+            await s.page.waitForFunction(() => /unique/.test(document.querySelector('[data-testid=terrain-rules] summary')?.innerText || ''), { timeout: 5000 });
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForSelector('[data-testid=terrain-piece]');
+            await hit('[data-testid=reset-table]');
+        });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
             await s.page.select('[data-testid=level-select]', '0');
             await s.page.select('[data-testid=deployment-select]', 'standard');
@@ -129,7 +878,7 @@ const L = require('./lib.cjs');
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
         });
         await L.step(`tabletop (${label}): all four deployments draw their real shapes and a centerline`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             // What each deployment draws for side A: a rectangle strip, an L-shaped flank, a quarter circle, a triangle.
             const expected = { standard: 'polygon', flank: 'polygon', corner: 'circle', wedge: 'polygon' };
@@ -161,10 +910,9 @@ const L = require('./lib.cjs');
             if ((await hscroll(s)) > 1) throw new Error(`page scrolls sideways by ${await hscroll(s)}px`);
         });
         await L.step(`tabletop (${label}): an aura starts at the base edge and shows who is inside`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
-            await L.clickText(s, /^Reset table$/i, 'button'); // earlier steps moved models; the table is saved on this device
-            await s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView()); // the Reset button sits below the board on a phone
+            await s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView()); // the controls sit below the board on a phone
             const a = await pixel(18, 4); // the blue master, 50 mm base, with the henchman (12, 5) and minion (22, 4) around it
             await s.page.mouse.click(a.x, a.y);
             await hit('[data-testid=aura-add]');
@@ -203,9 +951,17 @@ const L = require('./lib.cjs');
             const walked = await s.page.$eval('[data-testid=token-a1] circle', (c) => Number(c.getAttribute('cy')));
             if (Math.abs(walked - 14) > 0.3) throw new Error(`master did not walk to y=14 (cy ${walked})`);
             // A second and a third aura on the same model; then no more.
-            await s.page.$eval('[data-testid=aura-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=aura-add]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await hit('[data-testid=aura-add]');
-            await s.page.$eval('[data-testid=aura-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=aura-add]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await hit('[data-testid=aura-add]');
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=aura-a1]').length === 3, { timeout: 5000 });
             if (!(await s.page.$eval('[data-testid=aura-add]', (b) => b.disabled))) throw new Error('a fourth aura should not be allowed');
@@ -218,7 +974,11 @@ const L = require('./lib.cjs');
             }
             await L.shot(s, `353-tabletop-auras-${label}`);
             // Unlock the first: it jumps back to the model.
-            await s.page.$eval('[data-testid=aura-row-0] [data-testid=aura-lock]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=aura-row-0] [data-testid=aura-lock]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             await hit('[data-testid=aura-row-0] [data-testid=aura-lock]');
             await L.sleep(200);
             const after = await s.page.evaluate(() =>
@@ -234,12 +994,12 @@ const L = require('./lib.cjs');
             if (await s.page.$('[data-testid=aura-a1]')) throw new Error('aura was not removed');
         });
         await L.step(`tabletop (${label}): markers from the list can be added, at their own base size`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             // The picker lives in a dialog, so the page itself carries no list.
-            await s.page.waitForSelector('[data-testid=marker-open]');
+            await s.page.waitForSelector('[data-testid=add-menu]');
             if (await s.page.$('[data-testid=marker-picker]')) throw new Error('the marker list should not sit on the page');
             const openPicker = async () => {
-                await hit('[data-testid=marker-open]');
+                await addItem('marker-open');
                 await s.page.waitForSelector('[data-testid=marker-picker]');
             };
             await openPicker();
@@ -319,10 +1079,14 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => document.querySelectorAll('[data-marker=true]').length === 0, { timeout: 5000 });
         });
         await L.step(`tabletop (${label}): a character card can be searched for and added at its own size, Sz and Sp`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
-            await s.page.waitForSelector('[data-testid=character-open]');
-            await s.page.$eval('[data-testid=character-open]', (b) => b.scrollIntoView({ block: 'center' }));
-            await s.page.click('[data-testid=character-open]');
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=add-menu]');
+            await s.page.$eval('[data-testid=add-menu]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
+            await addItem('character-open');
             await s.page.waitForSelector('[data-testid=character-search]');
             await s.page.type('[data-testid=character-search]', 'seedlady');
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=character-result]').length === 2, { timeout: 5000 });
@@ -361,13 +1125,21 @@ const L = require('./lib.cjs');
             const hp = () => s.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
             if ((await hp()) !== '9 / 9') throw new Error(`expected 9 / 9, saw ${await hp()}`);
             const press = async (id) => {
-                await s.page.$eval(`[data-testid=${id}]`, (b) => b.scrollIntoView({ block: 'center' }));
+                await s.page.$eval(`[data-testid=${id}]`, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
                 await s.page.click(`[data-testid=${id}]`);
             };
             await press('health-minus');
             await press('health-minus');
             await s.page.waitForFunction(() => document.querySelector('[data-testid=health-value]').innerText.trim() === '7 / 9', { timeout: 5000 });
-            await s.page.$eval('[data-testid=token-add]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.$eval('[data-testid=token-add]', (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             const focus = await s.page.$$eval('[data-testid=token-add] option', (os) => os.find((o) => o.textContent === 'Focus')?.value);
             await s.page.select('[data-testid=token-add]', focus);
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=model-token]').length === 1, { timeout: 5000 });
@@ -381,29 +1153,33 @@ const L = require('./lib.cjs');
             const radii = await s.page.$$eval('[data-testid^=token-] > circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
             if (Math.abs(radii[radii.length - 1] - 25 / 25.4) > 0.01) throw new Error(`the new model should have a 50 mm base: ${radii}`);
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
-            await s.page.$eval('[data-testid=reset-table]', (b) => b.scrollIntoView({ block: 'center' }));
-            await s.page.click('[data-testid=reset-table]');
+            await hit('[data-testid=reset-table]');
+            // reset clears the models (nothing blank comes back) and the hint says how to start again
             await s.page
-                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 6, { timeout: 5000 })
+                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 0, { timeout: 5000 })
                 .catch(async () => {
                     throw new Error(`reset left ${(await s.page.$$('[data-testid^=token-]')).length} models`);
                 });
+            await s.page.waitForSelector('[data-testid=empty-table]');
         });
-        await L.step(`tabletop (${label}): adding a model works`, s, async () => {
-            // centre the button first: on a phone the fixed tab bar can sit over a button scrolled to the very bottom
-            await s.page.$eval('[data-testid=add-token]', (b) => b.scrollIntoView({ block: 'center' }));
-            await s.page.click('[data-testid=add-token]');
-            await s.page
-                .waitForFunction(() => document.querySelectorAll('[data-testid^=token-]').length === 7, { timeout: 5000 })
-                .catch(async () => {
-                    throw new Error(`model was not added: ${(await s.page.$$('[data-testid^=token-]')).length} on the table`);
-                });
+        await L.step(`tabletop (${label}): the sandbox offers no blank models and starts empty`, s, async () => {
+            await s.page.evaluate(() => localStorage.removeItem('tabletop-spike-v2'));
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=empty-table]');
+            if ((await s.page.$$('[data-testid^=token-]')).length !== 0) throw new Error('the sandbox should start with no models');
+            if (await s.page.$('[data-testid=add-token]')) throw new Error('there should be no blank "Add model" button');
+            await s.page.waitForSelector('[data-testid=add-menu]');
+            await L.expectText(s, /Add a character/);
         });
         await L.step(`tabletop (${label}): the terrain editor selects, edits, moves, adds, turns, undoes and clears pieces`, s, async () => {
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             const toBoard = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
-            const centreOn = (testid) => s.page.$eval(`[data-testid=${testid}]`, (b) => b.scrollIntoView({ block: 'center' }));
+            const centreOn = (testid) => s.page.$eval(`[data-testid=${testid}]`, (b) => {
+                    const d = b.closest('details');
+                    if (d && !d.open) d.open = true;
+                    b.scrollIntoView({ block: 'center' });
+                });
             const click = async (testid) => {
                 await centreOn(testid);
                 await s.page.click(`[data-testid=${testid}]`);
@@ -466,6 +1242,7 @@ const L = require('./lib.cjs');
                 [34, 34],
                 [31, 34.5],
             ]) {
+                await toBoardTop(); // the controls sit further down the page now, so bring the board back before each tap
                 const at = await pixel(x, y);
                 await s.page.mouse.click(at.x, at.y);
             }
@@ -489,18 +1266,23 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             if (/Covered: [1-9]/.test(await stats())) throw new Error(`an empty table has no coverage: ${await stats()}`);
             // A ready-made table fills it in one go and is undoable.
-            await s.page.select('[data-testid=terrain-layout]', 'hills');
-            await click('terrain-layout-load');
+            await click('table-load');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
             await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             const covered = Number(((await stats()).match(/Covered: (\d+)%/) || [])[1]);
             if (covered < 45 || covered > 65) throw new Error(`a ready-made table should cover 45-65%: ${await stats()}`);
             await L.shot(s, `358-terrain-layout-${label}`);
             await click('terrain-undo');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
-            await click('terrain-demo');
+            await click('table-load');
+            await s.page.waitForSelector('[data-testid=load-dialog]');
+            await s.page.$eval('[data-testid=load-default][data-key=demo]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
             await s.page.waitForFunction(() => /5 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             // It is all kept on this device: reload and the demo table is still there, still in terrain mode's reach.
-            await L.visit(s, '/tools/tabletop');
+            await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await L.expectText(s, /Ht 5/);
         });

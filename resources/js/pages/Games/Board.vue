@@ -14,7 +14,9 @@ import {
     type TerrainPiece,
     type Token,
 } from '@/lib/tabletop/geometry';
-import { Head, Link, router } from '@inertiajs/vue3';
+import type { SharedData } from '@/types';
+import type { SavedLayout } from '@/lib/tabletop/layouts';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import { loadEcho } from '@/lib/echo';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -36,6 +38,7 @@ interface SharedAura {
     locked: boolean;
     x?: number;
     y?: number;
+    traits?: string[];
 }
 
 interface BoardModel {
@@ -59,17 +62,23 @@ const props = defineProps<{
     read_only?: boolean;
     players: { slot: number; name: string; mine: boolean }[];
     models: BoardModel[];
-    positions: Record<string, { x: number; y: number }>;
+    positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>;
     terrain: TerrainPiece[];
     markers: MarkerOption[];
     placed_markers: PlacedMarker[];
     shared_auras: SharedAura[];
     token_options: { id: number; name: string }[];
     deployment_variant: number;
+    table_image: string | null;
+    table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
+    terrain_images: Record<string, string>;
+    /** The viewer's saved terrain layouts. */
+    layouts: SavedLayout[];
 }>();
+const page = usePage<SharedData>();
 
 // Saved positions, plus moves the other player has just made (applied straight from the broadcast).
-const live = ref<Record<string, { x: number; y: number }>>({ ...props.positions });
+const live = ref<Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>>({ ...props.positions });
 watch(
     () => props.positions,
     (next) => (live.value = { ...next }),
@@ -90,7 +99,7 @@ watch(
 );
 
 // Auras either player chose to show both sides. The rest stay private to each browser.
-const toAura = (a: SharedAura): Aura => ({ id: a.id, ownerId: a.owner_id, range: a.range, locked: a.locked, x: a.x, y: a.y });
+const toAura = (a: SharedAura): Aura => ({ id: a.id, ownerId: a.owner_id, range: a.range, locked: a.locked, x: a.x, y: a.y, traits: a.traits });
 const sharedAuras = ref<Aura[]>(props.shared_auras.map(toAura));
 watch(
     () => props.shared_auras,
@@ -113,11 +122,27 @@ function variantChanged(next: number) {
     );
 }
 
+// The table surface, agreed by both players like the deployment orientation.
+const tableImage = ref<string | null>(props.table_image);
+watch(
+    () => props.table_image,
+    (next) => (tableImage.value = next),
+);
+function tableImageChanged(next: string | null) {
+    tableImage.value = next;
+    if (props.read_only) return;
+    router.put(
+        route('games.board.setup', props.game.uuid),
+        { table_image: next },
+        { preserveScroll: true, preserveState: true, only: ['table_image'] },
+    );
+}
+
 let modelsTimer: ReturnType<typeof setTimeout> | null = null;
 let joined = false;
 const resync = () =>
     document.visibilityState === 'visible' &&
-    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'models'] });
+    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'table_image', 'models'] });
 
 let poll: ReturnType<typeof setInterval> | null = null;
 onMounted(async () => {
@@ -131,7 +156,7 @@ onMounted(async () => {
     if (!echo) return;
     joined = true;
     echo.join(`game.${props.game.uuid}`)
-        .listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number }> }) => {
+        .listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }> }) => {
             live.value = { ...live.value, ...e.positions };
         })
         .listen('.GameBoardTerrainChanged', (e: { terrain: TerrainPiece[] }) => {
@@ -145,8 +170,9 @@ onMounted(async () => {
             if (modelsTimer) clearTimeout(modelsTimer);
             modelsTimer = setTimeout(() => router.reload({ only: ['models'] }), 400);
         })
-        .listen('.GameBoardSetupChanged', (e: { deployment_variant: number }) => {
+        .listen('.GameBoardSetupChanged', (e: { deployment_variant: number; table_image: string | null }) => {
             variant.value = e.deployment_variant;
+            tableImage.value = e.table_image;
         })
         .listen('.GameBoardAurasChanged', (e: { auras: SharedAura[] }) => {
             sharedAuras.value = e.auras.map(toAura);
@@ -221,6 +247,7 @@ const markerTokens = computed<Token[]>(() =>
             y: pm.y,
             marker: true,
             markerId: pm.marker_id,
+            strategy: option?.strategy || undefined,
             locked: props.read_only || !playerFor(pm.owner)?.mine,
         };
     }),
@@ -245,6 +272,8 @@ const tokens = computed<Token[]>(() => [
             sp: m.sp ?? undefined,
             x: at.x,
             y: at.y,
+            under: 'under' in at ? at.under : undefined,
+            ignores: 'ignores' in at ? at.ignores : undefined,
             killed: m.killed,
             info: {
                 health: m.health ?? undefined,
@@ -318,7 +347,7 @@ function moved(t: Token) {
     }
     router.put(
         route('games.board.update', props.game.uuid),
-        { positions: { [t.id]: { x: t.x, y: t.y } } },
+        { positions: { [t.id]: { x: t.x, y: t.y, ...(t.under ? { under: true } : {}), ...(t.ignores?.length ? { ignores: t.ignores } : {}) } } },
         { preserveScroll: true, preserveState: true, only: ['positions'] },
     );
 }
@@ -357,6 +386,13 @@ function moved(t: Token) {
             @aura-change="auraChange"
             :deployment-variant="variant"
             @variant-changed="variantChanged"
+            :table-images="table_images"
+            :layouts="layouts"
+            :layout-target="{ kind: 'game', uuid: game.uuid }"
+            :signed-in="!!page.props.auth.user"
+            :table-image="tableImage"
+            :terrain-images="terrain_images"
+            @table-image-changed="tableImageChanged"
             @add-marker="addMarker"
             @remove="removeToken"
             @terrain-changed="terrainChanged"

@@ -1,4 +1,4 @@
-import type { TerrainPiece, Token } from './geometry';
+import type { TerrainPiece } from './geometry';
 
 /**
  * A demo table for the spike. `top` on a surface is the standing elevation in inches (the summed height of what supports a model),
@@ -7,6 +7,7 @@ import type { TerrainPiece, Token } from './geometry';
 export const sampleTerrain: TerrainPiece[] = [
     {
         id: 'tower',
+        kind: 'tower',
         name: 'Tower (flat roof, Ht 3, upper level Ht 5)',
         traits: ['blocking', 'climbable'],
         surfaces: [
@@ -16,6 +17,7 @@ export const sampleTerrain: TerrainPiece[] = [
     },
     {
         id: 'hill',
+        kind: 'hill',
         name: 'Hill (Ht 1, crest Ht 2)',
         traits: ['blocking', 'climbable'],
         surfaces: [
@@ -37,12 +39,14 @@ export const sampleTerrain: TerrainPiece[] = [
     },
     {
         id: 'wall',
+        kind: 'wall',
         name: 'Wall (Ht 2)',
         traits: ['blocking', 'climbable'],
         surfaces: [{ id: 'wall-top', shape: { kind: 'rect', x: 14, y: 17, w: 8, h: 1.5 }, top: 2 }],
     },
     {
         id: 'crates',
+        kind: 'crates',
         name: 'Crates (Ht 1, stacked Ht 2)',
         traits: ['blocking', 'climbable', 'destructible'],
         surfaces: [
@@ -52,17 +56,9 @@ export const sampleTerrain: TerrainPiece[] = [
     },
     {
         id: 'bridge',
-        name: 'Bridge walkway (Ht 3, clear archway beneath)',
-        traits: ['climbable'],
-        surfaces: [{ id: 'bridge-walk', shape: { kind: 'rect', x: 6, y: 27, w: 12, h: 2.5 }, top: 3 }],
+        kind: 'bridge',
+        name: 'Bridge (walkway Ht 3, archway Ht 2 beneath)',
+        traits: ['blocking', 'climbable'],
+        surfaces: [{ id: 'bridge-walk', shape: { kind: 'rect', x: 4, y: 27, w: 12, h: 2.5 }, top: 3, under: 2 }],
     },
-];
-
-export const sampleTokens: Token[] = [
-    { id: 'a1', sp: 5, sz: 3, name: 'Master', side: 'a', baseMm: 50, x: 18, y: 4 },
-    { id: 'a2', sp: 5, sz: 2, name: 'Henchman', side: 'a', baseMm: 40, x: 12, y: 5 },
-    { id: 'a3', sp: 5, sz: 1, name: 'Minion', side: 'a', baseMm: 30, x: 22, y: 4 },
-    { id: 'b1', sp: 5, sz: 3, name: 'Master', side: 'b', baseMm: 50, x: 18, y: 32 },
-    { id: 'b2', sp: 5, sz: 2, name: 'Henchman', side: 'b', baseMm: 40, x: 24, y: 31 },
-    { id: 'b3', sp: 5, sz: 1, name: 'Minion', side: 'b', baseMm: 30, x: 12, y: 32 },
 ];

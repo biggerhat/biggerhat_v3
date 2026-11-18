@@ -44,6 +44,7 @@ const isTos = computed(() => page.props.currentGameSystem?.slug === 'tos');
 // Admin pages get the admin palette (pages + record search) instead of the public one.
 const isAdminPage = computed(() => !!page.props.adminNav);
 const canAccessAdmin = computed(() => !!page.props.auth.can_access_admin);
+const canUseTabletop = computed(() => !!page.props.auth.can_use_tabletop);
 const channelIds = computed(() => page.props.auth.channel_ids ?? []);
 
 const open = commandPaletteOpen;
@@ -113,6 +114,7 @@ const malifauxNavigateItems = computed(() => {
             buildMainNav({
                 isAuthenticated: isLoggedIn.value,
                 canAccessAdmin: canAccessAdmin.value,
+                canUseTabletop: canUseTabletop.value,
                 hasChannels: channelIds.value.length > 0,
                 factionItems: [],
             }),

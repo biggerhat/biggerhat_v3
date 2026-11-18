@@ -24,6 +24,8 @@ const props = defineProps<{
     };
     ruleset: TournamentRuleset;
     tables: TableDetails;
+    /** The organizer's saved Tabletop layouts, when they can use Tabletop. */
+    layouts?: { uuid: string; name: string }[];
     awards: TournamentAward[];
 }>();
 const emit = defineEmits<{ (e: 'saved'): void }>();
@@ -113,6 +115,7 @@ const tableCount = computed(() => {
                     :tournament-uuid="tournament.uuid"
                     :number="n"
                     :detail="tables[n] ?? null"
+                    :layouts="layouts"
                     @saved="emit('saved')"
                 />
                 <Button type="button" variant="outline" size="sm" class="gap-1 text-xs" @click="extra++">

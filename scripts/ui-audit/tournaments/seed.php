@@ -164,7 +164,7 @@ foreach ([[$pp1, 'bayou', [['Pandora', 'master', 'leader', 0, 10], ['Silurid', '
 
 \Laravel\Pennant\Feature::for(null)->activate('experiment-tabletop');
 foreach ([['Scheme Marker', 30], ['Strategy Marker', 30], ['Blast Marker', 50], ['Corpse Marker', 40], ['Scrap Marker', 30], ['Marker of the Dead', 30]] as [$markerName, $markerBase]) {
-    App\Models\Marker::factory()->create(['name' => $markerName, 'base' => $markerBase]);
+    App\Models\Marker::factory()->create(['name' => $markerName, 'base' => $markerBase, 'is_strategy' => $markerName === 'Strategy Marker']);
 }
 
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";

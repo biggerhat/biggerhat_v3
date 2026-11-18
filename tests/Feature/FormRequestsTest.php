@@ -40,6 +40,9 @@ it('builds rules for every form request', function () {
 
     $broken = [];
     foreach (array_diff(formRequestClasses(), $needsContext) as $class) {
+        if ((new ReflectionClass($class))->isAbstract()) {
+            continue; // a shared base (Games\Fate\FateRequest), not a request on its own
+        }
         try {
             $request = $class::create('/', 'POST');
             $request->setContainer(app());

@@ -6,6 +6,15 @@ The goal behind (1) is full games inside the game tracker, so it comes first and
 
 ## 1. Fate deck, hands and flips
 
+### Status (2026-12)
+- **Badges (section 2): built** (token chips and an activation tick on each base, in games and the sandbox).
+- **Phase 1: built, no UI.** `game_fate_cards` (54 rows per player, `zone` is `FateZoneEnum`), `game_fate_flips`, `App\Services\Fate\FateDeckService` (every action in one transaction under a lock on the game row, re-checking that each card is where the request said), `App\Support\Fate\FateCards` (the card numbering: 0-51 the four suits in order Rams, Masks, Tomes, Crows, then 52 Red Joker and 53 Black Joker), `GameFateController` and the `Requests/Games/Fate/*` requests, routes `games.fate.*` (behind `TabletopAccess` like the tabletop), 33 Pest tests (`tests/Feature/Games/GameFateTest.php`) including the visibility assertions. Every action answers with the state the caller may see (`state()`), plus any private result (`drawn`, `peeked`, `deck`).
+- Decisions made while building: a draw is not capped at the hand maximum (an effect may draw past it; the state reports `over_max`, only `refill` stops at seven); `arrange` is the one primitive for reordering, discarding from the top, putting on the bottom and taking to hand, and it must name exactly the deck's current top cards; a search lists the deck in card order and shuffles after the take; each player has one chance to cheat each flip and may decline it; a Red Joker stops the flipper cheating their own flip but not the opponent; `end_phase` shuffles each discard pile back but is not wired to the turn advance yet.
+- **Not built yet:** realtime broadcast of public state (players re-read `GET games.fate.show`; observers poll), the Fate panel UI, opponent-targeted effects (every action acts on the caller's own deck), turn-advance hook, replay of flips.
+
+### The sandbox gets a local practice deck (decision, 2026-12)
+The sandbox has no game row, no opponent and nobody to hide a hand from, so it does not use the server deck. It gets the same 54-card deck shuffled in the browser (`random` via `crypto.getRandomValues`), with draw, flip (+/-), choose, cheat, discard, shuffle and peek, reset with the table. The card numbering and the flip rules (`legalChoices`) are written once in `resources/js/lib/fate/` and the Fate panel is one component fed either by the server state (a game) or by the local deck (the sandbox). Phase 2 builds the panel with both feeds.
+
 ### What the tracker has today
 Nothing: no deck, hand, flip or discard state anywhere (checked `app`, migrations, `Games/*`, `components/Game`). It is a new feature, not an extension.
 

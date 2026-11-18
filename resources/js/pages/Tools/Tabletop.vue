@@ -20,7 +20,7 @@ const props = defineProps<{
     table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
     terrain_images: Record<string, string>;
     /** The viewer's saved terrain layouts. */
-    layouts: SavedLayout[];
+    layouts?: SavedLayout[];
     /** A layout opened by link (somebody else's shared one, or the viewer's own): shown on the table without touching the saved sandbox. */
     incoming_layout: SavedLayout | null;
     /** The incoming layout is the viewer's own, opened to change it: the banner offers to save the changes back. */
@@ -342,7 +342,8 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             :markers="props.markers"
             :token-options="props.token_options"
             :table-images="props.table_images"
-            :layouts="layouts"
+            :layouts="layouts ?? []"
+            :layouts-loading="layouts === undefined"
             :layout-target="fresh || editing ? undefined : { kind: 'sandbox' }"
             :initial-mode="fresh || editing ? 'terrain' : 'move'"
             :signed-in="signedIn"

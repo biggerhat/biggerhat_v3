@@ -27,6 +27,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 
@@ -81,7 +82,7 @@ class GameBoardController extends Controller
             'table_image' => $game->board_state['table_image'] ?? null,
             'table_images' => TabletopImages::tables(),
             'terrain_images' => TabletopImages::terrain(),
-            'layouts' => Layouts::mine(auth()->user()),
+            'layouts' => Inertia::defer(fn () => Layouts::mine(auth()->user())),
         ]);
     }
 

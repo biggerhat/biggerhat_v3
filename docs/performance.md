@@ -94,4 +94,4 @@ Measured with a Node benchmark on a heavy table (30 models, 40 pieces; a phone i
 | Walk path cost (`terrainAlongPath`) | 2.1 ms | 0.7 ms | bounds reject before `distanceToShape` |
 | Table check, with zones | 205 ms | 25 ms | bounds reject on lanes, a 4.5" grid of sample points, bounds reject in the reachable-area flood |
 
-Also: pointer moves are applied once per animation frame (`flushMove` in `TabletopBoard.vue`; `onUp` flushes the last one) because a phone reports moves faster than it draws. Open items: the Tabletop page sends every saved layout's full terrain (up to 50) in its first payload, and the board re-renders as one component on each drag frame.
+Also: pointer moves are applied once per animation frame (`flushMove` in `TabletopBoard.vue`; `onUp` flushes the last one) because a phone reports moves faster than it draws. The saved layouts (up to 50, each with its full terrain) are an `Inertia::defer` prop on the Tabletop page and the game board, so the table appears without them; the Load dialog says "loading…" until they arrive. Open item: the board re-renders as one component on each drag frame.

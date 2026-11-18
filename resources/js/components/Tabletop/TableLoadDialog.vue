@@ -16,6 +16,8 @@ defineProps<{
     open: boolean;
     /** The viewer's saved tables. */
     layouts: SavedLayout[];
+    /** The saved tables are still being fetched. */
+    loading?: boolean;
     signedIn: boolean;
     tableImages?: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
     terrainImages?: Record<string, string>;
@@ -74,7 +76,10 @@ function pick(table: { name: string; terrain: TerrainPiece[]; tableImage: string
 
                 <section aria-labelledby="load-mine" class="space-y-2">
                     <h3 id="load-mine" class="text-sm font-semibold">
-                        My tables <span class="font-normal text-muted-foreground">({{ signedIn ? layouts.length : 'sign in to use yours' }})</span>
+                        My tables
+                        <span class="font-normal text-muted-foreground"
+                            >({{ !signedIn ? 'sign in to use yours' : loading ? 'loading…' : layouts.length }})</span
+                        >
                     </h3>
                     <div v-if="signedIn && layouts.length" class="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         <button
@@ -97,6 +102,7 @@ function pick(table: { name: string; terrain: TerrainPiece[]; tableImage: string
                             <span class="block text-xs text-muted-foreground">{{ l.pieces }} piece{{ l.pieces === 1 ? '' : 's' }}</span>
                         </button>
                     </div>
+                    <p v-else-if="signedIn && loading" class="text-sm text-muted-foreground" data-testid="layouts-loading">Loading your tables…</p>
                     <p v-else-if="signedIn" class="text-sm text-muted-foreground">
                         You have no saved tables yet. Set one up and use Save table, or look through the
                         <Link :href="route('tools.tabletop.tables')" class="underline">public tables</Link>.

@@ -73,7 +73,7 @@ const props = defineProps<{
     table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
     terrain_images: Record<string, string>;
     /** The viewer's saved terrain layouts. */
-    layouts: SavedLayout[];
+    layouts?: SavedLayout[];
 }>();
 const page = usePage<SharedData>();
 
@@ -387,7 +387,8 @@ function moved(t: Token) {
             :deployment-variant="variant"
             @variant-changed="variantChanged"
             :table-images="table_images"
-            :layouts="layouts"
+            :layouts="layouts ?? []"
+            :layouts-loading="layouts === undefined"
             :layout-target="{ kind: 'game', uuid: game.uuid }"
             :signed-in="!!page.props.auth.user"
             :table-image="tableImage"

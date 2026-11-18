@@ -113,6 +113,8 @@ const props = withDefaults(
         tableImages?: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
         /** The viewer's saved terrain layouts, and where saving the table sends it. Without a target the saved-tables panel is hidden. */
         layouts?: SavedLayout[];
+        /** The saved layouts are still on their way (they load after the page). */
+        layoutsLoading?: boolean;
         layoutTarget?: LayoutSaveTarget;
         signedIn?: boolean;
         /** The tab the board opens on: models (the default), or terrain for a new or edited table. */
@@ -2565,6 +2567,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 v-if="layouts !== undefined"
                 v-model:open="loadOpen"
                 :layouts="layouts"
+                :loading="layoutsLoading"
                 :signed-in="!!signedIn"
                 :table-images="tableImages"
                 :terrain-images="terrainImages"

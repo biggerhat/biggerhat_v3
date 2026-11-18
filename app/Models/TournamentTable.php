@@ -15,8 +15,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $name
  * @property string|null $description
  * @property string|null $image_path
+ * @property int|null $tabletop_layout_id
  * @property-read string|null $image_url
  * @property-read Tournament $tournament
+ * @property-read TabletopLayout|null $layout
  */
 class TournamentTable extends Model
 {
@@ -29,6 +31,16 @@ class TournamentTable extends Model
     public function tournament(): BelongsTo
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    /**
+     * The saved Tabletop layout the organizer attached to this table, if any.
+     *
+     * @return BelongsTo<TabletopLayout, $this>
+     */
+    public function layout(): BelongsTo
+    {
+        return $this->belongsTo(TabletopLayout::class, 'tabletop_layout_id');
     }
 
     public function getImageUrlAttribute(): ?string

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\TabletopLayout;
 use App\Models\Tournament;
 use App\Models\TournamentTable;
 use App\Models\User;
@@ -128,4 +129,21 @@ it('refuses a table photo that is not an image and a stranger saving a table', f
 
     $this->actingAs($this->owner)->postJson($url, ['image' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')])->assertJsonValidationErrors('image');
     $this->actingAs(User::factory()->create())->postJson($url, ['name' => 'Mine'])->assertForbidden();
+});
+
+it('attaches one of the organizer\'s saved layouts to a table, shares it, and refuses someone else\'s', function () {
+    $mine = TabletopLayout::factory()->for($this->owner)->create(['is_shared' => false]);
+    $theirs = TabletopLayout::factory()->create();
+    $url = route('tournaments.tables.save', [$this->tournament, 2]);
+
+    $this->actingAs($this->owner)->postJson($url, ['layout' => $theirs->uuid])->assertStatus(422);
+    $this->actingAs($this->owner)->postJson($url, ['layout' => $mine->uuid])->assertOk();
+
+    expect($mine->fresh()->is_shared)->toBeTrue();
+    expect(TournamentTable::first()->tabletop_layout_id)->toBe($mine->id);
+    $this->get(route('tournaments.view', $this->tournament))->assertInertia(fn (Assert $page) => $page->where('tables.2.layout.uuid', $mine->uuid));
+
+    // clearing the layout with nothing else on the table removes the row
+    $this->actingAs($this->owner)->postJson($url, ['layout' => ''])->assertOk();
+    expect(TournamentTable::count())->toBe(0);
 });

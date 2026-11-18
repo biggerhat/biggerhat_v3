@@ -23,6 +23,7 @@ use App\Models\TournamentSeries;
 use App\Models\TournamentTable;
 use App\Services\TournamentCutService;
 use App\Services\TournamentStandingsService;
+use App\Support\Tabletop\TabletopAccess;
 use App\Tournaments\Analytics\EventInsights;
 use App\Tournaments\CrewListCheck;
 use Inertia\DeferProp;
@@ -271,11 +272,12 @@ class TournamentPagePayloads
             return [];
         }
 
-        return $tournament->tables()->get()->mapWithKeys(fn (TournamentTable $t) => [$t->number => [
+        return $tournament->tables()->with('layout:id,uuid,name,is_shared')->get()->mapWithKeys(fn (TournamentTable $t) => [$t->number => [
             'number' => $t->number,
             'name' => $t->name,
             'description' => $t->description,
             'image_url' => $t->image_url,
+            'layout' => $t->layout ? ['uuid' => $t->layout->uuid, 'name' => $t->layout->name] : null,
         ]])->all();
     }
 
@@ -411,6 +413,9 @@ class TournamentPagePayloads
             'tournament' => $tournament,
             'ruleset' => $this->ruleset($tournament),
             'tables' => $this->tableDetails($tournament),
+            'layouts' => TabletopAccess::allows(request()->user())
+                ? \App\Models\TabletopLayout::where('user_id', request()->user()->id)->orderBy('name')->get(['uuid', 'name'])->all()
+                : [],
             'awards' => $this->awardList($tournament, true),
             'cut' => $this->cutState($tournament),
             'series' => $this->seriesSummary($tournament),

@@ -353,6 +353,8 @@ export interface TableDetail {
     name: string | null;
     description: string | null;
     image_url: string | null;
+    /** A saved Tabletop layout the organizer attached. */
+    layout?: { uuid: string; name: string } | null;
 }
 
 export type TableDetails = Record<string, TableDetail>;

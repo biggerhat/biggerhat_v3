@@ -363,7 +363,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             @reset="reset"
         >
             <template #fate>
-                <FateSection v-if="!fresh && !editing" :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" />
+                <FateSection :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" />
             </template>
         </TabletopBoard>
     </div>

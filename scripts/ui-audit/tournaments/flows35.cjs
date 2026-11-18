@@ -527,6 +527,7 @@ const L = require('./lib.cjs');
             // edit: the table opens in the sandbox, saving is off until something changes
             await hit('[data-testid=table-edit]');
             await s.page.waitForSelector('[data-testid=editing-note]');
+            if (!(await s.page.$('[data-testid=fate-section]'))) throw new Error('the practice Fate deck should be on the edit page too');
             if (!(await s.page.$eval('[data-testid=editing-save]', (b) => b.disabled))) throw new Error('nothing changed yet, so there is nothing to save');
             await hit('[data-testid=mode-terrain]');
             await s.page.select('[data-testid=terrain-preset]', 'crates');
@@ -561,6 +562,7 @@ const L = require('./lib.cjs');
             const sub = await s.page.$eval('[data-testid=page-subtitle]', (e) => e.innerText);
             if (!/name it and save it/.test(sub)) throw new Error(`the heading should describe a new table: ${sub}`);
             // ready-made tables come from Load table (no separate grid above the board)
+            if (!(await s.page.$('[data-testid=fate-section]'))) throw new Error('the practice Fate deck should be on the new-table page too');
             if (await s.page.$('[data-testid=starting-points]')) throw new Error('the starting-points grid should be gone');
             await hit('[data-testid=table-load]');
             await s.page.waitForSelector('[data-testid=load-default][data-key=hills]', { timeout: 5000 });

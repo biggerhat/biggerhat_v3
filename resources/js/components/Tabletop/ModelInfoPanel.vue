@@ -15,6 +15,8 @@ const props = defineProps<{
     canEdit: boolean;
     /** The sandbox has no card behind a model, so its maximum health is set here. */
     editableMax?: boolean;
+    /** The crew list above already shows activation and health (the play screen's row), so only tokens and notes are shown. */
+    crew?: boolean;
 }>();
 
 const emit = defineEmits<{ change: [patch: Partial<ModelInfo>] }>();
@@ -56,7 +58,7 @@ const saveNote = () => {
 
 <template>
     <div class="mt-3 space-y-3 border-t pt-3" data-testid="model-info">
-        <div class="flex items-center justify-between gap-2">
+        <div v-if="!crew" class="flex items-center justify-between gap-2">
             <span class="font-medium">Model</span>
             <button
                 type="button"
@@ -73,7 +75,7 @@ const saveNote = () => {
             </button>
         </div>
 
-        <div data-testid="model-health">
+        <div v-if="!crew" data-testid="model-health">
             <div v-if="max !== undefined" class="flex flex-wrap items-center gap-2">
                 <Heart class="size-4 shrink-0 text-rose-500" />
                 <Button

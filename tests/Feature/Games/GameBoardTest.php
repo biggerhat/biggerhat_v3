@@ -64,6 +64,30 @@ it('shows both crews with their real base sizes to a participant', function () {
             ->where('players.1.mine', false));
 });
 
+it('sends each model with what the crew row needs, and a replace on the board keeps its place, health and tokens', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $m1->update(['attached_tokens' => [['id' => 1, 'name' => 'Focus']], 'current_health' => 3, 'max_health' => 8]);
+    $game->update(['board_state' => ['positions' => [(string) $m1->id => ['x' => 7, 'y' => 9]]]]);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('models.0.member.id', $m1->id)
+            ->where('models.0.member.display_name', $m1->display_name)
+            ->has('models.0.member.attached_upgrades')
+            ->has('models.0.member.defense'));
+
+    $new = Character::factory()->create(['base' => BaseSizeEnum::FortyMM, 'health' => 5]);
+    $this->actingAs($a)->post(route('games.play.crew.replace', [$game->uuid, $m1->id]), ['character_id' => $new->id])->assertRedirect();
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('models.0.base_mm', 40)
+            ->where('models.0.health', 3)
+            ->where('models.0.max_health', 5)
+            ->where('models.0.tokens.0.name', 'Focus')
+            ->where('positions.'.$m1->id.'.x', 7));
+});
+
 it('keeps the board away from people outside the game', function () {
     [$game] = boardGame(User::factory()->create(), User::factory()->create());
 

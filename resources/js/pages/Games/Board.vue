@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,8 @@ interface BoardModel {
     activated: boolean;
     tokens: { id: number; name: string }[];
     notes: string | null;
+    /** What the crew row on the play screen reads (card images, stats, upgrades). */
+    member: Record<string, any>;
 }
 
 const props = defineProps<{
@@ -222,6 +225,68 @@ async function modelChange(id: string, patch: Partial<ModelInfo>) {
     }
 }
 
+// The crew list on the board: the play screen's rows, fed from the same models (so a change shows in both places).
+const crew = computed(() =>
+    liveModels.value.map((m) => ({
+        ...m.member,
+        id: m.id,
+        display_name: m.name,
+        slot: m.slot,
+        current_health: m.health,
+        max_health: m.max_health,
+        is_activated: m.activated,
+        is_killed: m.killed,
+        attached_tokens: m.tokens,
+    })),
+);
+
+// Replace a model with another (CRG p.48): it keeps its place, tokens, upgrades and health (capped by the new model's maximum).
+const replaceTarget = ref<{ id: string; display_name: string; current_health: number; max_health: number } | null>(null);
+const replaceOpen = ref(false);
+const replaceSearch = ref('');
+const replaceResults = ref<{ id: number; name?: string; display_name?: string; front_image: string | null; station?: string | null }[]>([]);
+const replaceLoading = ref(false);
+let replaceTimer: ReturnType<typeof setTimeout> | null = null;
+function openReplace(id: string) {
+    const m = crew.value.find((c) => String(c.id) === id);
+    if (!m || props.read_only) return;
+    replaceTarget.value = { id, display_name: m.display_name, current_health: m.current_health ?? 0, max_health: m.max_health ?? 0 };
+    replaceOpen.value = true;
+}
+function searchReplace(q: string) {
+    replaceSearch.value = q;
+    if (replaceTimer) clearTimeout(replaceTimer);
+    if (q.length < 2) {
+        replaceResults.value = [];
+        return;
+    }
+    replaceLoading.value = true;
+    replaceTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(route('api.characters.search') + '?q=' + encodeURIComponent(q));
+            if (!res.ok) throw new Error(`status ${res.status}`);
+            replaceResults.value = await res.json();
+        } catch {
+            replaceResults.value = [];
+            toast.error('Character search failed', { description: 'Try again in a moment.' });
+        }
+        replaceLoading.value = false;
+    }, 300);
+}
+function replaceWith(character: { id: number }) {
+    const target = replaceTarget.value;
+    if (!target) return;
+    replaceOpen.value = false;
+    replaceSearch.value = '';
+    replaceResults.value = [];
+    replaceTarget.value = null;
+    router.post(
+        route('games.play.crew.replace', { game: props.game.uuid, gameCrewMember: target.id }),
+        { character_id: character.id },
+        { only: ['models'], preserveScroll: true, preserveState: true },
+    );
+}
+
 const playerFor = (slot: number) => props.players.find((p) => p.slot === slot);
 const sideNames = computed(() => ({ a: playerFor(1)?.name ?? 'Player 1', b: playerFor(2)?.name ?? 'Player 2' }));
 
@@ -382,7 +447,9 @@ function moved(t: Token) {
             :shared-auras="sharedAuras"
             :read-only="read_only"
             :token-options="token_options"
+            :crew="crew"
             @model-change="modelChange"
+            @replace-model="openReplace"
             @aura-change="auraChange"
             :deployment-variant="variant"
             @variant-changed="variantChanged"
@@ -403,4 +470,16 @@ function moved(t: Token) {
             @moved="moved"
         />
     </div>
+    <GameReplaceDialog
+        v-if="!read_only"
+        :open="replaceOpen"
+        :member="replaceTarget"
+        :reference-characters="[]"
+        :results="replaceResults"
+        :search="replaceSearch"
+        :loading="replaceLoading"
+        @update:open="replaceOpen = $event"
+        @update:search="searchReplace"
+        @select="replaceWith"
+    />
 </template>

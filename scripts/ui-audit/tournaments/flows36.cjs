@@ -56,7 +56,8 @@ const L = require('./lib.cjs');
                 );
         });
         await L.step(`board (${label}): terrain laid out on the game's table is saved with the game`, carol, async () => {
-            const centre = (testid) => carol.page.$eval(`[data-testid=${testid}]`, (b) => {
+            const centre = (testid) =>
+                carol.page.$eval(`[data-testid=${testid}]`, (b) => {
                     const d = b.closest('details');
                     if (d && !d.open) d.open = true;
                     b.scrollIntoView({ block: 'center' });
@@ -100,7 +101,7 @@ const L = require('./lib.cjs');
             };
             const addItem = async (id) => {
                 await carol.page.waitForFunction(() => document.body.style.pointerEvents !== 'none', { timeout: 5000 });
-    await hit('[data-testid=add-menu]');
+                await hit('[data-testid=add-menu]');
                 await carol.page.waitForSelector(`[data-testid=${id}]`);
                 await carol.page.$eval(`[data-testid=${id}]`, (e) => e.click());
             };
@@ -164,50 +165,123 @@ const L = require('./lib.cjs');
             await open();
             if ((await markers()).length !== start) throw new Error('picking the marker up was not saved');
         });
-        await L.step(`board (${label}): a model's health changed on the board is saved with the game`, carol, async () => {
-            const open = async () => {
-                await L.visit(carol, `/games/${L.ids.play_game}/board`);
-                await carol.page.waitForSelector('[data-testid^=token-]');
-            };
-            const select = async (i) => {
-                await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
-                const c = await circle(carol, i);
-                await carol.page.mouse.click(c.px, c.py);
-                await carol.page.waitForSelector('[data-testid=model-info]');
-            };
-            const hp = () => carol.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
-            const press = async (id) => {
-                await carol.page.$eval(`[data-testid=${id}]`, (b) => {
-                    const d = b.closest('details');
-                    if (d && !d.open) d.open = true;
-                    b.scrollIntoView({ block: 'center' });
-                });
-                await carol.page.click(`[data-testid=${id}]`);
-            };
-            await open();
-            const count = (await carol.page.$$('[data-testid^=token-]')).length;
-            let index = -1;
-            for (let i = 0; i < count && index < 0; i++) {
-                await select(i);
-                if (!(await carol.page.$eval('[data-testid=health-minus]', (b) => b.disabled).catch(() => true))) index = i;
+        await L.step(
+            `board (${label}): the crew list shows the play screen's rows; health and activation change from them and are saved with the game`,
+            carol,
+            async () => {
+                const open = async () => {
+                    await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                    await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
+                };
+                // the visible control inside a row (a row draws a phone and a desktop copy of some)
+                const press = (rowId, label) =>
+                    carol.page.evaluate(
+                        (id, text) => {
+                            const row = document.querySelector(`[data-testid=crew-${id}]`);
+                            const b = [...row.querySelectorAll('button')].find(
+                                (x) => x.offsetParent && (x.getAttribute('aria-label') ?? '').startsWith(text),
+                            );
+                            if (!b) return false;
+                            b.scrollIntoView({ block: 'center' });
+                            b.click();
+                            return true;
+                        },
+                        rowId,
+                        label,
+                    );
+                const hp = (rowId) =>
+                    carol.page.evaluate(
+                        (id) =>
+                            document
+                                .querySelector(`[data-testid=crew-${id}]`)
+                                .innerText.match(/(\d+)\/(\d+)/)
+                                ?.slice(1, 3)
+                                .join('/'),
+                        rowId,
+                    );
+                await open();
+                const ids = await carol.page.$$eval('[data-testid=crew-list] [data-testid^=crew-]', (rs) =>
+                    rs.map((r) => r.getAttribute('data-testid').slice(5)),
+                );
+                let mine = null;
+                for (const id of ids) {
+                    if (
+                        await carol.page.evaluate(
+                            (i) =>
+                                [...document.querySelector(`[data-testid=crew-${i}]`).querySelectorAll('button')].some((b) =>
+                                    (b.getAttribute('aria-label') ?? '').startsWith('Decrease health'),
+                                ),
+                            id,
+                        )
+                    ) {
+                        mine = id;
+                        break;
+                    }
+                }
+                if (!mine) throw new Error('no crew row of mine could change health');
+                const before = await hp(mine);
+                const [cur, max] = before.split('/').map(Number);
+                if (!(await press(mine, 'Decrease health'))) throw new Error('the row has no visible health control');
+                await carol.page.waitForFunction(
+                    (id, t) => document.querySelector(`[data-testid=crew-${id}]`).innerText.includes(t),
+                    { timeout: 5000 },
+                    mine,
+                    `${cur - 1}/${max}`,
+                );
+                await L.sleep(1200);
+                await open();
+                const kept = await hp(mine);
+                if (kept !== `${cur - 1}/${max}`) throw new Error(`health came back as ${kept}, expected ${cur - 1}/${max}`);
+                await press(mine, 'Increase health'); // leave it as found
+                // activation: the tick shows on the base
+                await carol.page.evaluate((id) => {
+                    const row = document.querySelector(`[data-testid=crew-${id}]`);
+                    const b = [...row.querySelectorAll('button')].find((x) => x.offsetParent && /Mark activated/.test(x.getAttribute('title') ?? ''));
+                    b?.click();
+                }, mine);
+                await carol.page.waitForSelector(`[data-testid=activated-${mine}]`, { timeout: 5000 });
+                await L.shot(carol, `367-board-crew-list-${label}`);
+                await carol.page.evaluate((id) => {
+                    const row = document.querySelector(`[data-testid=crew-${id}]`);
+                    [...row.querySelectorAll('button')]
+                        .find((x) => x.offsetParent && /Mark unactivated/.test(x.getAttribute('title') ?? ''))
+                        ?.click();
+                }, mine);
+                await L.sleep(1200);
+            },
+        );
+        await L.step(`board (${label}): choosing a row opens the tabletop options under it, and the row can replace the model`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
+            const id = await carol.page.evaluate(() => {
+                const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find((r) =>
+                    [...r.querySelectorAll('button')].some((b) => (b.getAttribute('aria-label') ?? '').startsWith('Decrease health')),
+                );
+                const name = row.querySelector('button.font-semibold');
+                name.scrollIntoView({ block: 'center' });
+                name.click();
+                return row.getAttribute('data-testid').slice(5);
+            });
+            await carol.page.waitForSelector(`[data-testid=crew-${id}] [data-testid=selected-panel]`, { timeout: 5000 }).catch(() => {
+                throw new Error('the selected model options did not open under its row');
+            });
+            if (!(await carol.page.$(`[data-testid=crew-${id}] [data-testid=model-guide]`)))
+                throw new Error('the row rolldown has no sight guidelines switch');
+            if (await carol.page.$('[data-testid=model-activated]')) throw new Error('activation should come from the row, not a second control');
+            await L.shot(carol, `368-board-row-rolldown-${label}`);
+            // replace: the dialog opens from the row
+            const opened = await carol.page.evaluate((rid) => {
+                const row = document.querySelector(`[data-testid=crew-${rid}]`);
+                const b = [...row.querySelectorAll('button')].find(
+                    (x) => x.offsetParent && /Replace/.test(x.getAttribute('title') ?? x.getAttribute('aria-label') ?? ''),
+                );
+                if (b) b.click();
+                return !!b;
+            }, id);
+            if (opened) {
+                await carol.page.waitForFunction(() => /Replace Crew Member/.test(document.body.innerText), { timeout: 5000 });
+                await carol.page.keyboard.press('Escape');
             }
-            if (index < 0) throw new Error('no model of mine could change health');
-            const before = await hp();
-            const [cur, max] = before.split(' / ').map(Number);
-            await press('health-minus');
-            await carol.page.waitForFunction(
-                (t) => document.querySelector('[data-testid=health-value]').innerText.trim() === t,
-                { timeout: 5000 },
-                `${cur - 1} / ${max}`,
-            );
-            await L.sleep(1200);
-            await open();
-            await select(index);
-            const kept = await hp();
-            if (kept !== `${cur - 1} / ${max}`) throw new Error(`health came back as ${kept}, expected ${cur - 1} / ${max}`);
-            await L.shot(carol, `367-board-model-info-${label}`);
-            await press('health-plus'); // leave it as found
-            await L.sleep(1200);
         });
         await L.step(`board (${label}): which side the deployment zones sit is kept with the game`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
@@ -232,12 +306,18 @@ const L = require('./lib.cjs');
             await carol.page.waitForSelector('[data-testid=save-dialog]');
             await carol.page.type('[data-testid=save-table-name]', 'Game table');
             await carol.page.$eval('[data-testid=save-table-confirm]', (b) => b.click());
-            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=save-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 8000 });
+            await carol.page.waitForFunction(
+                () => !document.querySelector('[data-testid=save-dialog]') && document.body.style.pointerEvents !== 'none',
+                { timeout: 8000 },
+            );
             // it is now one of the viewer's tables, in the Load table dialog
             await carol.page.$eval('[data-testid=table-load]', (b) => b.click());
             await carol.page.waitForSelector('[data-testid=load-mine][data-name="Game table"]', { timeout: 8000 });
             await carol.page.keyboard.press('Escape');
-            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            await carol.page.waitForFunction(
+                () => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none',
+                { timeout: 5000 },
+            );
             await carol.page.$eval('[data-testid=terrain-clear]', (b) => b.click()); // leave the table as found
             await L.sleep(1200);
         });
@@ -247,10 +327,10 @@ const L = require('./lib.cjs');
             const surface = () => carol.page.$eval('[data-testid=table-surface]', (e) => e.getAttribute('data-surface'));
             if ((await surface()) !== 'grass') throw new Error(`the table should start as grass, saw ${await surface()}`);
             await carol.page.$eval('[data-testid=table-select]', (b) => {
-                    const d = b.closest('details');
-                    if (d && !d.open) d.open = true;
-                    b.scrollIntoView({ block: 'center' });
-                });
+                const d = b.closest('details');
+                if (d && !d.open) d.open = true;
+                b.scrollIntoView({ block: 'center' });
+            });
             await carol.page.select('[data-testid=table-select]', 'cobble');
             await carol.page.waitForFunction(() => document.querySelector('[data-testid=table-surface]')?.getAttribute('data-surface') === 'cobble', {
                 timeout: 5000,
@@ -262,10 +342,10 @@ const L = require('./lib.cjs');
             if (kept !== 'cobble') throw new Error(`the surface came back as ${kept}`);
             await L.shot(carol, `368-board-table-surface-${label}`);
             await carol.page.$eval('[data-testid=table-select]', (b) => {
-                    const d = b.closest('details');
-                    if (d && !d.open) d.open = true;
-                    b.scrollIntoView({ block: 'center' });
-                });
+                const d = b.closest('details');
+                if (d && !d.open) d.open = true;
+                b.scrollIntoView({ block: 'center' });
+            });
             await carol.page.select('[data-testid=table-select]', 'grass'); // leave it as found
             await L.sleep(1200);
         });

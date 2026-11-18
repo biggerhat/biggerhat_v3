@@ -61,7 +61,7 @@ class GameBoardController extends Controller
 
     private function render(Game $game, bool $readOnly): Response|ResponseFactory
     {
-        $game->load(['players.user:id,name', 'players.crewMembers.character:id,base,size,speed', 'players.crewMembers.customCharacter:id,base,size,speed']);
+        $game->load(['players.user:id,name', 'players.crewMembers.character:id,base,size,speed', 'players.crewMembers.customCharacter:id,base,size,speed,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at']);
 
         return inertia('Games/Board', [
             'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo, 'deployment' => $game->deployment?->value],
@@ -109,6 +109,16 @@ class GameBoardController extends Controller
                         ->values()
                         ->all(),
                     'notes' => $member->notes,
+                    // what the crew list on the board shows (the same row the play screen uses)
+                    'member' => [
+                        ...$member->only([
+                            'id', 'game_player_id', 'character_id', 'display_name', 'faction', 'defense', 'willpower', 'speed', 'size',
+                            'characteristics', 'front_image', 'back_image', 'attached_upgrades',
+                        ]),
+                        'custom_character' => $member->customCharacter?->only([
+                            'id', 'faction', 'actions', 'abilities', 'display_name', 'front_image', 'back_image', 'card_image_generated_at',
+                        ]),
+                    ],
                 ];
             }
         }

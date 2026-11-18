@@ -47,3 +47,7 @@ Review and rationale: [docs/plans/game-setup-ux.md](../plans/game-setup-ux.md). 
 ## Tests
 
 `tests/Feature/Games/*` (e.g. `BonanzaBrawlTest.php`, `GameModeTypeTest.php`).
+
+## Tabletop board crew list
+
+`Games/Board.vue` passes each model's `member` payload (`GameBoardController::models()`) to `TabletopBoard` as `crew`, which lists the same `GameCrewMemberRow` the play screen uses (`board-mode` hides the upgrade and injury controls, which stay on the play screen). The selected model's tabletop options (the `selected-panel`) are teleported into a slot under its row; with no row (a marker, the sandbox) they stay inline. Health, activation and token removal go through the board's `modelChange` to the tracker endpoint. Replace uses `GameReplaceDialog` and `games.play.crew.replace` (CRG p.48): the row is updated in place, so position, tokens, upgrades and health (capped at the new maximum) are kept. Not modelled: replacing with several models, model limits, leader/scheme retargeting.

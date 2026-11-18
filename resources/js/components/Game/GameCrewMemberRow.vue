@@ -41,6 +41,8 @@ const props = defineProps<{
     /** The inline card preview is open for this model. */
     cardOpen: boolean;
     isCampaign: boolean;
+    /** On the tabletop board: upgrades and injuries are managed on the play screen, so their controls are left out. */
+    boardMode?: boolean;
     upgradePowerMax: (upgradeId: number) => number;
     lootCardById: (id: number) => { value_label?: string; suit?: string | null } | null;
     lootCardSuitIcon: (suit: string | null | undefined) => string | null;
@@ -99,6 +101,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <Circle v-else class="size-5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
                     </button>
                     <button
+                        v-if="!boardMode"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Upgrades"
                         title="Upgrades"
@@ -107,7 +110,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <ArrowUpCircle class="size-4" />
                     </button>
                     <button
-                        v-if="isCampaign"
+                        v-if="isCampaign && !boardMode"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-rose-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Attach Injury"
                         title="Attach Injury"
@@ -220,8 +223,10 @@ const hasCustomCharacterCard = (member: any): boolean =>
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem @select="$emit('open-upgrades')"> <ArrowUpCircle class="mr-2 size-4" /> Upgrades </DropdownMenuItem>
-                            <DropdownMenuItem v-if="isCampaign" @select="$emit('open-injury')">
+                            <DropdownMenuItem v-if="!boardMode" @select="$emit('open-upgrades')">
+                                <ArrowUpCircle class="mr-2 size-4" /> Upgrades
+                            </DropdownMenuItem>
+                            <DropdownMenuItem v-if="isCampaign && !boardMode" @select="$emit('open-injury')">
                                 <HeartCrack class="mr-2 size-4" /> Attach injury
                             </DropdownMenuItem>
                             <DropdownMenuItem @select="$emit('replace')"> <Replace class="mr-2 size-4" /> Replace model </DropdownMenuItem>
@@ -411,7 +416,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         </template>
                         <span class="min-w-0 flex-1 truncate font-medium">{{ upgrade.name }}</span>
                         <button
-                            v-if="editable"
+                            v-if="editable && !boardMode"
                             class="shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
                             aria-label="Remove upgrade"
                             @click.stop="$emit('remove-upgrade', upgrade.id)"
@@ -424,7 +429,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         class="mt-1 pl-5"
                         :max="upgradePowerMax(upgrade.id)"
                         :current="upgrade.current_power_bar ?? upgradePowerMax(upgrade.id)"
-                        :readonly="!editable"
+                        :readonly="!editable || boardMode"
                         compact
                         @update="(v) => $emit('power-bar', upgrade.id, v)"
                     />

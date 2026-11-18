@@ -1168,6 +1168,16 @@ const L = require('./lib.cjs');
             // status badges: the Focus token is a chip on the base and the activation is a tick
             await s.page.waitForSelector('[data-testid^=badges-]', { timeout: 5000 });
             if (!(await s.page.$('[data-testid^=activated-]'))) throw new Error('an activated model should show a tick on its base');
+            // a Fate flip from the model's options: the result is drawn beside it on the table, then discarded
+            await s.page.$eval('[data-testid=model-fate-flip]', (b) => {
+                b.scrollIntoView({ block: 'center' });
+                b.click();
+            });
+            await s.page.waitForSelector('[data-testid^=fate-badge-]', { timeout: 5000 });
+            await s.page.$eval('[data-testid=model-fate-choose]', (b) => b.click());
+            await s.page.waitForSelector('[data-testid=model-fate-result]', { timeout: 5000 });
+            await s.page.$eval('[data-testid=model-fate-done]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid^=fate-badge-]'), { timeout: 5000 });
             await L.shot(s, `359-model-info-${label}`);
             // drawn at its real base size: the new model has a 50 mm (0.984") radius
             const radii = await s.page.$$eval('[data-testid^=token-] > circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
@@ -1269,6 +1279,22 @@ const L = require('./lib.cjs');
             await s.page.$eval('[data-testid=fate-search-card]', (b) => b.click());
             await handIs(7);
             await settle();
+            // effects on the other hand: Red draws, Blue asks to see it, Red shows, and Blue puts it away; then a random discard
+            await press('fate-act-2');
+            await press('fate-draw');
+            await press('fate-act-1');
+            await s.page.waitForSelector('[data-testid=fate-ask-reveal]');
+            await press('fate-ask-reveal');
+            await s.page.waitForSelector('[data-testid=fate-prompt]', { timeout: 5000 });
+            await press('fate-prompt-show');
+            await s.page.waitForSelector('[data-testid=fate-answer] [data-testid=fate-answer-dismiss]', { timeout: 5000 });
+            await press('fate-answer-dismiss');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-answer]'), { timeout: 5000 });
+            await press('fate-random-discard');
+            await s.page.waitForSelector('[data-testid=fate-strip-pile-2]', { timeout: 5000 });
+            // the history says what happened, in words
+            await s.page.$eval('[data-testid=fate-history] summary', (el) => el.click());
+            await s.page.waitForFunction(() => /showed their hand to Blue/.test(document.querySelector('[data-testid=fate-history]').innerText), { timeout: 5000 });
             await L.shot(s, `370-practice-fate-${label}`);
         });
         await L.step(`tabletop (${label}): the sandbox offers no blank models and starts empty`, s, async () => {

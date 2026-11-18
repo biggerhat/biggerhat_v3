@@ -152,6 +152,9 @@ const resync = () =>
 let poll: ReturnType<typeof setInterval> | null = null;
 onMounted(async () => {
     document.addEventListener('visibilitychange', resync);
+    // Load the Fate deck a moment after the table is up (not before it), so a flip made for a model shows beside it without opening the deck.
+    // A watcher polls already, so only the players do this.
+    if (!props.read_only) window.setTimeout(() => void fate.start(), 1200);
     if (props.read_only) {
         // Observers are not on the players' live channel, so look again every few seconds while the tab is showing.
         poll = setInterval(resync, 8000);
@@ -455,6 +458,7 @@ function moved(t: Token) {
             :read-only="read_only"
             :token-options="token_options"
             :crew="crew"
+            :fate="fate"
             @model-change="modelChange"
             @replace-model="openReplace"
             @aura-change="auraChange"

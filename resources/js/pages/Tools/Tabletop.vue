@@ -341,6 +341,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             :terrain="terrain"
             :markers="props.markers"
             :token-options="props.token_options"
+            :fate="fate"
             :table-images="props.table_images"
             :layouts="layouts ?? []"
             :layouts-loading="layouts === undefined"

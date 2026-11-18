@@ -4,7 +4,19 @@ import FatePeekDialog from '@/components/Fate/FatePeekDialog.vue';
 import FatePileDialog from '@/components/Fate/FatePileDialog.vue';
 import FateSearchDialog from '@/components/Fate/FateSearchDialog.vue';
 import { Button } from '@/components/ui/button';
-import { BLACK_JOKER, COUNT, RED_JOKER, SUITS, cardLabel, type FateFeed, type FateFlip, type FatePlayer } from '@/lib/fate/fate';
+import {
+    BLACK_JOKER,
+    COUNT,
+    RED_JOKER,
+    SUITS,
+    cardLabel,
+    type FateAnswer,
+    type FateFeed,
+    type FateFlip,
+    type FateLogLine,
+    type FatePlayer,
+    type FatePrompt,
+} from '@/lib/fate/fate';
 import { ChevronDown, Minus, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
@@ -115,6 +127,40 @@ async function take(card: number) {
     if (!r.error) searchOpen.value = false;
 }
 
+// ----- what the other player has asked of me, and what I have asked of them -----
+const prompts = computed(() => (state.value?.prompts ?? []).filter((q) => controlled.value.some((c) => c.slot === q.to_slot)));
+const sent = computed(() => state.value?.sent ?? []);
+const answers = computed(() => state.value?.answers ?? []);
+const askerOf = (a: FateAnswer) => players.value.find((p) => p.slot !== a.owner_slot)?.slot ?? null;
+const answer = (q: FatePrompt, show?: boolean) => props.feed.act('respond', { prompt: q.id, show, slot: q.to_slot });
+const putAway = (a: FateAnswer) => props.feed.act('dismiss', { prompt: a.id, slot: askerOf(a) });
+const promptText = (q: FatePrompt) =>
+    q.kind === 'reveal' ? 'asks to see your hand' : `asks you to discard ${q.count} card${q.count === 1 ? '' : 's'} (you choose which)`;
+
+// ----- effects on the other player's hand -----
+const opponentSlot = computed(() => players.value.find((p) => p.slot !== actingSlot.value)?.slot ?? null);
+const randomN = ref(1);
+const demandN = ref(1);
+const demandNote = ref('');
+const randomDiscard = () => run('random_discard', { n: randomN.value });
+const askDiscard = () => run('demand', { kind: 'discard', count: demandN.value, note: demandNote.value.trim() || undefined });
+const askReveal = () => run('demand', { kind: 'reveal', note: demandNote.value.trim() || undefined });
+
+/** Two flips with results at once is an opposed duel: the lowest total cheats first, the resister on a tie, then the other (CRG p.9). */
+const duel = computed(() => (state.value?.flips ?? []).filter((f) => f.chosen).length >= 2);
+
+// ----- the history -----
+const historyOpen = ref(false);
+const lines = ref<FateLogLine[]>([]);
+async function loadLog() {
+    lines.value = (await props.feed.log?.()) ?? [];
+}
+function onHistoryToggle(event: Event) {
+    historyOpen.value = (event.target as HTMLDetailsElement).open;
+    if (historyOpen.value) void loadLog();
+}
+watch(state, () => historyOpen.value && void loadLog());
+
 // ----- a discard pile, opened whole -----
 const pileSlot = ref<number | null>(null);
 const pile = computed(() => players.value.find((p) => p.slot === pileSlot.value) ?? null);
@@ -152,6 +198,47 @@ const pileOpen = computed({
                     @click="acting = p.slot"
                     >{{ nameOf(p.slot) }}</Button
                 >
+            </div>
+
+            <!-- what the other player has asked of me -->
+            <div
+                v-for="q in prompts"
+                :key="q.id"
+                class="space-y-1.5 rounded-md border border-amber-500/50 bg-amber-500/10 p-2"
+                role="alert"
+                data-testid="fate-prompt"
+            >
+                <p>
+                    <span class="font-medium">{{ nameOf(q.from_slot) }}</span> {{ promptText(q)
+                    }}<span v-if="q.note" class="text-muted-foreground"> · {{ q.note }}</span>
+                    <span v-if="controlled.length > 1" class="text-xs text-muted-foreground"> (for {{ nameOf(q.to_slot) }})</span>
+                </p>
+                <div class="flex flex-wrap gap-1">
+                    <template v-if="q.kind === 'reveal'">
+                        <Button size="sm" :disabled="busy" data-testid="fate-prompt-show" @click="answer(q, true)">Show my hand</Button>
+                        <Button size="sm" variant="outline" :disabled="busy" data-testid="fate-prompt-refuse" @click="answer(q, false)"
+                            >Refuse</Button
+                        >
+                    </template>
+                    <Button v-else size="sm" :disabled="busy" data-testid="fate-prompt-done" @click="answer(q)">Done: I discarded</Button>
+                </div>
+            </div>
+            <p v-for="q in sent" :key="`s${q.id}`" class="text-xs text-muted-foreground" data-testid="fate-sent">
+                Waiting for {{ nameOf(q.to_slot) }} {{ q.kind === 'reveal' ? 'to answer: show hand' : `to discard ${q.count}` }}.
+            </p>
+            <div
+                v-for="a in answers"
+                :key="`a${a.id}`"
+                class="flex flex-wrap items-center gap-1.5 rounded-md border bg-muted/30 p-2"
+                data-testid="fate-answer"
+            >
+                <span v-if="a.declined" class="text-xs">{{ nameOf(a.owner_slot) }} refused to show their hand.</span>
+                <template v-else>
+                    <span class="text-xs font-medium">{{ nameOf(a.owner_slot) }}'s hand:</span>
+                    <FateCardFace v-for="c in a.cards ?? []" :key="c" :card="c" small />
+                    <span v-if="!a.cards?.length" class="text-xs text-muted-foreground">empty</span>
+                </template>
+                <Button size="sm" variant="ghost" class="ml-auto" data-testid="fate-answer-dismiss" @click="putAway(a)">Put away</Button>
             </div>
 
             <!-- the other side(s): a thin strip each (everyone, for someone watching) -->
@@ -222,6 +309,9 @@ const pileOpen = computed({
 
                 <!-- the conflict: flips in progress, and the flip control -->
                 <div class="min-w-0 space-y-2" data-testid="fate-conflict-zone">
+                    <p v-if="duel" class="rounded-md bg-muted/50 px-2 py-1 text-xs" data-testid="fate-duel-hint">
+                        Opposed duel: the lowest total cheats first (the resister on a tie), then the other player.
+                    </p>
                     <p v-if="!state.flips.length" class="rounded-md border border-dashed px-2 py-3 text-center text-xs text-muted-foreground">
                         Nothing flipped. Use +/- then Flip.
                     </p>
@@ -476,6 +566,49 @@ const pileOpen = computed({
                     <Button size="sm" variant="outline" :disabled="busy" data-testid="fate-end-phase" @click="run('end_phase')"
                         >End phase: shuffle both discards in</Button
                     >
+                    <div v-if="opponentSlot !== null" class="w-full space-y-1.5 border-t pt-2" data-testid="fate-opponent-effects">
+                        <p class="text-xs font-medium text-muted-foreground">On {{ nameOf(opponentSlot) }}'s hand</p>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <input
+                                v-model.number="randomN"
+                                type="number"
+                                min="1"
+                                max="7"
+                                class="w-14 rounded-md border bg-background px-2 py-1"
+                                aria-label="How many cards"
+                                data-testid="fate-random-n"
+                            />
+                            <Button size="sm" variant="outline" :disabled="busy" data-testid="fate-random-discard" @click="randomDiscard"
+                                >Make them discard at random</Button
+                            >
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <input
+                                v-model.number="demandN"
+                                type="number"
+                                min="1"
+                                max="7"
+                                class="w-14 rounded-md border bg-background px-2 py-1"
+                                aria-label="How many cards"
+                                data-testid="fate-demand-n"
+                            />
+                            <Button size="sm" variant="outline" :disabled="busy" data-testid="fate-ask-discard" @click="askDiscard"
+                                >Ask them to discard (their choice)</Button
+                            >
+                            <Button size="sm" variant="outline" :disabled="busy" data-testid="fate-ask-reveal" @click="askReveal"
+                                >Ask to see their hand</Button
+                            >
+                        </div>
+                        <input
+                            v-model="demandNote"
+                            type="text"
+                            maxlength="80"
+                            placeholder="Which effect? (optional)"
+                            class="w-full rounded-md border bg-background px-2 py-1.5"
+                            aria-label="Which effect is asking"
+                            data-testid="fate-demand-note"
+                        />
+                    </div>
                 </div>
             </section>
 
@@ -504,6 +637,15 @@ const pileOpen = computed({
                 </div>
             </section>
             <p v-if="!mine && !state.flips.length" class="text-xs text-muted-foreground">Nothing flipped right now.</p>
+
+            <!-- what has happened at the table, in words -->
+            <details class="rounded-md border" data-testid="fate-history" @toggle="onHistoryToggle">
+                <summary class="cursor-pointer px-2 py-1.5 text-xs font-medium text-muted-foreground">History</summary>
+                <ol v-if="lines.length" class="max-h-48 space-y-1 overflow-y-auto border-t p-2 text-xs" data-testid="fate-history-lines">
+                    <li v-for="l in lines" :key="l.id">{{ l.text }}</li>
+                </ol>
+                <p v-else class="border-t p-2 text-xs text-muted-foreground">Nothing yet.</p>
+            </details>
 
             <!-- cards set aside for good -->
             <div

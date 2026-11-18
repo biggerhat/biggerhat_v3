@@ -74,9 +74,35 @@ export interface FateFlip {
     owner_slot: number | null;
     modifier: number;
     label: string | null;
+    /** What the flip is for on the board (a model's id), so its result can be drawn beside that model. */
+    subject: string | null;
     chosen: { owner_slot: number | null; card: number; joker_suit: string | null } | null;
     legal: number[];
     cheaters: number[];
+}
+
+/** A request the other player has made of me: discard N cards (my choice) or show my hand. */
+export interface FatePrompt {
+    id: number;
+    from_slot: number | null;
+    to_slot: number | null;
+    kind: 'discard' | 'reveal';
+    count: number | null;
+    note: string | null;
+}
+/** A request I made that is still waiting. */
+export interface FateSent {
+    id: number;
+    to_slot: number | null;
+    kind: 'discard' | 'reveal';
+    count: number | null;
+}
+/** A hand someone chose to show me (or refused to). Only the player who asked is given the cards. */
+export interface FateAnswer {
+    id: number;
+    owner_slot: number | null;
+    declined: boolean;
+    cards: number[] | null;
 }
 
 export interface FateState {
@@ -85,9 +111,27 @@ export interface FateState {
     players: FatePlayer[];
     conflict: FateConflictCard[];
     flips: FateFlip[];
+    prompts: FatePrompt[];
+    sent: FateSent[];
+    answers: FateAnswer[];
 }
 
-export type FateResult = { error?: string; state?: FateState; drawn?: number[]; peeked?: number[]; deck?: number[]; flip?: number };
+export interface FateLogLine {
+    id: number;
+    at: string;
+    text: string;
+}
+
+export type FateResult = {
+    error?: string;
+    state?: FateState;
+    drawn?: number[];
+    peeked?: number[];
+    deck?: number[];
+    flip?: number;
+    prompt?: number;
+    discarded?: number[];
+};
 
 /** What the panel calls: the server's endpoints through fetch, or the local deck. */
 export interface FateFeed {
@@ -95,6 +139,72 @@ export interface FateFeed {
     busy: { value: boolean };
     error: { value: string | null };
     act: (name: string, body?: Record<string, unknown>) => Promise<FateResult>;
+    /** The history as readable lines, newest first. */
+    log?: () => Promise<FateLogLine[]>;
+    /** Load the deck and listen for changes (a game's feed); a local deck needs nothing. */
+    start?: () => Promise<void>;
+}
+
+/**
+ * One history line, in the same words as App\Support\Fate\FateLog. Every line is safe for everyone: a hidden card is only ever "N cards".
+ */
+export function describeFate(action: string, p: Record<string, unknown>, who: string, names: Record<number, string> = {}): string {
+    const labels = (list?: unknown) => (Array.isArray(list) && list.length ? list.map((c) => cardLabel(Number(c))).join(', ') : 'nothing');
+    const n = (count: number, word = 'card') => `${count} ${word}${count === 1 ? '' : 's'}`;
+    const mod = (m: number) => (m > 0 ? `+${m}` : m < 0 ? String(m) : 'a plain flip');
+    const num = (v: unknown) => Number(v ?? 0);
+    const other = names[num(p.to)] ?? 'the other player';
+    const suit = p.suit ? ` as ${p.suit}` : '';
+    switch (action) {
+        case 'fate.draw':
+            return `${who} drew ${n(num(p.count))}.`;
+        case 'fate.refill':
+            return `${who} discarded ${labels(p.discarded)} and drew up to the hand limit (${n(num(p.drawn))} drawn).`;
+        case 'fate.discard':
+            return `${who} discarded ${labels(p.cards)}.`;
+        case 'fate.flip':
+            return `${who} flipped ${mod(num(p.modifier))}: ${labels(p.revealed)}.`;
+        case 'fate.choose':
+            return `${who} took ${labels([p.card])}${suit} as the result.`;
+        case 'fate.cheat':
+            return `${who} cheated Fate: ${labels([p.replaced])} replaced by ${labels([p.with])}${suit}.`;
+        case 'fate.cheat_declined':
+            return `${who} passed on cheating.`;
+        case 'fate.resolve':
+            return `${who} resolved the flip: ${labels(p.cards)} discarded.`;
+        case 'fate.shuffle':
+            return `${who} shuffled their discard pile into their deck.`;
+        case 'fate.end_phase':
+            return 'End phase: each discard pile was shuffled into its deck.';
+        case 'fate.remove':
+            return `${who} set aside ${labels(p.cards)}, removed from the game.`;
+        case 'fate.peek':
+            return `${who} looked at ${n(num(p.count))} on top of their deck.`;
+        case 'fate.arrange':
+            return `${who} rearranged the top ${n(num(p.looked_at))} of their deck${Array.isArray(p.discarded) && p.discarded.length ? ` (discarded ${labels(p.discarded)})` : ''}.`;
+        case 'fate.put_on_deck':
+            return `${who} put ${p.card !== undefined ? labels([p.card]) : 'a card from their hand'} on the ${p.where ?? 'top'} of their deck.`;
+        case 'fate.draw_from_discard':
+            return `${who} took ${labels([p.card])} back from their discard pile.`;
+        case 'fate.search':
+            return `${who} looked through their deck.`;
+        case 'fate.search_take':
+            return `${who} took a card from their deck and shuffled it.`;
+        case 'fate.demand':
+            return p.kind === 'reveal'
+                ? `${who} asked ${other} to show their hand${p.note ? ` (${p.note})` : ''}.`
+                : `${who} asked ${other} to discard ${n(num(p.count))}${p.note ? ` (${p.note})` : ''}.`;
+        case 'fate.reveal':
+            return `${who} showed their hand to ${other}.`;
+        case 'fate.reveal_declined':
+            return `${who} declined to show their hand.`;
+        case 'fate.discard_done':
+            return `${who} finished discarding ${n(num(p.count))}.`;
+        case 'fate.forced_discard':
+            return `${names[num(p.target)] ?? 'The other player'} discarded ${labels(p.cards)} at random, because of ${who}.`;
+        default:
+            return `${who}: ${action}.`;
+    }
 }
 
 // -------------------------------------------------------------------------------------------------------------------------------
@@ -110,11 +220,23 @@ interface Row {
     jokerSuit: string | null;
     flipId: number | null;
 }
+interface Prompt {
+    id: number;
+    from: number;
+    to: number;
+    kind: 'discard' | 'reveal';
+    count: number | null;
+    note: string | null;
+    status: 'pending' | 'done' | 'declined';
+    cards: number[] | null;
+    dismissed: boolean;
+}
 interface Flip {
     id: number;
     slot: number;
     modifier: number;
     label: string | null;
+    subject: string | null;
     chosen: Row | null;
     cheaters: number[];
     resolved: boolean;
@@ -142,10 +264,20 @@ export function shuffled<T>(items: T[], randomInt: (n: number) => number = secur
 
 class FateError extends Error {}
 
-export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number) => number = secureRandomInt) {
+export function createLocalFate(
+    slots: number[] = [1, 2],
+    randomInt: (n: number) => number = secureRandomInt,
+    names: Record<number, string> = { 1: 'Blue', 2: 'Red' },
+) {
     let rows: Row[] = [];
     let flips: Flip[] = [];
     let nextFlip = 1;
+    let prompts: Prompt[] = [];
+    let nextPrompt = 1;
+    let history: FateLogLine[] = [];
+    let nextLog = 1;
+    /** What the running action wants written to the history (set by the actions that name hidden or private details). */
+    let note: Record<string, unknown> = {};
 
     function ensure() {
         if (rows.length) return;
@@ -237,6 +369,7 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
                     owner_slot: f.slot,
                     modifier: f.modifier,
                     label: f.label,
+                    subject: f.subject,
                     chosen: f.chosen ? { owner_slot: f.chosen.slot, card: f.chosen.card, joker_suit: f.chosen.jokerSuit } : null,
                     legal: f.chosen
                         ? []
@@ -246,8 +379,21 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
                           ),
                     cheaters: f.cheaters,
                 })),
+            // the sandbox is one person at one table, so every request and every shown hand is theirs to see
+            prompts: prompts
+                .filter((q) => q.status === 'pending')
+                .map((q) => ({ id: q.id, from_slot: q.from, to_slot: q.to, kind: q.kind, count: q.count, note: q.note })),
+            sent: prompts.filter((q) => q.status === 'pending').map((q) => ({ id: q.id, to_slot: q.to, kind: q.kind, count: q.count })),
+            answers: prompts
+                .filter((q) => q.kind === 'reveal' && q.status !== 'pending' && !q.dismissed)
+                .map((q) => ({ id: q.id, owner_slot: q.to, declined: q.status === 'declined', cards: q.status === 'done' ? q.cards : null })),
         };
     }
+    const otherSlot = (slot: number) => {
+        const other = slots.find((s) => s !== slot);
+        if (other === undefined) throw new FateError('There is no other player to ask yet.');
+        return other;
+    };
 
     const actions: Record<string, (slot: number, b: Record<string, unknown>) => Partial<FateResult> | void> = {
         draw: (slot, b) => ({ drawn: drawInto(slot, count(b.n)) }),
@@ -267,6 +413,7 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
                 slot,
                 modifier,
                 label: b.label ? String(b.label).trim().slice(0, 60) || null : null,
+                subject: b.subject ? String(b.subject).trim().slice(0, 40) || null : null,
                 chosen: null,
                 cheaters: [],
                 resolved: false,
@@ -280,6 +427,7 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
             }
             if (!shown) throw new FateError('There are no cards left to flip.');
             flips.push(flip);
+            note = { modifier, revealed: rows.filter((r) => r.flipId === flip.id).map((r) => r.card) };
             return { flip: flip.id };
         },
         choose: (slot, b) => {
@@ -297,6 +445,7 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
             const row = shown.find((r) => r.card === Number(b.card))!;
             setJokerSuit(row, b.suit);
             f.chosen = row;
+            note = { card: row.card, suit: row.jokerSuit };
         },
         cheat: (slot, b) => {
             const f = openFlip(b.flip);
@@ -311,6 +460,7 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
             setJokerSuit(row, b.suit);
             f.chosen = row;
             f.cheaters.push(slot);
+            note = { replaced: old.card, with: row.card, suit: row.jokerSuit };
         },
         'cheat.decline': (slot, b) => {
             const f = openFlip(b.flip);
@@ -319,7 +469,9 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
         resolve: (slot, b) => {
             const f = openFlip(b.flip);
             if (f.slot !== slot) throw new FateError('Only the player who flipped can do that.');
-            for (const r of revealed(f)) move(r, 'discard', bottom(r.slot, 'discard'));
+            const gone = revealed(f);
+            note = { cards: gone.map((r) => r.card) };
+            for (const r of gone) move(r, 'discard', bottom(r.slot, 'discard'));
             f.resolved = true;
         },
         shuffle: (slot) => reshuffle(slot),
@@ -344,20 +496,25 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
                 throw new FateError('Those are not the top cards of the deck.');
             const onTop: Row[] = [];
             const onBottom: Row[] = [];
+            const discarded: number[] = [];
             for (const d of decisions) {
                 const row = topRows.find((r) => r.card === Number(d.card))!;
                 if (d.to === 'top') onTop.push(row);
                 else if (d.to === 'bottom') onBottom.push(row);
-                else if (d.to === 'discard') move(row, 'discard', bottom(slot, 'discard'));
-                else if (d.to === 'hand') move(row, 'hand', bottom(slot, 'hand'));
+                else if (d.to === 'discard') {
+                    move(row, 'discard', bottom(slot, 'discard'));
+                    discarded.push(row.card);
+                } else if (d.to === 'hand') move(row, 'hand', bottom(slot, 'hand'));
                 else throw new FateError('A card can go to the top, the bottom, the discard pile or the hand.');
             }
             const rest = zone(slot, 'deck').filter((r) => !onTop.includes(r) && !onBottom.includes(r));
             [...onTop, ...rest, ...onBottom].forEach((r, i) => (r.position = i));
+            note = { looked_at: n, discarded };
         },
         put: (slot, b) => {
             if (b.where !== 'top' && b.where !== 'bottom') throw new FateError('A card goes on the top or the bottom of the deck.');
             const row = one(slot, ['hand', 'discard'], b.card, 'That card is not in your hand or discard pile.');
+            note = { where: b.where, ...(row.zone === 'discard' ? { card: row.card } : { from_hand: true }) };
             move(row, 'deck', b.where === 'top' ? top(slot, 'deck') : bottom(slot, 'deck'));
         },
         draw_from_discard: (slot, b) => {
@@ -374,7 +531,95 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
             move(row, 'hand', bottom(slot, 'hand'));
             shuffled(zone(slot, 'deck'), randomInt).forEach((r, i) => (r.position = i));
         },
+        // ----- effects on the other player's hand -----
+        demand: (slot, b) => {
+            const kind = b.kind === 'reveal' ? 'reveal' : b.kind === 'discard' ? 'discard' : null;
+            if (!kind) throw new FateError('Ask the other player to discard cards or to show their hand.');
+            const asked = Number(b.count);
+            if (kind === 'discard' && !(Number.isInteger(asked) && asked >= 1 && asked <= HAND_MAX))
+                throw new FateError(`Ask for between 1 and ${HAND_MAX} cards.`);
+            const to = otherSlot(slot);
+            if (prompts.filter((q) => q.from === slot && q.status === 'pending').length >= 4)
+                throw new FateError('Wait for the other player to answer what you have already asked.');
+            const q: Prompt = {
+                id: nextPrompt++,
+                from: slot,
+                to,
+                kind,
+                count: kind === 'discard' ? asked : null,
+                note: b.note ? String(b.note).trim().slice(0, 80) || null : null,
+                status: 'pending',
+                cards: null,
+                dismissed: false,
+            };
+            prompts.push(q);
+            note = { prompt: q.id, to, kind, count: q.count, note: q.note };
+            return { prompt: q.id };
+        },
+        random_discard: (slot, b) => {
+            const to = otherSlot(slot);
+            const gone = shuffled(zone(to, 'hand'), randomInt).slice(0, count(b.n));
+            for (const r of gone) move(r, 'discard', bottom(to, 'discard'));
+            note = { target: to, cards: gone.map((r) => r.card) };
+            return { discarded: gone.map((r) => r.card) };
+        },
+        respond: (slot, b) => {
+            const q = prompts.find((x) => x.id === Number(b.prompt));
+            if (!q || q.to !== slot || q.status !== 'pending') throw new FateError('There is nothing for you to answer there.');
+            if (q.kind === 'reveal' && b.show) {
+                q.status = 'done';
+                q.cards = zone(slot, 'hand').map((r) => r.card);
+                note = { action: 'fate.reveal', to: q.from };
+            } else if (q.kind === 'reveal') {
+                q.status = 'declined';
+                note = { action: 'fate.reveal_declined' };
+            } else {
+                q.status = 'done';
+                note = { action: 'fate.discard_done', count: q.count };
+            }
+        },
+        dismiss: (slot, b) => {
+            const q = prompts.find((x) => x.id === Number(b.prompt));
+            if (!q || q.from !== slot) throw new FateError('There is nothing for you to put away there.');
+            q.dismissed = true;
+            q.cards = null;
+            note = { action: 'none' };
+        },
     };
+
+    /** What each action writes to the history, from its request and what it set aside in `note`. */
+    function record(name: string, slot: number, body: Record<string, unknown>, result: FateResult) {
+        const n = note;
+        const table: Record<string, [string, Record<string, unknown>]> = {
+            draw: ['fate.draw', { count: result.drawn?.length ?? 0 }],
+            refill: ['fate.refill', { discarded: body.discard ?? [], drawn: result.drawn?.length ?? 0 }],
+            discard: ['fate.discard', { cards: body.cards }],
+            flip: ['fate.flip', n],
+            choose: ['fate.choose', n],
+            cheat: ['fate.cheat', n],
+            'cheat.decline': ['fate.cheat_declined', {}],
+            resolve: ['fate.resolve', n],
+            shuffle: ['fate.shuffle', {}],
+            end_phase: ['fate.end_phase', {}],
+            remove: ['fate.remove', { cards: body.cards }],
+            peek: ['fate.peek', { count: result.peeked?.length ?? 0 }],
+            arrange: ['fate.arrange', n],
+            put: ['fate.put_on_deck', n],
+            draw_from_discard: ['fate.draw_from_discard', { card: body.card }],
+            search: ['fate.search', {}],
+            'search.take': ['fate.search_take', {}],
+            demand: ['fate.demand', n],
+            random_discard: ['fate.forced_discard', n],
+            respond: [String(n.action ?? 'none'), n],
+            dismiss: ['none', {}],
+        };
+        const [action, payload] = table[name] ?? ['none', {}];
+        if (action === 'none') return;
+        history = [
+            { id: nextLog++, at: new Date().toISOString(), text: describeFate(action, payload, names[slot] ?? `Player ${slot}`, names) },
+            ...history,
+        ].slice(0, 100);
+    }
 
     return {
         state: (): FateState => {
@@ -384,27 +629,37 @@ export function createLocalFate(slots: number[] = [1, 2], randomInt: (n: number)
             rows = [];
             flips = [];
             nextFlip = 1;
+            prompts = [];
+            nextPrompt = 1;
+            history = [];
+            nextLog = 1;
         },
+        /** The history, newest first (a game reads the same from the server). */
+        log: (): FateLogLine[] => history,
         /** Run an action as a slot. Answers like the server: the new state, any private result, or an error (and nothing changes). */
         act(name: string, body: Record<string, unknown> = {}): FateResult {
             const slot = Number(body.slot) || slots[0];
             const fn = actions[name];
             if (!fn) return { error: `Unknown Fate action: ${name}` };
             // run on a copy so a refused action changes nothing (the server rolls its transaction back)
-            const before = JSON.stringify({ rows, flips, nextFlip });
+            const before = JSON.stringify({ rows, flips, nextFlip, prompts, nextPrompt });
+            note = {};
             try {
                 ensure();
                 const result = fn(slot, body) ?? {};
+                record(name, slot, body, result);
 
                 return { ...result, state: state() };
             } catch (e) {
-                const saved = JSON.parse(before) as { rows: Row[]; flips: Flip[]; nextFlip: number };
+                const saved = JSON.parse(before) as { rows: Row[]; flips: Flip[]; nextFlip: number; prompts: Prompt[]; nextPrompt: number };
                 rows = saved.rows;
                 flips = saved.flips.map((f) => ({
                     ...f,
                     chosen: f.chosen ? (rows.find((r) => r.slot === f.chosen!.slot && r.card === f.chosen!.card) ?? null) : null,
                 }));
                 nextFlip = saved.nextFlip;
+                prompts = saved.prompts;
+                nextPrompt = saved.nextPrompt;
                 if (e instanceof FateError) return { error: e.message, state: state() };
                 throw e;
             }

@@ -66,6 +66,7 @@ import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
 import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
 import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
 import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
+import FateCardFace from '@/components/Fate/FateCardFace.vue';
 import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
 import ModelInfoPanel from '@/components/Tabletop/ModelInfoPanel.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -94,6 +95,8 @@ import {
     User,
     Users,
 } from 'lucide-vue-next';
+import { GAME_ICONS } from '@/lib/gameIcons';
+import { RED_JOKER, SUITS, cardFace, cardLabel, cardSuit, type FateFeed, type FateFlip } from '@/lib/fate/fate';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowReactive, shallowRef, watch } from 'vue';
 
 /** A crew member in the shape the play screen's row reads (typed loosely, like the row itself). */
@@ -144,6 +147,8 @@ const props = withDefaults(
         characterSearchUrl?: string;
         /** Tokens a model can carry. Without them the panel still shows health, activation and notes. */
         tokenOptions?: { id: number; name: string }[];
+        /** The Fate deck (a game's, or the sandbox's practice deck): a model can flip for itself and its result is drawn beside it. */
+        fate?: FateFeed;
         /** A game's crew as the play screen's rows show it (health, activation, tokens, card). With it the models are listed as those rows and the tabletop options open under the chosen one. */
         crew?: CrewMember[];
         storageKey?: string;
@@ -865,6 +870,44 @@ const cardNotes = (payload: { notes: string | null }) => {
     if (cardMember.value) emit('modelChange', String(cardMember.value.id), { notes: payload.notes ?? '' });
 };
 const noUpgradePower = () => 0;
+
+// ----- Fate flips made for a model: the result is drawn beside it, and the model's options can flip -----
+const SUIT_FILL: Record<string, string> = { rams: 'hsl(0 70% 42%)', masks: 'hsl(280 55% 42%)', tomes: 'hsl(215 70% 42%)', crows: 'hsl(140 55% 28%)' };
+const fateSubjects = computed(() => {
+    const out = new Map<string, { flip: FateFlip; cards: { card: number; joker_suit: string | null }[] }>();
+    const state = props.fate?.state.value;
+    if (!state) return out;
+    for (const flip of state.flips) {
+        if (flip.subject) out.set(flip.subject, { flip, cards: state.conflict.filter((c) => c.flip_id === flip.id) });
+    }
+    return out;
+});
+/** What to draw beside a model that has a flip open: the result once there is one, the one card shown, or how many are waiting. */
+function flipBadge(id: string): { text: string; glyph: string; fill: string } | null {
+    const entry = fateSubjects.value.get(id);
+    if (!entry) return null;
+    const pick = entry.flip.chosen ?? (entry.cards.length === 1 ? entry.cards[0] : null);
+    if (!pick) return { text: `${entry.cards.length}?`, glyph: '', fill: 'hsl(220 10% 35%)' };
+    const suit = cardSuit(pick.card) ?? pick.joker_suit;
+    return {
+        text: cardFace(pick.card),
+        glyph: suit ? (GAME_ICONS[suit]?.glyph ?? '') : '',
+        fill: suit ? (SUIT_FILL[suit] ?? 'hsl(220 10% 25%)') : 'hsl(220 10% 25%)',
+    };
+}
+const fateMod = ref(0);
+const fateSuit = ref('rams');
+const slotOfToken = (t: { side: string }) => (t.side === 'b' ? 2 : 1);
+const modelFlip = computed(() => (selected.value ? fateSubjects.value.get(selected.value.id) : undefined));
+async function flipForModel(t: Token) {
+    if (!props.fate) return;
+    await props.fate.start?.();
+    const r = await props.fate.act('flip', { slot: slotOfToken(t), modifier: fateMod.value, label: t.name, subject: t.id });
+    if (!r.error) fateMod.value = 0;
+}
+const chooseForModel = (t: Token, flip: FateFlip, card: number) =>
+    props.fate?.act('choose', { slot: slotOfToken(t), flip: flip.id, card, suit: card === RED_JOKER ? fateSuit.value : undefined });
+const resolveForModel = (t: Token, flip: FateFlip) => props.fate?.act('resolve', { slot: slotOfToken(t), flip: flip.id });
 const noLootCard = () => null;
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
 const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value, variant.value)));
@@ -1910,6 +1953,39 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 stroke-linecap="round"
                             />
                         </g>
+                        <g v-if="flipBadge(t.id)" pointer-events="none" :data-testid="`fate-badge-${t.id}`">
+                            <rect
+                                :x="t.x + baseRadius(t.baseMm) + 0.2"
+                                :y="t.y - 0.6"
+                                width="1.9"
+                                height="1.2"
+                                rx="0.25"
+                                :fill="flipBadge(t.id)!.fill"
+                                stroke="white"
+                                stroke-width="0.07"
+                            />
+                            <text
+                                :x="t.x + baseRadius(t.baseMm) + 0.2 + (flipBadge(t.id)!.glyph ? 0.62 : 0.95)"
+                                :y="t.y + 0.27"
+                                text-anchor="middle"
+                                font-size="0.8"
+                                fill="white"
+                                font-weight="700"
+                            >
+                                {{ flipBadge(t.id)!.text }}
+                            </text>
+                            <text
+                                v-if="flipBadge(t.id)!.glyph"
+                                :x="t.x + baseRadius(t.baseMm) + 0.2 + 1.4"
+                                :y="t.y + 0.3"
+                                text-anchor="middle"
+                                font-size="0.85"
+                                fill="white"
+                                font-family="M4E-Symbols"
+                            >
+                                {{ flipBadge(t.id)!.glyph }}
+                            </text>
+                        </g>
                         <text :x="t.x" :y="t.y + 0.3" text-anchor="middle" font-size="0.85" fill="white" font-weight="600" pointer-events="none">
                             {{ tokenLabel(t) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}
                         </text>
@@ -2571,6 +2647,87 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 @click="toggleGuide(selected)"
                                 ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
                             >
+                            <!-- a Fate flip for this model: the result shows beside it on the table -->
+                            <div v-if="fate && !selected.marker" class="mt-2 space-y-1.5 rounded-md border p-2" data-testid="model-fate">
+                                <div class="flex flex-wrap items-center gap-1">
+                                    <span class="mr-1 font-medium">Fate flip</span>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        class="px-2"
+                                        aria-label="One more minus"
+                                        :disabled="selected.locked || fateMod <= -3"
+                                        data-testid="model-fate-minus"
+                                        @click="fateMod--"
+                                        ><Minus class="size-4"
+                                    /></Button>
+                                    <span class="min-w-8 text-center font-semibold tabular-nums" data-testid="model-fate-mod">{{
+                                        fateMod > 0 ? `+${fateMod}` : fateMod
+                                    }}</span>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        class="px-2"
+                                        aria-label="One more plus"
+                                        :disabled="selected.locked || fateMod >= 3"
+                                        data-testid="model-fate-plus"
+                                        @click="fateMod++"
+                                        ><Plus class="size-4"
+                                    /></Button>
+                                    <Button
+                                        size="sm"
+                                        :disabled="selected.locked || fate.busy.value"
+                                        data-testid="model-fate-flip"
+                                        @click="flipForModel(selected)"
+                                        >Flip</Button
+                                    >
+                                </div>
+                                <div v-if="modelFlip" class="space-y-1" data-testid="model-fate-flip-open">
+                                    <div class="flex flex-wrap gap-1">
+                                        <template v-for="c in modelFlip.cards" :key="`${c.card}-${c.joker_suit}`">
+                                            <button
+                                                v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(c.card) && !selected.locked"
+                                                type="button"
+                                                class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                                                :aria-label="`Take ${cardLabel(c.card)} as the result`"
+                                                data-testid="model-fate-choose"
+                                                @click="chooseForModel(selected, modelFlip.flip, c.card)"
+                                            >
+                                                <FateCardFace :card="c.card" small />
+                                            </button>
+                                            <FateCardFace
+                                                v-else
+                                                :card="c.card"
+                                                :joker-suit="c.joker_suit"
+                                                small
+                                                :highlight="modelFlip.flip.chosen?.card === c.card"
+                                                :dim="!modelFlip.flip.chosen && !modelFlip.flip.legal.includes(c.card)"
+                                            />
+                                        </template>
+                                    </div>
+                                    <label
+                                        v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(RED_JOKER)"
+                                        class="flex items-center gap-2 text-xs"
+                                    >
+                                        A Red Joker takes the suit
+                                        <select v-model="fateSuit" class="rounded-md border bg-background px-1.5 py-1">
+                                            <option v-for="suit in SUITS" :key="suit" :value="suit">{{ suit }}</option>
+                                        </select>
+                                    </label>
+                                    <p v-if="modelFlip.flip.chosen" class="text-xs" data-testid="model-fate-result">
+                                        Result <span class="font-semibold">{{ cardLabel(modelFlip.flip.chosen.card) }}</span>
+                                    </p>
+                                    <Button
+                                        v-if="!selected.locked"
+                                        size="sm"
+                                        variant="outline"
+                                        :disabled="fate.busy.value || !modelFlip.flip.chosen"
+                                        data-testid="model-fate-done"
+                                        @click="resolveForModel(selected, modelFlip.flip)"
+                                        >Done: discard</Button
+                                    >
+                                </div>
+                            </div>
                             <ModelInfoPanel
                                 v-if="!selected.marker"
                                 :token="selected"

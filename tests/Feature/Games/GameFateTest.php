@@ -665,3 +665,10 @@ it('lets the solo creator answer for the other slot', function () {
 
     expect($this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.answers.0.cards'))->toBe([7, 8]);
 });
+
+it('keeps deck traffic in its own throttle bucket, so playing cards cannot use up the allowance for saving a table', function () {
+    // unprefixed throttles share one counter per user; the Fate routes carry their own prefix
+    foreach (['draw', 'show', 'flip', 'log', 'prompts.respond'] as $name) {
+        expect(app('router')->getRoutes()->getByName('games.fate.'.$name)->gatherMiddleware())->toContain('throttle:240,1,fate');
+    }
+});

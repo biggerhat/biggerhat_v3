@@ -1,4 +1,4 @@
-import { createLocalFate, type FateFeed, type FateResult, type FateState } from '@/lib/fate/fate';
+import { createLocalFate, type FateFeed, type FateLogLine, type FateResult, type FateState } from '@/lib/fate/fate';
 import { ref } from 'vue';
 
 /**
@@ -23,6 +23,7 @@ export function useLocalFate(): FateFeed & { reset: () => void; start: () => Pro
         busy,
         error,
         act,
+        log: async (): Promise<FateLogLine[]> => engine.log(),
         reset: () => {
             engine.reset();
             error.value = null;

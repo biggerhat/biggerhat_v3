@@ -458,7 +458,8 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     });
 
     // The Fate deck and hands of a full game (pre-release): the server shuffles and deals, a hand goes only to its owner
-    Route::prefix('/{game:uuid}/fate')->name('fate.')->middleware('throttle:120,1')->group(function () {
+    // its own throttle bucket (the third value): unprefixed throttles share one counter per user, so deck traffic would eat the allowance of saving a table
+    Route::prefix('/{game:uuid}/fate')->name('fate.')->middleware('throttle:240,1,fate')->group(function () {
         Route::get('/', [GameFateController::class, 'show'])->name('show');
         Route::get('/log', [GameFateController::class, 'log'])->name('log');
         Route::post('/demand', [GameFateController::class, 'demand'])->name('demand');

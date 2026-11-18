@@ -1,5 +1,5 @@
 import { loadEcho } from '@/lib/echo';
-import type { FateFeed, FateResult, FateState } from '@/lib/fate/fate';
+import type { FateFeed, FateLogLine, FateResult, FateState } from '@/lib/fate/fate';
 import { onUnmounted, ref } from 'vue';
 import { csrfHeaders } from './useGameApi';
 
@@ -41,7 +41,12 @@ export function useFateGame(uuid: string, observer = false): FateFeed & { start:
         busy.value = true;
         error.value = null;
         try {
-            const res = await fetch(route(`games.fate.${name}`, uuid), {
+            // answering or putting away a request names the request in the URL
+            const url =
+                name === 'respond' || name === 'dismiss'
+                    ? route(`games.fate.prompts.${name}`, { game: uuid, prompt: Number(body.prompt) })
+                    : route(`games.fate.${name}`, uuid);
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...csrfHeaders() },
                 body: JSON.stringify(body),
@@ -55,6 +60,16 @@ export function useFateGame(uuid: string, observer = false): FateFeed & { start:
             return data;
         } finally {
             busy.value = false;
+        }
+    }
+
+    /** The history as readable lines (the server writes them from a log that never holds a hidden card). */
+    async function log(): Promise<FateLogLine[]> {
+        try {
+            const res = await fetch(route('games.fate.log', uuid), { headers: { Accept: 'application/json' } });
+            return res.ok ? ((await res.json()) as { log: FateLogLine[] }).log : [];
+        } catch {
+            return [];
         }
     }
 
@@ -81,5 +96,5 @@ export function useFateGame(uuid: string, observer = false): FateFeed & { start:
     }
     onUnmounted(stop);
 
-    return { state, busy, error, act, start, stop };
+    return { state, busy, error, act, log, start, stop };
 }

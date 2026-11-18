@@ -345,6 +345,30 @@ const L = require('./lib.cjs');
             await L.shot(carol, `369-board-fate-${label}`);
             await press('fate-resolve');
             await carol.page.waitForFunction(() => !document.querySelector('[data-testid=fate-conflict]'), { timeout: 5000 });
+            // a Fate flip from a model's options: its result is drawn beside it on the table
+            await carol.page.evaluate(() => {
+                const row = document.querySelector('[data-testid=crew-list] [data-testid^=crew-]');
+                const toggle = row.querySelector('[data-testid=row-options]');
+                toggle.scrollIntoView({ block: 'center' });
+                toggle.click();
+            });
+            await carol.page.waitForSelector('[data-testid=model-fate-flip]', { timeout: 5000 });
+            await press('model-fate-flip');
+            await carol.page.waitForSelector('[data-testid^=fate-badge-]', { timeout: 8000 });
+            await press('model-fate-choose');
+            await carol.page.waitForSelector('[data-testid=model-fate-result]', { timeout: 5000 });
+            await press('model-fate-done');
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid^=fate-badge-]'), { timeout: 5000 });
+            // the other hand: a request for it is shown to that player, who may show it to the asker
+            await press('fate-more');
+            await press('fate-ask-reveal');
+            await carol.page.waitForSelector('[data-testid=fate-prompt]', { timeout: 5000 });
+            await press('fate-prompt-show');
+            await carol.page.waitForSelector('[data-testid=fate-answer]', { timeout: 5000 });
+            await press('fate-answer-dismiss');
+            // and the history reads it back
+            await carol.page.$eval('[data-testid=fate-history] summary', (el) => el.click());
+            await carol.page.waitForFunction(() => /showed their hand/.test(document.querySelector('[data-testid=fate-history]').innerText), { timeout: 5000 });
             // the deck is the server's: the hand is still there after a reload
             await openFate();
             if ((await hand()) !== before + 1) throw new Error(`the hand should survive a reload: ${await hand()} vs ${before + 1}`);
@@ -570,6 +594,14 @@ const L = require('./lib.cjs');
     await L.step('board: a watcher of an observable game sees the board read-only and gets a link from the observe page', watcher, async () => {
         await L.visit(watcher, `/games/${L.ids.play_game}/observe`);
         await watcher.page.waitForSelector('[data-testid=open-board]');
+        // the observe page (a tournament game's watchers land here too) has the Fate deck read-only: counts and public cards, no hand
+        await watcher.page.$eval('[data-testid=play-fate] [data-testid=fate-open]', (el) => {
+            el.scrollIntoView({ block: 'center' });
+            el.click();
+        });
+        await watcher.page.waitForSelector('[data-testid=play-fate] [data-testid=fate-side-1]', { timeout: 8000 });
+        if (await watcher.page.$('[data-testid=fate-hand-card]')) throw new Error('an observer must not see a hand on the play screen');
+        if (await watcher.page.$('[data-testid=fate-draw]')) throw new Error('an observer has nothing to press in the Fate deck');
         const label = await watcher.page.$eval('[data-testid=open-board]', (a) => a.innerText.trim());
         if (!/Watch the board/i.test(label)) throw new Error(`observer link says "${label}"`);
         await watcher.page.click('[data-testid=open-board]');

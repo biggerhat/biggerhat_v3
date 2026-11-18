@@ -176,17 +176,46 @@ export function pointInShape(shape: Shape, x: number, y: number): boolean {
 
 /** Equal-area sample points across a disc (a sunflower spiral), so the covered share is just the share of points covered. */
 export function discSamples(cx: number, cy: number, r: number, count = 96): [number, number][] {
-    const golden = Math.PI * (3 - Math.sqrt(5));
-    return Array.from({ length: count }, (_, i) => {
-        const d = r * Math.sqrt((i + 0.5) / count);
-        return [cx + d * Math.cos(i * golden), cy + d * Math.sin(i * golden)] as [number, number];
-    });
+    const unit = unitDisc(count);
+    return unit.map(([ux, uy]) => [cx + r * ux, cy + r * uy] as [number, number]);
+}
+
+/** The sample pattern for a disc of radius 1, worked out once per count (it is asked for on every drag move). */
+const UNIT_DISCS = new Map<number, [number, number][]>();
+function unitDisc(count: number): [number, number][] {
+    let unit = UNIT_DISCS.get(count);
+    if (!unit) {
+        const golden = Math.PI * (3 - Math.sqrt(5));
+        unit = Array.from({ length: count }, (_, i) => {
+            const d = Math.sqrt((i + 0.5) / count);
+            return [d * Math.cos(i * golden), d * Math.sin(i * golden)] as [number, number];
+        });
+        UNIT_DISCS.set(count, unit);
+    }
+    return unit;
+}
+
+/** A shape's bounds, kept per shape object: pieces are replaced, not edited, so a stale entry cannot be reached. */
+const BOUNDS = new WeakMap<object, Bounds>();
+function cachedBounds(shape: Shape): Bounds {
+    let b = BOUNDS.get(shape);
+    if (!b) {
+        b = shapeBounds(shape);
+        BOUNDS.set(shape, b);
+    }
+    return b;
 }
 
 /** The share (0..1) of a base that lies over a shape. */
 export function supportFraction(token: Pick<Token, 'x' | 'y' | 'baseMm'>, shape: Shape): number {
-    const pts = discSamples(token.x, token.y, baseRadius(token.baseMm));
-    return pts.filter(([x, y]) => pointInShape(shape, x, y)).length / pts.length;
+    const r = baseRadius(token.baseMm);
+    const b = cachedBounds(shape);
+    // a base nowhere near the shape needs none of the 96 sample points
+    if (token.x + r < b.minX || token.x - r > b.maxX || token.y + r < b.minY || token.y - r > b.maxY) return 0;
+    const pts = discSamples(token.x, token.y, r);
+    let hits = 0;
+    for (const [x, y] of pts) if (pointInShape(shape, x, y)) hits++;
+    return hits / pts.length;
 }
 
 /** The archway a base overlaps (any part of it), if there is one: the level and the piece it belongs to. */
@@ -1081,16 +1110,21 @@ export function traceLine(from: Token, start: Pt, end: Pt, tokens: Token[], piec
     const generic = prepareSight(from, from, tokens, pieces).blocker;
     let stopAt: Pt | null = null;
     let blockedBy: string | null = null;
+    // Once the line is blocked it stays blocked further along, so the first blocked quarter inch is found by bisection, not by walking.
     const step = 0.25;
-    for (let d = step; d <= length + 1e-9; d += step) {
-        const at = Math.min(d, length);
-        const q = { x: start.x + dir.x * at, y: start.y + dir.y * at };
-        const b = generic(start, q);
-        if (b) {
-            stopAt = q;
-            blockedBy = b;
-            break;
+    const steps = Math.ceil(length / step - 1e-9);
+    const at = (i: number) => Math.min(i * step, length);
+    const pointAt = (i: number) => ({ x: start.x + dir.x * at(i), y: start.y + dir.y * at(i) });
+    if (steps >= 1 && generic(start, pointAt(steps))) {
+        let lo = 1;
+        let hi = steps;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (generic(start, pointAt(mid))) hi = mid;
+            else lo = mid + 1;
         }
+        stopAt = pointAt(lo);
+        blockedBy = generic(start, stopAt);
     }
     return { models, stopAt, blockedBy, length };
 }
@@ -1373,7 +1407,13 @@ export function terrainAlongLeg(from: Pt, to: Pt, baseMm: number, pieces: Terrai
     const hazardous = new Set<string>();
     const impassable = new Set<string>();
     let severeSteps = 0;
-    const meets = (piece: TerrainPiece, x: number, y: number) => piece.surfaces.some((s) => distanceToShape(s.shape, x, y) < r);
+    const meets = (piece: TerrainPiece, x: number, y: number) =>
+        piece.surfaces.some((s) => {
+            const b = cachedBounds(s.shape);
+            // too far from the shape's bounds to be within a base's reach of it
+            if (x < b.minX - r || x > b.maxX + r || y < b.minY - r || y > b.maxY + r) return false;
+            return distanceToShape(s.shape, x, y) < r;
+        });
     const traited = (trait: string) => pieces.filter((p) => p.traits.includes(trait));
     const severe = ignores.includes('severe') ? [] : traited('severe');
     const hazards = ignores.includes('hazardous') ? [] : traited('hazardous');
@@ -1572,8 +1612,8 @@ function openLanes(pieces: TerrainPiece[], zones: DeploymentZones): number {
     const grid = (shape: Shape) => {
         const b = shapeBounds(shape);
         const pts: Pt[] = [];
-        for (let x = Math.max(0.5, b.minX); x <= Math.min(TABLE_SIZE - 0.5, b.maxX); x += 3)
-            for (let y = Math.max(0.5, b.minY); y <= Math.min(TABLE_SIZE - 0.5, b.maxY); y += 3) if (pointInShape(shape, x, y)) pts.push({ x, y });
+        for (let x = Math.max(0.5, b.minX); x <= Math.min(TABLE_SIZE - 0.5, b.maxX); x += 4.5)
+            for (let y = Math.max(0.5, b.minY); y <= Math.min(TABLE_SIZE - 0.5, b.maxY); y += 4.5) if (pointInShape(shape, x, y)) pts.push({ x, y });
         return pts;
     };
     const a = grid(zones.a);
@@ -1583,8 +1623,15 @@ function openLanes(pieces: TerrainPiece[], zones: DeploymentZones): number {
         p.traits.some((t) => t === 'dense' || t === 'concealing' || (t === 'blocking' && p.surfaces.some((s) => s.top >= 2))),
     );
     if (!a.length || !b.length) return 0;
+    // every level of every stopping piece with its bounds, so a line that passes nowhere near one never walks across it
+    const levels = stops.flatMap((piece) => piece.surfaces.map((s) => ({ shape: s.shape, bounds: cachedBounds(s.shape) })));
+    const misses = (p: Pt, q: Pt, l: (typeof levels)[number]) =>
+        Math.max(p.x, q.x) < l.bounds.minX ||
+        Math.min(p.x, q.x) > l.bounds.maxX ||
+        Math.max(p.y, q.y) < l.bounds.minY ||
+        Math.min(p.y, q.y) > l.bounds.maxY;
     let open = 0;
-    for (const p of a) for (const q of b) if (!stops.some((piece) => piece.surfaces.some((s) => crossesShape(p, q, s.shape)))) open++;
+    for (const p of a) for (const q of b) if (!levels.some((l) => !misses(p, q, l) && crossesShape(p, q, l.shape))) open++;
     return open / (a.length * b.length);
 }
 
@@ -1660,7 +1707,12 @@ export function tableChecks(pieces: TerrainPiece[], zones?: DeploymentZones | nu
     const blockedCell = (i: number, j: number) => {
         const x = (i + 0.5) * 0.5;
         const y = (j + 0.5) * 0.5;
-        return impassable.some((p) => p.surfaces.some((s) => distanceToShape(s.shape, x, y) < r));
+        return impassable.some((p) =>
+            p.surfaces.some((s) => {
+                const b = cachedBounds(s.shape);
+                return x >= b.minX - r && x <= b.maxX + r && y >= b.minY - r && y <= b.maxY + r && distanceToShape(s.shape, x, y) < r;
+            }),
+        );
     };
     const blocked = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => blockedCell(i, j)));
     const label = Array.from({ length: N }, () => new Array<number>(N).fill(0));

@@ -358,7 +358,10 @@ function watchPanel() {
     panelObserver.observe(el);
 }
 watch([selectedId, selectedPieceId, mode], () => nextTick(watchPanel), { flush: 'post' });
-onBeforeUnmount(() => panelObserver?.disconnect());
+onBeforeUnmount(() => {
+    panelObserver?.disconnect();
+    if (moveFrame) cancelAnimationFrame(moveFrame);
+});
 function showPanel() {
     document
         .querySelector('[data-testid=side-column] [data-testid=selected-panel], [data-testid=side-column] [data-testid=terrain-piece]')
@@ -939,7 +942,22 @@ function onMove(e: PointerEvent) {
         if (d > 0) setZoom(pinch.width * (pinch.distance / d), pinch.centre);
         return;
     }
-    if (!drag) return;
+    // A phone reports a move far more often than it can draw one: keep the latest and apply it once a frame.
+    lastMove = { clientX: e.clientX, clientY: e.clientY };
+    if (!moveFrame) {
+        moveFrame = requestAnimationFrame(() => {
+            moveFrame = 0;
+            flushMove();
+        });
+    }
+}
+let moveFrame = 0;
+let lastMove: { clientX: number; clientY: number } | null = null;
+/** Apply the latest pointer position to whatever is being dragged. */
+function flushMove() {
+    const e = lastMove;
+    lastMove = null;
+    if (!e || !drag) return;
     if (drag.kind === 'token') {
         const id = drag.id;
         const t = tokens.value.find((x) => x.id === id);
@@ -1121,6 +1139,12 @@ function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
 }
 
 function onUp(e: PointerEvent) {
+    // the last move before the finger lifts must land before the drop is worked out
+    if (moveFrame) {
+        cancelAnimationFrame(moveFrame);
+        moveFrame = 0;
+    }
+    flushMove();
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (drag?.kind === 'token') {

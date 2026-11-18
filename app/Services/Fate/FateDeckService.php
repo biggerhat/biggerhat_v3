@@ -7,6 +7,7 @@ use App\Exceptions\FateException;
 use App\Models\Game;
 use App\Models\GameFateCard;
 use App\Models\GameFateFlip;
+use App\Models\GameFatePrompt;
 use App\Models\GameLog;
 use App\Models\GamePlayer;
 use App\Models\User;
@@ -65,6 +66,7 @@ class FateDeckService
         /** @var Collection<int, GameFateCard> $cards */
         $cards = GameFateCard::query()->where('game_id', $game->id)->orderBy('position')->get();
         $flips = GameFateFlip::query()->where('game_id', $game->id)->whereNull('resolved_at')->orderBy('id')->get();
+        $prompts = GameFatePrompt::query()->where('game_id', $game->id)->whereNull('dismissed_at')->orderBy('id')->get();
         $players = $game->players()->orderBy('slot')->get(['id', 'slot']);
         $slotOf = $players->pluck('slot', 'id');
         $byRow = $cards->keyBy('id');
@@ -103,12 +105,36 @@ class FateDeckService
                     'owner_slot' => $slotOf[$f->game_player_id] ?? null,
                     'modifier' => $f->modifier,
                     'label' => $f->label,
+                    'subject' => $f->subject,
                     'chosen' => $chosen ? ['owner_slot' => $slotOf[$chosen->game_player_id] ?? null, 'card' => $chosen->card, 'joker_suit' => $chosen->joker_suit] : null,
                     // which revealed cards may be taken as the result (nothing is offered once one has been)
                     'legal' => $chosen ? [] : self::legalChoices($f->modifier, $revealed->pluck('card')->all()),
                     'cheaters' => collect($f->cheaters ?? [])->map(fn ($id) => $slotOf[$id] ?? null)->filter()->values()->all(),
                 ];
             })->values()->all(),
+            // what the other player has asked of me (a request is addressed to one player, and only they are shown it)
+            'prompts' => $prompts->where('status', 'pending')->filter(fn (GameFatePrompt $p) => in_array($p->to_player_id, $controlled, true))->map(fn (GameFatePrompt $p) => [
+                'id' => $p->id,
+                'from_slot' => $slotOf[$p->from_player_id] ?? null,
+                'to_slot' => $slotOf[$p->to_player_id] ?? null,
+                'kind' => $p->kind,
+                'count' => $p->count,
+                'note' => $p->note,
+            ])->values()->all(),
+            // what I have asked that is still waiting
+            'sent' => $prompts->where('status', 'pending')->filter(fn (GameFatePrompt $p) => in_array($p->from_player_id, $controlled, true))->map(fn (GameFatePrompt $p) => [
+                'id' => $p->id,
+                'to_slot' => $slotOf[$p->to_player_id] ?? null,
+                'kind' => $p->kind,
+                'count' => $p->count,
+            ])->values()->all(),
+            // a hand someone chose to show me: only the player who asked is given the cards
+            'answers' => $prompts->where('kind', GameFatePrompt::REVEAL)->where('status', '!=', 'pending')->filter(fn (GameFatePrompt $p) => in_array($p->from_player_id, $controlled, true))->map(fn (GameFatePrompt $p) => [
+                'id' => $p->id,
+                'owner_slot' => $slotOf[$p->to_player_id] ?? null,
+                'declined' => $p->status === 'declined',
+                'cards' => $p->status === 'done' ? $p->cards : null,
+            ])->values()->all(),
         ];
     }
 
@@ -179,15 +205,16 @@ class FateDeckService
      * Flip (CRG p.8): reveal the top card to the conflict. Each + or - reveals one more, four in all at most; the + and - of one flip
      * cancel, so a flip is one kind. The result is then picked with choose().
      */
-    public function flip(GamePlayer $player, int $modifier, ?string $label = null): GameFateFlip
+    public function flip(GamePlayer $player, int $modifier, ?string $label = null, ?string $subject = null): GameFateFlip
     {
         $modifier = max(-(FateCards::FLIP_MAX - 1), min(FateCards::FLIP_MAX - 1, $modifier));
 
-        return $this->locked($player, function () use ($player, $modifier, $label) {
+        return $this->locked($player, function () use ($player, $modifier, $label, $subject) {
             $flip = GameFateFlip::create([
                 'game_id' => $player->game_id,
                 'game_player_id' => $player->id,
                 'modifier' => $modifier,
+                'subject' => $subject !== null && trim($subject) !== '' ? mb_substr(trim($subject), 0, 40) : null,
                 'label' => $label !== null && trim($label) !== '' ? mb_substr(trim($label), 0, 60) : null,
             ]);
 
@@ -484,6 +511,139 @@ class FateDeckService
             $this->shuffleZone($player, FateZoneEnum::Deck);
             $this->log($player, 'fate.search_take', []);
         });
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------------------
+    // Effects on the other player's hand
+    // ---------------------------------------------------------------------------------------------------------------------------
+
+    /** The most requests one player may have waiting at once, so a table cannot be flooded. */
+    private const MAX_PENDING_PROMPTS = 4;
+
+    /**
+     * Ask the other player to discard N cards (they choose which) or to show their hand. The server cannot make someone choose, so it
+     * puts the request in front of them and waits: they answer with discard() and respond(), or decline. Nothing about their hand
+     * is told to the asker until they agree to show it.
+     */
+    public function demand(GamePlayer $from, string $kind, ?int $count = null, ?string $note = null): GameFatePrompt
+    {
+        if (! in_array($kind, [GameFatePrompt::DISCARD, GameFatePrompt::REVEAL], true)) {
+            throw new FateException('Ask the other player to discard cards or to show their hand.');
+        }
+        if ($kind === GameFatePrompt::DISCARD && ($count === null || $count < 1 || $count > FateCards::HAND_MAX)) {
+            throw new FateException('Ask for between 1 and '.FateCards::HAND_MAX.' cards.');
+        }
+
+        return $this->locked($from, function () use ($from, $kind, $count, $note) {
+            $to = $this->opponentOf($from);
+            if (GameFatePrompt::query()->where('game_id', $from->game_id)->where('from_player_id', $from->id)->where('status', 'pending')->count() >= self::MAX_PENDING_PROMPTS) {
+                throw new FateException('Wait for the other player to answer what you have already asked.');
+            }
+            $prompt = GameFatePrompt::create([
+                'game_id' => $from->game_id,
+                'from_player_id' => $from->id,
+                'to_player_id' => $to->id,
+                'kind' => $kind,
+                'count' => $kind === GameFatePrompt::DISCARD ? $count : null,
+                'note' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 80) : null,
+            ]);
+            $this->log($from, 'fate.demand', ['prompt' => $prompt->id, 'to' => $to->id, 'kind' => $kind, 'count' => $prompt->count, 'note' => $prompt->note]);
+
+            return $prompt;
+        });
+    }
+
+    /**
+     * Answer a request addressed to you. A discard request is marked done (you did the discarding yourself, face up). A show-your-hand
+     * request either stores a snapshot of your hand for the asker, or is declined. Only the player it was addressed to may answer.
+     */
+    public function respond(GamePlayer $responder, int $promptId, bool $show = false): GameFatePrompt
+    {
+        return $this->locked($responder, function () use ($responder, $promptId, $show) {
+            $prompt = GameFatePrompt::query()->where('game_id', $responder->game_id)->where('id', $promptId)->first();
+            if ($prompt === null || $prompt->to_player_id !== $responder->id || $prompt->status !== 'pending') {
+                throw new FateException('There is nothing for you to answer there.');
+            }
+            if ($prompt->kind === GameFatePrompt::REVEAL && $show) {
+                $prompt->update(['status' => 'done', 'cards' => $this->zone($responder, FateZoneEnum::Hand)->pluck('card')->all()]);
+                // the log says a hand was shown, never which cards
+                $this->log($responder, 'fate.reveal', ['prompt' => $prompt->id, 'to' => $prompt->from_player_id]);
+            } elseif ($prompt->kind === GameFatePrompt::REVEAL) {
+                $prompt->update(['status' => 'declined']);
+                $this->log($responder, 'fate.reveal_declined', ['prompt' => $prompt->id]);
+            } else {
+                $prompt->update(['status' => 'done']);
+                $this->log($responder, 'fate.discard_done', ['prompt' => $prompt->id, 'count' => $prompt->count]);
+            }
+
+            return $prompt->refresh();
+        });
+    }
+
+    /** The asker puts an answered request away (a shown hand is not kept on the table for ever). */
+    public function dismiss(GamePlayer $viewer, int $promptId): void
+    {
+        $this->locked($viewer, function () use ($viewer, $promptId) {
+            $prompt = GameFatePrompt::query()->where('game_id', $viewer->game_id)->where('id', $promptId)->first();
+            if ($prompt === null || $prompt->from_player_id !== $viewer->id) {
+                throw new FateException('There is nothing for you to put away there.');
+            }
+            $prompt->update(['dismissed_at' => now(), 'cards' => null]);
+        });
+    }
+
+    /**
+     * The other player discards N cards at random from their hand (a card effect that says so): the server picks, so nobody chooses.
+     * They go face up to that player's discard pile. If the hand has fewer, it all goes.
+     *
+     * @return list<int> the cards discarded
+     */
+    public function randomDiscard(GamePlayer $from, int $n): array
+    {
+        $n = $this->count($n);
+
+        return $this->locked($from, function () use ($from, $n) {
+            $to = $this->opponentOf($from);
+            $hand = $this->shuffled($this->zone($to, FateZoneEnum::Hand)->get()->all());
+            $gone = array_slice($hand, 0, $n);
+            foreach ($gone as $row) {
+                $this->move($row, FateZoneEnum::Discard, $this->bottom($to, FateZoneEnum::Discard));
+            }
+            $cards = array_map(fn (GameFateCard $r) => $r->card, $gone);
+            $this->log($from, 'fate.forced_discard', ['target' => $to->id, 'cards' => $cards]);
+
+            return $cards;
+        });
+    }
+
+    /** The other player in the game. */
+    private function opponentOf(GamePlayer $player): GamePlayer
+    {
+        $other = GamePlayer::query()->where('game_id', $player->game_id)->where('id', '!=', $player->id)->first();
+        if ($other === null) {
+            throw new FateException('There is no other player to ask yet.');
+        }
+
+        return $other;
+    }
+
+    /** The decks are in use in this game. */
+    public function started(Game $game): bool
+    {
+        return GameFateCard::query()->where('game_id', $game->id)->exists();
+    }
+
+    /**
+     * The end phase as the turn advances (CRG p.32): each discard pile goes back into its deck. Games that never used Fate are left alone.
+     */
+    public function endPhaseIfStarted(Game $game): bool
+    {
+        if (! $this->started($game)) {
+            return false;
+        }
+        $this->endPhase($game);
+
+        return true;
     }
 
     // ---------------------------------------------------------------------------------------------------------------------------

@@ -12,16 +12,19 @@ use App\Http\Requests\Games\Fate\FateCardRequest;
 use App\Http\Requests\Games\Fate\FateCardsRequest;
 use App\Http\Requests\Games\Fate\FateChooseRequest;
 use App\Http\Requests\Games\Fate\FateCountRequest;
+use App\Http\Requests\Games\Fate\FateDemandRequest;
 use App\Http\Requests\Games\Fate\FateFlipRefRequest;
 use App\Http\Requests\Games\Fate\FateFlipRequest;
 use App\Http\Requests\Games\Fate\FatePutRequest;
 use App\Http\Requests\Games\Fate\FateRefillRequest;
 use App\Http\Requests\Games\Fate\FateRequest;
+use App\Http\Requests\Games\Fate\FateRespondRequest;
 use App\Http\Requests\Games\Fate\FateSlotRequest;
 use App\Models\Game;
 use App\Models\GameFateFlip;
 use App\Models\GamePlayer;
 use App\Services\Fate\FateDeckService;
+use App\Support\Fate\FateLog;
 use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +52,35 @@ class GameFateController extends Controller
         return $this->answer($game);
     }
 
+    /** The Fate history as readable lines. Safe for anyone who may see the table: the log never holds a hidden card. */
+    public function log(Request $request, Game $game): JsonResponse
+    {
+        $this->guard();
+        abort_unless(Gate::allows('view', $game) || $game->is_observable, 403);
+
+        return response()->json(['log' => FateLog::lines($game)]);
+    }
+
+    public function demand(FateDemandRequest $request, Game $game): JsonResponse
+    {
+        return $this->act($request, $game, fn (GamePlayer $p) => ['prompt' => $this->fate->demand($p, $request->validated('kind'), $request->validated('count'), $request->validated('note'))->id]);
+    }
+
+    public function randomDiscard(FateCountRequest $request, Game $game): JsonResponse
+    {
+        return $this->act($request, $game, fn (GamePlayer $p) => ['discarded' => $this->fate->randomDiscard($p, $request->integer('n'))]);
+    }
+
+    public function respond(FateRespondRequest $request, Game $game, int $prompt): JsonResponse
+    {
+        return $this->act($request, $game, fn (GamePlayer $p) => $this->fate->respond($p, $prompt, $request->boolean('show')));
+    }
+
+    public function dismiss(FateSlotRequest $request, Game $game, int $prompt): JsonResponse
+    {
+        return $this->act($request, $game, fn (GamePlayer $p) => $this->fate->dismiss($p, $prompt));
+    }
+
     public function draw(FateCountRequest $request, Game $game): JsonResponse
     {
         return $this->act($request, $game, fn (GamePlayer $p) => ['drawn' => $this->fate->draw($p, $request->integer('n'))]);
@@ -66,7 +98,7 @@ class GameFateController extends Controller
 
     public function flip(FateFlipRequest $request, Game $game): JsonResponse
     {
-        return $this->act($request, $game, fn (GamePlayer $p) => ['flip' => $this->fate->flip($p, $request->integer('modifier'), $request->validated('label'))->id]);
+        return $this->act($request, $game, fn (GamePlayer $p) => ['flip' => $this->fate->flip($p, $request->integer('modifier'), $request->validated('label'), $request->validated('subject'))->id]);
     }
 
     public function choose(FateChooseRequest $request, Game $game): JsonResponse

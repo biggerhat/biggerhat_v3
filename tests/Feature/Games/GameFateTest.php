@@ -515,3 +515,153 @@ it('does not ping when an action is refused', function () {
 
     Event::assertNotDispatched(GameFateChanged::class);
 });
+
+it('shuffles every discard pile back when the turn advances, but not before both players have scored', function () {
+    Event::fake([GameFateChanged::class]);
+    [$game, $p1, $p2, $a, $b] = fateGame();
+    $game->update(['current_turn' => 1, 'max_turns' => 5]);
+    stackDeck($p1, [4, 17, 30]);
+    $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 3])->assertOk();
+    $this->actingAs($a)->postJson(fateUrl($game, 'discard'), ['cards' => [17, 30]])->assertOk();
+    $score = ['strategy_points' => 0, 'scheme_points' => 0, 'scheme_action' => 'held'];
+
+    $this->actingAs($a)->postJson(route('games.play.turns.store', $game->uuid), $score)->assertOk();
+    expect(inZone($p1, 'discard'))->toBe([17, 30]); // one player has scored: the turn has not advanced
+
+    $this->actingAs($b)->postJson(route('games.play.turns.store', $game->uuid), $score)->assertOk();
+
+    expect($game->refresh()->current_turn)->toBe(2)
+        ->and(inZone($p1, 'discard'))->toBe([])
+        ->and(inZone($p1, 'deck'))->toHaveCount(53)
+        ->and(inZone($p1, 'hand'))->toBe([4]); // hands are set aside
+    Event::assertDispatched(GameFateChanged::class, fn (GameFateChanged $e) => $e->action === 'end_phase');
+});
+
+it('leaves a game that never used Fate alone when the turn advances', function () {
+    [$game, $p1, , $a, $b] = fateGame();
+    $game->update(['current_turn' => 1, 'max_turns' => 5]);
+    $score = ['strategy_points' => 0, 'scheme_points' => 0, 'scheme_action' => 'held'];
+
+    $this->actingAs($a)->postJson(route('games.play.turns.store', $game->uuid), $score)->assertOk();
+    $this->actingAs($b)->postJson(route('games.play.turns.store', $game->uuid), $score)->assertOk();
+
+    expect($game->refresh()->current_turn)->toBe(2)
+        ->and(GameFateCard::query()->where('game_id', $game->id)->count())->toBe(0);
+});
+
+it('remembers what a flip was for, so the board can show the result beside that model', function () {
+    [$game, $p1, , $a] = fateGame();
+    stackDeck($p1, [9]);
+
+    $response = $this->actingAs($a)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'label' => 'Pandora', 'subject' => '412'])->assertOk();
+
+    expect($response->json('state.flips.0.subject'))->toBe('412');
+});
+
+it('reads the history back as sentences with no hidden card in them', function () {
+    [$game, $p1, , $a, $b] = fateGame(observable: true);
+    stackDeck($p1, [4, 17, 30, 40]);
+    $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 3])->assertOk();
+    $this->actingAs($a)->postJson(fateUrl($game, 'discard'), ['cards' => [17]])->assertOk();
+    $flip = $this->actingAs($a)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'label' => 'x'])->json('flip');
+    $this->actingAs($a)->postJson(fateUrl($game, 'choose'), ['flip' => $flip, 'card' => 40])->assertOk();
+
+    $lines = collect($this->actingAs(User::factory()->create())->getJson(fateUrl($game, 'log'))->assertOk()->json('log'))->pluck('text');
+
+    expect($lines->first())->toContain('took')->toContain('Crows')
+        ->and($lines->implode(' '))->toContain('drew 3 cards.')->toContain('discarded 5 of Masks')->toContain('flipped a plain flip: ')
+        // the two cards still in the drawer's hand (the 5 of Rams and the 5 of Tomes) never appear: a draw is a count
+        ->and($lines->implode(' '))->not->toContain('5 of Rams')->not->toContain('5 of Tomes');
+    $this->actingAs(User::factory()->create())->getJson(route('games.fate.log', Game::factory()->inProgress()->create()->uuid))->assertForbidden();
+});
+
+it('lets a player make the other discard at random: the server picks, face up', function () {
+    [$game, $p1, $p2, $a, $b] = fateGame();
+    stackDeck($p2, [7, 8, 9]);
+    $this->actingAs($b)->postJson(fateUrl($game, 'draw'), ['n' => 3])->assertOk();
+
+    $response = $this->actingAs($a)->postJson(fateUrl($game, 'random_discard'), ['n' => 2])->assertOk();
+
+    expect($response->json('discarded'))->toHaveCount(2)
+        ->and(inZone($p2, 'discard'))->toEqualCanonicalizing($response->json('discarded'))
+        ->and(inZone($p2, 'hand'))->toHaveCount(1);
+    // a hand smaller than the number discards what it has
+    $this->actingAs($a)->postJson(fateUrl($game, 'random_discard'), ['n' => 5])->assertOk();
+    expect(inZone($p2, 'hand'))->toBe([]);
+    // the other player's hand is a count to the asker, whatever was taken
+    expect($this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.players.1'))->not->toHaveKey('hand');
+});
+
+it('puts a discard request in front of the other player only, and they answer it', function () {
+    [$game, , $p2, $a, $b] = fateGame();
+    $id = $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'discard', 'count' => 2, 'note' => 'Hex'])->assertOk()->json('prompt');
+
+    // the asker sees it as waiting; the other player sees it addressed to them; nobody else sees it
+    $this->actingAs($a)->getJson(fateUrl($game, 'show'))->assertJsonPath('state.sent.0.count', 2)->assertJsonPath('state.prompts', []);
+    $mine = $this->actingAs($b)->getJson(fateUrl($game, 'show'))->assertJsonPath('state.prompts.0.kind', 'discard')->assertJsonPath('state.prompts.0.note', 'Hex');
+    expect($mine->json('state.prompts.0.from_slot'))->toBe(1);
+
+    // only the one it is addressed to can answer
+    $this->actingAs($a)->postJson(route('games.fate.prompts.respond', [$game->uuid, $id]), [])->assertUnprocessable();
+    $this->actingAs($b)->postJson(route('games.fate.prompts.respond', [$game->uuid, $id]), [])->assertOk()->assertJsonPath('state.prompts', []);
+    $this->actingAs($b)->postJson(route('games.fate.prompts.respond', [$game->uuid, $id]), [])->assertUnprocessable();
+});
+
+it('shows the asker the other hand only if its owner agrees, and never anyone else', function () {
+    [$game, $p1, $p2, $a, $b] = fateGame(observable: true);
+    stackDeck($p2, [7, 8, 9]);
+    $this->actingAs($b)->postJson(fateUrl($game, 'draw'), ['n' => 3])->assertOk();
+    $id = $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'reveal'])->assertOk()->json('prompt');
+
+    // asking shows nothing
+    expect($this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.answers'))->toBe([])
+        ->and($this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.players.1'))->not->toHaveKey('hand');
+
+    $this->actingAs($b)->postJson(route('games.fate.prompts.respond', [$game->uuid, $id]), ['show' => true])->assertOk();
+
+    $asker = $this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state');
+    expect($asker['answers'][0]['cards'])->toBe([7, 8, 9])->and($asker['answers'][0]['owner_slot'])->toBe(2);
+    // an observer is not given the cards, and the hand itself is still only a count
+    $watcher = $this->actingAs(User::factory()->create())->getJson(fateUrl($game, 'show'))->json('state');
+    expect($watcher['answers'])->toBe([])->and($watcher['players'][1])->not->toHaveKey('hand')
+        ->and(json_encode($watcher))->not->toContain('[7,8,9]');
+    // the log says a hand was shown, not which cards
+    expect(GameLog::query()->where('action', 'fate.reveal')->first()->payload)->not->toHaveKey('cards');
+
+    // putting it away removes the snapshot
+    $this->actingAs($a)->postJson(route('games.fate.prompts.dismiss', [$game->uuid, $id]), [])->assertOk()->assertJsonPath('state.answers', []);
+    expect(\App\Models\GameFatePrompt::query()->find($id)->cards)->toBeNull();
+});
+
+it('lets the other player refuse to show their hand', function () {
+    [$game, , $p2, $a, $b] = fateGame();
+    $id = $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'reveal'])->json('prompt');
+
+    $this->actingAs($b)->postJson(route('games.fate.prompts.respond', [$game->uuid, $id]), ['show' => false])->assertOk();
+
+    $answer = $this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.answers.0');
+    expect($answer['declined'])->toBeTrue()->and($answer['cards'])->toBeNull();
+});
+
+it('checks what a request asks for, and limits how many can wait', function () {
+    [$game, , , $a] = fateGame();
+
+    $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'discard'])->assertUnprocessable();
+    $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'discard', 'count' => 8])->assertUnprocessable();
+    $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'steal'])->assertUnprocessable();
+    foreach (range(1, 4) as $_) {
+        $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'reveal'])->assertOk();
+    }
+    $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'reveal'])->assertUnprocessable();
+});
+
+it('lets the solo creator answer for the other slot', function () {
+    [$game, , $p2, $a] = fateGame(solo: true);
+    stackDeck($p2, [7, 8]);
+    $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 2, 'slot' => 2])->assertOk();
+    $id = $this->actingAs($a)->postJson(fateUrl($game, 'demand'), ['kind' => 'reveal', 'slot' => 1])->json('prompt');
+
+    $this->actingAs($a)->postJson(route('games.fate.prompts.respond', [$game->uuid, $id]), ['show' => true, 'slot' => 2])->assertOk();
+
+    expect($this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.answers.0.cards'))->toBe([7, 8]);
+});

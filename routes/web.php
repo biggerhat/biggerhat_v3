@@ -460,6 +460,11 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
     // The Fate deck and hands of a full game (pre-release): the server shuffles and deals, a hand goes only to its owner
     Route::prefix('/{game:uuid}/fate')->name('fate.')->middleware('throttle:120,1')->group(function () {
         Route::get('/', [GameFateController::class, 'show'])->name('show');
+        Route::get('/log', [GameFateController::class, 'log'])->name('log');
+        Route::post('/demand', [GameFateController::class, 'demand'])->name('demand');
+        Route::post('/random-discard', [GameFateController::class, 'randomDiscard'])->name('random_discard');
+        Route::post('/prompts/{prompt}/respond', [GameFateController::class, 'respond'])->whereNumber('prompt')->name('prompts.respond');
+        Route::post('/prompts/{prompt}/dismiss', [GameFateController::class, 'dismiss'])->whereNumber('prompt')->name('prompts.dismiss');
         Route::post('/draw', [GameFateController::class, 'draw'])->name('draw');
         Route::post('/refill', [GameFateController::class, 'refill'])->name('refill');
         Route::post('/discard', [GameFateController::class, 'discard'])->name('discard');

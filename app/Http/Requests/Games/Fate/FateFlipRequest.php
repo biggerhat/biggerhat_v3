@@ -9,6 +9,7 @@ class FateFlipRequest extends FateRequest
         return [
             'modifier' => ['required', 'integer', 'between:-3,3'],
             'label' => ['nullable', 'string', 'max:60'],
+            'subject' => ['nullable', 'string', 'max:40'],
             ...$this->slotRules(),
         ];
     }

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $game_player_id
  * @property int $modifier
  * @property string|null $label
+ * @property string|null $subject what the flip is for on the board (a model's id)
  * @property int|null $chosen_id
  * @property list<int>|null $cheaters game_player ids that have had their chance to cheat
  * @property \Illuminate\Support\Carbon|null $resolved_at

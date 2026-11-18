@@ -1148,6 +1148,9 @@ const L = require('./lib.cjs');
                 timeout: 5000,
             });
             if (!(await s.page.$('[data-testid^=hp-]'))) throw new Error('the board should draw a health bar on the model');
+            // status badges: the Focus token is a chip on the base and the activation is a tick
+            await s.page.waitForSelector('[data-testid^=badges-]', { timeout: 5000 });
+            if (!(await s.page.$('[data-testid^=activated-]'))) throw new Error('an activated model should show a tick on its base');
             await L.shot(s, `359-model-info-${label}`);
             // drawn at its real base size: the new model has a 50 mm (0.984") radius
             const radii = await s.page.$$eval('[data-testid^=token-] > circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));

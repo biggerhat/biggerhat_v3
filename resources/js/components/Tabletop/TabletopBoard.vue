@@ -712,6 +712,28 @@ watch(terrain, () => {
     reachTimer = setTimeout(() => (reach.value = unreachableAreas(terrain.value)), 150);
 });
 const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, worldTerrain.value, reach.value)])));
+// Status chips on a base: tokens grouped by name, a short label with a count, at most three chips (the rest fold into "+n"). Cached per info
+// object, which keeps its identity while a model is dragged, so a drag frame does not rebuild them.
+type Chip = { label: string; colour: string };
+const badgeCache = new WeakMap<object, { chips: Chip[] }>();
+const NO_BADGES = { chips: [] as Chip[] };
+function badgesOf(info?: ModelInfo): { chips: Chip[] } {
+    if (!info?.tokens.length) return NO_BADGES;
+    const hit = badgeCache.get(info);
+    if (hit) return hit;
+    const counts = new Map<string, number>();
+    for (const t of info.tokens) counts.set(t.name, (counts.get(t.name) ?? 0) + 1);
+    const chips = [...counts.entries()].map(([name, n]) => {
+        let h = 0;
+        for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
+        return { label: `${name.slice(0, 2)}${n > 1 ? n : ''}`, colour: `hsl(${h} 55% 38%)` };
+    });
+    const shown = chips.slice(0, 3);
+    if (chips.length > 3) shown[2] = { label: `+${chips.length - 2}`, colour: 'hsl(220 10% 40%)' };
+    const out = { chips: shown };
+    badgeCache.set(info, out);
+    return out;
+}
 const selected = computed(() => tokens.value.find((t) => t.id === selectedId.value) ?? null);
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
 const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value, variant.value)));
@@ -1656,7 +1678,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             {{ fmt(a.aura.range) }}"
                         </text>
                     </g>
-                    <g v-for="t in tokens" :key="t.id" :opacity="dimmed(elevationOf(t)) ? 0.25 : t.killed ? 0.35 : 1" :data-testid="`token-${t.id}`">
+                    <g
+                        v-for="t in tokens"
+                        :key="t.id"
+                        :opacity="dimmed(elevationOf(t)) ? 0.25 : t.killed ? 0.35 : t.info?.activated ? 0.7 : 1"
+                        :data-testid="`token-${t.id}`"
+                    >
                         <circle
                             :cx="t.x"
                             :cy="t.y"
@@ -1696,25 +1723,44 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :fill="(t.info.health ?? t.info.maxHealth) / t.info.maxHealth <= 0.34 ? 'hsl(0 80% 55%)' : 'hsl(145 60% 42%)'"
                             />
                         </g>
-                        <g v-if="t.info?.tokens.length" pointer-events="none">
+                        <g v-if="badgesOf(t.info).chips.length" pointer-events="none" :data-testid="`badges-${t.id}`">
+                            <g v-for="(c, i) in badgesOf(t.info).chips" :key="c.label">
+                                <circle
+                                    :cx="t.x + (i - (badgesOf(t.info).chips.length - 1) / 2) * 0.85"
+                                    :cy="t.y - baseRadius(t.baseMm) - 0.4"
+                                    r="0.38"
+                                    :fill="c.colour"
+                                    stroke="white"
+                                    stroke-width="0.06"
+                                />
+                                <text
+                                    :x="t.x + (i - (badgesOf(t.info).chips.length - 1) / 2) * 0.85"
+                                    :y="t.y - baseRadius(t.baseMm) - 0.4 + 0.17"
+                                    text-anchor="middle"
+                                    font-size="0.48"
+                                    fill="white"
+                                    font-weight="700"
+                                >
+                                    {{ c.label }}
+                                </text>
+                            </g>
+                        </g>
+                        <g v-if="t.info?.activated" pointer-events="none" :data-testid="`activated-${t.id}`">
                             <circle
-                                :cx="t.x + baseRadius(t.baseMm) * 0.8"
+                                :cx="t.x - baseRadius(t.baseMm) * 0.8"
                                 :cy="t.y - baseRadius(t.baseMm) * 0.8"
-                                r="0.42"
-                                fill="hsl(190 70% 38%)"
-                                stroke="white"
+                                r="0.34"
+                                fill="hsl(var(--background))"
+                                stroke="hsl(var(--foreground) / 0.7)"
                                 stroke-width="0.06"
                             />
-                            <text
-                                :x="t.x + baseRadius(t.baseMm) * 0.8"
-                                :y="t.y - baseRadius(t.baseMm) * 0.8 + 0.2"
-                                text-anchor="middle"
-                                font-size="0.55"
-                                fill="white"
-                                font-weight="700"
-                            >
-                                {{ t.info.tokens.length }}
-                            </text>
+                            <path
+                                :d="`M${t.x - baseRadius(t.baseMm) * 0.8 - 0.16} ${t.y - baseRadius(t.baseMm) * 0.8} l0.12 0.14 l0.22 -0.28`"
+                                fill="none"
+                                stroke="hsl(145 60% 35%)"
+                                stroke-width="0.09"
+                                stroke-linecap="round"
+                            />
                         </g>
                         <text :x="t.x" :y="t.y + 0.3" text-anchor="middle" font-size="0.85" fill="white" font-weight="600" pointer-events="none">
                             {{ tokenLabel(t) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}

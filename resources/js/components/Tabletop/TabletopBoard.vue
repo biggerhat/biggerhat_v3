@@ -37,6 +37,8 @@ import {
     nearestLegalSpot,
     pieceBounds,
     placementProblems,
+    unreachableAreas,
+    type UnreachableAreas,
     removeCorner,
     restingSupport,
     rotatePiece,
@@ -88,7 +90,7 @@ import {
     User,
     Users,
 } from 'lucide-vue-next';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 
 type Mode = 'move' | 'ruler' | 'sight' | 'terrain';
 type Point = { x: number; y: number };
@@ -363,6 +365,7 @@ watch([selectedId, selectedPieceId, mode], () => nextTick(watchPanel), { flush: 
 onBeforeUnmount(() => {
     panelObserver?.disconnect();
     if (moveFrame) cancelAnimationFrame(moveFrame);
+    if (reachTimer) clearTimeout(reachTimer);
 });
 function showPanel() {
     document
@@ -700,7 +703,15 @@ const worldTerrain = computed(() => {
 const insideOf = (id: string) => activeAuras.value.find((a) => a.aura.id === id)?.inside ?? [];
 const caught = computed(() => new Set(activeAuras.value.flatMap((a) => a.inside.map((t) => t.id))));
 /** Models standing where they should not: on another base, or on impassable terrain. */
-const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, worldTerrain.value)])));
+/** The ground nobody can walk to, from the real terrain (worked out once the terrain stops changing). */
+const reach = shallowRef<UnreachableAreas | null>(unreachableAreas(terrain.value));
+let reachTimer: ReturnType<typeof setTimeout> | null = null;
+// a flood fill of the whole table: wait until the terrain stops changing (a piece being dragged changes it every frame)
+watch(terrain, () => {
+    if (reachTimer) clearTimeout(reachTimer);
+    reachTimer = setTimeout(() => (reach.value = unreachableAreas(terrain.value)), 150);
+});
+const problems = computed(() => new Map(tokens.value.map((t) => [t.id, placementProblems(t, tokens.value, worldTerrain.value, reach.value)])));
 const selected = computed(() => tokens.value.find((t) => t.id === selectedId.value) ?? null);
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
 const zones = computed(() => (deployment.value === 'none' ? null : deploymentZones(deployment.value, variant.value)));
@@ -1089,11 +1100,12 @@ const IGNORE_HINTS: Record<string, string> = {
     impassable: 'It may move through impassable terrain, but not end a move on it',
 };
 /** A model left over another base or on impassable ground goes to the nearest legal spot (p.20). */
-const illegalHere = (t: Token) => (problems.value.get(t.id) ?? []).some((p) => p.kind === 'overlap' || p.kind === 'impassable');
+const illegalHere = (t: Token) =>
+    (problems.value.get(t.id) ?? []).some((p) => p.kind === 'overlap' || p.kind === 'impassable' || p.kind === 'unreachable');
 function moveToLegalSpot(t: Token) {
     const token = tokens.value.find((x) => x.id === t.id);
     if (!token || token.locked) return;
-    const spot = nearestLegalSpot(token, tokens.value, worldTerrain.value);
+    const spot = nearestLegalSpot(token, tokens.value, worldTerrain.value, undefined, undefined, reach.value);
     if (!spot) {
         note.value = `There is no legal spot near ${token.name}.`;
         return;
@@ -1118,6 +1130,11 @@ function jumpNote(t: Token, tr: NonNullable<typeof trail.value>, startElevation:
         ? `${parts.join(', ')}. That is not a legal jump: ${c.reasons.join('; ')}.`
         : `${parts.join(', ')}. A legal jump, landing at elevation ${c.endElevation}.`;
 }
+/** A hazardous piece's name with its rules card, when it has one. */
+const hazardEffect = (name: string) => {
+    const rules = worldTerrain.value.find((p) => p.name === name)?.rules;
+    return rules ? `${name}: ${rules}` : name;
+};
 /** What a place says, in words: how far it went against its range, and what it skipped (p.17). */
 function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
     const from = { x: tr.from.x, y: tr.from.y, baseMm: tr.baseMm };
@@ -1131,7 +1148,7 @@ function placeNote(t: Token, tr: NonNullable<typeof trail.value>): string {
     const now = elevationOf(t);
     if (now !== tr.startElevation) parts.push(`lands at elevation ${now}`);
     const hazards = [
-        ...placementProblems({ ...t, x: from.x, y: from.y }, tokens.value, worldTerrain.value),
+        ...placementProblems({ ...t, x: from.x, y: from.y }, tokens.value, worldTerrain.value, reach.value),
         ...(problems.value.get(t.id) ?? []),
     ].some((p) => p.kind === 'hazardous');
     if (hazards) parts.push('it began or ended in hazardous terrain, which counts as having moved through it');
@@ -1175,7 +1192,10 @@ function onUp(e: PointerEvent) {
                 const crossed = trailCost.value?.crossed;
                 if (crossed && crossed.severe >= 0.05)
                     parts.push(`${fmt(crossed.severe)}" of it in severe terrain, which counts double (${fmt(cost.total)}" of movement in all)`);
-                if (crossed?.hazardous.length) parts.push(`moved through hazardous terrain (${crossed.hazardous.join(', ')})`);
+                if (crossed?.hazardous.length)
+                    parts.push(
+                        `moved through hazardous terrain (${crossed.hazardous.map((n) => hazardEffect(n)).join(', ')}), suffered once per activation and from only one piece`,
+                    );
                 if (crossed?.impassable.length)
                     parts.push(`passes through impassable terrain (${crossed.impassable.join(', ')}), which a Walk cannot do`);
                 if (trail.value?.kind === 'fly') parts.push('ignoring terrain height, so no climbing cost and no fall');

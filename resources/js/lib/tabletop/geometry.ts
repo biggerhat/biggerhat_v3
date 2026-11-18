@@ -1132,7 +1132,7 @@ export function traceLine(from: Token, start: Pt, end: Pt, tokens: Token[], piec
 // --- where a model may stand ---
 
 export interface PlacementProblem {
-    kind: 'overlap' | 'impassable' | 'hazardous' | 'severe';
+    kind: 'overlap' | 'impassable' | 'hazardous' | 'severe' | 'unreachable';
     text: string;
 }
 
@@ -1141,9 +1141,12 @@ export interface PlacementProblem {
  * terrain (p.20: a model that would is moved to the nearest legal spot). Hazardous and severe terrain are only flagged. Markers and models removed
  * from play do not count.
  */
-export function placementProblems(token: Token, tokens: Token[], pieces: TerrainPiece[]): PlacementProblem[] {
+export function placementProblems(token: Token, tokens: Token[], pieces: TerrainPiece[], reach?: UnreachableAreas | null): PlacementProblem[] {
     if (token.killed) return [];
     const problems: PlacementProblem[] = [];
+    // Neither a model nor a marker may be placed in an unreachable area (Gaining Grounds One, Adjusted Rules).
+    if (reach?.at(token.x, token.y))
+        problems.push({ kind: 'unreachable', text: 'is in an unreachable area, where nothing may be placed or moved (Gaining Grounds)' });
     // A marker may overlap models and other markers, but may not be made on impassable terrain (p.45).
     if (token.marker) {
         for (const piece of pieces) {
@@ -1184,7 +1187,10 @@ export function placementProblems(token: Token, tokens: Token[], pieces: Terrain
         if (piece.traits.includes('impassable')) problems.push({ kind: 'impassable', text: `is on ${piece.name}, which is impassable` });
         else {
             if (piece.traits.includes('hazardous') && !token.ignores?.includes('hazardous'))
-                problems.push({ kind: 'hazardous', text: `is in hazardous terrain (${piece.name})` });
+                problems.push({
+                    kind: 'hazardous',
+                    text: `is in hazardous terrain (${piece.name}${piece.rules ? `: ${piece.rules}` : ''}), suffered once per activation`,
+                });
             if (piece.traits.includes('severe') && !token.ignores?.includes('severe'))
                 problems.push({ kind: 'severe', text: `is in severe terrain (${piece.name}), where movement costs double` });
         }
@@ -1453,9 +1459,12 @@ export function nearestLegalSpot(
     pieces: TerrainPiece[],
     maxRadius = 14,
     step = 0.25,
+    reach?: UnreachableAreas | null,
 ): { x: number; y: number } | null {
     const legal = (x: number, y: number) =>
-        !placementProblems({ ...token, x, y }, tokens, pieces).some((p) => p.kind === 'overlap' || p.kind === 'impassable');
+        !placementProblems({ ...token, x, y }, tokens, pieces, reach).some(
+            (p) => p.kind === 'overlap' || p.kind === 'impassable' || p.kind === 'unreachable',
+        );
     if (legal(token.x, token.y)) return null;
     for (let r = step; r <= maxRadius + 1e-9; r += step) {
         const around = Math.max(8, Math.ceil((2 * Math.PI * r) / step));
@@ -1635,6 +1644,90 @@ function openLanes(pieces: TerrainPiece[], zones: DeploymentZones): number {
     return open / (a.length * b.length);
 }
 
+/** The ground a model of a given base cannot walk to: what is walled off by impassable terrain, or reached only through a gap narrower than its base. */
+export interface UnreachableAreas {
+    /** Is this spot in an area nobody can walk to? */
+    at: (x: number, y: number) => boolean;
+    /** Is this spot out of reach, counting ground blocked by the impassable terrain itself? (what the table check measures) */
+    lost: (x: number, y: number) => boolean;
+    /** The share of the table that is. */
+    share: number;
+}
+
+const REACH_CACHE = new WeakMap<object, UnreachableAreas | null>();
+
+/**
+ * A 0.5" grid, blocked within a 30mm base's reach of impassable terrain and flood-filled from the largest open area: everything it does not reach
+ * is unreachable (a Sp 6 model cannot get there; "unreachable areas can never have markers or models placed inside or moved within them").
+ * Worked out once per set of pieces, and null when there is no impassable terrain, so nothing is unreachable.
+ */
+export function unreachableAreas(pieces: TerrainPiece[]): UnreachableAreas | null {
+    if (REACH_CACHE.has(pieces)) return REACH_CACHE.get(pieces) ?? null;
+    const impassable = pieces.filter((p) => p.traits.includes('impassable'));
+    if (!impassable.length) {
+        REACH_CACHE.set(pieces, null);
+        return null;
+    }
+    const N = Math.round(TABLE_SIZE / 0.5);
+    const r = baseRadius(30);
+    const blockedCell = (i: number, j: number) => {
+        const x = (i + 0.5) * 0.5;
+        const y = (j + 0.5) * 0.5;
+        return impassable.some((p) =>
+            p.surfaces.some((s) => {
+                const b = cachedBounds(s.shape);
+                return x >= b.minX - r && x <= b.maxX + r && y >= b.minY - r && y <= b.maxY + r && distanceToShape(s.shape, x, y) < r;
+            }),
+        );
+    };
+    const blocked = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => blockedCell(i, j)));
+    const label = Array.from({ length: N }, () => new Array<number>(N).fill(0));
+    const sizes: number[] = [0];
+    for (let i = 0; i < N; i++)
+        for (let j = 0; j < N; j++) {
+            if (blocked[i][j] || label[i][j]) continue;
+            const id = sizes.length;
+            sizes.push(0);
+            const stack: [number, number][] = [[i, j]];
+            label[i][j] = id;
+            while (stack.length) {
+                const [ci, cj] = stack.pop()!;
+                sizes[id]++;
+                for (const [di, dj] of [
+                    [1, 0],
+                    [-1, 0],
+                    [0, 1],
+                    [0, -1],
+                ]) {
+                    const ni = ci + di;
+                    const nj = cj + dj;
+                    if (ni < 0 || nj < 0 || ni >= N || nj >= N || blocked[ni][nj] || label[ni][nj]) continue;
+                    label[ni][nj] = id;
+                    stack.push([ni, nj]);
+                }
+            }
+        }
+    const main = sizes.length > 1 ? sizes.indexOf(Math.max(...sizes.slice(1))) : -1;
+    let lost = 0;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (label[i][j] !== main) lost++;
+    const result: UnreachableAreas = {
+        // a spot inside impassable terrain itself is the impassable rule's business, not this one's
+        at: (x, y) => {
+            const i = Math.min(N - 1, Math.max(0, Math.floor(x / 0.5)));
+            const j = Math.min(N - 1, Math.max(0, Math.floor(y / 0.5)));
+            return label[i][j] !== main && label[i][j] !== 0;
+        },
+        lost: (x, y) => {
+            const i = Math.min(N - 1, Math.max(0, Math.floor(x / 0.5)));
+            const j = Math.min(N - 1, Math.max(0, Math.floor(y / 0.5)));
+            return label[i][j] !== main;
+        },
+        share: lost / (N * N),
+    };
+    REACH_CACHE.set(pieces, result);
+    return result;
+}
+
 /**
  * The table-building guidelines from Gaining Grounds One, measured on the pieces: how much of the terrain disrupts sight and how it is split,
  * lanes between the deployment zones, gaps narrower than 50mm, and areas nobody can walk to (which should not take up more than a fifth of a
@@ -1700,56 +1793,10 @@ export function tableChecks(pieces: TerrainPiece[], zones?: DeploymentZones | nu
             ? `Gaps under 50mm (about ${Math.round(LANE_MIN * 10) / 10}") between ${[...new Set(narrow)].slice(0, 4).join('; ')}. Models must be able to pass.`
             : 'No gap between solid pieces is narrower than 50mm.',
     });
-    // areas no one can walk to: a 0.5" grid, blocked within a 30mm base's reach of impassable terrain, flood-filled from the largest open area
-    const impassable = pieces.filter((p) => p.traits.includes('impassable'));
-    const N = Math.round(TABLE_SIZE / 0.5);
-    const r = baseRadius(30);
-    const blockedCell = (i: number, j: number) => {
-        const x = (i + 0.5) * 0.5;
-        const y = (j + 0.5) * 0.5;
-        return impassable.some((p) =>
-            p.surfaces.some((s) => {
-                const b = cachedBounds(s.shape);
-                return x >= b.minX - r && x <= b.maxX + r && y >= b.minY - r && y <= b.maxY + r && distanceToShape(s.shape, x, y) < r;
-            }),
-        );
-    };
-    const blocked = Array.from({ length: N }, (_, i) => Array.from({ length: N }, (_, j) => blockedCell(i, j)));
-    const label = Array.from({ length: N }, () => new Array<number>(N).fill(0));
-    const sizes: number[] = [0];
-    for (let i = 0; i < N; i++)
-        for (let j = 0; j < N; j++) {
-            if (blocked[i][j] || label[i][j]) continue;
-            const id = sizes.length;
-            sizes.push(0);
-            const stack: [number, number][] = [[i, j]];
-            label[i][j] = id;
-            while (stack.length) {
-                const [ci, cj] = stack.pop()!;
-                sizes[id]++;
-                for (const [di, dj] of [
-                    [1, 0],
-                    [-1, 0],
-                    [0, 1],
-                    [0, -1],
-                ]) {
-                    const ni = ci + di;
-                    const nj = cj + dj;
-                    if (ni < 0 || nj < 0 || ni >= N || nj >= N || blocked[ni][nj] || label[ni][nj]) continue;
-                    label[ni][nj] = id;
-                    stack.push([ni, nj]);
-                }
-            }
-        }
-    const main = sizes.indexOf(Math.max(...sizes.slice(1)));
-    const unreachableAt = (x: number, y: number) => {
-        const i = Math.min(N - 1, Math.floor(x / 0.5));
-        const j = Math.min(N - 1, Math.floor(y / 0.5));
-        return label[i][j] !== main;
-    };
-    let lost = 0;
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (label[i][j] !== main) lost++;
-    const lostShare = lost / (N * N);
+    // areas no one can walk to (Gaining Grounds One, Adjusted Rules: Unreachable Areas)
+    const reach = unreachableAreas(pieces);
+    const unreachableAt = reach?.lost ?? (() => false);
+    const lostShare = reach?.share ?? 0;
     const parts: string[] = [`${Math.round(lostShare * 100)}% of the table cannot be walked to by a 30mm model`];
     let zoneBad = false;
     if (zones) {

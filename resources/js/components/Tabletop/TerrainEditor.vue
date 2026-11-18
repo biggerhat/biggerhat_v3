@@ -467,6 +467,41 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 </div>
             </details>
 
+            <details class="group rounded-md border" :open="!!selected.rules" data-testid="terrain-rules">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-2 p-2 [&::-webkit-details-marker]:hidden">
+                    <span class="font-medium">Rules card</span>
+                    <span class="min-w-0 flex-1 truncate text-right text-muted-foreground">{{
+                        selected.rules ? (selected.limit === 1 ? 'unique' : selected.limit ? `up to ${selected.limit}` : 'special terrain') : 'none'
+                    }}</span>
+                    <ChevronDown class="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <div class="space-y-2 border-t p-2">
+                    <textarea
+                        class="w-full rounded-md border bg-background px-2 py-1.5"
+                        rows="3"
+                        maxlength="600"
+                        aria-label="Rules card text"
+                        placeholder="What this terrain does, as written on its card"
+                        data-testid="terrain-rules-text"
+                        :value="selected.rules ?? ''"
+                        @change="replace({ ...selected, rules: ($event.target as HTMLTextAreaElement).value.trim() || undefined })"
+                    ></textarea>
+                    <label class="flex items-center gap-2">
+                        <span>How many on the table</span>
+                        <select
+                            class="rounded-md border bg-background px-2 py-1"
+                            data-testid="terrain-limit"
+                            :value="selected.limit ?? ''"
+                            @change="replace({ ...selected, limit: Number(($event.target as HTMLSelectElement).value) || undefined })"
+                        >
+                            <option value="">No limit</option>
+                            <option value="1">Unique (1)</option>
+                            <option v-for="n in [2, 3, 4, 5, 6]" :key="n" :value="n">Up to {{ n }}</option>
+                        </select>
+                    </label>
+                </div>
+            </details>
+
             <details open class="group rounded-md border" data-testid="terrain-traits">
                 <summary class="flex cursor-pointer list-none items-center justify-between gap-2 p-2 [&::-webkit-details-marker]:hidden">
                     <span class="font-medium">Traits</span>

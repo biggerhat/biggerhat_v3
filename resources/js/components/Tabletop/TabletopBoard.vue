@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/composables/useConfirm';
 import {
@@ -2454,14 +2455,29 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 class="space-y-2 rounded-md border p-2"
                 data-testid="add-panel"
             >
-                <div class="text-sm font-medium">Add to the table</div>
+                <div class="flex items-center justify-between gap-2">
+                    <div class="text-sm font-medium">Add to the table</div>
+                    <DropdownMenu :modal="false">
+                        <DropdownMenuTrigger as-child>
+                            <Button size="sm" data-testid="add-menu"><Plus class="mr-1 size-4" />Add</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem v-if="sandbox && characterSearchUrl" data-testid="character-open" @select="openCharacterDialog"
+                                ><User class="mr-2 size-4" />Character</DropdownMenuItem
+                            >
+                            <DropdownMenuItem v-if="markers && markerSides.length" data-testid="marker-open" @select="openMarkerDialog"
+                                ><MapPin class="mr-2 size-4" />Marker</DropdownMenuItem
+                            >
+                            <DropdownMenuItem v-if="sandbox" data-testid="add-terrain" @select="mode = 'terrain'"
+                                ><Mountain class="mr-2 size-4" />Terrain piece</DropdownMenuItem
+                            >
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
                 <p v-if="sandbox && !tokens.some((t) => !t.marker)" class="text-sm text-muted-foreground" data-testid="empty-table">
                     The table has no models yet. Add a character to put its model on the table at its real base size, with its Sz, Sp and health.
                 </p>
                 <div v-if="markers && markerSides.length" class="flex flex-wrap items-center gap-2 text-sm">
-                    <Button variant="outline" size="sm" data-testid="marker-open" @click="openMarkerDialog"
-                        ><MapPin class="mr-1 size-4" />Add marker</Button
-                    >
                     <span class="text-muted-foreground" data-testid="marker-count"
                         >{{ markerSides.map((s) => `${markerSides.length > 1 ? `${s.label}: ` : ''}${markersOut(s.side)}`).join(', ') }} on the
                         table</span
@@ -2475,9 +2491,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             <option value="b">{{ sideNames.b }}</option>
                         </select>
                     </label>
-                    <Button v-if="characterSearchUrl" size="sm" variant="outline" data-testid="character-open" @click="openCharacterDialog"
-                        ><User class="mr-1 size-4" />Add a character</Button
-                    >
                 </div>
             </div>
 

@@ -57,6 +57,9 @@ export interface TerrainPiece {
     surfaces: Surface[];
     /** Present when the building can be entered. */
     interior?: Interior;
+    /** Special terrain (p.59): the text of its rules card, and how many of it may be on the table (1 is unique, "multiple (X)" is X). */
+    rules?: string;
+    limit?: number;
 }
 
 /** What the game tracker keeps about a model: health, activation, tokens on it and a note. */
@@ -1722,6 +1725,21 @@ export function tableChecks(pieces: TerrainPiece[], zones?: DeploymentZones | nu
         label: 'Unreachable areas',
         text: `${parts.join('; ')}. No more than 20% of a deployment zone should be unreachable, and nothing can be placed there.`,
     });
+    // special terrain: more of one than its rules card allows
+    const special = pieces.filter((p) => p.rules);
+    if (special.length) {
+        const byName = new Map<string, TerrainPiece[]>();
+        for (const p of special) byName.set(p.name, [...(byName.get(p.name) ?? []), p]);
+        const over = [...byName.entries()].filter(([, list]) => list[0].limit !== undefined && list.length > list[0].limit);
+        out.push({
+            id: 'special',
+            status: over.length ? 'note' : 'ok',
+            label: 'Special terrain',
+            text: over.length
+                ? `${over.map(([n, l]) => `${l.length} ${n} (the card allows ${l[0].limit})`).join('; ')}.`
+                : `${special.length} piece${special.length === 1 ? '' : 's'} with a rules card, within their limits.`,
+        });
+    }
     // movement terrain: counts only
     const count = (trait: string) => pieces.filter((p) => p.traits.includes(trait)).length;
     const scatter = pieces.filter((p) => p.traits.includes('destructible') && Math.max(...p.surfaces.map((s) => shapeArea(s.shape))) < 12).length;

@@ -807,3 +807,15 @@ it('saves the terrain traits a shared aura counts as, and refuses an unknown one
     $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['blocking'])]])->assertSessionHasErrors('upsert.0.traits.0');
     $this->actingAs($a)->put(route('games.board.auras', $game->uuid), ['upsert' => [$aura(['dense', 'dense'])]])->assertSessionHasErrors();
 });
+
+it('saves a rules card and a limit on special terrain, and refuses an absurd limit', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $put = fn (array $extra) => $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [terrainPiece($extra)]]);
+
+    $put(['rules' => 'Models within 2" suffer 1 damage.', 'limit' => 1])->assertRedirect();
+    $piece = $game->fresh()->board_state['terrain'][0];
+    expect($piece['rules'])->toBe('Models within 2" suffer 1 damage.')->and($piece['limit'])->toBe(1);
+
+    $put(['limit' => 9])->assertSessionHasErrors('terrain.0.limit');
+    $put(['rules' => str_repeat('x', 601)])->assertSessionHasErrors('terrain.0.rules');
+});

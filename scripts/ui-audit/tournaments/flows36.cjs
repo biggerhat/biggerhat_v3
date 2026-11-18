@@ -98,17 +98,23 @@ const L = require('./lib.cjs');
                 });
                 await carol.page.click(selector);
             };
+            const addItem = async (id) => {
+                await carol.page.waitForFunction(() => document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+    await hit('[data-testid=add-menu]');
+                await carol.page.waitForSelector(`[data-testid=${id}]`);
+                await carol.page.$eval(`[data-testid=${id}]`, (e) => e.click());
+            };
             const markers = () =>
                 carol.page.$$eval('[data-marker=true]', (cs) =>
                     cs.map((c) => ({ cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')), r: Number(c.getAttribute('r')) })),
                 );
             const open = async () => {
                 await L.visit(carol, `/games/${L.ids.play_game}/board`);
-                await carol.page.waitForSelector('[data-testid=marker-open]');
+                await carol.page.waitForSelector('[data-testid=add-menu]');
             };
             await open();
             const start = (await markers()).length;
-            await hit('[data-testid=marker-open]');
+            await addItem('marker-open');
             await carol.page.waitForSelector('[data-testid=marker-picker]');
             await carol.page.type('[data-testid=marker-search]', 'corpse');
             const row = await carol.page.$eval('[data-testid=marker-result]', (r) => r.innerText.replace(/\s+/g, ' '));

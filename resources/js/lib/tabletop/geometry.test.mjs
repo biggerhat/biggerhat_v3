@@ -1250,3 +1250,14 @@ test('an aura that counts as terrain: concealing hides a model in it, hazardous 
     assert.equal(fixed.surfaces[0].shape.cx, 5);
     assert.deepEqual([...AURA_TRAITS], ['concealing', 'dense', 'hazardous', 'severe']);
 });
+
+test('special terrain: a piece carries its rules card and a limit, and the table check flags too many', () => {
+    const rect = (x, y) => ({ kind: 'rect', x, y, w: 3, h: 3 });
+    const well = (id, x) => ({ id, name: 'Haunted Well', traits: ['concealing'], rules: 'Models that end an activation within 2" suffer 1 damage.', limit: 1, surfaces: [{ id: `${id}s`, top: 1, shape: rect(x, 5) }] });
+    const special = (pieces) => tableChecks(pieces, null).find((c) => c.id === 'special');
+    assert.equal(tableChecks([{ id: 'p', name: 'Wall', traits: ['blocking'], surfaces: [{ id: 's', top: 3, shape: rect(2, 2) }] }], null).find((c) => c.id === 'special'), undefined);
+    assert.equal(special([well('a', 4)]).status, 'ok');
+    const two = special([well('a', 4), well('b', 12)]);
+    assert.equal(two.status, 'note');
+    assert.match(two.text, /2 Haunted Well \(the card allows 1\)/);
+});

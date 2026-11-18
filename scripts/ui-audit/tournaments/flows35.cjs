@@ -38,6 +38,12 @@ const L = require('./lib.cjs');
                 await s.page.waitForFunction(() => !document.querySelector('[role=dialog]'), { timeout: 5000 });
             }
         };
+        const addItem = async (id) => {
+            await s.page.waitForFunction(() => document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+    await hit('[data-testid=add-menu]');
+            await s.page.waitForSelector(`[data-testid=${id}]`);
+            await s.page.$eval(`[data-testid=${id}]`, (e) => e.click());
+        };
         const toBoardTop = () => s.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
         // Sight guidelines are switched on from a model's panel: select the model at a spot on the table, then press its toggle.
         const guideOn = async (x, y) => {
@@ -787,8 +793,8 @@ const L = require('./lib.cjs');
         });
         await L.step(`tabletop (${label}): a model may move through a Strategy marker but not end a move on it`, s, async () => {
             await openSandbox();
-            await s.page.waitForSelector('[data-testid=marker-open]');
-            await hit('[data-testid=marker-open]');
+            await s.page.waitForSelector('[data-testid=add-menu]');
+            await addItem('marker-open');
             await s.page.waitForSelector('[data-testid=marker-picker]');
             await s.page.type('[data-testid=marker-search]', 'strategy');
             await hit('[data-testid=marker-add]');
@@ -846,6 +852,23 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=placement-warning]');
             const w = await s.page.$eval('[data-testid=placement-warning]', (e) => e.innerText);
             if (!/hazardous terrain \(Master's aura\)/.test(w)) throw new Error(`the aura should count as hazardous terrain: ${w}`);
+            await hit('[data-testid=reset-table]');
+        });
+        await L.step(`tabletop (${label}): special terrain carries a rules card and the table check counts its limit`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg[role=application]');
+            await hit('[data-testid=mode-terrain]');
+            await s.page.waitForSelector('[data-testid=terrain-add]');
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForSelector('[data-testid=terrain-rules-text]');
+            await s.page.$eval('[data-testid=terrain-rules]', (d) => (d.open = true));
+            await s.page.type('[data-testid=terrain-rules-text]', 'Models within 2 inches suffer 1 damage.');
+            await s.page.$eval('[data-testid=terrain-rules-text]', (t) => t.dispatchEvent(new Event('change', { bubbles: true })));
+            await s.page.waitForFunction(() => /special terrain/.test(document.querySelector('[data-testid=terrain-rules] summary')?.innerText || ''), { timeout: 5000 });
+            await s.page.select('[data-testid=terrain-limit]', '1');
+            await s.page.waitForFunction(() => /unique/.test(document.querySelector('[data-testid=terrain-rules] summary')?.innerText || ''), { timeout: 5000 });
+            await hit('[data-testid=terrain-add]');
+            await s.page.waitForSelector('[data-testid=terrain-piece]');
             await hit('[data-testid=reset-table]');
         });
         await L.step(`tabletop (${label}): level filter and deployment overlay`, s, async () => {
@@ -973,10 +996,10 @@ const L = require('./lib.cjs');
         await L.step(`tabletop (${label}): markers from the list can be added, at their own base size`, s, async () => {
             await openSandbox();
             // The picker lives in a dialog, so the page itself carries no list.
-            await s.page.waitForSelector('[data-testid=marker-open]');
+            await s.page.waitForSelector('[data-testid=add-menu]');
             if (await s.page.$('[data-testid=marker-picker]')) throw new Error('the marker list should not sit on the page');
             const openPicker = async () => {
-                await hit('[data-testid=marker-open]');
+                await addItem('marker-open');
                 await s.page.waitForSelector('[data-testid=marker-picker]');
             };
             await openPicker();
@@ -1057,13 +1080,13 @@ const L = require('./lib.cjs');
         });
         await L.step(`tabletop (${label}): a character card can be searched for and added at its own size, Sz and Sp`, s, async () => {
             await openSandbox();
-            await s.page.waitForSelector('[data-testid=character-open]');
-            await s.page.$eval('[data-testid=character-open]', (b) => {
+            await s.page.waitForSelector('[data-testid=add-menu]');
+            await s.page.$eval('[data-testid=add-menu]', (b) => {
                     const d = b.closest('details');
                     if (d && !d.open) d.open = true;
                     b.scrollIntoView({ block: 'center' });
                 });
-            await s.page.click('[data-testid=character-open]');
+            await addItem('character-open');
             await s.page.waitForSelector('[data-testid=character-search]');
             await s.page.type('[data-testid=character-search]', 'seedlady');
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=character-result]').length === 2, { timeout: 5000 });
@@ -1145,7 +1168,7 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=empty-table]');
             if ((await s.page.$$('[data-testid^=token-]')).length !== 0) throw new Error('the sandbox should start with no models');
             if (await s.page.$('[data-testid=add-token]')) throw new Error('there should be no blank "Add model" button');
-            await s.page.waitForSelector('[data-testid=character-open]');
+            await s.page.waitForSelector('[data-testid=add-menu]');
             await L.expectText(s, /Add a character/);
         });
         await L.step(`tabletop (${label}): the terrain editor selects, edits, moves, adds, turns, undoes and clears pieces`, s, async () => {

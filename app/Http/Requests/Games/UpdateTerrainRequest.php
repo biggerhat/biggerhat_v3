@@ -40,6 +40,9 @@ class UpdateTerrainRequest extends FormRequest
             'terrain.*.name' => ['required', 'string', 'max:60'],
             // Which kind of terrain this is (a preset key), so it is drawn with that kind's texture.
             'terrain.*.kind' => ['nullable', 'string', Rule::in(array_keys(TabletopImages::TERRAIN_KINDS))],
+            // Special terrain: the text of its rules card, and how many of it may be on the table.
+            'terrain.*.rules' => ['nullable', 'string', 'max:600'],
+            'terrain.*.limit' => ['nullable', 'integer', 'between:1,8'],
             'terrain.*.traits' => ['present', 'array', 'max:8'],
             'terrain.*.traits.*' => ['string', Rule::in(self::TRAITS)],
             // An enterable building: the floor inside and its doors and windows (a point on the outline and a width).

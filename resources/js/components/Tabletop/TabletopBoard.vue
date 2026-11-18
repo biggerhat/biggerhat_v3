@@ -162,6 +162,8 @@ const emit = defineEmits<{
     tableImageChanged: [key: string | null];
     modelChange: [id: string, patch: Partial<ModelInfo>];
     replaceModel: [id: string];
+    /** Sandbox: swap a model for another character, keeping what it has picked up. */
+    replaceCharacter: [id: string, character: CharacterOption];
     auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
 }>();
 
@@ -756,18 +758,46 @@ const setSlot = (id: number, el: unknown) => {
     if (el instanceof HTMLElement) slotEls[String(id)] = el;
     else delete slotEls[String(id)];
 };
+/** A game passes its crew; the sandbox's models are listed the same way, from what they kept of their card. */
+const crewRows = computed<CrewMember[]>(
+    () =>
+        props.crew ??
+        (props.sandbox
+            ? tokens.value
+                  .filter((t) => !t.marker)
+                  .map((t) => ({
+                      id: t.id as unknown as number,
+                      slot: t.side === 'b' ? 2 : 1,
+                      is_killed: false,
+                      display_name: t.name,
+                      faction: t.card?.faction,
+                      defense: t.card?.defense,
+                      willpower: t.card?.willpower,
+                      speed: t.sp,
+                      size: t.sz,
+                      front_image: t.card?.front_image ?? null,
+                      back_image: t.card?.back_image ?? null,
+                      characteristics: [],
+                      attached_upgrades: [],
+                      attached_tokens: t.info?.tokens ?? [],
+                      current_health: t.info?.health ?? null,
+                      max_health: t.info?.maxHealth ?? null,
+                      is_activated: !!t.info?.activated,
+                  }))
+            : []),
+);
 const crewSides = computed(() =>
     [1, 2]
         .map((slot) => ({
             slot,
             name: slot === 1 ? (props.sideNames?.a ?? 'Player 1') : (props.sideNames?.b ?? 'Player 2'),
-            living: (props.crew ?? []).filter((m) => m.slot === slot && !m.is_killed),
-            killed: (props.crew ?? []).filter((m) => m.slot === slot && m.is_killed),
+            living: crewRows.value.filter((m) => m.slot === slot && !m.is_killed),
+            killed: crewRows.value.filter((m) => m.slot === slot && m.is_killed),
         }))
         .filter((side) => side.living.length || side.killed.length),
 );
 const canEditCrew = (m: CrewMember) => !props.readOnly && !tokens.value.find((t) => t.id === String(m.id))?.locked;
-const panelTarget = computed(() => (props.crew?.length && selected.value && !selected.value.marker ? (slotEls[selected.value.id] ?? null) : null));
+const panelTarget = computed(() => (crewRows.value.length && selected.value && !selected.value.marker ? (slotEls[selected.value.id] ?? null) : null));
 const toggleSelect = (m: CrewMember) => (selectedId.value = selectedId.value === String(m.id) ? null : String(m.id));
 const toggleCard = (m: CrewMember) => {
     const next = new Set(openCards.value);
@@ -777,6 +807,13 @@ const toggleCard = (m: CrewMember) => {
 const crewHealth = (m: CrewMember, health: number) =>
     emit('modelChange', String(m.id), { health: Math.min(m.max_health ?? health, Math.max(0, health)) });
 const crewPip = (m: CrewMember, pip: number) => crewHealth(m, (m.current_health ?? 0) === pip ? pip - 1 : pip);
+/** A game replaces through its page; the sandbox opens the character search and swaps the model here. */
+const replacing = ref<string | null>(null);
+const replaceFrom = (m: CrewMember) => {
+    if (!props.sandbox) return emit('replaceModel', String(m.id));
+    replacing.value = String(m.id);
+    openCharacterDialog();
+};
 const noUpgradePower = () => 0;
 const noLootCard = () => null;
 const viewBox = computed(() => `${view.value.x} ${view.value.y} ${view.value.w} ${view.value.w}`);
@@ -1323,6 +1360,9 @@ const measure = computed(() => {
 });
 
 const characterDialog = ref(false);
+watch(characterDialog, (open) => {
+    if (!open) replacing.value = null;
+});
 const characterKey = ref(0);
 function openCharacterDialog() {
     characterKey.value++;
@@ -1330,6 +1370,13 @@ function openCharacterDialog() {
 }
 /** A real card: its name, base size, Sz and Sp. New models fan out so several added in a row do not sit on top of each other. */
 function addCharacter(c: CharacterOption) {
+    if (replacing.value) {
+        emit('replaceCharacter', replacing.value, c);
+        note.value = `Replaced with ${c.name}.`;
+        replacing.value = null;
+        characterDialog.value = false;
+        return;
+    }
     const nudge = (tokens.value.filter((t) => !t.marker).length % 6) * 1.2;
     const at = clampToTable({ baseMm: c.base_mm, x: view.value.x + view.value.w / 2 + nudge, y: view.value.y + view.value.w / 2 + nudge });
     emit('add', {
@@ -1339,6 +1386,13 @@ function addCharacter(c: CharacterOption) {
         sz: c.sz,
         sp: c.sp,
         info: { health: c.health, maxHealth: c.health, tokens: [] },
+        card: {
+            faction: c.faction_key,
+            defense: c.df ?? undefined,
+            willpower: c.wp ?? undefined,
+            front_image: c.front_image,
+            back_image: c.back_image,
+        },
         ...at,
     });
     note.value = `${c.name} added (${c.base_mm} mm base, Sz ${c.sz}, Sp ${c.sp}, ${c.health} health). Drag it into place.`;
@@ -2328,7 +2382,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </div>
             </div>
 
-            <div v-if="crew?.length && mode !== 'terrain'" class="space-y-3" data-testid="crew-list">
+            <div v-if="crewRows.length && mode !== 'terrain'" class="space-y-3" data-testid="crew-list">
                 <template v-for="side in crewSides" :key="side.slot">
                     <div class="space-y-1">
                         <div class="text-xs font-medium text-muted-foreground">{{ side.name }}</div>
@@ -2355,7 +2409,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     (id: number) => emit('modelChange', String(m.id), { tokens: m.attached_tokens.filter((t: any) => t.id !== id) })
                                 "
                                 @open-tokens="selectedId = String(m.id)"
-                                @replace="emit('replaceModel', String(m.id))"
+                                @replace="replaceFrom(m)"
                                 @toggle-card="toggleCard(m)"
                                 @preview="toggleSelect(m)"
                             />
@@ -2462,7 +2516,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             :token-options="tokenOptions ?? []"
                             :can-edit="!selected.locked"
                             :editable-max="sandbox"
-                            :crew="!!crew?.length"
+                            :crew="crewRows.length > 0"
                             @change="emit('modelChange', selected.id, $event)"
                         />
                         <p v-if="problems.get(selected.id)?.length" class="mt-2 text-amber-600 dark:text-amber-400" data-testid="placement-warning">
@@ -2685,10 +2739,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             <Dialog v-if="characterSearchUrl" v-model:open="characterDialog">
                 <DialogContent class="max-w-md" data-testid="character-dialog">
                     <DialogHeader>
-                        <DialogTitle>Add a character</DialogTitle>
+                        <DialogTitle>{{ replacing ? 'Replace with another character' : 'Add a character' }}</DialogTitle>
                         <DialogDescription>Puts the card on the table at its real base size, with its Sz and Sp.</DialogDescription>
                     </DialogHeader>
-                    <label class="block text-sm">
+                    <label v-if="!replacing" class="block text-sm">
                         <span class="mb-1 block font-medium">Side</span>
                         <select v-model="newSide" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="character-side">
                             <option value="a">{{ sideNames.a }}</option>

@@ -71,6 +71,15 @@ export interface ModelInfo {
     notes?: string;
 }
 
+/** What a sandbox model keeps of its card so the crew list can draw the same row a game does. */
+export interface ModelCard {
+    faction?: string;
+    defense?: number;
+    willpower?: number;
+    front_image?: string | null;
+    back_image?: string | null;
+}
+
 export interface Token {
     id: string;
     name: string;
@@ -88,6 +97,8 @@ export interface Token {
     y: number;
     /** Health, activation, tokens and notes. Missing on markers. */
     info?: ModelInfo;
+    /** The card behind a sandbox model (stats and image), for the crew list. */
+    card?: ModelCard;
     /** The viewer may not move this model (it belongs to the other player). */
     locked?: boolean;
     /** Removed from play in the game tracker: drawn faded. */

@@ -11,6 +11,11 @@ export interface CharacterOption {
     sz: number;
     sp: number;
     health: number;
+    faction_key?: string;
+    df?: number | null;
+    wp?: number | null;
+    front_image?: string | null;
+    back_image?: string | null;
 }
 
 const props = defineProps<{ url: string }>();

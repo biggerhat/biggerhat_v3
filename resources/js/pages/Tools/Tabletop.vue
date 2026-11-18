@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
+import type { CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
 import TableThumbnail from '@/components/Tabletop/TableThumbnail.vue';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/composables/useConfirm';
@@ -159,6 +160,27 @@ const add = (t: Omit<Token, 'id'>) => tokens.value.push({ ...t, id: `n${Date.now
 /** Health, activation, tokens and notes for a model: kept with the token, on this device. */
 const modelChange = (id: string, patch: Partial<ModelInfo>) =>
     (tokens.value = tokens.value.map((t) => (t.id === id ? { ...t, info: { tokens: [], ...t.info, ...patch } } : t)));
+/** Swap a model for another character: it keeps its place, side, tokens, activation and notes; health is capped at the new maximum (CRG p.48). */
+const replaceCharacter = (id: string, c: CharacterOption) =>
+    (tokens.value = tokens.value.map((t) =>
+        t.id === id
+            ? {
+                  ...t,
+                  name: c.name,
+                  baseMm: c.base_mm,
+                  sz: c.sz,
+                  sp: c.sp,
+                  info: { tokens: [], ...t.info, maxHealth: c.health, health: Math.min(t.info?.health ?? c.health, c.health) },
+                  card: {
+                      faction: c.faction_key,
+                      defense: c.df ?? undefined,
+                      willpower: c.wp ?? undefined,
+                      front_image: c.front_image,
+                      back_image: c.back_image,
+                  },
+              }
+            : t,
+    ));
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
 const reset = () => {
     tokens.value = [];
@@ -358,6 +380,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             storage-key="sandbox"
             @moved="moved"
             @add="add"
+            @replace-character="replaceCharacter"
             @remove="remove"
             @reset="reset"
         />

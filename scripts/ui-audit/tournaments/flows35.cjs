@@ -1122,31 +1122,44 @@ const L = require('./lib.cjs');
                 const panel = await s.page.evaluate(() => document.querySelector('[data-testid=selected-panel]')?.innerText ?? 'no panel');
                 throw new Error(`no model panel after clicking at ${Math.round(at.x)},${Math.round(at.y)}: ${panel.slice(0, 200)}`);
             });
-            const hp = () => s.page.$eval('[data-testid=health-value]', (e) => e.innerText.trim());
+            // the crew row (the one the play screen uses) carries health and activation; the selected panel rolls down under it
+            const row = '[data-testid=crew-list] [data-testid^=crew-]:has([data-testid=selected-panel])';
+            await s.page.waitForSelector(row, { timeout: 5000 }).catch(() => {
+                throw new Error('the selected model should open its options under its crew row');
+            });
+            const hp = () =>
+                s.page.$eval(row, (r) =>
+                    r.innerText
+                        .match(/(\d+)\/(\d+)/)
+                        ?.slice(1, 3)
+                        .join(' / '),
+                );
             if ((await hp()) !== '9 / 9') throw new Error(`expected 9 / 9, saw ${await hp()}`);
-            const press = async (id) => {
-                await s.page.$eval(`[data-testid=${id}]`, (b) => {
-                    const d = b.closest('details');
-                    if (d && !d.open) d.open = true;
-                    b.scrollIntoView({ block: 'center' });
-                });
-                await s.page.click(`[data-testid=${id}]`);
-            };
-            await press('health-minus');
-            await press('health-minus');
-            await s.page.waitForFunction(() => document.querySelector('[data-testid=health-value]').innerText.trim() === '7 / 9', { timeout: 5000 });
+            const rowPress = (text, attr = 'aria-label') =>
+                s.page.$eval(
+                    row,
+                    (r, t, a) => {
+                        const b = [...r.querySelectorAll('button')].find((x) => x.offsetParent && (x.getAttribute(a) ?? '').startsWith(t));
+                        if (!b) throw new Error(`no visible ${t} button in the row`);
+                        b.scrollIntoView({ block: 'center' });
+                        b.click();
+                    },
+                    text,
+                    attr,
+                );
+            await rowPress('Decrease health');
+            await rowPress('Decrease health');
+            await s.page.waitForFunction((sel) => document.querySelector(sel).innerText.includes('7/9'), { timeout: 5000 }, row);
             await s.page.$eval('[data-testid=token-add]', (b) => {
-                    const d = b.closest('details');
-                    if (d && !d.open) d.open = true;
-                    b.scrollIntoView({ block: 'center' });
-                });
+                const d = b.closest('details');
+                if (d && !d.open) d.open = true;
+                b.scrollIntoView({ block: 'center' });
+            });
             const focus = await s.page.$$eval('[data-testid=token-add] option', (os) => os.find((o) => o.textContent === 'Focus')?.value);
             await s.page.select('[data-testid=token-add]', focus);
             await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=model-token]').length === 1, { timeout: 5000 });
-            await press('model-activated');
-            await s.page.waitForFunction(() => document.querySelector('[data-testid=model-activated]').innerText.trim() === 'Activated', {
-                timeout: 5000,
-            });
+            await rowPress('Mark activated', 'title');
+            await s.page.waitForSelector('[data-testid^=activated-]', { timeout: 5000 });
             if (!(await s.page.$('[data-testid^=hp-]'))) throw new Error('the board should draw a health bar on the model');
             // status badges: the Focus token is a chip on the base and the activation is a tick
             await s.page.waitForSelector('[data-testid^=badges-]', { timeout: 5000 });
@@ -1155,6 +1168,30 @@ const L = require('./lib.cjs');
             // drawn at its real base size: the new model has a 50 mm (0.984") radius
             const radii = await s.page.$$eval('[data-testid^=token-] > circle', (cs) => cs.map((c) => Number(c.getAttribute('r'))));
             if (Math.abs(radii[radii.length - 1] - 25 / 25.4) > 0.01) throw new Error(`the new model should have a 50 mm base: ${radii}`);
+            // replace from the row: another character, same place; the token, activation and capped health are kept (desktop shows the button)
+            const replaceBtn = await s.page.$eval(row, (r) => {
+                const b = [...r.querySelectorAll('button')].find((x) => x.offsetParent && /^Replace/.test(x.getAttribute('title') ?? ''));
+                b?.click();
+                return !!b;
+            });
+            if (replaceBtn) {
+                await s.page.waitForSelector('[data-testid=character-search]', { timeout: 5000 });
+                await s.page.type('[data-testid=character-search]', 'seedlady beta');
+                await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=character-result]').length === 1, { timeout: 5000 });
+                await s.page.click('[data-testid=character-add]');
+                await s.page.waitForFunction(
+                    () => {
+                        const cs = [...document.querySelectorAll('[data-testid^=token-] > circle')];
+                        return cs.some((c) => Math.abs(Number(c.getAttribute('r')) - 15 / 25.4) < 0.01);
+                    },
+                    { timeout: 5000 },
+                );
+                const [cur, max] = (await hp()).split(' / ').map(Number);
+                if (!(cur >= 1 && cur <= max && max < 9 + 1)) throw new Error(`health after replace should be capped by the new maximum: ${cur}/${max}`);
+                if (!(await s.page.$('[data-testid^=activated-]'))) throw new Error('replace should keep the model activated');
+                if (!(await s.page.$('[data-testid^=badges-]'))) throw new Error('replace should keep the model tokens');
+                await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 });
+            }
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 }); // the dialog has finished closing
             await hit('[data-testid=reset-table]');
             // reset clears the models (nothing blank comes back) and the hint says how to start again

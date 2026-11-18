@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import FateSection from '@/components/Fate/FateSection.vue';
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
+import { useFateGame } from '@/composables/useFateGame';
 import { useGameApi } from '@/composables/useGameApi';
 import { useToast } from '@/composables/useToast';
 import {
@@ -291,6 +293,10 @@ function replaceWith(character: { id: number }) {
 const playerFor = (slot: number) => props.players.find((p) => p.slot === slot);
 const sideNames = computed(() => ({ a: playerFor(1)?.name ?? 'Player 1', b: playerFor(2)?.name ?? 'Player 2' }));
 
+// The game's Fate deck: the server's, loaded when the section is first opened. A watcher sees the public cards and neither hand.
+const fate = useFateGame(props.game.uuid, props.read_only === true);
+const fateNames = computed(() => ({ 1: sideNames.value.a, 2: sideNames.value.b }));
+
 /** Models with no saved position line up along their side's table edge (slot 1 on top, slot 2 on the bottom), 1.5" apart at least. */
 function defaultSpot(model: BoardModel): { x: number; y: number } {
     // match by id: the models on the table are copies of the props, so identity would not find them
@@ -469,7 +475,11 @@ function moved(t: Token) {
             :deployment="game.deployment ?? undefined"
             :side-names="sideNames"
             @moved="moved"
-        />
+        >
+            <template #fate>
+                <FateSection :feed="fate" :names="fateNames" :read-only="read_only" />
+            </template>
+        </TabletopBoard>
     </div>
     <GameReplaceDialog
         v-if="!read_only"

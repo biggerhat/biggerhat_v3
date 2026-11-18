@@ -1204,6 +1204,61 @@ const L = require('./lib.cjs');
                 });
             await s.page.waitForSelector('[data-testid=empty-table]');
         });
+        await L.step(`tabletop (${label}): the practice Fate deck draws, discards, flips, looks at the top and searches`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=fate-section]');
+            await s.page.$eval('[data-testid=fate-section] summary', (el) => {
+                el.scrollIntoView({ block: 'center' });
+                el.click();
+            });
+            await s.page.waitForSelector('[data-testid=fate-side-1]', { timeout: 5000 });
+            const press = (id) =>
+                s.page.$eval(`[data-testid=${id}]`, (b) => {
+                    b.scrollIntoView({ block: 'center' });
+                    b.click();
+                });
+            const settle = () => s.page.waitForFunction(() => !document.querySelector('[role=dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            const handIs = (n) =>
+                s.page.waitForFunction(
+                    (want) => document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.trim() === want,
+                    { timeout: 5000 },
+                    `${n}/7`,
+                );
+            await handIs(0);
+            await press('fate-draw');
+            await handIs(1);
+            await press('fate-refill');
+            await handIs(7);
+            // a hand card opens a menu; discarding it moves it to the face-up pile
+            await s.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-card]', (b) => b.click());
+            await s.page.waitForSelector('[data-testid=fate-card-menu]');
+            await press('fate-menu-discard');
+            await handIs(6);
+            await s.page.waitForSelector('[data-testid=fate-discard-1] [data-testid=fate-discard-card]');
+            // a flip with a plus reveals two cards; take one and resolve
+            await press('fate-plus');
+            await press('fate-flip');
+            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=fate-conflict] > *').length === 2, { timeout: 5000 });
+            await press('fate-choose');
+            await s.page.waitForSelector('[data-testid=fate-result]');
+            await press('fate-resolve');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-conflict]'), { timeout: 5000 });
+            // look at the top card and leave it on the bottom
+            await press('fate-more');
+            await press('fate-peek');
+            await s.page.waitForSelector('[data-testid=fate-peek-dialog]');
+            await s.page.select('[data-testid=fate-peek-row] select', 'bottom');
+            await press('fate-peek-apply');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-peek-dialog]'), { timeout: 5000 });
+            await settle();
+            // search for a card: taking one puts it in the hand
+            await press('fate-search');
+            await s.page.waitForSelector('[data-testid=fate-search-card]');
+            await s.page.$eval('[data-testid=fate-search-card]', (b) => b.click());
+            await handIs(7);
+            await settle();
+            await L.shot(s, `370-practice-fate-${label}`);
+        });
         await L.step(`tabletop (${label}): the sandbox offers no blank models and starts empty`, s, async () => {
             await s.page.evaluate(() => localStorage.removeItem('tabletop-spike-v2'));
             await L.visit(s, '/tools/tabletop');

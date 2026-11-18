@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\GameStatusEnum;
+use App\Events\GameFateChanged;
 use App\Exceptions\FateException;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
 use App\Http\Requests\Games\Fate\FateArrangeRequest;
 use App\Http\Requests\Games\Fate\FateCardRequest;
 use App\Http\Requests\Games\Fate\FateCardsRequest;
@@ -34,6 +36,8 @@ use Illuminate\Support\Facades\Gate;
  */
 class GameFateController extends Controller
 {
+    use BroadcastsGameEvents;
+
     public function __construct(private readonly FateDeckService $fate) {}
 
     /** What the viewer may see. Participants see their own hand; observers of an observable game see the public state alone. */
@@ -146,6 +150,9 @@ class GameFateController extends Controller
         } catch (FateException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+
+        // Tell everyone else to look again. The ping has no cards in it; they each ask for what they may see.
+        $this->broadcastToOpponents($game, new GameFateChanged($game, (string) $request->route()?->getActionMethod()));
 
         return $this->answer($game, is_array($result) ? $result : []);
     }

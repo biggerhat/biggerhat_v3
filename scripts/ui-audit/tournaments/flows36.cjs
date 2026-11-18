@@ -313,6 +313,43 @@ const L = require('./lib.cjs');
                 await carol.page.keyboard.press('Escape');
             }
         });
+        await L.step(`board (${label}): the Fate deck on the board draws, flips, chooses and resolves, and is kept by the server`, carol, async () => {
+            const openFate = async () => {
+                await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                await carol.page.waitForSelector('[data-testid=fate-section]');
+                await carol.page.$eval('[data-testid=fate-section] summary', (el) => {
+                    el.scrollIntoView({ block: 'center' });
+                    el.click();
+                });
+                await carol.page.waitForSelector('[data-testid=fate-side-1]', { timeout: 8000 });
+            };
+            const press = (id) =>
+                carol.page.$eval(`[data-testid=${id}]`, (b) => {
+                    b.scrollIntoView({ block: 'center' });
+                    b.click();
+                });
+            const hand = () => carol.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-count]', (e) => Number(e.innerText.split('/')[0]));
+            await openFate();
+            const before = await hand();
+            await press('fate-draw');
+            await carol.page.waitForFunction(
+                (n) => Number(document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.split('/')[0]) === n,
+                { timeout: 5000 },
+                before + 1,
+            );
+            // a flip: take a card as the result, then resolve it into the discard pile
+            await press('fate-flip');
+            await carol.page.waitForSelector('[data-testid=fate-conflict]', { timeout: 5000 });
+            await press('fate-choose');
+            await carol.page.waitForSelector('[data-testid=fate-result]', { timeout: 5000 });
+            await L.shot(carol, `369-board-fate-${label}`);
+            await press('fate-resolve');
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=fate-conflict]'), { timeout: 5000 });
+            // the deck is the server's: the hand is still there after a reload
+            await openFate();
+            if ((await hand()) !== before + 1) throw new Error(`the hand should survive a reload: ${await hand()} vs ${before + 1}`);
+            if (!(await carol.page.$('[data-testid=fate-hand-card]'))) throw new Error('my own hand should show its cards');
+        });
         await L.step(`board (${label}): which side the deployment zones sit is kept with the game`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid=deployment-variant]');
@@ -549,6 +586,15 @@ const L = require('./lib.cjs');
         const after = await circle(watcher, 0);
         if (Math.abs(after.cx - before.cx) > 0.01 || Math.abs(after.cy - before.cy) > 0.01) throw new Error('a watcher moved a model');
         await L.shot(watcher, '366-board-watch');
+        // a watcher sees the Fate deck's public cards and counts, never a hand
+        await watcher.page.$eval('[data-testid=fate-section] summary', (el) => {
+            el.scrollIntoView({ block: 'center' });
+            el.click();
+        });
+        await watcher.page.waitForSelector('[data-testid=fate-side-1]', { timeout: 8000 });
+        if (await watcher.page.$('[data-testid=fate-hand-card]')) throw new Error('a watcher must not see any hand card');
+        if (await watcher.page.$('[data-testid=fate-draw]')) throw new Error('a watcher has nothing to press in the Fate deck');
+        if (!(await watcher.page.$('[data-testid=fate-hand-backs]'))) throw new Error('a watcher should see each hand as a count');
     });
 
     const outsider = await L.session(browser, 'alice@example.test');

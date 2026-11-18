@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\FateZoneEnum;
+use App\Events\GameFateChanged;
 use App\Models\Game;
 use App\Models\GameFateCard;
 use App\Models\GameLog;
@@ -8,6 +9,7 @@ use App\Models\GamePlayer;
 use App\Models\User;
 use App\Services\Fate\FateDeckService;
 use App\Support\Fate\FateCards;
+use Illuminate\Support\Facades\Event;
 use Laravel\Pennant\Feature;
 
 beforeEach(function () {
@@ -487,4 +489,29 @@ it('keeps a game\'s cards when a card is moved, one row per card with no copies'
 
     expect(GameFateCard::query()->where('game_player_id', $p1->id)->count())->toBe(54)
         ->and(GameFateCard::query()->where('game_player_id', $p1->id)->where('zone', FateZoneEnum::Hand->value)->count())->toBe(10);
+});
+
+it('pings the table when the deck changes, and the ping carries no cards', function () {
+    Event::fake([GameFateChanged::class]);
+    [$game, $p1, , $a] = fateGame();
+    stackDeck($p1, [4, 17]);
+
+    $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 2])->assertOk();
+
+    Event::assertDispatched(GameFateChanged::class, function (GameFateChanged $e) use ($game) {
+        // the game's channel reaches the opponent and the observers', anyone: only the action name goes out
+        expect($e->broadcastWith())->toBe(['action' => 'draw'])
+            ->and(array_map(fn ($c) => $c->name, $e->broadcastOn()))->toBe(['presence-game.'.$game->uuid, 'game-observe.'.$game->uuid]);
+
+        return true;
+    });
+});
+
+it('does not ping when an action is refused', function () {
+    Event::fake([GameFateChanged::class]);
+    [$game, , , $a] = fateGame();
+
+    $this->actingAs($a)->postJson(fateUrl($game, 'discard'), ['cards' => [4]])->assertUnprocessable();
+
+    Event::assertNotDispatched(GameFateChanged::class);
 });

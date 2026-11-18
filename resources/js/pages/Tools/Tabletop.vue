@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import FateSection from '@/components/Fate/FateSection.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import type { CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
 import { Button } from '@/components/ui/button';
+import { useLocalFate } from '@/composables/useLocalFate';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import type { RequestPayload } from '@inertiajs/core';
@@ -180,7 +182,10 @@ const replaceCharacter = (id: string, c: CharacterOption) =>
             : t,
     ));
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
+/** A practice Fate deck for the table (not a game's: nobody to hide a hand from). */
+const fate = useLocalFate();
 const reset = () => {
+    fate.reset();
     tokens.value = [];
     terrain.value = props.fresh ? [] : JSON.parse(JSON.stringify(sampleTerrain));
 };
@@ -356,6 +361,10 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             @replace-character="replaceCharacter"
             @remove="remove"
             @reset="reset"
-        />
+        >
+            <template #fate>
+                <FateSection v-if="!fresh && !editing" :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" />
+            </template>
+        </TabletopBoard>
     </div>
 </template>

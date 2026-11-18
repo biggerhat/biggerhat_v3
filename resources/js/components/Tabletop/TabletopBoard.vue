@@ -2259,6 +2259,9 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     >
                 </div>
             </details>
+
+            <!-- The Fate deck, when the page offers one (a game's, or the sandbox's practice deck) -->
+            <slot name="fate" />
             <!-- Tools for working with models -->
             <div
                 v-if="activeTab === 'move'"

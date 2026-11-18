@@ -237,6 +237,7 @@ const crew = computed(() =>
         is_activated: m.activated,
         is_killed: m.killed,
         attached_tokens: m.tokens,
+        notes: m.notes,
     })),
 );
 

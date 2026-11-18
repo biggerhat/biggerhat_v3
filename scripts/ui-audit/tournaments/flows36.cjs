@@ -257,9 +257,9 @@ const L = require('./lib.cjs');
                 const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find((r) =>
                     [...r.querySelectorAll('button')].some((b) => (b.getAttribute('aria-label') ?? '').startsWith('Decrease health')),
                 );
-                const name = row.querySelector('button.font-semibold');
-                name.scrollIntoView({ block: 'center' });
-                name.click();
+                const toggle = row.querySelector('[data-testid=row-options]');
+                toggle.scrollIntoView({ block: 'center' });
+                toggle.click();
                 return row.getAttribute('data-testid').slice(5);
             });
             await carol.page.waitForSelector(`[data-testid=crew-${id}] [data-testid=selected-panel]`, { timeout: 5000 }).catch(() => {
@@ -268,6 +268,36 @@ const L = require('./lib.cjs');
             if (!(await carol.page.$(`[data-testid=crew-${id}] [data-testid=model-guide]`)))
                 throw new Error('the row rolldown has no sight guidelines switch');
             if (await carol.page.$('[data-testid=model-activated]')) throw new Error('activation should come from the row, not a second control');
+            // the options are a rolldown behind a button on the row: press again and the controls go, press once more and they are back
+            await carol.page.click(`[data-testid=crew-${id}] [data-testid=row-options]`);
+            await carol.page.waitForFunction((i) => !document.querySelector(`[data-testid=crew-${i}] [data-testid=model-guide]`), { timeout: 3000 }, id);
+            await carol.page.click(`[data-testid=crew-${id}] [data-testid=row-options]`);
+            await carol.page.waitForFunction((i) => !!document.querySelector(`[data-testid=crew-${i}] [data-testid=model-guide]`), { timeout: 3000 }, id);
+            // the name opens the card drawer (the first seeded model has a card image)
+            const named = await carol.page.evaluate(() => {
+                const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find((r) => r.querySelector('button[title="Toggle card preview"]'));
+                if (!row) return false;
+                const name = row.querySelector('button.font-semibold');
+                name.scrollIntoView({ block: 'center' });
+                name.click();
+                return true;
+            });
+            if (!named) throw new Error('the seeded model with a card image should list the card (eye) button');
+            await carol.page.waitForSelector('[role=dialog]', { timeout: 5000 }).catch(() => {
+                throw new Error('clicking the name should open the card drawer');
+            });
+            await carol.page.keyboard.press('Escape');
+            await carol.page.waitForFunction(() => !document.querySelector('[role=dialog]'), { timeout: 5000 });
+            // the row's Tokens button opens the token dialog
+            const tokensOpened = await carol.page.evaluate((rid) => {
+                const b = [...document.querySelector(`[data-testid=crew-${rid}]`).querySelectorAll('button')].find((x) => x.offsetParent && (x.getAttribute('title') ?? '') === 'Tokens');
+                b?.click();
+                return !!b;
+            }, id);
+            if (!tokensOpened) throw new Error('the row has no visible Tokens button');
+            await carol.page.waitForSelector('[data-testid=token-option]', { timeout: 5000 });
+            await carol.page.keyboard.press('Escape');
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=token-option]'), { timeout: 5000 });
             await L.shot(carol, `368-board-row-rolldown-${label}`);
             // replace: the dialog opens from the row
             const opened = await carol.page.evaluate((rid) => {

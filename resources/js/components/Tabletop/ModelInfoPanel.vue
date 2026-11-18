@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
 import type { ModelInfo, Token } from '@/lib/tabletop/geometry';
-import { Check, ChevronDown, Circle, Heart, Minus, Plus, X } from 'lucide-vue-next';
+import { Check, ChevronDown, Circle, Heart, Minus, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 /**
@@ -10,7 +10,6 @@ import { computed, ref, watch } from 'vue';
  */
 const props = defineProps<{
     token: Token;
-    tokenOptions: { id: number; name: string }[];
     /** The viewer may change this model. */
     canEdit: boolean;
     /** The sandbox has no card behind a model, so its maximum health is set here. */
@@ -35,15 +34,6 @@ const setMax = (n: number) => {
     const next = Math.min(40, Math.max(1, Math.round(n) || 1));
     emit('change', { maxHealth: next, health: Math.min(info.value.health ?? next, next) });
 };
-
-const free = computed(() => props.tokenOptions.filter((o) => !info.value.tokens.some((t) => t.id === o.id)));
-const adding = ref('');
-function addToken() {
-    const option = props.tokenOptions.find((o) => String(o.id) === adding.value);
-    adding.value = '';
-    if (option) emit('change', { tokens: [...info.value.tokens, { id: option.id, name: option.name }] });
-}
-const removeToken = (id: number) => emit('change', { tokens: info.value.tokens.filter((t) => t.id !== id) });
 
 // The note is saved when you leave the box, not on every keystroke.
 const note = ref(info.value.notes ?? '');
@@ -126,46 +116,6 @@ const saveNote = () => {
             </label>
             <span v-else class="text-muted-foreground">No health tracked.</span>
         </div>
-
-        <details class="group" :open="info.tokens.length > 0" data-testid="model-tokens">
-            <summary class="flex cursor-pointer list-none items-center justify-between text-muted-foreground [&::-webkit-details-marker]:hidden">
-                <span
-                    >Tokens <span class="text-xs">({{ info.tokens.length || 'none' }})</span></span
-                >
-                <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
-            </summary>
-            <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                <span v-if="!info.tokens.length" class="text-muted-foreground">None.</span>
-                <span
-                    v-for="t in info.tokens"
-                    :key="t.id"
-                    class="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-xs"
-                    data-testid="model-token"
-                >
-                    {{ t.name }}
-                    <button
-                        v-if="canEdit"
-                        type="button"
-                        class="rounded-full hover:text-red-500"
-                        :aria-label="`Remove ${t.name}`"
-                        @click="removeToken(t.id)"
-                    >
-                        <X class="size-3" />
-                    </button>
-                </span>
-            </div>
-            <select
-                v-if="canEdit && free.length"
-                v-model="adding"
-                class="mt-2 w-full rounded-md border bg-background px-2 py-1.5"
-                aria-label="Add a token"
-                data-testid="token-add"
-                @change="addToken"
-            >
-                <option value="">Add a token...</option>
-                <option v-for="o in free" :key="o.id" :value="String(o.id)">{{ o.name }}</option>
-            </select>
-        </details>
 
         <details class="group" :open="note.length > 0" data-testid="model-notes-section">
             <summary class="flex cursor-pointer list-none items-center justify-between text-muted-foreground [&::-webkit-details-marker]:hidden">

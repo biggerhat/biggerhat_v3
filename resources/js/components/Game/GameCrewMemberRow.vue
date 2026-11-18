@@ -24,6 +24,7 @@ import {
     Replace,
     Shield,
     ShieldAlert,
+    SlidersHorizontal,
     X,
 } from 'lucide-vue-next';
 
@@ -43,6 +44,8 @@ const props = defineProps<{
     isCampaign: boolean;
     /** On the tabletop board: upgrades and injuries are managed on the play screen, so their controls are left out. */
     boardMode?: boolean;
+    /** On the board: the tabletop options are rolled down under this row. */
+    optionsOpen?: boolean;
     upgradePowerMax: (upgradeId: number) => number;
     lootCardById: (id: number) => { value_label?: string; suit?: string | null } | null;
     lootCardSuitIcon: (suit: string | null | undefined) => string | null;
@@ -56,6 +59,7 @@ defineEmits<{
     replace: [];
     preview: [];
     'toggle-card': [];
+    'toggle-options': [];
     'health-pip': [pip: number];
     'health-delta': [delta: number];
     'token-info': [tokenId: number];
@@ -150,6 +154,21 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     @click.stop="$emit('toggle-card')"
                 >
                     <Eye class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" :class="cardOpen ? 'text-amber-300' : 'text-white'" />
+                </button>
+                <button
+                    v-if="boardMode"
+                    class="shrink-0 rounded p-1 hover:bg-white/20"
+                    :class="member.front_image || hasCustomCharacterCard(member) ? '' : 'sm:ml-auto'"
+                    :aria-expanded="!!optionsOpen"
+                    aria-label="Tabletop options"
+                    title="Tabletop options"
+                    data-testid="row-options"
+                    @click.stop="$emit('toggle-options')"
+                >
+                    <SlidersHorizontal
+                        class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+                        :class="optionsOpen ? 'text-amber-300' : 'text-white'"
+                    />
                 </button>
                 <!-- Phones: health stepper on the name line (from `sm` it sits on the stats row below, as before). -->
                 <div v-if="editable" class="ml-auto flex shrink-0 items-center gap-0.5 sm:hidden">

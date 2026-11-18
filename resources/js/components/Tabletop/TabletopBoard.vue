@@ -63,6 +63,9 @@ import {
 } from '@/lib/tabletop/geometry';
 import CharacterPicker, { type CharacterOption } from '@/components/Tabletop/CharacterPicker.vue';
 import MarkerPicker from '@/components/Tabletop/MarkerPicker.vue';
+import GameCardFullscreenDialog from '@/components/Game/GameCardFullscreenDialog.vue';
+import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
+import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
 import ModelInfoPanel from '@/components/Tabletop/ModelInfoPanel.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -783,6 +786,7 @@ const crewRows = computed<CrewMember[]>(
                       current_health: t.info?.health ?? null,
                       max_health: t.info?.maxHealth ?? null,
                       is_activated: !!t.info?.activated,
+                      notes: t.info?.notes ?? null,
                   }))
             : []),
 );
@@ -813,6 +817,52 @@ const replaceFrom = (m: CrewMember) => {
     if (!props.sandbox) return emit('replaceModel', String(m.id));
     replacing.value = String(m.id);
     openCharacterDialog();
+};
+// The tracker's token dialog, for a game and for the sandbox alike: the change goes out as a patch and the page saves it.
+const tokenDialog = ref(false);
+const tokenMemberId = ref<string | null>(null);
+const tokenSearch = ref('');
+const tokenMember = computed(
+    () =>
+        (crewRows.value.find((m) => String(m.id) === tokenMemberId.value) ?? null) as {
+            id: number;
+            display_name: string;
+            attached_tokens: { id: number; name: string }[];
+        } | null,
+);
+const tokenCatalogue = computed(() => (props.tokenOptions ?? []).map((o) => ({ ...o, slug: String(o.id), description: null })));
+const noReferenceTokens = new Set<number>();
+function openTokens(m: CrewMember) {
+    tokenMemberId.value = String(m.id);
+    tokenSearch.value = '';
+    tokenDialog.value = true;
+}
+function toggleModelToken(id: number, name: string) {
+    const m = tokenMember.value;
+    if (!m) return;
+    const has = m.attached_tokens.some((t: { id: number }) => t.id === id);
+    emit('modelChange', String(m.id), {
+        tokens: has ? m.attached_tokens.filter((t: { id: number }) => t.id !== id) : [...m.attached_tokens, { id, name }],
+    });
+}
+const removeModelToken = (id: number) => {
+    const m = tokenMember.value;
+    if (m) emit('modelChange', String(m.id), { tokens: m.attached_tokens.filter((t: { id: number }) => t.id !== id) });
+};
+// The name opens the tracker's card drawer (image, notes); a model with no card just selects.
+const cardMemberId = ref<string | null>(null);
+const cardDrawer = ref(false);
+const cardMember = computed(() => crewRows.value.find((m) => String(m.id) === cardMemberId.value) ?? null);
+const fullscreen = ref<{ src: string; backSrc: string | null; title: string | null } | null>(null);
+const hasCard = (m: CrewMember) =>
+    !!(m.front_image || m.custom_character?.front_image || m.custom_character?.actions?.length || m.custom_character?.abilities?.length);
+function openCard(m: CrewMember) {
+    if (!hasCard(m)) return toggleSelect(m);
+    cardMemberId.value = String(m.id);
+    cardDrawer.value = true;
+}
+const cardNotes = (payload: { notes: string | null }) => {
+    if (cardMember.value) emit('modelChange', String(cardMember.value.id), { notes: payload.notes ?? '' });
 };
 const noUpgradePower = () => 0;
 const noLootCard = () => null;
@@ -2408,10 +2458,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 @remove-token="
                                     (id: number) => emit('modelChange', String(m.id), { tokens: m.attached_tokens.filter((t: any) => t.id !== id) })
                                 "
-                                @open-tokens="selectedId = String(m.id)"
+                                @open-tokens="openTokens(m)"
                                 @replace="replaceFrom(m)"
                                 @toggle-card="toggleCard(m)"
-                                @preview="toggleSelect(m)"
+                                :options-open="selectedId === String(m.id)"
+                                @toggle-options="toggleSelect(m)"
+                                @preview="openCard(m)"
                             />
                             <div :ref="(el) => setSlot(m.id, el)"></div>
                         </div>
@@ -2429,266 +2481,276 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             </div>
 
             <Teleport :to="panelTarget ?? 'body'" :disabled="!panelTarget">
-                <div v-if="mode !== 'terrain'" class="rounded-md border p-3 text-sm" data-testid="selected-panel">
-                    <template v-if="selected">
-                        <div class="font-semibold">
-                            {{ selected.name }} <span class="font-normal text-muted-foreground">{{ selected.baseMm }} mm base</span>
-                        </div>
-                        <div class="text-muted-foreground">
-                            At {{ fmt(selected.x) }}", {{ fmt(selected.y) }}". Elevation {{ elevationOf(selected)
-                            }}<span v-if="selected.under && selectedCover">
-                                {{ ' ' + (selectedCover.kind === 'building' ? 'inside' : 'under') + ' ' + selectedCover.piece.name }}</span
-                            ><span v-else-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
-                            >.
-                        </div>
-                        <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
-                        <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
-                            Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
-                        </p>
-                        <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
-                            <summary
-                                class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"
-                            >
-                                <span
-                                    >Ignores terrain
-                                    <span class="text-xs">({{ selected.ignores?.length ? selected.ignores.join(', ') : 'none' }})</span></span
-                                >
-                                <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
-                            </summary>
-                            <div class="mt-1 flex flex-wrap gap-1">
-                                <label
-                                    v-for="trait in IGNORABLE_TRAITS"
-                                    :key="trait"
-                                    class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs"
-                                    :class="selected.ignores?.includes(trait) ? 'border-primary bg-primary/10' : ''"
-                                    :title="IGNORE_HINTS[trait]"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        class="sr-only"
-                                        :checked="!!selected.ignores?.includes(trait)"
-                                        :disabled="selected.locked"
-                                        :data-testid="`ignore-${trait}`"
-                                        @change="toggleIgnore(selected, trait)"
-                                    />
-                                    {{ trait }}
-                                </label>
+                <div
+                    v-if="mode !== 'terrain'"
+                    class="border p-3 text-sm"
+                    :class="panelTarget ? '-mt-1 rounded-b-md border-t-0 bg-muted/30' : 'rounded-md'"
+                    data-testid="selected-panel"
+                >
+                    <div>
+                        <template v-if="selected">
+                            <div class="font-semibold">
+                                {{ selected.name }} <span class="font-normal text-muted-foreground">{{ selected.baseMm }} mm base</span>
                             </div>
-                        </details>
-                        <div v-if="selectedCover && !selected.locked" class="mt-2 flex flex-wrap items-center gap-1" data-testid="under-toggle">
-                            <Button
-                                size="sm"
-                                :variant="selected.under ? 'default' : 'outline'"
-                                data-testid="model-under"
-                                @click="setUnder(selected, true)"
-                                >{{ selectedCover.kind === 'building' ? 'Inside' : 'Under' }} {{ selectedCover.piece.name }}</Button
-                            >
-                            <Button
-                                size="sm"
-                                :variant="selected.under ? 'outline' : 'default'"
-                                data-testid="model-on"
-                                @click="setUnder(selected, false)"
-                                >{{ selectedCover.kind === 'building' ? 'On the roof' : 'On top' }}</Button
-                            >
-                            <Button
-                                v-if="selectedCover.kind === 'building'"
-                                size="sm"
-                                :variant="cutaway(selectedCover.piece) ? 'default' : 'outline'"
-                                :aria-pressed="cutaway(selectedCover.piece)"
-                                data-testid="model-show-inside"
-                                @click="toggleInside(selectedCover.piece.id)"
-                                >Show inside</Button
-                            >
-                        </div>
-                        <Button
-                            v-if="!selected.marker"
-                            size="sm"
-                            class="mt-2"
-                            :variant="guidedId === selected.id ? 'default' : 'outline'"
-                            :aria-pressed="guidedId === selected.id"
-                            data-testid="model-guide"
-                            @click="toggleGuide(selected)"
-                            ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
-                        >
-                        <ModelInfoPanel
-                            v-if="!selected.marker"
-                            :token="selected"
-                            :token-options="tokenOptions ?? []"
-                            :can-edit="!selected.locked"
-                            :editable-max="sandbox"
-                            :crew="crewRows.length > 0"
-                            @change="emit('modelChange', selected.id, $event)"
-                        />
-                        <p v-if="problems.get(selected.id)?.length" class="mt-2 text-amber-600 dark:text-amber-400" data-testid="placement-warning">
-                            {{ selected.name }}
-                            {{
-                                problems
-                                    .get(selected.id)!
-                                    .map((p) => p.text)
-                                    .join(' and ')
-                            }}.
-                            <Button
-                                v-if="illegalHere(selected) && !selected.locked"
-                                size="sm"
-                                variant="outline"
-                                class="mt-1 block"
-                                data-testid="model-fix-spot"
-                                @click="moveToLegalSpot(selected)"
-                                >Move to the nearest legal spot</Button
-                            >
-                        </p>
-                        <div class="mt-3 border-t pt-3" data-testid="aura-controls">
-                            <div class="mb-2 flex items-center justify-between">
-                                <span class="font-medium"
-                                    >Auras
-                                    <span class="font-normal text-muted-foreground"
-                                        >{{ aurasOf(selected.id).length }} of {{ AURAS_PER_MODEL }}</span
-                                    ></span
-                                >
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    data-testid="aura-add"
-                                    :disabled="aurasOf(selected.id).length >= AURAS_PER_MODEL"
-                                    @click="addAura(selected)"
-                                    >{{ aurasOf(selected.id).length ? 'Add another' : 'Add aura' }}</Button
-                                >
+                            <div class="text-muted-foreground">
+                                At {{ fmt(selected.x) }}", {{ fmt(selected.y) }}". Elevation {{ elevationOf(selected)
+                                }}<span v-if="selected.under && selectedCover">
+                                    {{ ' ' + (selectedCover.kind === 'building' ? 'inside' : 'under') + ' ' + selectedCover.piece.name }}</span
+                                ><span v-else-if="supports.get(selected.id)?.piece"> on {{ supports.get(selected.id)?.piece?.name }}</span
+                                >.
                             </div>
-                            <div
-                                v-for="(aura, i) in aurasOf(selected.id)"
-                                :key="aura.id"
-                                class="mb-3 rounded-md border p-2"
-                                :data-testid="`aura-row-${i}`"
-                            >
-                                <div class="flex items-center gap-1">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        aria-label="Smaller aura"
-                                        data-testid="aura-minus"
-                                        :disabled="!canEdit(aura)"
-                                        @click="setRange(aura.id, aura.range - 0.5)"
-                                        ><Minus class="size-4"
-                                    /></Button>
-                                    <input
-                                        type="number"
-                                        inputmode="decimal"
-                                        class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                        :min="AURA_MIN"
-                                        :max="AURA_MAX"
-                                        step="0.5"
-                                        aria-label="Aura range in inches"
-                                        data-testid="aura-range"
-                                        :disabled="!canEdit(aura)"
-                                        :value="aura.range"
-                                        @change="setRange(aura.id, Number(($event.target as HTMLInputElement).value) || AURA_MIN)"
-                                    />
-                                    <span class="text-muted-foreground">"</span>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        aria-label="Larger aura"
-                                        data-testid="aura-plus"
-                                        :disabled="!canEdit(aura)"
-                                        @click="setRange(aura.id, aura.range + 0.5)"
-                                        ><Plus class="size-4"
-                                    /></Button>
-                                    <Button
-                                        size="sm"
-                                        :variant="aura.locked ? 'default' : 'outline'"
-                                        :aria-pressed="aura.locked"
-                                        :aria-label="aura.locked ? 'Unlock: follow the model again' : 'Lock this aura where it is'"
-                                        data-testid="aura-lock"
-                                        :disabled="!canEdit(aura)"
-                                        @click="toggleLock(aura, selected)"
+                            <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
+                            <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
+                                Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
+                            </p>
+                            <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
+                                <summary
+                                    class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"
+                                >
+                                    <span
+                                        >Ignores terrain
+                                        <span class="text-xs">({{ selected.ignores?.length ? selected.ignores.join(', ') : 'none' }})</span></span
                                     >
-                                        <component :is="aura.locked ? Lock : LockOpen" class="size-4" />
-                                    </Button>
-                                    <Button
-                                        v-if="sharingOn && !selected.locked"
-                                        size="sm"
-                                        :variant="aura.shared ? 'default' : 'outline'"
-                                        :aria-pressed="!!aura.shared"
-                                        :aria-label="
-                                            aura.shared ? 'Stop showing this aura to the other player' : 'Show this aura to the other player'
-                                        "
-                                        data-testid="aura-share"
-                                        @click="toggleShare(aura)"
-                                    >
-                                        <Users class="size-4" />
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        aria-label="Remove this aura"
-                                        data-testid="aura-remove"
-                                        :disabled="!canEdit(aura)"
-                                        @click="removeAura(aura.id)"
-                                        ><Trash2 class="size-4"
-                                    /></Button>
-                                </div>
-                                <div class="mt-2 flex flex-wrap gap-1">
-                                    <Button
-                                        v-for="n in AURA_PRESETS"
-                                        :key="n"
-                                        size="sm"
-                                        :variant="aura.range === n ? 'default' : 'outline'"
-                                        :disabled="!canEdit(aura)"
-                                        @click="setRange(aura.id, n)"
-                                        >{{ n }}"</Button
-                                    >
-                                </div>
-                                <div class="mt-2 flex flex-wrap items-center gap-1" data-testid="aura-traits">
-                                    <span class="text-xs text-muted-foreground">Counts as</span>
+                                    <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div class="mt-1 flex flex-wrap gap-1">
                                     <label
-                                        v-for="trait in AURA_TRAITS"
+                                        v-for="trait in IGNORABLE_TRAITS"
                                         :key="trait"
-                                        class="flex cursor-pointer items-center rounded-md border px-2 py-0.5 text-xs"
-                                        :class="aura.traits?.includes(trait) ? 'border-primary bg-primary/10' : ''"
-                                        :title="`The area counts as ${trait} terrain`"
+                                        class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs"
+                                        :class="selected.ignores?.includes(trait) ? 'border-primary bg-primary/10' : ''"
+                                        :title="IGNORE_HINTS[trait]"
                                     >
                                         <input
                                             type="checkbox"
                                             class="sr-only"
-                                            :checked="!!aura.traits?.includes(trait)"
-                                            :disabled="!canEdit(aura)"
-                                            :data-testid="`aura-trait-${trait}`"
-                                            @change="toggleAuraTrait(aura, trait)"
+                                            :checked="!!selected.ignores?.includes(trait)"
+                                            :disabled="selected.locked"
+                                            :data-testid="`ignore-${trait}`"
+                                            @change="toggleIgnore(selected, trait)"
                                         />
                                         {{ trait }}
                                     </label>
                                 </div>
-                                <p class="mt-2 text-muted-foreground" data-testid="aura-inside">
-                                    {{ aura.shared ? (canEdit(aura) ? 'Shown to both players. ' : 'Shown to you by the other player. ') : ''
-                                    }}{{
-                                        aura.locked ? 'Locked at ' + fmt(aura.x ?? 0) + '", ' + fmt(aura.y ?? 0) + '". ' : 'Follows the model. '
-                                    }}Starts at the edge of the base.
-                                    <template v-if="insideOf(aura.id).length"
-                                        >Within {{ fmt(aura.range) }}":
-                                        {{
-                                            insideOf(aura.id)
-                                                .map((t) => t.name)
-                                                .join(', ')
-                                        }}.</template
-                                    >
-                                    <template v-else>No other model is within {{ fmt(aura.range) }}".</template>
-                                </p>
+                            </details>
+                            <div v-if="selectedCover && !selected.locked" class="mt-2 flex flex-wrap items-center gap-1" data-testid="under-toggle">
+                                <Button
+                                    size="sm"
+                                    :variant="selected.under ? 'default' : 'outline'"
+                                    data-testid="model-under"
+                                    @click="setUnder(selected, true)"
+                                    >{{ selectedCover.kind === 'building' ? 'Inside' : 'Under' }} {{ selectedCover.piece.name }}</Button
+                                >
+                                <Button
+                                    size="sm"
+                                    :variant="selected.under ? 'outline' : 'default'"
+                                    data-testid="model-on"
+                                    @click="setUnder(selected, false)"
+                                    >{{ selectedCover.kind === 'building' ? 'On the roof' : 'On top' }}</Button
+                                >
+                                <Button
+                                    v-if="selectedCover.kind === 'building'"
+                                    size="sm"
+                                    :variant="cutaway(selectedCover.piece) ? 'default' : 'outline'"
+                                    :aria-pressed="cutaway(selectedCover.piece)"
+                                    data-testid="model-show-inside"
+                                    @click="toggleInside(selectedCover.piece.id)"
+                                    >Show inside</Button
+                                >
                             </div>
-                        </div>
-                        <div v-if="sandbox || (selected.marker && !selected.locked)" class="mt-3 border-t pt-3">
                             <Button
-                                variant="ghost"
+                                v-if="!selected.marker"
                                 size="sm"
-                                class="text-destructive hover:text-destructive"
-                                data-testid="remove-token"
-                                @click="removeSelected"
-                                ><Trash2 class="mr-1 size-4" />{{ selected.marker ? 'Remove marker' : 'Remove model' }}</Button
+                                class="mt-2"
+                                :variant="guidedId === selected.id ? 'default' : 'outline'"
+                                :aria-pressed="guidedId === selected.id"
+                                data-testid="model-guide"
+                                @click="toggleGuide(selected)"
+                                ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
                             >
-                        </div>
-                    </template>
-                    <span v-else class="text-muted-foreground"
-                        >Tap a model to select it. Drag it to move. Drag the board to pan; pinch or scroll to zoom.</span
-                    >
+                            <ModelInfoPanel
+                                v-if="!selected.marker"
+                                :token="selected"
+                                :can-edit="!selected.locked"
+                                :editable-max="sandbox"
+                                :crew="crewRows.length > 0"
+                                @change="emit('modelChange', selected.id, $event)"
+                            />
+                            <p
+                                v-if="problems.get(selected.id)?.length"
+                                class="mt-2 text-amber-600 dark:text-amber-400"
+                                data-testid="placement-warning"
+                            >
+                                {{ selected.name }}
+                                {{
+                                    problems
+                                        .get(selected.id)!
+                                        .map((p) => p.text)
+                                        .join(' and ')
+                                }}.
+                                <Button
+                                    v-if="illegalHere(selected) && !selected.locked"
+                                    size="sm"
+                                    variant="outline"
+                                    class="mt-1 block"
+                                    data-testid="model-fix-spot"
+                                    @click="moveToLegalSpot(selected)"
+                                    >Move to the nearest legal spot</Button
+                                >
+                            </p>
+                            <div class="mt-3 border-t pt-3" data-testid="aura-controls">
+                                <div class="mb-2 flex items-center justify-between">
+                                    <span class="font-medium"
+                                        >Auras
+                                        <span class="font-normal text-muted-foreground"
+                                            >{{ aurasOf(selected.id).length }} of {{ AURAS_PER_MODEL }}</span
+                                        ></span
+                                    >
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        data-testid="aura-add"
+                                        :disabled="aurasOf(selected.id).length >= AURAS_PER_MODEL"
+                                        @click="addAura(selected)"
+                                        >{{ aurasOf(selected.id).length ? 'Add another' : 'Add aura' }}</Button
+                                    >
+                                </div>
+                                <div
+                                    v-for="(aura, i) in aurasOf(selected.id)"
+                                    :key="aura.id"
+                                    class="mb-3 rounded-md border p-2"
+                                    :data-testid="`aura-row-${i}`"
+                                >
+                                    <div class="flex items-center gap-1">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            aria-label="Smaller aura"
+                                            data-testid="aura-minus"
+                                            :disabled="!canEdit(aura)"
+                                            @click="setRange(aura.id, aura.range - 0.5)"
+                                            ><Minus class="size-4"
+                                        /></Button>
+                                        <input
+                                            type="number"
+                                            inputmode="decimal"
+                                            class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                            :min="AURA_MIN"
+                                            :max="AURA_MAX"
+                                            step="0.5"
+                                            aria-label="Aura range in inches"
+                                            data-testid="aura-range"
+                                            :disabled="!canEdit(aura)"
+                                            :value="aura.range"
+                                            @change="setRange(aura.id, Number(($event.target as HTMLInputElement).value) || AURA_MIN)"
+                                        />
+                                        <span class="text-muted-foreground">"</span>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            aria-label="Larger aura"
+                                            data-testid="aura-plus"
+                                            :disabled="!canEdit(aura)"
+                                            @click="setRange(aura.id, aura.range + 0.5)"
+                                            ><Plus class="size-4"
+                                        /></Button>
+                                        <Button
+                                            size="sm"
+                                            :variant="aura.locked ? 'default' : 'outline'"
+                                            :aria-pressed="aura.locked"
+                                            :aria-label="aura.locked ? 'Unlock: follow the model again' : 'Lock this aura where it is'"
+                                            data-testid="aura-lock"
+                                            :disabled="!canEdit(aura)"
+                                            @click="toggleLock(aura, selected)"
+                                        >
+                                            <component :is="aura.locked ? Lock : LockOpen" class="size-4" />
+                                        </Button>
+                                        <Button
+                                            v-if="sharingOn && !selected.locked"
+                                            size="sm"
+                                            :variant="aura.shared ? 'default' : 'outline'"
+                                            :aria-pressed="!!aura.shared"
+                                            :aria-label="
+                                                aura.shared ? 'Stop showing this aura to the other player' : 'Show this aura to the other player'
+                                            "
+                                            data-testid="aura-share"
+                                            @click="toggleShare(aura)"
+                                        >
+                                            <Users class="size-4" />
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            aria-label="Remove this aura"
+                                            data-testid="aura-remove"
+                                            :disabled="!canEdit(aura)"
+                                            @click="removeAura(aura.id)"
+                                            ><Trash2 class="size-4"
+                                        /></Button>
+                                    </div>
+                                    <div class="mt-2 flex flex-wrap gap-1">
+                                        <Button
+                                            v-for="n in AURA_PRESETS"
+                                            :key="n"
+                                            size="sm"
+                                            :variant="aura.range === n ? 'default' : 'outline'"
+                                            :disabled="!canEdit(aura)"
+                                            @click="setRange(aura.id, n)"
+                                            >{{ n }}"</Button
+                                        >
+                                    </div>
+                                    <div class="mt-2 flex flex-wrap items-center gap-1" data-testid="aura-traits">
+                                        <span class="text-xs text-muted-foreground">Counts as</span>
+                                        <label
+                                            v-for="trait in AURA_TRAITS"
+                                            :key="trait"
+                                            class="flex cursor-pointer items-center rounded-md border px-2 py-0.5 text-xs"
+                                            :class="aura.traits?.includes(trait) ? 'border-primary bg-primary/10' : ''"
+                                            :title="`The area counts as ${trait} terrain`"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                class="sr-only"
+                                                :checked="!!aura.traits?.includes(trait)"
+                                                :disabled="!canEdit(aura)"
+                                                :data-testid="`aura-trait-${trait}`"
+                                                @change="toggleAuraTrait(aura, trait)"
+                                            />
+                                            {{ trait }}
+                                        </label>
+                                    </div>
+                                    <p class="mt-2 text-muted-foreground" data-testid="aura-inside">
+                                        {{ aura.shared ? (canEdit(aura) ? 'Shown to both players. ' : 'Shown to you by the other player. ') : ''
+                                        }}{{
+                                            aura.locked ? 'Locked at ' + fmt(aura.x ?? 0) + '", ' + fmt(aura.y ?? 0) + '". ' : 'Follows the model. '
+                                        }}Starts at the edge of the base.
+                                        <template v-if="insideOf(aura.id).length"
+                                            >Within {{ fmt(aura.range) }}":
+                                            {{
+                                                insideOf(aura.id)
+                                                    .map((t) => t.name)
+                                                    .join(', ')
+                                            }}.</template
+                                        >
+                                        <template v-else>No other model is within {{ fmt(aura.range) }}".</template>
+                                    </p>
+                                </div>
+                            </div>
+                            <div v-if="sandbox || (selected.marker && !selected.locked)" class="mt-3 border-t pt-3">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    class="text-destructive hover:text-destructive"
+                                    data-testid="remove-token"
+                                    @click="removeSelected"
+                                    ><Trash2 class="mr-1 size-4" />{{ selected.marker ? 'Remove marker' : 'Remove model' }}</Button
+                                >
+                            </div>
+                        </template>
+                        <span v-else class="text-muted-foreground"
+                            >Tap a model to select it. Drag it to move. Drag the board to pan; pinch or scroll to zoom.</span
+                        >
+                    </div>
                 </div>
             </Teleport>
 
@@ -2736,6 +2798,34 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </div>
             </div>
 
+            <GameCrewMemberDrawer
+                :open="cardDrawer"
+                :member="cardMember as any"
+                :miniatures="[]"
+                :can-change-sculpt="false"
+                :can-edit-notes="!!cardMember && canEditCrew(cardMember)"
+                @update:open="cardDrawer = $event"
+                @open-fullscreen="fullscreen = { src: $event.src, backSrc: $event.backSrc, title: $event.title }"
+                @notes-change="cardNotes"
+            />
+            <GameCardFullscreenDialog
+                :open="!!fullscreen"
+                :src="fullscreen?.src ?? null"
+                :back-src="fullscreen?.backSrc ?? null"
+                :title="fullscreen?.title ?? null"
+                @update:open="fullscreen = $event ? fullscreen : null"
+            />
+            <GameTokenDialog
+                :open="tokenDialog"
+                :member="tokenMember"
+                :tokens="tokenCatalogue"
+                :reference-token-ids="noReferenceTokens"
+                :search="tokenSearch"
+                @update:open="tokenDialog = $event"
+                @update:search="tokenSearch = $event"
+                @toggle="toggleModelToken"
+                @remove="removeModelToken"
+            />
             <Dialog v-if="characterSearchUrl" v-model:open="characterDialog">
                 <DialogContent class="max-w-md" data-testid="character-dialog">
                     <DialogHeader>

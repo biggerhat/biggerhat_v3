@@ -557,15 +557,17 @@ const L = require('./lib.cjs');
             await s.page.evaluate(() => window.scrollTo(0, 0));
             await L.shot(s, `368-new-table-top-${label}`);
             if (!(await s.page.$eval('[data-testid=new-table-save]', (b) => b.disabled))) throw new Error('an empty table cannot be saved');
-            // the page says what it is for, and offers ready-made tables to begin from
+            // the page says what it is for
             const sub = await s.page.$eval('[data-testid=page-subtitle]', (e) => e.innerText);
             if (!/name it and save it/.test(sub)) throw new Error(`the heading should describe a new table: ${sub}`);
-            const starts = await s.page.$$eval('[data-testid=starting-point]', (e) => e.length);
-            if (starts < 3) throw new Error(`expected ready-made starting points, saw ${starts}`);
-            // leaving with work on the table asks first; with none it just goes
-            await s.page.$eval('[data-testid=starting-point][data-key=hills]', (b) => b.click());
+            // ready-made tables come from Load table (no separate grid above the board)
+            if (await s.page.$('[data-testid=starting-points]')) throw new Error('the starting-points grid should be gone');
+            await hit('[data-testid=table-load]');
+            await s.page.waitForSelector('[data-testid=load-default][data-key=hills]', { timeout: 5000 });
+            await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
             await s.page.waitForFunction(() => /7 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
-            await s.page.waitForFunction(() => !document.querySelector('[data-testid=starting-points]'), { timeout: 5000 });
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            // leaving with work on the table asks first; with none it just goes
             await hit('[data-testid=new-table-cancel]');
             await s.page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((b) => /Leave/.test(b.innerText)), { timeout: 5000 });
             await s.page.evaluate(() => [...document.querySelectorAll('[role=dialog] button')].find((b) => /Cancel/.test(b.innerText)).click());
@@ -1150,14 +1152,14 @@ const L = require('./lib.cjs');
             await rowPress('Decrease health');
             await rowPress('Decrease health');
             await s.page.waitForFunction((sel) => document.querySelector(sel).innerText.includes('7/9'), { timeout: 5000 }, row);
-            await s.page.$eval('[data-testid=token-add]', (b) => {
-                const d = b.closest('details');
-                if (d && !d.open) d.open = true;
-                b.scrollIntoView({ block: 'center' });
-            });
-            const focus = await s.page.$$eval('[data-testid=token-add] option', (os) => os.find((o) => o.textContent === 'Focus')?.value);
-            await s.page.select('[data-testid=token-add]', focus);
-            await s.page.waitForFunction(() => document.querySelectorAll('[data-testid=model-token]').length === 1, { timeout: 5000 });
+            // tokens: the row's Tokens button opens the tracker's token dialog
+            await rowPress('Tokens', 'title');
+            await s.page.waitForSelector('[data-testid=token-option][data-name=Focus]', { timeout: 5000 });
+            await s.page.click('[data-testid=token-option][data-name=Focus]');
+            await s.page.waitForSelector('[data-testid^=badges-]', { timeout: 5000 });
+            await s.page.keyboard.press('Escape');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=token-option]'), { timeout: 5000 });
+            if (await s.page.$('[data-testid=token-add]')) throw new Error('the model panel should not have a token dropdown any more');
             await rowPress('Mark activated', 'title');
             await s.page.waitForSelector('[data-testid^=activated-]', { timeout: 5000 });
             if (!(await s.page.$('[data-testid^=hp-]'))) throw new Error('the board should draw a health bar on the model');
@@ -1187,7 +1189,7 @@ const L = require('./lib.cjs');
                     { timeout: 5000 },
                 );
                 const [cur, max] = (await hp()).split(' / ').map(Number);
-                if (!(cur >= 1 && cur <= max && max < 9 + 1)) throw new Error(`health after replace should be capped by the new maximum: ${cur}/${max}`);
+                if (!(cur >= 1 && cur <= max && cur <= 7)) throw new Error(`health after replace should be capped by the new maximum: ${cur}/${max}`);
                 if (!(await s.page.$('[data-testid^=activated-]'))) throw new Error('replace should keep the model activated');
                 if (!(await s.page.$('[data-testid^=badges-]'))) throw new Error('replace should keep the model tokens');
                 await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 });

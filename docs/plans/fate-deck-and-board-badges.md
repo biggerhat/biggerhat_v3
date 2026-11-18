@@ -17,6 +17,11 @@ Nothing: no deck, hand, flip or discard state anywhere (checked `app`, migration
 - When a deck runs out at any time, the owner shuffles their discard pile (jokers included) into a fresh deck and **offers it to the opponent to cut** (a real-world fairness step; we replace it with a server shuffle, see below).
 - Flip (p.8): reveal the top card to the conflict. Each + or - adds one revealed card, to a maximum of four in all; + and - cancel, so a flip has one kind. With +, choose any one revealed card; with -, you must use the lowest (you choose among ties). Jokers override: a revealed Red Joker may be chosen even with -, the Black Joker must be chosen even with +, and Black wins if both show. "Reveal" shows a card to both players; "look at" is private and face down (Insight token, p.48: look at the top card and may discard it). Duel flips are simultaneous (p.10), and before a duel flip a player may discard a card of value 5 or lower for a + and a suit. Cheating Fate (p.9): one opportunity per flip; replace the flipped card with one from hand and the old card is discarded (it counts as neither a flip nor a discard). In an opposed duel the lowest total cheats first, the resister on a tie, then the opponent. A controlled model cheats from its controller's hand (p.43). The rules never say whether a cheat card is shown before it is played; it is public once in the conflict. a flipped Black Joker cannot be cheated until discarded; a chosen Red Joker stops the owner cheating their own flip until discarded. Cards in the conflict are discarded once the effect resolves; several cards discarded together are shown to everyone first.
 
+### Decisions (user, 2026-11-18)
+- The **server shuffles and deals**, and a player may draw their own hand (drawing is a player action, not automatic). No deck-less "record a flip" mode for now.
+- The opponent's hand shows **as a number only**, never card backs.
+- Cards and abilities that **manipulate the hand, the top of the deck or the discard pile** must be supported (see "Manipulation" below).
+
 ### Who sees what (the visibility rules the user set, made precise)
 | Thing | The owner | The opponent | An observer |
 | --- | --- | --- | --- |
@@ -29,6 +34,28 @@ Nothing: no deck, hand, flip or discard state anywhere (checked `app`, migration
 | Removed from game | yes | yes | yes |
 
 Solo games (one user plays both sides) show that user both hands. In a tournament game that is also an observable game, the two players see their own hand and observers see neither.
+
+### Manipulation (hand, deck and discard effects)
+Card and ability text can look at, reorder, take or return cards. Rather than one endpoint per ability, give the server a small set of primitives that any effect is built from, each checked for legality and each with a fixed answer to "who is told":
+
+| Primitive | What it does | Who sees the result |
+| --- | --- | --- |
+| Peek top N | Look at the top N cards of my deck (Insight token is N=1) | me only; others see "looked at N cards" |
+| Reorder top N | Put the peeked cards back in a chosen order | nobody; the order stays hidden |
+| Discard from top N | Discard some peeked cards, rest go back | the discarded cards are revealed (they hit the public discard pile); the rest stay hidden |
+| Put on top / bottom of deck | Move a hand or discard card to the top or bottom of my deck | the opponent sees a count change only (from a hand) or the card leaving the discard pile (from the pile) |
+| Draw from discard | Take a named card from my discard pile into my hand | public: the pile is face up, so everyone sees which card left |
+| Discard from hand | Move a chosen hand card to the discard pile | public (a card entering the pile is shown) |
+| Take from deck (search) | Look through my deck for a card, take it, then shuffle | the taken card is private if it goes to hand; the search and the shuffle are logged without contents |
+| Shuffle deck | Server shuffle | logged, no contents |
+| Remove from game | Set a card aside face up | public |
+| Draw N | Top N cards to my hand, with the normal hand maximum | me only; the opponent sees the count |
+
+- **The effect belongs to the card's controller:** a controlled model's effect acts on its controller's deck and hand (p.43). Effects that target the **opponent's** deck or hand (rare) are separate and need the owner of that deck to be the one shown the result, so each primitive takes a "whose deck" argument that defaults to my own and is policy-checked.
+- **Discard-pile order is fixed and public** ("may not be reordered"), so a draw-back of a specific card is allowed but the pile cannot be rearranged. The primitive picks by card, not by position.
+- **Deck order is private and may only be changed by the owner's own effect.** The server keeps the order; the client is told only what the effect lets it see (the peeked cards, then nothing).
+- **Audit:** every primitive writes a log row (who, which primitive, how many cards, public cards named). This is the replay's source and the answer when two players disagree. The log never contains a hidden card, only the count.
+- **UI:** an "Effects" menu on the Fate panel with these primitives as named actions plus a free-form pair (peek N, then choose what to do with each peeked card: top, bottom, discard, hand). Common card effects get shortcuts later.
 
 ### The security shape (the part that must not be done the obvious way)
 1. **The server owns the deck.** Shuffles, draws and flips are done in PHP with `random_int`-based shuffling inside a `DB::transaction` that locks the game row (the concurrency pattern in CLAUDE.md). A client can never choose or peek at a card. This replaces "offer to cut" with something verifiable, and means a flip cannot be re-rolled by refreshing.
@@ -51,15 +78,15 @@ Solo games (one user plays both sides) show that user both hands. In a tournamen
 - Log each flip into the game's existing history so a replay can show it.
 
 ### Phasing
-1. Schema, models, server deck service, the draw, discard, flip, cheat and resolve actions, with tests (including the visibility assertions). No UI.
+1. Schema, models, server deck service, the draw, discard, flip, cheat and resolve actions, and the manipulation primitives (peek, reorder, put on top or bottom, draw from discard, search, remove), with the action log and tests (including the visibility assertions and that hidden order never leaves the server). No UI.
 2. The Fate panel on the play screen (participants), realtime for public state.
 3. Observer view (public state only) and the tournament hybrid.
 4. Tabletop board integration (flip from a model's panel, the flip result shown beside the model).
 5. Replay of flips.
 
 ### Open questions for the user
-- Do players want a real shuffle done for them, or to use physical decks and only record flips? (Both can coexist: a deck-less "record a flip" mode that takes a typed card.)
-- Is the opponent's hand shown as backs or only a number?
+- (Answered) Server shuffle and deal, player draws their own hand; opponent's hand is a number only.
+- Which manipulation effects come up most? The primitives cover the cases found so far; a list of the actual card and ability texts would let us add shortcuts and find any gap (for example effects that make the opponent discard or reveal).
 - Should an observer see a flip result live or at the next poll? (Polling is 8 s today.)
 - Are cheat-fate declines to be tracked ("declined" ends the chance for that flip)? The cheating order in a duel (lowest total first) suggests the panel should prompt in that order.
 - The opening hand is not specified by the rules; should the first draw be automatic at the turn 1 start phase?

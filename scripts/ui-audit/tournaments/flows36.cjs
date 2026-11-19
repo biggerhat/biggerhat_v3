@@ -388,10 +388,10 @@ const L = require('./lib.cjs');
             const passRow = await carol.page.$eval('[data-testid=turn-pass-row]', (e) => e.innerText);
             if (!/pass/i.test(passRow) || !/(models|opponent)/i.test(passRow)) throw new Error(`the pass row should explain passing: ${passRow}`);
             // the look back: the table at the end of turn 1, read-only, then back to now
-            await carol.page.$eval('[data-testid=history-turn-1]', (b) => b.click());
+            await carol.page.select('[data-testid=history-select]', '1');
             await carol.page.waitForSelector('[data-testid=history-note]', { timeout: 4000 });
             if (await carol.page.$('[data-testid=turn-bar]')) throw new Error('the turn bar should be put away while looking back');
-            await carol.page.$eval('[data-testid=history-now]', (b) => b.click());
+            await carol.page.select('[data-testid=history-select]', '');
             await carol.page.waitForFunction(() => !document.querySelector('[data-testid=history-note]'), { timeout: 4000 });
         });
         await L.step(`board (${label}): a model can be picked as the scheme's model, and it is kept in the scheme notes`, carol, async () => {

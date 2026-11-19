@@ -1375,6 +1375,23 @@ const L = require('./lib.cjs');
             await s.page.$eval('[data-testid=fate-search-card]', (b) => b.click());
             await handIs(7);
             await settle();
+            // cheating Fate: flip, take the card, then pick a hand card; the hand menu offers to replace the result with it
+            await press('fate-flip');
+            await s.page.waitForSelector('[data-testid=fate-choose]', { timeout: 5000 });
+            await press('fate-choose');
+            await s.page.waitForSelector('[data-testid=fate-result]', { timeout: 5000 });
+            await s.page.waitForSelector('[data-testid=fate-cheat-hint]', { timeout: 4000 });
+            const before = await s.page.$eval('[data-testid=fate-result]', (e) => e.innerText);
+            await s.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-card]', (c) => c.click());
+            await s.page.waitForSelector('[data-testid=fate-menu-cheat]', { timeout: 4000 });
+            await press('fate-menu-cheat');
+            await s.page.waitForFunction((was) => document.querySelector('[data-testid=fate-result]').innerText !== was, { timeout: 4000 }, before);
+            // one chance per flip: the menu now says so
+            await s.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-card]', (c) => c.click());
+            await s.page.waitForSelector('[data-testid=fate-cheat-none]', { timeout: 4000 });
+            await s.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-card]', (c) => c.click()); // put the menu away
+            await press('fate-resolve');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-conflict]'), { timeout: 5000 });
             // effects on the other hand: Red draws, Blue asks to see it, Red shows, and Blue puts it away; then a random discard
             await press('fate-act-2');
             await press('fate-draw');

@@ -110,6 +110,49 @@ async function axeScan(s, label) {
                 await measure(s, `${tag} sandbox`);
                 await axeScan(s, `${tag} sandbox`);
             });
+            if (theme === 'dark') {
+                await L.step(`audit (${tag}): the Fate deck works from the keyboard, with a visible focus`, s, async () => {
+                    await L.visit(s, '/tools/tabletop');
+                    await s.page.waitForSelector('[data-testid=fate-open]');
+                    await s.page.$eval('[data-testid=fate-open]', (b) => b.focus());
+                    await s.page.keyboard.press('Enter');
+                    await s.page.waitForSelector('[data-testid=fate-panel]', { timeout: 5000 });
+                    const phone = await s.page.evaluate(() => !!document.querySelector('[data-testid=fate-sheet]'));
+                    if (phone) {
+                        // a sheet takes focus when it opens
+                        const inSheet = await s.page.evaluate(() => document.activeElement === document.querySelector('[data-testid=fate-sheet]'));
+                        if (!inSheet) throw new Error('opening the Fate sheet should move focus into it');
+                    }
+                    // tab forward until the deck button has focus, then draw with Enter
+                    let reached = false;
+                    for (let i = 0; i < 25 && !reached; i++) {
+                        await s.page.keyboard.press('Tab');
+                        reached = await s.page.evaluate(() => document.activeElement?.getAttribute('data-testid') === 'fate-draw');
+                    }
+                    if (!reached) throw new Error('the deck button could not be reached by Tab');
+                    const outlined = await s.page.evaluate(() => {
+                        const st = getComputedStyle(document.activeElement);
+                        return st.outlineStyle !== 'none' || st.boxShadow !== 'none';
+                    });
+                    if (!outlined) throw new Error('the focused deck button has no visible focus ring');
+                    await s.page.keyboard.press('Enter');
+                    await s.page.waitForFunction(() => document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.trim() === '1/7', { timeout: 4000 });
+                    // Tab carries on to the next control in the panel (it does not fall off the page)
+                    await s.page.keyboard.press('Tab');
+                    const next = await s.page.evaluate(() => {
+                        const el = document.activeElement;
+                        return { inPanel: !!el?.closest('[data-testid=fate-panel]'), id: el?.getAttribute('data-testid') };
+                    });
+                    if (!next.inPanel) throw new Error(`Tab after the deck should stay in the Fate panel, but reached ${next.id}`);
+                    if (phone) {
+                        // Escape closes the sheet and gives focus back to the Fate button
+                        await s.page.keyboard.press('Escape');
+                        await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-sheet]'), { timeout: 3000 });
+                        const back = await s.page.evaluate(() => document.activeElement?.getAttribute('data-testid'));
+                        if (back !== 'fate-open') throw new Error(`closing the sheet should return focus to the Fate button, not ${back}`);
+                    }
+                });
+            }
             await L.step(`audit (${tag}): a selected model with its options`, s, async () => {
                 await toTable();
                 const at = await s.page.evaluate(() => {
@@ -126,7 +169,8 @@ async function axeScan(s, label) {
                 await axeScan(s, `${tag} selected`);
             });
             await L.step(`audit (${tag}): the Fate deck open`, s, async () => {
-                await s.page.$eval('[data-testid=fate-open]', (b) => b.click());
+                // the keyboard step may have opened it already: only open it if it is shut
+                if (!(await s.page.$('[data-testid=fate-panel]'))) await s.page.$eval('[data-testid=fate-open]', (b) => b.click());
                 await s.page.waitForSelector('[data-testid=fate-panel]');
                 await s.page.$eval('[data-testid=fate-draw]', (b) => b.click());
                 await s.page.$eval('[data-testid=fate-refill]', (b) => b.click());

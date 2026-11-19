@@ -1008,7 +1008,7 @@ const L = require('./lib.cjs');
             };
             await openPicker();
             const results = () => s.page.$$eval('[data-testid=marker-result]', (rows) => rows.map((r) => r.innerText.replace(/\s+/g, ' ').trim()));
-            if ((await results()).length !== 6) throw new Error(`expected all 6 markers listed: ${await results()}`);
+            if ((await results()).length !== 7) throw new Error(`expected all 7 markers listed: ${await results()}`);
             // Search: every word must match, in any order.
             await s.page.type('[data-testid=marker-search]', 'marker blast');
             const found = await results();
@@ -1216,6 +1216,93 @@ const L = require('./lib.cjs');
                 });
             await s.page.waitForSelector('[data-testid=empty-table]');
         });
+        await L.step(`tabletop (${label}): models within 1" of an enemy are engaged (not peons), and an engaged Walk is half the Sp`, s, async () => {
+            const gap = 30 / 25.4 + 1; // two 30 mm bases with 1" between their edges
+            await openSandbox([
+                { id: 'e1', sp: 6, sz: 1, name: 'Left', side: 'a', baseMm: 30, x: 18, y: 18 },
+                { id: 'e2', sp: 6, sz: 1, name: 'Right', side: 'b', baseMm: 30, x: 18 + gap, y: 18 },
+                { id: 'e3', sp: 6, sz: 1, name: 'Peon', side: 'b', baseMm: 30, x: 18, y: 19.8, peon: true },
+                { id: 'e4', sp: 6, sz: 1, name: 'Far', side: 'b', baseMm: 30, x: 30, y: 30 },
+            ]);
+            await s.page.waitForSelector('[data-testid=engaged-e1]', { timeout: 5000 });
+            await s.page.waitForSelector('[data-testid=engaged-e2]');
+            const engaged = await s.page.$$eval('[data-testid^=engaged-]', (els) => els.map((e) => e.getAttribute('data-testid')).sort());
+            if (engaged.join() !== 'engaged-e1,engaged-e2') throw new Error(`only the two facing each other are engaged: ${engaged}`);
+            await toBoardTop();
+            const at = await pixel(18, 18);
+            await s.page.mouse.click(at.x, at.y);
+            await s.page.waitForSelector('[data-testid=engaged-note]', { timeout: 4000 });
+            const text = await s.page.$eval('[data-testid=engaged-note]', (e) => e.innerText);
+            if (!/Right/.test(text) || !/\(3"\)/.test(text) || !/missile/.test(text)) throw new Error(`unexpected engagement note: ${text}`);
+            // a walk of 4" is over the halved Sp 3
+            await dragTo([18, 18], [18, 14]);
+            await s.page.waitForFunction(() => /halved: engaged/.test(document.querySelector('[data-testid=tabletop-note]').innerText), { timeout: 4000 });
+            // moved away, it is no longer engaged
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=engaged-e1]'), { timeout: 4000 });
+        });
+        await L.step(`tabletop (${label}): a marker lists the models near it, peons left out`, s, async () => {
+            await openSandbox([
+                { id: 'mk', name: 'Scrap Marker', side: 'n', baseMm: 30, x: 18, y: 18, marker: true, markerId: 1 },
+                { id: 'n1', sp: 6, sz: 1, name: 'Near Blue', side: 'a', baseMm: 30, x: 20, y: 18 },
+                { id: 'n2', sp: 6, sz: 1, name: 'Near Red', side: 'b', baseMm: 30, x: 18, y: 20.5 },
+                { id: 'n3', sp: 6, sz: 1, name: 'Peon Red', side: 'b', baseMm: 30, x: 16.5, y: 18, peon: true },
+                { id: 'n4', sp: 6, sz: 1, name: 'Far Blue', side: 'a', baseMm: 30, x: 32, y: 32 },
+            ]);
+            await toBoardTop();
+            const at = await pixel(18, 18);
+            await s.page.mouse.click(at.x, at.y);
+            await s.page.waitForSelector('[data-testid=marker-neighbours]', { timeout: 4000 });
+            const blue = await s.page.$eval('[data-testid=marker-neighbours-a]', (e) => e.innerText);
+            const red = await s.page.$eval('[data-testid=marker-neighbours-b]', (e) => e.innerText);
+            if (!/Near Blue/.test(blue) || /Far Blue/.test(blue)) throw new Error(`blue within 3": ${blue}`);
+            if (!/Near Red/.test(red) || /Peon/.test(red)) throw new Error(`red within 3" should leave the peon out: ${red}`);
+            await s.page.$eval('[data-testid=marker-range]', (i) => {
+                i.value = '1';
+                i.dispatchEvent(new Event('input'));
+            });
+            await s.page.waitForFunction(() => /none/.test(document.querySelector('[data-testid=marker-neighbours-b]').innerText), { timeout: 4000 });
+        });
+        await L.step(`tabletop (${label}): a killed model offers a Remains marker within 1", and a peon makes none`, s, async () => {
+            await openSandbox([
+                { id: 'k1', sp: 6, sz: 1, name: 'Fallen', side: 'a', baseMm: 30, x: 18, y: 18 },
+                { id: 'k2', sp: 6, sz: 1, name: 'Peon', side: 'a', baseMm: 30, x: 26, y: 18, peon: true },
+            ]);
+            await toBoardTop();
+            const markers = () => s.page.$$eval('[data-marker=true]', (els) => els.length);
+            const start = await markers();
+            const pick = async (x, y) => {
+                await toBoardTop();
+                const m = await pixel(x, y);
+                await s.page.mouse.click(m.x, m.y);
+            };
+            const kill = async () => {
+                await s.page.waitForSelector('[data-testid=model-kill]', { timeout: 4000 });
+                await s.page.$eval('[data-testid=model-kill]', (b) => {
+                    b.scrollIntoView({ block: 'center' });
+                    b.click();
+                });
+            };
+            await pick(18, 18);
+            await kill();
+            await s.page.waitForSelector('[data-testid=remains-prompt]', { timeout: 4000 });
+            await s.page.$eval('[data-testid=remains-place]', (b) => b.click());
+            await s.page.waitForFunction((n) => document.querySelectorAll('[data-marker=true]').length === n, { timeout: 4000 }, start + 1);
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=remains-prompt]'), { timeout: 4000 });
+            // the Remains marker is within 1" of the fallen model's base
+            const near = await s.page.evaluate(() => {
+                const m = [...document.querySelectorAll('[data-marker=true]')].pop();
+                const base = document.querySelector('[data-testid=token-k1] > circle');
+                const dx = Number(m.getAttribute('cx')) - Number(base.getAttribute('cx'));
+                const dy = Number(m.getAttribute('cy')) - Number(base.getAttribute('cy'));
+                return Math.hypot(dx, dy) - Number(m.getAttribute('r')) - Number(base.getAttribute('r'));
+            });
+            if (near > 1.0001) throw new Error(`the Remains marker is ${near}" from the fallen model, not within 1"`);
+            // a peon is killed: no Remains marker
+            await pick(26, 18);
+            await kill();
+            await L.sleep(500);
+            if (await s.page.$('[data-testid=remains-prompt]')) throw new Error('a peon makes no Remains marker');
+        });
         await L.step(`tabletop (${label}): the practice Fate deck draws, discards, flips, looks at the top and searches`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=fate-section]');
@@ -1251,6 +1338,15 @@ const L = require('./lib.cjs');
             await handIs(1);
             await press('fate-refill');
             await handIs(7);
+            // the start phase: discard some, then draw up to the maximum
+            await press('fate-start-phase');
+            await s.page.waitForSelector('[data-testid=fate-start-dialog]', { timeout: 4000 });
+            await s.page.$eval('[data-testid=fate-start-card]', (c) => c.click());
+            await s.page.waitForFunction(() => /Discard 1, draw 1/.test(document.querySelector('[data-testid=fate-start-summary]').innerText), { timeout: 4000 });
+            await press('fate-start-apply');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=fate-start-dialog]') && document.body.style.pointerEvents !== 'none', { timeout: 5000 });
+            await handIs(7);
+            await s.page.waitForSelector('[data-testid=fate-discard-1] [data-testid=fate-discard-card]');
             // a hand card opens a menu; discarding it moves it to the face-up pile
             await s.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-card]', (b) => b.click());
             await s.page.waitForSelector('[data-testid=fate-card-menu]');

@@ -374,6 +374,78 @@ const L = require('./lib.cjs');
             if ((await hand()) !== before + 1) throw new Error(`the hand should survive a reload: ${await hand()} vs ${before + 1}`);
             if (!(await carol.page.$('[data-testid=fate-hand-card]'))) throw new Error('my own hand should show its cards');
         });
+        await L.step(`board (${label}): the turn bar shows initiative and passing, and the table can be looked at as it stood last turn`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=turn-bar]', { timeout: 8000 });
+            // turn 2 starts without initiative: the player who did not activate last chooses (a solo player chooses for either)
+            if (await carol.page.$('[data-testid=turn-choose]')) {
+                await carol.page.$eval('[data-testid=turn-initiative-1]', (b) => b.click());
+                await carol.page.waitForSelector('[data-testid=turn-active]', { timeout: 6000 });
+            }
+            const active = await carol.page.$eval('[data-testid=turn-active]', (e) => e.innerText);
+            if (!/to activate/.test(active)) throw new Error(`the turn bar should say whose activation it is: ${active}`);
+            // the pass row always says where the player stands (the rule itself is tested on the server)
+            const passRow = await carol.page.$eval('[data-testid=turn-pass-row]', (e) => e.innerText);
+            if (!/pass/i.test(passRow) || !/(models|opponent)/i.test(passRow)) throw new Error(`the pass row should explain passing: ${passRow}`);
+            // the look back: the table at the end of turn 1, read-only, then back to now
+            await carol.page.$eval('[data-testid=history-turn-1]', (b) => b.click());
+            await carol.page.waitForSelector('[data-testid=history-note]', { timeout: 4000 });
+            if (await carol.page.$('[data-testid=turn-bar]')) throw new Error('the turn bar should be put away while looking back');
+            await carol.page.$eval('[data-testid=history-now]', (b) => b.click());
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=history-note]'), { timeout: 4000 });
+        });
+        await L.step(`board (${label}): a model can be picked as the scheme's model, and it is kept in the scheme notes`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
+            const toggle = async () => {
+                await carol.page.evaluate(() => {
+                    const row = document.querySelector('[data-testid=crew-list] [data-testid^=crew-]');
+                    if (!row.querySelector('[data-testid=scheme-target]')) row.querySelector('[data-testid=row-options]').click();
+                });
+                await carol.page.waitForSelector('[data-testid=scheme-target]', { timeout: 5000 });
+                await carol.page.$eval('[data-testid=scheme-target]', (b) => {
+                    b.scrollIntoView({ block: 'center' });
+                    b.click();
+                });
+            };
+            await toggle();
+            await carol.page.waitForFunction(() => document.querySelector('[data-testid=scheme-target]').getAttribute('aria-pressed') === 'true', { timeout: 5000 });
+            await L.sleep(1000);
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
+            await carol.page.evaluate(() => document.querySelector('[data-testid=crew-list] [data-testid^=crew-] [data-testid=row-options]').click());
+            await carol.page.waitForFunction(() => document.querySelector('[data-testid=scheme-target]')?.getAttribute('aria-pressed') === 'true', { timeout: 5000 });
+            await toggle(); // leave it as found
+            await carol.page.waitForFunction(() => document.querySelector('[data-testid=scheme-target]').getAttribute('aria-pressed') === 'false', { timeout: 5000 });
+            await L.sleep(1000);
+        });
+        await L.step(`board (${label}): a summoned model with no place is set down with a tap, and kept`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.summon_game}/board`);
+            if (label === 'phone') {
+                // the desktop pass already placed it, and the place was kept
+                await carol.page.waitForSelector('[data-testid^=token-]', { timeout: 8000 });
+                if (await carol.page.$('[data-testid=unplaced-bar]')) throw new Error('a placed model should stay placed');
+                return;
+            }
+            await carol.page.waitForSelector('[data-testid=unplaced-bar]', { timeout: 8000 });
+            await carol.page.$eval('[data-testid=place-unplaced]', (b) => {
+                b.scrollIntoView({ block: 'center' });
+                b.click();
+            });
+            await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+            const spot = await carol.page.evaluate(() => {
+                const svg = document.querySelector('[data-testid=tabletop-board] svg');
+                const r = svg.getBoundingClientRect();
+                const vb = svg.viewBox.baseVal;
+                return { x: r.left + ((20 - vb.x) / vb.width) * r.width, y: r.top + ((20 - vb.y) / vb.height) * r.height };
+            });
+            await carol.page.mouse.click(spot.x, spot.y);
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=unplaced-bar]'), { timeout: 4000 });
+            await L.sleep(1200);
+            await L.visit(carol, `/games/${L.ids.summon_game}/board`);
+            await carol.page.waitForSelector('[data-testid^=token-]');
+            if (await carol.page.$('[data-testid=unplaced-bar]')) throw new Error('the placed model should stay placed after a reload');
+        });
         await L.step(`board (${label}): which side the deployment zones sit is kept with the game`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid=deployment-variant]');

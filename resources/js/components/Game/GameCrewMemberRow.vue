@@ -80,6 +80,13 @@ const stats = computed(() =>
     ].filter((x) => x.value),
 );
 
+// A model with no faction (a sandbox model) is tinted by its side, so the two crews are told apart: blue and red, both dark enough for white text.
+const rowTint = computed(() => {
+    const faction = props.member.faction ?? props.fallbackFaction;
+    if (faction) return factionDeep(faction);
+    return props.member.side === 'a' ? 'bg-blue-800' : props.member.side === 'b' ? 'bg-red-800' : factionDeep('');
+});
+
 const hasCustomCharacterCard = (member: any): boolean =>
     !!member.custom_character?.front_image ||
     (member.custom_character?.actions?.length ?? 0) > 0 ||
@@ -87,11 +94,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
 </script>
 
 <template>
-    <div
-        :class="factionDeep(member.faction ?? fallbackFaction ?? '')"
-        class="rounded-md border border-white/20 px-2 py-1.5 text-white"
-        :style="member.is_activated ? 'opacity: 0.7' : ''"
-    >
+    <div :class="[rowTint, member.is_activated ? 'saturate-50' : '']" class="rounded-md border border-white/20 px-2 py-1.5 text-white">
         <div class="min-w-0 flex-1">
             <!-- Line 1: Activation + Name (+ desktop action buttons) -->
             <div class="flex items-center gap-1">
@@ -181,7 +184,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     </button>
                     <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold">
                         <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                        {{ member.current_health }}/{{ member.max_health }}
+                        {{ member.max_health ? `${member.current_health}/${member.max_health}` : '–' }}
                     </span>
                     <button
                         :aria-label="`Increase health of ${member.display_name}`"
@@ -193,12 +196,12 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 </div>
                 <span v-else class="ml-auto flex shrink-0 items-center gap-0.5 text-sm font-bold sm:hidden">
                     <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                    {{ member.current_health }}/{{ member.max_health }}
+                    {{ member.max_health ? `${member.current_health}/${member.max_health}` : '–' }}
                 </span>
             </div>
             <!-- Line 2 (phones): health pips, stats and the action buttons -->
             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 sm:hidden">
-                <div class="flex gap-0.5">
+                <div v-if="!boardMode" class="flex gap-0.5">
                     <button
                         v-for="pip in member.max_health"
                         :key="'hp-m-' + pip"
@@ -270,7 +273,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     >
                 </div>
                 <!-- Desktop: health pips inline -->
-                <div class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
+                <div v-if="!boardMode" class="hidden min-w-0 flex-wrap gap-0.5 sm:flex">
                     <button
                         v-for="pip in member.max_health"
                         :key="'hp-' + pip"
@@ -300,7 +303,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         </button>
                         <span class="flex min-w-[3rem] items-center justify-center gap-0.5 text-sm font-bold">
                             <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                            {{ member.current_health }}/{{ member.max_health }}
+                            {{ member.max_health ? `${member.current_health}/${member.max_health}` : '–' }}
                         </span>
                         <button
                             :aria-label="`Increase health of ${member.display_name}`"
@@ -313,7 +316,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 </template>
                 <span v-else class="ml-auto flex shrink-0 items-center justify-center gap-0.5 text-sm font-bold">
                     <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
-                    {{ member.current_health }}/{{ member.max_health }}
+                    {{ member.max_health ? `${member.current_health}/${member.max_health}` : '–' }}
                 </span>
             </div>
         </div>
@@ -329,8 +332,8 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 {{ token.name }}
                 <button
                     v-if="editable"
-                    class="ml-0.5 shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors hover:bg-red-500/60 hover:text-white"
-                    aria-label="Remove token"
+                    class="relative ml-0.5 shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-red-500/60 hover:text-white"
+                    :aria-label="`Remove ${token.name} token`"
                     @click.stop="$emit('remove-token', token.id)"
                 >
                     <X class="size-2.5" />

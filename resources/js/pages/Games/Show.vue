@@ -1088,7 +1088,13 @@ onMounted(() => {
         setupLeaveGuard();
     }
     document.addEventListener('visibilitychange', onAuthVisibilityChange);
+    document.addEventListener('visibilitychange', reloadOnShow);
 });
+
+// Coming back to this tab (from the board, say) reads the game again, so what the other screen changed is here too.
+const reloadOnShow = () => {
+    if (document.visibilityState === 'visible' && isGameInProgress.value) router.reload({ only: ['game'] });
+};
 
 // Watch in case status changes (e.g., game completed mid-session)
 watch(isGameInProgress, (active) => {
@@ -1102,6 +1108,7 @@ watch(isGameInProgress, (active) => {
 onUnmounted(() => {
     teardownLeaveGuard();
     document.removeEventListener('visibilitychange', onAuthVisibilityChange);
+    document.removeEventListener('visibilitychange', reloadOnShow);
 });
 
 // ─── Gameplay ───
@@ -1158,6 +1165,14 @@ const schemeNote = ref(myPlayer.value?.scheme_notes?.note ?? '');
 const schemeSelectedModel = ref(myPlayer.value?.scheme_notes?.selected_model ?? '');
 const schemeSelectedMarker = ref(myPlayer.value?.scheme_notes?.selected_marker ?? '');
 const schemeTerrainNote = ref(myPlayer.value?.scheme_notes?.terrain_note ?? '');
+// The board can pick a scheme's model or marker too: when the game is read again (the tab is shown, or the other screen saved) take up what it saved.
+watch(
+    () => myPlayer.value?.scheme_notes,
+    (notes) => {
+        schemeSelectedModel.value = notes?.selected_model ?? '';
+        schemeSelectedMarker.value = notes?.selected_marker ?? '';
+    },
+);
 let schemeNotesDebounce: ReturnType<typeof setTimeout>;
 const saveSchemeNotes = () => {
     clearTimeout(schemeNotesDebounce);
@@ -3047,16 +3062,6 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <GameRoundClock v-if="tournament_clock && game.status === 'in_progress'" :clock="tournament_clock" class="mb-3" />
-            <GameTurnBar
-                v-if="turnState && game.status === 'in_progress'"
-                :turn="turnState"
-                :names="fateNames"
-                :mine="mySlots"
-                :busy="turnBusy"
-                class="mb-3"
-                @pass="passTurn"
-                @initiative="chooseInitiative"
-            />
             <FateDock
                 v-if="tabletop_enabled && game.status === 'in_progress'"
                 :feed="fate"
@@ -3898,6 +3903,16 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <Settings class="size-4" />
                                     </button>
                                 </div>
+                                <GameTurnBar
+                                    v-if="turnState && game.status === 'in_progress'"
+                                    compact
+                                    :turn="turnState"
+                                    :names="fateNames"
+                                    :mine="mySlots"
+                                    :busy="turnBusy"
+                                    @pass="passTurn"
+                                    @initiative="chooseInitiative"
+                                />
 
                                 <!-- Scores. Bonanza renders only the user's score
                                      (single-column) — slot 2 is inert and the
@@ -4715,6 +4730,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             Activations:
                             <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ myCrewMembers.length }}</span> remaining
+                            <span
+                                v-if="turnState && myPlayer && turnState.active === myPlayer.slot"
+                                class="ml-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"
+                                data-testid="active-badge-mine"
+                                >To activate</span
+                            >
                         </div>
                         <!-- Reference Upgrades -->
                         <div v-if="myCrewUpgrades.length" class="mb-2 space-y-1">
@@ -5038,6 +5059,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             Activations:
                             <span class="font-medium text-foreground">{{ opponentCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ opponentCrewMembers.length }}</span> remaining
+                            <span
+                                v-if="turnState && opponent && turnState.active === opponent.slot"
+                                class="ml-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"
+                                data-testid="active-badge-opponent"
+                                >To activate</span
+                            >
                         </div>
 
                         <!-- Opponent faction/master info (when no crew) -->

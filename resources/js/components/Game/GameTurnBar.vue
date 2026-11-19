@@ -29,6 +29,8 @@ const props = defineProps<{
     /** The slots this viewer plays (both in a solo game, none for an observer). */
     mine: number[];
     busy?: boolean;
+    /** Inside a panel that already shows the turn number and what each crew has left: only initiative, whose activation, and the actions. */
+    compact?: boolean;
 }>();
 const emit = defineEmits<{ pass: [slot: number]; initiative: [chooser: number, initiative: number] }>();
 
@@ -40,15 +42,15 @@ const allDone = computed(() => slots.value.every((s) => props.turn.unactivated[s
 </script>
 
 <template>
-    <div class="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm" data-testid="turn-bar">
+    <div :class="compact ? 'space-y-1.5 text-sm' : 'space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm'" data-testid="turn-bar">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span class="font-semibold" data-testid="turn-number">Turn {{ turn.turn }} of {{ turn.max_turns }}</span>
+            <span v-if="!compact" class="font-semibold" data-testid="turn-number">Turn {{ turn.turn }} of {{ turn.max_turns }}</span>
             <span v-if="turn.initiative !== null" data-testid="turn-initiative">Initiative: {{ nameOf(turn.initiative) }}</span>
             <span v-if="turn.active !== null" class="font-medium text-primary" data-testid="turn-active">{{ nameOf(turn.active) }} to activate</span>
             <span v-else-if="turn.initiative !== null && allDone" class="text-muted-foreground" data-testid="turn-end-phase">
                 Everyone has activated: end phase
             </span>
-            <span class="ml-auto text-xs text-muted-foreground" data-testid="turn-left">
+            <span v-if="!compact" class="ml-auto text-xs text-muted-foreground" data-testid="turn-left">
                 Left to activate:
                 <template v-for="(s, i) in slots" :key="s">{{ i ? ' · ' : ' ' }}{{ nameOf(s) }} {{ turn.unactivated[s] }}</template>
             </span>

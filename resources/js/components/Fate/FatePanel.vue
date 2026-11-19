@@ -89,8 +89,15 @@ const isResult = (f: FateFlip, c: { owner_slot: number | null; card: number }) =
     !!f.chosen && f.chosen.owner_slot === c.owner_slot && f.chosen.card === c.card;
 const canChoose = (f: FateFlip, card: number) => !f.chosen && f.owner_slot === actingSlot.value && f.legal.includes(card);
 const needsSuit = (f: FateFlip) => !f.chosen && f.owner_slot === actingSlot.value && f.legal.includes(RED_JOKER);
-const canCheat = (f: FateFlip) =>
-    !!f.chosen && actingSlot.value !== null && !f.cheaters.includes(actingSlot.value) && picked.value !== null && f.chosen.card !== BLACK_JOKER;
+const canCheat = (f: FateFlip) => cheatable(f) && picked.value !== null;
+/** A flip whose result I may still cheat (CRG p.9): it has one, I have not had my chance, a Black Joker never can be, and a Red Joker stops its own flipper. */
+const cheatable = (f: FateFlip) =>
+    !!f.chosen &&
+    actingSlot.value !== null &&
+    !f.cheaters.includes(actingSlot.value) &&
+    f.chosen.card !== BLACK_JOKER &&
+    !(f.chosen.card === RED_JOKER && f.owner_slot === actingSlot.value);
+const cheatableFlips = computed(() => (state.value?.flips ?? []).filter(cheatable));
 const canPass = (f: FateFlip) => !!f.chosen && actingSlot.value !== null && !f.cheaters.includes(actingSlot.value);
 const chooseCard = (f: FateFlip, card: number) => run('choose', { flip: f.id, card, suit: card === RED_JOKER ? jokerSuit.value : undefined });
 async function cheat(f: FateFlip) {
@@ -306,26 +313,6 @@ const pileOpen = computed({
                         >
                     </button>
                     <span class="text-[0.7rem] uppercase tracking-wide text-muted-foreground">Deck</span>
-                    <button
-                        type="button"
-                        class="rounded border px-1.5 py-0.5 text-[0.7rem] hover:bg-muted disabled:opacity-60"
-                        :disabled="busy"
-                        :title="`Draw until the hand is at ${state.hand_max}`"
-                        data-testid="fate-refill"
-                        @click="run('refill', { discard: [] })"
-                    >
-                        Up to {{ state.hand_max }}
-                    </button>
-                    <button
-                        type="button"
-                        class="rounded border border-primary/50 px-1.5 py-0.5 text-[0.7rem] hover:bg-primary/10 disabled:opacity-60"
-                        :disabled="busy"
-                        title="Start phase: discard any cards, then draw up to the hand maximum"
-                        data-testid="fate-start-phase"
-                        @click="startOpen = true"
-                    >
-                        Start phase
-                    </button>
                 </div>
 
                 <!-- the conflict: flips in progress, and the flip control -->
@@ -391,6 +378,9 @@ const pileOpen = computed({
                             <span v-if="f.cheaters.length" class="text-muted-foreground">
                                 · passed or cheated: {{ f.cheaters.map(nameOf).join(', ') }}</span
                             >
+                        </p>
+                        <p v-if="cheatable(f) && picked === null" class="text-xs text-muted-foreground" data-testid="fate-cheat-hint">
+                            You may cheat Fate: tap a card in your hand, then choose Cheat.
                         </p>
                         <div class="flex flex-wrap gap-1">
                             <Button v-if="canCheat(f)" size="sm" variant="outline" :disabled="busy" data-testid="fate-cheat" @click="cheat(f)"
@@ -497,6 +487,28 @@ const pileOpen = computed({
                 </div>
             </div>
 
+            <div v-if="mine" class="flex flex-wrap items-center gap-1.5" data-testid="fate-draw-row">
+                <span class="text-xs text-muted-foreground">Draw</span>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    :disabled="busy"
+                    :title="`Draw until the hand is at ${state.hand_max}`"
+                    data-testid="fate-refill"
+                    @click="run('refill', { discard: [] })"
+                    >Up to {{ state.hand_max }}</Button
+                >
+                <Button
+                    size="sm"
+                    variant="outline"
+                    :disabled="busy"
+                    title="Start phase: discard any cards, then draw up to the hand maximum"
+                    data-testid="fate-start-phase"
+                    @click="startOpen = true"
+                    >Start phase: discard, then draw</Button
+                >
+            </div>
+
             <!-- my hand, along the bottom -->
             <section v-if="mine" class="space-y-1.5" :data-testid="`fate-side-${mine.slot}`">
                 <div class="flex items-baseline justify-between">
@@ -562,7 +574,32 @@ const pileOpen = computed({
                         @click="handAct('remove', { cards: [picked] })"
                         >Remove</Button
                     >
-                    <span v-if="state.flips.some((f) => f.chosen)" class="text-xs text-muted-foreground">To cheat a flip, use the button on it.</span>
+                    <!-- Cheat Fate: replace a flip's result with this card (the old result is discarded) -->
+                    <div class="flex w-full flex-wrap items-center gap-1 border-t pt-1.5" data-testid="fate-cheat-menu">
+                        <Button
+                            v-for="f in cheatableFlips"
+                            :key="f.id"
+                            size="sm"
+                            variant="secondary"
+                            :disabled="busy"
+                            data-testid="fate-menu-cheat"
+                            @click="cheat(f)"
+                            >Cheat Fate: replace {{ nameOf(f.owner_slot) }}'s {{ cardLabel(f.chosen!.card) }}</Button
+                        >
+                        <label v-if="picked === RED_JOKER && cheatableFlips.length" class="flex items-center gap-1 text-xs">
+                            A Red Joker takes the suit
+                            <select v-model="jokerSuit" class="rounded-md border bg-background px-1.5 py-1" data-testid="fate-cheat-suit">
+                                <option v-for="suit in SUITS" :key="suit" :value="suit">{{ suit }}</option>
+                            </select>
+                        </label>
+                        <span v-if="!cheatableFlips.length" class="text-xs text-muted-foreground" data-testid="fate-cheat-none">
+                            {{
+                                state.flips.length
+                                    ? 'No flip result you can cheat now (a Black Joker cannot be cheated, and you get one chance per flip).'
+                                    : 'Cheat Fate: once a flip has a result you can replace it with a card from your hand.'
+                            }}
+                        </span>
+                    </div>
                 </div>
 
                 <!-- effects -->

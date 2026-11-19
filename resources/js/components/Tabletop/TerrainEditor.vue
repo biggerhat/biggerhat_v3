@@ -246,10 +246,10 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                 <span class="font-medium">Table</span>
                 <span class="text-muted-foreground">{{ pieces.length }} piece{{ pieces.length === 1 ? '' : 's' }}</span>
             </div>
-            <div :class="!pieces.length || coverageOk ? 'text-foreground' : 'text-amber-500'">
+            <div :class="!pieces.length || coverageOk ? 'text-foreground' : 'text-amber-700 dark:text-amber-400'">
                 Covered: {{ coverage }}% <span class="text-muted-foreground">(aim for 45-65%)</span>
             </div>
-            <div :class="!pieces.length || tallOk ? 'text-foreground' : 'text-amber-500'">
+            <div :class="!pieces.length || tallOk ? 'text-foreground' : 'text-amber-700 dark:text-amber-400'">
                 Climbable Ht 2+ pieces: {{ tall }} <span class="text-muted-foreground">(aim for 3-8)</span>
             </div>
         </div>
@@ -271,7 +271,7 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
             <ul class="space-y-2 border-t p-3 text-xs">
                 <li v-if="!pieces.length" class="text-muted-foreground">Add some terrain to check the table.</li>
                 <li v-for="c in checks" :key="c.id" :data-status="c.status" data-testid="table-check-item">
-                    <span class="font-medium" :class="c.status === 'note' ? 'text-amber-500' : ''">{{ c.label }}</span>
+                    <span class="font-medium" :class="c.status === 'note' ? 'text-amber-700 dark:text-amber-400' : ''">{{ c.label }}</span>
                     <span class="block text-muted-foreground">{{ c.text }}</span>
                 </li>
                 <li v-if="pieces.length && !zones" class="text-muted-foreground">

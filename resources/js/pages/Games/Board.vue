@@ -81,7 +81,15 @@ const props = defineProps<{
     /** The tournament round's clock, for a game in a running round. */
     clock?: RoundClock | null;
     /** Where the models and markers stood at the end of each turn (positions of moved models, and the markers), by turn number. */
-    history?: Record<string, { positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>; markers: PlacedMarker[] }>;
+    history?: Record<
+        string,
+        {
+            positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>;
+            markers: PlacedMarker[];
+            /** How each model stood: health, whether it was killed, its tokens. */
+            models?: Record<string, { health: number | null; max_health: number | null; killed: boolean; tokens: { id: number; name: string }[] }>;
+        }
+    >;
     models: BoardModel[];
     positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>;
     terrain: TerrainPiece[];
@@ -266,7 +274,7 @@ async function modelChange(id: string, patch: Partial<ModelInfo>) {
 
 // The crew list on the board: the play screen's rows, fed from the same models (so a change shows in both places).
 const crew = computed(() =>
-    liveModels.value.map((m) => ({
+    modelsShown.value.map((m) => ({
         ...m.member,
         id: m.id,
         display_name: m.name,
@@ -397,6 +405,12 @@ const historyTurns = computed(() =>
 );
 const viewing = computed(() => viewTurn.value !== null && !!props.history?.[String(viewTurn.value)]);
 const shownPositions = computed(() => (viewing.value ? props.history![String(viewTurn.value)].positions : live.value));
+/** The crew as it is, or as it stood at the end of the turn being looked at (health, tokens, killed). */
+const modelsShown = computed<BoardModel[]>(() => {
+    const snap = viewing.value ? props.history![String(viewTurn.value)].models : undefined;
+    if (!snap) return liveModels.value;
+    return liveModels.value.map((m) => (snap[String(m.id)] ? { ...m, ...snap[String(m.id)], activated: false } : m));
+});
 const shownMarkers = computed(() => (viewing.value ? props.history![String(viewTurn.value)].markers : placed.value));
 const markerTokens = computed<Token[]>(() =>
     shownMarkers.value.map((pm): Token => {
@@ -424,7 +438,7 @@ const placeAs = computed(() =>
 const tokens = computed<Token[]>(() => [
     // markers first, so they draw underneath the models and a model on top of one is the one you pick up
     ...markerTokens.value,
-    ...liveModels.value.map((m): Token => {
+    ...modelsShown.value.map((m): Token => {
         const at = shownPositions.value[String(m.id)] ?? defaultSpot(m);
         return {
             id: String(m.id),
@@ -523,10 +537,10 @@ function moved(t: Token) {
     <Head title="Game board (preview)" />
     <PageBanner title="Game board">
         <template #subtitle>
-            <div v-if="read_only" class="px-2 text-sm text-muted-foreground" data-testid="watch-note">
+            <div v-if="read_only" class="line-clamp-1 px-2 text-sm text-muted-foreground sm:line-clamp-none" data-testid="watch-note">
                 You are watching. The board refreshes by itself every few seconds and cannot be changed from here.
             </div>
-            <div v-else class="px-2 text-sm text-muted-foreground">
+            <div v-else class="line-clamp-1 px-2 text-sm text-muted-foreground sm:line-clamp-none">
                 Your crew is on the table. Drag your own models; the other crew is locked. Either player can lay out the terrain. Everything is saved
                 to the game.
             </div>
@@ -539,7 +553,7 @@ function moved(t: Token) {
             </Button>
         </template>
     </PageBanner>
-    <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
+    <div class="container mx-auto mt-2 px-2 max-lg:pb-24 sm:mt-4 sm:px-4 lg:px-6">
         <div v-if="clock || turn || historyTurns.length" class="mb-3 space-y-2">
             <GameRoundClock v-if="clock" :clock="clock" />
             <GameTurnBar
@@ -552,21 +566,21 @@ function moved(t: Token) {
                 @initiative="chooseInitiative"
             />
             <!-- a look back at where everything stood at the end of each turn -->
-            <div v-if="historyTurns.length" class="flex flex-wrap items-center gap-1.5 text-sm" data-testid="history-bar">
-                <span class="text-muted-foreground">Look back:</span>
-                <Button size="sm" :variant="viewing ? 'outline' : 'default'" data-testid="history-now" @click="viewTurn = null">Now</Button>
-                <Button
-                    v-for="n in historyTurns"
-                    :key="n"
-                    size="sm"
-                    :variant="viewTurn === n ? 'default' : 'outline'"
-                    :aria-pressed="viewTurn === n"
-                    :data-testid="`history-turn-${n}`"
-                    @click="viewTurn = n"
-                    >End of turn {{ n }}</Button
-                >
+            <div v-if="historyTurns.length" class="flex flex-wrap items-center gap-2 text-sm" data-testid="history-bar">
+                <label class="flex items-center gap-2">
+                    <span class="text-muted-foreground">Look back</span>
+                    <select
+                        class="rounded-md border bg-background px-2 py-1.5"
+                        data-testid="history-select"
+                        :value="viewTurn ?? ''"
+                        @change="viewTurn = ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null"
+                    >
+                        <option value="">Now</option>
+                        <option v-for="n in historyTurns" :key="n" :value="n">End of turn {{ n }}</option>
+                    </select>
+                </label>
                 <span v-if="viewing" class="text-xs text-muted-foreground" data-testid="history-note">
-                    Showing the table at the end of turn {{ viewTurn }}. Nothing can be changed while you look back.
+                    The table at the end of turn {{ viewTurn }}. Nothing can be changed while you look back.
                 </span>
             </div>
         </div>
@@ -604,8 +618,8 @@ function moved(t: Token) {
             :side-names="sideNames"
             @moved="moved"
         >
-            <template #fate>
-                <FateDock :feed="fate" :names="fateNames" :read-only="read_only" />
+            <template #fate="{ terrain }">
+                <FateDock :feed="fate" :names="fateNames" :read-only="read_only" :collapsed="terrain" />
             </template>
         </TabletopBoard>
     </div>

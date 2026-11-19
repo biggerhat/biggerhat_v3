@@ -91,6 +91,8 @@ import {
     Minus,
     Mountain,
     Plus,
+    Swords,
+    TriangleAlert,
     Ruler,
     Save,
     Trash2,
@@ -424,6 +426,23 @@ onMounted(() => {
 watch(tableLines, (on) => {
     try {
         localStorage.setItem(LINES_KEY, on ? '1' : '0');
+    } catch {
+        // ignore
+    }
+});
+/** Status badges (token chips, the activation tick, engaged) on the bases: on by default, and can be put away when a crowded table gets busy. */
+const BADGES_KEY = 'tabletop-badges';
+const showBadges = ref(true);
+onMounted(() => {
+    try {
+        showBadges.value = localStorage.getItem(BADGES_KEY) !== '0';
+    } catch {
+        // storage unavailable: on
+    }
+});
+watch(showBadges, (on) => {
+    try {
+        localStorage.setItem(BADGES_KEY, on ? '1' : '0');
     } catch {
         // ignore
     }
@@ -799,6 +818,7 @@ const crewRows = computed<CrewMember[]>(
                   .map((t) => ({
                       id: t.id as unknown as number,
                       slot: t.side === 'b' ? 2 : 1,
+                      side: t.side,
                       is_killed: !!t.killed,
                       display_name: t.name,
                       faction: t.card?.faction,
@@ -893,6 +913,13 @@ const cardNotes = (payload: { notes: string | null }) => {
     if (cardMember.value) emit('modelChange', String(cardMember.value.id), { notes: payload.notes ?? '' });
 };
 const noUpgradePower = () => 0;
+/** The model whose row the pointer is on: a ring on its base, so a row can be found on the table. */
+const hoverId = ref<string | null>(null);
+// on a wide screen the table stays put, so choosing a model on it brings its row into view in the list
+watch(selectedId, (id) => {
+    if (!id || !crewRows.value.length || typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) return;
+    void nextTick(() => document.querySelector(`[data-testid="crew-${id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+});
 
 // ----- a scheme's model or marker, picked on the board (the notes are private to their player) -----
 const schemeSlot = (t: Token): number | null => {
@@ -1019,6 +1046,32 @@ const variants = computed(() =>
 
 const sideColour = (side: 'a' | 'b' | 'n') => (side === 'a' ? 'hsl(215 70% 50%)' : side === 'b' ? 'hsl(5 70% 48%)' : 'hsl(280 45% 50%)');
 /** Two letters for a marker ("Scheme Marker" is "SM"), one for a model. */
+/**
+ * What is written on a base: the first letter of the model's name; two letters where several models start alike; and a number where they
+ * are the same model (two Bayou Gremlins are B1 and B2), so every base on the table can be told from the list.
+ */
+const tokenLabels = computed(() => {
+    const out = new Map<string, string>();
+    const groups = new Map<string, Token[]>();
+    for (const t of tokens.value) {
+        if (t.marker) continue;
+        const k = t.name.slice(0, 1).toUpperCase();
+        groups.set(k, [...(groups.get(k) ?? []), t]);
+    }
+    for (const group of groups.values()) {
+        if (group.length === 1) {
+            out.set(group[0].id, group[0].name.slice(0, 1));
+            continue;
+        }
+        const pairs = new Map<string, Token[]>();
+        for (const t of group) pairs.set(t.name.slice(0, 2), [...(pairs.get(t.name.slice(0, 2)) ?? []), t]);
+        for (const [two, same] of pairs) {
+            if (same.length === 1) out.set(same[0].id, two);
+            else same.forEach((t, i) => out.set(t.id, `${t.name.slice(0, 1)}${i + 1}`));
+        }
+    }
+    return out;
+});
 const tokenLabel = (t: Token) =>
     t.marker
         ? t.name
@@ -1027,7 +1080,7 @@ const tokenLabel = (t: Token) =>
               .map((w) => w.slice(0, 1))
               .join('')
               .toUpperCase()
-        : t.name.slice(0, 1);
+        : (tokenLabels.value.get(t.id) ?? t.name.slice(0, 1));
 
 const surfaceFill = (top: number) => `hsl(var(--primary) / ${Math.min(0.1 + top * 0.09, 0.6)})`;
 /** Over a texture the height tint is lighter, so the picture still reads and the levels still tell apart. */
@@ -1695,7 +1748,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
 
 <template>
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div>
+        <!-- on a wide screen the table stays in view while the side column scrolls, so the list and the options never leave it behind -->
+        <div class="lg:sticky lg:top-4 lg:self-start" data-testid="board-column">
             <div
                 class="mx-auto aspect-square w-full max-w-[min(100%,calc(100vh-14rem))] overflow-hidden rounded-lg border bg-card"
                 data-testid="tabletop-board"
@@ -2034,6 +2088,17 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             :data-under="t.under ? 'true' : undefined"
                             :data-marker="t.marker ? 'true' : undefined"
                         />
+                        <g v-if="hoverId === t.id" pointer-events="none" :data-testid="`hover-ring-${t.id}`">
+                            <circle
+                                :cx="t.x"
+                                :cy="t.y"
+                                :r="baseRadius(t.baseMm) + 0.28"
+                                fill="none"
+                                stroke="hsl(45 95% 55%)"
+                                stroke-width="0.16"
+                                stroke-dasharray="0.45 0.28"
+                            />
+                        </g>
                         <g v-if="t.info?.maxHealth" pointer-events="none" :data-testid="`hp-${t.id}`">
                             <rect
                                 :x="t.x - baseRadius(t.baseMm)"
@@ -2052,7 +2117,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :fill="(t.info.health ?? t.info.maxHealth) / t.info.maxHealth <= 0.34 ? 'hsl(0 80% 55%)' : 'hsl(145 60% 42%)'"
                             />
                         </g>
-                        <g v-if="badgesOf(t.info).chips.length" pointer-events="none" :data-testid="`badges-${t.id}`">
+                        <g v-if="showBadges && badgesOf(t.info).chips.length" pointer-events="none" :data-testid="`badges-${t.id}`">
                             <g v-for="(c, i) in badgesOf(t.info).chips" :key="c.label">
                                 <circle
                                     :cx="t.x + (i - (badgesOf(t.info).chips.length - 1) / 2) * 0.85"
@@ -2074,7 +2139,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 </text>
                             </g>
                         </g>
-                        <g v-if="t.info?.activated" pointer-events="none" :data-testid="`activated-${t.id}`">
+                        <g v-if="showBadges && t.info?.activated" pointer-events="none" :data-testid="`activated-${t.id}`">
                             <circle
                                 :cx="t.x - baseRadius(t.baseMm) * 0.8"
                                 :cy="t.y - baseRadius(t.baseMm) * 0.8"
@@ -2091,7 +2156,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 stroke-linecap="round"
                             />
                         </g>
-                        <g v-if="engagement.get(t.id)" pointer-events="none" :data-testid="`engaged-${t.id}`">
+                        <g v-if="showBadges && engagement.get(t.id)" pointer-events="none" :data-testid="`engaged-${t.id}`">
                             <circle
                                 :cx="t.x - baseRadius(t.baseMm) * 0.8"
                                 :cy="t.y + baseRadius(t.baseMm) * 0.8"
@@ -2456,11 +2521,18 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             </select>
                         </label>
                         <label
-                            class="flex cursor-pointer items-center gap-2 text-sm"
+                            class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
                             title="The two centre axes and the middle of each 18-inch quarter"
                         >
-                            <input v-model="tableLines" type="checkbox" class="size-4" data-testid="table-lines-toggle" />
+                            <input v-model="tableLines" type="checkbox" class="size-5" data-testid="table-lines-toggle" />
                             <span>Show table lines <span class="text-muted-foreground">(centre axes and quarter centres)</span></span>
+                        </label>
+                        <label
+                            class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
+                            title="Token chips, the activation tick and the engaged mark on each base"
+                        >
+                            <input v-model="showBadges" type="checkbox" class="size-5" data-testid="badges-toggle" />
+                            <span>Show status badges <span class="text-muted-foreground">(tokens, activated, engaged)</span></span>
                         </label>
                         <label v-if="variants.length" class="block text-sm">
                             <span class="mb-1 block font-medium">Which side</span>
@@ -2492,7 +2564,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             </details>
 
             <!-- The Fate deck, when the page offers one (a game's, or the sandbox's practice deck) -->
-            <slot name="fate" />
+            <slot name="fate" :terrain="mode === 'terrain'" />
             <!-- Tools for working with models -->
             <div
                 v-if="activeTab === 'move'"
@@ -2687,6 +2759,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             v-for="m in side.living"
                             :key="m.id"
                             class="rounded-md"
+                            @pointerenter="hoverId = String(m.id)"
+                            @pointerleave="hoverId = null"
                             :class="selectedId === String(m.id) ? 'ring-2 ring-primary' : ''"
                             :data-testid="`crew-${m.id}`"
                         >
@@ -2764,6 +2838,51 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 >.
                             </div>
                             <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
+                            <div
+                                v-if="engagement.get(selected.id)?.length"
+                                class="mt-2 flex gap-2 rounded-md border border-red-500/40 bg-red-500/10 p-2 text-red-800 dark:text-red-200"
+                                role="status"
+                                data-testid="engaged-note"
+                            >
+                                <Swords class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                <p>
+                                    Engaged with
+                                    {{
+                                        engagement
+                                            .get(selected.id)!
+                                            .map((o) => o.name)
+                                            .join(', ')
+                                    }}: a Walk is half its Sp{{ selected.sp !== undefined ? ` (${engagedSp(selected.sp)}")` : '' }}, and it cannot
+                                    declare missile actions, Interact or Charge.
+                                </p>
+                            </div>
+                            <div
+                                v-if="problems.get(selected.id)?.length"
+                                class="mt-2 flex gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-amber-900 dark:text-amber-200"
+                                role="status"
+                                data-testid="placement-warning"
+                            >
+                                <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                <div class="space-y-1.5">
+                                    <p>
+                                        {{ selected.name }}
+                                        {{
+                                            problems
+                                                .get(selected.id)!
+                                                .map((p) => p.text)
+                                                .join(' and ')
+                                        }}.
+                                    </p>
+                                    <Button
+                                        v-if="illegalHere(selected) && !selected.locked"
+                                        size="sm"
+                                        variant="outline"
+                                        data-testid="model-fix-spot"
+                                        @click="moveToLegalSpot(selected)"
+                                        >Move to the nearest legal spot</Button
+                                    >
+                                </div>
+                            </div>
                             <Button
                                 v-if="schemeSlot(selected) !== null && !selected.locked"
                                 size="sm"
@@ -2879,85 +2998,100 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 >{{ selected.killed ? 'Bring it back' : 'Mark killed' }}</Button
                             >
                             <!-- a Fate flip for this model: the result shows beside it on the table -->
-                            <div v-if="fate && !selected.marker" class="mt-2 space-y-1.5 rounded-md border p-2" data-testid="model-fate">
-                                <div class="flex flex-wrap items-center gap-1">
-                                    <span class="mr-1 font-medium">Fate flip</span>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        class="px-2"
-                                        aria-label="One more minus"
-                                        :disabled="selected.locked || fateMod <= -3"
-                                        data-testid="model-fate-minus"
-                                        @click="fateMod--"
-                                        ><Minus class="size-4"
-                                    /></Button>
-                                    <span class="min-w-8 text-center font-semibold tabular-nums" data-testid="model-fate-mod">{{
-                                        fateMod > 0 ? `+${fateMod}` : fateMod
+                            <details
+                                v-if="fate && !selected.marker"
+                                class="group mt-2 rounded-md border"
+                                :open="!!modelFlip"
+                                data-testid="model-fate"
+                            >
+                                <summary
+                                    class="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-2 [&::-webkit-details-marker]:hidden"
+                                >
+                                    <span class="font-medium">Fate flip</span>
+                                    <span class="text-xs text-muted-foreground">{{
+                                        modelFlip ? (modelFlip.flip.chosen ? 'result in' : 'open') : 'for this model'
                                     }}</span>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        class="px-2"
-                                        aria-label="One more plus"
-                                        :disabled="selected.locked || fateMod >= 3"
-                                        data-testid="model-fate-plus"
-                                        @click="fateMod++"
-                                        ><Plus class="size-4"
-                                    /></Button>
-                                    <Button
-                                        size="sm"
-                                        :disabled="selected.locked || fate.busy.value"
-                                        data-testid="model-fate-flip"
-                                        @click="flipForModel(selected)"
-                                        >Flip</Button
-                                    >
-                                </div>
-                                <div v-if="modelFlip" class="space-y-1" data-testid="model-fate-flip-open">
-                                    <div class="flex flex-wrap gap-1">
-                                        <template v-for="c in modelFlip.cards" :key="`${c.card}-${c.joker_suit}`">
-                                            <button
-                                                v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(c.card) && !selected.locked"
-                                                type="button"
-                                                class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                                                data-testid="model-fate-choose"
-                                                @click="chooseForModel(selected, modelFlip.flip, c.card)"
-                                            >
-                                                <FateCardFace :card="c.card" small note="take as the result" />
-                                            </button>
-                                            <FateCardFace
-                                                v-else
-                                                :card="c.card"
-                                                :joker-suit="c.joker_suit"
-                                                small
-                                                :highlight="modelFlip.flip.chosen?.card === c.card"
-                                                :dim="!modelFlip.flip.chosen && !modelFlip.flip.legal.includes(c.card)"
-                                            />
-                                        </template>
+                                    <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div class="space-y-1.5 border-t p-2">
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            class="px-2"
+                                            aria-label="One more minus"
+                                            :disabled="selected.locked || fateMod <= -3"
+                                            data-testid="model-fate-minus"
+                                            @click="fateMod--"
+                                            ><Minus class="size-4"
+                                        /></Button>
+                                        <span class="min-w-8 text-center font-semibold tabular-nums" data-testid="model-fate-mod">{{
+                                            fateMod > 0 ? `+${fateMod}` : fateMod
+                                        }}</span>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            class="px-2"
+                                            aria-label="One more plus"
+                                            :disabled="selected.locked || fateMod >= 3"
+                                            data-testid="model-fate-plus"
+                                            @click="fateMod++"
+                                            ><Plus class="size-4"
+                                        /></Button>
+                                        <Button
+                                            size="sm"
+                                            :disabled="selected.locked || fate.busy.value"
+                                            data-testid="model-fate-flip"
+                                            @click="flipForModel(selected)"
+                                            >Flip</Button
+                                        >
                                     </div>
-                                    <label
-                                        v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(RED_JOKER)"
-                                        class="flex items-center gap-2 text-xs"
-                                    >
-                                        A Red Joker takes the suit
-                                        <select v-model="fateSuit" class="rounded-md border bg-background px-1.5 py-1">
-                                            <option v-for="suit in SUITS" :key="suit" :value="suit">{{ suit }}</option>
-                                        </select>
-                                    </label>
-                                    <p v-if="modelFlip.flip.chosen" class="text-xs" data-testid="model-fate-result">
-                                        Result <span class="font-semibold">{{ cardLabel(modelFlip.flip.chosen.card) }}</span>
-                                    </p>
-                                    <Button
-                                        v-if="!selected.locked"
-                                        size="sm"
-                                        variant="outline"
-                                        :disabled="fate.busy.value || !modelFlip.flip.chosen"
-                                        data-testid="model-fate-done"
-                                        @click="resolveForModel(selected, modelFlip.flip)"
-                                        >Done: discard</Button
-                                    >
+                                    <div v-if="modelFlip" class="space-y-1" data-testid="model-fate-flip-open">
+                                        <div class="flex flex-wrap gap-1">
+                                            <template v-for="c in modelFlip.cards" :key="`${c.card}-${c.joker_suit}`">
+                                                <button
+                                                    v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(c.card) && !selected.locked"
+                                                    type="button"
+                                                    class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                                                    data-testid="model-fate-choose"
+                                                    @click="chooseForModel(selected, modelFlip.flip, c.card)"
+                                                >
+                                                    <FateCardFace :card="c.card" small note="take as the result" />
+                                                </button>
+                                                <FateCardFace
+                                                    v-else
+                                                    :card="c.card"
+                                                    :joker-suit="c.joker_suit"
+                                                    small
+                                                    :highlight="modelFlip.flip.chosen?.card === c.card"
+                                                    :dim="!modelFlip.flip.chosen && !modelFlip.flip.legal.includes(c.card)"
+                                                />
+                                            </template>
+                                        </div>
+                                        <label
+                                            v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(RED_JOKER)"
+                                            class="flex items-center gap-2 text-xs"
+                                        >
+                                            A Red Joker takes the suit
+                                            <select v-model="fateSuit" class="rounded-md border bg-background px-1.5 py-1">
+                                                <option v-for="suit in SUITS" :key="suit" :value="suit">{{ suit }}</option>
+                                            </select>
+                                        </label>
+                                        <p v-if="modelFlip.flip.chosen" class="text-xs" data-testid="model-fate-result">
+                                            Result <span class="font-semibold">{{ cardLabel(modelFlip.flip.chosen.card) }}</span>
+                                        </p>
+                                        <Button
+                                            v-if="!selected.locked"
+                                            size="sm"
+                                            variant="outline"
+                                            :disabled="fate.busy.value || !modelFlip.flip.chosen"
+                                            data-testid="model-fate-done"
+                                            @click="resolveForModel(selected, modelFlip.flip)"
+                                            >Done: discard</Button
+                                        >
+                                    </div>
                                 </div>
-                            </div>
+                            </details>
                             <ModelInfoPanel
                                 v-if="!selected.marker"
                                 :token="selected"
@@ -2966,38 +3100,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :crew="crewRows.length > 0"
                                 @change="emit('modelChange', selected.id, $event)"
                             />
-                            <p v-if="engagement.get(selected.id)?.length" class="mt-2 text-red-600 dark:text-red-400" data-testid="engaged-note">
-                                Engaged with
-                                {{
-                                    engagement
-                                        .get(selected.id)!
-                                        .map((o) => o.name)
-                                        .join(', ')
-                                }}: a Walk is half its Sp{{ selected.sp !== undefined ? ` (${engagedSp(selected.sp)}")` : '' }}, and it cannot declare
-                                missile actions, Interact or Charge.
-                            </p>
-                            <p
-                                v-if="problems.get(selected.id)?.length"
-                                class="mt-2 text-amber-600 dark:text-amber-400"
-                                data-testid="placement-warning"
-                            >
-                                {{ selected.name }}
-                                {{
-                                    problems
-                                        .get(selected.id)!
-                                        .map((p) => p.text)
-                                        .join(' and ')
-                                }}.
-                                <Button
-                                    v-if="illegalHere(selected) && !selected.locked"
-                                    size="sm"
-                                    variant="outline"
-                                    class="mt-1 block"
-                                    data-testid="model-fix-spot"
-                                    @click="moveToLegalSpot(selected)"
-                                    >Move to the nearest legal spot</Button
-                                >
-                            </p>
                             <div class="mt-3 border-t pt-3" data-testid="aura-controls">
                                 <div class="mb-2 flex items-center justify-between">
                                     <span class="font-medium"

@@ -74,6 +74,7 @@ it('has no clock for a game outside a running round', function () {
 
 it('keeps where the models stood at the end of each turn', function () {
     [$game, , , $a, $b, $m1] = integrationGame();
+    $m1->update(['current_health' => 3, 'max_health' => 8, 'attached_tokens' => [['id' => 5, 'name' => 'Focus']]]);
     $game->update(['board_state' => ['positions' => [(string) $m1->id => ['x' => 7, 'y' => 9]], 'markers' => [['id' => 'm1', 'marker_id' => 1, 'owner' => 1, 'x' => 3, 'y' => 4]]]]);
     $score = ['strategy_points' => 0, 'scheme_points' => 0, 'scheme_action' => 'held'];
 
@@ -87,6 +88,9 @@ it('keeps where the models stood at the end of each turn', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('history.1.positions.'.$m1->id.'.x', 7)
             ->where('history.1.markers.0.id', 'm1')
+            ->where('history.1.models.'.$m1->id.'.health', 3)
+            ->where('history.1.models.'.$m1->id.'.tokens.0.name', 'Focus')
+            ->where('history.1.models.'.$m1->id.'.killed', false)
             ->where('positions.'.$m1->id.'.x', 20));
 });
 

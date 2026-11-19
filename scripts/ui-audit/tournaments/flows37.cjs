@@ -16,22 +16,34 @@ async function measure(s, label) {
             const st = getComputedStyle(el);
             return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none' && Number(st.opacity) > 0;
         };
-        const name = (el) => (el.getAttribute('data-testid') || el.getAttribute('aria-label') || el.innerText || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 40);
+        const name = (el) =>
+            (el.getAttribute('data-testid') || el.getAttribute('aria-label') || el.innerText || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 40);
         const targets = [...document.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea, [role=button], [role=tab]')]
             .filter(vis)
             .filter((el) => !el.closest('svg'))
             .map((el) => {
                 const r = el.getBoundingClientRect();
-                return { n: name(el), w: Math.round(r.width), h: Math.round(r.height), tag: el.tagName.toLowerCase() };
+                return {
+                    n: name(el),
+                    w: Math.round(r.width),
+                    h: Math.round(r.height),
+                    tag: el.tagName.toLowerCase(),
+                    chrome: !!el.closest('[data-sidebar], header'),
+                };
             });
         const small = targets.filter((t) => t.w < 24 || t.h < 24);
         const tight = targets.filter((t) => (t.w < 44 || t.h < 44) && !(t.w < 24 || t.h < 24));
         const tiny = [...document.querySelectorAll('body *')]
-            .filter((el) => el.childNodes.length && [...el.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim()) && vis(el) && !el.closest('svg'))
+            .filter(
+                (el) =>
+                    el.childNodes.length && [...el.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim()) && vis(el) && !el.closest('svg'),
+            )
             .filter((el) => parseFloat(getComputedStyle(el).fontSize) < 11)
             .map((el) => `${name(el)} (${getComputedStyle(el).fontSize})`);
         // fixed elements that overlap each other
-        const fixed = [...document.querySelectorAll('body *')].filter((el) => getComputedStyle(el).position === 'fixed' && vis(el)).map((el) => ({ n: name(el), r: el.getBoundingClientRect() }));
+        const fixed = [...document.querySelectorAll('body *')]
+            .filter((el) => getComputedStyle(el).position === 'fixed' && vis(el))
+            .map((el) => ({ n: name(el), r: el.getBoundingClientRect() }));
         const overlaps = [];
         for (let i = 0; i < fixed.length; i++)
             for (let j = i + 1; j < fixed.length; j++) {
@@ -47,6 +59,16 @@ async function measure(s, label) {
             small: small.slice(0, 12).map((t) => `${t.n} ${t.w}x${t.h}`),
             smallCount: small.length,
             tightCount: tight.length,
+            // which ones, grouped by name, with how many and the smallest size (TIGHT_LIST=1)
+            tightList: Object.entries(
+                tight
+                    .filter((t) => !t.chrome)
+                    .reduce((acc, t) => {
+                        const k = t.n;
+                        acc[k] = acc[k] ? { c: acc[k].c + 1, w: Math.min(acc[k].w, t.w), h: Math.min(acc[k].h, t.h) } : { c: 1, w: t.w, h: t.h };
+                        return acc;
+                    }, {}),
+            ).map(([n, v]) => `${n} x${v.c} ${v.w}x${v.h}`),
             tiny: [...new Set(tiny)].slice(0, 10),
             overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
             overlaps: [...new Set(overlaps)].slice(0, 6),
@@ -55,6 +77,7 @@ async function measure(s, label) {
     const bits = [];
     if (m.smallCount) bits.push(`${m.smallCount} targets under 24px: ${m.small.join('; ')}`);
     if (m.tightCount) bits.push(`${m.tightCount} targets under 44px`);
+    if (process.env.TIGHT_LIST && m.tightCount) console.log(`   [tight ${label}] ${m.tightList.join('; ')}`);
     if (m.tiny.length) bits.push(`text under 11px: ${m.tiny.join('; ')}`);
     if (m.overflow > 0) bits.push(`horizontal overflow ${m.overflow}px`);
     if (m.overlaps.length) bits.push(`fixed elements overlap: ${m.overlaps.join('; ')}`);
@@ -79,10 +102,42 @@ async function axeScan(s, label) {
     if (serious.length) throw new Error(`${serious.length} serious axe rule(s): ${serious.map((v) => `${v.id}x${v.count}`).join(', ')}`);
 }
 
+/** Every picture on the page has really loaded (they are lazy, so ask for them all first), each with alt text and a legend. */
+async function imagesLoad(s, label) {
+    const bad = await s.page.evaluate(async () => {
+        const imgs = [...document.querySelectorAll('[data-testid=help-content] img')];
+        imgs.forEach((i) => (i.loading = 'eager'));
+        await Promise.all(
+            imgs.map((i) =>
+                i.complete
+                    ? null
+                    : new Promise((r) => {
+                          i.onload = r;
+                          i.onerror = r;
+                          setTimeout(r, 6000);
+                      }),
+            ),
+        );
+        return imgs.filter((i) => !(i.naturalWidth > 0) || !i.alt || i.alt.length < 15).map((i) => i.src);
+    });
+    if (bad.length) throw new Error(`${label}: pictures that did not load or have no alt text: ${bad.join(', ')}`);
+    return s.page.$$eval('[data-testid=help-content] img', (e) => e.length);
+}
+
 (async () => {
     const browser = await L.launch();
     const DEMO = [
-        { id: 'a1', sp: 5, sz: 3, name: 'Master', side: 'a', baseMm: 50, x: 18, y: 18, info: { health: 7, maxHealth: 9, tokens: [{ id: 1, name: 'Focus' }], activated: true } },
+        {
+            id: 'a1',
+            sp: 5,
+            sz: 3,
+            name: 'Master',
+            side: 'a',
+            baseMm: 50,
+            x: 18,
+            y: 18,
+            info: { health: 7, maxHealth: 9, tokens: [{ id: 1, name: 'Focus' }], activated: true },
+        },
         { id: 'a2', sp: 5, sz: 2, name: 'Henchman', side: 'a', baseMm: 40, x: 12, y: 22 },
         { id: 'b1', sp: 5, sz: 3, name: 'Master', side: 'b', baseMm: 50, x: 19.7, y: 18 },
         { id: 'b2', sp: 5, sz: 2, name: 'Henchman', side: 'b', baseMm: 40, x: 24, y: 28 },
@@ -93,6 +148,8 @@ async function axeScan(s, label) {
     ]) {
         for (const theme of ['light', 'dark']) {
             const s = await L.session(browser, 'carol@example.test', vp);
+            // the play screen asks before it is left; accept, so the next page loads
+            s.page.on('dialog', (d) => d.accept().catch(() => {}));
             await s.page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: theme }]);
             await s.page.setCookie({ name: 'appearance', value: theme, url: L.BASE });
             // the app keeps its own theme choice (localStorage, read on load), not just the browser's
@@ -136,7 +193,10 @@ async function axeScan(s, label) {
                     });
                     if (!outlined) throw new Error('the focused deck button has no visible focus ring');
                     await s.page.keyboard.press('Enter');
-                    await s.page.waitForFunction(() => document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.trim() === '1/7', { timeout: 4000 });
+                    await s.page.waitForFunction(
+                        () => document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.trim() === '1/7',
+                        { timeout: 4000 },
+                    );
                     // Tab carries on to the next control in the panel (it does not fall off the page)
                     await s.page.keyboard.press('Tab');
                     const next = await s.page.evaluate(() => {
@@ -212,6 +272,65 @@ async function axeScan(s, label) {
                 await L.shot(s, `audit-${tag}-play`);
                 await measure(s, `${tag} play`);
                 await axeScan(s, `${tag} play`);
+            });
+            // the help steps go last: they leave the page, and the steps above assume they are still on the tabletop
+            await L.step(`audit (${tag}): the help dialog, in every section`, s, async () => {
+                await L.visit(s, '/tools/tabletop');
+                await s.page.waitForSelector('[data-testid=tabletop-help-open]');
+                await s.page.$eval('[data-testid=tabletop-help-open]', (b) => b.click());
+                await s.page.waitForSelector('[data-testid=help-dialog]', { timeout: 5000 });
+                await L.sleep(300);
+                await L.sleep(700);
+                await L.shot(s, `audit-${tag}-help`);
+                await measure(s, `${tag} help`);
+                await axeScan(s, `${tag} help`);
+                await s.page.$eval('[data-testid=help-tab-shortcuts]', (b) => b.click());
+                await s.page.waitForSelector('[data-testid=help-shortcuts] table', { timeout: 3000 });
+                await axeScan(s, `${tag} help keyboard`);
+                await s.page.$eval('[data-testid=help-tab-terrain]', (b) => b.click());
+                await s.page.waitForSelector('[data-testid=help-terrain]', { timeout: 3000 });
+                await axeScan(s, `${tag} help terrain`);
+            });
+            await L.step(`audit (${tag}): the help index and the Crew Builder and Game Tracker help pages`, s, async () => {
+                await L.visit(s, '/help');
+                await s.page.waitForSelector('[data-testid=help-index]');
+                for (const slug of ['crew-builder', 'game-tracker', 'tabletop']) {
+                    if (!(await s.page.$(`[data-testid=help-topic-${slug}]`))) throw new Error(`the help index should list ${slug}`);
+                }
+                await measure(s, `${tag} help index`);
+                await axeScan(s, `${tag} help index`);
+                for (const slug of ['crew-builder', 'game-tracker', 'tabletop']) {
+                    await L.visit(s, `/help/${slug}`);
+                    await s.page.waitForSelector('[data-testid=help-content]');
+                    const count = await imagesLoad(s, slug);
+                    if (count < 3) throw new Error(`${slug} help should show its pictures, saw ${count}`);
+                    await measure(s, `${tag} help ${slug}`);
+                    await axeScan(s, `${tag} help ${slug}`);
+                }
+            });
+            await L.step(`audit (${tag}): the Help buttons open the Crew Builder and Game Tracker help`, s, async () => {
+                for (const [url, slug, expect] of [
+                    ['/tools/crew-builder/editor', 'crew-builder', /Getting started/],
+                    ['/games', 'game-tracker', /Starting a game/],
+                ]) {
+                    await L.visit(s, url);
+                    await s.page.waitForSelector(`[data-testid=help-open-${slug}]`, { timeout: 8000 });
+                    await s.page.$eval(`[data-testid=help-open-${slug}]`, (b) => b.click());
+                    await s.page.waitForSelector('[data-testid=help-dialog]', { timeout: 5000 });
+                    const text = await s.page.$eval('[data-testid=help-scroll]', (e) => e.innerText);
+                    if (!expect.test(text)) throw new Error(`${slug} help should open at its first section: ${text.slice(0, 80)}`);
+                    await L.sleep(700); // the dialog fades in: measure it once it has settled
+                    await axeScan(s, `${tag} ${slug} dialog`);
+                    await s.page.keyboard.press('Escape');
+                    await s.page.waitForFunction(() => !document.querySelector('[data-testid=help-dialog]'), { timeout: 4000 });
+                }
+            });
+            await L.step(`audit (${tag}): the help page`, s, async () => {
+                await L.visit(s, '/help/tabletop');
+                await s.page.waitForSelector('[data-testid=help-content]');
+                await L.sleep(300);
+                await measure(s, `${tag} help page`);
+                await axeScan(s, `${tag} help page`);
             });
             await s.page.close();
         }

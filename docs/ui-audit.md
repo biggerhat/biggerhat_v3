@@ -90,3 +90,9 @@ moderate or worse findings, and `AXE_REPORT=1` also lists minor ones.
 An audit of the sandbox, a game's board and the play screen, in light and dark and at desktop and phone width: axe-core (fails on serious), tap targets under 24px, text under 11px, overflow, fixed elements overlapping, a keyboard-only pass over the Fate deck, and a screenshot of each state (`audit-*.png` in `SHOTS`). Needs `npm i --no-save axe-core`. Run alone with `FLOWS=flows37.cjs scripts/ui-audit/tournaments/run.sh`.
 
 Gotchas it taught: the app keeps its theme in `localStorage.appearance` (set it with `evaluateOnNewDocument`; the browser's `prefers-color-scheme` alone does not switch it); the play screen has a leave guard (`beforeunload`) that stalls a full `page.goto` away from it, so scan other pages first; `DialogContent` does not forward attributes (wrap a `data-testid` in an inner `div class="contents"`); and a button given its own `aria-label` fails axe's `label-content-name-mismatch` if its visible text (a card's suit glyph) is not in the label, so name such buttons from their content.
+
+## Help pictures (`flows38.cjs`)
+
+Not a test: it writes the screenshots used in the in-app help (`public/images/help`, `resources/js/lib/help/images.json`) and only runs with `HELP_SHOTS=1`:
+`HELP_SHOTS=1 FLOWS=flows38.cjs CHROME=... scripts/ui-audit/tournaments/run.sh`. It also needs `public/hot` moved aside and a fresh `npm run build`. Details,
+how to add a picture and what to check afterwards: [docs/features/help.md](features/help.md).

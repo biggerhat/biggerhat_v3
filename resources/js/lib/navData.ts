@@ -13,6 +13,7 @@ import {
     Bot,
     Boxes,
     Calendar,
+    CircleHelp,
     ClipboardList,
     Coins,
     Crosshair,
@@ -108,6 +109,17 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     href: route('games.index'),
                     icon: Gamepad2,
                 },
+                ...(ctx.isAuthenticated && ctx.canUseTabletop
+                    ? [
+                          {
+                              title: 'Tabletop',
+                              href: route('tools.tabletop.tables'),
+                              icon: LayoutGrid,
+                              badge: 'Beta',
+                              keywords: 'tabletop vtt virtual table terrain sandbox board setup saved tables',
+                          },
+                      ]
+                    : []),
                 {
                     title: 'Tournament Tracker',
                     href: route('tournaments.index'),
@@ -153,6 +165,11 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     href: route('channels.index'),
                     icon: Radio,
                 },
+                {
+                    title: 'Help',
+                    href: route('help.index'),
+                    icon: CircleHelp,
+                },
             ],
         },
         {
@@ -187,17 +204,6 @@ export function buildMainNav(ctx: MainNavContext): NavGroup[] {
                     icon: Map,
                     keywords: 'scheme paths chain planner',
                 },
-                ...(ctx.isAuthenticated && ctx.canUseTabletop
-                    ? [
-                          {
-                              title: 'Tabletop',
-                              href: route('tools.tabletop.tables'),
-                              icon: LayoutGrid,
-                              badge: 'Beta',
-                              keywords: 'tabletop vtt virtual table terrain sandbox board setup saved tables',
-                          },
-                      ]
-                    : []),
                 {
                     // Was mislabeled 'Random Character' despite routing to the
                     // filtered picker. 'characters.random' (true single-click

@@ -16,6 +16,9 @@ import {
     clampSize,
     clampToTable,
     clampTop,
+    constrainToContact,
+    constrainWithin,
+    contactSpots,
     coverAt,
     deploymentZones,
     describeZone,
@@ -41,6 +44,7 @@ import {
     nearestLegalSpot,
     nearestOnOutline,
     openingSpan,
+    overRamp,
     pathCost,
     pieceBounds,
     placeCheck,
@@ -364,7 +368,9 @@ test('every preset builds a valid piece on the table', async () => {
         const p = preset.make('x', 18, 18);
         assert.ok(p.surfaces.length >= 1 && p.surfaces.length <= 6, `${preset.key}: surface count`);
         assert.ok(
-            p.traits.every((t) => ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'].includes(t)),
+            p.traits.every((t) =>
+                ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe', 'ramp'].includes(t),
+            ),
             `${preset.key}: traits`,
         );
         const b = pieceBounds(p);
@@ -1448,4 +1454,66 @@ test('an engaged Walk is half the Sp, rounded down', () => {
     assert.equal(engagedSp(6), 3);
     assert.equal(engagedSp(5), 2);
     assert.equal(engagedSp(1), 0);
+});
+
+test('stairs and ramps: a leg over one changes height with no climb and no fall', () => {
+    const ramp = { id: 'r', name: 'Stairs', traits: ['ramp'], surfaces: [{ id: 'r1', shape: { kind: 'rect', x: 5, y: 5, w: 4, h: 2 }, top: 1 }] };
+    // a move that crosses the ramp is over it; one that stays well clear is not
+    assert.equal(overRamp({ x: 3, y: 6 }, { x: 11, y: 6 }, 30, [ramp]), true);
+    assert.equal(overRamp({ x: 3, y: 12 }, { x: 11, y: 12 }, 30, [ramp]), false);
+    // a table with no ramp never says so
+    assert.equal(overRamp({ x: 3, y: 6 }, { x: 11, y: 6 }, 30, [{ ...ramp, traits: ['climbable'] }]), false);
+    // climbing 3" over 3" of ground costs 6" of movement; over a ramp it costs the 3" of ground
+    const up = [
+        { x: 0, y: 0, elev: 0 },
+        { x: 3, y: 0, elev: 3 },
+    ];
+    assert.equal(pathCost(up).total, 6);
+    const free = pathCost([up[0], { ...up[1], ramp: true }]);
+    assert.equal(free.total, 3);
+    assert.equal(free.climb, 0);
+    // coming down 3" is a fall of 3" in the open, and none over a ramp
+    const down = [
+        { x: 0, y: 0, elev: 3 },
+        { x: 3, y: 0, elev: 0 },
+    ];
+    assert.ok(pathCost(down).drop > 0);
+    assert.equal(pathCost([down[0], { ...down[1], ramp: true }]).drop, 0);
+});
+
+test('within X inches is measured between base edges, and a tap too far away is pulled in to that line', () => {
+    const killed = { x: 18, y: 18, baseMm: 40 }; // r 0.787"
+    const r = baseRadius(40) + baseRadius(30); // the two radii
+    // inside the limit: left alone (a marker may even sit on the killed model)
+    assert.deepEqual(constrainWithin({ x: 18.5, y: 18 }, killed, 30, 1), { x: 18.5, y: 18 });
+    assert.deepEqual(constrainWithin({ x: 18, y: 18 }, killed, 30, 1), { x: 18, y: 18 });
+    // too far: pulled in along the same direction to radii + 1"
+    const pulled = constrainWithin({ x: 28, y: 18 }, killed, 30, 1);
+    assert.ok(Math.abs(pulled.x - (18 + r + 1)) < 1e-9 && pulled.y === 18);
+    const diagonal = constrainWithin({ x: 28, y: 28 }, killed, 30, 1);
+    assert.ok(Math.abs(Math.hypot(diagonal.x - 18, diagonal.y - 18) - (r + 1)) < 1e-9);
+});
+
+test('base contact puts the centres exactly both radii apart, on the side that was tapped', () => {
+    const was = { x: 10, y: 10, baseMm: 30 };
+    const r = baseRadius(30) + baseRadius(50);
+    const right = constrainToContact({ x: 20, y: 10 }, was, 50);
+    assert.ok(Math.abs(right.x - (10 + r)) < 1e-9 && right.y === 10);
+    const below = constrainToContact({ x: 10, y: 3 }, was, 50);
+    assert.ok(Math.abs(below.y - (10 - r)) < 1e-9 && below.x === 10);
+    // a tap inside the ring is pushed out to it, and one on the very centre still lands somewhere
+    assert.ok(Math.abs(Math.hypot(constrainToContact({ x: 10.2, y: 10 }, was, 50).x - 10, 0) - r) < 1e-9);
+    assert.ok(Math.abs(constrainToContact({ x: 10, y: 10 }, was, 50).x - (10 + r)) < 1e-9);
+});
+
+test('contact spots all touch the anchor and start on the tapped side', () => {
+    const was = { x: 10, y: 10, baseMm: 40 };
+    const spots = contactSpots(was, 40, { x: 10, y: 20 });
+    assert.equal(spots.length, 72);
+    const r = baseRadius(40) * 2;
+    for (const s of spots) assert.ok(Math.abs(Math.hypot(s.x - 10, s.y - 10) - r) < 1e-9);
+    assert.ok(Math.abs(spots[0].x - 10) < 1e-9 && spots[0].y > 10); // the tapped side (below)
+    // nearer spots come first: the next two are either side of the first
+    const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    assert.ok(d(spots[1], spots[0]) < d(spots[10], spots[0]));
 });

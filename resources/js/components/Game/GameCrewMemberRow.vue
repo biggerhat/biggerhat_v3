@@ -42,8 +42,10 @@ const props = defineProps<{
     /** The inline card preview is open for this model. */
     cardOpen: boolean;
     isCampaign: boolean;
-    /** On the tabletop board: upgrades and injuries are managed on the play screen, so their controls are left out. */
+    /** On the tabletop board: the row is trimmed for the board (no attached-upgrade chips or loot). */
     boardMode?: boolean;
+    /** Offer the Upgrades (and, in a Campaign game, Attach Injury) controls. On by default, and off on the board unless the page can attach them. */
+    allowAttach?: boolean;
     /** On the board: the tabletop options are rolled down under this row. */
     optionsOpen?: boolean;
     upgradePowerMax: (upgradeId: number) => number;
@@ -81,6 +83,9 @@ const stats = computed(() =>
 );
 
 // A model with no faction (a sandbox model) is tinted by its side, so the two crews are told apart: blue and red, both dark enough for white text.
+/** On the board, the row's main controls are at least 44px square on a phone, so they can be hit with a finger. */
+const canAttach = computed(() => props.allowAttach ?? !props.boardMode);
+const tap = computed(() => (props.boardMode ? 'max-sm:inline-flex max-sm:min-h-11 max-sm:min-w-11 max-sm:items-center max-sm:justify-center' : ''));
 const rowTint = computed(() => {
     const faction = props.member.faction ?? props.fallbackFaction;
     if (faction) return factionDeep(faction);
@@ -100,7 +105,8 @@ const hasCustomCharacterCard = (member: any): boolean =>
             <div class="flex items-center gap-1">
                 <template v-if="editable">
                     <button
-                        class="shrink-0 rounded p-2.5 hover:bg-white/20 sm:p-0.5"
+                        :class="tap"
+                        class="shrink-0 rounded p-2.5 hover:bg-white/20 sm:p-1.5"
                         @click="$emit('toggle-activated')"
                         :title="member.is_activated ? 'Mark unactivated' : 'Mark activated'"
                     >
@@ -108,7 +114,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <Circle v-else class="size-5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
                     </button>
                     <button
-                        v-if="!boardMode"
+                        v-if="canAttach"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Upgrades"
                         title="Upgrades"
@@ -117,7 +123,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <ArrowUpCircle class="size-4" />
                     </button>
                     <button
-                        v-if="isCampaign && !boardMode"
+                        v-if="isCampaign && canAttach"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-rose-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Attach Injury"
                         title="Attach Injury"
@@ -151,6 +157,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 </button>
                 <button
                     v-if="member.front_image || hasCustomCharacterCard(member)"
+                    :class="tap"
                     class="shrink-0 rounded p-1 hover:bg-white/20 sm:ml-auto"
                     aria-label="Toggle card preview"
                     title="Toggle card preview"
@@ -160,8 +167,8 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 </button>
                 <button
                     v-if="boardMode"
-                    class="shrink-0 rounded p-1 hover:bg-white/20"
-                    :class="member.front_image || hasCustomCharacterCard(member) ? '' : 'sm:ml-auto'"
+                    class="flex shrink-0 items-center rounded p-1 hover:bg-white/20"
+                    :class="[tap, member.front_image || hasCustomCharacterCard(member) ? '' : 'sm:ml-auto']"
                     :aria-expanded="!!optionsOpen"
                     aria-label="Tabletop options"
                     title="Tabletop options"
@@ -172,11 +179,13 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                         :class="optionsOpen ? 'text-amber-300' : 'text-white'"
                     />
+                    <span class="hidden text-xs font-medium sm:ml-1 sm:inline">Options</span>
                 </button>
                 <!-- Phones: health stepper on the name line (from `sm` it sits on the stats row below, as before). -->
                 <div v-if="editable" class="ml-auto flex shrink-0 items-center gap-0.5 sm:hidden">
                     <button
                         :aria-label="`Decrease health of ${member.display_name}`"
+                        :class="tap"
                         class="rounded border p-2.5 hover:bg-muted"
                         @click="$emit('health-delta', -1)"
                     >
@@ -188,6 +197,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     </span>
                     <button
                         :aria-label="`Increase health of ${member.display_name}`"
+                        :class="tap"
                         class="rounded border p-2.5 hover:bg-muted"
                         @click="$emit('health-delta', 1)"
                     >
@@ -229,6 +239,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 <div v-if="editable" class="ml-auto flex shrink-0 items-center gap-1 sm:hidden">
                     <!-- Tokens are used constantly, so they stay one tap away and labelled; the rarer actions share one menu. -->
                     <button
+                        :class="tap"
                         class="flex items-center gap-1 rounded bg-black/60 px-2 py-1.5 text-xs font-medium text-neutral-50 active:bg-black/70"
                         title="Tokens"
                         @click.stop="$emit('open-tokens')"
@@ -238,6 +249,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     <DropdownMenu :modal="false">
                         <DropdownMenuTrigger as-child>
                             <button
+                                :class="tap"
                                 class="flex items-center rounded bg-black/60 p-1.5 text-neutral-50 active:bg-black/70"
                                 :aria-label="`More actions for ${member.display_name}`"
                             >
@@ -245,10 +257,10 @@ const hasCustomCharacterCard = (member: any): boolean =>
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem v-if="!boardMode" @select="$emit('open-upgrades')">
+                            <DropdownMenuItem v-if="canAttach" @select="$emit('open-upgrades')">
                                 <ArrowUpCircle class="mr-2 size-4" /> Upgrades
                             </DropdownMenuItem>
-                            <DropdownMenuItem v-if="isCampaign && !boardMode" @select="$emit('open-injury')">
+                            <DropdownMenuItem v-if="isCampaign && canAttach" @select="$emit('open-injury')">
                                 <HeartCrack class="mr-2 size-4" /> Attach injury
                             </DropdownMenuItem>
                             <DropdownMenuItem @select="$emit('replace')"> <Replace class="mr-2 size-4" /> Replace model </DropdownMenuItem>
@@ -332,7 +344,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 {{ token.name }}
                 <button
                     v-if="editable"
-                    class="relative ml-0.5 shrink-0 rounded-full bg-white/15 p-0.5 text-white/80 transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-red-500/60 hover:text-white"
+                    class="relative ml-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white/15 text-white/80 transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-red-500/60 hover:text-white"
                     :aria-label="`Remove ${token.name} token`"
                     @click.stop="$emit('remove-token', token.id)"
                 >

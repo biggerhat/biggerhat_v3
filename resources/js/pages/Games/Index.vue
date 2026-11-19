@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HelpButton from '@/components/Help/HelpButton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import FactionLogo from '@/components/FactionLogo.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -121,6 +122,7 @@ const formatDate = (dateStr: string) => {
             <template #subtitle>
                 <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                     Track your Malifaux games in real time
+                    <HelpButton topic="game-tracker" />
                 </div>
             </template>
             <template v-if="isLoggedIn" #actions>

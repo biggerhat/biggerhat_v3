@@ -64,6 +64,7 @@ const allDone = computed(() => slots.value.every((s) => props.turn.unactivated[s
                     :key="s"
                     size="sm"
                     variant="outline"
+                    class="max-sm:min-h-11"
                     :disabled="busy"
                     :data-testid="`turn-initiative-${s}`"
                     @click="emit('initiative', turn.chooser!, s)"

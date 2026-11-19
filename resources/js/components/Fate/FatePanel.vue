@@ -73,14 +73,30 @@ const label = ref('');
 const labelOpen = ref(false);
 const jokerSuit = ref<string>('rams');
 const more = ref(false);
+// an opposed duel (CRG p.10): flip as the attacker or the resister, so the cheating order can be followed
+const duelRole = ref<'' | 'attacker' | 'resister'>('');
+const duelTarget = ref<number | null>(null);
+/** Attacking flips of the other side that nobody has resisted yet. */
+const attackTargets = computed(() =>
+    (state.value?.flips ?? []).filter((f) => f.duel?.role === 'attacker' && !f.duel.linked && f.owner_slot !== actingSlot.value),
+);
 async function flip() {
-    const r = await run('flip', { modifier: modifier.value, label: label.value.trim() || undefined });
+    const r = await run('flip', {
+        modifier: modifier.value,
+        label: label.value.trim() || undefined,
+        duel_role: duelRole.value || undefined,
+        duel_with: duelRole.value === 'resister' ? (duelTarget.value ?? attackTargets.value[0]?.id) : undefined,
+    });
     if (!r.error) {
         modifier.value = 0;
         label.value = '';
         labelOpen.value = false;
+        duelRole.value = '';
+        duelTarget.value = null;
     }
 }
+const totalInput = ref<Record<number, number | string>>({});
+const setTotal = (f: FateFlip) => run('total', { flip: f.id, total: Number(totalInput.value[f.id]), slot: f.owner_slot });
 const modText = (m: number) => (m > 0 ? `+${m}` : m < 0 ? `${m}` : '0');
 const modWords = (m: number) => (m > 0 ? `+${m}` : m < 0 ? `${m}` : 'plain flip');
 
@@ -96,9 +112,12 @@ const cheatable = (f: FateFlip) =>
     actingSlot.value !== null &&
     !f.cheaters.includes(actingSlot.value) &&
     f.chosen.card !== BLACK_JOKER &&
-    !(f.chosen.card === RED_JOKER && f.owner_slot === actingSlot.value);
+    !(f.chosen.card === RED_JOKER && f.owner_slot === actingSlot.value) &&
+    // in a linked duel only the player whose turn it is may cheat: the lowest total first (the resister on a tie), then the other
+    (!f.duel?.linked || f.duel.cheat_turn === actingSlot.value);
 const cheatableFlips = computed(() => (state.value?.flips ?? []).filter(cheatable));
-const canPass = (f: FateFlip) => !!f.chosen && actingSlot.value !== null && !f.cheaters.includes(actingSlot.value);
+const canPass = (f: FateFlip) =>
+    !!f.chosen && actingSlot.value !== null && !f.cheaters.includes(actingSlot.value) && (!f.duel?.linked || f.duel.cheat_turn === actingSlot.value);
 const chooseCard = (f: FateFlip, card: number) => run('choose', { flip: f.id, card, suit: card === RED_JOKER ? jokerSuit.value : undefined });
 async function cheat(f: FateFlip) {
     if (picked.value === null) return;
@@ -155,7 +174,9 @@ const askDiscard = () => run('demand', { kind: 'discard', count: demandN.value, 
 const askReveal = () => run('demand', { kind: 'reveal', note: demandNote.value.trim() || undefined });
 
 /** Two flips with results at once is an opposed duel: the lowest total cheats first, the resister on a tie, then the other (CRG p.9). */
-const duel = computed(() => (state.value?.flips ?? []).filter((f) => f.chosen).length >= 2);
+const duel = computed(
+    () => (state.value?.flips ?? []).filter((f) => f.chosen).length >= 2 && (state.value?.flips ?? []).every((f) => !f.duel?.linked),
+);
 
 // ----- the history -----
 const historyOpen = ref(false);
@@ -318,7 +339,8 @@ const pileOpen = computed({
                 <!-- the conflict: flips in progress, and the flip control -->
                 <div class="min-w-0 space-y-2" data-testid="fate-conflict-zone">
                     <p v-if="duel" class="rounded-md bg-muted/50 px-2 py-1 text-xs" data-testid="fate-duel-hint">
-                        Opposed duel: the lowest total cheats first (the resister on a tie), then the other player.
+                        Two results at once? For an opposed duel flip as the attacker and the resister: each player enters their total and the
+                        cheating order (lowest first, the resister on a tie) is followed for you.
                     </p>
                     <p v-if="!state.flips.length" class="rounded-md border border-dashed px-2 py-3 text-center text-xs text-muted-foreground">
                         Nothing flipped. Use +/- then Flip.
@@ -379,6 +401,37 @@ const pileOpen = computed({
                                 · passed or cheated: {{ f.cheaters.map(nameOf).join(', ') }}</span
                             >
                         </p>
+                        <div v-if="f.duel" class="space-y-1 text-xs" data-testid="fate-duel">
+                            <p class="font-medium">
+                                Opposed duel, {{ f.duel.role
+                                }}<span v-if="!f.duel.linked" class="font-normal text-muted-foreground"> (not yet resisted)</span>
+                            </p>
+                            <div v-if="f.chosen && f.owner_slot === actingSlot" class="flex flex-wrap items-center gap-1">
+                                <label class="flex items-center gap-1">
+                                    Your total
+                                    <input
+                                        v-model.number="totalInput[f.id]"
+                                        type="number"
+                                        min="-10"
+                                        max="60"
+                                        class="w-16 rounded-md border bg-background px-2 py-1"
+                                        :aria-label="`Duel total for ${nameOf(f.owner_slot)}`"
+                                        data-testid="fate-duel-total"
+                                    />
+                                </label>
+                                <Button size="sm" variant="outline" :disabled="busy" data-testid="fate-duel-total-save" @click="setTotal(f)"
+                                    >Set total</Button
+                                >
+                            </div>
+                            <p v-if="f.duel.total !== null" data-testid="fate-duel-totals">
+                                Total {{ f.duel.total }}<span v-if="f.duel.opponent_total !== null"> against {{ f.duel.opponent_total }}</span>
+                            </p>
+                            <p v-if="f.duel.cheat_turn !== null" class="font-medium text-primary" data-testid="fate-duel-turn">
+                                {{ f.duel.cheat_turn === actingSlot ? 'Your' : `${nameOf(f.duel.cheat_turn)}'s` }} chance to cheat Fate (the lowest
+                                total goes first)
+                            </p>
+                            <p v-else-if="f.duel.linked && f.chosen" class="text-muted-foreground">Both players enter their total before cheating.</p>
+                        </div>
                         <p v-if="cheatable(f) && picked === null" class="text-xs text-muted-foreground" data-testid="fate-cheat-hint">
                             You may cheat Fate: tap a card in your hand, then choose Cheat.
                         </p>
@@ -431,6 +484,28 @@ const pileOpen = computed({
                             @click="modifier++"
                             ><Plus class="size-4"
                         /></Button>
+                        <select
+                            v-model="duelRole"
+                            class="rounded-md border bg-background px-1.5 py-1 text-xs"
+                            aria-label="Flip as part of an opposed duel"
+                            title="An opposed duel: flip as the attacker, or as the resister of the other player's attack"
+                            data-testid="fate-duel-role"
+                        >
+                            <option value="">No duel</option>
+                            <option value="attacker">Duel: attack</option>
+                            <option value="resister" :disabled="!attackTargets.length">Duel: resist</option>
+                        </select>
+                        <select
+                            v-if="duelRole === 'resister' && attackTargets.length > 1"
+                            v-model="duelTarget"
+                            class="rounded-md border bg-background px-1.5 py-1 text-xs"
+                            aria-label="Which attack to resist"
+                            data-testid="fate-duel-target"
+                        >
+                            <option v-for="t in attackTargets" :key="t.id" :value="t.id">
+                                {{ nameOf(t.owner_slot) }}'s {{ t.label ?? 'attack' }}
+                            </option>
+                        </select>
                         <Button size="sm" :disabled="busy" class="flex-1" data-testid="fate-flip" @click="flip">Flip</Button>
                         <Button
                             size="sm"

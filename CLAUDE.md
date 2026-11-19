@@ -21,6 +21,7 @@ file locations, models/enums, conventions, and gotchas (saves re-discovery):
 - [cooperative-mode.md](docs/features/cooperative-mode.md) — NP classes + encounters reference data (play tracker not built yet)
 - [lore-linking.md](docs/features/lore-linking.md) — Lore ↔ Characters/TOS Units pivots
 - [aethervox-channels.md](docs/features/aethervox-channels.md) — "Across the Aethervox" channels/transmissions
+- [help.md](docs/features/help.md) — the in-app help (`/help`): how it is built, and **the rule for keeping it current**
 
 Other docs: [ssr.md](docs/ssr.md) — what Inertia SSR needs on the server and what has broken it;
 [ui-audit.md](docs/ui-audit.md) — local harness for browsing logged-in screens and running accessibility/layout checks.
@@ -121,6 +122,12 @@ Feature flag → permission → policy → ownership. Feature flags return 404 (
 ### Tests (Pest)
 
 Every controller method gets a feature test: index permission gate, store happy path, store validation rejection, update happy + permission, delete happy + permission. Every FormRequest gets rejection tests per non-trivial rule. Factories usable in isolation. Concurrency edge tests for stateful flows.
+
+### Help docs
+
+The Crew Builder, Game Tracker and Tabletop have in-app help (`/help`, text in `resources/js/lib/help/topics/`). **When you change or add to one of
+these features, update its help topic in the same change** (new buttons, tabs, steps, options, renamed labels, shortcuts, changed flows), using the
+words on the screen; say in the PR description that you did. A new major feature gets a topic too. See [docs/features/help.md](docs/features/help.md).
 
 ### Verification before reporting
 

@@ -12,6 +12,9 @@ import {
     auraTerrain,
     baseRadius,
     clampToTable,
+    constrainToContact,
+    constrainWithin,
+    contactSpots,
     deploymentZones,
     describeZone,
     edgeDistance,
@@ -31,6 +34,7 @@ import {
     insideOf as buildingOf,
     interiorShape,
     moveOpening,
+    overRamp,
     openingSpan,
     wallProblem,
     wallSegments,
@@ -81,24 +85,27 @@ import { shapeAttrs, shapeTag } from '@/lib/tabletop/shapeDraw';
 import { newPieceId } from '@/lib/tabletop/terrainPresets';
 import {
     ChevronDown,
+    CircleHelp,
     Eye,
     FolderOpen,
     Lock,
-    Route,
     LockOpen,
-    Maximize,
     MapPin,
+    Maximize,
     Minus,
     Mountain,
     Plus,
-    Swords,
-    TriangleAlert,
+    Route,
     Ruler,
     Save,
+    Swords,
     Trash2,
+    TriangleAlert,
     User,
     Users,
 } from 'lucide-vue-next';
+import { useFactionColor } from '@/composables/useFactionColor';
+import HelpDialog from '@/components/Help/HelpDialog.vue';
 import { GAME_ICONS } from '@/lib/gameIcons';
 import { RED_JOKER, SUITS, cardFace, cardLabel, cardSuit, type FateFeed, type FateFlip } from '@/lib/fate/fate';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowReactive, shallowRef, watch } from 'vue';
@@ -157,6 +164,11 @@ const props = withDefaults(
         schemeNotes?: Record<number, { selected_model?: string | null; selected_marker?: string | null }>;
         /** A game's crew as the play screen's rows show it (health, activation, tokens, card). With it the models are listed as those rows and the tabletop options open under the chosen one. */
         crew?: CrewMember[];
+        /** Models that were replaced and still need setting down in base contact with where the original stood (CRG p.48), by model id. */
+        placeAnchors?: Record<string, { x: number; y: number; baseMm: number; name: string }>;
+        /** The page can attach upgrades to a model (a game, for someone who plays in it): the rows offer Upgrades, and Attach Injury in a Campaign game. */
+        canAttach?: boolean;
+        isCampaign?: boolean;
         storageKey?: string;
         deployment?: DeploymentKind;
     }>(),
@@ -183,6 +195,11 @@ const emit = defineEmits<{
     /** Sandbox: swap a model for another character, keeping what it has picked up. */
     replaceCharacter: [id: string, character: CharacterOption];
     auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
+    /** A replacement has been set down (or left where it is): the page can forget where the original stood. */
+    placed: [id: string];
+    /** The row's Upgrades or Attach Injury was pressed. */
+    openUpgrades: [id: string];
+    openInjury: [id: string];
 }>();
 
 // The table layout, copied so a piece moves smoothly while it is dragged; the parent gets the layout once it is dropped.
@@ -510,6 +527,8 @@ const trail = ref<{
     sp?: number;
     /** The Sp was halved because the model started engaged (CRG, Engagement). */
     halved?: boolean;
+    /** A Charge cannot be declared while engaged. */
+    chargeBlocked?: boolean;
     /** How it is moving: a Walk, a Walk that ignores terrain (Flight), or a place within `range` (Leap) that is not movement at all. */
     kind: MoveKind;
     /** The building it started inside, if any (a place cannot cross a wall). */
@@ -519,12 +538,17 @@ const trail = ref<{
     /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. */
     path: { x: number; y: number; elev: number }[];
 } | null>(null);
-type MoveKind = 'walk' | 'jump' | 'fly' | 'place';
+type MoveKind = 'walk' | 'charge' | 'jump' | 'fly' | 'place';
 /** Walking spends movement and is stopped by terrain; flying walks but ignores terrain's height; placing picks the model up and puts it down within a range (p.17). */
 const moveKind = ref<MoveKind>('walk');
 const placeRange = ref(6);
 const MOVE_KINDS: { value: MoveKind; label: string; hint: string }[] = [
     { value: 'walk', label: 'Walk', hint: 'Spends movement and is stopped by terrain' },
+    {
+        value: 'charge',
+        label: 'Charge',
+        hint: 'Once per activation, not while engaged: a straight line up to its Sp, then a melee action',
+    },
     { value: 'jump', label: 'Jump', hint: 'Jump a gap: the same height or up to 1" lower, over nothing taller than where it began' },
     { value: 'fly', label: 'Flight', hint: 'A Walk that ignores terrain height' },
     { value: 'place', label: 'Place', hint: 'Puts the model down within a range, with no movement (Leap)' },
@@ -538,12 +562,18 @@ const trailCost = computed(() => {
     const t = trail.value;
     const token = t ? tokens.value.find((x) => x.id === t.id) : undefined;
     if (!t || !token) return null;
-    const flat = t.kind !== 'walk';
-    const points = [...t.path, { x: t.to.x, y: t.to.y, elev: elevationOf(token) }].map((q) => (flat ? { ...q, elev: 0 } : q));
+    // a Charge is a Walk in a straight line: terrain costs the same
+    const flat = t.kind !== 'walk' && t.kind !== 'charge';
+    const raw = [...t.path, { x: t.to.x, y: t.to.y, elev: elevationOf(token) }].map((q) => (flat ? { ...q, elev: 0 } : q));
+    // a leg over stairs or a ramp costs no climb and is no fall
+    const points = flat ? raw : raw.map((q, i) => (i > 0 && overRamp(raw[i - 1], q, t.baseMm, worldTerrain.value) ? { ...q, ramp: true } : q));
     const flown = pathCost(points);
     // What a Walk meets on the way: severe terrain costs double, hazardous terrain is triggered, impassable terrain is in the way. A model that
     // ignores terrain (Flight) or is placed is not asked.
-    const crossed = t.kind === 'walk' && !token.marker ? terrainAlongPath(points, t.baseMm, worldTerrain.value, token.ignores ?? []) : null;
+    const crossed =
+        (t.kind === 'walk' || t.kind === 'charge') && !token.marker
+            ? terrainAlongPath(points, t.baseMm, worldTerrain.value, token.ignores ?? [])
+            : null;
     const cost = { ...flown, total: flown.total + (crossed?.severe ?? 0) };
     // A place is not movement, so it is never measured against a Walk.
     return { cost, crossed, walk: t.sp !== undefined && t.kind !== 'place' ? walkBudget(t.sp, cost) : null };
@@ -962,8 +992,12 @@ watch(
     },
 );
 const remainsMarker = computed(() => props.markers?.find((m) => /^remains$/i.test(m.name)) ?? props.markers?.find((m) => /remains/i.test(m.name)));
-const skipRemains = (id: string) => (remainsFor.value = remainsFor.value.filter((r) => r.id !== id));
-function placeRemains(r: { id: string; name: string; side: 'a' | 'b'; x: number; y: number; baseMm: number }) {
+const remainsArmed = ref<string | null>(null);
+const skipRemains = (id: string) => {
+    remainsFor.value = remainsFor.value.filter((r) => r.id !== id);
+    if (remainsArmed.value === id) remainsArmed.value = null;
+};
+function placeRemains(r: { id: string; name: string; side: 'a' | 'b'; x: number; y: number; baseMm: number }, tap?: Point) {
     const marker = remainsMarker.value;
     if (!marker) {
         note.value = 'There is no Remains marker in the markers list.';
@@ -984,6 +1018,19 @@ function placeRemains(r: { id: string; name: string; side: 'a' | 'b'; x: number;
         x: r.x,
         y: r.y,
     };
+    if (tap) {
+        // the controller chose: it must be within 1" of the killed model, and a place a marker may stand
+        const chosen = constrainWithin(tap, r, marker.base_mm, 1);
+        const why = whyNotHere({ ...probe, ...chosen });
+        if (why) {
+            note.value = `${why} Tap another place within 1" of ${r.name}.`;
+            return;
+        }
+        skipRemains(r.id);
+        emit('addMarker', { markerId: marker.id, name: marker.name, baseMm: marker.base_mm, side: r.side, x: chosen.x, y: chosen.y });
+        note.value = `A Remains marker was made within 1" of ${r.name}.`;
+        return;
+    }
     const spot = legalSpotNear(probe, 1 + baseRadius(r.baseMm) + baseRadius(marker.base_mm));
     skipRemains(r.id);
     if (!spot) {
@@ -1073,7 +1120,41 @@ const tokenLabels = computed(() => {
     return out;
 });
 /** Status badges are drawn smaller on a small base, so four of them do not bury a 30 mm model. */
+/** Faction colours (the CSS variables the rest of the site tints with); a model whose faction is unknown keeps its side colour. */
+const FACTION_VARS = ['arcanists', 'bayou', 'explorerssociety', 'guild', 'neverborn', 'outcasts', 'resurrectionists', 'tenthunders'];
+const factionOf = (t: Token): string | null => {
+    if (t.marker) return null;
+    const raw = t.card?.faction ?? props.crew?.find((m) => String(m.id) === t.id)?.faction ?? null;
+    const key = raw ? useFactionColor(String(raw).toLowerCase()) : null;
+    return key && FACTION_VARS.includes(key) ? key : null;
+};
+/** The base shows its faction; which side it is on is the ring around its edge. */
+const baseFill = (t: Token) => {
+    const f = factionOf(t);
+    return f ? `hsl(var(--${f}))` : sideColour(t.side);
+};
 const badgeR = (t: Token) => (t.baseMm <= 30 ? 0.27 : 0.34);
+/** The current health as a number inside the base, on bases big enough to hold it beside the label (40 mm and up); the ring says it on the rest. */
+const healthNumber = (t: Token): number | null => (!t.marker && t.info?.maxHealth && t.baseMm >= 40 ? (t.info.health ?? t.info.maxHealth) : null);
+/** Up to this many wounds the health ring is one segment each; past it the ring is smooth. */
+const HEALTH_PIPS_MAX = 12;
+const healthRing = (t: Token) => ({ r: baseRadius(t.baseMm) - 0.11, width: 0.16 });
+const healthFraction = (t: Token) => Math.max(0, Math.min(1, (t.info?.health ?? t.info?.maxHealth ?? 0) / (t.info?.maxHealth || 1)));
+const healthColour = (t: Token) => (healthFraction(t) <= 0.34 ? 'hsl(0 85% 60%)' : 'hsl(145 65% 50%)');
+/** One arc per wound, clockwise from the top; the first ones are lit (the wounds left), the last are dark (the wounds taken). */
+function healthArcs(t: Token): { d: string; on: boolean }[] {
+    const max = t.info?.maxHealth ?? 0;
+    const now = Math.max(0, Math.min(max, t.info?.health ?? max));
+    const { r } = healthRing(t);
+    const span = (Math.PI * 2) / max;
+    const gap = Math.min(0.16, span * 0.3);
+    return Array.from({ length: max }, (_, i) => {
+        const a0 = -Math.PI / 2 + i * span + gap / 2;
+        const a1 = -Math.PI / 2 + (i + 1) * span - gap / 2;
+        const pt = (a: number) => `${t.x + r * Math.cos(a)} ${t.y + r * Math.sin(a)}`;
+        return { d: `M${pt(a0)} A${r} ${r} 0 0 1 ${pt(a1)}`, on: i < now };
+    });
+}
 const tokenLabel = (t: Token) =>
     t.marker
         ? t.name
@@ -1222,8 +1303,89 @@ function legalSpotNear(probe: Token, maxRadius?: number): { x: number; y: number
 
 /** A model the game added that has no place yet: the next tap on empty table sets it down at the nearest legal spot. */
 const placingId = ref<string | null>(null);
+
+// ----- replaced models: the new model goes into base contact with where the original stood (CRG p.48) -----
+type Anchor = { x: number; y: number; baseMm: number; name: string };
+/** Sandbox replacements are noted here; a game's come from the page (`placeAnchors`). */
+const localAnchors = ref<Record<string, Anchor>>({});
+const anchors = computed<Record<string, Anchor>>(() => ({ ...props.placeAnchors, ...localAnchors.value }));
+const anchorOf = (id: string): Anchor | undefined => (tokens.value.some((t) => t.id === id && !t.killed) ? anchors.value[id] : undefined);
+function finishPlacing(token: Token, spot: Point | null, note_: string) {
+    if (spot) {
+        Object.assign(token, spot, { unplaced: false });
+        trail.value = null;
+        emit('moved', { ...token });
+    }
+    placingId.value = null;
+    const rest = { ...localAnchors.value };
+    delete rest[token.id];
+    localAnchors.value = rest;
+    setSummoner(token.id, '');
+    emit('placed', token.id);
+    note.value = note_;
+}
+/** What is wrong with standing this token at its (probe) position, in words, or null when it is fine. */
+function whyNotHere(probe: Token): string | null {
+    const clamped = clampToTable(probe);
+    if (Math.hypot(clamped.x - probe.x, clamped.y - probe.y) > 1e-6) return 'That is off the table.';
+    const bad = placementProblems(probe, tokens.value, worldTerrain.value, reach.value).find(
+        (q) => q.kind === 'overlap' || q.kind === 'impassable' || q.kind === 'unreachable',
+    );
+    return bad ? `${probe.name} ${bad.text}.` : null;
+}
+/** Into base contact with the original: at the tapped side if that is legal; with no tap, the first legal spot, from the side facing the middle of the table. */
+function placeInContact(token: Token, anchor: Anchor, tap?: Point) {
+    const centre = { x: TABLE_SIZE / 2, y: TABLE_SIZE / 2 };
+    const spots = tap ? [constrainToContact(tap, anchor, token.baseMm)] : contactSpots(anchor, token.baseMm, centre);
+    let why: string | null = null;
+    for (const spot of spots) {
+        why = whyNotHere({ ...token, ...spot });
+        if (!why) return finishPlacing(token, spot, `${token.name} placed in base contact with where ${anchor.name} stood.`);
+    }
+    note.value = tap
+        ? `${why ?? 'No room there.'} Tap another side of where ${anchor.name} stood.`
+        : `${token.name} cannot be placed in base contact with where ${anchor.name} stood, so it is killed (CRG p.48).`;
+}
+// ----- summoned models: placed within a distance of the model that summoned them -----
+/** A summoned model's placement rule: within `range` inches of one of its summoner's models (what the summon effect says). Not saved: it lasts until the model is set down. */
+const summonRule = ref<Record<string, { from: string; range: number }>>({});
+const ruleOf = (id: string) => summonRule.value[id] ?? null;
+const tokenById = (id: string | number) => tokens.value.find((t) => t.id === String(id));
+/** The models that could have summoned this one: its own side's models that are on the table. */
+const summonersFor = (t: Token) => tokens.value.filter((x) => !x.marker && !x.killed && !x.unplaced && x.id !== t.id && x.side === t.side);
+function setSummoner(id: string, from: string) {
+    const rest = { ...summonRule.value };
+    if (from) rest[id] = { from, range: rest[id]?.range ?? 3 };
+    else delete rest[id];
+    summonRule.value = rest;
+}
+function setSummonRange(id: string, range: number) {
+    const rule = summonRule.value[id];
+    if (rule && Number.isFinite(range)) summonRule.value = { ...summonRule.value, [id]: { ...rule, range: Math.min(12, Math.max(0.5, range)) } };
+}
+/** Held to the distance: a tap farther away is pulled in to it, and a spot that is not legal is refused with the reason. */
+function placeWithinRule(token: Token, rule: { from: string; range: number }, tap: Point) {
+    const from = tokens.value.find((t) => t.id === rule.from);
+    if (!from) {
+        setSummoner(token.id, '');
+        note.value = 'The model that summoned it is not on the table, so place it anywhere.';
+        return;
+    }
+    const spot = constrainWithin(clampToTable({ baseMm: token.baseMm, x: tap.x, y: tap.y }), from, token.baseMm, rule.range);
+    const why = whyNotHere({ ...token, ...spot });
+    if (why) {
+        note.value = `${why} Tap another spot within ${rule.range}" of ${from.name}.`;
+        return;
+    }
+    finishPlacing(token, spot, `${token.name} placed within ${rule.range}" of ${from.name}.`);
+}
+const keepWhereItIs = (token: Token) => finishPlacing(token, null, `${token.name} stays where it is.`);
 function placeAt(token: Token, p: Point) {
     if (token.locked) return;
+    const anchor = anchorOf(token.id);
+    if (anchor) return placeInContact(token, anchor, p);
+    const rule = ruleOf(token.id);
+    if (rule) return placeWithinRule(token, rule, p);
     const at = clampToTable({ baseMm: token.baseMm, x: p.x, y: p.y });
     const spot = legalSpotNear({ ...token, x: at.x, y: at.y });
     if (!spot) {
@@ -1236,8 +1398,147 @@ function placeAt(token: Token, p: Point) {
     emit('moved', { ...token });
     note.value = `${token.name} placed.`;
 }
+// say so when a model needs placing: the prompt sits with its row, and this reaches a screen reader
+watch(
+    () => Object.keys(anchors.value).filter((id) => tokens.value.some((t) => t.id === id)),
+    (now, before) => {
+        const fresh = now.find((id) => !before?.includes(id));
+        const t = fresh ? tokens.value.find((x) => x.id === fresh) : null;
+        if (t && fresh) note.value = `${t.name} replaced ${anchors.value[fresh].name}: place it in base contact with where it stood.`;
+    },
+);
+// ----- the keyboard: the table can be used without a pointer -----
+// [ and ] choose the previous or next model, the arrows move it (0.5"; Shift 0.1"; Alt 2"), Escape lets go. A key press drives the same
+// pointer code as a drag, so a keyboard move gets the same rules, notes and saving.
+/** The help dialog: opened from its button, from the terrain editor, or with the ? key. */
+const helpOpen = ref(false);
+const helpSection = ref('start');
+function openHelp(section: string) {
+    helpSection.value = section;
+    helpOpen.value = true;
+}
+const KEY_POINTER = -7;
+let keyTarget: Token | null = null;
+let keyHeld = false;
+let keyIdle: ReturnType<typeof setTimeout> | null = null;
+const toClient = (p: Point) => {
+    const rect = svg.value!.getBoundingClientRect();
+    return {
+        clientX: rect.left + ((p.x - view.value.x) / view.value.w) * rect.width,
+        clientY: rect.top + ((p.y - view.value.y) / view.value.w) * rect.width,
+    };
+};
+const stand = (p: Point) => ({ ...toClient(p), pointerId: KEY_POINTER }) as unknown as PointerEvent;
+function endKeyMove() {
+    if (keyIdle) clearTimeout(keyIdle);
+    keyIdle = null;
+    if (!keyHeld) return;
+    keyHeld = false;
+    const t = tokens.value.find((x) => x.id === keyTarget?.id);
+    keyTarget = null;
+    onUp(stand({ x: t?.x ?? 0, y: t?.y ?? 0 }));
+}
+function keyMove(dx: number, dy: number) {
+    const t = selected.value;
+    if (!t) return void (note.value = 'Choose a model first: [ and ] step through them.');
+    if (t.locked) return void (note.value = `${t.name} belongs to ${t.side === 'n' ? 'the table' : props.sideNames[t.side]}; only they can move it.`);
+    if (!keyHeld) {
+        keyTarget = t;
+        onDown(stand({ x: t.x, y: t.y }));
+        keyHeld = !!drag;
+        if (!keyHeld) {
+            keyTarget = null;
+            return;
+        }
+    }
+    // the moving model has the position the last key left it at
+    const at = tokens.value.find((x) => x.id === t.id)!;
+    onMove(stand({ x: at.x + dx, y: at.y + dy }));
+    if (moveFrame) {
+        cancelAnimationFrame(moveFrame);
+        moveFrame = 0;
+    }
+    flushMove();
+    if (keyIdle) clearTimeout(keyIdle);
+    keyIdle = setTimeout(endKeyMove, 700);
+}
+function chooseNext(step: 1 | -1) {
+    endKeyMove();
+    const list = tokens.value.filter((t) => !t.killed);
+    if (!list.length) return;
+    const i = list.findIndex((t) => t.id === selectedId.value);
+    const next = list[(i + step + list.length) % list.length];
+    selectedId.value = next.id;
+    note.value = `${next.name}${next.marker ? ' (marker)' : ''}, ${list.indexOf(next) + 1} of ${list.length}${next.locked ? ', not yours to move' : '. Arrow keys move it.'}`;
+}
+/** Terrain from the keyboard: [ ] choose a piece, the arrows move it, , and . turn it, Delete removes it, Escape lets go. Each change is undoable. */
+function onTerrainKey(e: KeyboardEvent) {
+    const id = selectedPieceId.value;
+    const piece = terrain.value.find((p) => p.id === id);
+    const step = e.altKey ? 2 : 0.5;
+    const arrows: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const replace = (next: TerrainPiece) => commitTerrain(terrain.value.map((p) => (p.id === next.id ? next : p)));
+    if (e.key === ']' || e.key === '[') {
+        e.preventDefault();
+        const list = terrain.value;
+        if (!list.length) return void (note.value = 'No terrain on the table yet.');
+        const i = list.findIndex((p) => p.id === id);
+        const next = list[(i + (e.key === ']' ? 1 : -1) + list.length) % list.length];
+        selectedPieceId.value = next.id;
+        note.value = `${next.name}, ${list.indexOf(next) + 1} of ${list.length}. Arrows move it, comma and full stop turn it, Delete removes it.`;
+    } else if (arrows[e.key] && piece) {
+        e.preventDefault();
+        replace(movePiece(piece, ...arrows[e.key]));
+        note.value = `${piece.name} moved ${Math.abs(arrows[e.key][0] || arrows[e.key][1])}" ${e.key.replace('Arrow', '').toLowerCase()}.`;
+    } else if ((e.key === ',' || e.key === '.') && piece) {
+        e.preventDefault();
+        const deg = e.key === '.' ? 15 : -15;
+        replace(rotatePiece(piece, deg));
+        note.value = `${piece.name} turned ${Math.abs(deg)} degrees ${deg > 0 ? 'clockwise' : 'anticlockwise'}.`;
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && piece) {
+        e.preventDefault();
+        note.value = `${piece.name} removed (Undo brings it back).`;
+        commitTerrain(terrain.value.filter((p) => p.id !== piece.id));
+        selectedPieceId.value = null;
+    } else if (e.key === 'Escape' && piece) {
+        e.preventDefault();
+        selectedPieceId.value = null;
+    }
+}
+function onKey(e: KeyboardEvent) {
+    if (e.ctrlKey || e.metaKey) return;
+    if (e.key === '?') {
+        e.preventDefault();
+        return openHelp('shortcuts');
+    }
+    if (mode.value === 'terrain') return onTerrainKey(e);
+    const step = e.altKey ? 2 : e.shiftKey ? 0.1 : 0.5;
+    const arrows: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    if (arrows[e.key]) {
+        e.preventDefault();
+        keyMove(...arrows[e.key]);
+    } else if (e.key === ']' || e.key === '[') {
+        e.preventDefault();
+        chooseNext(e.key === ']' ? 1 : -1);
+    } else if (e.key === 'Escape' && selectedId.value) {
+        e.preventDefault();
+        endKeyMove();
+        selectedId.value = null;
+    }
+}
+function onKeyUp(e: KeyboardEvent) {
+    if (e.key.startsWith('Arrow')) {
+        if (keyIdle) clearTimeout(keyIdle);
+        keyIdle = setTimeout(endKeyMove, 350);
+    }
+}
+
 function onDown(e: PointerEvent) {
-    svg.value?.setPointerCapture(e.pointerId);
+    try {
+        svg.value?.setPointerCapture(e.pointerId);
+    } catch {
+        // the keyboard's stand-in pointer is not a real one: there is nothing to capture
+    }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
@@ -1246,7 +1547,7 @@ function onDown(e: PointerEvent) {
         return;
     }
     const p = toBoard(e.clientX, e.clientY);
-    const hit = tokenAt(p);
+    const hit = keyTarget ?? tokenAt(p);
     note.value = '';
     // a stepped move goes on when the same model is grabbed again; anything else starts afresh
     const carryOn =
@@ -1262,6 +1563,13 @@ function onDown(e: PointerEvent) {
         const waiting = tokens.value.find((x) => x.id === placingId.value);
         if (waiting) {
             placeAt(waiting, p);
+            return;
+        }
+    }
+    if (remainsArmed.value && mode.value === 'move' && !hit) {
+        const waiting = remainsFor.value.find((x) => x.id === remainsArmed.value);
+        if (waiting) {
+            placeRemains(waiting, p);
             return;
         }
     }
@@ -1316,11 +1624,12 @@ function onDown(e: PointerEvent) {
                 // an engaged model's Walk is half its Sp (a jump or a place is not a Walk)
                 sp: hit.marker
                     ? undefined
-                    : engagement.value.get(hit.id) && hit.sp !== undefined && moveKind.value !== 'jump' && moveKind.value !== 'place'
+                    : engagement.value.get(hit.id) && hit.sp !== undefined && (moveKind.value === 'walk' || moveKind.value === 'fly')
                       ? engagedSp(hit.sp)
                       : hit.sp,
                 halved:
-                    !hit.marker && !!engagement.value.get(hit.id) && hit.sp !== undefined && moveKind.value !== 'jump' && moveKind.value !== 'place',
+                    !hit.marker && !!engagement.value.get(hit.id) && hit.sp !== undefined && (moveKind.value === 'walk' || moveKind.value === 'fly'),
+                chargeBlocked: !hit.marker && moveKind.value === 'charge' && !!engagement.value.get(hit.id),
                 kind: moveKind.value,
                 inside: buildingOf(hit, terrain.value)?.id ?? null,
                 range: placeRange.value,
@@ -1587,15 +1896,22 @@ function onUp(e: PointerEvent) {
                 if (crossed?.impassable.length)
                     parts.push(`passes through impassable terrain (${crossed.impassable.join(', ')}), which a Walk cannot do`);
                 if (trail.value?.kind === 'fly') parts.push('ignoring terrain height, so no climbing cost and no fall');
+                else if (overRamp(trail.value?.path.at(-1) ?? t, t, t.baseMm, worldTerrain.value))
+                    parts.push(
+                        leg.drop > 0 ? `down the stairs or ramp to elevation ${now}, with no fall` : 'over stairs or a ramp, with no climbing cost',
+                    );
                 else if (fallHurts(drag.startElevation, now)) parts.push(`dropped ${fmt(leg.drop)}": 1 irreducible damage if this was a fall`);
                 else if (leg.drop > 0) parts.push(`down ${fmt(leg.drop)}" to elevation ${now}`);
                 const walk = trailCost.value?.walk;
                 if (walk)
                     parts.push(
                         walk.within
-                            ? `${fmt(walk.left)}" left of a Walk (Sp ${trail.value?.sp}${trail.value?.halved ? ', halved: engaged' : ''})`
-                            : `${fmt(-walk.left)}" more than a Walk (Sp ${trail.value?.sp}${trail.value?.halved ? ', halved: engaged' : ''})`,
+                            ? `${fmt(walk.left)}" left of a ${trail.value?.kind === 'charge' ? 'Charge' : 'Walk'} (Sp ${trail.value?.sp}${trail.value?.halved ? ', halved: engaged' : ''})`
+                            : `${fmt(-walk.left)}" more than a ${trail.value?.kind === 'charge' ? 'Charge' : 'Walk'} (Sp ${trail.value?.sp}${trail.value?.halved ? ', halved: engaged' : ''})`,
                     );
+                if (trail.value?.chargeBlocked) parts.unshift('A model cannot declare Charge while engaged');
+                if (trail.value?.kind === 'charge' && legs.length === 1)
+                    parts.push('then it may declare a melee action that does not count against its action limit');
                 note.value = parts.join(', ') + (legs.length > 1 ? '. Each leg is a straight line.' : '. Straight-line distance.');
             }
             // A walk into or out of a building has to go through a door (p.58).
@@ -1656,6 +1972,8 @@ function openCharacterDialog() {
 /** A real card: its name, base size, Sz and Sp. New models fan out so several added in a row do not sit on top of each other. */
 function addCharacter(c: CharacterOption) {
     if (replacing.value) {
+        const old = tokens.value.find((t) => t.id === replacing.value);
+        if (old && !old.killed) localAnchors.value = { ...localAnchors.value, [old.id]: { x: old.x, y: old.y, baseMm: old.baseMm, name: old.name } };
         emit('replaceCharacter', replacing.value, c);
         note.value = `Replaced with ${c.name}.`;
         replacing.value = null;
@@ -1751,17 +2069,22 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
 <template>
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         <!-- on a wide screen the table stays in view while the side column scrolls, so the list and the options never leave it behind -->
-        <div class="lg:sticky lg:top-4 lg:self-start" data-testid="board-column">
+        <div class="group/board lg:sticky lg:top-4 lg:self-start" data-testid="board-column">
             <div
                 class="mx-auto aspect-square w-full max-w-[min(100%,calc(100vh-14rem))] overflow-hidden rounded-lg border bg-card"
                 data-testid="tabletop-board"
             >
                 <svg
                     ref="svg"
-                    class="size-full touch-none select-none"
+                    class="size-full touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                     :viewBox="viewBox"
                     role="application"
-                    aria-label="Tabletop board, 36 by 36 inches"
+                    tabindex="0"
+                    aria-label="Tabletop board, 36 by 36 inches. Press [ or ] to choose a model, the arrow keys to move it, Escape to let go."
+                    aria-describedby="board-keys"
+                    @mousedown.prevent
+                    @keydown="onKey"
+                    @keyup="onKeyUp"
                     @pointerdown="onDown"
                     @pointermove="onMove"
                     @pointerup="onUp"
@@ -2070,10 +2393,21 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         :data-testid="`token-${t.id}`"
                     >
                         <circle
+                            v-if="factionOf(t)"
+                            :cx="t.x"
+                            :cy="t.y"
+                            :r="baseRadius(t.baseMm) + 0.1"
+                            fill="none"
+                            :stroke="sideColour(t.side)"
+                            stroke-width="0.16"
+                            pointer-events="none"
+                            :data-testid="`side-ring-${t.id}`"
+                        />
+                        <circle
                             :cx="t.x"
                             :cy="t.y"
                             :r="baseRadius(t.baseMm)"
-                            :fill="sideColour(t.side)"
+                            :fill="baseFill(t)"
                             fill-opacity="0.9"
                             :stroke="
                                 t.id === selectedId
@@ -2101,23 +2435,45 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 stroke-dasharray="0.45 0.28"
                             />
                         </g>
-                        <g v-if="t.info?.maxHealth" pointer-events="none" :data-testid="`hp-${t.id}`">
-                            <rect
-                                :x="t.x - baseRadius(t.baseMm)"
-                                :y="t.y + baseRadius(t.baseMm) + 0.12"
-                                :width="baseRadius(t.baseMm) * 2"
-                                height="0.28"
-                                fill="hsl(var(--background))"
-                                stroke="hsl(var(--foreground) / 0.6)"
-                                stroke-width="0.05"
-                            />
-                            <rect
-                                :x="t.x - baseRadius(t.baseMm)"
-                                :y="t.y + baseRadius(t.baseMm) + 0.12"
-                                :width="baseRadius(t.baseMm) * 2 * Math.min(1, (t.info.health ?? t.info.maxHealth) / t.info.maxHealth)"
-                                height="0.28"
-                                :fill="(t.info.health ?? t.info.maxHealth) / t.info.maxHealth <= 0.34 ? 'hsl(0 80% 55%)' : 'hsl(145 60% 42%)'"
-                            />
+                        <!-- health: a ring just inside the base's edge, one segment per wound (a smooth ring past 12), so nothing sits outside the base -->
+                        <g
+                            v-if="t.info?.maxHealth && !t.marker"
+                            pointer-events="none"
+                            :data-testid="`hp-${t.id}`"
+                            :data-health="`${t.info.health ?? t.info.maxHealth}/${t.info.maxHealth}`"
+                        >
+                            <template v-if="t.info.maxHealth <= HEALTH_PIPS_MAX">
+                                <path
+                                    v-for="(a, i) in healthArcs(t)"
+                                    :key="i"
+                                    :d="a.d"
+                                    fill="none"
+                                    stroke-linecap="butt"
+                                    :stroke-width="healthRing(t).width"
+                                    :stroke="a.on ? healthColour(t) : 'rgb(0 0 0 / 0.5)'"
+                                />
+                            </template>
+                            <template v-else>
+                                <circle
+                                    :cx="t.x"
+                                    :cy="t.y"
+                                    :r="healthRing(t).r"
+                                    fill="none"
+                                    :stroke-width="healthRing(t).width"
+                                    stroke="rgb(0 0 0 / 0.5)"
+                                />
+                                <circle
+                                    :cx="t.x"
+                                    :cy="t.y"
+                                    :r="healthRing(t).r"
+                                    fill="none"
+                                    :stroke-width="healthRing(t).width"
+                                    :stroke="healthColour(t)"
+                                    pathLength="100"
+                                    :stroke-dasharray="`${healthFraction(t) * 100} 100`"
+                                    :transform="`rotate(-90 ${t.x} ${t.y})`"
+                                />
+                            </template>
                         </g>
                         <g v-if="showBadges && badgesOf(t.info).chips.length" pointer-events="none" :data-testid="`badges-${t.id}`">
                             <g v-for="(c, i) in badgesOf(t.info).chips" :key="c.label">
@@ -2208,9 +2564,103 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 {{ flipBadge(t.id)!.glyph }}
                             </text>
                         </g>
-                        <text :x="t.x" :y="t.y + 0.3" text-anchor="middle" font-size="0.85" fill="white" font-weight="600" pointer-events="none">
+                        <text
+                            :x="t.x"
+                            :y="t.y + (healthNumber(t) !== null ? -0.02 : 0.3)"
+                            text-anchor="middle"
+                            font-size="0.85"
+                            fill="white"
+                            font-weight="600"
+                            stroke="rgb(0 0 0 / 0.55)"
+                            stroke-width="0.14"
+                            paint-order="stroke"
+                            pointer-events="none"
+                        >
                             {{ tokenLabel(t) }}{{ elevationOf(t) > 0 ? `+${elevationOf(t)}` : '' }}
                         </text>
+                        <text
+                            v-if="healthNumber(t) !== null"
+                            :x="t.x"
+                            :y="t.y + 0.5"
+                            text-anchor="middle"
+                            font-size="0.5"
+                            fill="white"
+                            font-weight="700"
+                            stroke="rgb(0 0 0 / 0.65)"
+                            stroke-width="0.12"
+                            paint-order="stroke"
+                            pointer-events="none"
+                            :data-testid="`hp-number-${t.id}`"
+                        >
+                            {{ healthNumber(t) }}
+                        </text>
+                    </g>
+                    <!-- where a replacement may go: the dashed ring is where its centre can be, base to base with where the original stood -->
+                    <g
+                        v-for="t in tokens.filter((x) => x.id === placingId && anchorOf(x.id))"
+                        :key="`contact-${t.id}`"
+                        pointer-events="none"
+                        data-testid="contact-ring"
+                    >
+                        <circle
+                            :cx="anchorOf(t.id)!.x"
+                            :cy="anchorOf(t.id)!.y"
+                            :r="baseRadius(anchorOf(t.id)!.baseMm)"
+                            fill="hsl(45 95% 55% / 0.12)"
+                            stroke="hsl(45 95% 55%)"
+                            stroke-width="0.06"
+                        />
+                        <circle
+                            :cx="anchorOf(t.id)!.x"
+                            :cy="anchorOf(t.id)!.y"
+                            :r="baseRadius(anchorOf(t.id)!.baseMm) + baseRadius(t.baseMm)"
+                            fill="none"
+                            stroke="hsl(45 95% 55%)"
+                            stroke-width="0.14"
+                            stroke-dasharray="0.4 0.25"
+                        />
+                    </g>
+                    <!-- where a summoned model may go: its centre inside the dashed line, within the distance of the model that summoned it -->
+                    <g
+                        v-for="t in tokens.filter((x) => x.id === placingId && !anchorOf(x.id) && ruleOf(x.id) && tokenById(ruleOf(x.id)!.from))"
+                        :key="`summon-${t.id}`"
+                        pointer-events="none"
+                        data-testid="summon-ring"
+                    >
+                        <circle
+                            :cx="tokenById(ruleOf(t.id)!.from)!.x"
+                            :cy="tokenById(ruleOf(t.id)!.from)!.y"
+                            :r="baseRadius(tokenById(ruleOf(t.id)!.from)!.baseMm) + ruleOf(t.id)!.range + baseRadius(t.baseMm)"
+                            fill="hsl(45 95% 55% / 0.06)"
+                            stroke="hsl(45 95% 55%)"
+                            stroke-width="0.14"
+                            stroke-dasharray="0.4 0.25"
+                        />
+                    </g>
+                    <!-- where a Remains marker may go: its centre inside the dashed line, within 1" of the killed model's base -->
+                    <g
+                        v-for="r in remainsFor.filter((x) => x.id === remainsArmed)"
+                        :key="`within-${r.id}`"
+                        pointer-events="none"
+                        data-testid="remains-ring"
+                    >
+                        <circle
+                            :cx="r.x"
+                            :cy="r.y"
+                            :r="baseRadius(r.baseMm)"
+                            fill="hsl(45 95% 55% / 0.12)"
+                            stroke="hsl(45 95% 55%)"
+                            stroke-width="0.06"
+                        />
+                        <circle
+                            :cx="r.x"
+                            :cy="r.y"
+                            :r="baseRadius(r.baseMm) + 1 + baseRadius(remainsMarker?.base_mm ?? 30)"
+                            fill="hsl(45 95% 55% / 0.06)"
+                            stroke="hsl(45 95% 55%)"
+                            stroke-width="0.14"
+                            stroke-dasharray="0.4 0.25"
+                        />
                     </g>
                     <g v-if="trail && trailLength >= 0.05" pointer-events="none" data-testid="move-trail">
                         <circle
@@ -2417,12 +2867,20 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     </g>
                 </svg>
             </div>
+            <p id="board-keys" class="mt-1 hidden text-center text-xs text-muted-foreground group-focus-within/board:block" data-testid="board-keys">
+                Keyboard: [ and ] choose a model, the arrow keys move it 0.5" (Shift 0.1", Alt 2"), Esc lets go. On the Terrain tab the same keys move
+                a piece, and , . turn it.
+            </p>
             <div class="mt-2 flex items-start gap-2">
                 <p class="min-h-5 flex-1 text-center text-sm" role="status" data-testid="tabletop-note">{{ note }}</p>
                 <div class="flex shrink-0 gap-1" data-testid="zoom-controls">
-                    <Button variant="outline" size="icon" class="size-8" aria-label="Zoom in" @click="zoomBy(0.8)"><Plus class="size-4" /></Button>
-                    <Button variant="outline" size="icon" class="size-8" aria-label="Zoom out" @click="zoomBy(1.25)"><Minus class="size-4" /></Button>
-                    <Button variant="outline" size="icon" class="size-8" aria-label="Fit the whole table" @click="resetView"
+                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Zoom in" @click="zoomBy(0.8)"
+                        ><Plus class="size-4"
+                    /></Button>
+                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Zoom out" @click="zoomBy(1.25)"
+                        ><Minus class="size-4"
+                    /></Button>
+                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Fit the whole table" @click="resetView"
                         ><Maximize class="size-4"
                     /></Button>
                 </div>
@@ -2430,9 +2888,14 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
         </div>
 
         <div
-            class="space-y-4 max-lg:[&_button]:min-h-10 max-lg:[&_input:not([type=checkbox])]:min-h-10 max-lg:[&_select]:min-h-10"
+            class="space-y-4 max-lg:[&_button]:min-h-11 max-lg:[&_input:not([type=checkbox])]:min-h-11 max-lg:[&_select]:min-h-11"
             data-testid="side-column"
         >
+            <div class="flex justify-end">
+                <Button size="sm" variant="ghost" data-testid="tabletop-help-open" @click="openHelp(mode === 'terrain' ? 'terrain' : 'start')"
+                    ><CircleHelp class="mr-1.5 size-4" />Help and shortcuts</Button
+                >
+            </div>
             <!-- What to work on: models, or terrain -->
             <div
                 v-if="!readOnly"
@@ -2526,14 +2989,14 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
                             title="The two centre axes and the middle of each 18-inch quarter"
                         >
-                            <input v-model="tableLines" type="checkbox" class="size-5" data-testid="table-lines-toggle" />
+                            <input v-model="tableLines" type="checkbox" class="size-6 shrink-0" data-testid="table-lines-toggle" />
                             <span>Show table lines <span class="text-muted-foreground">(centre axes and quarter centres)</span></span>
                         </label>
                         <label
                             class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
                             title="Token chips, the activation tick and the engaged mark on each base"
                         >
-                            <input v-model="showBadges" type="checkbox" class="size-5" data-testid="badges-toggle" />
+                            <input v-model="showBadges" type="checkbox" class="size-6 shrink-0" data-testid="badges-toggle" />
                             <span>Show status badges <span class="text-muted-foreground">(tokens, activated, engaged)</span></span>
                         </label>
                         <label v-if="variants.length" class="block text-sm">
@@ -2578,12 +3041,19 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 <Button
                     :variant="mode === 'ruler' ? 'default' : 'outline'"
                     size="sm"
+                    title="Measure edge to edge: press on a model or a spot on the table and drag to another"
                     data-testid="mode-ruler"
                     :aria-pressed="mode === 'ruler'"
                     @click="toggleRuler"
                     ><Ruler class="mr-1 size-4" />Ruler</Button
                 >
-                <Button v-if="guidedId" :variant="mode === 'sight' ? 'default' : 'outline'" size="sm" data-testid="mode-sight" @click="mode = 'sight'"
+                <Button
+                    v-if="guidedId"
+                    :variant="mode === 'sight' ? 'default' : 'outline'"
+                    size="sm"
+                    title="Aim the sight guidelines: press on the table, or on the model or marker they should point at"
+                    data-testid="mode-sight"
+                    @click="mode = 'sight'"
                     ><Eye class="mr-1 size-4" />Aim</Button
                 >
                 <Button
@@ -2649,6 +3119,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
 
             <TerrainEditor
                 v-if="mode === 'terrain'"
+                @help="openHelp('terrain')"
                 :pieces="terrain"
                 :selected-id="selectedPieceId"
                 :anchor="viewCentre"
@@ -2686,6 +3157,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     >Place: drag a model to where it may be put down. It is picked up, so terrain and sight in between are ignored and nothing is
                     spent climbing or falling, but it has to fit where it lands and be within the range, measured from the closest point of its base.
                     A place that cannot fit does not happen. If it begins or ends in terrain, it counts as having moved through it.</template
+                >
+                <template v-else-if="moveKind === 'charge'"
+                    >Charge: once per activation, and not while engaged. Move up to its Sp in a straight line (terrain costs what it does for a Walk).
+                    It may then declare a melee action that does not count against its action limit.</template
                 >
                 <template v-else
                     >Flight: the model walks but ignores terrain, so climbing costs no movement and a drop does no damage. Only the ground distance
@@ -2747,9 +3222,20 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 role="alert"
                 data-testid="remains-prompt"
             >
-                <p>{{ r.name }} was killed. It makes a friendly 30mm Remains marker within 1" (peons do not).</p>
+                <p>
+                    {{ r.name }} was killed. Its controller makes a friendly 30mm Remains marker anywhere within 1" of it (peons do not).
+                    {{ remainsArmed === r.id ? 'Tap the table inside the dashed line.' : 'Choose the spot, or let it be placed for you.' }}
+                </p>
                 <div class="flex flex-wrap gap-1">
-                    <Button size="sm" data-testid="remains-place" @click="placeRemains(r)">Make the Remains marker</Button>
+                    <Button
+                        size="sm"
+                        :variant="remainsArmed === r.id ? 'default' : 'outline'"
+                        :aria-pressed="remainsArmed === r.id"
+                        data-testid="remains-choose"
+                        @click="remainsArmed = remainsArmed === r.id ? null : r.id"
+                        >{{ remainsArmed === r.id ? 'Cancel' : 'Choose the spot' }}</Button
+                    >
+                    <Button size="sm" variant="outline" data-testid="remains-place" @click="placeRemains(r)">Place it for me</Button>
                     <Button size="sm" variant="ghost" data-testid="remains-skip" @click="skipRemains(r.id)">Skip</Button>
                 </div>
             </div>
@@ -2770,7 +3256,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :member="m"
                                 :editable="canEditCrew(m)"
                                 :card-open="openCards.has(m.id)"
-                                :is-campaign="false"
+                                :is-campaign="!!isCampaign"
+                                :allow-attach="!!canAttach"
                                 board-mode
                                 :upgrade-power-max="noUpgradePower"
                                 :loot-card-by-id="noLootCard"
@@ -2783,26 +3270,91 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 "
                                 @open-tokens="openTokens(m)"
                                 @replace="replaceFrom(m)"
+                                @open-upgrades="emit('openUpgrades', String(m.id))"
+                                @open-injury="emit('openInjury', String(m.id))"
                                 @toggle-card="toggleCard(m)"
                                 :options-open="selectedId === String(m.id)"
                                 @toggle-options="toggleSelect(m)"
                                 @preview="openCard(m)"
                             />
                             <div
-                                v-if="unplacedIds.has(String(m.id)) && canEditCrew(m)"
+                                v-if="(unplacedIds.has(String(m.id)) || anchorOf(String(m.id))) && canEditCrew(m)"
                                 class="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-1.5 text-xs"
+                                :role="anchorOf(String(m.id)) ? 'alert' : undefined"
                                 data-testid="unplaced-bar"
                             >
                                 <span class="min-w-0 flex-1">{{
-                                    placingId === String(m.id) ? 'Tap the table where it goes.' : 'Summoned: not on the table yet.'
+                                    anchorOf(String(m.id))
+                                        ? placingId === String(m.id)
+                                            ? `Tap the table: it goes touching where ${anchorOf(String(m.id))!.name} stood.`
+                                            : `Replaced ${anchorOf(String(m.id))!.name}: place it in base contact with where that model stood.`
+                                        : placingId === String(m.id)
+                                          ? 'Tap the table where it goes.'
+                                          : ruleOf(String(m.id))
+                                            ? `Summoned: it goes within ${ruleOf(String(m.id))!.range}" of ${tokenById(ruleOf(String(m.id))!.from)?.name ?? 'its summoner'}.`
+                                            : 'Summoned: not on the table yet.'
                                 }}</span>
+                                <div
+                                    v-if="!anchorOf(String(m.id)) && tokenById(m.id)"
+                                    class="flex w-full flex-wrap items-center gap-2"
+                                    data-testid="summon-rule"
+                                >
+                                    <label class="flex items-center gap-1">
+                                        Summoned by
+                                        <select
+                                            class="rounded-md border bg-background px-1.5 py-1"
+                                            :value="ruleOf(String(m.id))?.from ?? ''"
+                                            data-testid="summon-from"
+                                            @change="setSummoner(String(m.id), ($event.target as HTMLSelectElement).value)"
+                                        >
+                                            <option value="">anywhere (no limit)</option>
+                                            <option v-for="s in summonersFor(tokenById(m.id)!)" :key="s.id" :value="s.id">{{ s.name }}</option>
+                                        </select>
+                                    </label>
+                                    <label v-if="ruleOf(String(m.id))" class="flex items-center gap-1">
+                                        within
+                                        <input
+                                            type="number"
+                                            min="0.5"
+                                            max="12"
+                                            step="0.5"
+                                            class="w-16 rounded-md border bg-background px-1.5 py-1"
+                                            :value="ruleOf(String(m.id))!.range"
+                                            aria-label="Inches from the summoner"
+                                            data-testid="summon-range"
+                                            @input="setSummonRange(String(m.id), Number(($event.target as HTMLInputElement).value))"
+                                        />
+                                        in.
+                                    </label>
+                                </div>
                                 <Button
                                     size="sm"
                                     :variant="placingId === String(m.id) ? 'default' : 'outline'"
                                     :aria-pressed="placingId === String(m.id)"
                                     data-testid="place-unplaced"
                                     @click="placingId = placingId === String(m.id) ? null : String(m.id)"
-                                    >{{ placingId === String(m.id) ? 'Cancel' : 'Place on the table' }}</Button
+                                    >{{
+                                        placingId === String(m.id) ? 'Cancel' : anchorOf(String(m.id)) ? 'Choose the spot' : 'Place on the table'
+                                    }}</Button
+                                >
+                                <Button
+                                    v-if="anchorOf(String(m.id))"
+                                    size="sm"
+                                    variant="outline"
+                                    data-testid="place-contact-auto"
+                                    @click="
+                                        tokens.find((t) => t.id === String(m.id)) &&
+                                        placeInContact(tokens.find((t) => t.id === String(m.id))!, anchorOf(String(m.id))!)
+                                    "
+                                    >Place it for me</Button
+                                >
+                                <Button
+                                    v-if="anchorOf(String(m.id)) && !unplacedIds.has(String(m.id))"
+                                    size="sm"
+                                    variant="ghost"
+                                    data-testid="place-contact-keep"
+                                    @click="tokens.find((t) => t.id === String(m.id)) && keepWhereItIs(tokens.find((t) => t.id === String(m.id))!)"
+                                    >Keep it here</Button
                                 >
                             </div>
                             <div :ref="(el) => setSlot(m.id, el)"></div>
@@ -2885,17 +3437,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     >
                                 </div>
                             </div>
-                            <Button
-                                v-if="schemeSlot(selected) !== null && !selected.locked"
-                                size="sm"
-                                :variant="isSchemeTarget(selected, schemeSlot(selected)!) ? 'default' : 'outline'"
-                                :aria-pressed="isSchemeTarget(selected, schemeSlot(selected)!)"
-                                class="mt-2"
-                                data-testid="scheme-target"
-                                @click="toggleSchemeTarget(selected, schemeSlot(selected)!)"
-                                >{{ isSchemeTarget(selected, schemeSlot(selected)!) ? "This is your scheme's" : "Use as your scheme's" }}
-                                {{ selected.marker ? 'marker' : 'model' }}</Button
-                            >
                             <div v-if="markerNeighbours" class="mt-2 space-y-1 rounded-md border p-2 text-xs" data-testid="marker-neighbours">
                                 <label class="flex items-center gap-2">
                                     Models within
@@ -2925,6 +3466,36 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
                                 Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
                             </p>
+                            <div class="mt-2 flex flex-wrap gap-1" data-testid="model-actions">
+                                <Button
+                                    v-if="!selected.marker"
+                                    size="sm"
+                                    :variant="guidedId === selected.id ? 'default' : 'outline'"
+                                    :aria-pressed="guidedId === selected.id"
+                                    title="Draw lines from each side of the base of this model, to check line of sight, cover and concealment"
+                                    data-testid="model-guide"
+                                    @click="toggleGuide(selected)"
+                                    ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
+                                >
+                                <Button
+                                    v-if="schemeSlot(selected) !== null && !selected.locked"
+                                    size="sm"
+                                    :variant="isSchemeTarget(selected, schemeSlot(selected)!) ? 'default' : 'outline'"
+                                    :aria-pressed="isSchemeTarget(selected, schemeSlot(selected)!)"
+                                    data-testid="scheme-target"
+                                    @click="toggleSchemeTarget(selected, schemeSlot(selected)!)"
+                                    >{{ isSchemeTarget(selected, schemeSlot(selected)!) ? "This is your scheme's" : "Use as your scheme's" }}
+                                    {{ selected.marker ? 'marker' : 'model' }}</Button
+                                >
+                                <Button
+                                    v-if="!selected.marker && !selected.locked && (crewRows.length || sandbox)"
+                                    size="sm"
+                                    variant="outline"
+                                    :data-testid="selected.killed ? 'model-revive' : 'model-kill'"
+                                    @click="emit('killChange', selected.id, !selected.killed)"
+                                    >{{ selected.killed ? 'Bring it back' : 'Mark killed' }}</Button
+                                >
+                            </div>
                             <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
                                 <summary
                                     class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"
@@ -2980,25 +3551,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     >Show inside</Button
                                 >
                             </div>
-                            <Button
-                                v-if="!selected.marker"
-                                size="sm"
-                                class="mt-2"
-                                :variant="guidedId === selected.id ? 'default' : 'outline'"
-                                :aria-pressed="guidedId === selected.id"
-                                data-testid="model-guide"
-                                @click="toggleGuide(selected)"
-                                ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
-                            >
-                            <Button
-                                v-if="!selected.marker && !selected.locked && (crewRows.length || sandbox)"
-                                size="sm"
-                                variant="outline"
-                                class="mt-2"
-                                :data-testid="selected.killed ? 'model-revive' : 'model-kill'"
-                                @click="emit('killChange', selected.id, !selected.killed)"
-                                >{{ selected.killed ? 'Bring it back' : 'Mark killed' }}</Button
-                            >
                             <!-- a Fate flip for this model: the result shows beside it on the table -->
                             <details
                                 v-if="fate && !selected.marker"
@@ -3284,6 +3836,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </div>
                 <p v-if="sandbox && !tokens.some((t) => !t.marker)" class="text-sm text-muted-foreground" data-testid="empty-table">
                     The table has no models yet. Add a character to put its model on the table at its real base size, with its Sz, Sp and health.
+                    <button type="button" class="underline" data-testid="empty-help" @click="openHelp('start')">How the table works</button>.
                 </p>
                 <div v-if="markers && markerSides.length" class="flex flex-wrap items-center gap-2 text-sm">
                     <span class="text-muted-foreground" data-testid="marker-count"
@@ -3383,6 +3936,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 :terrain-images="terrainImages"
                 @load="loadTable"
             />
+            <HelpDialog v-model:open="helpOpen" topic="tabletop" :section="helpSection" />
             <TableSaveDialog
                 v-if="layoutTarget"
                 v-model:open="saveOpen"

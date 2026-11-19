@@ -108,7 +108,7 @@ class FateDeckService
                 'card' => $c->card,
                 'joker_suit' => $c->joker_suit,
             ])->values()->all(),
-            'flips' => $flips->map(function (GameFateFlip $f) use ($cards, $byRow, $slotOf) {
+            'flips' => $flips->map(function (GameFateFlip $f) use ($cards, $byRow, $slotOf, $flips) {
                 $revealed = $cards->where('flip_id', $f->id)->where('zone', FateZoneEnum::Conflict);
                 $chosen = $f->chosen_id ? $byRow->get($f->chosen_id) : null;
 
@@ -122,6 +122,7 @@ class FateDeckService
                     // which revealed cards may be taken as the result (nothing is offered once one has been)
                     'legal' => $chosen ? [] : self::legalChoices($f->modifier, $revealed->pluck('card')->all()),
                     'cheaters' => collect($f->cheaters ?? [])->map(fn ($id) => $slotOf[$id] ?? null)->filter()->values()->all(),
+                    'duel' => $this->duelState($f, $flips->keyBy('id'), $slotOf),
                 ];
             })->values()->all(),
             // what the other player has asked of me (a request is addressed to one player, and only they are shown it)
@@ -217,12 +218,28 @@ class FateDeckService
      * Flip (CRG p.8): reveal the top card to the conflict. Each + or - reveals one more, four in all at most; the + and - of one flip
      * cancel, so a flip is one kind. The result is then picked with choose().
      */
-    public function flip(GamePlayer $player, int $modifier, ?string $label = null, ?string $subject = null): GameFateFlip
+    public function flip(GamePlayer $player, int $modifier, ?string $label = null, ?string $subject = null, ?string $duelRole = null, ?int $duelWith = null): GameFateFlip
     {
         $modifier = max(-(FateCards::FLIP_MAX - 1), min(FateCards::FLIP_MAX - 1, $modifier));
 
-        return $this->locked($player, function () use ($player, $modifier, $label, $subject) {
+        if ($duelRole !== null && ! in_array($duelRole, ['attacker', 'resister'], true)) {
+            throw new FateException('A duel flip is either the attacker or the resister.');
+        }
+
+        return $this->locked($player, function () use ($player, $modifier, $label, $subject, $duelRole, $duelWith) {
+            // a resisting flip links to the other player's open attacking flip (CRG p.10: an opposed duel)
+            $against = null;
+            if ($duelRole === 'resister') {
+                $against = $duelWith !== null
+                    ? GameFateFlip::query()->where('game_id', $player->game_id)->whereNull('resolved_at')->find($duelWith)
+                    : null;
+                if ($against === null || $against->duel_role !== 'attacker' || $against->duel_with !== null || $against->game_player_id === $player->id) {
+                    throw new FateException('A resisting flip needs the other player\'s open attacking flip to resist.');
+                }
+            }
             $flip = GameFateFlip::create([
+                'duel_role' => $duelRole,
+                'duel_with' => $against?->id,
                 'game_id' => $player->game_id,
                 'game_player_id' => $player->id,
                 'modifier' => $modifier,
@@ -242,7 +259,10 @@ class FateDeckService
             if ($revealed === []) {
                 throw new FateException('There are no cards left to flip.');
             }
-            $this->log($player, 'fate.flip', ['flip' => $flip->id, 'modifier' => $modifier, 'revealed' => $revealed]);
+            if ($against !== null) {
+                $against->update(['duel_with' => $flip->id]);
+            }
+            $this->log($player, 'fate.flip', ['flip' => $flip->id, 'modifier' => $modifier, 'revealed' => $revealed] + ($duelRole !== null ? ['duel' => $duelRole] : []));
 
             return $flip;
         });
@@ -274,6 +294,95 @@ class FateDeckService
     }
 
     /**
+     * The opposed duel this flip is part of, as a table sees it: both sides, their totals once said, and whose turn it is to cheat (CRG p.9-10):
+     * the lowest total cheats first, the resister on a tie, then the other player. Null for a flip that is not in a duel.
+     *
+     * @param  Collection<int, GameFateFlip>  $byId  the open flips
+     * @param  Collection<int, int>  $slotOf  game_player id => slot
+     * @return array{role: string, linked: bool, total: int|null, opponent_total: int|null, cheat_turn: int|null}|null
+     */
+    private function duelState(GameFateFlip $f, Collection $byId, Collection $slotOf): ?array
+    {
+        if ($f->duel_role === null) {
+            return null;
+        }
+        $other = $f->duel_with !== null ? $byId->get($f->duel_with) : null;
+        $turn = null;
+        if ($other !== null && $f->total !== null && $other->total !== null && $f->chosen_id !== null && $other->chosen_id !== null) {
+            $turn = $this->cheatTurn($f, $other, $slotOf);
+        }
+
+        return [
+            'role' => $f->duel_role,
+            'linked' => $other !== null,
+            'total' => $f->total,
+            'opponent_total' => $other?->total,
+            'cheat_turn' => $turn,
+        ];
+    }
+
+    /**
+     * Whose turn it is to cheat in a duel whose two flips have results and totals: the lower total first (the resister on a tie), then the other.
+     *
+     * @param  Collection<int, int>  $slotOf
+     */
+    private function cheatTurn(GameFateFlip $a, GameFateFlip $b, Collection $slotOf): ?int
+    {
+        $resister = $a->duel_role === 'resister' ? $a : $b;
+        $attacker = $a->duel_role === 'resister' ? $b : $a;
+        $first = $attacker->total < $resister->total ? $attacker : $resister; // equal: the resister
+        $second = $first->is($attacker) ? $resister : $attacker;
+        // a player's chance is used when they cheated or passed on either flip of the duel
+        $done = array_unique([...($a->cheaters ?? []), ...($b->cheaters ?? [])]);
+        foreach ([$first, $second] as $flip) {
+            if (! in_array($flip->game_player_id, $done, true)) {
+                return $slotOf[$flip->game_player_id] ?? null;
+            }
+        }
+
+        return null;
+    }
+
+    /** In a linked duel nobody cheats or passes out of turn: both totals first, then the lowest total (the resister on a tie), then the other. */
+    private function assertCheatTurn(GameFateFlip $flip, GamePlayer $actor): void
+    {
+        if ($flip->duel_role === null || $flip->duel_with === null) {
+            return;
+        }
+        $other = GameFateFlip::query()->whereNull('resolved_at')->find($flip->duel_with);
+        if ($other === null) {
+            return;
+        }
+        if ($flip->total === null || $other->total === null || $flip->chosen_id === null || $other->chosen_id === null) {
+            throw new FateException('In a duel, both players choose their result and enter their total before anyone cheats.');
+        }
+        $slotOf = GamePlayer::query()->where('game_id', $flip->game_id)->pluck('slot', 'id');
+        $turn = $this->cheatTurn($flip, $other, $slotOf);
+        if ($turn === null) {
+            throw new FateException('Both players have had their chance to cheat this duel.');
+        }
+        if (($slotOf[$actor->id] ?? null) !== $turn) {
+            throw new FateException('It is not your turn to cheat: the lowest total goes first (the resister on a tie).');
+        }
+    }
+
+    /** Say what a duel flip's total is (the flip plus the stat): only its player, while the flip is open. */
+    public function setTotal(GamePlayer $player, GameFateFlip $flip, int $total): GameFateFlip
+    {
+        return $this->locked($player, function () use ($player, $flip, $total) {
+            $flip = $this->openFlip($flip);
+            $this->ownFlip($player, $flip);
+            if ($flip->duel_role === null) {
+                throw new FateException('Only a duel flip has a total.');
+            }
+            $flip->update(['total' => $total]);
+            $this->log($player, 'fate.total', ['flip' => $flip->id, 'total' => $total]);
+
+            return $flip->refresh();
+        });
+    }
+
+    /**
      * Cheat Fate (CRG p.9): replace the flip's result with a card from the cheater's own hand; the old result is discarded (it counts as
      * neither a flip nor a discard). Each player gets one chance per flip. A flipped Black Joker cannot be cheated, and a Red Joker
      * stops the flipper cheating their own flip. The cheater may be either player (an opposed duel), or a controlled model's controller (p.43).
@@ -285,6 +394,7 @@ class FateDeckService
             if ($cheater->game_id !== $flip->game_id) {
                 throw new FateException('That flip belongs to another game.');
             }
+            $this->assertCheatTurn($flip, $cheater);
             $old = $flip->chosen_id ? GameFateCard::query()->find($flip->chosen_id) : null;
             if ($old === null) {
                 throw new FateException('Choose the flip\'s result before cheating it.');
@@ -318,6 +428,7 @@ class FateDeckService
     {
         return $this->locked($player, function () use ($player, $flip) {
             $flip = $this->openFlip($flip);
+            $this->assertCheatTurn($flip, $player);
             if (! in_array($player->id, $flip->cheaters ?? [], true)) {
                 $flip->update(['cheaters' => [...($flip->cheaters ?? []), $player->id]]);
                 $this->log($player, 'fate.cheat_declined', ['flip' => $flip->id]);

@@ -27,7 +27,8 @@ import {
     type TerrainTrait,
 } from '@/lib/tabletop/geometry';
 import { TERRAIN_KIND_LABELS, TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
-import { ChevronDown, Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
+import { TRAIT_HELP } from '@/lib/help/topics/tabletop';
+import { ChevronDown, CircleHelp, Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -62,6 +63,8 @@ const emit = defineEmits<{
     selectSurface: [id: string];
     toggleInside: [id: string];
     removeCorner: [];
+    /** Open the help at the terrain section. */
+    help: [];
 }>();
 
 const presetKey = ref(TERRAIN_PRESETS[0].key);
@@ -241,6 +244,12 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
 
 <template>
     <div class="space-y-3 text-sm" role="tabpanel" aria-label="Terrain" data-testid="terrain-editor">
+        <div class="flex items-center justify-between gap-2">
+            <span class="text-muted-foreground">Build the table: add a piece, draw one, or change a piece's levels and traits.</span>
+            <Button size="sm" variant="ghost" class="shrink-0" data-testid="terrain-help" @click="emit('help')"
+                ><CircleHelp class="mr-1 size-4" />Help</Button
+            >
+        </div>
         <div class="rounded-md border p-3" data-testid="terrain-stats">
             <div class="flex items-center justify-between">
                 <span class="font-medium">Table</span>
@@ -515,6 +524,7 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                             :key="t"
                             class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1"
                             :class="selected.traits.includes(t) ? 'border-primary bg-primary/10' : ''"
+                            :title="TRAIT_HELP[t]"
                         >
                             <input
                                 type="checkbox"
@@ -523,7 +533,7 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 :data-testid="`trait-${t}`"
                                 @change="toggleTrait(selected, t)"
                             />
-                            {{ t }}
+                            {{ t === 'ramp' ? 'stairs / ramp' : t }}
                         </label>
                     </div>
                 </fieldset>

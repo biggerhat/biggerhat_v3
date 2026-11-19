@@ -2,19 +2,23 @@
 
 use App\Enums\BaseSizeEnum;
 use App\Enums\DeploymentEnum;
+use App\Enums\GameFormatEnum;
 use App\Enums\PermissionEnum;
+use App\Enums\UpgradeDomainTypeEnum;
 use App\Events\GameBoardAurasChanged;
 use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
 use App\Events\GameBoardSetupChanged;
 use App\Events\GameBoardTerrainChanged;
 use App\Models\Character;
+use App\Models\CrewBuild;
 use App\Models\CustomCharacter;
 use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\Marker;
 use App\Models\Token;
+use App\Models\Upgrade;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -61,7 +65,10 @@ it('shows both crews with their real base sizes to a participant', function () {
             ->where('models.0.base_mm', 50)
             ->where('models.1.base_mm', 30)
             ->where('players.0.mine', true)
-            ->where('players.1.mine', false));
+            ->where('players.1.mine', false)
+            // what a kill sets off in the tracker, so the board can do the same
+            ->has('players.0.soulstone_pool')
+            ->where('game.auto_soulstone_on_kill', true));
 });
 
 it('sends each model with what the crew row needs, and a replace on the board keeps its place, health and tokens', function () {
@@ -843,4 +850,77 @@ it('saves a rules card and a limit on special terrain, and refuses an absurd lim
 
     $put(['limit' => 9])->assertSessionHasErrors('terrain.0.limit');
     $put(['rules' => str_repeat('x', 601)])->assertSessionHasErrors('terrain.0.rules');
+});
+
+it('saves stairs and ramps (the ramp trait), and still refuses a trait it does not know', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $piece = fn (array $traits) => [
+        'id' => 's1', 'name' => 'Stairs', 'traits' => $traits,
+        'surfaces' => [['id' => 's1-1', 'top' => 1, 'shape' => ['kind' => 'rect', 'x' => 5, 'y' => 5, 'w' => 4, 'h' => 2]]],
+    ];
+
+    $this->actingAs($a)->put(route('games.board.terrain', $game->uuid), ['terrain' => [$piece(['ramp'])]])->assertRedirect();
+    expect($game->fresh()->board_state['terrain'][0]['traits'])->toBe(['ramp']);
+
+    $this->actingAs($a)->putJson(route('games.board.terrain', $game->uuid), ['terrain' => [$piece(['teleporter'])]])->assertUnprocessable();
+});
+
+it('tells the board whether a kill gives a soulstone, from the game setting', function () {
+    [$game, $m1] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $game->update(['settings' => ['auto_soulstone_on_kill' => false]]);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('game.auto_soulstone_on_kill', false));
+});
+
+/** The board's deferred props, as the page asks for them once it is up (a partial reload). */
+function boardDeferred(User $user, Game $game, array $props, string $route = 'games.board'): array
+{
+    $manifest = public_path('build/manifest.json');
+    $version = file_exists($manifest) ? hash_file('xxh128', $manifest) : '';
+
+    return test()->actingAs($user)
+        ->withHeaders([
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => $version,
+            'X-Inertia-Partial-Component' => 'Games/Board',
+            'X-Inertia-Partial-Data' => implode(',', $props),
+        ])
+        ->get(route($route, $game->uuid))
+        ->assertOk()
+        ->json('props');
+}
+
+it('offers a player the upgrades they can attach to a model, and a watcher nothing', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $game->update(['is_observable' => true]);
+    $upgrade = Upgrade::factory()->create(['name' => 'Iron Will', 'domain' => UpgradeDomainTypeEnum::Character]);
+
+    $mine = boardDeferred($a, $game, ['character_upgrades', 'character_injuries']);
+    expect(collect($mine['character_upgrades'])->pluck('name'))->toContain('Iron Will')
+        ->and($mine['character_injuries'])->toBe([]); // injuries are for Campaign games only
+
+    $watcher = boardDeferred(User::factory()->create(), $game, ['character_upgrades'], 'games.board.watch');
+    expect($watcher['character_upgrades'])->toBe([]);
+    expect($upgrade->exists)->toBeTrue();
+});
+
+it('offers injuries too in a Campaign game', function () {
+    [$game] = boardGame($a = User::factory()->create(), User::factory()->create());
+    $game->update(['format' => GameFormatEnum::Campaign]);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))->assertInertia(fn (Assert $page) => $page->where('game.is_campaign', true));
+    $props = boardDeferred($a, $game, ['character_injuries']);
+    expect($props['character_injuries'])->toBeArray();
+});
+
+it('lists a player\'s crew-build upgrades for them alone', function () {
+    [$game] = boardGame($a = User::factory()->create(), $b = User::factory()->create());
+    $build = CrewBuild::factory()->create(['references' => ['upgrades' => [['id' => 41, 'name' => 'Iron Will'], ['id' => 42, 'name' => 'Sharp Eyes']]]]);
+    $game->players->firstWhere('slot', 1)->update(['crew_build_id' => $build->id]);
+
+    $this->actingAs($a)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('players.0.reference_upgrade_ids', [41, 42])->where('players.1.reference_upgrade_ids', []));
+    // the opponent is not told what the other crew's build lists
+    $this->actingAs($b)->get(route('games.board', $game->uuid))
+        ->assertInertia(fn (Assert $page) => $page->where('players.0.reference_upgrade_ids', []));
 });

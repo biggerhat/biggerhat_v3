@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import FateDock from '@/components/Fate/FateDock.vue';
+import GameCrewUpgrades from '@/components/Game/GameCrewUpgrades.vue';
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
+import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog.vue';
 import GameRoundClock, { type RoundClock } from '@/components/Game/GameRoundClock.vue';
 import GameTurnBar, { type TurnState } from '@/components/Game/GameTurnBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
@@ -72,10 +74,20 @@ interface BoardModel {
 }
 
 const props = defineProps<{
-    game: { uuid: string; is_solo: boolean; deployment: DeploymentKind | null };
+    game: { uuid: string; is_solo: boolean; deployment: DeploymentKind | null; auto_soulstone_on_kill?: boolean; is_campaign?: boolean };
     /** Someone watching an observable game: nothing can be changed, and the page refreshes itself. */
     read_only?: boolean;
-    players: { slot: number; name: string; mine: boolean; scheme_notes?: SchemeNotes | null }[];
+    players: {
+        slot: number;
+        name: string;
+        mine: boolean;
+        soulstone_pool?: number;
+        scheme_notes?: SchemeNotes | null;
+        reference_upgrade_ids?: number[];
+    }[];
+    /** What can be attached to a model (the play screen's lists); deferred, and empty for a watcher. */
+    character_upgrades?: { id: number; name: string; front_image: string | null; back_image: string | null }[];
+    character_injuries?: { id: number; name: string; front_image: string | null; back_image: string | null }[];
     /** Initiative, whose activation, what is left to activate, and whether a pass is allowed. */
     turn?: TurnState | null;
     /** The tournament round's clock, for a game in a running round. */
@@ -288,11 +300,98 @@ const crew = computed(() =>
     })),
 );
 
-// Kill a model, or bring it back, as the tracker does (the same endpoints). A model that replaces itself on death is finished on the play screen.
+// Kill a model, or bring it back, as the tracker does (the same endpoints), including what a kill sets off there: a model that replaces
+// itself on death offers its replacements, and a killed model gives its own crew a soulstone (the game's auto-soulstone setting).
+const soulstones = ref<Record<number, number>>(Object.fromEntries(props.players.map((p) => [p.slot, p.soulstone_pool ?? 0])));
+const deathOpen = ref(false);
+const deathWarnings = ref<string[]>([]);
+const deathReplacements = ref<
+    { id: number; display_name: string; front_image: string | null; count: number; health: number | null; selected: boolean }[]
+>([]);
+const deathKilled = ref<{
+    id: string;
+    name: string;
+    slot: number;
+    tokens: { id: number; name: string }[];
+    upgrades: unknown[];
+    activated: boolean;
+    earnsSoulstone: boolean;
+    /** Where it stood, for placing its replacements in base contact (CRG p.48). */
+    stood: { x: number; y: number; baseMm: number; name: string } | null;
+} | null>(null);
+
+// Replaced models still to be set down in base contact with where the original stood, by (new) model id. The board shows the prompt.
+const placeAnchors = ref<Record<string, { x: number; y: number; baseMm: number; name: string }>>({});
+const forgetAnchor = (id: string) => {
+    const rest = { ...placeAnchors.value };
+    delete rest[id];
+    placeAnchors.value = rest;
+};
+// ...and kept in this browser per game, so a reload does not forget a model that still has to be set down. Restored once the page is up (not
+// during server rendering), and only for models that are still in the game.
+const ANCHORS_KEY = `board-anchors-${props.game.uuid}`;
+onMounted(() => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(ANCHORS_KEY) ?? '{}') as typeof placeAnchors.value;
+        const ids = new Set(props.models.map((m) => String(m.id)));
+        placeAnchors.value = { ...Object.fromEntries(Object.entries(saved).filter(([id]) => ids.has(id))), ...placeAnchors.value };
+    } catch {
+        // nothing saved, or storage is blocked: the prompts just last until the page is left
+    }
+});
+watch(
+    placeAnchors,
+    (anchors) => {
+        try {
+            if (Object.keys(anchors).length) localStorage.setItem(ANCHORS_KEY, JSON.stringify(anchors));
+            else localStorage.removeItem(ANCHORS_KEY);
+        } catch {
+            // storage is blocked
+        }
+    },
+    { deep: true },
+);
+// Upgrades and injuries: the play screen's own pickers, opened from a model's row
+const crewUpgrades = ref<InstanceType<typeof GameCrewUpgrades> | null>(null);
+/** Someone who plays in this game (not a watcher, not looking back) may attach upgrades to the models they control. */
+const canAttach = computed(() => !props.read_only && !viewing.value && props.players.some((p) => p.mine));
+const referenceUpgradeIds = computed(() => props.players.flatMap((p) => p.reference_upgrade_ids ?? []));
+const crewMembers = computed(() => props.models.map((m) => m.member as any));
+const stoodAt = (id: string) => {
+    const t = tokens.value.find((x) => x.id === id);
+    return t ? { x: t.x, y: t.y, baseMm: t.baseMm, name: t.name } : null;
+};
+const hasSelectedDeath = computed(() => deathReplacements.value.some((r) => r.selected));
+
+/** Non-peon, non-summoned models with no Summon token give their crew a soulstone when killed. */
+async function awardSoulstone(slot: number, name: string) {
+    const next = (soulstones.value[slot] ?? 0) + 1;
+    soulstones.value = { ...soulstones.value, [slot]: next };
+    const res = await gameApi.patch<{ error?: string }>(route('games.play.soulstones', props.game.uuid), { soulstone_pool: next, slot });
+    if (res.ok) toast.success(`${name} died: ${playerFor(slot)?.name ?? 'that crew'} gains a soulstone.`);
+    else {
+        soulstones.value = { ...soulstones.value, [slot]: next - 1 };
+        toast.error(res.data.error ?? 'The soulstone was not saved.');
+    }
+}
 async function killChange(id: string, killed: boolean) {
     if (props.read_only) return;
+    const model = liveModels.value.find((m) => String(m.id) === id);
+    const before = model
+        ? {
+              id,
+              name: model.name,
+              slot: model.slot,
+              tokens: [...model.tokens],
+              upgrades: [...((model.member.attached_upgrades as unknown[]) ?? [])],
+              activated: model.activated,
+              earnsSoulstone:
+                  model.member.station !== 'peon' && !model.member.is_summoned && !model.tokens.some((t) => t.name.toLowerCase() === 'summon'),
+              stood: stoodAt(id),
+          }
+        : null;
     liveModels.value = liveModels.value.map((m) => (String(m.id) === id ? { ...m, killed, health: killed ? 0 : m.max_health } : m));
-    const res = await gameApi.post<{ replacements?: unknown[]; error?: string }>(
+    const res = await gameApi.post<{ replacements?: typeof deathReplacements.value; error?: string }>(
         route(killed ? 'games.play.crew.kill' : 'games.play.crew.revive', { game: props.game.uuid, gameCrewMember: id }),
     );
     if (!res.ok) {
@@ -300,7 +399,60 @@ async function killChange(id: string, killed: boolean) {
         router.reload({ only: ['models'] });
         return;
     }
-    if (killed && res.data.replacements?.length) toast.info('This model replaces itself when it dies: finish that on the play screen.');
+    if (!killed || !before) return;
+    if (res.data.replacements?.length) {
+        deathKilled.value = before;
+        deathReplacements.value = res.data.replacements.map((r) => ({ ...r, selected: false }));
+        deathWarnings.value = [];
+        deathOpen.value = true;
+    } else if (props.game.auto_soulstone_on_kill !== false && before.earnsSoulstone) {
+        await awardSoulstone(before.slot, before.name);
+    }
+}
+/** The player chose replacements: each is added to the crew as the tracker does, inheriting the dead model's tokens, upgrades and activation. */
+async function confirmDeath() {
+    const killed = deathKilled.value;
+    if (!killed) return;
+    deathWarnings.value = [];
+    let added = false;
+    let inherited = false;
+    for (const replacement of deathReplacements.value) {
+        if (!replacement.selected) continue;
+        for (let i = 0; i < replacement.count; i++) {
+            const res = await gameApi.post<{ at_limit?: boolean; member_id?: number }>(route('games.play.crew.summon', props.game.uuid), {
+                character_id: replacement.id,
+                is_replacement: true,
+                replacement_health: replacement.health ?? null,
+                inherited_tokens: inherited ? [] : killed.tokens,
+                inherited_upgrades: inherited ? [] : killed.upgrades,
+                is_activated: killed.activated,
+                slot: killed.slot,
+            });
+            if (res.ok) {
+                added = true;
+                inherited = true;
+                if (res.data.member_id && killed.stood) placeAnchors.value = { ...placeAnchors.value, [String(res.data.member_id)]: killed.stood };
+            } else if (res.data.at_limit) {
+                deathWarnings.value.push(`${replacement.display_name} is at its limit.`);
+                replacement.selected = false;
+                break;
+            }
+        }
+    }
+    if (added) router.reload({ only: ['models'] });
+    if (!deathWarnings.value.length) closeDeath();
+}
+/** No replacement: the model really died, so the crew gets its soulstone as usual. */
+function dismissDeath() {
+    const killed = deathKilled.value;
+    if (killed && props.game.auto_soulstone_on_kill !== false && killed.earnsSoulstone) void awardSoulstone(killed.slot, killed.name);
+    closeDeath();
+}
+function closeDeath() {
+    deathOpen.value = false;
+    deathKilled.value = null;
+    deathReplacements.value = [];
+    deathWarnings.value = [];
 }
 
 // Replace a model with another (CRG p.48): it keeps its place, tokens, upgrades and health (capped by the new model's maximum).
@@ -343,10 +495,19 @@ function replaceWith(character: { id: number }) {
     replaceSearch.value = '';
     replaceResults.value = [];
     replaceTarget.value = null;
+    const stood = stoodAt(target.id);
     router.post(
         route('games.play.crew.replace', { game: props.game.uuid, gameCrewMember: target.id }),
         { character_id: character.id },
-        { only: ['models'], preserveScroll: true, preserveState: true },
+        {
+            only: ['models'],
+            preserveScroll: true,
+            preserveState: true,
+            // the new model is set down in base contact with where the original stood
+            onSuccess: () => {
+                if (stood) placeAnchors.value = { ...placeAnchors.value, [target.id]: stood };
+            },
+        },
     );
 }
 
@@ -546,7 +707,7 @@ function moved(t: Token) {
             </div>
         </template>
         <template #actions>
-            <Button as-child variant="outline" size="sm">
+            <Button as-child variant="outline" size="sm" class="max-sm:min-h-11">
                 <Link :href="read_only ? route('games.observe', game.uuid) : route('games.show', game.uuid)"
                     ><ArrowLeft class="mr-1 size-4" />Back to the game</Link
                 >
@@ -570,7 +731,7 @@ function moved(t: Token) {
                 <label class="flex items-center gap-2">
                     <span class="text-muted-foreground">Look back</span>
                     <select
-                        class="rounded-md border bg-background px-2 py-1.5"
+                        class="rounded-md border bg-background px-2 py-1.5 max-sm:min-h-11"
                         data-testid="history-select"
                         :value="viewTurn ?? ''"
                         @change="viewTurn = ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null"
@@ -585,6 +746,12 @@ function moved(t: Token) {
             </div>
         </div>
         <TabletopBoard
+            :can-attach="canAttach"
+            :is-campaign="!!game.is_campaign"
+            @open-upgrades="(id: string) => crewUpgrades?.openUpgrades(Number(id))"
+            @open-injury="(id: string) => crewUpgrades?.openInjury(Number(id))"
+            :place-anchors="placeAnchors"
+            @placed="forgetAnchor"
             :tokens="tokens"
             :terrain="liveTerrain"
             :markers="markers"
@@ -623,6 +790,32 @@ function moved(t: Token) {
             </template>
         </TabletopBoard>
     </div>
+    <GameCrewUpgrades
+        v-if="canAttach"
+        ref="crewUpgrades"
+        :game-uuid="game.uuid"
+        :members="crewMembers"
+        :upgrades="character_upgrades ?? []"
+        :injuries="character_injuries ?? []"
+        :reference-ids="referenceUpgradeIds"
+        @attached="() => router.reload({ only: ['models'] })"
+    />
+    <GameReplaceOnDeathDialog
+        v-if="!read_only"
+        :open="deathOpen"
+        :replacements="deathReplacements"
+        :warnings="deathWarnings"
+        :has-selected="hasSelectedDeath"
+        @update:open="deathOpen = $event"
+        @toggle="
+            (rid: number) => {
+                const r = deathReplacements.find((x) => x.id === rid);
+                if (r) r.selected = !r.selected;
+            }
+        "
+        @confirm="confirmDeath"
+        @dismiss="dismissDeath"
+    />
     <GameReplaceDialog
         v-if="!read_only"
         :open="replaceOpen"

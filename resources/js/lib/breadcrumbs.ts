@@ -1,3 +1,4 @@
+import { helpTopic } from '@/lib/help';
 import type { BreadcrumbItemType } from '@/types';
 
 type Props = Record<string, any>;
@@ -62,6 +63,16 @@ const BUILDERS: Record<string, Builder> = {
     'Blog/View': listDetail('Articles', () => route('blog.index'), 'post', 'title'),
     'News/View': listDetail('Site News', () => route('news.index'), 'post', 'title'),
     'Channels/View': listDetail('Across the Aethervox', () => route('channels.index'), 'channel'),
+    'Help/Show': (props) => {
+        const title = helpTopic(String(props.slug))?.title;
+
+        return title
+            ? [
+                  { title: 'Help', href: route('help.index') },
+                  { title, href: '' },
+              ]
+            : null;
+    },
     'Tournaments/View': listDetail('Tournaments', () => route('tournaments.index'), 'tournament'),
     'Tournaments/Manage': listDetail('Tournaments', () => route('tournaments.index'), 'tournament'),
     'Tools/CrewBuilder/View': listDetail('Crew Builder', () => route('tools.crew_builder.index'), 'build'),

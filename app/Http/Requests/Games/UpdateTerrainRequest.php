@@ -8,7 +8,7 @@ use Illuminate\Validation\Rule;
 
 class UpdateTerrainRequest extends FormRequest
 {
-    public const TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'];
+    public const TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe', 'ramp'];
 
     public function authorize(): bool
     {

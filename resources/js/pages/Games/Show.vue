@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HelpButton from '@/components/Help/HelpButton.vue';
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import LootEffectText from '@/components/Bonanza/LootEffectText.vue';
@@ -3895,6 +3896,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         Turn {{ game.current_turn }}
                                         <span class="text-base font-normal text-muted-foreground">/ {{ game.max_turns }}</span>
                                     </div>
+                                    <HelpButton topic="game-tracker" section="play" label="" />
                                     <button
                                         aria-label="Game settings"
                                         class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

@@ -1,0 +1,57 @@
+{
+    "crew-builder/hiring-pool.webp": {
+        "w": 610,
+        "h": 440,
+        "callouts": 4
+    },
+    "crew-builder/my-crews.webp": {
+        "w": 1010,
+        "h": 420,
+        "callouts": 4
+    },
+    "crew-builder/toolbar.webp": {
+        "w": 1004,
+        "h": 360,
+        "callouts": 5
+    },
+    "game-tracker/create.webp": {
+        "w": 532,
+        "h": 722,
+        "callouts": 5
+    },
+    "game-tracker/crew-row.webp": {
+        "w": 354,
+        "h": 106,
+        "callouts": 7
+    },
+    "game-tracker/game-settings.webp": {
+        "w": 404,
+        "h": 767,
+        "callouts": 4
+    },
+    "game-tracker/play-screen.webp": {
+        "w": 1024,
+        "h": 836,
+        "callouts": 5
+    },
+    "tabletop/board.webp": {
+        "w": 669,
+        "h": 541,
+        "callouts": 4
+    },
+    "tabletop/fate-deck.webp": {
+        "w": 372,
+        "h": 570,
+        "callouts": 3
+    },
+    "tabletop/model-options.webp": {
+        "w": 372,
+        "h": 374,
+        "callouts": 3
+    },
+    "tabletop/terrain-editor.webp": {
+        "w": 372,
+        "h": 760,
+        "callouts": 4
+    }
+}

@@ -17,6 +17,7 @@ Produce a review-ready PR description for the current branch.
    - **Grouped changes** — use a table or bulleted groups. For rulebook/spec work, split *Correctness* vs *Architecture/quality*. For feature work, group by user-facing feature. Reference files as `path:line` where it helps a reviewer.
    - **Verification line** — state the actual gate results (e.g. "Pint/PHPStan/ESLint clean; full suite N passed, M skipped"). Only claim green if you (or the verify-changes skill) actually ran them.
    - **Call-outs** — list anything intentionally deferred or not implemented, honestly.
+   - **Help docs** — if the diff touches the Crew Builder, Game Tracker or Tabletop (or any feature with a topic in `resources/js/lib/help/topics/`), say whether its help topic was updated; if it was not, flag it. See `docs/features/help.md`.
 3. End the body with the repo's required trailer:
    `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
 

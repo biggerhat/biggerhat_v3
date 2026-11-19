@@ -121,6 +121,56 @@ export const IGNORABLE_TRAITS = ['blocking', 'concealing', 'dense', 'hazardous',
 export const mmToInches = (mm: number): number => mm / MM_PER_INCH;
 export const baseRadius = (baseMm: number): number => mmToInches(baseMm) / 2;
 
+/** A model or marker that something is placed against: where it stands (or stood) and how big its base is. */
+export interface PlaceAnchor {
+    x: number;
+    y: number;
+    baseMm: number;
+}
+
+/**
+ * "Within X inches" of a model (CRG p.46: a Remains marker is made anywhere within 1" of the model that was killed): measured between the edges
+ * of the two bases, so the centre of the new thing may be at most both radii plus X from the anchor's centre. A tap farther away is pulled in to
+ * that line; a tap that is already inside stays where it is.
+ */
+export function constrainWithin(p: { x: number; y: number }, anchor: PlaceAnchor, moverMm: number, gap: number): { x: number; y: number } {
+    const limit = baseRadius(anchor.baseMm) + baseRadius(moverMm) + gap;
+    const dx = p.x - anchor.x;
+    const dy = p.y - anchor.y;
+    const d = Math.hypot(dx, dy);
+    if (d <= limit) return { x: p.x, y: p.y };
+    return { x: anchor.x + (dx / d) * limit, y: anchor.y + (dy / d) * limit };
+}
+
+/**
+ * "In base contact" with a model (CRG p.48: a replacement is placed into base contact with an original model): the two bases touch, so the
+ * centres are exactly both radii apart. The tap only says which side; it lands on that side of the anchor. A tap on the anchor's own centre
+ * has no side, so it goes to the right.
+ */
+export function constrainToContact(p: { x: number; y: number }, anchor: PlaceAnchor, moverMm: number): { x: number; y: number } {
+    const dist = baseRadius(anchor.baseMm) + baseRadius(moverMm);
+    const dx = p.x - anchor.x;
+    const dy = p.y - anchor.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1e-6) return { x: anchor.x + dist, y: anchor.y };
+    return { x: anchor.x + (dx / d) * dist, y: anchor.y + (dy / d) * dist };
+}
+
+/** Evenly spaced places around an anchor where a base would touch it, starting at the tap's side, for finding one that is legal. */
+export function contactSpots(anchor: PlaceAnchor, moverMm: number, from?: { x: number; y: number }, count = 72): { x: number; y: number }[] {
+    const first = from ? constrainToContact(from, anchor, moverMm) : { x: anchor.x + baseRadius(anchor.baseMm) + baseRadius(moverMm), y: anchor.y };
+    const start = Math.atan2(first.y - anchor.y, first.x - anchor.x);
+    const dist = baseRadius(anchor.baseMm) + baseRadius(moverMm);
+    const out: { x: number; y: number }[] = [];
+    // nearest to the tap first: step outwards alternately either side
+    for (let i = 0; i < count; i++) {
+        const k = i === 0 ? 0 : i % 2 ? (i + 1) / 2 : -i / 2;
+        const a = start + (k * Math.PI * 2) / count;
+        out.push({ x: anchor.x + Math.cos(a) * dist, y: anchor.y + Math.sin(a) * dist });
+    }
+    return out;
+}
+
 /** Turn a point about a centre by `deg` degrees (clockwise on the table, y pointing down). Quarter turns are exact. */
 export function rotateAbout(p: [number, number], c: [number, number], deg: number): [number, number] {
     const d = ((deg % 360) + 360) % 360;
@@ -401,11 +451,26 @@ export function moveCost(
 }
 
 /**
+ * Whether a straight move passes over a stairs or ramp piece (a `ramp` trait): a model goes up or down one without climbing or falling,
+ * so such a leg costs only its ground distance. Looked at every quarter inch along the leg, and only if the table has one.
+ */
+export function overRamp(from: { x: number; y: number }, to: { x: number; y: number }, baseMm: number, pieces: TerrainPiece[]): boolean {
+    const ramps = pieces.filter((p) => p.traits.includes('ramp'));
+    if (!ramps.length) return false;
+    const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 0.25));
+    for (let i = 0; i <= steps; i++) {
+        const at = { baseMm, x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps };
+        for (const r of ramps) if (r.surfaces.some((surface) => supportFraction(at, surface.shape) > 0)) return true;
+    }
+    return false;
+}
+
+/**
  * Movement spent along a path of waypoints, a leg at a time: each leg is the ground covered plus any climb on that leg (p.20), so
  * going 2" one way and 5" another costs 7" (plus climbing), not the straight line between the ends. Drops are summed apart, as in
  * `moveCost`.
  */
-export function pathCost(points: { x: number; y: number; elev: number }[]): {
+export function pathCost(points: { x: number; y: number; elev: number; ramp?: boolean }[]): {
     ground: number;
     climb: number;
     drop: number;
@@ -418,6 +483,8 @@ export function pathCost(points: { x: number; y: number; elev: number }[]): {
     const legs: number[] = [];
     for (let i = 1; i < points.length; i++) {
         const leg = moveCost(points[i - 1], points[i], points[i - 1].elev, points[i].elev);
+        // a leg over stairs or a ramp changes height without climbing or falling
+        if (points[i].ramp) Object.assign(leg, { climb: 0, drop: 0, total: leg.ground });
         ground += leg.ground;
         climb += leg.climb;
         drop += leg.drop;
@@ -609,7 +676,7 @@ export const inZone = (shape: Shape, x: number, y: number): boolean => x >= 0 &&
 
 // ---- terrain editing -------------------------------------------------------------------------------------------------------------
 
-export const TERRAIN_TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'] as const;
+export const TERRAIN_TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe', 'ramp'] as const;
 export type TerrainTrait = (typeof TERRAIN_TRAITS)[number];
 export const SURFACE_MIN_TOP = 0;
 export const SURFACE_MAX_TOP = 12;

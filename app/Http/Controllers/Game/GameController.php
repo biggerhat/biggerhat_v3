@@ -44,6 +44,7 @@ use App\Notifications\Game\GameOpponentJoined;
 use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Campaign\AftermathCatalog;
+use App\Support\Game\CrewUpgradeCatalog;
 use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -1034,51 +1035,16 @@ class GameController extends Controller
             ->all();
     }
 
-    /**
-     * Upgrade catalog offered by the in-play "attach upgrade" editor. Campaign
-     * games swap the standard catalog for the full campaign Equipment catalog
-     * (pg 21-29) — mid-game, self-reported "attach anything on the table"
-     * freedom, same as the standard tracker's own attach-any-upgrade flow
-     * (QA: this previously offered only the crew's already-owned equipment,
-     * which is right for pre-game setup — see buildCampaignEquipmentProp()
-     * below — but wrong here).
-     */
+    /** The upgrades offered by the in-play "attach upgrade" editor: see CrewUpgradeCatalog. */
     private function buildCharacterUpgradesProp(Game $game): \Illuminate\Support\Collection
     {
-        if ($game->format !== GameFormatEnum::Campaign) {
-            return Upgrade::standard()->forCharacters()->orderBy('name')
-                ->get(['id', 'name', 'slug', 'front_image', 'back_image', 'type', 'plentiful', 'power_bar_count', 'description'])
-                ->map(fn (Upgrade $u) => [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'slug' => $u->slug,
-                    'front_image' => $u->front_image,
-                    'back_image' => $u->back_image,
-                    'type' => $u->type,
-                    'plentiful' => $u->plentiful,
-                    'power_bar_count' => $u->power_bar_count,
-                    'description' => $u->description,
-                ])
-                ->values();
-        }
-
-        return collect(AftermathCatalog::equipmentCatalogForAttachment());
+        return CrewUpgradeCatalog::equipment($game);
     }
 
-    /**
-     * The full Injury catalog (pg 34-36), offered as a mid-game attach option
-     * alongside equipment — some in-play effects (e.g. a resisted damage flip
-     * or a spell that inflicts a lasting wound) call for recording an injury
-     * on a model immediately rather than waiting for Aftermath. Campaign
-     * games only; empty otherwise.
-     */
+    /** The injuries offered mid-game (Campaign games only): see CrewUpgradeCatalog. */
     private function buildCharacterInjuriesProp(Game $game): \Illuminate\Support\Collection
     {
-        if ($game->format !== GameFormatEnum::Campaign) {
-            return collect();
-        }
-
-        return collect(AftermathCatalog::injuryCatalogForAttachment());
+        return CrewUpgradeCatalog::injuries($game);
     }
 
     /**

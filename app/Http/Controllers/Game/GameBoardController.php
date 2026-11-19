@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Game;
 
 use App\Enums\BaseSizeEnum;
+use App\Enums\GameFormatEnum;
+use App\Enums\GameStatusEnum;
 use App\Events\GameBoardAurasChanged;
 use App\Events\GameBoardMarkersChanged;
 use App\Events\GameBoardMoved;
@@ -20,6 +22,7 @@ use App\Models\GamePlayer;
 use App\Models\Marker;
 use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
+use App\Support\Game\CrewUpgradeCatalog;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
@@ -63,16 +66,32 @@ class GameBoardController extends Controller
 
     private function render(Game $game, bool $readOnly): Response|ResponseFactory
     {
-        $game->load(['players.user:id,name', 'players.crewMembers.character:id,base,size,speed', 'players.crewMembers.customCharacter:id,base,size,speed,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at']);
+        $game->load(['players.user:id,name', 'players.crewBuild:id,references', 'players.crewMembers.character:id,base,size,speed', 'players.crewMembers.customCharacter:id,base,size,speed,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at']);
 
         return inertia('Games/Board', [
-            'game' => ['uuid' => $game->uuid, 'is_solo' => (bool) $game->is_solo, 'deployment' => $game->deployment?->value],
+            'game' => [
+                'uuid' => $game->uuid,
+                'is_solo' => (bool) $game->is_solo,
+                'deployment' => $game->deployment?->value,
+                // the tracker's setting: a killed model gives its own crew a soulstone
+                'auto_soulstone_on_kill' => ($game->settings['auto_soulstone_on_kill'] ?? true) !== false,
+                // Campaign games offer injuries as well as upgrades to attach to a model
+                'is_campaign' => $game->format === GameFormatEnum::Campaign,
+            ],
             'read_only' => $readOnly,
             'token_options' => TokenCatalogue::options(),
+            // what can be attached to a model (the same lists as the play screen); loaded after the board is up, and only for someone who can attach
+            'character_upgrades' => Inertia::defer(fn () => ! $readOnly && $game->status === GameStatusEnum::InProgress ? CrewUpgradeCatalog::equipment($game)->values() : []),
+            'character_injuries' => Inertia::defer(fn () => ! $readOnly && $game->status === GameStatusEnum::InProgress ? CrewUpgradeCatalog::injuries($game)->values() : []),
             'players' => $game->players->map(fn (GamePlayer $p) => [
                 'slot' => $p->slot,
                 'name' => $this->playerName($p),
                 'mine' => ! $readOnly && $this->controls($p, $game),
+                'soulstone_pool' => (int) $p->soulstone_pool,
+                // the upgrades this player's crew build lists, offered first when attaching one (their own crew only)
+                'reference_upgrade_ids' => ! $readOnly && $this->controls($p, $game)
+                    ? collect($p->crewBuild?->references['upgrades'] ?? [])->pluck('id')->map(fn ($id) => (int) $id)->values()->all()
+                    : [],
                 // a scheme is hidden information: only its own player is given the notes
                 'scheme_notes' => ! $readOnly && $this->controls($p, $game) ? ($p->scheme_notes ?? null) : null,
             ])->values(),

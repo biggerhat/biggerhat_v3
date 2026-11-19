@@ -697,3 +697,108 @@ it('knows the hand maximum per encounter type', function () {
         ->and(FateCards::handMaxFor('double_rush'))->toBe(4)
         ->and(FateCards::handMaxFor('enforcer_brawl'))->toBe(4);
 });
+
+/** Both players draw two cards, then flip one card each as an opposed duel: $a attacks, $b resists. Returns the two flip ids. */
+function startDuel(Game $game, GamePlayer $p1, GamePlayer $p2, User $a, User $b): array
+{
+    stackDeck($p1, [3, 4, 5]);
+    stackDeck($p2, [16, 17, 18]);
+    test()->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 2])->assertOk(); // a's hand: 3, 4
+    test()->actingAs($b)->postJson(fateUrl($game, 'draw'), ['n' => 2])->assertOk(); // b's hand: 16, 17
+    $attack = test()->actingAs($a)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'attacker'])->assertOk()->json('flip'); // 5
+    $resist = test()->actingAs($b)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'resister', 'duel_with' => $attack])->assertOk()->json('flip'); // 18
+    test()->actingAs($a)->postJson(fateUrl($game, 'choose'), ['flip' => $attack, 'card' => 5])->assertOk();
+    test()->actingAs($b)->postJson(fateUrl($game, 'choose'), ['flip' => $resist, 'card' => 18])->assertOk();
+
+    return [$attack, $resist];
+}
+
+it('links a resisting flip to the attacking flip, and refuses one with nothing to resist', function () {
+    [$game, $p1, $p2, $a, $b] = fateGame();
+    stackDeck($p1, [5]);
+    stackDeck($p2, [18, 19]);
+    $attack = $this->actingAs($a)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'attacker'])->assertOk()->json('flip');
+
+    // nothing to resist, or your own flip, or a flip that is not an attack
+    $this->actingAs($b)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'resister'])->assertUnprocessable();
+    $this->actingAs($b)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'resister', 'duel_with' => 9999])->assertUnprocessable();
+    $this->actingAs($b)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'banana'])->assertUnprocessable();
+
+    $resist = $this->actingAs($b)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'resister', 'duel_with' => $attack])->assertOk();
+    $flips = collect($resist->json('state.flips'))->keyBy('id');
+    expect($flips[$attack]['duel']['role'])->toBe('attacker')->and($flips[$attack]['duel']['linked'])->toBeTrue()
+        ->and($flips[$resist->json('flip')]['duel']['role'])->toBe('resister');
+    // an attack can be resisted only once
+    $this->actingAs($b)->postJson(fateUrl($game, 'flip'), ['modifier' => 0, 'duel_role' => 'resister', 'duel_with' => $attack])->assertUnprocessable();
+});
+
+it('makes the lowest total cheat first in a duel, then the other player, and nobody out of turn', function () {
+    [$game, $p1, $p2, $a, $b] = fateGame();
+    [$attack, $resist] = startDuel($game, $p1, $p2, $a, $b);
+
+    // before the totals are in, nobody may cheat or pass
+    $this->actingAs($b)->postJson(fateUrl($game, 'cheat'), ['flip' => $attack, 'card' => 16])->assertUnprocessable()->assertJsonPath('error', 'In a duel, both players choose their result and enter their total before anyone cheats.');
+    $this->actingAs($a)->postJson(fateUrl($game, 'total'), ['flip' => $attack, 'total' => 12])->assertOk();
+    $state = $this->actingAs($b)->postJson(fateUrl($game, 'total'), ['flip' => $resist, 'total' => 9])->assertOk()->json('state.flips');
+    $byId = collect($state)->keyBy('id');
+    expect($byId[$attack]['duel']['cheat_turn'])->toBe(2)->and($byId[$resist]['duel']['opponent_total'])->toBe(12);
+
+    // 9 is lower than 12: the resister cheats first
+    $this->actingAs($a)->postJson(fateUrl($game, 'cheat'), ['flip' => $attack, 'card' => 3])->assertUnprocessable()->assertJsonPath('error', 'It is not your turn to cheat: the lowest total goes first (the resister on a tie).');
+    $this->actingAs($a)->postJson(fateUrl($game, 'cheat.decline'), ['flip' => $attack])->assertUnprocessable();
+    $this->actingAs($b)->postJson(fateUrl($game, 'cheat'), ['flip' => $resist, 'card' => 16])->assertOk();
+    // now it is the attacker's turn, and then nobody's
+    $after = collect($this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.flips'))->keyBy('id');
+    expect($after[$attack]['duel']['cheat_turn'])->toBe(1);
+    $this->actingAs($b)->postJson(fateUrl($game, 'cheat.decline'), ['flip' => $attack])->assertUnprocessable();
+    $this->actingAs($a)->postJson(fateUrl($game, 'cheat.decline'), ['flip' => $attack])->assertOk();
+    $done = collect($this->actingAs($a)->getJson(fateUrl($game, 'show'))->json('state.flips'))->keyBy('id');
+    expect($done[$attack]['duel']['cheat_turn'])->toBeNull();
+});
+
+it('lets the resister cheat first on a tied total', function () {
+    [$game, $p1, $p2, $a, $b] = fateGame();
+    [$attack, $resist] = startDuel($game, $p1, $p2, $a, $b);
+    $this->actingAs($a)->postJson(fateUrl($game, 'total'), ['flip' => $attack, 'total' => 10])->assertOk();
+    $this->actingAs($b)->postJson(fateUrl($game, 'total'), ['flip' => $resist, 'total' => 10])->assertOk();
+
+    $this->actingAs($a)->postJson(fateUrl($game, 'cheat.decline'), ['flip' => $attack])->assertUnprocessable();
+    $this->actingAs($b)->postJson(fateUrl($game, 'cheat.decline'), ['flip' => $resist])->assertOk();
+    $this->actingAs($a)->postJson(fateUrl($game, 'cheat'), ['flip' => $attack, 'card' => 3])->assertOk();
+});
+
+it('lets the lower attacker cheat first, and keeps a flip that is not in a duel free', function () {
+    [$game, $p1, $p2, $a, $b] = fateGame();
+    [$attack, $resist] = startDuel($game, $p1, $p2, $a, $b);
+    $this->actingAs($a)->postJson(fateUrl($game, 'total'), ['flip' => $attack, 'total' => 7])->assertOk();
+    $this->actingAs($b)->postJson(fateUrl($game, 'total'), ['flip' => $resist, 'total' => 11])->assertOk();
+
+    $this->actingAs($b)->postJson(fateUrl($game, 'cheat'), ['flip' => $resist, 'card' => 16])->assertUnprocessable();
+    $this->actingAs($a)->postJson(fateUrl($game, 'cheat'), ['flip' => $attack, 'card' => 3])->assertOk();
+
+    // a plain flip has no turn order
+    [$g2, $q1, , $x] = fateGame();
+    stackDeck($q1, [3, 4, 5]);
+    $this->actingAs($x)->postJson(fateUrl($g2, 'draw'), ['n' => 2])->assertOk();
+    $plain = $this->actingAs($x)->postJson(fateUrl($g2, 'flip'), ['modifier' => 0])->json('flip');
+    $this->actingAs($x)->postJson(fateUrl($g2, 'choose'), ['flip' => $plain, 'card' => 5])->assertOk();
+    $this->actingAs($x)->postJson(fateUrl($g2, 'cheat'), ['flip' => $plain, 'card' => 3])->assertOk();
+});
+
+it('takes a duel total only from the flip\'s player, for a duel flip, within range', function () {
+    [$game, $p1, $p2, $a, $b] = fateGame();
+    [$attack] = startDuel($game, $p1, $p2, $a, $b);
+
+    $this->actingAs($b)->postJson(fateUrl($game, 'total'), ['flip' => $attack, 'total' => 8])->assertUnprocessable();
+    $this->actingAs($a)->postJson(fateUrl($game, 'total'), ['flip' => $attack, 'total' => 99])->assertUnprocessable();
+    $this->actingAs($a)->postJson(fateUrl($game, 'total'), ['flip' => $attack, 'total' => 'many'])->assertUnprocessable();
+    expect(GameLog::query()->where('action', 'fate.total')->count())->toBe(0);
+    $this->actingAs($a)->postJson(fateUrl($game, 'total'), ['flip' => $attack, 'total' => 8])->assertOk();
+    expect(GameLog::query()->where('action', 'fate.total')->first()->payload)->toBe(['flip' => $attack, 'total' => 8]);
+
+    // a flip that is not part of a duel has no total
+    [$g2, $q1, , $x] = fateGame();
+    stackDeck($q1, [5]);
+    $plain = $this->actingAs($x)->postJson(fateUrl($g2, 'flip'), ['modifier' => 0])->json('flip');
+    $this->actingAs($x)->postJson(fateUrl($g2, 'total'), ['flip' => $plain, 'total' => 8])->assertUnprocessable();
+});

@@ -18,6 +18,8 @@ use App\Models\Game;
 use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
 use App\Models\Marker;
+use App\Services\Game\RoundClock;
+use App\Services\Game\TurnSequence;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
@@ -71,7 +73,13 @@ class GameBoardController extends Controller
                 'slot' => $p->slot,
                 'name' => $this->playerName($p),
                 'mine' => ! $readOnly && $this->controls($p, $game),
+                // a scheme is hidden information: only its own player is given the notes
+                'scheme_notes' => ! $readOnly && $this->controls($p, $game) ? ($p->scheme_notes ?? null) : null,
             ])->values(),
+            'turn' => fn () => app(TurnSequence::class)->state($game),
+            'clock' => fn () => app(RoundClock::class)->for($game),
+            // where the models and markers stood at the end of each turn, for the look back
+            'history' => $game->board_state['history'] ?? (object) [],
             'models' => $this->models($game),
             'positions' => $game->board_state['positions'] ?? (object) [],
             'terrain' => $game->board_state['terrain'] ?? [],
@@ -113,7 +121,7 @@ class GameBoardController extends Controller
                     'member' => [
                         ...$member->only([
                             'id', 'game_player_id', 'character_id', 'display_name', 'faction', 'defense', 'willpower', 'speed', 'size',
-                            'characteristics', 'front_image', 'back_image', 'attached_upgrades',
+                            'characteristics', 'front_image', 'back_image', 'attached_upgrades', 'station', 'is_summoned',
                         ]),
                         'custom_character' => $member->customCharacter?->only([
                             'id', 'faction', 'actions', 'abilities', 'display_name', 'front_image', 'back_image', 'card_image_generated_at',

@@ -3,6 +3,7 @@ import FateCardFace from '@/components/Fate/FateCardFace.vue';
 import FatePeekDialog from '@/components/Fate/FatePeekDialog.vue';
 import FatePileDialog from '@/components/Fate/FatePileDialog.vue';
 import FateSearchDialog from '@/components/Fate/FateSearchDialog.vue';
+import FateStartDialog from '@/components/Fate/FateStartDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
     BLACK_JOKER,
@@ -161,6 +162,13 @@ function onHistoryToggle(event: Event) {
 }
 watch(state, () => historyOpen.value && void loadLog());
 
+// ----- the start phase: discard any, then draw up to the maximum -----
+const startOpen = ref(false);
+async function startPhase(discard: number[]) {
+    const r = await run('refill', { discard });
+    if (!r.error) startOpen.value = false;
+}
+
 // ----- a discard pile, opened whole -----
 const pileSlot = ref<number | null>(null);
 const pile = computed(() => players.value.find((p) => p.slot === pileSlot.value) ?? null);
@@ -261,11 +269,14 @@ const pileOpen = computed({
                     v-if="p.discard.length"
                     type="button"
                     class="ml-auto flex items-center gap-1 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                    :aria-label="`Look through ${nameOf(p.slot)}'s discard pile (${p.discard.length})`"
                     :data-testid="`fate-strip-pile-${p.slot}`"
                     @click="pileSlot = p.slot"
                 >
-                    <FateCardFace :card="topOf(p)" small />
+                    <FateCardFace
+                        :card="topOf(p)"
+                        small
+                        :label="`Look through ${nameOf(p.slot)}'s discard pile: ${p.discard.length} cards, top card ${cardLabel(topOf(p))}`"
+                    />
                     <span class="text-xs text-muted-foreground">{{ p.discard.length }}</span>
                 </button>
                 <span v-else class="ml-auto text-xs text-muted-foreground">Discard empty</span>
@@ -283,13 +294,13 @@ const pileOpen = computed({
                         type="button"
                         class="relative rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
                         :disabled="busy"
-                        aria-label="Draw a card"
                         data-testid="fate-draw"
                         @click="run('draw', { n: 1 })"
                     >
-                        <FateCardFace back large />
+                        <FateCardFace back large :label="`Draw a card, ${deckSize(mine)} in the deck`" />
                         <span
                             class="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-primary px-1 text-center text-xs font-semibold text-primary-foreground"
+                            aria-hidden="true"
                             data-testid="fate-deck-count"
                             >{{ deckSize(mine) }}</span
                         >
@@ -304,6 +315,16 @@ const pileOpen = computed({
                         @click="run('refill', { discard: [] })"
                     >
                         Up to {{ state.hand_max }}
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded border border-primary/50 px-1.5 py-0.5 text-[0.7rem] hover:bg-primary/10 disabled:opacity-60"
+                        :disabled="busy"
+                        title="Start phase: discard any cards, then draw up to the hand maximum"
+                        data-testid="fate-start-phase"
+                        @click="startOpen = true"
+                    >
+                        Start phase
                     </button>
                 </div>
 
@@ -331,13 +352,12 @@ const pileOpen = computed({
                                     v-if="canChoose(f, c.card)"
                                     type="button"
                                     class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                                    :aria-label="`Take ${cardLabel(c.card)} as the result`"
                                     data-testid="fate-choose"
                                     :data-card="c.card"
                                     :disabled="busy"
                                     @click="chooseCard(f, c.card)"
                                 >
-                                    <FateCardFace :card="c.card" />
+                                    <FateCardFace :card="c.card" note="take as the result" />
                                 </button>
                                 <FateCardFace
                                     v-else
@@ -450,11 +470,18 @@ const pileOpen = computed({
                     <button
                         type="button"
                         class="relative rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                        :aria-label="`Look through the discard pile (${mine.discard.length})`"
+                        :aria-label="mine.discard.length ? undefined : 'Discard pile, empty. Look through it'"
                         data-testid="fate-pile-open"
                         @click="pileSlot = mine.slot"
                     >
-                        <FateCardFace v-if="mine.discard.length" :card="topOf(mine)" large data-testid="fate-discard-card" :data-card="topOf(mine)" />
+                        <FateCardFace
+                            v-if="mine.discard.length"
+                            :card="topOf(mine)"
+                            large
+                            :label="`Look through the discard pile: ${mine.discard.length} cards, top card ${cardLabel(topOf(mine))}`"
+                            data-testid="fate-discard-card"
+                            :data-card="topOf(mine)"
+                        />
                         <span
                             v-else
                             class="flex h-[4.5rem] w-[3.25rem] items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground"
@@ -490,14 +517,13 @@ const pileOpen = computed({
                         type="button"
                         class="snap-start rounded-md transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                         :class="picked === c ? '-translate-y-1.5' : ''"
-                        :aria-label="`${cardLabel(c)}, in hand`"
                         :aria-pressed="picked === c"
                         data-testid="fate-hand-card"
                         :data-card="c"
                         :data-slot="mine.slot"
                         @click="pick(c)"
                     >
-                        <FateCardFace :card="c" large :highlight="picked === c" />
+                        <FateCardFace :card="c" large note="in hand" :highlight="picked === c" />
                     </button>
                     <span v-if="!mine.hand?.length" class="py-5 text-xs text-muted-foreground">No cards in hand. Tap the deck to draw.</span>
                 </div>
@@ -661,6 +687,7 @@ const pileOpen = computed({
 
         <FatePeekDialog v-model:open="peekOpen" :cards="peeked" :busy="busy" @arrange="arrange" />
         <FateSearchDialog v-model:open="searchOpen" :cards="searched" :busy="busy" @take="take" />
+        <FateStartDialog v-model:open="startOpen" :hand="mine?.hand ?? []" :hand-max="state?.hand_max ?? 7" :busy="busy" @apply="startPhase" />
         <FatePileDialog
             v-model:open="pileOpen"
             :title="`${nameOf(pileSlot)}'s discard pile`"

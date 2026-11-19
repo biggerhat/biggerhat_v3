@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import FateDock from '@/components/Fate/FateDock.vue';
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
+import GameRoundClock, { type RoundClock } from '@/components/Game/GameRoundClock.vue';
+import GameTurnBar, { type TurnState } from '@/components/Game/GameTurnBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
@@ -44,6 +46,14 @@ interface SharedAura {
     traits?: string[];
 }
 
+/** What a player has noted about their scheme: private to them. */
+interface SchemeNotes {
+    note?: string | null;
+    selected_model?: string | null;
+    selected_marker?: string | null;
+    terrain_note?: string | null;
+}
+
 interface BoardModel {
     id: number;
     name: string;
@@ -65,7 +75,13 @@ const props = defineProps<{
     game: { uuid: string; is_solo: boolean; deployment: DeploymentKind | null };
     /** Someone watching an observable game: nothing can be changed, and the page refreshes itself. */
     read_only?: boolean;
-    players: { slot: number; name: string; mine: boolean }[];
+    players: { slot: number; name: string; mine: boolean; scheme_notes?: SchemeNotes | null }[];
+    /** Initiative, whose activation, what is left to activate, and whether a pass is allowed. */
+    turn?: TurnState | null;
+    /** The tournament round's clock, for a game in a running round. */
+    clock?: RoundClock | null;
+    /** Where the models and markers stood at the end of each turn (positions of moved models, and the markers), by turn number. */
+    history?: Record<string, { positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>; markers: PlacedMarker[] }>;
     models: BoardModel[];
     positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }>;
     terrain: TerrainPiece[];
@@ -145,9 +161,12 @@ function tableImageChanged(next: string | null) {
 
 let modelsTimer: ReturnType<typeof setTimeout> | null = null;
 let joined = false;
+let listening: { stopListening: (e: string) => unknown } | null = null;
 const resync = () =>
     document.visibilityState === 'visible' &&
-    router.reload({ only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'table_image', 'models'] });
+    router.reload({
+        only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'table_image', 'models', 'turn', 'clock'],
+    });
 
 let poll: ReturnType<typeof setInterval> | null = null;
 onMounted(async () => {
@@ -155,15 +174,17 @@ onMounted(async () => {
     // Load the Fate deck a moment after the table is up (not before it), so a flip made for a model shows beside it without opening the deck.
     // A watcher polls already, so only the players do this.
     if (!props.read_only) window.setTimeout(() => void fate.start(), 1200);
-    if (props.read_only) {
-        // Observers are not on the players' live channel, so look again every few seconds while the tab is showing.
-        poll = setInterval(resync, 8000);
+    const echo = await loadEcho();
+    if (!echo) {
+        // no socket: look again every few seconds while the tab is showing
+        if (props.read_only) poll = setInterval(resync, 8000);
         return;
     }
-    const echo = await loadEcho();
-    if (!echo) return;
+    // Players join the game's channel; people watching hear the same board changes on its public channel (an observable game only).
+    const channel = props.read_only ? echo.channel(`game-observe.${props.game.uuid}`) : echo.join(`game.${props.game.uuid}`);
     joined = true;
-    echo.join(`game.${props.game.uuid}`)
+    listening = channel;
+    channel
         .listen('.GameBoardMoved', (e: { positions: Record<string, { x: number; y: number; under?: boolean; ignores?: string[] }> }) => {
             live.value = { ...live.value, ...e.positions };
         })
@@ -174,9 +195,9 @@ onMounted(async () => {
             placed.value = e.markers;
         })
         .listen('.GameCrewMemberUpdated', () => {
-            // the play screen changed a model (health, tokens, a kill): look again, once if several arrive together
+            // the play screen changed a model (health, tokens, a kill, the turn order): look again, once if several arrive together
             if (modelsTimer) clearTimeout(modelsTimer);
-            modelsTimer = setTimeout(() => router.reload({ only: ['models'] }), 400);
+            modelsTimer = setTimeout(() => router.reload({ only: ['models', 'turn'] }), 400);
         })
         .listen('.GameBoardSetupChanged', (e: { deployment_variant: number; table_image: string | null }) => {
             variant.value = e.deployment_variant;
@@ -185,12 +206,25 @@ onMounted(async () => {
         .listen('.GameBoardAurasChanged', (e: { auras: SharedAura[] }) => {
             sharedAuras.value = e.auras.map(toAura);
         });
+    // a safety net for a watcher whose socket drops quietly
+    if (props.read_only) poll = setInterval(resync, 30000);
 });
 onUnmounted(() => {
     document.removeEventListener('visibilitychange', resync);
     if (poll) clearInterval(poll);
     if (modelsTimer) clearTimeout(modelsTimer);
-    if (joined) window.Echo?.leave(`game.${props.game.uuid}`);
+    if (props.read_only) {
+        // the public channel is shared with the Fate deck's listener: take off only ours
+        for (const e of [
+            '.GameBoardMoved',
+            '.GameBoardTerrainChanged',
+            '.GameBoardMarkersChanged',
+            '.GameCrewMemberUpdated',
+            '.GameBoardSetupChanged',
+            '.GameBoardAurasChanged',
+        ])
+            listening?.stopListening(e);
+    } else if (joined) window.Echo?.leave(`game.${props.game.uuid}`);
 });
 
 // The crew as the game tracker keeps it: health, activation, tokens. Changed here, they are saved through the tracker's own endpoint, so
@@ -246,6 +280,21 @@ const crew = computed(() =>
     })),
 );
 
+// Kill a model, or bring it back, as the tracker does (the same endpoints). A model that replaces itself on death is finished on the play screen.
+async function killChange(id: string, killed: boolean) {
+    if (props.read_only) return;
+    liveModels.value = liveModels.value.map((m) => (String(m.id) === id ? { ...m, killed, health: killed ? 0 : m.max_health } : m));
+    const res = await gameApi.post<{ replacements?: unknown[]; error?: string }>(
+        route(killed ? 'games.play.crew.kill' : 'games.play.crew.revive', { game: props.game.uuid, gameCrewMember: id }),
+    );
+    if (!res.ok) {
+        toast.error(res.data.error ?? 'That change was not saved.');
+        router.reload({ only: ['models'] });
+        return;
+    }
+    if (killed && res.data.replacements?.length) toast.info('This model replaces itself when it dies: finish that on the play screen.');
+}
+
 // Replace a model with another (CRG p.48): it keeps its place, tokens, upgrades and health (capped by the new model's maximum).
 const replaceTarget = ref<{ id: string; display_name: string; current_health: number; max_health: number } | null>(null);
 const replaceOpen = ref(false);
@@ -293,6 +342,35 @@ function replaceWith(character: { id: number }) {
     );
 }
 
+// The turn bar: pass, and choose initiative (the server keeps the rules)
+const turnBusy = ref(false);
+async function turnCall(name: 'pass' | 'initiative', body: Record<string, unknown>) {
+    if (props.read_only) return;
+    turnBusy.value = true;
+    const res = await gameApi.post<{ error?: string }>(route(`games.play.turn.${name}`, props.game.uuid), body);
+    turnBusy.value = false;
+    if (!res.ok) toast.error(res.data.error ?? 'That did not work.');
+    router.reload({ only: ['turn', 'models'] });
+}
+const passTurn = (slot: number) => turnCall('pass', { slot });
+const chooseInitiative = (chooser: number, initiative: number) => turnCall('initiative', { slot: chooser, initiative });
+
+// Scheme notes (private to the player): a model or marker picked on the board is saved into the scheme notes the play screen shows.
+const schemeNotes = ref<Record<number, SchemeNotes>>(
+    Object.fromEntries(props.players.filter((p) => p.mine).map((p) => [p.slot, p.scheme_notes ?? {}])),
+);
+async function schemeTarget(kind: 'model' | 'marker', slot: number, name: string | null) {
+    if (props.read_only || viewing.value) return;
+    const current = schemeNotes.value[slot] ?? {};
+    const next = { ...current, ...(kind === 'model' ? { selected_model: name } : { selected_marker: name }) };
+    schemeNotes.value = { ...schemeNotes.value, [slot]: next };
+    const res = await gameApi.patch<{ error?: string }>(route('games.play.scheme-notes', props.game.uuid), { scheme_notes: next, slot });
+    if (!res.ok) {
+        toast.error(res.data.error ?? 'That was not saved.');
+        schemeNotes.value = { ...schemeNotes.value, [slot]: current };
+    }
+}
+
 const playerFor = (slot: number) => props.players.find((p) => p.slot === slot);
 const sideNames = computed(() => ({ a: playerFor(1)?.name ?? 'Player 1', b: playerFor(2)?.name ?? 'Player 2' }));
 
@@ -310,8 +388,18 @@ function defaultSpot(model: BoardModel): { x: number; y: number } {
     return { x: start + step * index, y: model.slot === 1 ? 2 + baseRadius(model.base_mm) : TABLE_SIZE - 2 - baseRadius(model.base_mm) };
 }
 
+// Looking back: the table as it stood at the end of a turn (read-only), instead of as it is now.
+const viewTurn = ref<number | null>(null);
+const historyTurns = computed(() =>
+    Object.keys(props.history ?? {})
+        .map(Number)
+        .sort((a, b) => a - b),
+);
+const viewing = computed(() => viewTurn.value !== null && !!props.history?.[String(viewTurn.value)]);
+const shownPositions = computed(() => (viewing.value ? props.history![String(viewTurn.value)].positions : live.value));
+const shownMarkers = computed(() => (viewing.value ? props.history![String(viewTurn.value)].markers : placed.value));
 const markerTokens = computed<Token[]>(() =>
-    placed.value.map((pm): Token => {
+    shownMarkers.value.map((pm): Token => {
         const option = props.markers.find((m) => m.id === pm.marker_id);
         return {
             id: pm.id,
@@ -323,7 +411,7 @@ const markerTokens = computed<Token[]>(() =>
             marker: true,
             markerId: pm.marker_id,
             strategy: option?.strategy || undefined,
-            locked: props.read_only || !playerFor(pm.owner)?.mine,
+            locked: props.read_only || viewing.value || !playerFor(pm.owner)?.mine,
         };
     }),
 );
@@ -337,7 +425,7 @@ const tokens = computed<Token[]>(() => [
     // markers first, so they draw underneath the models and a model on top of one is the one you pick up
     ...markerTokens.value,
     ...liveModels.value.map((m): Token => {
-        const at = live.value[String(m.id)] ?? defaultSpot(m);
+        const at = shownPositions.value[String(m.id)] ?? defaultSpot(m);
         return {
             id: String(m.id),
             name: m.name,
@@ -350,6 +438,9 @@ const tokens = computed<Token[]>(() => [
             under: 'under' in at ? at.under : undefined,
             ignores: 'ignores' in at ? at.ignores : undefined,
             killed: m.killed,
+            peon: m.member.station === 'peon',
+            // a summoned model nobody has set on the table yet
+            unplaced: !!m.member.is_summoned && !(String(m.id) in live.value),
             info: {
                 health: m.health ?? undefined,
                 maxHealth: m.max_health ?? undefined,
@@ -357,7 +448,7 @@ const tokens = computed<Token[]>(() => [
                 tokens: m.tokens,
                 notes: m.notes ?? undefined,
             },
-            locked: props.read_only || !playerFor(m.slot)?.mine,
+            locked: props.read_only || viewing.value || !playerFor(m.slot)?.mine,
         };
     }),
 ]);
@@ -449,18 +540,51 @@ function moved(t: Token) {
         </template>
     </PageBanner>
     <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
+        <div v-if="clock || turn || historyTurns.length" class="mb-3 space-y-2">
+            <GameRoundClock v-if="clock" :clock="clock" />
+            <GameTurnBar
+                v-if="turn && !viewing"
+                :turn="turn"
+                :names="Object.fromEntries(players.map((p) => [p.slot, p.name]))"
+                :mine="players.filter((p) => p.mine).map((p) => p.slot)"
+                :busy="turnBusy"
+                @pass="passTurn"
+                @initiative="chooseInitiative"
+            />
+            <!-- a look back at where everything stood at the end of each turn -->
+            <div v-if="historyTurns.length" class="flex flex-wrap items-center gap-1.5 text-sm" data-testid="history-bar">
+                <span class="text-muted-foreground">Look back:</span>
+                <Button size="sm" :variant="viewing ? 'outline' : 'default'" data-testid="history-now" @click="viewTurn = null">Now</Button>
+                <Button
+                    v-for="n in historyTurns"
+                    :key="n"
+                    size="sm"
+                    :variant="viewTurn === n ? 'default' : 'outline'"
+                    :aria-pressed="viewTurn === n"
+                    :data-testid="`history-turn-${n}`"
+                    @click="viewTurn = n"
+                    >End of turn {{ n }}</Button
+                >
+                <span v-if="viewing" class="text-xs text-muted-foreground" data-testid="history-note">
+                    Showing the table at the end of turn {{ viewTurn }}. Nothing can be changed while you look back.
+                </span>
+            </div>
+        </div>
         <TabletopBoard
             :tokens="tokens"
             :terrain="liveTerrain"
             :markers="markers"
             :place-as="placeAs"
             :shared-auras="sharedAuras"
-            :read-only="read_only"
+            :read-only="read_only || viewing"
             :token-options="token_options"
             :crew="crew"
             :fate="fate"
             @model-change="modelChange"
             @replace-model="openReplace"
+            @kill-change="killChange"
+            :scheme-notes="schemeNotes"
+            @scheme-target="schemeTarget"
             @aura-change="auraChange"
             :deployment-variant="variant"
             @variant-changed="variantChanged"

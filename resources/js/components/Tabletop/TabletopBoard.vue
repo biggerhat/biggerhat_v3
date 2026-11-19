@@ -24,6 +24,8 @@ import {
     walkBudget,
     heightCover,
     dragShapeHandle,
+    engagedSp,
+    engagedWith,
     coverAt,
     insertCorner,
     insideOf as buildingOf,
@@ -149,6 +151,8 @@ const props = withDefaults(
         tokenOptions?: { id: number; name: string }[];
         /** The Fate deck (a game's, or the sandbox's practice deck): a model can flip for itself and its result is drawn beside it. */
         fate?: FateFeed;
+        /** The scheme notes of the players this viewer plays, by slot: with them a model or marker can be picked as the scheme's. */
+        schemeNotes?: Record<number, { selected_model?: string | null; selected_marker?: string | null }>;
         /** A game's crew as the play screen's rows show it (health, activation, tokens, card). With it the models are listed as those rows and the tabletop options open under the chosen one. */
         crew?: CrewMember[];
         storageKey?: string;
@@ -170,6 +174,10 @@ const emit = defineEmits<{
     tableImageChanged: [key: string | null];
     modelChange: [id: string, patch: Partial<ModelInfo>];
     replaceModel: [id: string];
+    /** Mark a model killed, or bring it back. */
+    killChange: [id: string, killed: boolean];
+    /** Pick (or put down) a model or marker as what a scheme points at. */
+    schemeTarget: [kind: 'model' | 'marker', slot: number, name: string | null];
     /** Sandbox: swap a model for another character, keeping what it has picked up. */
     replaceCharacter: [id: string, character: CharacterOption];
     auraChange: [change: { upsert?: Aura[]; remove?: string[] }];
@@ -481,6 +489,8 @@ const trail = ref<{
     baseMm: number;
     startElevation: number;
     sp?: number;
+    /** The Sp was halved because the model started engaged (CRG, Engagement). */
+    halved?: boolean;
     /** How it is moving: a Walk, a Walk that ignores terrain (Flight), or a place within `range` (Leap) that is not movement at all. */
     kind: MoveKind;
     /** The building it started inside, if any (a place cannot cross a wall). */
@@ -618,6 +628,19 @@ const ruler = ref<{ from: Point; to: Point; fromToken: string | null; toToken: s
 const levels = computed(() => [0, ...new Set(terrain.value.flatMap((p) => p.surfaces.map((s) => s.top)))].sort((a, b) => a - b));
 const supports = computed(() => new Map(tokens.value.map((t) => [t.id, restingSupport(t, terrain.value)])));
 const elevationOf = (t: Token) => supports.value.get(t.id)?.elevation ?? 0;
+/**
+ * Who is engaged with whom: within 1" of an enemy, edge to edge, unless the lower model's effective Sz is below the higher model's
+ * elevation. An engaged model halves its Walk and cannot declare missile actions, Interact or Charge. Shown on the base and in its options.
+ */
+const engagement = computed(() => {
+    const out = new Map<string, Token[]>();
+    for (const t of tokens.value) {
+        if (t.marker) continue;
+        const foes = engagedWith(t, tokens.value, elevationOf);
+        if (foes.length) out.set(t.id, foes);
+    }
+    return out;
+});
 // Auras: a circle of `range` inches that starts at the outside edge of a model's base. A model casts up to three. A locked aura stays at
 // the spot where it was locked while the model moves on. A view aid kept on this device.
 const AURA_MIN = 0.5;
@@ -776,7 +799,7 @@ const crewRows = computed<CrewMember[]>(
                   .map((t) => ({
                       id: t.id as unknown as number,
                       slot: t.side === 'b' ? 2 : 1,
-                      is_killed: false,
+                      is_killed: !!t.killed,
                       display_name: t.name,
                       faction: t.card?.faction,
                       defense: t.card?.defense,
@@ -870,6 +893,79 @@ const cardNotes = (payload: { notes: string | null }) => {
     if (cardMember.value) emit('modelChange', String(cardMember.value.id), { notes: payload.notes ?? '' });
 };
 const noUpgradePower = () => 0;
+
+// ----- a scheme's model or marker, picked on the board (the notes are private to their player) -----
+const schemeSlot = (t: Token): number | null => {
+    if (!props.schemeNotes || (t.side !== 'a' && t.side !== 'b')) return null;
+    const slot = t.side === 'a' ? 1 : 2;
+    return props.schemeNotes[slot] === undefined ? null : slot;
+};
+const isSchemeTarget = (t: Token, slot: number) =>
+    (t.marker ? props.schemeNotes?.[slot]?.selected_marker : props.schemeNotes?.[slot]?.selected_model) === t.name;
+function toggleSchemeTarget(t: Token, slot: number) {
+    emit('schemeTarget', t.marker ? 'marker' : 'model', slot, isSchemeTarget(t, slot) ? null : t.name);
+}
+
+// ----- a marker's neighbours: strategies and schemes count models near a marker, and peons are ignored for them (CRG, Peons) -----
+const markerRange = ref(3);
+const markerNeighbours = computed(() => {
+    const m = selected.value;
+    if (!m?.marker) return null;
+    const near = tokens.value.filter((t) => !t.marker && !t.killed && !t.peon && t.side !== 'n' && edgeDistance(m, t) <= markerRange.value + 1e-9);
+    return { a: near.filter((t) => t.side === 'a'), b: near.filter((t) => t.side === 'b') };
+});
+const unplacedIds = computed(() => new Set(tokens.value.filter((t) => t.unplaced && !t.killed).map((t) => t.id)));
+
+// ----- Remains (CRG, Markers and killed models): a killed model that is not a peon makes a friendly 30mm Remains marker within 1" -----
+const killedSeen = new Set(tokens.value.filter((t) => t.killed).map((t) => t.id));
+const remainsFor = ref<{ id: string; name: string; side: 'a' | 'b'; x: number; y: number; baseMm: number }[]>([]);
+watch(
+    () => tokens.value.filter((t) => t.killed && !t.marker).map((t) => t.id),
+    (now) => {
+        const nowSet = new Set(now);
+        for (const id of [...killedSeen]) if (!nowSet.has(id)) killedSeen.delete(id); // revived: a second death asks again
+        for (const id of now) {
+            if (killedSeen.has(id)) continue;
+            killedSeen.add(id);
+            const t = tokens.value.find((x) => x.id === id);
+            // you make the marker for your own crew; peons make none
+            if (t && !t.locked && !t.peon && (t.side === 'a' || t.side === 'b') && !props.readOnly)
+                remainsFor.value = [...remainsFor.value, { id, name: t.name, side: t.side, x: t.x, y: t.y, baseMm: t.baseMm }];
+        }
+    },
+);
+const remainsMarker = computed(() => props.markers?.find((m) => /^remains$/i.test(m.name)) ?? props.markers?.find((m) => /remains/i.test(m.name)));
+const skipRemains = (id: string) => (remainsFor.value = remainsFor.value.filter((r) => r.id !== id));
+function placeRemains(r: { id: string; name: string; side: 'a' | 'b'; x: number; y: number; baseMm: number }) {
+    const marker = remainsMarker.value;
+    if (!marker) {
+        note.value = 'There is no Remains marker in the markers list.';
+        return skipRemains(r.id);
+    }
+    if ((markersUsed.value[marker.id] ?? 0) >= MARKERS_PER_KIND) {
+        note.value = `There are already ${MARKERS_PER_KIND} Remains markers on the table.`;
+        return skipRemains(r.id);
+    }
+    // anywhere within 1" of the killed model: if no legal spot is that close, the marker is not made
+    const probe: Token = {
+        id: 'remains-probe',
+        name: marker.name,
+        side: r.side,
+        marker: true,
+        markerId: marker.id,
+        baseMm: marker.base_mm,
+        x: r.x,
+        y: r.y,
+    };
+    const spot = legalSpotNear(probe, 1 + baseRadius(r.baseMm) + baseRadius(marker.base_mm));
+    skipRemains(r.id);
+    if (!spot) {
+        note.value = `${r.name}'s Remains marker could not be made within 1", so it is not made.`;
+        return;
+    }
+    emit('addMarker', { markerId: marker.id, name: marker.name, baseMm: marker.base_mm, side: r.side, x: spot.x, y: spot.y });
+    note.value = `A Remains marker was made beside ${r.name}.`;
+}
 
 // ----- Fate flips made for a model: the result is drawn beside it, and the model's options can flip -----
 const SUIT_FILL: Record<string, string> = { rams: 'hsl(0 70% 42%)', masks: 'hsl(280 55% 42%)', tomes: 'hsl(215 70% 42%)', crows: 'hsl(140 55% 28%)' };
@@ -1058,6 +1154,33 @@ function zoomBy(factor: number) {
 }
 const resetView = () => (view.value = { x: 0, y: 0, w: TABLE_SIZE });
 
+/**
+ * Where this token can stand, as close to where it is as possible: where it is if that is already legal, else the nearest legal spot
+ * within `maxRadius`. nearestLegalSpot answers null both when the place is already fine and when nothing is legal, so tell them apart here.
+ */
+function legalSpotNear(probe: Token, maxRadius?: number): { x: number; y: number } | null {
+    const bad = placementProblems(probe, tokens.value, worldTerrain.value, reach.value).some(
+        (p) => p.kind === 'overlap' || p.kind === 'impassable' || p.kind === 'unreachable',
+    );
+    return bad ? nearestLegalSpot(probe, tokens.value, worldTerrain.value, maxRadius, undefined, reach.value) : { x: probe.x, y: probe.y };
+}
+
+/** A model the game added that has no place yet: the next tap on empty table sets it down at the nearest legal spot. */
+const placingId = ref<string | null>(null);
+function placeAt(token: Token, p: Point) {
+    if (token.locked) return;
+    const at = clampToTable({ baseMm: token.baseMm, x: p.x, y: p.y });
+    const spot = legalSpotNear({ ...token, x: at.x, y: at.y });
+    if (!spot) {
+        note.value = `There is no legal spot near there for ${token.name}.`;
+        return;
+    }
+    Object.assign(token, spot, { unplaced: false });
+    trail.value = null;
+    placingId.value = null;
+    emit('moved', { ...token });
+    note.value = `${token.name} placed.`;
+}
 function onDown(e: PointerEvent) {
     svg.value?.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1080,6 +1203,13 @@ function onDown(e: PointerEvent) {
         trail.value?.id === hit.id;
     if (!carryOn) trail.value = null;
     if (!guidedId.value) sight.value = null;
+    if (placingId.value && mode.value === 'move' && !hit) {
+        const waiting = tokens.value.find((x) => x.id === placingId.value);
+        if (waiting) {
+            placeAt(waiting, p);
+            return;
+        }
+    }
     if (mode.value === 'terrain') {
         if (outline.value) {
             addCorner(p);
@@ -1128,7 +1258,14 @@ function onDown(e: PointerEvent) {
                 to: { x: hit.x, y: hit.y },
                 baseMm: hit.baseMm,
                 startElevation: elevationOf(hit),
-                sp: hit.marker ? undefined : hit.sp,
+                // an engaged model's Walk is half its Sp (a jump or a place is not a Walk)
+                sp: hit.marker
+                    ? undefined
+                    : engagement.value.get(hit.id) && hit.sp !== undefined && moveKind.value !== 'jump' && moveKind.value !== 'place'
+                      ? engagedSp(hit.sp)
+                      : hit.sp,
+                halved:
+                    !hit.marker && !!engagement.value.get(hit.id) && hit.sp !== undefined && moveKind.value !== 'jump' && moveKind.value !== 'place',
                 kind: moveKind.value,
                 inside: buildingOf(hit, terrain.value)?.id ?? null,
                 range: placeRange.value,
@@ -1401,8 +1538,8 @@ function onUp(e: PointerEvent) {
                 if (walk)
                     parts.push(
                         walk.within
-                            ? `${fmt(walk.left)}" left of a Walk (Sp ${trail.value?.sp})`
-                            : `${fmt(-walk.left)}" more than a Walk (Sp ${trail.value?.sp})`,
+                            ? `${fmt(walk.left)}" left of a Walk (Sp ${trail.value?.sp}${trail.value?.halved ? ', halved: engaged' : ''})`
+                            : `${fmt(-walk.left)}" more than a Walk (Sp ${trail.value?.sp}${trail.value?.halved ? ', halved: engaged' : ''})`,
                     );
                 note.value = parts.join(', ') + (legs.length > 1 ? '. Each leg is a straight line.' : '. Straight-line distance.');
             }
@@ -1478,6 +1615,7 @@ function addCharacter(c: CharacterOption) {
         baseMm: c.base_mm,
         sz: c.sz,
         sp: c.sp,
+        peon: c.station === 'peon',
         info: { health: c.health, maxHealth: c.health, tokens: [] },
         card: {
             faction: c.faction_key,
@@ -1950,6 +2088,23 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 fill="none"
                                 stroke="hsl(145 60% 35%)"
                                 stroke-width="0.09"
+                                stroke-linecap="round"
+                            />
+                        </g>
+                        <g v-if="engagement.get(t.id)" pointer-events="none" :data-testid="`engaged-${t.id}`">
+                            <circle
+                                :cx="t.x - baseRadius(t.baseMm) * 0.8"
+                                :cy="t.y + baseRadius(t.baseMm) * 0.8"
+                                r="0.34"
+                                fill="hsl(0 75% 45%)"
+                                stroke="white"
+                                stroke-width="0.06"
+                            />
+                            <path
+                                :d="`M${t.x - baseRadius(t.baseMm) * 0.8 - 0.14} ${t.y + baseRadius(t.baseMm) * 0.8 - 0.14} l0.28 0.28 m0 -0.28 l-0.28 0.28`"
+                                fill="none"
+                                stroke="white"
+                                stroke-width="0.08"
                                 stroke-linecap="round"
                             />
                         </g>
@@ -2511,6 +2666,19 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 </div>
             </div>
 
+            <div
+                v-for="r in remainsFor"
+                :key="`remains-${r.id}`"
+                class="space-y-1.5 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-sm"
+                role="alert"
+                data-testid="remains-prompt"
+            >
+                <p>{{ r.name }} was killed. It makes a friendly 30mm Remains marker within 1" (peons do not).</p>
+                <div class="flex flex-wrap gap-1">
+                    <Button size="sm" data-testid="remains-place" @click="placeRemains(r)">Make the Remains marker</Button>
+                    <Button size="sm" variant="ghost" data-testid="remains-skip" @click="skipRemains(r.id)">Skip</Button>
+                </div>
+            </div>
             <div v-if="crewRows.length && mode !== 'terrain'" class="space-y-3" data-testid="crew-list">
                 <template v-for="side in crewSides" :key="side.slot">
                     <div class="space-y-1">
@@ -2544,6 +2712,23 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 @toggle-options="toggleSelect(m)"
                                 @preview="openCard(m)"
                             />
+                            <div
+                                v-if="unplacedIds.has(String(m.id)) && canEditCrew(m)"
+                                class="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-1.5 text-xs"
+                                data-testid="unplaced-bar"
+                            >
+                                <span class="min-w-0 flex-1">{{
+                                    placingId === String(m.id) ? 'Tap the table where it goes.' : 'Summoned: not on the table yet.'
+                                }}</span>
+                                <Button
+                                    size="sm"
+                                    :variant="placingId === String(m.id) ? 'default' : 'outline'"
+                                    :aria-pressed="placingId === String(m.id)"
+                                    data-testid="place-unplaced"
+                                    @click="placingId = placingId === String(m.id) ? null : String(m.id)"
+                                    >{{ placingId === String(m.id) ? 'Cancel' : 'Place on the table' }}</Button
+                                >
+                            </div>
                             <div :ref="(el) => setSlot(m.id, el)"></div>
                         </div>
                         <button
@@ -2579,6 +2764,43 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 >.
                             </div>
                             <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
+                            <Button
+                                v-if="schemeSlot(selected) !== null && !selected.locked"
+                                size="sm"
+                                :variant="isSchemeTarget(selected, schemeSlot(selected)!) ? 'default' : 'outline'"
+                                :aria-pressed="isSchemeTarget(selected, schemeSlot(selected)!)"
+                                class="mt-2"
+                                data-testid="scheme-target"
+                                @click="toggleSchemeTarget(selected, schemeSlot(selected)!)"
+                                >{{ isSchemeTarget(selected, schemeSlot(selected)!) ? "This is your scheme's" : "Use as your scheme's" }}
+                                {{ selected.marker ? 'marker' : 'model' }}</Button
+                            >
+                            <div v-if="markerNeighbours" class="mt-2 space-y-1 rounded-md border p-2 text-xs" data-testid="marker-neighbours">
+                                <label class="flex items-center gap-2">
+                                    Models within
+                                    <input
+                                        v-model.number="markerRange"
+                                        type="number"
+                                        min="1"
+                                        max="12"
+                                        step="1"
+                                        class="w-14 rounded-md border bg-background px-2 py-1"
+                                        aria-label="Distance in inches from the marker's base"
+                                        data-testid="marker-range"
+                                    />"
+                                </label>
+                                <p data-testid="marker-neighbours-a">
+                                    <span class="font-medium">{{ sideNames.a }}:</span>
+                                    {{ markerNeighbours.a.map((t) => t.name).join(', ') || 'none' }}
+                                </p>
+                                <p data-testid="marker-neighbours-b">
+                                    <span class="font-medium">{{ sideNames.b }}:</span>
+                                    {{ markerNeighbours.b.map((t) => t.name).join(', ') || 'none' }}
+                                </p>
+                                <p class="text-muted-foreground">
+                                    Measured from the edge of the marker's base. Peons are ignored for strategies and schemes.
+                                </p>
+                            </div>
                             <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
                                 Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
                             </p>
@@ -2647,6 +2869,15 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 @click="toggleGuide(selected)"
                                 ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
                             >
+                            <Button
+                                v-if="!selected.marker && !selected.locked && (crewRows.length || sandbox)"
+                                size="sm"
+                                variant="outline"
+                                class="mt-2"
+                                :data-testid="selected.killed ? 'model-revive' : 'model-kill'"
+                                @click="emit('killChange', selected.id, !selected.killed)"
+                                >{{ selected.killed ? 'Bring it back' : 'Mark killed' }}</Button
+                            >
                             <!-- a Fate flip for this model: the result shows beside it on the table -->
                             <div v-if="fate && !selected.marker" class="mt-2 space-y-1.5 rounded-md border p-2" data-testid="model-fate">
                                 <div class="flex flex-wrap items-center gap-1">
@@ -2689,11 +2920,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                                 v-if="!modelFlip.flip.chosen && modelFlip.flip.legal.includes(c.card) && !selected.locked"
                                                 type="button"
                                                 class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                                                :aria-label="`Take ${cardLabel(c.card)} as the result`"
                                                 data-testid="model-fate-choose"
                                                 @click="chooseForModel(selected, modelFlip.flip, c.card)"
                                             >
-                                                <FateCardFace :card="c.card" small />
+                                                <FateCardFace :card="c.card" small note="take as the result" />
                                             </button>
                                             <FateCardFace
                                                 v-else
@@ -2736,6 +2966,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :crew="crewRows.length > 0"
                                 @change="emit('modelChange', selected.id, $event)"
                             />
+                            <p v-if="engagement.get(selected.id)?.length" class="mt-2 text-red-600 dark:text-red-400" data-testid="engaged-note">
+                                Engaged with
+                                {{
+                                    engagement
+                                        .get(selected.id)!
+                                        .map((o) => o.name)
+                                        .join(', ')
+                                }}: a Walk is half its Sp{{ selected.sp !== undefined ? ` (${engagedSp(selected.sp)}")` : '' }}, and it cannot declare
+                                missile actions, Interact or Charge.
+                            </p>
                             <p
                                 v-if="problems.get(selected.id)?.length"
                                 class="mt-2 text-amber-600 dark:text-amber-400"

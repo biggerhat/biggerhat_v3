@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
     AURAS_PER_MODEL,
     AURA_TRAITS,
+    ENGAGE_RANGE,
     IGNORABLE_TRAITS,
     LANE_MIN,
     OPENINGS_MAX,
@@ -21,6 +22,8 @@ import {
     distanceToShape,
     dragShapeHandle,
     edgeDistance,
+    engagedSp,
+    engagedWith,
     fallHurts,
     heightCover,
     inZone,
@@ -1394,4 +1397,55 @@ test('hazardous terrain says what its rules card says, and that it is suffered o
     assert.equal(problem.kind, 'hazardous');
     assert.match(problem.text, /Lava pool: Gain a Burning token\./);
     assert.match(problem.text, /once per activation/);
+});
+
+test('engagement: within 1" of an enemy, edge to edge', () => {
+    const a = { id: 'a', name: 'A', side: 'a', baseMm: 30, sz: 2, x: 10, y: 10 };
+    const near = { id: 'b', name: 'B', side: 'b', baseMm: 30, sz: 2, x: 10 + 2 * baseRadius(30) + 1, y: 10 }; // exactly 1" apart
+    const far = { ...near, id: 'c', x: 10 + 2 * baseRadius(30) + 1.2 };
+    const ground = () => 0;
+    assert.equal(ENGAGE_RANGE, 1);
+    assert.deepEqual(
+        engagedWith(a, [a, near], ground).map((t) => t.id),
+        ['b'],
+    );
+    assert.deepEqual(
+        engagedWith(near, [a, near], ground).map((t) => t.id),
+        ['a'],
+    ); // both ways
+    assert.deepEqual(engagedWith(a, [a, far], ground), []);
+});
+
+test('engagement: friends, markers, killed models, neutrals and peons never count, and a peon is never engaged', () => {
+    const a = { id: 'a', name: 'A', side: 'a', baseMm: 30, x: 10, y: 10 };
+    const at = (extra) => ({ id: 'o', name: 'O', side: 'b', baseMm: 30, x: 11.5, y: 10, ...extra });
+    const ground = () => 0;
+    assert.deepEqual(engagedWith(a, [a, at({ side: 'a' })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ marker: true })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ killed: true })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ side: 'n' })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ peon: true })], ground), []);
+    assert.deepEqual(engagedWith({ ...a, peon: true }, [{ ...a, peon: true }, at({})], ground), []);
+    assert.equal(engagedWith(a, [a, at({})], ground).length, 1);
+});
+
+test("engagement: the lower model is not engaged when its effective Sz is less than the higher model's elevation", () => {
+    const low = { id: 'low', name: 'Low', side: 'a', baseMm: 30, sz: 1, x: 10, y: 10 };
+    const high = { id: 'high', name: 'High', side: 'b', baseMm: 30, sz: 2, x: 11.5, y: 10 };
+    const elevation = (height) => (t) => (t.id === 'high' ? height : 0);
+    // the Sz 1 model on the ground, the other on a Ht 3 roof: 1 + 0 < 3, so neither is engaged
+    assert.deepEqual(engagedWith(low, [low, high], elevation(3)), []);
+    assert.deepEqual(engagedWith(high, [low, high], elevation(3)), []);
+    // on a Ht 1 step the lower model's Sz 1 reaches it: engaged
+    assert.equal(engagedWith(low, [low, high], elevation(1)).length, 1);
+    // a taller model on the ground (Sz 3) is engaged by one standing on a Ht 3 roof
+    assert.equal(engagedWith({ ...low, sz: 3 }, [{ ...low, sz: 3 }, high], elevation(3)).length, 1);
+    // a missing Sz counts as 1
+    assert.deepEqual(engagedWith({ ...low, sz: undefined }, [{ ...low, sz: undefined }, high], elevation(2)), []);
+});
+
+test('an engaged Walk is half the Sp, rounded down', () => {
+    assert.equal(engagedSp(6), 3);
+    assert.equal(engagedSp(5), 2);
+    assert.equal(engagedSp(1), 0);
 });

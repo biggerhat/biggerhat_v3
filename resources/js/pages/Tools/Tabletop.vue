@@ -170,6 +170,7 @@ const replaceCharacter = (id: string, c: CharacterOption) =>
                   baseMm: c.base_mm,
                   sz: c.sz,
                   sp: c.sp,
+                  peon: c.station === 'peon',
                   info: { tokens: [], ...t.info, maxHealth: c.health, health: Math.min(t.info?.health ?? c.health, c.health) },
                   card: {
                       faction: c.faction_key,
@@ -180,6 +181,11 @@ const replaceCharacter = (id: string, c: CharacterOption) =>
                   },
               }
             : t,
+    ));
+/** Kill a model or bring it back: the same marks the game's tracker keeps, on this device. */
+const killChange = (id: string, killed: boolean) =>
+    (tokens.value = tokens.value.map((t) =>
+        t.id === id ? { ...t, killed, info: t.info ? { ...t.info, health: killed ? 0 : (t.info.maxHealth ?? t.info.health) } : t.info } : t,
     ));
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
 /** A practice Fate deck for the table (not a game's: nobody to hide a hand from). */
@@ -360,6 +366,7 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             @moved="moved"
             @add="add"
             @replace-character="replaceCharacter"
+            @kill-change="killChange"
             @remove="remove"
             @reset="reset"
         >

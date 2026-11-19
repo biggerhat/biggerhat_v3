@@ -37,6 +37,17 @@ class FateDeckService
     // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
+     * The most cards a hand holds in this game: 7, or less in the Gaining Grounds modes that say so (a tournament game takes it from its
+     * event's encounter type).
+     */
+    public function handMax(Game $game): int
+    {
+        $type = $game->tournamentGame?->round?->tournament?->encounter_type;
+
+        return FateCards::handMaxFor($type?->value);
+    }
+
+    /**
      * The players in a game that this user controls: their own slot, or both slots of a solo game they created. An observer controls none.
      *
      * @return list<int> game_player ids
@@ -68,13 +79,14 @@ class FateDeckService
         $flips = GameFateFlip::query()->where('game_id', $game->id)->whereNull('resolved_at')->orderBy('id')->get();
         $prompts = GameFatePrompt::query()->where('game_id', $game->id)->whereNull('dismissed_at')->orderBy('id')->get();
         $players = $game->players()->orderBy('slot')->get(['id', 'slot']);
+        $handMax = $this->handMax($game);
         $slotOf = $players->pluck('slot', 'id');
         $byRow = $cards->keyBy('id');
 
         return [
             'started' => $cards->isNotEmpty(),
-            'hand_max' => FateCards::HAND_MAX,
-            'players' => $players->map(function (GamePlayer $p) use ($cards, $controlled) {
+            'hand_max' => $handMax,
+            'players' => $players->map(function (GamePlayer $p) use ($cards, $controlled, $handMax) {
                 $mine = $cards->where('game_player_id', $p->id);
                 $hand = $mine->where('zone', FateZoneEnum::Hand);
 
@@ -83,7 +95,7 @@ class FateDeckService
                     'player_id' => $p->id,
                     'deck_count' => $mine->where('zone', FateZoneEnum::Deck)->count(),
                     'hand_count' => $hand->count(),
-                    'over_max' => max(0, $hand->count() - FateCards::HAND_MAX),
+                    'over_max' => max(0, $hand->count() - $handMax),
                     'discard' => $mine->where('zone', FateZoneEnum::Discard)->pluck('card')->values()->all(),
                     'removed' => $mine->where('zone', FateZoneEnum::Removed)->pluck('card')->values()->all(),
                     // a hand is the one hidden thing here: only its controller is given the cards
@@ -173,7 +185,7 @@ class FateDeckService
             foreach ($rows as $row) {
                 $this->move($row, FateZoneEnum::Discard, $this->bottom($player, FateZoneEnum::Discard));
             }
-            $room = FateCards::HAND_MAX - $this->zone($player, FateZoneEnum::Hand)->count();
+            $room = $this->handMax($player->game) - $this->zone($player, FateZoneEnum::Hand)->count();
             $drawn = $room > 0 ? $this->drawInto($player, $room) : [];
             $this->log($player, 'fate.refill', ['discarded' => $rows->pluck('card')->all(), 'drawn' => count($drawn)]);
 

@@ -41,6 +41,8 @@ use App\Models\TournamentGame;
 use App\Models\Upgrade;
 use App\Models\User;
 use App\Notifications\Game\GameOpponentJoined;
+use App\Services\Game\RoundClock;
+use App\Services\Game\TurnSequence;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\RedirectResponse;
@@ -398,6 +400,17 @@ class GameController extends Controller
      *
      * @return \Illuminate\Support\Collection<int, Token>
      */
+    /** The game with its turn sequence (initiative, whose activation, what is left, whether a pass is allowed) riding along while it is in progress. */
+    private function withTurn(Game $game): Game
+    {
+        $turn = app(TurnSequence::class)->state($game);
+        if ($turn !== null) {
+            $game->setAttribute('turn_sequence', $turn);
+        }
+
+        return $game;
+    }
+
     private function buildTokensProp(Game $game, GameShowContext $context): \Illuminate\Support\Collection
     {
         $needsTokens = match ($context) {
@@ -487,7 +500,7 @@ class GameController extends Controller
             : [];
 
         $props = [
-            'game' => $game,
+            'game' => $this->withTurn($game),
             'schemes' => $schemes,
             'all_reachable_schemes' => $isSelf ? $this->reachableSchemes($schemeCache, $schemePoolOrder) : [],
             'deployment' => $game->deployment ? (function () use ($game) {
@@ -549,6 +562,8 @@ class GameController extends Controller
             'observer_scheme_intel' => fn () => $context === GameShowContext::Observer ? $this->buildObserverSchemeIntel($game) : null,
             'starting_crews' => fn () => $this->getStartingCrews($game),
             'is_observer' => ! $isSelf,
+            // The tournament round's clock (public): when the round ends and when last turn is called. Null outside a running round.
+            'tournament_clock' => fn () => app(RoundClock::class)->for($game),
             // Pre-release: the tabletop link only appears while the flag is on, or for beta testers holding the permission. Players get the
             // board; people watching an observable game get a read-only one.
             'tabletop_enabled' => ($isSelf || $game->is_observable) && TabletopAccess::allows(auth()->user()),

@@ -268,6 +268,7 @@ export function createLocalFate(
     slots: number[] = [1, 2],
     randomInt: (n: number) => number = secureRandomInt,
     names: Record<number, string> = { 1: 'Blue', 2: 'Red' },
+    handMax: number = HAND_MAX,
 ) {
     let rows: Row[] = [];
     let flips: Flip[] = [];
@@ -347,12 +348,12 @@ export function createLocalFate(
         const slotOf = (r: Row) => r.slot;
         return {
             started: rows.length > 0,
-            hand_max: HAND_MAX,
+            hand_max: handMax,
             players: slots.map((slot) => ({
                 slot,
                 deck_count: zone(slot, 'deck').length,
                 hand_count: zone(slot, 'hand').length,
-                over_max: Math.max(0, zone(slot, 'hand').length - HAND_MAX),
+                over_max: Math.max(0, zone(slot, 'hand').length - handMax),
                 discard: zone(slot, 'discard').map((r) => r.card),
                 removed: zone(slot, 'removed').map((r) => r.card),
                 // the sandbox is one person at one table: every hand is theirs
@@ -400,7 +401,7 @@ export function createLocalFate(
         refill: (slot, b) => {
             const discard = (b.discard as number[]) ?? [];
             for (const r of discard.length ? inZone(slot, ['hand'], discard) : []) move(r, 'discard', bottom(slot, 'discard'));
-            const room = HAND_MAX - zone(slot, 'hand').length;
+            const room = handMax - zone(slot, 'hand').length;
             return { drawn: room > 0 ? drawInto(slot, room) : [] };
         },
         discard: (slot, b) => {

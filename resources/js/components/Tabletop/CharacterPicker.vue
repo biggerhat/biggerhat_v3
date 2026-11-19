@@ -12,6 +12,7 @@ export interface CharacterOption {
     sp: number;
     health: number;
     faction_key?: string;
+    station?: string | null;
     df?: number | null;
     wp?: number | null;
     front_image?: string | null;

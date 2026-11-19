@@ -74,6 +74,7 @@ it('sends each model with what the crew row needs, and a replace on the board ke
             ->where('models.0.member.id', $m1->id)
             ->where('models.0.member.display_name', $m1->display_name)
             ->has('models.0.member.attached_upgrades')
+            ->has('models.0.member.station')
             ->has('models.0.member.defense'));
 
     $new = Character::factory()->create(['base' => BaseSizeEnum::FortyMM, 'health' => 5]);

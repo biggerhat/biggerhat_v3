@@ -494,6 +494,8 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/crew/tokens/restore', [GamePlayController::class, 'restoreTokens'])->name('crew.tokens.restore');
         Route::post('/crew/summon', [GamePlayController::class, 'summonCrewMember'])->name('crew.summon');
         Route::post('/crew/{gameCrewMember}/replace', [GamePlayController::class, 'replaceCrewMember'])->name('crew.replace');
+        Route::post('/turn/pass', [GamePlayController::class, 'passTurn'])->name('turn.pass');
+        Route::post('/turn/initiative', [GamePlayController::class, 'chooseInitiative'])->name('turn.initiative');
         Route::patch('/soulstones', [GamePlayController::class, 'updateSoulstonePool'])->name('soulstones');
         Route::patch('/crew-upgrade', [GamePlayController::class, 'swapCrewUpgrade'])->name('crew-upgrade');
         Route::patch('/crew-upgrade-power-bar', [GamePlayController::class, 'updateCrewUpgradePowerBar'])->name('crew-upgrade-power-bar');

@@ -248,3 +248,10 @@ test('resetting the table clears the requests and the history', () => {
     assert.deepEqual(fate.log(), []);
     assert.deepEqual(fate.state().prompts, []);
 });
+
+test('a mode with a smaller hand: refill stops there and the excess is counted against it', () => {
+    const fate = createLocalFate([1, 2], fixed, { 1: 'Blue', 2: 'Red' }, 4);
+    assert.equal(fate.act('refill', { discard: [] }).state.players[0].hand_count, 4);
+    assert.equal(fate.state().hand_max, 4);
+    assert.equal(fate.act('draw', { n: 2 }).state.players[0].over_max, 2);
+});

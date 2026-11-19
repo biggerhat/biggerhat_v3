@@ -23,10 +23,12 @@ import GameOpponentSchemeDialog from '@/components/Game/GameOpponentSchemeDialog
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog.vue';
 import GameSchemeSelectPanel from '@/components/Game/GameSchemeSelectPanel.vue';
+import GameRoundClock from '@/components/Game/GameRoundClock.vue';
 import GameSetupLobby from '@/components/Game/GameSetupLobby.vue';
 import GameSubmitTurnDialog from '@/components/Game/GameSubmitTurnDialog.vue';
 import GameSummaryPanel from '@/components/Game/GameSummaryPanel.vue';
 import GameSummonDialog from '@/components/Game/GameSummonDialog.vue';
+import GameTurnBar from '@/components/Game/GameTurnBar.vue';
 import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
 import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
@@ -292,6 +294,8 @@ const props = defineProps<{
     }[];
     is_observer: boolean;
     tabletop_enabled?: boolean;
+    /** The tournament round's clock, for a game that is part of a running round. */
+    tournament_clock?: { now: string; started_at: string; ends_at: string; last_turn_at: string; limit: number } | null;
     campaign_context: {
         /** The CampaignGame row's own id — null when no CampaignGame link
          *  exists for this game (see buildCampaignContextForSoloFallback).
@@ -384,6 +388,19 @@ const mySlot = computed(() => myPlayer.value?.slot ?? 1);
 const opponentSlot = computed(() => opponent.value?.slot ?? 2);
 // The Fate deck (pre-release, with the tabletop): the server's, loaded when its section is first opened.
 const fate = useFateGame(props.game.uuid, isObserver.value);
+// The turn sequence (initiative, whose activation, what is left, passing), kept by the server and carried on the game.
+const turnState = computed(() => (props.game as any).turn_sequence ?? null);
+const mySlots = computed<number[]>(() => (isObserver.value ? [] : isSolo.value ? [1, 2] : myPlayer.value ? [myPlayer.value.slot] : []));
+const turnBusy = ref(false);
+async function turnCall(name: 'pass' | 'initiative', body: Record<string, unknown>) {
+    turnBusy.value = true;
+    const res = await gameApi.post<{ error?: string }>(route(`games.play.turn.${name}`, props.game.uuid), body);
+    turnBusy.value = false;
+    if (!res.ok) toast.error(res.data.error ?? 'That did not work.');
+    router.reload({ only: ['game'] });
+}
+const passTurn = (slot: number) => turnCall('pass', { slot });
+const chooseInitiative = (chooser: number, initiative: number) => turnCall('initiative', { slot: chooser, initiative });
 const fateNames = computed<Record<number, string>>(() =>
     Object.fromEntries(props.game.players.map((p: any) => [p.slot, p.user?.name ?? p.opponent_name ?? `Player ${p.slot}`])),
 );
@@ -3029,6 +3046,17 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Link>
             </div>
 
+            <GameRoundClock v-if="tournament_clock && game.status === 'in_progress'" :clock="tournament_clock" class="mb-3" />
+            <GameTurnBar
+                v-if="turnState && game.status === 'in_progress'"
+                :turn="turnState"
+                :names="fateNames"
+                :mine="mySlots"
+                :busy="turnBusy"
+                class="mb-3"
+                @pass="passTurn"
+                @initiative="chooseInitiative"
+            />
             <FateDock
                 v-if="tabletop_enabled && game.status === 'in_progress'"
                 :feed="fate"

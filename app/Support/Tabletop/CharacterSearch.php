@@ -12,7 +12,7 @@ class CharacterSearch
     /**
      * Every word must appear in the card's name (any order); names that start with the text come first.
      *
-     * @return list<array{id: int, name: string, faction: string, faction_key: string, base_mm: int, sz: int, sp: int, health: int, df: int|null, wp: int|null, front_image: string|null, back_image: string|null}>
+     * @return list<array{id: int, name: string, faction: string, faction_key: string, station: string|null, base_mm: int, sz: int, sp: int, health: int, df: int|null, wp: int|null, front_image: string|null, back_image: string|null}>
      */
     public static function find(string $query): array
     {
@@ -32,12 +32,13 @@ class CharacterSearch
             ->orderBy('display_name')
             ->limit(self::LIMIT)
             ->with('miniatures:id,character_id,front_image,back_image')
-            ->get(['id', 'display_name', 'faction', 'base', 'size', 'speed', 'health', 'defense', 'willpower'])
+            ->get(['id', 'display_name', 'faction', 'station', 'base', 'size', 'speed', 'health', 'defense', 'willpower'])
             ->map(fn (Character $c) => [
                 'id' => $c->id,
                 'name' => $c->display_name,
                 'faction' => $c->faction->label(),
                 'faction_key' => (string) $c->getRawOriginal('faction'),
+                'station' => $c->station?->value,
                 'base_mm' => $c->base->value,
                 'sz' => $c->size,
                 'sp' => $c->speed,

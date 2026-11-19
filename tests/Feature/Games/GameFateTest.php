@@ -672,3 +672,28 @@ it('keeps deck traffic in its own throttle bucket, so playing cards cannot use u
         expect(app('router')->getRoutes()->getByName('games.fate.'.$name)->gatherMiddleware())->toContain('throttle:240,1,fate');
     }
 });
+
+it('uses the hand maximum of the tournament mode the game belongs to: 7 normally, 4 in Double Rush and Enforcer Engagement', function () {
+    foreach (['traditional' => 7, 'crossroads' => 7, 'double_rush' => 4, 'enforcer_brawl' => 4] as $type => $max) {
+        [$game, $p1, , $a] = fateGame();
+        $tournament = \App\Models\Tournament::factory()->active()->create(['creator_id' => $a->id, 'encounter_type' => $type]);
+        $round = \App\Models\TournamentRound::factory()->for($tournament)->create(['round_number' => 1]);
+        $one = \App\Models\TournamentPlayer::factory()->for($tournament)->create();
+        $two = \App\Models\TournamentPlayer::factory()->for($tournament)->create();
+        \App\Models\TournamentGame::factory()->for($round, 'round')->create(['game_id' => $game->id, 'player_one_id' => $one->id, 'player_two_id' => $two->id, 'table_number' => 1]);
+
+        $response = $this->actingAs($a)->postJson(fateUrl($game, 'refill'), ['discard' => []])->assertOk();
+
+        expect($response->json('state.hand_max'))->toBe($max)
+            ->and($response->json('state.players.0.hand_count'))->toBe($max)
+            ->and($response->json('state.players.0.over_max'))->toBe(0);
+        $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 2])->assertOk()->assertJsonPath('state.players.0.over_max', 2);
+    }
+});
+
+it('knows the hand maximum per encounter type', function () {
+    expect(FateCards::handMaxFor(null))->toBe(7)
+        ->and(FateCards::handMaxFor('team_event'))->toBe(7)
+        ->and(FateCards::handMaxFor('double_rush'))->toBe(4)
+        ->and(FateCards::handMaxFor('enforcer_brawl'))->toBe(4);
+});

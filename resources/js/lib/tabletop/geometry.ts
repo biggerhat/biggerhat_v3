@@ -93,6 +93,10 @@ export interface Token {
     sz?: number;
     /** The Sp stat: a Walk moves up to this many inches. Missing means unknown. */
     sp?: number;
+    /** A peon (CRG p.49): never engaged and cannot engage enemy models. */
+    peon?: boolean;
+    /** A model the game added (a summon) that nobody has set down on the table yet. */
+    unplaced?: boolean;
     x: number;
     y: number;
     /** Health, activation, tokens and notes. Missing on markers. */
@@ -299,6 +303,30 @@ export function restingSupport(token: Pick<Token, 'x' | 'y' | 'baseMm' | 'under'
 export function edgeDistance(a: Pick<Token, 'x' | 'y' | 'baseMm'>, b: Pick<Token, 'x' | 'y' | 'baseMm'>): number {
     return Math.max(0, Math.hypot(a.x - b.x, a.y - b.y) - baseRadius(a.baseMm) - baseRadius(b.baseMm));
 }
+
+/** Models within this many inches (edge to edge) of an enemy model are engaged (CRG, Engagement). */
+export const ENGAGE_RANGE = 1;
+
+/**
+ * The enemy models this one is engaged with: models within 1" of an enemy are engaged, unless the lower model's effective Sz (its Sz plus its
+ * elevation) is less than the higher model's elevation, so a Sz 1 model on the ground is not engaged by something standing on a Ht 3 roof.
+ * Markers, killed models and neutral tokens are not models for this, and peons are never engaged and cannot engage. A missing Sz counts as 1.
+ */
+export function engagedWith(token: Token, tokens: Token[], elevationOf: (t: Token) => number): Token[] {
+    const counts = (t: Token) => !t.marker && !t.killed && !t.peon && t.side !== 'n';
+    if (!counts(token)) return [];
+    const mine = elevationOf(token);
+    return tokens.filter((o) => {
+        if (o.id === token.id || !counts(o) || o.side === token.side) return false;
+        if (edgeDistance(token, o) > ENGAGE_RANGE + 1e-9) return false;
+        const theirs = elevationOf(o);
+        const lower = mine <= theirs ? token : o;
+        return (lower.sz ?? 1) + Math.min(mine, theirs) >= Math.max(mine, theirs);
+    });
+}
+
+/** An engaged model that declares the Walk action reduces its Sp to half, rounded down, while resolving it. */
+export const engagedSp = (sp: number): number => Math.floor(sp / 2);
 
 /** An aura or pulse of `range` inches starts at the outside edge of the base, so its circle is the base radius plus the range (p.18). */
 export const auraRadius = (token: Pick<Token, 'baseMm'>, range: number): number => baseRadius(token.baseMm) + range;

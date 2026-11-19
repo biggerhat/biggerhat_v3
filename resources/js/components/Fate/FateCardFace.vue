@@ -19,6 +19,10 @@ const props = withDefaults(
         /** Greyed: not a legal choice. */
         dim?: boolean;
         small?: boolean;
+        /** Said instead of the card's name (a deck, a pile): the face is what a button around it is named from. */
+        label?: string;
+        /** What is said after the card's name: where it is, or what pressing it does. */
+        note?: string;
         /** The hand's size: big enough to read and tap. */
         large?: boolean;
     }>(),
@@ -27,9 +31,12 @@ const props = withDefaults(
 
 const suit = computed(() => (props.card === undefined ? null : (cardSuit(props.card) ?? (props.card === RED_JOKER ? props.jokerSuit : null))));
 const black = computed(() => props.card !== undefined && isJoker(props.card) && props.card !== RED_JOKER);
-const label = computed(() =>
-    props.back || props.card === undefined ? 'Face-down Fate card' : cardLabel(props.card) + (props.jokerSuit ? ` as ${props.jokerSuit}` : ''),
-);
+const spoken = computed(() => {
+    const name =
+        props.label ??
+        (props.back || props.card === undefined ? 'Face-down Fate card' : cardLabel(props.card) + (props.jokerSuit ? ` as ${props.jokerSuit}` : ''));
+    return props.note ? `${name}, ${props.note}` : name;
+});
 </script>
 
 <template>
@@ -46,14 +53,14 @@ const label = computed(() =>
             dim ? 'opacity-40' : '',
         ]"
         role="img"
-        :aria-label="label"
+        :aria-label="spoken"
     >
         <template v-if="back || card === undefined">
             <span aria-hidden="true">♠</span>
         </template>
         <template v-else>
             <span class="leading-none" :class="card === RED_JOKER ? 'text-red-600' : ''" aria-hidden="true">{{ cardFace(card) }}</span>
-            <GameIcon v-if="suit" :type="suit" :size-em="large ? 1.6 : small ? 1 : 1.3" aria-hidden="true" />
+            <span v-if="suit" aria-hidden="true" class="contents"><GameIcon :type="suit" :size-em="large ? 1.6 : small ? 1 : 1.3" /></span>
         </template>
     </span>
 </template>

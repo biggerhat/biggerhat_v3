@@ -84,3 +84,9 @@ CI: `.github/workflows/tournament-flows.yml` runs the whole pass on demand (Acti
 moderate or worse findings, and `AXE_REPORT=1` also lists minor ones.
 `FLOWS="flows17.cjs flows2.cjs"` runs just those files. The server runs through `router.php` so uploaded images under `/storage` are served from the repo's `storage/app/public`
 (uploads made by the flows land there; delete `storage/app/public/tournaments` afterwards). Reading screenshots: they are not cleared between runs, so check the file's timestamp before trusting one.
+
+## Tabletop audit (`flows37.cjs`)
+
+An audit of the sandbox, a game's board and the play screen, in light and dark and at desktop and phone width: axe-core (fails on serious), tap targets under 24px, text under 11px, overflow, fixed elements overlapping, a keyboard-only pass over the Fate deck, and a screenshot of each state (`audit-*.png` in `SHOTS`). Needs `npm i --no-save axe-core`. Run alone with `FLOWS=flows37.cjs scripts/ui-audit/tournaments/run.sh`.
+
+Gotchas it taught: the app keeps its theme in `localStorage.appearance` (set it with `evaluateOnNewDocument`; the browser's `prefers-color-scheme` alone does not switch it); the play screen has a leave guard (`beforeunload`) that stalls a full `page.goto` away from it, so scan other pages first; `DialogContent` does not forward attributes (wrap a `data-testid` in an inner `div class="contents"`); and a button given its own `aria-label` fails axe's `label-content-name-mismatch` if its visible text (a card's suit glyph) is not in the label, so name such buttons from their content.

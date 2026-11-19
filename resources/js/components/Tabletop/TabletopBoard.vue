@@ -1072,6 +1072,8 @@ const tokenLabels = computed(() => {
     }
     return out;
 });
+/** Status badges are drawn smaller on a small base, so four of them do not bury a 30 mm model. */
+const badgeR = (t: Token) => (t.baseMm <= 30 ? 0.27 : 0.34);
 const tokenLabel = (t: Token) =>
     t.marker
         ? t.name
@@ -2122,7 +2124,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 <circle
                                     :cx="t.x + (i - (badgesOf(t.info).chips.length - 1) / 2) * 0.85"
                                     :cy="t.y - baseRadius(t.baseMm) - 0.4"
-                                    r="0.38"
+                                    :r="badgeR(t) + 0.04"
                                     :fill="c.colour"
                                     stroke="white"
                                     stroke-width="0.06"
@@ -2143,7 +2145,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             <circle
                                 :cx="t.x - baseRadius(t.baseMm) * 0.8"
                                 :cy="t.y - baseRadius(t.baseMm) * 0.8"
-                                r="0.34"
+                                :r="badgeR(t)"
                                 fill="hsl(var(--background))"
                                 stroke="hsl(var(--foreground) / 0.7)"
                                 stroke-width="0.06"
@@ -2160,7 +2162,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             <circle
                                 :cx="t.x - baseRadius(t.baseMm) * 0.8"
                                 :cy="t.y + baseRadius(t.baseMm) * 0.8"
-                                r="0.34"
+                                :r="badgeR(t)"
                                 fill="hsl(0 75% 45%)"
                                 stroke="white"
                                 stroke-width="0.06"

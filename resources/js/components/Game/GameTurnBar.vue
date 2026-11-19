@@ -57,7 +57,7 @@ const allDone = computed(() => slots.value.every((s) => props.turn.unactivated[s
         </div>
 
         <div v-if="turn.chooser !== null && turn.initiative === null" class="flex flex-wrap items-center gap-1.5" data-testid="turn-choose">
-            <span>{{ nameOf(turn.chooser) }} chooses who has initiative:</span>
+            <span>{{ nameOf(turn.chooser) }} picks initiative:</span>
             <template v-if="iChoose">
                 <Button
                     v-for="s in slots"

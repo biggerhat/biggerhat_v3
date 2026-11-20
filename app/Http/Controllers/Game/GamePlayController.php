@@ -12,8 +12,10 @@ use App\Events\GameFateChanged;
 use App\Events\GameStatusChanged;
 use App\Events\GameTurnAdvanced;
 use App\Events\TournamentUpdated;
+use App\Exceptions\FateException;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
+use App\Http\Requests\Games\ChooseInitiativeRequest;
 use App\Http\Requests\Games\GamePlayAdjustBonanzaVpRequest;
 use App\Http\Requests\Games\GamePlayAttachLootRequest;
 use App\Http\Requests\Games\GamePlayBulkAttachTokenRequest;
@@ -21,6 +23,7 @@ use App\Http\Requests\Games\GamePlayEditTurnScoreRequest;
 use App\Http\Requests\Games\GamePlayRestoreTokensRequest;
 use App\Http\Requests\Games\GamePlaySelectLootRequest;
 use App\Http\Requests\Games\GamePlayYoinkLootRequest;
+use App\Http\Requests\Games\PassTurnRequest;
 use App\Http\Requests\Games\ReplaceCrewMemberRequest;
 use App\Http\Requests\Games\SubmitTurnRequest;
 use App\Http\Requests\Games\SummonCrewMemberRequest;
@@ -41,6 +44,8 @@ use App\Models\Token;
 use App\Models\TournamentGame;
 use App\Models\Upgrade;
 use App\Services\Fate\FateDeckService;
+use App\Services\Game\BoardHistory;
+use App\Services\Game\TurnSequence;
 use App\Services\LootDeckService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -139,7 +144,15 @@ class GamePlayController extends Controller
             }
         }
 
+        $becameActivated = ! empty($validated['is_activated']) && ! $gameCrewMember->is_activated;
         $gameCrewMember->update($validated);
+        if ($becameActivated) {
+            // the other player is now the active player (the turn sequence is a guide: it never blocks the mark)
+            $slot = GamePlayer::query()->whereKey($gameCrewMember->game_player_id)->value('slot');
+            if ($slot !== null) {
+                app(TurnSequence::class)->activated($game, (int) $slot);
+            }
+        }
 
         $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'updated'));
 
@@ -996,6 +1009,8 @@ class GamePlayController extends Controller
             $fateShuffled = false;
             $bothDone = $locked->players()->where('is_turn_complete', true)->count() === 2;
             if ($bothDone) {
+                // where everything stood at the end of this turn, for the board's look back
+                app(BoardHistory::class)->snapshot($locked);
                 if ($locked->current_turn >= $locked->max_turns) {
                     $locked->players()->update(['is_game_complete' => true]);
                     $this->finalizeGame($locked);
@@ -1005,6 +1020,7 @@ class GamePlayController extends Controller
 
                 $locked->increment('current_turn');
                 $locked->players()->update(['is_turn_complete' => false]);
+                app(TurnSequence::class)->newTurn($locked);
                 $removed = $this->removeEndOfTurnTokens($locked);
                 // End phase step G: each Fate discard pile goes back into its deck (only in games that use the Fate deck)
                 $fateShuffled = app(FateDeckService::class)->endPhaseIfStarted($locked);
@@ -1040,6 +1056,40 @@ class GamePlayController extends Controller
             'both_done' => $result['both_done'],
             'removed_tokens' => $result['removed_tokens'] ?? [],
         ]);
+    }
+
+    /** The active player passes (CRG, Passing): only with fewer models left to activate than the opponent (or tied), and not straight back. */
+    public function passTurn(PassTurnRequest $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+        $slot = $request->integer('slot');
+        $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+
+        try {
+            app(TurnSequence::class)->pass($game, $player);
+        } catch (FateException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'turn_order'));
+
+        return response()->json(['success' => true, 'turn' => app(TurnSequence::class)->state($game->fresh())]);
+    }
+
+    /** From turn 2 the player who did not activate last chooses who has initiative. */
+    public function chooseInitiative(ChooseInitiativeRequest $request, Game $game): JsonResponse
+    {
+        $this->assertInProgress($game);
+        $slot = $request->integer('slot');
+        $player = ($game->is_solo && $slot) ? $this->getPlayerForSlot($game, $slot) : $this->getMyPlayer($game);
+
+        try {
+            app(TurnSequence::class)->chooseInitiative($game, $player, $request->integer('initiative'));
+        } catch (FateException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+        $this->broadcastToOpponents($game, new GameCrewMemberUpdated($game, 'turn_order'));
+
+        return response()->json(['success' => true, 'turn' => app(TurnSequence::class)->state($game->fresh())]);
     }
 
     public function markComplete(Game $game): JsonResponse

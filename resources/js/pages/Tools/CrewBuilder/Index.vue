@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HelpButton from '@/components/Help/HelpButton.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
 import CrewStatsBar from '@/components/CrewStatsBar.vue';
@@ -2142,6 +2143,7 @@ onUnmounted(() => {
             <template #subtitle>
                 <div class="flex items-center gap-3 px-2">
                     <span class="text-sm text-muted-foreground">Build your crew for Malifaux encounters.</span>
+                    <HelpButton topic="crew-builder" />
                 </div>
             </template>
         </PageBanner>
@@ -2761,6 +2763,7 @@ onUnmounted(() => {
                                     <Copy class="size-3.5" />
                                     Share
                                 </Button>
+                                <HelpButton topic="crew-builder" section="building" />
                                 <Button variant="ghost" size="sm" class="h-7 gap-1 text-xs" @click="showDescriptionEditor = !showDescriptionEditor">
                                     <FileText class="size-3.5" />
                                     {{ showDescriptionEditor ? 'Hide' : '' }} Notes

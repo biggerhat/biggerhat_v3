@@ -327,6 +327,8 @@ Route::prefix('tools')->name('tools.')->group(function () {
     Route::get('/bonanza-loot-deck/print', PrintBonanzaLootDeckController::class)->name('bonanza_loot_deck.print');
     Route::get('/compare', [CompareController::class, 'index'])->name('compare');
     Route::get('/tabletop', \App\Http\Controllers\TabletopController::class)->name('tabletop');
+    // the help moved to /help/tabletop; the old address keeps working
+    Route::get('/tabletop/help', fn () => redirect()->route('help.show', 'tabletop'))->name('tabletop.help');
     Route::get('/tabletop/characters', \App\Http\Controllers\TabletopCharactersController::class)->name('tabletop.characters')->middleware('throttle:60,1');
     Route::get('/tabletop/tables', \App\Http\Controllers\TabletopTablesController::class)->middleware('auth')->name('tabletop.tables');
     Route::middleware('auth')->prefix('tabletop/layouts')->name('tabletop.layouts.')->group(function () {
@@ -395,6 +397,10 @@ Route::prefix('tools')->name('tools.')->group(function () {
         Route::delete('/{crewBuild}', [CrewBuilderController::class, 'destroy'])->name('destroy')->middleware('auth');
     });
 });
+
+// Help for the major features (text in resources/js/lib/help/topics; which topics exist and who sees them in App\Support\Help\HelpTopics)
+Route::get('/help', [\App\Http\Controllers\HelpController::class, 'index'])->name('help.index');
+Route::get('/help/{topic}', [\App\Http\Controllers\HelpController::class, 'show'])->name('help.show');
 
 Route::prefix('wishlists')->name('wishlists.')->group(function () {
     Route::get('/share/{shareCode}', [WishlistController::class, 'share'])->name('share');
@@ -471,6 +477,7 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/discard', [GameFateController::class, 'discard'])->name('discard');
         Route::post('/flip', [GameFateController::class, 'flip'])->name('flip');
         Route::post('/choose', [GameFateController::class, 'choose'])->name('choose');
+        Route::post('/total', [GameFateController::class, 'total'])->name('total');
         Route::post('/cheat', [GameFateController::class, 'cheat'])->name('cheat');
         Route::post('/cheat/decline', [GameFateController::class, 'declineCheat'])->name('cheat.decline');
         Route::post('/resolve', [GameFateController::class, 'resolve'])->name('resolve');
@@ -494,6 +501,8 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/crew/tokens/restore', [GamePlayController::class, 'restoreTokens'])->name('crew.tokens.restore');
         Route::post('/crew/summon', [GamePlayController::class, 'summonCrewMember'])->name('crew.summon');
         Route::post('/crew/{gameCrewMember}/replace', [GamePlayController::class, 'replaceCrewMember'])->name('crew.replace');
+        Route::post('/turn/pass', [GamePlayController::class, 'passTurn'])->name('turn.pass');
+        Route::post('/turn/initiative', [GamePlayController::class, 'chooseInitiative'])->name('turn.initiative');
         Route::patch('/soulstones', [GamePlayController::class, 'updateSoulstonePool'])->name('soulstones');
         Route::patch('/crew-upgrade', [GamePlayController::class, 'swapCrewUpgrade'])->name('crew-upgrade');
         Route::patch('/crew-upgrade-power-bar', [GamePlayController::class, 'updateCrewUpgradePowerBar'])->name('crew-upgrade-power-bar');

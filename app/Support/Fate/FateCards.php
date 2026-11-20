@@ -18,6 +18,17 @@ final class FateCards
     /** The most cards a control hand holds (CRG p.7). */
     public const HAND_MAX = 7;
 
+    /**
+     * The hand maximum in Gaining Grounds game modes that change it (Gaining Grounds One, game modes): Double Rush and Enforcer Engagement
+     * use 4. Every other encounter uses the standard 7. (All Out Brawl, 3, is a 4-8 player mode the tracker does not have.)
+     */
+    public const HAND_MAX_BY_ENCOUNTER = ['double_rush' => 4, 'enforcer_brawl' => 4];
+
+    public static function handMaxFor(?string $encounterType): int
+    {
+        return self::HAND_MAX_BY_ENCOUNTER[$encounterType ?? ''] ?? self::HAND_MAX;
+    }
+
     /** A flip reveals at most four cards in all (CRG p.8). */
     public const FLIP_MAX = 4;
 

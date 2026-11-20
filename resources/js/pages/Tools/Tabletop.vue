@@ -44,7 +44,7 @@ const heading = computed(() =>
             : {
                   title: 'Tabletop',
                   subtitle:
-                      'Preview: a 36" x 36" board with terrain on several levels and a ruler. Add characters and markers from the database to put them on the table at their real base size. Everything stays on this device.',
+                      'Practice on a 36" x 36" table: terrain on several levels, a ruler, and models and markers from the database at their real size. Nothing leaves this device.',
               },
 );
 /** While a layout opened by link is on the table nothing is written to this device, so the sandbox table kept here is not lost. */
@@ -170,6 +170,7 @@ const replaceCharacter = (id: string, c: CharacterOption) =>
                   baseMm: c.base_mm,
                   sz: c.sz,
                   sp: c.sp,
+                  peon: c.station === 'peon',
                   info: { tokens: [], ...t.info, maxHealth: c.health, health: Math.min(t.info?.health ?? c.health, c.health) },
                   card: {
                       faction: c.faction_key,
@@ -180,6 +181,11 @@ const replaceCharacter = (id: string, c: CharacterOption) =>
                   },
               }
             : t,
+    ));
+/** Kill a model or bring it back: the same marks the game's tracker keeps, on this device. */
+const killChange = (id: string, killed: boolean) =>
+    (tokens.value = tokens.value.map((t) =>
+        t.id === id ? { ...t, killed, info: t.info ? { ...t.info, health: killed ? 0 : (t.info.maxHealth ?? t.info.health) } : t.info } : t,
     ));
 const remove = (id: string) => (tokens.value = tokens.value.filter((t) => t.id !== id));
 /** A practice Fate deck for the table (not a game's: nobody to hide a hand from). */
@@ -248,10 +254,10 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
     <Head :title="`${heading.title} (preview)`" />
     <PageBanner :title="heading.title">
         <template #subtitle>
-            <div class="px-2 text-sm text-muted-foreground" data-testid="page-subtitle">{{ heading.subtitle }}</div>
+            <div class="line-clamp-1 px-2 text-sm text-muted-foreground sm:line-clamp-none" data-testid="page-subtitle">{{ heading.subtitle }}</div>
         </template>
     </PageBanner>
-    <div class="container mx-auto mt-4 px-2 sm:px-4 lg:px-6">
+    <div class="container mx-auto mt-4 px-2 max-lg:pb-24 sm:px-4 lg:px-6">
         <div v-if="incoming_layout" class="mb-3 space-y-2 rounded-md border bg-muted/40 p-3 text-sm" data-testid="incoming-layout">
             <div class="font-medium">
                 {{
@@ -360,11 +366,12 @@ const terrainChanged = (pieces: TerrainPiece[]) => (terrain.value = pieces);
             @moved="moved"
             @add="add"
             @replace-character="replaceCharacter"
+            @kill-change="killChange"
             @remove="remove"
             @reset="reset"
         >
-            <template #fate>
-                <FateDock :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" />
+            <template #fate="{ terrain }">
+                <FateDock :feed="fate" :names="{ 1: 'Blue', 2: 'Red' }" title="Fate deck (practice)" :collapsed="terrain" />
             </template>
         </TabletopBoard>
     </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HelpButton from '@/components/Help/HelpButton.vue';
 import AbilityCard from '@/components/AbilityCard.vue';
 import ActionCard from '@/components/ActionCard.vue';
 import LootEffectText from '@/components/Bonanza/LootEffectText.vue';
@@ -23,10 +24,12 @@ import GameOpponentSchemeDialog from '@/components/Game/GameOpponentSchemeDialog
 import GameReplaceDialog from '@/components/Game/GameReplaceDialog.vue';
 import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog.vue';
 import GameSchemeSelectPanel from '@/components/Game/GameSchemeSelectPanel.vue';
+import GameRoundClock from '@/components/Game/GameRoundClock.vue';
 import GameSetupLobby from '@/components/Game/GameSetupLobby.vue';
 import GameSubmitTurnDialog from '@/components/Game/GameSubmitTurnDialog.vue';
 import GameSummaryPanel from '@/components/Game/GameSummaryPanel.vue';
 import GameSummonDialog from '@/components/Game/GameSummonDialog.vue';
+import GameTurnBar from '@/components/Game/GameTurnBar.vue';
 import GameTokenDialog from '@/components/Game/GameTokenDialog.vue';
 import GameTokenInfoDrawer from '@/components/Game/GameTokenInfoDrawer.vue';
 import GameUpgradeDialog from '@/components/Game/GameUpgradeDialog.vue';
@@ -292,6 +295,8 @@ const props = defineProps<{
     }[];
     is_observer: boolean;
     tabletop_enabled?: boolean;
+    /** The tournament round's clock, for a game that is part of a running round. */
+    tournament_clock?: { now: string; started_at: string; ends_at: string; last_turn_at: string; limit: number } | null;
     campaign_context: {
         /** The CampaignGame row's own id — null when no CampaignGame link
          *  exists for this game (see buildCampaignContextForSoloFallback).
@@ -384,6 +389,19 @@ const mySlot = computed(() => myPlayer.value?.slot ?? 1);
 const opponentSlot = computed(() => opponent.value?.slot ?? 2);
 // The Fate deck (pre-release, with the tabletop): the server's, loaded when its section is first opened.
 const fate = useFateGame(props.game.uuid, isObserver.value);
+// The turn sequence (initiative, whose activation, what is left, passing), kept by the server and carried on the game.
+const turnState = computed(() => (props.game as any).turn_sequence ?? null);
+const mySlots = computed<number[]>(() => (isObserver.value ? [] : isSolo.value ? [1, 2] : myPlayer.value ? [myPlayer.value.slot] : []));
+const turnBusy = ref(false);
+async function turnCall(name: 'pass' | 'initiative', body: Record<string, unknown>) {
+    turnBusy.value = true;
+    const res = await gameApi.post<{ error?: string }>(route(`games.play.turn.${name}`, props.game.uuid), body);
+    turnBusy.value = false;
+    if (!res.ok) toast.error(res.data.error ?? 'That did not work.');
+    router.reload({ only: ['game'] });
+}
+const passTurn = (slot: number) => turnCall('pass', { slot });
+const chooseInitiative = (chooser: number, initiative: number) => turnCall('initiative', { slot: chooser, initiative });
 const fateNames = computed<Record<number, string>>(() =>
     Object.fromEntries(props.game.players.map((p: any) => [p.slot, p.user?.name ?? p.opponent_name ?? `Player ${p.slot}`])),
 );
@@ -1071,7 +1089,13 @@ onMounted(() => {
         setupLeaveGuard();
     }
     document.addEventListener('visibilitychange', onAuthVisibilityChange);
+    document.addEventListener('visibilitychange', reloadOnShow);
 });
+
+// Coming back to this tab (from the board, say) reads the game again, so what the other screen changed is here too.
+const reloadOnShow = () => {
+    if (document.visibilityState === 'visible' && isGameInProgress.value) router.reload({ only: ['game'] });
+};
 
 // Watch in case status changes (e.g., game completed mid-session)
 watch(isGameInProgress, (active) => {
@@ -1085,6 +1109,7 @@ watch(isGameInProgress, (active) => {
 onUnmounted(() => {
     teardownLeaveGuard();
     document.removeEventListener('visibilitychange', onAuthVisibilityChange);
+    document.removeEventListener('visibilitychange', reloadOnShow);
 });
 
 // ─── Gameplay ───
@@ -1141,6 +1166,14 @@ const schemeNote = ref(myPlayer.value?.scheme_notes?.note ?? '');
 const schemeSelectedModel = ref(myPlayer.value?.scheme_notes?.selected_model ?? '');
 const schemeSelectedMarker = ref(myPlayer.value?.scheme_notes?.selected_marker ?? '');
 const schemeTerrainNote = ref(myPlayer.value?.scheme_notes?.terrain_note ?? '');
+// The board can pick a scheme's model or marker too: when the game is read again (the tab is shown, or the other screen saved) take up what it saved.
+watch(
+    () => myPlayer.value?.scheme_notes,
+    (notes) => {
+        schemeSelectedModel.value = notes?.selected_model ?? '';
+        schemeSelectedMarker.value = notes?.selected_marker ?? '';
+    },
+);
 let schemeNotesDebounce: ReturnType<typeof setTimeout>;
 const saveSchemeNotes = () => {
     clearTimeout(schemeNotesDebounce);
@@ -3029,6 +3062,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                 </Link>
             </div>
 
+            <GameRoundClock v-if="tournament_clock && game.status === 'in_progress'" :clock="tournament_clock" class="mb-3" />
             <FateDock
                 v-if="tabletop_enabled && game.status === 'in_progress'"
                 :feed="fate"
@@ -3862,6 +3896,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         Turn {{ game.current_turn }}
                                         <span class="text-base font-normal text-muted-foreground">/ {{ game.max_turns }}</span>
                                     </div>
+                                    <HelpButton topic="game-tracker" section="play" label="" />
                                     <button
                                         aria-label="Game settings"
                                         class="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -3870,6 +3905,16 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                                         <Settings class="size-4" />
                                     </button>
                                 </div>
+                                <GameTurnBar
+                                    v-if="turnState && game.status === 'in_progress'"
+                                    compact
+                                    :turn="turnState"
+                                    :names="fateNames"
+                                    :mine="mySlots"
+                                    :busy="turnBusy"
+                                    @pass="passTurn"
+                                    @initiative="chooseInitiative"
+                                />
 
                                 <!-- Scores. Bonanza renders only the user's score
                                      (single-column) — slot 2 is inert and the
@@ -4687,6 +4732,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             Activations:
                             <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ myCrewMembers.length }}</span> remaining
+                            <span
+                                v-if="turnState && myPlayer && turnState.active === myPlayer.slot"
+                                class="ml-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"
+                                data-testid="active-badge-mine"
+                                >To activate</span
+                            >
                         </div>
                         <!-- Reference Upgrades -->
                         <div v-if="myCrewUpgrades.length" class="mb-2 space-y-1">
@@ -5010,6 +5061,12 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
                             Activations:
                             <span class="font-medium text-foreground">{{ opponentCrewMembers.filter((m: any) => !m.is_activated).length }}</span
                             >/<span>{{ opponentCrewMembers.length }}</span> remaining
+                            <span
+                                v-if="turnState && opponent && turnState.active === opponent.slot"
+                                class="ml-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"
+                                data-testid="active-badge-opponent"
+                                >To activate</span
+                            >
                         </div>
 
                         <!-- Opponent faction/master info (when no crew) -->

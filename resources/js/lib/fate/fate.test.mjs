@@ -248,3 +248,62 @@ test('resetting the table clears the requests and the history', () => {
     assert.deepEqual(fate.log(), []);
     assert.deepEqual(fate.state().prompts, []);
 });
+
+test('a mode with a smaller hand: refill stops there and the excess is counted against it', () => {
+    const fate = createLocalFate([1, 2], fixed, { 1: 'Blue', 2: 'Red' }, 4);
+    assert.equal(fate.act('refill', { discard: [] }).state.players[0].hand_count, 4);
+    assert.equal(fate.state().hand_max, 4);
+    assert.equal(fate.act('draw', { n: 2 }).state.players[0].over_max, 2);
+});
+
+test('an opposed duel: the flips link, totals are entered, and the lowest total cheats first (the resister on a tie)', () => {
+    const fate = local();
+    fate.act('draw', { n: 2, slot: 1 });
+    fate.act('draw', { n: 2, slot: 2 });
+    const attack = fate.act('flip', { modifier: 0, duel_role: 'attacker', slot: 1 }).flip;
+    assert.match(fate.act('flip', { modifier: 0, duel_role: 'resister', slot: 2 }).error, /open attacking flip to resist/);
+    assert.match(fate.act('flip', { modifier: 0, duel_role: 'banana', slot: 2 }).error, /attacker or the resister/);
+    const resist = fate.act('flip', { modifier: 0, duel_role: 'resister', duel_with: attack, slot: 2 }).flip;
+    assert.match(fate.act('flip', { modifier: 0, duel_role: 'resister', duel_with: attack, slot: 2 }).error, /open attacking flip to resist/); // resisted once
+    const choose = (flip, slot) => fate.act('choose', { flip, card: fate.state().flips.find((f) => f.id === flip).legal[0], suit: 'rams', slot });
+    choose(attack, 1);
+    choose(resist, 2);
+
+    // nobody cheats before both totals are in
+    assert.match(fate.act('cheat', { flip: attack, card: hand(fate, 2)[0], slot: 2 }).error, /enter their total before anyone cheats/);
+    assert.match(fate.act('total', { flip: attack, total: 8, slot: 2 }).error, /Only the player who flipped/);
+    assert.match(fate.act('total', { flip: attack, total: 99, slot: 1 }).error, /between -10 and 60/);
+    fate.act('total', { flip: attack, total: 12, slot: 1 });
+    const state = fate.act('total', { flip: resist, total: 9, slot: 2 }).state;
+    const duel = state.flips.find((f) => f.id === attack).duel;
+    assert.equal(duel.cheat_turn, 2); // 9 is lower than 12
+    assert.equal(duel.opponent_total, 9);
+
+    assert.match(fate.act('cheat', { flip: attack, card: hand(fate, 1)[0], slot: 1 }).error, /not your turn to cheat/);
+    assert.match(fate.act('cheat.decline', { flip: attack, slot: 1 }).error, /not your turn to cheat/);
+    assert.equal(fate.act('cheat', { flip: resist, card: hand(fate, 2)[0], slot: 2 }).error, undefined);
+    assert.equal(fate.state().flips.find((f) => f.id === attack).duel.cheat_turn, 1);
+    assert.equal(fate.act('cheat.decline', { flip: attack, slot: 1 }).error, undefined);
+    assert.equal(fate.state().flips.find((f) => f.id === attack).duel.cheat_turn, null);
+});
+
+test('a tied duel total: the resister goes first; a plain flip has no total and no turn order', () => {
+    const fate = local();
+    fate.act('draw', { n: 2, slot: 1 });
+    fate.act('draw', { n: 2, slot: 2 });
+    const attack = fate.act('flip', { modifier: 0, duel_role: 'attacker', slot: 1 }).flip;
+    const resist = fate.act('flip', { modifier: 0, duel_role: 'resister', duel_with: attack, slot: 2 }).flip;
+    for (const [flip, slot] of [
+        [attack, 1],
+        [resist, 2],
+    ])
+        fate.act('choose', { flip, card: fate.state().flips.find((f) => f.id === flip).legal[0], suit: 'rams', slot });
+    fate.act('total', { flip: attack, total: 10, slot: 1 });
+    fate.act('total', { flip: resist, total: 10, slot: 2 });
+    assert.equal(fate.state().flips.find((f) => f.id === attack).duel.cheat_turn, 2);
+
+    const plain = local();
+    const flip = plain.act('flip', { modifier: 0 }).flip;
+    assert.match(plain.act('total', { flip, total: 8 }).error, /Only a duel flip has a total/);
+    assert.equal(plain.state().flips[0].duel, null);
+});

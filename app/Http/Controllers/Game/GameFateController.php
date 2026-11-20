@@ -20,6 +20,7 @@ use App\Http\Requests\Games\Fate\FateRefillRequest;
 use App\Http\Requests\Games\Fate\FateRequest;
 use App\Http\Requests\Games\Fate\FateRespondRequest;
 use App\Http\Requests\Games\Fate\FateSlotRequest;
+use App\Http\Requests\Games\Fate\FateTotalRequest;
 use App\Models\Game;
 use App\Models\GameFateFlip;
 use App\Models\GamePlayer;
@@ -98,7 +99,13 @@ class GameFateController extends Controller
 
     public function flip(FateFlipRequest $request, Game $game): JsonResponse
     {
-        return $this->act($request, $game, fn (GamePlayer $p) => ['flip' => $this->fate->flip($p, $request->integer('modifier'), $request->validated('label'), $request->validated('subject'))->id]);
+        return $this->act($request, $game, fn (GamePlayer $p) => ['flip' => $this->fate->flip($p, $request->integer('modifier'), $request->validated('label'), $request->validated('subject'), $request->validated('duel_role'), $request->validated('duel_with'))->id]);
+    }
+
+    /** Say what a duel flip's total is (the flip plus the stat), so the cheating order can be followed. */
+    public function total(FateTotalRequest $request, Game $game): JsonResponse
+    {
+        return $this->act($request, $game, fn (GamePlayer $p) => $this->fate->setTotal($p, $this->flipOf($game, $request->integer('flip')), $request->integer('total')));
     }
 
     public function choose(FateChooseRequest $request, Game $game): JsonResponse

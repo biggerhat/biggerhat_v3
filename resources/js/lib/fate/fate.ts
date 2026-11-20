@@ -79,6 +79,16 @@ export interface FateFlip {
     chosen: { owner_slot: number | null; card: number; joker_suit: string | null } | null;
     legal: number[];
     cheaters: number[];
+    /** The opposed duel this flip belongs to: the totals, and whose turn it is to cheat (null until both sides have a result and a total). */
+    duel: FateDuel | null;
+}
+
+export interface FateDuel {
+    role: 'attacker' | 'resister';
+    linked: boolean;
+    total: number | null;
+    opponent_total: number | null;
+    cheat_turn: number | null;
 }
 
 /** A request the other player has made of me: discard N cards (my choice) or show my hand. */
@@ -163,7 +173,9 @@ export function describeFate(action: string, p: Record<string, unknown>, who: st
         case 'fate.discard':
             return `${who} discarded ${labels(p.cards)}.`;
         case 'fate.flip':
-            return `${who} flipped ${mod(num(p.modifier))}: ${labels(p.revealed)}.`;
+            return `${who} flipped ${mod(num(p.modifier))}${p.duel ? ` as the ${p.duel} in a duel` : ''}: ${labels(p.revealed)}.`;
+        case 'fate.total':
+            return `${who} set their duel total to ${num(p.total)}.`;
         case 'fate.choose':
             return `${who} took ${labels([p.card])}${suit} as the result.`;
         case 'fate.cheat':
@@ -237,6 +249,9 @@ interface Flip {
     modifier: number;
     label: string | null;
     subject: string | null;
+    duelRole: 'attacker' | 'resister' | null;
+    duelWith: number | null;
+    total: number | null;
     chosen: Row | null;
     cheaters: number[];
     resolved: boolean;
@@ -268,6 +283,7 @@ export function createLocalFate(
     slots: number[] = [1, 2],
     randomInt: (n: number) => number = secureRandomInt,
     names: Record<number, string> = { 1: 'Blue', 2: 'Red' },
+    handMax: number = HAND_MAX,
 ) {
     let rows: Row[] = [];
     let flips: Flip[] = [];
@@ -347,12 +363,12 @@ export function createLocalFate(
         const slotOf = (r: Row) => r.slot;
         return {
             started: rows.length > 0,
-            hand_max: HAND_MAX,
+            hand_max: handMax,
             players: slots.map((slot) => ({
                 slot,
                 deck_count: zone(slot, 'deck').length,
                 hand_count: zone(slot, 'hand').length,
-                over_max: Math.max(0, zone(slot, 'hand').length - HAND_MAX),
+                over_max: Math.max(0, zone(slot, 'hand').length - handMax),
                 discard: zone(slot, 'discard').map((r) => r.card),
                 removed: zone(slot, 'removed').map((r) => r.card),
                 // the sandbox is one person at one table: every hand is theirs
@@ -378,6 +394,7 @@ export function createLocalFate(
                               revealed(f).map((r) => r.card),
                           ),
                     cheaters: f.cheaters,
+                    duel: duelOf(f),
                 })),
             // the sandbox is one person at one table, so every request and every shown hand is theirs to see
             prompts: prompts
@@ -388,6 +405,39 @@ export function createLocalFate(
                 .filter((q) => q.kind === 'reveal' && q.status !== 'pending' && !q.dismissed)
                 .map((q) => ({ id: q.id, owner_slot: q.to, declined: q.status === 'declined', cards: q.status === 'done' ? q.cards : null })),
         };
+    }
+    /** Whose turn it is to cheat in a duel whose flips both have a result and a total: the lower total, the resister on a tie, then the other player. */
+    function cheatTurn(a: Flip, b: Flip): number | null {
+        const resister = a.duelRole === 'resister' ? a : b;
+        const attacker = a.duelRole === 'resister' ? b : a;
+        const first = (attacker.total as number) < (resister.total as number) ? attacker : resister;
+        const second = first === attacker ? resister : attacker;
+        const done = new Set([...a.cheaters, ...b.cheaters]);
+        for (const f of [first, second]) if (!done.has(f.slot)) return f.slot;
+        return null;
+    }
+    function duelOf(f: Flip) {
+        if (!f.duelRole) return null;
+        const other = f.duelWith !== null ? flips.find((x) => x.id === f.duelWith && !x.resolved) : undefined;
+        const ready = !!other && f.total !== null && other.total !== null && !!f.chosen && !!other.chosen;
+        return {
+            role: f.duelRole,
+            linked: !!other,
+            total: f.total,
+            opponent_total: other?.total ?? null,
+            cheat_turn: ready ? cheatTurn(f, other as Flip) : null,
+        };
+    }
+    /** In a linked duel nobody cheats or passes out of turn: both results and totals first, then the lowest total, then the other. */
+    function assertCheatTurn(f: Flip, slot: number) {
+        if (!f.duelRole || f.duelWith === null) return;
+        const other = flips.find((x) => x.id === f.duelWith && !x.resolved);
+        if (!other) return;
+        if (f.total === null || other.total === null || !f.chosen || !other.chosen)
+            throw new FateError('In a duel, both players choose their result and enter their total before anyone cheats.');
+        const turn = cheatTurn(f, other);
+        if (turn === null) throw new FateError('Both players have had their chance to cheat this duel.');
+        if (turn !== slot) throw new FateError('It is not your turn to cheat: the lowest total goes first (the resister on a tie).');
     }
     const otherSlot = (slot: number) => {
         const other = slots.find((s) => s !== slot);
@@ -400,7 +450,7 @@ export function createLocalFate(
         refill: (slot, b) => {
             const discard = (b.discard as number[]) ?? [];
             for (const r of discard.length ? inZone(slot, ['hand'], discard) : []) move(r, 'discard', bottom(slot, 'discard'));
-            const room = HAND_MAX - zone(slot, 'hand').length;
+            const room = handMax - zone(slot, 'hand').length;
             return { drawn: room > 0 ? drawInto(slot, room) : [] };
         },
         discard: (slot, b) => {
@@ -414,10 +464,26 @@ export function createLocalFate(
                 modifier,
                 label: b.label ? String(b.label).trim().slice(0, 60) || null : null,
                 subject: b.subject ? String(b.subject).trim().slice(0, 40) || null : null,
+                duelRole: null,
+                duelWith: null,
+                total: null,
                 chosen: null,
                 cheaters: [],
                 resolved: false,
             };
+            // a resisting flip links to the other player's open attacking flip (an opposed duel)
+            if (b.duel_role !== undefined && b.duel_role !== null && b.duel_role !== '') {
+                if (b.duel_role !== 'attacker' && b.duel_role !== 'resister')
+                    throw new FateError('A duel flip is either the attacker or the resister.');
+                flip.duelRole = b.duel_role;
+                if (b.duel_role === 'resister') {
+                    const against = flips.find((x) => x.id === Number(b.duel_with) && !x.resolved);
+                    if (!against || against.duelRole !== 'attacker' || against.duelWith !== null || against.slot === slot)
+                        throw new FateError("A resisting flip needs the other player's open attacking flip to resist.");
+                    flip.duelWith = against.id;
+                    against.duelWith = flip.id;
+                }
+            }
             let shown = 0;
             for (let i = 0; i < Math.min(FLIP_MAX, 1 + Math.abs(modifier)); i++) {
                 const t = takeTop(slot);
@@ -427,7 +493,11 @@ export function createLocalFate(
             }
             if (!shown) throw new FateError('There are no cards left to flip.');
             flips.push(flip);
-            note = { modifier, revealed: rows.filter((r) => r.flipId === flip.id).map((r) => r.card) };
+            note = {
+                modifier,
+                revealed: rows.filter((r) => r.flipId === flip.id).map((r) => r.card),
+                ...(flip.duelRole ? { duel: flip.duelRole } : {}),
+            };
             return { flip: flip.id };
         },
         choose: (slot, b) => {
@@ -449,6 +519,7 @@ export function createLocalFate(
         },
         cheat: (slot, b) => {
             const f = openFlip(b.flip);
+            assertCheatTurn(f, slot);
             const old = f.chosen;
             if (!old) throw new FateError("Choose the flip's result before cheating it.");
             if (old.card === BLACK_JOKER) throw new FateError('A flipped Black Joker cannot be cheated.');
@@ -462,8 +533,18 @@ export function createLocalFate(
             f.cheaters.push(slot);
             note = { replaced: old.card, with: row.card, suit: row.jokerSuit };
         },
+        total: (slot, b) => {
+            const f = openFlip(b.flip);
+            if (f.slot !== slot) throw new FateError('Only the player who flipped can do that.');
+            if (!f.duelRole) throw new FateError('Only a duel flip has a total.');
+            const total = Math.trunc(Number(b.total));
+            if (!Number.isFinite(total) || total < -10 || total > 60) throw new FateError('A duel total is between -10 and 60.');
+            f.total = total;
+            note = { flip: f.id, total };
+        },
         'cheat.decline': (slot, b) => {
             const f = openFlip(b.flip);
+            assertCheatTurn(f, slot);
             if (!f.cheaters.includes(slot)) f.cheaters.push(slot);
         },
         resolve: (slot, b) => {
@@ -612,6 +693,7 @@ export function createLocalFate(
             random_discard: ['fate.forced_discard', n],
             respond: [String(n.action ?? 'none'), n],
             dismiss: ['none', {}],
+            total: ['fate.total', n],
         };
         const [action, payload] = table[name] ?? ['none', {}];
         if (action === 'none') return;

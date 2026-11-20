@@ -34,6 +34,9 @@ The Game Tracker's crew-select step links to the editor with `?from_game={uuid}`
 sticky bar with **Use this crew in game**: it flushes the autosave, POSTs `games.setup.crew` with the build id (and slot), then visits the game. A game that has already left crew select is treated as done and the user
 is just returned to it. `buildUrl()` keeps `from_game` / `from_slot` across the editor's URL syncing. Tests: `tests/Feature/Games/GameSetupCrewSubmitTest.php`.
 
+## Help
+User-facing help: `resources/js/lib/help/topics/crewBuilder.ts` (`/help/crew-builder`). **Update it when the builder's screens or flow change** ([help.md](help.md)).
+
 ## Gotchas
 - Bump `CrewBuild::REFERENCES_VERSION` whenever the references schema changes, or
   cached builds serve stale reference data.

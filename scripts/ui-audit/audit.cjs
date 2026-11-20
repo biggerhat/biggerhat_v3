@@ -58,7 +58,11 @@ async function newPage(browser, vp) {
     await page.setViewport(VP[vp]);
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: THEME }]);
     await page.setCookie({ name: 'cookie_consent', value: 'accepted', url: BASE }, { name: 'appearance', value: THEME, url: BASE });
-    await page.evaluateOnNewDocument((t) => { try { localStorage.setItem('appearance', t); } catch {} }, THEME);
+    await page.evaluateOnNewDocument((t) => {
+        try {
+            localStorage.setItem('appearance', t);
+        } catch {}
+    }, THEME);
     if (PROXY_ASSETS) {
         await page.setRequestInterception(true);
         page.on('request', async (req) => {
@@ -67,7 +71,11 @@ async function newPage(browser, vp) {
             try {
                 const res = await fetch(PROD_ASSETS + url.pathname + url.search);
                 if (!res.ok) return req.respond({ status: res.status, body: '' });
-                req.respond({ status: 200, contentType: res.headers.get('content-type') || 'image/jpeg', body: Buffer.from(await res.arrayBuffer()) });
+                req.respond({
+                    status: 200,
+                    contentType: res.headers.get('content-type') || 'image/jpeg',
+                    body: Buffer.from(await res.arrayBuffer()),
+                });
             } catch {
                 req.continue();
             }
@@ -88,7 +96,10 @@ async function discover(page, pages) {
     const found = new Set(pages);
     const grab = async (url, pattern, limit) => {
         await page.goto(BASE + url, { waitUntil: 'networkidle2' }).catch(() => {});
-        const hrefs = await page.evaluate((src) => [...document.querySelectorAll('a[href]')].map((a) => new URL(a.href).pathname).filter((p) => new RegExp(src).test(p)), pattern);
+        const hrefs = await page.evaluate(
+            (src) => [...document.querySelectorAll('a[href]')].map((a) => new URL(a.href).pathname).filter((p) => new RegExp(src).test(p)),
+            pattern,
+        );
         [...new Set(hrefs)].slice(0, limit).forEach((h) => found.add(h));
     };
     if (ROLE === 'admin') await grab('/admin', '^/admin(/|$)', 80);
@@ -124,38 +135,71 @@ async function discover(page, pages) {
             const errors = [];
             const bad = [];
             page.on('pageerror', (e) => errors.push(e.message.slice(0, 120)));
-            page.on('response', (r) => { if (r.status() >= 500 || (r.status() >= 400 && !/storage|favicon|analytics/.test(r.url()))) bad.push(`${r.status()} ${new URL(r.url()).pathname}`); });
-            const res = await page.goto(BASE + p, { waitUntil: 'networkidle2', timeout: 60000 }).catch((e) => ({ status: () => `ERR ${e.message.slice(0, 40)}` }));
+            page.on('response', (r) => {
+                if (r.status() >= 500 || (r.status() >= 400 && !/storage|favicon|analytics/.test(r.url())))
+                    bad.push(`${r.status()} ${new URL(r.url()).pathname}`);
+            });
+            const res = await page
+                .goto(BASE + p, { waitUntil: 'networkidle2', timeout: 60000 })
+                .catch((e) => ({ status: () => `ERR ${e.message.slice(0, 40)}` }));
             await sleep(1200);
             let m = {};
             if (axeSrc) await page.evaluate(axeSrc);
-            m = await page.evaluate(async (hasAxe, detail) => {
-                const ax = hasAxe ? await window.axe.run(document, { resultTypes: ['violations'] }) : { violations: [] };
-                const tiny = [...document.querySelectorAll('body *')].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 2) && parseFloat(getComputedStyle(e).fontSize) < 11 && e.getBoundingClientRect().width > 0).length;
-                return {
-                    h1: document.querySelectorAll('h1').length,
-                    overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-                    tiny,
-                    axe: ax.violations.filter((v) => v.impact !== 'minor').map((v) => `${v.impact[0]}:${v.id}×${v.nodes.length}`),
-                    nodes: detail
-                        ? ax.violations.filter((v) => ['critical', 'serious'].includes(v.impact) || v.id === 'heading-order').flatMap((v) => v.nodes.slice(0, 3).map((n) => `${v.id}${n.any[0] && n.any[0].data && n.any[0].data.fgColor ? ' [' + n.any[0].data.fgColor + ' on ' + n.any[0].data.bgColor + ' = ' + n.any[0].data.contrastRatio + ' ' + n.any[0].data.fontSize + ']' : ''}: ${n.html.replace(/class="[^"]*"/g, '').replace(/\s+/g, ' ').slice(0, 200)} @ ${n.target.join(' ').slice(0, 80)}`))
-                        : [],
-                };
-            }, !!axeSrc, DETAIL);
+            m = await page.evaluate(
+                async (hasAxe, detail) => {
+                    const ax = hasAxe ? await window.axe.run(document, { resultTypes: ['violations'] }) : { violations: [] };
+                    const tiny = [...document.querySelectorAll('body *')].filter(
+                        (e) =>
+                            [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 2) &&
+                            parseFloat(getComputedStyle(e).fontSize) < 11 &&
+                            e.getBoundingClientRect().width > 0,
+                    ).length;
+                    return {
+                        h1: document.querySelectorAll('h1').length,
+                        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+                        tiny,
+                        axe: ax.violations.filter((v) => v.impact !== 'minor').map((v) => `${v.impact[0]}:${v.id}×${v.nodes.length}`),
+                        nodes: detail
+                            ? ax.violations
+                                  .filter((v) => ['critical', 'serious'].includes(v.impact) || v.id === 'heading-order')
+                                  .flatMap((v) =>
+                                      v.nodes.slice(0, 3).map(
+                                          (n) =>
+                                              `${v.id}${n.any[0] && n.any[0].data && n.any[0].data.fgColor ? ' [' + n.any[0].data.fgColor + ' on ' + n.any[0].data.bgColor + ' = ' + n.any[0].data.contrastRatio + ' ' + n.any[0].data.fontSize + ']' : ''}: ${n.html
+                                                  .replace(/class="[^"]*"/g, '')
+                                                  .replace(/\s+/g, ' ')
+                                                  .slice(0, 200)} @ ${n.target.join(' ').slice(0, 80)}`,
+                                      ),
+                                  )
+                            : [],
+                    };
+                },
+                !!axeSrc,
+                DETAIL,
+            );
             if (DETAIL) m.nodes.forEach((n) => console.log('      ' + n));
             const file = `${ROLE}__${vp}__${slug(p)}.png`;
             if (FULL) {
                 const h = await page.evaluate(() => document.documentElement.scrollHeight);
-                await page.screenshot({ path: path.join(OUT, file), clip: { x: 0, y: 0, width: VP[vp].width, height: Math.min(h, 3200) }, captureBeyondViewport: true });
+                await page.screenshot({
+                    path: path.join(OUT, file),
+                    clip: { x: 0, y: 0, width: VP[vp].width, height: Math.min(h, 3200) },
+                    captureBeyondViewport: true,
+                });
             } else {
                 await page.screenshot({ path: path.join(OUT, file), fullPage: false });
             }
             const status = res && typeof res.status === 'function' ? res.status() : '?';
             rows.push({ vp, p, status, ...m, errors, bad: [...new Set(bad)].slice(0, 3), file });
-            console.log(`${vp.padEnd(7)} ${String(status).padEnd(4)} ${p.padEnd(44)} h1=${m.h1} tiny=${m.tiny}${m.overflow ? ' H-OVERFLOW' : ''} ${m.axe.join(' ') || 'axe-clean'}${errors.length ? ' | JS ' + errors[0] : ''}${bad.length ? ' | ' + bad[0] : ''}`);
+            console.log(
+                `${vp.padEnd(7)} ${String(status).padEnd(4)} ${p.padEnd(44)} h1=${m.h1} tiny=${m.tiny}${m.overflow ? ' H-OVERFLOW' : ''} ${m.axe.join(' ') || 'axe-clean'}${errors.length ? ' | JS ' + errors[0] : ''}${bad.length ? ' | ' + bad[0] : ''}`,
+            );
             await page.close();
         }
     }
     fs.writeFileSync(path.join(OUT, `${ROLE}-results.json`), JSON.stringify(rows, null, 1));
     await browser.close();
-})().catch((e) => { console.error(e.message); process.exit(1); });
+})().catch((e) => {
+    console.error(e.message);
+    process.exit(1);
+});

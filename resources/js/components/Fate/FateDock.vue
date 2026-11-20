@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import type { FateFeed } from '@/lib/fate/fate';
 import { useMediaQuery } from '@vueuse/core';
 import { ChevronDown, Layers, X } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 
 /**
  * Where the Fate mat lives. A visible "Fate deck" button:
@@ -21,6 +21,8 @@ const props = withDefaults(
         readOnly?: boolean;
         title?: string;
         floating?: boolean;
+        /** Keep the docked panel shut (the Terrain tab has no use for it); the button stays. */
+        collapsed?: boolean;
     }>(),
     { floating: true },
 );
@@ -28,8 +30,12 @@ const props = withDefaults(
 const wide = useMediaQuery('(min-width: 1024px)');
 const open = ref(false);
 const started = ref(false);
+const sheet = ref<HTMLElement | null>(null);
+const opener = ref<{ $el?: HTMLElement } | null>(null);
 function toggle() {
     open.value = !open.value;
+    // a sheet takes focus when it opens, and gives it back to the button when it closes, so the keyboard is not left behind it
+    if (!wide.value && props.floating) void nextTick(() => (open.value ? sheet.value?.focus() : opener.value?.$el?.focus()));
     if (open.value && !started.value) {
         started.value = true;
         void props.feed.start?.();
@@ -39,26 +45,30 @@ function toggle() {
 
 <template>
     <div data-testid="fate-section">
-        <!-- the button: a row in the column, or (on a phone) a floating button that goes away while the sheet is up -->
+        <!-- the button: a row in the column, or (on a phone) a floating button that goes away while the sheet is up, and while the panel is kept shut (the Terrain tab) -->
         <Button
-            v-show="!(open && !wide)"
+            v-show="!(open && !wide) && !(collapsed && floating && !wide)"
             type="button"
-            :variant="open ? 'default' : 'outline'"
-            :aria-expanded="open"
+            :variant="open && !collapsed ? 'default' : 'outline'"
+            :aria-expanded="open && !collapsed"
             :class="
                 floating
                     ? 'max-lg:fixed max-lg:bottom-20 max-lg:right-3 max-lg:z-30 max-lg:rounded-full max-lg:shadow-lg lg:w-full lg:justify-between'
                     : 'w-full justify-between'
             "
+            ref="opener"
             data-testid="fate-open"
             @click="toggle"
         >
-            <span class="flex items-center gap-2"><Layers class="size-4" />{{ title ?? 'Fate deck' }}</span>
-            <ChevronDown class="size-4 transition-transform" :class="[open ? 'rotate-180' : '', floating ? 'max-lg:hidden' : '']" />
+            <span class="flex items-center gap-2"
+                ><Layers class="size-4" /><span :class="floating ? 'max-lg:hidden' : ''">{{ title ?? 'Fate deck' }}</span
+                ><span v-if="floating" class="lg:hidden">Fate</span></span
+            >
+            <ChevronDown class="size-4 transition-transform" :class="[open && !collapsed ? 'rotate-180' : '', floating ? 'max-lg:hidden' : '']" />
         </Button>
 
         <!-- wide: docked under the button -->
-        <div v-if="open && (wide || !floating)" class="mt-2 rounded-md border p-3" data-testid="fate-docked">
+        <div v-if="open && !collapsed && (wide || !floating)" class="mt-2 rounded-md border p-3" data-testid="fate-docked">
             <FatePanel :feed="feed" :names="names" :read-only="readOnly" />
         </div>
 
@@ -67,8 +77,11 @@ function toggle() {
             <div
                 v-if="open && !wide && floating"
                 class="fixed inset-x-0 bottom-14 z-40 flex max-h-[62vh] flex-col rounded-t-xl border border-b-0 bg-background shadow-[0_-8px_24px_rgba(0,0,0,0.25)]"
+                ref="sheet"
                 role="region"
+                tabindex="-1"
                 aria-label="Fate deck"
+                @keydown.escape.stop="toggle"
                 data-testid="fate-sheet"
             >
                 <div class="flex items-center justify-between gap-2 border-b px-3 py-2">

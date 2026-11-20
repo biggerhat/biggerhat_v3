@@ -46,10 +46,9 @@ const act = (name: string, body: Record<string, unknown>) => {
                         class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                         data-testid="fate-pile-card"
                         :data-card="c"
-                        :aria-label="canAct ? `${cardLabel(c)}, in the discard pile` : undefined"
                         @click="canAct && (picked = picked === c ? null : c)"
                     >
-                        <FateCardFace :card="c" :highlight="picked === c" />
+                        <FateCardFace :card="c" :note="canAct ? 'in the discard pile' : undefined" :highlight="picked === c" />
                     </component>
                 </div>
                 <div

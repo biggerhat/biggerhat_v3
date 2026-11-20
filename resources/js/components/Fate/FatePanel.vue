@@ -3,6 +3,7 @@ import FateCardFace from '@/components/Fate/FateCardFace.vue';
 import FatePeekDialog from '@/components/Fate/FatePeekDialog.vue';
 import FatePileDialog from '@/components/Fate/FatePileDialog.vue';
 import FateSearchDialog from '@/components/Fate/FateSearchDialog.vue';
+import FateStartDialog from '@/components/Fate/FateStartDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
     BLACK_JOKER,
@@ -72,14 +73,30 @@ const label = ref('');
 const labelOpen = ref(false);
 const jokerSuit = ref<string>('rams');
 const more = ref(false);
+// an opposed duel (CRG p.10): flip as the attacker or the resister, so the cheating order can be followed
+const duelRole = ref<'' | 'attacker' | 'resister'>('');
+const duelTarget = ref<number | null>(null);
+/** Attacking flips of the other side that nobody has resisted yet. */
+const attackTargets = computed(() =>
+    (state.value?.flips ?? []).filter((f) => f.duel?.role === 'attacker' && !f.duel.linked && f.owner_slot !== actingSlot.value),
+);
 async function flip() {
-    const r = await run('flip', { modifier: modifier.value, label: label.value.trim() || undefined });
+    const r = await run('flip', {
+        modifier: modifier.value,
+        label: label.value.trim() || undefined,
+        duel_role: duelRole.value || undefined,
+        duel_with: duelRole.value === 'resister' ? (duelTarget.value ?? attackTargets.value[0]?.id) : undefined,
+    });
     if (!r.error) {
         modifier.value = 0;
         label.value = '';
         labelOpen.value = false;
+        duelRole.value = '';
+        duelTarget.value = null;
     }
 }
+const totalInput = ref<Record<number, number | string>>({});
+const setTotal = (f: FateFlip) => run('total', { flip: f.id, total: Number(totalInput.value[f.id]), slot: f.owner_slot });
 const modText = (m: number) => (m > 0 ? `+${m}` : m < 0 ? `${m}` : '0');
 const modWords = (m: number) => (m > 0 ? `+${m}` : m < 0 ? `${m}` : 'plain flip');
 
@@ -88,9 +105,19 @@ const isResult = (f: FateFlip, c: { owner_slot: number | null; card: number }) =
     !!f.chosen && f.chosen.owner_slot === c.owner_slot && f.chosen.card === c.card;
 const canChoose = (f: FateFlip, card: number) => !f.chosen && f.owner_slot === actingSlot.value && f.legal.includes(card);
 const needsSuit = (f: FateFlip) => !f.chosen && f.owner_slot === actingSlot.value && f.legal.includes(RED_JOKER);
-const canCheat = (f: FateFlip) =>
-    !!f.chosen && actingSlot.value !== null && !f.cheaters.includes(actingSlot.value) && picked.value !== null && f.chosen.card !== BLACK_JOKER;
-const canPass = (f: FateFlip) => !!f.chosen && actingSlot.value !== null && !f.cheaters.includes(actingSlot.value);
+const canCheat = (f: FateFlip) => cheatable(f) && picked.value !== null;
+/** A flip whose result I may still cheat (CRG p.9): it has one, I have not had my chance, a Black Joker never can be, and a Red Joker stops its own flipper. */
+const cheatable = (f: FateFlip) =>
+    !!f.chosen &&
+    actingSlot.value !== null &&
+    !f.cheaters.includes(actingSlot.value) &&
+    f.chosen.card !== BLACK_JOKER &&
+    !(f.chosen.card === RED_JOKER && f.owner_slot === actingSlot.value) &&
+    // in a linked duel only the player whose turn it is may cheat: the lowest total first (the resister on a tie), then the other
+    (!f.duel?.linked || f.duel.cheat_turn === actingSlot.value);
+const cheatableFlips = computed(() => (state.value?.flips ?? []).filter(cheatable));
+const canPass = (f: FateFlip) =>
+    !!f.chosen && actingSlot.value !== null && !f.cheaters.includes(actingSlot.value) && (!f.duel?.linked || f.duel.cheat_turn === actingSlot.value);
 const chooseCard = (f: FateFlip, card: number) => run('choose', { flip: f.id, card, suit: card === RED_JOKER ? jokerSuit.value : undefined });
 async function cheat(f: FateFlip) {
     if (picked.value === null) return;
@@ -147,7 +174,9 @@ const askDiscard = () => run('demand', { kind: 'discard', count: demandN.value, 
 const askReveal = () => run('demand', { kind: 'reveal', note: demandNote.value.trim() || undefined });
 
 /** Two flips with results at once is an opposed duel: the lowest total cheats first, the resister on a tie, then the other (CRG p.9). */
-const duel = computed(() => (state.value?.flips ?? []).filter((f) => f.chosen).length >= 2);
+const duel = computed(
+    () => (state.value?.flips ?? []).filter((f) => f.chosen).length >= 2 && (state.value?.flips ?? []).every((f) => !f.duel?.linked),
+);
 
 // ----- the history -----
 const historyOpen = ref(false);
@@ -160,6 +189,13 @@ function onHistoryToggle(event: Event) {
     if (historyOpen.value) void loadLog();
 }
 watch(state, () => historyOpen.value && void loadLog());
+
+// ----- the start phase: discard any, then draw up to the maximum -----
+const startOpen = ref(false);
+async function startPhase(discard: number[]) {
+    const r = await run('refill', { discard });
+    if (!r.error) startOpen.value = false;
+}
 
 // ----- a discard pile, opened whole -----
 const pileSlot = ref<number | null>(null);
@@ -261,11 +297,14 @@ const pileOpen = computed({
                     v-if="p.discard.length"
                     type="button"
                     class="ml-auto flex items-center gap-1 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                    :aria-label="`Look through ${nameOf(p.slot)}'s discard pile (${p.discard.length})`"
                     :data-testid="`fate-strip-pile-${p.slot}`"
                     @click="pileSlot = p.slot"
                 >
-                    <FateCardFace :card="topOf(p)" small />
+                    <FateCardFace
+                        :card="topOf(p)"
+                        small
+                        :label="`Look through ${nameOf(p.slot)}'s discard pile: ${p.discard.length} cards, top card ${cardLabel(topOf(p))}`"
+                    />
                     <span class="text-xs text-muted-foreground">{{ p.discard.length }}</span>
                 </button>
                 <span v-else class="ml-auto text-xs text-muted-foreground">Discard empty</span>
@@ -283,34 +322,25 @@ const pileOpen = computed({
                         type="button"
                         class="relative rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
                         :disabled="busy"
-                        aria-label="Draw a card"
                         data-testid="fate-draw"
                         @click="run('draw', { n: 1 })"
                     >
-                        <FateCardFace back large />
+                        <FateCardFace back large :label="`Draw a card, ${deckSize(mine)} in the deck`" />
                         <span
                             class="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-primary px-1 text-center text-xs font-semibold text-primary-foreground"
+                            aria-hidden="true"
                             data-testid="fate-deck-count"
                             >{{ deckSize(mine) }}</span
                         >
                     </button>
                     <span class="text-[0.7rem] uppercase tracking-wide text-muted-foreground">Deck</span>
-                    <button
-                        type="button"
-                        class="rounded border px-1.5 py-0.5 text-[0.7rem] hover:bg-muted disabled:opacity-60"
-                        :disabled="busy"
-                        :title="`Draw until the hand is at ${state.hand_max}`"
-                        data-testid="fate-refill"
-                        @click="run('refill', { discard: [] })"
-                    >
-                        Up to {{ state.hand_max }}
-                    </button>
                 </div>
 
                 <!-- the conflict: flips in progress, and the flip control -->
                 <div class="min-w-0 space-y-2" data-testid="fate-conflict-zone">
                     <p v-if="duel" class="rounded-md bg-muted/50 px-2 py-1 text-xs" data-testid="fate-duel-hint">
-                        Opposed duel: the lowest total cheats first (the resister on a tie), then the other player.
+                        Two results at once? For an opposed duel flip as the attacker and the resister: each player enters their total and the
+                        cheating order (lowest first, the resister on a tie) is followed for you.
                     </p>
                     <p v-if="!state.flips.length" class="rounded-md border border-dashed px-2 py-3 text-center text-xs text-muted-foreground">
                         Nothing flipped. Use +/- then Flip.
@@ -331,13 +361,12 @@ const pileOpen = computed({
                                     v-if="canChoose(f, c.card)"
                                     type="button"
                                     class="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                                    :aria-label="`Take ${cardLabel(c.card)} as the result`"
                                     data-testid="fate-choose"
                                     :data-card="c.card"
                                     :disabled="busy"
                                     @click="chooseCard(f, c.card)"
                                 >
-                                    <FateCardFace :card="c.card" />
+                                    <FateCardFace :card="c.card" note="take as the result" />
                                 </button>
                                 <FateCardFace
                                     v-else
@@ -371,6 +400,40 @@ const pileOpen = computed({
                             <span v-if="f.cheaters.length" class="text-muted-foreground">
                                 · passed or cheated: {{ f.cheaters.map(nameOf).join(', ') }}</span
                             >
+                        </p>
+                        <div v-if="f.duel" class="space-y-1 text-xs" data-testid="fate-duel">
+                            <p class="font-medium">
+                                Opposed duel, {{ f.duel.role
+                                }}<span v-if="!f.duel.linked" class="font-normal text-muted-foreground"> (not yet resisted)</span>
+                            </p>
+                            <div v-if="f.chosen && f.owner_slot === actingSlot" class="flex flex-wrap items-center gap-1">
+                                <label class="flex items-center gap-1">
+                                    Your total
+                                    <input
+                                        v-model.number="totalInput[f.id]"
+                                        type="number"
+                                        min="-10"
+                                        max="60"
+                                        class="w-16 rounded-md border bg-background px-2 py-1"
+                                        :aria-label="`Duel total for ${nameOf(f.owner_slot)}`"
+                                        data-testid="fate-duel-total"
+                                    />
+                                </label>
+                                <Button size="sm" variant="outline" :disabled="busy" data-testid="fate-duel-total-save" @click="setTotal(f)"
+                                    >Set total</Button
+                                >
+                            </div>
+                            <p v-if="f.duel.total !== null" data-testid="fate-duel-totals">
+                                Total {{ f.duel.total }}<span v-if="f.duel.opponent_total !== null"> against {{ f.duel.opponent_total }}</span>
+                            </p>
+                            <p v-if="f.duel.cheat_turn !== null" class="font-medium text-primary" data-testid="fate-duel-turn">
+                                {{ f.duel.cheat_turn === actingSlot ? 'Your' : `${nameOf(f.duel.cheat_turn)}'s` }} chance to cheat Fate (the lowest
+                                total goes first)
+                            </p>
+                            <p v-else-if="f.duel.linked && f.chosen" class="text-muted-foreground">Both players enter their total before cheating.</p>
+                        </div>
+                        <p v-if="cheatable(f) && picked === null" class="text-xs text-muted-foreground" data-testid="fate-cheat-hint">
+                            You may cheat Fate: tap a card in your hand, then choose Cheat.
                         </p>
                         <div class="flex flex-wrap gap-1">
                             <Button v-if="canCheat(f)" size="sm" variant="outline" :disabled="busy" data-testid="fate-cheat" @click="cheat(f)"
@@ -421,6 +484,28 @@ const pileOpen = computed({
                             @click="modifier++"
                             ><Plus class="size-4"
                         /></Button>
+                        <select
+                            v-model="duelRole"
+                            class="rounded-md border bg-background px-1.5 py-1 text-xs"
+                            aria-label="Flip as part of an opposed duel"
+                            title="An opposed duel: flip as the attacker, or as the resister of the other player's attack"
+                            data-testid="fate-duel-role"
+                        >
+                            <option value="">No duel</option>
+                            <option value="attacker">Duel: attack</option>
+                            <option value="resister" :disabled="!attackTargets.length">Duel: resist</option>
+                        </select>
+                        <select
+                            v-if="duelRole === 'resister' && attackTargets.length > 1"
+                            v-model="duelTarget"
+                            class="rounded-md border bg-background px-1.5 py-1 text-xs"
+                            aria-label="Which attack to resist"
+                            data-testid="fate-duel-target"
+                        >
+                            <option v-for="t in attackTargets" :key="t.id" :value="t.id">
+                                {{ nameOf(t.owner_slot) }}'s {{ t.label ?? 'attack' }}
+                            </option>
+                        </select>
                         <Button size="sm" :disabled="busy" class="flex-1" data-testid="fate-flip" @click="flip">Flip</Button>
                         <Button
                             size="sm"
@@ -450,11 +535,18 @@ const pileOpen = computed({
                     <button
                         type="button"
                         class="relative rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                        :aria-label="`Look through the discard pile (${mine.discard.length})`"
+                        :aria-label="mine.discard.length ? undefined : 'Discard pile, empty. Look through it'"
                         data-testid="fate-pile-open"
                         @click="pileSlot = mine.slot"
                     >
-                        <FateCardFace v-if="mine.discard.length" :card="topOf(mine)" large data-testid="fate-discard-card" :data-card="topOf(mine)" />
+                        <FateCardFace
+                            v-if="mine.discard.length"
+                            :card="topOf(mine)"
+                            large
+                            :label="`Look through the discard pile: ${mine.discard.length} cards, top card ${cardLabel(topOf(mine))}`"
+                            data-testid="fate-discard-card"
+                            :data-card="topOf(mine)"
+                        />
                         <span
                             v-else
                             class="flex h-[4.5rem] w-[3.25rem] items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground"
@@ -468,6 +560,28 @@ const pileOpen = computed({
                     </button>
                     <span class="text-[0.7rem] uppercase tracking-wide text-muted-foreground">Discard</span>
                 </div>
+            </div>
+
+            <div v-if="mine" class="flex flex-wrap items-center gap-1.5" data-testid="fate-draw-row">
+                <span class="text-xs text-muted-foreground">Draw</span>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    :disabled="busy"
+                    :title="`Draw until the hand is at ${state.hand_max}`"
+                    data-testid="fate-refill"
+                    @click="run('refill', { discard: [] })"
+                    >Up to {{ state.hand_max }}</Button
+                >
+                <Button
+                    size="sm"
+                    variant="outline"
+                    :disabled="busy"
+                    title="Start phase: discard any cards, then draw up to the hand maximum"
+                    data-testid="fate-start-phase"
+                    @click="startOpen = true"
+                    >Start phase: discard, then draw</Button
+                >
             </div>
 
             <!-- my hand, along the bottom -->
@@ -490,14 +604,13 @@ const pileOpen = computed({
                         type="button"
                         class="snap-start rounded-md transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                         :class="picked === c ? '-translate-y-1.5' : ''"
-                        :aria-label="`${cardLabel(c)}, in hand`"
                         :aria-pressed="picked === c"
                         data-testid="fate-hand-card"
                         :data-card="c"
                         :data-slot="mine.slot"
                         @click="pick(c)"
                     >
-                        <FateCardFace :card="c" large :highlight="picked === c" />
+                        <FateCardFace :card="c" large note="in hand" :highlight="picked === c" />
                     </button>
                     <span v-if="!mine.hand?.length" class="py-5 text-xs text-muted-foreground">No cards in hand. Tap the deck to draw.</span>
                 </div>
@@ -536,7 +649,32 @@ const pileOpen = computed({
                         @click="handAct('remove', { cards: [picked] })"
                         >Remove</Button
                     >
-                    <span v-if="state.flips.some((f) => f.chosen)" class="text-xs text-muted-foreground">To cheat a flip, use the button on it.</span>
+                    <!-- Cheat Fate: replace a flip's result with this card (the old result is discarded) -->
+                    <div class="flex w-full flex-wrap items-center gap-1 border-t pt-1.5" data-testid="fate-cheat-menu">
+                        <Button
+                            v-for="f in cheatableFlips"
+                            :key="f.id"
+                            size="sm"
+                            variant="secondary"
+                            :disabled="busy"
+                            data-testid="fate-menu-cheat"
+                            @click="cheat(f)"
+                            >Cheat Fate: replace {{ nameOf(f.owner_slot) }}'s {{ cardLabel(f.chosen!.card) }}</Button
+                        >
+                        <label v-if="picked === RED_JOKER && cheatableFlips.length" class="flex items-center gap-1 text-xs">
+                            A Red Joker takes the suit
+                            <select v-model="jokerSuit" class="rounded-md border bg-background px-1.5 py-1" data-testid="fate-cheat-suit">
+                                <option v-for="suit in SUITS" :key="suit" :value="suit">{{ suit }}</option>
+                            </select>
+                        </label>
+                        <span v-if="!cheatableFlips.length" class="text-xs text-muted-foreground" data-testid="fate-cheat-none">
+                            {{
+                                state.flips.length
+                                    ? 'No flip result you can cheat now (a Black Joker cannot be cheated, and you get one chance per flip).'
+                                    : 'Cheat Fate: once a flip has a result you can replace it with a card from your hand.'
+                            }}
+                        </span>
+                    </div>
                 </div>
 
                 <!-- effects -->
@@ -661,6 +799,7 @@ const pileOpen = computed({
 
         <FatePeekDialog v-model:open="peekOpen" :cards="peeked" :busy="busy" @arrange="arrange" />
         <FateSearchDialog v-model:open="searchOpen" :cards="searched" :busy="busy" @take="take" />
+        <FateStartDialog v-model:open="startOpen" :hand="mine?.hand ?? []" :hand-max="state?.hand_max ?? 7" :busy="busy" @apply="startPhase" />
         <FatePileDialog
             v-model:open="pileOpen"
             :title="`${nameOf(pileSlot)}'s discard pile`"

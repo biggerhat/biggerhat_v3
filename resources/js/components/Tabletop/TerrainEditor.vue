@@ -27,6 +27,7 @@ import {
     type TerrainTrait,
 } from '@/lib/tabletop/geometry';
 import { TERRAIN_KIND_LABELS, TERRAIN_PRESETS, newPieceId } from '@/lib/tabletop/terrainPresets';
+import { TRAIT_HELP } from '@/lib/help/topics/tabletop';
 import { ChevronDown, Copy, Layers, PenLine, Minus, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
@@ -241,15 +242,16 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
 
 <template>
     <div class="space-y-3 text-sm" role="tabpanel" aria-label="Terrain" data-testid="terrain-editor">
+        <p class="text-muted-foreground">Build the table: add a piece, draw one, or change a piece's levels and traits.</p>
         <div class="rounded-md border p-3" data-testid="terrain-stats">
             <div class="flex items-center justify-between">
-                <span class="font-medium">Table</span>
+                <span class="font-medium">Terrain summary</span>
                 <span class="text-muted-foreground">{{ pieces.length }} piece{{ pieces.length === 1 ? '' : 's' }}</span>
             </div>
-            <div :class="!pieces.length || coverageOk ? 'text-foreground' : 'text-amber-500'">
+            <div :class="!pieces.length || coverageOk ? 'text-foreground' : 'text-amber-700 dark:text-amber-400'">
                 Covered: {{ coverage }}% <span class="text-muted-foreground">(aim for 45-65%)</span>
             </div>
-            <div :class="!pieces.length || tallOk ? 'text-foreground' : 'text-amber-500'">
+            <div :class="!pieces.length || tallOk ? 'text-foreground' : 'text-amber-700 dark:text-amber-400'">
                 Climbable Ht 2+ pieces: {{ tall }} <span class="text-muted-foreground">(aim for 3-8)</span>
             </div>
         </div>
@@ -271,7 +273,7 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
             <ul class="space-y-2 border-t p-3 text-xs">
                 <li v-if="!pieces.length" class="text-muted-foreground">Add some terrain to check the table.</li>
                 <li v-for="c in checks" :key="c.id" :data-status="c.status" data-testid="table-check-item">
-                    <span class="font-medium" :class="c.status === 'note' ? 'text-amber-500' : ''">{{ c.label }}</span>
+                    <span class="font-medium" :class="c.status === 'note' ? 'text-amber-700 dark:text-amber-400' : ''">{{ c.label }}</span>
                     <span class="block text-muted-foreground">{{ c.text }}</span>
                 </li>
                 <li v-if="pieces.length && !zones" class="text-muted-foreground">
@@ -513,8 +515,9 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                         <label
                             v-for="t in TERRAIN_TRAITS"
                             :key="t"
-                            class="flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1"
+                            class="relative flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1"
                             :class="selected.traits.includes(t) ? 'border-primary bg-primary/10' : ''"
+                            :title="TRAIT_HELP[t]"
                         >
                             <input
                                 type="checkbox"
@@ -523,7 +526,7 @@ const levelLabel = (piece: TerrainPiece, s: Surface) => {
                                 :data-testid="`trait-${t}`"
                                 @change="toggleTrait(selected, t)"
                             />
-                            {{ t }}
+                            {{ t === 'ramp' ? 'stairs / ramp' : t }}
                         </label>
                     </div>
                 </fieldset>

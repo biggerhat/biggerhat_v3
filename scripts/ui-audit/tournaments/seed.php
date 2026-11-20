@@ -14,6 +14,16 @@ $dave = $mk('Dave', 'dave@example.test');
 \App\Models\Character::factory()->create(['name' => 'Seedlady Alpha', 'title' => null, 'station' => 'master', 'faction' => 'guild', 'base' => 50, 'size' => 3, 'speed' => 6, 'health' => 9]);
 \App\Models\Character::factory()->create(['name' => 'Seedlady Beta', 'title' => null, 'station' => 'minion', 'faction' => 'guild', 'base' => 30, 'size' => 1, 'speed' => 5]);
 \App\Models\Character::factory()->create(['name' => 'Rasputina', 'title' => 'Winter Witch', 'station' => 'master', 'faction' => 'arcanists']);
+// A small made-up crew for the help screenshots (flows38): neutral names, no card art.
+$helpMaster = \App\Models\Character::factory()->create(['name' => 'Marshal Hale', 'title' => null, 'station' => 'master', 'faction' => 'guild', 'base' => 40, 'size' => 2, 'speed' => 6, 'health' => 10, 'cost' => null, 'count' => 1]);
+$helpCrew = collect([['Sergeant Pike', 'minion', 7, 40, 8], ['Recruit Finch', 'minion', 4, 30, 5], ['Lookout Wren', 'minion', 5, 30, 5]])
+    ->map(fn ($c) => \App\Models\Character::factory()->create(['name' => $c[0], 'title' => null, 'station' => $c[1], 'faction' => 'guild', 'cost' => $c[2], 'base' => $c[3], 'size' => 2, 'speed' => 5, 'health' => $c[4], 'count' => 1]));
+// a keyword they share, so the hiring pool shows them as in-keyword (as a real crew would) rather than all out of keyword
+$helpKeyword = \App\Models\Keyword::factory()->create(['name' => 'Patrol']);
+foreach (collect([$helpMaster])->merge($helpCrew) as $helpCharacter) {
+    $helpCharacter->keywords()->attach($helpKeyword->id);
+}
+$helpBuild = \App\Models\CrewBuild::factory()->create(['user_id' => $carol->id, 'name' => 'Demo Patrol', 'faction' => 'guild', 'encounter_size' => 50, 'master_id' => $helpMaster->id, 'crew_data' => $helpCrew->pluck('id')->all(), 'is_public' => true]);
 
 // --- T1: running Gaining Grounds event with self-reporting
 $strategy = Strategy::factory()->create();
@@ -162,10 +172,26 @@ foreach ([[$pp1, 'bayou', [['Pandora', 'master', 'leader', 0, 10], ['Silurid', '
     }
 }
 
+// the table as it stood at the end of turn 1, so the board's look back has something to show
+$playGame->update(['board_state' => ['history' => ['1' => ['positions' => (object) [], 'markers' => []]]]]);
+
+// character upgrades a player can attach from the play screen or the board
+foreach (['Iron Will', 'Sharp Eyes'] as $upgradeName) {
+    App\Models\Upgrade::factory()->create(['name' => $upgradeName, 'domain' => App\Enums\UpgradeDomainTypeEnum::Character, 'game_mode_type' => App\Enums\GameModeTypeEnum::Standard, 'type' => null, 'plentiful' => null]);
+}
+
+// --- A solo game with a summoned model nobody has placed on the table yet (board flow)
+$summonGame = App\Models\Game::factory()->solo()->inProgress()->create(['creator_id' => $carol->id, 'strategy_id' => $strategy->id, 'current_turn' => 1, 'is_observable' => false, 'status' => App\Enums\GameStatusEnum::InProgress]);
+$sp1 = App\Models\GamePlayer::factory()->create(['game_id' => $summonGame->id, 'user_id' => $carol->id, 'slot' => 1, 'faction' => 'bayou', 'role' => App\Enums\GameRoleEnum::Attacker, 'master_name' => 'Pandora', 'soulstone_pool' => 5]);
+$sp2 = App\Models\GamePlayer::factory()->soloOpponent()->create(['game_id' => $summonGame->id, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Defender, 'master_name' => 'Lady Justice', 'soulstone_pool' => 4]);
+foreach ([[$sp1, 'bayou', 'Pandora', false], [$sp1, 'bayou', 'Summoned Imp', true], [$sp2, 'guild', 'Lady Justice', false]] as $i => [$pl, $fac, $nm, $summoned]) {
+    App\Models\GameCrewMember::factory()->create(['game_id' => $summonGame->id, 'game_player_id' => $pl->id, 'character_id' => null, 'display_name' => $nm, 'faction' => $fac, 'station' => 'minion', 'hiring_category' => 'in-keyword', 'cost' => 4, 'current_health' => 6, 'max_health' => 6, 'sort_order' => $i, 'is_summoned' => $summoned]);
+}
+
 \Laravel\Pennant\Feature::for(null)->activate('experiment-tabletop');
-foreach ([['Scheme Marker', 30], ['Strategy Marker', 30], ['Blast Marker', 50], ['Corpse Marker', 40], ['Scrap Marker', 30], ['Marker of the Dead', 30]] as [$markerName, $markerBase]) {
+foreach ([['Scheme Marker', 30], ['Strategy Marker', 30], ['Blast Marker', 50], ['Corpse Marker', 40], ['Scrap Marker', 30], ['Marker of the Dead', 30], ['Remains', 30]] as [$markerName, $markerBase]) {
     App\Models\Marker::factory()->create(['name' => $markerName, 'base' => $markerBase, 'is_strategy' => $markerName === 'Strategy Marker']);
 }
 
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'play_game' => $playGame->uuid, 'crew_build' => $crewBuild->share_code, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'play_game' => $playGame->uuid, 'summon_game' => $summonGame->uuid, 'crew_build' => $crewBuild->share_code, 'help_build' => $helpBuild->id, 'g1' => $r1->games()->first()->id]));

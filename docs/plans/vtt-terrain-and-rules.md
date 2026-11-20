@@ -184,3 +184,7 @@ deployments with centerline, markers, impassable placement, table-edge clamping,
 **Fields of Glory (The Other Side)**
 15. Its table guideline is 25-30% terrain, its deployments (Confrontation, Corners, Sideways, Killing Field, 12" zones) and objective-marker rules (on the centerline, at least 8" apart, within 3" and LoS) differ from Malifaux's. The tabletop is Malifaux only today; a TOS board would need its own coverage target, zones and objective markers.
 
+
+
+## Rules review follow-up (2026-11): done
+Engagement (marker, explanation, halved Walk), Remains markers on a kill, summoned models placed with a tap, what is near a marker (peons ignored), hand maximum by game mode, the turn sequence (initiative, whose activation, passing), the round clock, scheme model/marker picked on the board, a turn-end look back, and live observer updates. Not done: Charge and Push as movement kinds, a strategy scoring helper (waits for structured strategy data), summon placement "within X of the summoner" (the summoner is not recorded), replace-on-death on the board, upgrades and injuries on the board. See docs/features/game-tracker.md for where each lives.

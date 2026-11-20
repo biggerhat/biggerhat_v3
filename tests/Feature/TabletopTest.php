@@ -61,7 +61,7 @@ it('searches character cards for the sandbox with base, Sz and Sp', function () 
     $this->getJson(route('tools.tabletop.characters', ['q' => 'gifted pandora']))->assertJsonCount(1, 'characters');
     $this->getJson(route('tools.tabletop.characters', ['q' => 'silurid']))->assertJsonPath('characters.0.health', fn ($h) => is_int($h));
     $this->getJson(route('tools.tabletop.characters', ['q' => 'silurid']))
-        ->assertJsonStructure(['characters' => [['faction_key', 'df', 'wp', 'front_image', 'back_image']]]);
+        ->assertJsonStructure(['characters' => [['faction_key', 'station', 'df', 'wp', 'front_image', 'back_image']]]);
     $this->getJson(route('tools.tabletop.characters', ['q' => 'nobody']))->assertJsonCount(0, 'characters');
 });
 

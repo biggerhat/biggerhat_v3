@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
     AURAS_PER_MODEL,
     AURA_TRAITS,
+    ENGAGE_RANGE,
     IGNORABLE_TRAITS,
     LANE_MIN,
     OPENINGS_MAX,
@@ -15,12 +16,17 @@ import {
     clampSize,
     clampToTable,
     clampTop,
+    constrainToContact,
+    constrainWithin,
+    contactSpots,
     coverAt,
     deploymentZones,
     describeZone,
     distanceToShape,
     dragShapeHandle,
     edgeDistance,
+    engagedSp,
+    engagedWith,
     fallHurts,
     heightCover,
     inZone,
@@ -38,6 +44,7 @@ import {
     nearestLegalSpot,
     nearestOnOutline,
     openingSpan,
+    overRamp,
     pathCost,
     pieceBounds,
     placeCheck,
@@ -361,7 +368,9 @@ test('every preset builds a valid piece on the table', async () => {
         const p = preset.make('x', 18, 18);
         assert.ok(p.surfaces.length >= 1 && p.surfaces.length <= 6, `${preset.key}: surface count`);
         assert.ok(
-            p.traits.every((t) => ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe'].includes(t)),
+            p.traits.every((t) =>
+                ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe', 'ramp'].includes(t),
+            ),
             `${preset.key}: traits`,
         );
         const b = pieceBounds(p);
@@ -1394,4 +1403,117 @@ test('hazardous terrain says what its rules card says, and that it is suffered o
     assert.equal(problem.kind, 'hazardous');
     assert.match(problem.text, /Lava pool: Gain a Burning token\./);
     assert.match(problem.text, /once per activation/);
+});
+
+test('engagement: within 1" of an enemy, edge to edge', () => {
+    const a = { id: 'a', name: 'A', side: 'a', baseMm: 30, sz: 2, x: 10, y: 10 };
+    const near = { id: 'b', name: 'B', side: 'b', baseMm: 30, sz: 2, x: 10 + 2 * baseRadius(30) + 1, y: 10 }; // exactly 1" apart
+    const far = { ...near, id: 'c', x: 10 + 2 * baseRadius(30) + 1.2 };
+    const ground = () => 0;
+    assert.equal(ENGAGE_RANGE, 1);
+    assert.deepEqual(
+        engagedWith(a, [a, near], ground).map((t) => t.id),
+        ['b'],
+    );
+    assert.deepEqual(
+        engagedWith(near, [a, near], ground).map((t) => t.id),
+        ['a'],
+    ); // both ways
+    assert.deepEqual(engagedWith(a, [a, far], ground), []);
+});
+
+test('engagement: friends, markers, killed models, neutrals and peons never count, and a peon is never engaged', () => {
+    const a = { id: 'a', name: 'A', side: 'a', baseMm: 30, x: 10, y: 10 };
+    const at = (extra) => ({ id: 'o', name: 'O', side: 'b', baseMm: 30, x: 11.5, y: 10, ...extra });
+    const ground = () => 0;
+    assert.deepEqual(engagedWith(a, [a, at({ side: 'a' })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ marker: true })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ killed: true })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ side: 'n' })], ground), []);
+    assert.deepEqual(engagedWith(a, [a, at({ peon: true })], ground), []);
+    assert.deepEqual(engagedWith({ ...a, peon: true }, [{ ...a, peon: true }, at({})], ground), []);
+    assert.equal(engagedWith(a, [a, at({})], ground).length, 1);
+});
+
+test("engagement: the lower model is not engaged when its effective Sz is less than the higher model's elevation", () => {
+    const low = { id: 'low', name: 'Low', side: 'a', baseMm: 30, sz: 1, x: 10, y: 10 };
+    const high = { id: 'high', name: 'High', side: 'b', baseMm: 30, sz: 2, x: 11.5, y: 10 };
+    const elevation = (height) => (t) => (t.id === 'high' ? height : 0);
+    // the Sz 1 model on the ground, the other on a Ht 3 roof: 1 + 0 < 3, so neither is engaged
+    assert.deepEqual(engagedWith(low, [low, high], elevation(3)), []);
+    assert.deepEqual(engagedWith(high, [low, high], elevation(3)), []);
+    // on a Ht 1 step the lower model's Sz 1 reaches it: engaged
+    assert.equal(engagedWith(low, [low, high], elevation(1)).length, 1);
+    // a taller model on the ground (Sz 3) is engaged by one standing on a Ht 3 roof
+    assert.equal(engagedWith({ ...low, sz: 3 }, [{ ...low, sz: 3 }, high], elevation(3)).length, 1);
+    // a missing Sz counts as 1
+    assert.deepEqual(engagedWith({ ...low, sz: undefined }, [{ ...low, sz: undefined }, high], elevation(2)), []);
+});
+
+test('an engaged Walk is half the Sp, rounded down', () => {
+    assert.equal(engagedSp(6), 3);
+    assert.equal(engagedSp(5), 2);
+    assert.equal(engagedSp(1), 0);
+});
+
+test('stairs and ramps: a leg over one changes height with no climb and no fall', () => {
+    const ramp = { id: 'r', name: 'Stairs', traits: ['ramp'], surfaces: [{ id: 'r1', shape: { kind: 'rect', x: 5, y: 5, w: 4, h: 2 }, top: 1 }] };
+    // a move that crosses the ramp is over it; one that stays well clear is not
+    assert.equal(overRamp({ x: 3, y: 6 }, { x: 11, y: 6 }, 30, [ramp]), true);
+    assert.equal(overRamp({ x: 3, y: 12 }, { x: 11, y: 12 }, 30, [ramp]), false);
+    // a table with no ramp never says so
+    assert.equal(overRamp({ x: 3, y: 6 }, { x: 11, y: 6 }, 30, [{ ...ramp, traits: ['climbable'] }]), false);
+    // climbing 3" over 3" of ground costs 6" of movement; over a ramp it costs the 3" of ground
+    const up = [
+        { x: 0, y: 0, elev: 0 },
+        { x: 3, y: 0, elev: 3 },
+    ];
+    assert.equal(pathCost(up).total, 6);
+    const free = pathCost([up[0], { ...up[1], ramp: true }]);
+    assert.equal(free.total, 3);
+    assert.equal(free.climb, 0);
+    // coming down 3" is a fall of 3" in the open, and none over a ramp
+    const down = [
+        { x: 0, y: 0, elev: 3 },
+        { x: 3, y: 0, elev: 0 },
+    ];
+    assert.ok(pathCost(down).drop > 0);
+    assert.equal(pathCost([down[0], { ...down[1], ramp: true }]).drop, 0);
+});
+
+test('within X inches is measured between base edges, and a tap too far away is pulled in to that line', () => {
+    const killed = { x: 18, y: 18, baseMm: 40 }; // r 0.787"
+    const r = baseRadius(40) + baseRadius(30); // the two radii
+    // inside the limit: left alone (a marker may even sit on the killed model)
+    assert.deepEqual(constrainWithin({ x: 18.5, y: 18 }, killed, 30, 1), { x: 18.5, y: 18 });
+    assert.deepEqual(constrainWithin({ x: 18, y: 18 }, killed, 30, 1), { x: 18, y: 18 });
+    // too far: pulled in along the same direction to radii + 1"
+    const pulled = constrainWithin({ x: 28, y: 18 }, killed, 30, 1);
+    assert.ok(Math.abs(pulled.x - (18 + r + 1)) < 1e-9 && pulled.y === 18);
+    const diagonal = constrainWithin({ x: 28, y: 28 }, killed, 30, 1);
+    assert.ok(Math.abs(Math.hypot(diagonal.x - 18, diagonal.y - 18) - (r + 1)) < 1e-9);
+});
+
+test('base contact puts the centres exactly both radii apart, on the side that was tapped', () => {
+    const was = { x: 10, y: 10, baseMm: 30 };
+    const r = baseRadius(30) + baseRadius(50);
+    const right = constrainToContact({ x: 20, y: 10 }, was, 50);
+    assert.ok(Math.abs(right.x - (10 + r)) < 1e-9 && right.y === 10);
+    const below = constrainToContact({ x: 10, y: 3 }, was, 50);
+    assert.ok(Math.abs(below.y - (10 - r)) < 1e-9 && below.x === 10);
+    // a tap inside the ring is pushed out to it, and one on the very centre still lands somewhere
+    assert.ok(Math.abs(Math.hypot(constrainToContact({ x: 10.2, y: 10 }, was, 50).x - 10, 0) - r) < 1e-9);
+    assert.ok(Math.abs(constrainToContact({ x: 10, y: 10 }, was, 50).x - (10 + r)) < 1e-9);
+});
+
+test('contact spots all touch the anchor and start on the tapped side', () => {
+    const was = { x: 10, y: 10, baseMm: 40 };
+    const spots = contactSpots(was, 40, { x: 10, y: 20 });
+    assert.equal(spots.length, 72);
+    const r = baseRadius(40) * 2;
+    for (const s of spots) assert.ok(Math.abs(Math.hypot(s.x - 10, s.y - 10) - r) < 1e-9);
+    assert.ok(Math.abs(spots[0].x - 10) < 1e-9 && spots[0].y > 10); // the tapped side (below)
+    // nearer spots come first: the next two are either side of the first
+    const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    assert.ok(d(spots[1], spots[0]) < d(spots[10], spots[0]));
 });

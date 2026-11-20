@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\Game;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -25,7 +26,11 @@ class GameBoardTerrainChanged implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        return [new PresenceChannel('game.'.$this->game->uuid)];
+        // people watching an observable game hear the same board changes on its public channel
+        return [
+            new PresenceChannel('game.'.$this->game->uuid),
+            ...($this->game->is_observable ? [new Channel('game-observe.'.$this->game->uuid)] : []),
+        ];
     }
 
     public function broadcastAs(): string

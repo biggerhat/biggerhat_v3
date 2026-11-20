@@ -10,6 +10,8 @@ class FateFlipRequest extends FateRequest
             'modifier' => ['required', 'integer', 'between:-3,3'],
             'label' => ['nullable', 'string', 'max:60'],
             'subject' => ['nullable', 'string', 'max:40'],
+            'duel_role' => ['nullable', 'string', 'in:attacker,resister'],
+            'duel_with' => ['nullable', 'integer'],
             ...$this->slotRules(),
         ];
     }

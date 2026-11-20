@@ -30,6 +30,8 @@ const L = require('./lib.cjs');
         ['phone', { width: 390, height: 844 }],
     ]) {
         const carol = await L.session(browser, 'carol@example.test', vp);
+        // the play screen asks before it is left; accept, so the next page loads
+        carol.page.on('dialog', (d) => d.accept().catch(() => {}));
         await L.step(`board (${label}): the game's crews are on the table with a Back link`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid^=token-]');
@@ -91,13 +93,21 @@ const L = require('./lib.cjs');
             await L.sleep(1200);
         });
         await L.step(`board (${label}): a marker from the list is placed at its base size and saved with the game`, carol, async () => {
-            const hit = async (selector) => {
+            const hitRaw = async (selector) => {
                 await carol.page.$eval(selector, (b) => {
                     const d = b.closest('details');
                     if (d && !d.open) d.open = true;
                     b.scrollIntoView({ block: 'center' });
                 });
                 await carol.page.click(selector);
+            };
+            const hit = async (selector) => {
+                const back = await L.revealTable(carol.page, selector);
+                try {
+                    await hitRaw(selector);
+                } finally {
+                    await back();
+                }
             };
             const addItem = async (id) => {
                 await carol.page.waitForFunction(() => document.body.style.pointerEvents !== 'none', { timeout: 5000 });
@@ -270,12 +280,22 @@ const L = require('./lib.cjs');
             if (await carol.page.$('[data-testid=model-activated]')) throw new Error('activation should come from the row, not a second control');
             // the options are a rolldown behind a button on the row: press again and the controls go, press once more and they are back
             await carol.page.click(`[data-testid=crew-${id}] [data-testid=row-options]`);
-            await carol.page.waitForFunction((i) => !document.querySelector(`[data-testid=crew-${i}] [data-testid=model-guide]`), { timeout: 3000 }, id);
+            await carol.page.waitForFunction(
+                (i) => !document.querySelector(`[data-testid=crew-${i}] [data-testid=model-guide]`),
+                { timeout: 3000 },
+                id,
+            );
             await carol.page.click(`[data-testid=crew-${id}] [data-testid=row-options]`);
-            await carol.page.waitForFunction((i) => !!document.querySelector(`[data-testid=crew-${i}] [data-testid=model-guide]`), { timeout: 3000 }, id);
+            await carol.page.waitForFunction(
+                (i) => !!document.querySelector(`[data-testid=crew-${i}] [data-testid=model-guide]`),
+                { timeout: 3000 },
+                id,
+            );
             // the name opens the card drawer (the first seeded model has a card image)
             const named = await carol.page.evaluate(() => {
-                const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find((r) => r.querySelector('button[title="Toggle card preview"]'));
+                const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find((r) =>
+                    r.querySelector('button[title="Toggle card preview"]'),
+                );
                 if (!row) return false;
                 const name = row.querySelector('button.font-semibold');
                 name.scrollIntoView({ block: 'center' });
@@ -290,7 +310,9 @@ const L = require('./lib.cjs');
             await carol.page.waitForFunction(() => !document.querySelector('[role=dialog]'), { timeout: 5000 });
             // the row's Tokens button opens the token dialog
             const tokensOpened = await carol.page.evaluate((rid) => {
-                const b = [...document.querySelector(`[data-testid=crew-${rid}]`).querySelectorAll('button')].find((x) => x.offsetParent && (x.getAttribute('title') ?? '') === 'Tokens');
+                const b = [...document.querySelector(`[data-testid=crew-${rid}]`).querySelectorAll('button')].find(
+                    (x) => x.offsetParent && (x.getAttribute('title') ?? '') === 'Tokens',
+                );
                 b?.click();
                 return !!b;
             }, id);
@@ -313,66 +335,209 @@ const L = require('./lib.cjs');
                 await carol.page.keyboard.press('Escape');
             }
         });
-        await L.step(`board (${label}): the Fate deck on the board draws, flips, chooses and resolves, and is kept by the server`, carol, async () => {
-            const openFate = async () => {
-                await L.visit(carol, `/games/${L.ids.play_game}/board`);
-                await carol.page.waitForSelector('[data-testid=fate-section]');
-                await carol.page.$eval('[data-testid=fate-open]', (el) => {
-                    el.scrollIntoView({ block: 'center' });
-                    el.click();
+        await L.step(
+            `board (${label}): the Fate deck on the board draws, flips, chooses and resolves, and is kept by the server`,
+            carol,
+            async () => {
+                const openFate = async () => {
+                    await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                    await carol.page.waitForSelector('[data-testid=fate-section]');
+                    await carol.page.$eval('[data-testid=fate-open]', (el) => {
+                        el.scrollIntoView({ block: 'center' });
+                        el.click();
+                    });
+                    await carol.page.waitForSelector('[data-testid=fate-side-1]', { timeout: 8000 });
+                };
+                const press = (id) =>
+                    carol.page.$eval(`[data-testid=${id}]`, (b) => {
+                        b.scrollIntoView({ block: 'center' });
+                        b.click();
+                    });
+                const hand = () =>
+                    carol.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-count]', (e) => Number(e.innerText.split('/')[0]));
+                await openFate();
+                const before = await hand();
+                await press('fate-draw');
+                await carol.page.waitForFunction(
+                    (n) => Number(document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.split('/')[0]) === n,
+                    { timeout: 5000 },
+                    before + 1,
+                );
+                // a flip: take a card as the result, then resolve it into the discard pile
+                await press('fate-flip');
+                await carol.page.waitForSelector('[data-testid=fate-conflict]', { timeout: 5000 });
+                await press('fate-choose');
+                await carol.page.waitForSelector('[data-testid=fate-result]', { timeout: 5000 });
+                await L.shot(carol, `369-board-fate-${label}`);
+                await press('fate-resolve');
+                await carol.page.waitForFunction(() => !document.querySelector('[data-testid=fate-conflict]'), { timeout: 5000 });
+                // a Fate flip from a model's options: its result is drawn beside it on the table
+                await carol.page.evaluate(() => {
+                    const row = document.querySelector('[data-testid=crew-list] [data-testid^=crew-]');
+                    const toggle = row.querySelector('[data-testid=row-options]');
+                    toggle.scrollIntoView({ block: 'center' });
+                    toggle.click();
                 });
-                await carol.page.waitForSelector('[data-testid=fate-side-1]', { timeout: 8000 });
-            };
-            const press = (id) =>
-                carol.page.$eval(`[data-testid=${id}]`, (b) => {
+                await carol.page.waitForSelector('[data-testid=model-fate-flip]', { timeout: 5000 });
+                await press('model-fate-flip');
+                await carol.page.waitForSelector('[data-testid^=fate-badge-]', { timeout: 8000 });
+                await press('model-fate-choose');
+                await carol.page.waitForSelector('[data-testid=model-fate-result]', { timeout: 5000 });
+                await press('model-fate-done');
+                await carol.page.waitForFunction(() => !document.querySelector('[data-testid^=fate-badge-]'), { timeout: 5000 });
+                // the other hand: a request for it is shown to that player, who may show it to the asker
+                await press('fate-more');
+                await press('fate-ask-reveal');
+                await carol.page.waitForSelector('[data-testid=fate-prompt]', { timeout: 5000 });
+                await press('fate-prompt-show');
+                await carol.page.waitForSelector('[data-testid=fate-answer]', { timeout: 5000 });
+                await press('fate-answer-dismiss');
+                // and the history reads it back
+                await carol.page.$eval('[data-testid=fate-history] summary', (el) => el.click());
+                await carol.page.waitForFunction(() => /showed their hand/.test(document.querySelector('[data-testid=fate-history]').innerText), {
+                    timeout: 5000,
+                });
+                // the deck is the server's: the hand is still there after a reload
+                await openFate();
+                if ((await hand()) !== before + 1) throw new Error(`the hand should survive a reload: ${await hand()} vs ${before + 1}`);
+                if (!(await carol.page.$('[data-testid=fate-hand-card]'))) throw new Error('my own hand should show its cards');
+            },
+        );
+        await L.step(
+            `board (${label}): the turn bar shows initiative and passing, and the table can be looked at as it stood last turn`,
+            carol,
+            async () => {
+                await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                await carol.page.waitForSelector('[data-testid=turn-bar]', { timeout: 8000 });
+                // turn 2 starts without initiative: the player who did not activate last chooses (a solo player chooses for either)
+                if (await carol.page.$('[data-testid=turn-choose]')) {
+                    await carol.page.$eval('[data-testid=turn-initiative-1]', (b) => b.click());
+                    await carol.page.waitForSelector('[data-testid=turn-active]', { timeout: 6000 });
+                }
+                const active = await carol.page.$eval('[data-testid=turn-active]', (e) => e.innerText);
+                if (!/to activate/.test(active)) throw new Error(`the turn bar should say whose activation it is: ${active}`);
+                // the pass row always says where the player stands (the rule itself is tested on the server)
+                const passRow = await carol.page.$eval('[data-testid=turn-pass-row]', (e) => e.innerText);
+                if (!/pass/i.test(passRow) || !/(models|opponent)/i.test(passRow)) throw new Error(`the pass row should explain passing: ${passRow}`);
+                // the look back: the table at the end of turn 1, read-only, then back to now
+                await carol.page.select('[data-testid=history-select]', '1');
+                await carol.page.waitForSelector('[data-testid=history-note]', { timeout: 4000 });
+                if (await carol.page.$('[data-testid=turn-bar]')) throw new Error('the turn bar should be put away while looking back');
+                await carol.page.select('[data-testid=history-select]', '');
+                await carol.page.waitForFunction(() => !document.querySelector('[data-testid=history-note]'), { timeout: 4000 });
+            },
+        );
+        await L.step(`board (${label}): a model can be picked as the scheme's model, and it is kept in the scheme notes`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
+            const toggle = async () => {
+                await carol.page.evaluate(() => {
+                    const row = document.querySelector('[data-testid=crew-list] [data-testid^=crew-]');
+                    if (!row.querySelector('[data-testid=scheme-target]')) row.querySelector('[data-testid=row-options]').click();
+                });
+                await carol.page.waitForSelector('[data-testid=scheme-target]', { timeout: 5000 });
+                await carol.page.$eval('[data-testid=scheme-target]', (b) => {
                     b.scrollIntoView({ block: 'center' });
                     b.click();
                 });
-            const hand = () => carol.page.$eval('[data-testid=fate-side-1] [data-testid=fate-hand-count]', (e) => Number(e.innerText.split('/')[0]));
-            await openFate();
-            const before = await hand();
-            await press('fate-draw');
-            await carol.page.waitForFunction(
-                (n) => Number(document.querySelector('[data-testid=fate-side-1] [data-testid=fate-hand-count]').innerText.split('/')[0]) === n,
-                { timeout: 5000 },
-                before + 1,
+            };
+            await toggle();
+            await carol.page.waitForFunction(() => document.querySelector('[data-testid=scheme-target]').getAttribute('aria-pressed') === 'true', {
+                timeout: 5000,
+            });
+            await L.sleep(1000);
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
+            await carol.page.evaluate(() => document.querySelector('[data-testid=crew-list] [data-testid^=crew-] [data-testid=row-options]').click());
+            await carol.page.waitForFunction(() => document.querySelector('[data-testid=scheme-target]')?.getAttribute('aria-pressed') === 'true', {
+                timeout: 5000,
+            });
+            await toggle(); // leave it as found
+            await carol.page.waitForFunction(() => document.querySelector('[data-testid=scheme-target]').getAttribute('aria-pressed') === 'false', {
+                timeout: 5000,
+            });
+            await L.sleep(1000);
+        });
+        await L.step(`board (${label}): a summoned model with no place is set down with a tap, and kept`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.summon_game}/board`);
+            if (label === 'phone') {
+                // the desktop pass already placed it, and the place was kept
+                await carol.page.waitForSelector('[data-testid^=token-]', { timeout: 8000 });
+                if (await carol.page.$('[data-testid=unplaced-bar]')) throw new Error('a placed model should stay placed');
+                return;
+            }
+            await carol.page.waitForSelector('[data-testid=unplaced-bar]', { timeout: 8000 });
+            // say who summoned it and how far it may go: 3" from Pandora
+            const impId = await carol.page.$eval('[data-testid=unplaced-bar]', (bar) => {
+                // the model row this bar belongs to: the nearest row that comes before it on the page
+                const rows = [...document.querySelectorAll('[data-testid^=crew-]')].filter(
+                    (r) => r.getAttribute('data-testid') !== 'crew-list' && bar.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_PRECEDING,
+                );
+                const row = rows[rows.length - 1];
+                return row ? row.getAttribute('data-testid').replace('crew-', '') : '';
+            });
+            if (!impId) throw new Error('could not find the summoned model row');
+            const pandoraId = await carol.page.$eval(
+                '[data-testid=summon-from]',
+                (sel) => [...sel.options].find((o) => /Pandora/.test(o.text))?.value ?? '',
             );
-            // a flip: take a card as the result, then resolve it into the discard pile
-            await press('fate-flip');
-            await carol.page.waitForSelector('[data-testid=fate-conflict]', { timeout: 5000 });
-            await press('fate-choose');
-            await carol.page.waitForSelector('[data-testid=fate-result]', { timeout: 5000 });
-            await L.shot(carol, `369-board-fate-${label}`);
-            await press('fate-resolve');
-            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=fate-conflict]'), { timeout: 5000 });
-            // a Fate flip from a model's options: its result is drawn beside it on the table
+            if (!pandoraId) throw new Error('the summoner list should offer Pandora');
+            await carol.page.select('[data-testid=summon-from]', pandoraId);
+            await carol.page.waitForSelector('[data-testid=summon-range]', { timeout: 3000 });
+            await carol.page.$eval('[data-testid=summon-range]', (i) => {
+                i.value = '3';
+                i.dispatchEvent(new Event('input'));
+            });
+            await carol.page.$eval('[data-testid=place-unplaced]', (b) => {
+                b.scrollIntoView({ block: 'center' });
+                b.click();
+            });
+            await carol.page.waitForSelector('[data-testid=summon-ring]', { timeout: 3000 });
+            await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+            const spot = await carol.page.evaluate(() => {
+                const svg = document.querySelector('[data-testid=tabletop-board] svg');
+                const r = svg.getBoundingClientRect();
+                const vb = svg.viewBox.baseVal;
+                return { x: r.left + ((20 - vb.x) / vb.width) * r.width, y: r.top + ((20 - vb.y) / vb.height) * r.height };
+            });
+            await carol.page.mouse.click(spot.x, spot.y);
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=unplaced-bar]'), { timeout: 4000 });
+            // a tap at (20, 20) is far from Pandora, so it is pulled in to the line: exactly 3" edge to edge
+            const gap = await carol.page.evaluate(
+                ([imp, pandora]) => {
+                    const c = (id) => document.querySelector(`[data-testid="token-${id}"] > circle:not([data-testid])`);
+                    const a = c(imp);
+                    const b = c(pandora);
+                    return (
+                        Math.hypot(a.getAttribute('cx') - b.getAttribute('cx'), a.getAttribute('cy') - b.getAttribute('cy')) -
+                        a.getAttribute('r') -
+                        b.getAttribute('r')
+                    );
+                },
+                [impId, pandoraId],
+            );
+            if (Math.abs(gap - 3) > 0.05) throw new Error(`the summoned model should be 3" from its summoner, edge to edge: ${gap}`);
+            await L.sleep(1200);
+            await L.visit(carol, `/games/${L.ids.summon_game}/board`);
+            await carol.page.waitForSelector('[data-testid^=token-]');
+            if (await carol.page.$('[data-testid=unplaced-bar]')) throw new Error('the placed model should stay placed after a reload');
+        });
+        await L.step(`board (${label}): a killed model gives its crew a soulstone, as on the play screen`, carol, async () => {
+            if (label === 'phone') return; // the game's state is changed once, at desktop width
+            await L.visit(carol, `/games/${L.ids.summon_game}/board`);
+            await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
             await carol.page.evaluate(() => {
                 const row = document.querySelector('[data-testid=crew-list] [data-testid^=crew-]');
-                const toggle = row.querySelector('[data-testid=row-options]');
-                toggle.scrollIntoView({ block: 'center' });
-                toggle.click();
+                row.querySelector('[data-testid=row-options]').click();
             });
-            await carol.page.waitForSelector('[data-testid=model-fate-flip]', { timeout: 5000 });
-            await press('model-fate-flip');
-            await carol.page.waitForSelector('[data-testid^=fate-badge-]', { timeout: 8000 });
-            await press('model-fate-choose');
-            await carol.page.waitForSelector('[data-testid=model-fate-result]', { timeout: 5000 });
-            await press('model-fate-done');
-            await carol.page.waitForFunction(() => !document.querySelector('[data-testid^=fate-badge-]'), { timeout: 5000 });
-            // the other hand: a request for it is shown to that player, who may show it to the asker
-            await press('fate-more');
-            await press('fate-ask-reveal');
-            await carol.page.waitForSelector('[data-testid=fate-prompt]', { timeout: 5000 });
-            await press('fate-prompt-show');
-            await carol.page.waitForSelector('[data-testid=fate-answer]', { timeout: 5000 });
-            await press('fate-answer-dismiss');
-            // and the history reads it back
-            await carol.page.$eval('[data-testid=fate-history] summary', (el) => el.click());
-            await carol.page.waitForFunction(() => /showed their hand/.test(document.querySelector('[data-testid=fate-history]').innerText), { timeout: 5000 });
-            // the deck is the server's: the hand is still there after a reload
-            await openFate();
-            if ((await hand()) !== before + 1) throw new Error(`the hand should survive a reload: ${await hand()} vs ${before + 1}`);
-            if (!(await carol.page.$('[data-testid=fate-hand-card]'))) throw new Error('my own hand should show its cards');
+            await carol.page.waitForSelector('[data-testid=model-kill]', { timeout: 5000 });
+            await carol.page.$eval('[data-testid=model-kill]', (b) => {
+                b.scrollIntoView({ block: 'center' });
+                b.click();
+            });
+            await carol.page.waitForFunction(() => /gains a soulstone/.test(document.body.innerText), { timeout: 6000 });
+            // the Remains marker is offered too: put it away
+            await carol.page.$eval('[data-testid=remains-skip]', (b) => b.click()).catch(() => {});
         });
         await L.step(`board (${label}): which side the deployment zones sit is kept with the game`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
@@ -441,13 +606,21 @@ const L = require('./lib.cjs');
             await L.sleep(1200);
         });
         await L.step(`board (${label}): an aura shown to the other player is saved with the game`, carol, async () => {
-            const hit = async (selector) => {
+            const hitRaw = async (selector) => {
                 await carol.page.$eval(selector, (b) => {
                     const d = b.closest('details');
                     if (d && !d.open) d.open = true;
                     b.scrollIntoView({ block: 'center' });
                 });
                 await carol.page.click(selector);
+            };
+            const hit = async (selector) => {
+                const back = await L.revealTable(carol.page, selector);
+                try {
+                    await hitRaw(selector);
+                } finally {
+                    await back();
+                }
             };
             const open = async () => {
                 await L.visit(carol, `/games/${L.ids.play_game}/board`);
@@ -492,6 +665,97 @@ const L = require('./lib.cjs');
             await open();
             if (await carol.page.$('[data-shared=true]')) throw new Error('withdrawing the aura was not saved');
         });
+        await L.step(`play screen (${label}): a model's row still offers Upgrades`, carol, async () => {
+            if (label === 'phone') return; // the row's Upgrades button is for wider screens
+            await L.visit(carol, `/games/${L.ids.play_game}`);
+            await carol.page.waitForSelector('[aria-label^="Decrease health"]', { timeout: 9000 });
+            const has = await carol.page.evaluate(() => [...document.querySelectorAll('button[title=Upgrades]')].some((b) => b.offsetParent));
+            if (!has) throw new Error('the play screen row should offer Upgrades (a Boolean prop that is absent must not switch it off)');
+        });
+        await L.step(`board (${label}): an upgrade is attached from the board, kept, and listed again after a reload`, carol, async () => {
+            if (label === 'phone') return; // the row's Upgrades button is for wider screens
+            const open = async () => {
+                await L.visit(carol, `/games/${L.ids.play_game}/board`);
+                await carol.page.waitForSelector('[data-testid=crew-list] [aria-label^="Decrease health"]', { timeout: 9000 });
+                const clicked = await carol.page.evaluate(() => {
+                    const b = [...document.querySelectorAll('[data-testid=crew-list] button[title=Upgrades]')].find((x) => x.offsetParent);
+                    b?.click();
+                    return !!b;
+                });
+                if (!clicked) throw new Error('the board row should offer Upgrades');
+                await carol.page.waitForFunction(() => /Manage Upgrades/.test(document.body.innerText), { timeout: 5000 });
+            };
+            await open();
+            // the lists are loaded after the board is up
+            await carol.page.waitForFunction(() => /Iron Will/.test(document.querySelector('[role=dialog]').innerText), { timeout: 9000 });
+            await carol.page.evaluate(() =>
+                [...document.querySelectorAll('[role=dialog] button')]
+                    .find((b) => /Iron Will/.test(b.innerText) && !/Remove/.test(b.getAttribute('aria-label') ?? ''))
+                    .click(),
+            );
+            await carol.page.waitForFunction(() => /Active Upgrades/.test(document.querySelector('[role=dialog]').innerText), { timeout: 5000 });
+            await L.sleep(800);
+            await open();
+            await carol.page.waitForFunction(() => /Active Upgrades/.test(document.querySelector('[role=dialog]').innerText), { timeout: 9000 });
+            await carol.page.keyboard.press('Escape');
+        });
+        // last in the loop: it changes one of Carol's models
+        await L.step(`board (${label}): a replaced model is set down in base contact with where the original stood`, carol, async () => {
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=crew-list] [data-testid^=crew-]');
+            const found = await carol.page.evaluate(() => {
+                const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find((r) =>
+                    [...r.querySelectorAll('button')].some((b) => (b.getAttribute('aria-label') ?? '').startsWith('Decrease health')),
+                );
+                const id = row.getAttribute('data-testid').replace('crew-', '');
+                const b = [...row.querySelectorAll('button')].find((x) => x.offsetParent && /^Replace/.test(x.getAttribute('title') ?? ''));
+                const c = document.querySelector(`[data-testid=token-${id}] > circle:not([data-testid])`);
+                if (b) b.click();
+                return { id, replace: !!b, x: Number(c.getAttribute('cx')), y: Number(c.getAttribute('cy')), r: Number(c.getAttribute('r')) };
+            });
+            if (!found.replace) return; // the row's Replace button is for wider screens
+            await carol.page.waitForFunction(() => /Replace Crew Member/.test(document.body.innerText), { timeout: 5000 });
+            await carol.page.evaluate(() => {
+                const d = [...document.querySelectorAll('details')].find((x) => /Search All Characters/.test(x.innerText));
+                if (d) d.open = true;
+            });
+            await carol.page.type('input[placeholder="Search..."]', 'seedlady');
+            await carol.page.waitForFunction(
+                () =>
+                    [...document.querySelectorAll('[role=dialog] button')].some((b) => /Seedlady/i.test(b.innerText) && !/Cancel/.test(b.innerText)),
+                { timeout: 6000 },
+            );
+            await carol.page.evaluate(() =>
+                [...document.querySelectorAll('[role=dialog] button')].find((b) => /Seedlady/i.test(b.innerText)).click(),
+            );
+            await carol.page.waitForSelector('[data-testid=unplaced-bar][role=alert]', { timeout: 8000 });
+            // a reload does not forget that it still has to be set down
+            await L.visit(carol, `/games/${L.ids.play_game}/board`);
+            await carol.page.waitForSelector('[data-testid=unplaced-bar][role=alert]', { timeout: 9000 });
+            await carol.page.$eval('[data-testid=unplaced-bar] [data-testid=place-unplaced]', (b) => {
+                b.scrollIntoView({ block: 'center' });
+                b.click();
+            });
+            await carol.page.waitForSelector('[data-testid=contact-ring]', { timeout: 3000 });
+            await carol.page.evaluate(() => document.querySelector('[data-testid=tabletop-board]').scrollIntoView());
+            const box = await carol.page.$eval('[data-testid=tabletop-board] svg', (e) => {
+                const r = e.getBoundingClientRect();
+                const vb = e.viewBox.baseVal;
+                return { left: r.left, top: r.top, w: r.width, vx: vb.x, vy: vb.y, vw: vb.width };
+            });
+            // tap on the open side: 3" to the right of the original, or to the left near the right-hand edge
+            const tapX = found.x < 24 ? found.x + 3 : found.x - 3;
+            await carol.page.mouse.click(box.left + ((tapX - box.vx) / box.vw) * box.w, box.top + ((found.y - box.vy) / box.vw) * box.w);
+            await carol.page.waitForFunction(() => !document.querySelector('[data-testid=unplaced-bar][role=alert]'), { timeout: 6000 });
+            const now = await carol.page.evaluate((id) => {
+                const c = document.querySelector(`[data-testid=token-${id}] > circle:not([data-testid])`);
+                return { x: Number(c.getAttribute('cx')), y: Number(c.getAttribute('cy')), r: Number(c.getAttribute('r')) };
+            }, found.id);
+            const apart = Math.hypot(now.x - found.x, now.y - found.y);
+            console.log(`   [replace in contact] ${label}: ${apart.toFixed(3)}" apart for radii ${(found.r + now.r).toFixed(3)}`);
+            if (Math.abs(apart - (found.r + now.r)) > 0.03)
+                throw new Error(`the replacement should touch where the original stood: ${apart}" apart, wanted ${found.r + now.r}`);
+        });
     }
 
     const live = await L.session(browser, 'carol@example.test');
@@ -528,10 +792,10 @@ const L = require('./lib.cjs');
         );
         await live.page.evaluate((i) => window.__boardMoved({ positions: { [i]: { x: 20, y: 18 } } }), id);
         await L.sleep(300);
-        const at = await live.page.evaluate(() => {
-            const c = document.querySelectorAll('[data-testid^=token-] > circle')[1];
+        const at = await live.page.evaluate((i) => {
+            const c = document.querySelector(`[data-testid="token-${i}"] > circle:not([data-testid])`);
             return { cx: Number(c.getAttribute('cx')), cy: Number(c.getAttribute('cy')) };
-        });
+        }, id);
         if (Math.abs(at.cx - 20) > 0.01 || Math.abs(at.cy - 18) > 0.01) throw new Error(`model did not move: ${JSON.stringify(at)}`);
     });
     await L.step('board: terrain the other player lays out appears without a reload', live, async () => {

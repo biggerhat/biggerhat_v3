@@ -42,6 +42,8 @@ async function session(browser, email, vp = { width: 1280, height: 900 }) {
 }
 
 async function step(name, s, fn) {
+    // ONLY="text" runs just the steps whose name contains it (for debugging one step)
+    if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
     s.problems.length = 0;
     let status = 'PASS',
         detail = '';
@@ -172,4 +174,41 @@ async function pickByTrigger(s, triggerRe, optionRe) {
     await sleep(300);
 }
 
-module.exports = { pickByTrigger, BASE, ids, sleep, results, launch, session, step, shot, text, visit, expectText, clickText, pickSelect };
+/**
+ * The table settings (surface, zones, lines, Reset, saved tables) live on the Table tab. A step that clicks one of them calls this first: it opens
+ * the tab if the control is hidden, and returns a function that goes back to the tab that was open.
+ */
+async function revealTable(page, selector) {
+    const hidden = await page
+        .$eval(selector, (b) => {
+            const panel = b.closest('[data-testid=table-panel]');
+            return !!panel && !panel.checkVisibility();
+        })
+        .catch(() => false);
+    if (!hidden) return async () => {};
+    // go back to whichever tab was open (Models or Terrain), not always Models
+    const before = await page.evaluate(() => document.querySelector('[role=tab][aria-selected=true]')?.getAttribute('data-testid') ?? 'mode-move');
+    await page.$eval('[data-testid=mode-table]', (b) => b.click());
+    await page.waitForFunction(() => document.querySelector('[data-testid=table-panel]')?.checkVisibility(), { timeout: 4000 });
+    return async () => {
+        await page.$eval(`[data-testid=${before}]`, (b) => b.click());
+    };
+}
+
+module.exports = {
+    revealTable,
+    pickByTrigger,
+    BASE,
+    ids,
+    sleep,
+    results,
+    launch,
+    session,
+    step,
+    shot,
+    text,
+    visit,
+    expectText,
+    clickText,
+    pickSelect,
+};

@@ -34,7 +34,7 @@ class UnitController extends Controller
             ->with(['sides.abilities', 'sides.actions.triggers', 'sculpts', 'allegiances', 'specialUnitRules'])
             ->when(! $includeChildren, fn ($q) => $q->notCombinedArmsChild())
             ->when($request->query('search'), fn ($q, $search) => $q->where(function ($qq) use ($search) {
-                $qq->where('name', 'LIKE', "%{$search}%")->orWhere('title', 'LIKE', "%{$search}%");
+                $qq->whereSearch('name', $search)->orWhereSearch('title', $search);
             }))
             ->when($request->query('allegiance'), fn ($q, $slug) => $q->whereHas(
                 'allegiances',

@@ -26,7 +26,7 @@ class PackageController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $packages = Package::query()
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->query('category'), fn ($q, $category) => $q->where('category', $category))
             ->when($request->query('faction'), fn ($q, $faction) => $q->whereJsonContains('factions', $faction))
             ->orderBy('name')

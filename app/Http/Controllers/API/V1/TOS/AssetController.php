@@ -26,7 +26,7 @@ class AssetController extends Controller
     {
         $query = Asset::query()
             ->with(['allegiances', 'abilities', 'actions.triggers', 'limits'])
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->query('allegiance'), fn ($q, $slug) => $q->whereHas(
                 'allegiances',
                 fn ($qq) => $qq->where('tos_allegiances.slug', $slug)

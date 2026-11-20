@@ -30,7 +30,7 @@ class ActionController extends Controller
 
         $actions = Action::forGameMode($gameMode)
             ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->orderBy('name')
             ->paginate(min((int) $request->query('per_page', 15), 100));
 

@@ -15,7 +15,7 @@ class UpgradeAPIController extends Controller
     {
         $name = $request->get('name');
 
-        return Upgrade::standard()->where('name', 'LIKE', "%{$name}%")->get();
+        return Upgrade::standard()->whereSearch('name', $name)->get();
     }
 
     public function crew(Request $request)
@@ -27,10 +27,10 @@ class UpgradeAPIController extends Controller
                 $query->whereHas('masters', function (Builder $query2) use ($name) {
                     $query2->where('station', CharacterStationEnum::Master->value)
                         ->where(function ($q) use ($name) {
-                            $q->where('display_name', 'LIKE', "%{$name}%")
-                                ->orWhere('nicknames', 'LIKE', "%{$name}%");
+                            $q->whereSearch('display_name', $name)
+                                ->orWhereSearch('nicknames', $name);
                         });
-                })->orWhere('name', 'LIKE', "%{$name}%");
+                })->orWhereSearch('name', $name);
             })
             ->with('masters.miniatures')
             ->get();

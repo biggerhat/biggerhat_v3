@@ -16,7 +16,7 @@ class StratagemController extends Controller
 
         $query = Stratagem::with('allegiance:id,name,slug,type,secondary_type')->orderBy('name');
         if ($nameSearch) {
-            $query->where('name', 'LIKE', "%{$nameSearch}%");
+            $query->whereSearch('name', $nameSearch);
         }
 
         return inertia('TOS/Stratagems/Index', [

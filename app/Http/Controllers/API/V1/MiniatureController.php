@@ -27,8 +27,8 @@ class MiniatureController extends Controller
     {
         $miniatures = Miniature::query()
             ->when($request->query('search'), fn ($q, $search) => $q->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('display_name', 'LIKE', "%{$search}%");
+                $q->whereSearch('name', $search)
+                    ->orWhereSearch('display_name', $search);
             }))
             ->when($request->query('version'), fn ($q, $version) => $q->where('version', $version))
             ->when($request->query('character_id'), fn ($q, $id) => $q->where('character_id', $id))

@@ -12,6 +12,6 @@ class TokenAPIController extends Controller
     {
         $name = $request->get('name');
 
-        return Token::where('name', 'LIKE', "%{$name}%")->get();
+        return Token::whereSearch('name', $name)->get();
     }
 }

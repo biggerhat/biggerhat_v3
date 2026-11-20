@@ -31,7 +31,7 @@ class TransmissionController extends Controller
     {
         $transmissions = Transmission::query()
             ->with(['channel', 'characters', 'keywords'])
-            ->when($request->query('search'), fn ($q, $search) => $q->where('title', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('title', $search))
             ->when($request->query('channel'), fn ($q, $channel) => $q->whereHas('channel', fn ($cq) => $cq->where('slug', $channel)))
             ->when($request->query('transmission_type'), fn ($q, $type) => $q->where('transmission_type', $type))
             ->when($request->query('content_type'), fn ($q, $type) => $q->where('content_type', $type))

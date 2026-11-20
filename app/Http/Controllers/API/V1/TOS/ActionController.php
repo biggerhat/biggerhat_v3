@@ -26,7 +26,7 @@ class ActionController extends Controller
     {
         $query = Action::query()
             ->with(['typeLinks', 'triggers'])
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->query('type'), fn ($q, $type) => $q->whereHas(
                 'typeLinks',
                 fn ($qq) => $qq->where('type', $type)

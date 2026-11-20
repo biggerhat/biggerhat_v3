@@ -23,6 +23,7 @@ use App\Models\Marker;
 use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Game\CrewUpgradeCatalog;
+use App\Support\Game\GameDeployment;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
@@ -77,6 +78,7 @@ class GameBoardController extends Controller
                 'auto_soulstone_on_kill' => ($game->settings['auto_soulstone_on_kill'] ?? true) !== false,
                 // Campaign games offer injuries as well as upgrades to attach to a model
                 'is_campaign' => $game->format === GameFormatEnum::Campaign,
+                'status' => $game->status->value,
             ],
             'read_only' => $readOnly,
             'token_options' => TokenCatalogue::options(),
@@ -108,6 +110,8 @@ class GameBoardController extends Controller
             'placed_markers' => $game->board_state['markers'] ?? [],
             'shared_auras' => $game->board_state['auras'] ?? [],
             'deployment_variant' => (int) ($game->board_state['deployment_variant'] ?? 0),
+            // the deployment step: whose turn, what is being placed; null once play (or an earlier step) is under way
+            'deploy' => $game->status === GameStatusEnum::Deployment ? GameDeployment::summary($game) : null,
             'table_image' => $game->board_state['table_image'] ?? null,
             'table_images' => TabletopImages::tables(),
             'terrain_images' => TabletopImages::terrain(),
@@ -165,6 +169,12 @@ class GameBoardController extends Controller
             ->flatMap(fn (GamePlayer $p) => $p->crewMembers->pluck('id'))
             ->map(fn ($id) => (string) $id)
             ->all();
+
+        // While the crews are being deployed only the group being placed may be moved (and only by the player placing it)
+        $deployMovable = GameDeployment::movable($game);
+        if ($deployMovable !== null) {
+            $movable = array_values(array_intersect($movable, array_map('strval', $deployMovable)));
+        }
 
         $incoming = collect($request->validated('positions'))
             ->filter(fn ($_, $id) => in_array((string) $id, $movable, true))

@@ -13,6 +13,7 @@ use App\Models\Game;
  *
  * Standard and Campaign: Setup (waiting for an opponent) -> faction -> master -> crew -> scheme -> in progress.
  * Bonanza Brawl has one model and no scheme, so it goes from master straight to in progress.
+ * A game played on the tabletop app places its crews between crew and scheme: the rulebook deploys before schemes are chosen.
  */
 final class GameSetupFlow
 {
@@ -21,6 +22,7 @@ final class GameSetupFlow
         ['key' => 'faction', 'label' => 'Faction', 'status' => GameStatusEnum::FactionSelect],
         ['key' => 'master', 'label' => 'Master', 'status' => GameStatusEnum::MasterSelect],
         ['key' => 'crew', 'label' => 'Crew', 'status' => GameStatusEnum::CrewSelect],
+        ['key' => 'deploy', 'label' => 'Deploy', 'status' => GameStatusEnum::Deployment],
         ['key' => 'scheme', 'label' => 'Scheme', 'status' => GameStatusEnum::SchemeSelect],
     ];
 
@@ -35,6 +37,9 @@ final class GameSetupFlow
 
         if ($game->format !== GameFormatEnum::BonanzaBrawl) {
             $statuses[] = GameStatusEnum::CrewSelect;
+            if ($game->play_mode?->usesTabletop()) {
+                $statuses[] = GameStatusEnum::Deployment;
+            }
             $statuses[] = GameStatusEnum::SchemeSelect;
         }
 
@@ -95,9 +100,11 @@ final class GameSetupFlow
      */
     public static function steps(Game $game): array
     {
-        return array_map(
+        $statuses = self::statuses($game);
+
+        return array_values(array_map(
             fn (array $step) => ['key' => $step['key'], 'label' => $step['label'], 'status' => $step['status']->value],
-            self::STEPS,
-        );
+            array_filter(self::STEPS, fn (array $step) => in_array($step['status'], $statuses, true)),
+        ));
     }
 }

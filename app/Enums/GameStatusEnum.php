@@ -15,6 +15,8 @@ enum GameStatusEnum: string implements HasDefaultEnumMethods
     case FactionSelect = 'faction_select';
     case MasterSelect = 'master_select';
     case CrewSelect = 'crew_select';
+    /** Tabletop games only: both crews are placed on the table, in the order the rulebook gives, before schemes are chosen. */
+    case Deployment = 'deployment';
     case SchemeSelect = 'scheme_select';
     case InProgress = 'in_progress';
     case Completed = 'completed';
@@ -22,7 +24,7 @@ enum GameStatusEnum: string implements HasDefaultEnumMethods
 
     public function isSetupPhase(): bool
     {
-        return in_array($this, [self::Setup, self::FactionSelect, self::MasterSelect, self::CrewSelect, self::SchemeSelect]);
+        return in_array($this, [self::Setup, self::FactionSelect, self::MasterSelect, self::CrewSelect, self::Deployment, self::SchemeSelect]);
     }
 
     public function isActive(): bool

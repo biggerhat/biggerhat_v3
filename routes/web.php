@@ -463,6 +463,14 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/opponent-name', [GameSetupController::class, 'updateOpponentName'])->name('opponent_name');
     });
 
+    // Deployment of a tabletop game (the setup step between crew and schemes); its own throttle bucket like the other board routes
+    Route::prefix('/{game:uuid}/deploy')->name('deploy.')->middleware('throttle:60,1,deploy')->group(function () {
+        Route::post('/split', [\App\Http\Controllers\Game\GameDeployController::class, 'split'])->name('split');
+        Route::post('/choose', [\App\Http\Controllers\Game\GameDeployController::class, 'choose'])->name('choose');
+        Route::post('/done', [\App\Http\Controllers\Game\GameDeployController::class, 'done'])->name('done');
+        Route::post('/skip', [\App\Http\Controllers\Game\GameDeployController::class, 'skip'])->name('skip');
+    });
+
     // The Fate deck and hands of a full game (pre-release): the server shuffles and deals, a hand goes only to its owner
     // its own throttle bucket (the third value): unprefixed throttles share one counter per user, so deck traffic would eat the allowance of saving a table
     Route::prefix('/{game:uuid}/fate')->name('fate.')->middleware('throttle:240,1,fate')->group(function () {

@@ -47,6 +47,7 @@ use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Game\CrewUpgradeCatalog;
+use App\Support\Game\GameDeployment;
 use App\Support\Game\GameSetupFlow;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\TabletopAccess;
@@ -274,8 +275,8 @@ class GameController extends Controller
         }
 
         if ($context === GameShowContext::SelfView) {
-            // Participants also need crews during Scheme Select.
-            if (in_array($game->status, [GameStatusEnum::SchemeSelect, ...$postSetup])) {
+            // Participants also need crews during Deployment and Scheme Select (the crews are revealed before they are placed).
+            if (in_array($game->status, [GameStatusEnum::Deployment, GameStatusEnum::SchemeSelect, ...$postSetup])) {
                 $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at';
                 $loads[] = 'players.crewBuild';
                 $loads[] = 'players.master.crewUpgrades';
@@ -527,6 +528,8 @@ class GameController extends Controller
             'game' => $this->withTurn($game),
             // the setup indicator's steps and the status each is shown on (the sequence lives in GameSetupFlow)
             'setup_steps' => GameSetupFlow::steps($game),
+            // a tabletop game's deployment: whose turn it is, what is being placed (null at any other time)
+            'deploy' => $game->status === GameStatusEnum::Deployment ? GameDeployment::summary($game) : null,
             'schemes' => $schemes,
             'all_reachable_schemes' => $isSelf ? $this->reachableSchemes($schemeCache, $schemePoolOrder) : [],
             'deployment' => $game->deployment ? (function () use ($game) {

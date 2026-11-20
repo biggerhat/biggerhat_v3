@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\GameFormatEnum;
+use App\Enums\GamePlayModeEnum;
 use App\Enums\GameStatusEnum;
 use App\Models\Game;
 use App\Support\Game\GameSetupFlow;
@@ -50,4 +51,22 @@ it('lists the steps the screen shows with the status of each', function () {
 
     expect(array_column($steps, 'key'))->toBe(['faction', 'master', 'crew', 'scheme'])
         ->and(array_column($steps, 'status'))->toBe(['faction_select', 'master_select', 'crew_select', 'scheme_select']);
+});
+
+it('places the crews between crew and scheme for a tabletop game only', function () {
+    $tabletop = new Game(['format' => GameFormatEnum::Standard, 'status' => GameStatusEnum::CrewSelect, 'play_mode' => GamePlayModeEnum::Tabletop]);
+    $inPerson = new Game(['format' => GameFormatEnum::Standard, 'status' => GameStatusEnum::CrewSelect, 'play_mode' => GamePlayModeEnum::InPerson]);
+
+    expect(GameSetupFlow::next($tabletop, GameStatusEnum::CrewSelect))->toBe(GameStatusEnum::Deployment)
+        ->and(GameSetupFlow::next($tabletop, GameStatusEnum::Deployment))->toBe(GameStatusEnum::SchemeSelect)
+        ->and(array_column(GameSetupFlow::steps($tabletop), 'key'))->toBe(['faction', 'master', 'crew', 'deploy', 'scheme'])
+        ->and(GameSetupFlow::next($inPerson, GameStatusEnum::CrewSelect))->toBe(GameStatusEnum::SchemeSelect)
+        ->and(GameSetupFlow::next($inPerson, GameStatusEnum::Deployment))->toBeNull()
+        ->and(array_column(GameSetupFlow::steps($inPerson), 'key'))->toBe(['faction', 'master', 'crew', 'scheme']);
+});
+
+it('has no Deployment step for Bonanza Brawl even on the tabletop', function () {
+    $game = new Game(['format' => GameFormatEnum::BonanzaBrawl, 'play_mode' => GamePlayModeEnum::Tabletop]);
+
+    expect(GameSetupFlow::statuses($game))->not->toContain(GameStatusEnum::Deployment);
 });

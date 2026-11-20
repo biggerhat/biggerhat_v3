@@ -462,6 +462,23 @@ watch(tableLines, (on) => {
 /** Status badges (token chips, the activation tick, engaged) on the bases: on by default, and can be put away when a crowded table gets busy. */
 const BADGES_KEY = 'tabletop-badges';
 /** The height labels on the terrain ("Ht 3"): on by default, and can be put away when they crowd the models. */
+/** One line per model in the list beside the table (a long crew is otherwise a very long list). Kept on this device. */
+const COMPACT_KEY = 'tabletop-compact-rows';
+const compactRows = ref(false);
+onMounted(() => {
+    try {
+        compactRows.value = localStorage.getItem(COMPACT_KEY) === '1';
+    } catch {
+        // storage unavailable: the full rows
+    }
+});
+watch(compactRows, (on) => {
+    try {
+        localStorage.setItem(COMPACT_KEY, on ? '1' : '0');
+    } catch {
+        // ignore
+    }
+});
 const HEIGHTS_KEY = 'tabletop-heights';
 const showHeights = ref(true);
 const showBadges = ref(true);
@@ -2090,7 +2107,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
 </script>
 
 <template>
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         <!-- on a wide screen the table stays in view while the side column scrolls, so the list and the options never leave it behind -->
         <div class="group/board lg:sticky lg:top-4 lg:self-start" data-testid="board-column">
             <div class="mb-2 flex flex-wrap items-center gap-2 rounded-md border p-2" role="toolbar" aria-label="Board tools" data-testid="board-bar">
@@ -3283,6 +3300,13 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 <input v-model="showHeights" type="checkbox" class="size-6 shrink-0" data-testid="heights-toggle" />
                                 <span>Show terrain heights <span class="text-muted-foreground">(Ht 1, Ht 2...)</span></span>
                             </label>
+                            <label
+                                class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
+                                title="One line for each model in the list beside the table"
+                            >
+                                <input v-model="compactRows" type="checkbox" class="size-6 shrink-0" data-testid="compact-toggle" />
+                                <span>Compact model list <span class="text-muted-foreground">(one line each)</span></span>
+                            </label>
                             <label v-if="variants.length" class="block text-sm">
                                 <span class="mb-1 block font-medium">Which side</span>
                                 <select
@@ -3396,6 +3420,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :card-open="openCards.has(m.id)"
                                 :is-campaign="!!isCampaign"
                                 :allow-attach="!!canAttach"
+                                :compact="compactRows"
                                 board-mode
                                 :upgrade-power-max="noUpgradePower"
                                 :loot-card-by-id="noLootCard"

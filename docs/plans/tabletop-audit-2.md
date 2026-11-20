@@ -103,7 +103,7 @@ Each batch needs the help topics and the pictures remade (a layout change moves 
 
 **Batch 3 (done, 2026-11):** 2. On a phone the terrain editor is a bottom sheet (`terrain-sheet`, Done button) with the board scrolled into view above it; the floating Fate button is hidden while it is up.
 
-**Batch 4 (part, 2026-11):** 12 as smaller, tighter alerts (the wording is unchanged). **Not done:** 11 (compact rows; the row is shared with the play screen), 13/16 (group the Options panel), 14.
+**Batch 4 (part, 2026-11):** 12 as smaller, tighter alerts (the wording is unchanged); 11 as an opt-in **Compact model list** (Table tab): one line per model on the board (`GameCrewMemberRow` `compact`, board only; the play screen is unchanged), a menu for Tokens, Card, Upgrades and Replace, six models in about 300px instead of about 500. **Not done:** 13/16 (group the Options panel), 14.
 
 **Batch 5 (part, 2026-11):** 23. An empty sandbox says "Start here" with three steps and an Add a character button. **Not done:** 21 (a dismissible first-visit strip for the gestures).
 

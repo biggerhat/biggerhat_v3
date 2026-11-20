@@ -1662,6 +1662,68 @@ const L = require('./lib.cjs');
             if ((await s.page.$eval('[data-testid=mode-move]', (b) => b.getAttribute('aria-selected'))) !== 'true')
                 throw new Error('Done should return to the Models tab');
         });
+        await L.step(`tabletop (${label}): the model list can be one line per model, and keeps its Tokens and health`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=crew-list]', { timeout: 6000 });
+            const rowHeight = () =>
+                s.page.evaluate(() => {
+                    const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find(
+                        (r) => r.getAttribute('data-testid') !== 'crew-list',
+                    );
+                    return Math.round(row.getBoundingClientRect().height);
+                });
+            const full = await rowHeight();
+            await s.page.$eval('[data-testid=compact-toggle]', (i) => i.click());
+            await s.page.waitForFunction(
+                (h) => {
+                    const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find(
+                        (r) => r.getAttribute('data-testid') !== 'crew-list',
+                    );
+                    return Math.round(row.getBoundingClientRect().height) < h * 0.75;
+                },
+                { timeout: 4000 },
+                full,
+            );
+            const compact = await rowHeight();
+            // the health stepper is still on the row; the rarer buttons are in its menu
+            const state = await s.page.evaluate(() => {
+                const row = [...document.querySelectorAll('[data-testid=crew-list] [data-testid^=crew-]')].find(
+                    (r) => r.getAttribute('data-testid') !== 'crew-list',
+                );
+                const vis = (e) => !!e && !!e.checkVisibility?.();
+                return {
+                    stepper: vis(row.querySelector('[aria-label^="Decrease health"]')) && vis(row.querySelector('[aria-label^="Increase health"]')),
+                    tokensButton: [...row.querySelectorAll('button')].some((b) => vis(b) && b.getAttribute('title') === 'Tokens'),
+                    more: vis(row.querySelector('[data-testid=row-more]')),
+                };
+            });
+            // the column keeps to the screen: a long name must be cut short, not widen the whole column
+            const fits = await s.page.evaluate(
+                () => document.querySelector('[data-testid=side-column]').getBoundingClientRect().right <= window.innerWidth - 4,
+            );
+            if (!fits) throw new Error('the side column is wider than the screen');
+            if (!state.stepper) throw new Error('a compact row keeps the health stepper');
+            if (state.tokensButton) throw new Error('a compact row has no separate Tokens button');
+            if (!state.more) throw new Error('a compact row has a menu for its other actions');
+            if (label === 'desktop' && compact > 56)
+                throw new Error(`a compact row should be one line on a wide screen: ${compact}px (full ${full}px)`);
+            // Tokens are the first thing in the menu, and it opens the token dialog
+            await s.page.$eval('[data-testid=row-more]', (b) => b.scrollIntoView({ block: 'center' }));
+            await s.page.click('[data-testid=row-more]');
+            await s.page.waitForSelector('[role=menuitem]', { timeout: 3000 });
+            const items = await s.page.$$eval('[role=menuitem]', (e) => e.map((x) => x.innerText.trim()));
+            if (!items.includes('Tokens') || !items.some((t) => /Replace/.test(t)))
+                throw new Error(`the menu should offer Tokens and Replace: ${items}`);
+            await s.page.evaluate(() => [...document.querySelectorAll('[role=menuitem]')].find((x) => /^Tokens/.test(x.innerText.trim())).click());
+            await s.page.waitForFunction(() => /Manage Tokens/.test(document.body.innerText), { timeout: 4000 });
+            await s.page.keyboard.press('Escape');
+            await s.page.waitForFunction(() => !/Manage Tokens/.test(document.body.innerText), { timeout: 4000 });
+            // the choice is kept on this device
+            await L.visit(s, '/tools/tabletop');
+            await s.page.waitForSelector('[data-testid=compact-toggle]');
+            if (!(await s.page.$eval('[data-testid=compact-toggle]', (i) => i.checked))) throw new Error('the compact list should be remembered');
+            await s.page.$eval('[data-testid=compact-toggle]', (i) => i.click());
+        });
         await L.step(`tabletop (${label}): a model can be chosen and moved from the keyboard alone, with the same rules and notes`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');

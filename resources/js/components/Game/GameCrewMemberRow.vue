@@ -49,6 +49,8 @@ const props = withDefaults(
         allowAttach?: boolean;
         /** On the board: the tabletop options are rolled down under this row. */
         optionsOpen?: boolean;
+        /** On the board: one line per model (name, health, Options and a menu) instead of three. */
+        compact?: boolean;
         upgradePowerMax: (upgradeId: number) => number;
         lootCardById: (id: number) => { value_label?: string; suit?: string | null } | null;
         lootCardSuitIcon: (suit: string | null | undefined) => string | null;
@@ -86,6 +88,8 @@ const stats = computed(() =>
     ].filter((x) => x.value),
 );
 
+/** A compact row has no stats line, so they are in the name's tooltip. */
+const statsTitle = computed(() => stats.value.map((x) => `${x.title} ${x.value}`).join(', '));
 // A model with no faction (a sandbox model) is tinted by its side, so the two crews are told apart: blue and red, both dark enough for white text.
 /** On the board, the row's main controls are at least 44px square on a phone, so they can be hit with a finger. */
 const canAttach = computed(() => props.allowAttach ?? !props.boardMode);
@@ -118,7 +122,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <Circle v-else class="size-5 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)] sm:size-3.5" />
                     </button>
                     <button
-                        v-if="canAttach"
+                        v-if="canAttach && !compact"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-amber-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Upgrades"
                         title="Upgrades"
@@ -127,7 +131,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <ArrowUpCircle class="size-4" />
                     </button>
                     <button
-                        v-if="isCampaign && canAttach"
+                        v-if="isCampaign && canAttach && !compact"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-rose-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Attach Injury"
                         title="Attach Injury"
@@ -136,6 +140,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <HeartCrack class="size-4" />
                     </button>
                     <button
+                        v-if="!compact"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-cyan-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Tokens"
                         title="Tokens"
@@ -144,6 +149,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         <Puzzle class="size-4" />
                     </button>
                     <button
+                        v-if="!compact"
                         class="hidden shrink-0 rounded bg-black/30 p-1.5 text-blue-200 hover:bg-black/50 sm:inline-flex"
                         aria-label="Replace"
                         title="Replace"
@@ -156,13 +162,17 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     <Check v-if="member.is_activated" class="size-3.5 shrink-0 text-green-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                     <Circle v-else class="size-3.5 shrink-0 text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
                 </template>
-                <button class="min-w-0 cursor-pointer truncate text-base font-semibold hover:underline" @click="$emit('preview')">
+                <button
+                    class="min-w-0 cursor-pointer truncate text-base font-semibold hover:underline"
+                    :title="compact ? statsTitle : undefined"
+                    @click="$emit('preview')"
+                >
                     {{ member.display_name }}
                 </button>
                 <button
                     v-if="member.front_image || hasCustomCharacterCard(member)"
-                    :class="tap"
-                    class="shrink-0 rounded p-1 hover:bg-white/20 sm:ml-auto"
+                    class="shrink-0 rounded p-1 hover:bg-white/20"
+                    :class="[tap, compact ? 'order-1 max-sm:hidden' : 'sm:ml-auto']"
                     aria-label="Toggle card preview"
                     title="Toggle card preview"
                     @click.stop="$emit('toggle-card')"
@@ -172,7 +182,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 <button
                     v-if="boardMode"
                     class="flex shrink-0 items-center rounded p-1 hover:bg-white/20"
-                    :class="[tap, member.front_image || hasCustomCharacterCard(member) ? '' : 'sm:ml-auto']"
+                    :class="[tap, compact ? 'order-3' : member.front_image || hasCustomCharacterCard(member) ? '' : 'sm:ml-auto']"
                     :aria-expanded="!!optionsOpen"
                     aria-label="Tabletop options"
                     title="Tabletop options"
@@ -183,14 +193,44 @@ const hasCustomCharacterCard = (member: any): boolean =>
                         class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
                         :class="optionsOpen ? 'text-amber-300' : 'text-white'"
                     />
-                    <span class="hidden text-xs font-medium sm:ml-1 sm:inline">Options</span>
+                    <span v-if="!compact" class="hidden text-xs font-medium sm:ml-1 sm:inline">Options</span>
                 </button>
+                <!-- Compact: everything that is not on the one line is in this menu (Tokens are used often, so they are first) -->
+                <DropdownMenu v-if="compact && editable" :modal="false">
+                    <DropdownMenuTrigger as-child>
+                        <button
+                            :class="tap"
+                            class="order-4 flex shrink-0 items-center rounded p-1 hover:bg-white/20"
+                            :aria-label="`More actions for ${member.display_name}`"
+                            data-testid="row-more"
+                        >
+                            <MoreHorizontal class="size-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem @select="$emit('open-tokens')"> <Puzzle class="mr-2 size-4" /> Tokens </DropdownMenuItem>
+                        <DropdownMenuItem
+                            v-if="member.front_image || hasCustomCharacterCard(member)"
+                            class="sm:hidden"
+                            @select="$emit('toggle-card')"
+                        >
+                            <Eye class="mr-2 size-4" /> Card
+                        </DropdownMenuItem>
+                        <DropdownMenuItem v-if="canAttach" @select="$emit('open-upgrades')">
+                            <ArrowUpCircle class="mr-2 size-4" /> Upgrades
+                        </DropdownMenuItem>
+                        <DropdownMenuItem v-if="isCampaign && canAttach" @select="$emit('open-injury')">
+                            <HeartCrack class="mr-2 size-4" /> Attach injury
+                        </DropdownMenuItem>
+                        <DropdownMenuItem @select="$emit('replace')"> <Replace class="mr-2 size-4" /> Replace model </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <!-- Phones: health stepper on the name line (from `sm` it sits on the stats row below, as before). -->
-                <div v-if="editable" class="ml-auto flex shrink-0 items-center gap-0.5 sm:hidden">
+                <div v-if="editable" class="ml-auto flex shrink-0 items-center gap-0.5" :class="compact ? 'order-2' : 'sm:hidden'">
                     <button
                         :aria-label="`Decrease health of ${member.display_name}`"
                         :class="tap"
-                        class="rounded border p-2.5 hover:bg-muted"
+                        class="rounded border p-2.5 hover:bg-muted sm:p-1"
                         @click="$emit('health-delta', -1)"
                     >
                         <Minus class="size-4" />
@@ -202,19 +242,19 @@ const hasCustomCharacterCard = (member: any): boolean =>
                     <button
                         :aria-label="`Increase health of ${member.display_name}`"
                         :class="tap"
-                        class="rounded border p-2.5 hover:bg-muted"
+                        class="rounded border p-2.5 hover:bg-muted sm:p-1"
                         @click="$emit('health-delta', 1)"
                     >
                         <Plus class="size-4" />
                     </button>
                 </div>
-                <span v-else class="ml-auto flex shrink-0 items-center gap-0.5 text-sm font-bold sm:hidden">
+                <span v-else class="ml-auto flex shrink-0 items-center gap-0.5 text-sm font-bold" :class="compact ? 'order-2' : 'sm:hidden'">
                     <Heart class="size-3.5" :class="member.current_health <= Math.ceil(member.max_health / 2) ? 'text-red-300' : ''" />
                     {{ member.max_health ? `${member.current_health}/${member.max_health}` : '–' }}
                 </span>
             </div>
             <!-- Line 2 (phones): health pips, stats and the action buttons -->
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 sm:hidden">
+            <div v-if="!compact" class="flex flex-wrap items-center gap-x-3 gap-y-1 pl-9 sm:hidden">
                 <div v-if="!boardMode" class="flex gap-0.5">
                     <button
                         v-for="pip in member.max_health"
@@ -273,7 +313,7 @@ const hasCustomCharacterCard = (member: any): boolean =>
                 </div>
             </div>
             <!-- Line 3 (from `sm`): stats + pips + health controls on one row. Phones show these on lines 1-2 above. -->
-            <div class="mt-0.5 hidden flex-wrap items-center gap-x-2 gap-y-1 sm:flex sm:pl-6">
+            <div v-if="!compact" class="mt-0.5 hidden flex-wrap items-center gap-x-2 gap-y-1 sm:flex sm:pl-6">
                 <div
                     v-if="stats.length || member.characteristics?.length"
                     class="flex gap-1.5 text-xs font-semibold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"

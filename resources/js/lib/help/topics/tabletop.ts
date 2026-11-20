@@ -49,7 +49,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'The model list',
-                    body: 'Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table: sight guidelines, scheme target, what it ignores, and notes. Add characters, markers and terrain with the Add button above the list.',
+                    body: 'Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table: sight guidelines, scheme target, what it ignores, and notes. Add characters, markers and terrain with the Add button above the list. With a large crew, turn on Compact model list (Table tab, under Surface and zones) for one line per model: its name, health, Options and a menu with Tokens, Upgrades and Replace. The choice is kept on this device.',
                     image: {
                         src: 'tabletop/model-options.webp',
                         alt: "A model's options panel: its size and position, a Sight guidelines button, a Mark killed button, the Ignores terrain, Fate flip and Notes sections, and Add aura.",

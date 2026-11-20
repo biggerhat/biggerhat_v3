@@ -33,15 +33,15 @@ const tabletop: HelpTopic = {
             items: [
                 {
                     title: 'Two tabs',
-                    body: 'Models is for the models and markers on the table: moving, measuring and their health. Terrain is for laying out the table. Switch with a click, or with the left and right arrow keys while a tab has focus.',
+                    body: 'Three tabs sit at the top of the side column. Models is for the models and markers on the table: moving, measuring and their health. Terrain is for laying out the table. Table is for the table itself: saving and loading it, its surface, deployment zones and what is drawn on it. Switch with a click, or with the left and right arrow keys while a tab has focus. The question mark beside the tabs opens this help.',
                 },
                 {
                     title: 'Looking around',
-                    body: 'Scroll the mouse wheel or pinch to zoom, and drag empty table to move around. Zoom is only a view: nothing on the table changes.',
+                    body: 'Zoom with the buttons in the bar above the board, the mouse wheel or a pinch, and drag empty table to move around. Zoom is only a view: nothing on the table changes.',
                 },
                 {
                     title: 'The sandbox',
-                    body: 'Open Tabletop from the Play menu. Add a character to put its model on the table at its real base size, with its Sz, Sp and health. The sandbox keeps your table on this device. Use Save table to keep one in My tables and share it by link; Load table brings one back.',
+                    body: 'Open Tabletop from the Play menu. Add a character to put its model on the table at its real base size, with its Sz, Sp and health. The sandbox keeps your table on this device. Use Save table (on the Table tab) to keep one in My tables and share it by link; Load table brings one back.',
                 },
                 {
                     title: 'The board of a game',
@@ -49,7 +49,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'The model list',
-                    body: 'Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table: sight guidelines, scheme target, what it ignores, and notes.',
+                    body: 'Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table: sight guidelines, scheme target, what it ignores, and notes. Add characters, markers and terrain with the Add button above the list.',
                     image: {
                         src: 'tabletop/model-options.webp',
                         alt: "A model's options panel: its size and position, a Sight guidelines button, a Mark killed button, the Ignores terrain, Fate flip and Notes sections, and Add aura.",
@@ -65,7 +65,7 @@ const tabletop: HelpTopic = {
             items: [
                 {
                     title: 'Walk, Charge, Jump, Flight, Place',
-                    body: 'Choose how the model moves with "Move as". Walk spends movement and is stopped by terrain. Charge is a straight line up to its Sp, once per activation and not while engaged. Jump crosses a gap. Flight is a Walk that ignores terrain height. Place puts a model down within a range with no movement. Hover a button for its short description.',
+                    body: 'Choose how the model moves with the buttons in the bar above the board (next to Ruler and Step). Walk spends movement and is stopped by terrain. Charge is a straight line up to its Sp, once per activation and not while engaged. Jump crosses a gap. Flight is a Walk that ignores terrain height. Place puts a model down within a range with no movement. Hover a button for its short description.',
                 },
                 {
                     title: 'Step',
@@ -104,7 +104,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Table lines and zones',
-                    body: 'Show table lines draws the centre axes and the middle of each 18 inch quarter. Choosing a deployment draws its zones.',
+                    body: 'Show table lines draws the centre axes and the middle of each 18 inch quarter. Choosing a deployment draws its zones. Show terrain heights turns the "Ht 3" labels on the terrain on or off (these switches, and the surface and deployment, are on the Table tab under Surface and zones).',
                 },
             ],
         },
@@ -133,7 +133,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Move, turn and reshape',
-                    body: 'Drag a piece to move it. Select it, then drag a corner dot to reshape it, or drag the dot in the middle of an edge to add a corner. Turn 90 degrees, or 15 degrees either way, rotates every level together. Duplicate copies a piece, Delete removes it, and Undo takes back your last change.',
+                    body: 'Drag a piece to move it. Select it, then drag a corner dot to reshape it, or drag the dot in the middle of an edge to add a corner. Turn 90 degrees, or 15 degrees either way, rotates every level together. Duplicate copies a piece, Delete removes it, and Undo takes back your last change. On a phone the terrain editor opens as a sheet over the lower part of the screen, with the whole board still in view above it, so you see each change as you make it; press Done to close it.',
                 },
                 {
                     title: 'Levels and heights',
@@ -167,7 +167,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Saving',
-                    body: 'In the sandbox, terrain is kept on this device; use Save table to keep it in My tables and share it. In a game, terrain is saved with the game and the other player sees changes.',
+                    body: 'In the sandbox, terrain is kept on this device; use Save table on the Table tab to keep it in My tables and share it. In a game, terrain is saved with the game and the other player sees changes.',
                 },
             ],
         },

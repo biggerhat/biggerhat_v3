@@ -23,7 +23,7 @@ const L = require('./lib.cjs');
                 [x, y],
             );
         // Click a control after centring it: on a phone the fixed tab bar can sit over a button scrolled to the very bottom.
-        const hit = async (selector) => {
+        const hitRaw = async (selector) => {
             // the Table section is collapsed until opened: open whatever the control sits in
             await s.page.$eval(selector, (b) => {
                 const d = b.closest('details');
@@ -41,6 +41,14 @@ const L = require('./lib.cjs');
                     [...document.querySelectorAll('[role=dialog] button')].find((b) => /Reset table/.test(b.innerText)).click(),
                 );
                 await s.page.waitForFunction(() => !document.querySelector('[role=dialog]'), { timeout: 5000 });
+            }
+        };
+        const hit = async (selector) => {
+            const back = await L.revealTable(s.page, selector);
+            try {
+                await hitRaw(selector);
+            } finally {
+                await back();
             }
         };
         const addItem = async (id) => {
@@ -663,7 +671,9 @@ const L = require('./lib.cjs');
                 // with a deployment chosen the deployment's own centerline is still there, with no big label on it
                 await s.page.select('[data-testid=deployment-select]', 'standard');
                 await s.page.waitForSelector('[data-testid=centerline]');
+                const backToModels = await L.revealTable(s.page, '[data-testid=table-summary]');
                 const summary = await s.page.$eval('[data-testid=table-summary]', (e) => e.innerText);
+                await backToModels();
                 if (!/Standard/.test(summary) || !/lines on/.test(summary)) throw new Error(`the Table section should say what is set: ${summary}`);
                 if ((await s.page.$eval('body', (b) => b.innerText)).includes('CENTERLINE')) throw new Error('the centerline needs no label');
                 await toBoardTop();
@@ -721,7 +731,15 @@ const L = require('./lib.cjs');
                 if (label === 'desktop') {
                     if (chip) throw new Error('the selection chip is for phones only');
                 } else {
-                    if (!chip) throw new Error('on a phone the panel is below the board, so a chip should offer to go to it');
+                    if (!chip) {
+                        // with the side column grouped, the panel can already be on screen: then there is nothing to go to
+                        const inViewAlready = await s.page.$eval('[data-testid=selected-panel]', (e) => {
+                            const r = e.getBoundingClientRect();
+                            return r.top < window.innerHeight && r.bottom > 0;
+                        });
+                        if (!inViewAlready) throw new Error('the panel is off screen on a phone, so a chip should offer to go to it');
+                        return;
+                    }
                     const text = await s.page.$eval('[data-testid=selection-chip]', (e) => e.innerText);
                     if (!/Master/.test(text)) throw new Error(`the chip should name the selection: ${text}`);
                     await s.page.click('[data-testid=selection-chip]');
@@ -1318,6 +1336,13 @@ const L = require('./lib.cjs');
                     throw new Error(`reset left ${(await s.page.$$('[data-testid^=token-]')).length} models`);
                 });
             await s.page.waitForSelector('[data-testid=empty-table]');
+            // the empty table says where to start, and its button opens the character search
+            if (!/Start here/.test(await s.page.$eval('[data-testid=empty-table]', (e) => e.innerText)))
+                throw new Error('the empty table should say where to start');
+            await s.page.$eval('[data-testid=empty-add]', (b) => b.click());
+            await s.page.waitForSelector('[data-testid=character-search]', { timeout: 5000 });
+            await s.page.keyboard.press('Escape');
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=character-picker]'), { timeout: 5000 });
         });
         await L.step(`tabletop (${label}): the controller chooses where the Remains marker goes, within 1" of the killed model`, s, async () => {
             await openSandbox([{ id: 'k1', sp: 6, sz: 1, name: 'Fallen', side: 'a', baseMm: 30, x: 18, y: 18 }]);
@@ -1491,12 +1516,15 @@ const L = require('./lib.cjs');
             async () => {
                 await openSandbox();
                 await s.page.waitForSelector('[data-testid=tabletop-board] svg');
-                const open = () => s.page.waitForSelector('[data-testid=help-dialog]', { timeout: 4000 });
+                const open = (what) =>
+                    s.page.waitForSelector('[data-testid=help-dialog]', { timeout: 4000 }).catch(() => {
+                        throw new Error(`help did not open from ${what}`);
+                    });
                 const gone = () => s.page.waitForFunction(() => !document.querySelector('[data-testid=help-dialog]'), { timeout: 4000 });
                 const text = () => s.page.$eval('[data-testid=help-scroll]', (e) => e.innerText);
                 // the button opens it at the start, and its sections switch
                 await hit('[data-testid=tabletop-help-open]');
-                await open();
+                await open('its button');
                 if (!/Two tabs/.test(await text())) throw new Error('help should open at Getting started');
                 await s.page.$eval('[data-testid=help-tab-terrain]', (b) => b.click());
                 await s.page.waitForFunction(() => /Draw your own outline/.test(document.querySelector('[data-testid=help-scroll]').innerText), {
@@ -1507,8 +1535,8 @@ const L = require('./lib.cjs');
                 await gone();
                 // the terrain editor's own Help opens at terrain
                 await s.page.click('[data-testid=mode-terrain]');
-                await hit('[data-testid=terrain-help]');
-                await open();
+                await hit('[data-testid=tabletop-help-open]');
+                await open('the button on the terrain tab');
                 if (!/Draw your own outline/.test(await text())) throw new Error('the terrain editor help should open at Building terrain');
                 await s.page.$eval('[data-testid=help-close]', (b) => b.click());
                 await gone();
@@ -1516,12 +1544,124 @@ const L = require('./lib.cjs');
                 await s.page.click('[data-testid=mode-move]');
                 await s.page.$eval('[data-testid=tabletop-board] svg', (el) => el.focus());
                 await s.page.keyboard.press('?');
-                await open();
+                await open('the ? key');
                 if (!/Choose the previous or next model/.test(await text())) throw new Error('? should open the keyboard shortcuts');
                 await s.page.keyboard.press('Escape');
                 await gone();
             },
         );
+        await L.step(
+            `tabletop (${label}): the zoom buttons sit in the bar above the board, Add comes before the models, and the side column can be skipped`,
+            s,
+            async () => {
+                await openSandbox();
+                await s.page.waitForSelector('[data-testid=crew-list]', { timeout: 6000 });
+                const layout = await s.page.evaluate(() => {
+                    const board = document.querySelector('[data-testid=tabletop-board]');
+                    const zoom = document.querySelector('[data-testid=zoom-controls]');
+                    const add = document.querySelector('[data-testid=add-panel]');
+                    const list = document.querySelector('[data-testid=crew-list]');
+                    return {
+                        zoomOnBoard:
+                            !!board &&
+                            !!zoom &&
+                            !board.contains(zoom) &&
+                            !!zoom.closest('[data-testid=board-bar]') &&
+                            !!(board.compareDocumentPosition(zoom) & Node.DOCUMENT_POSITION_PRECEDING),
+                        addFirst: !!add && !!list && !!(add.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING),
+                    };
+                });
+                if (!layout.zoomOnBoard) throw new Error('the zoom buttons should be in the bar above the board (not covering it)');
+                if (!layout.addFirst) throw new Error('the Add panel should come before the list of models');
+                // the first Tab stop in the side column skips to the models
+                await s.page.$eval('[data-testid=skip-to-models]', (a) => a.click());
+                const focused = await s.page.evaluate(() => document.activeElement?.getAttribute('data-testid'));
+                if (focused !== 'crew-list') throw new Error(`the skip link should move focus to the models: ${focused}`);
+                // the height labels can be put away
+                if (!(await s.page.$('[data-testid=height-label]'))) throw new Error('the terrain should show its heights by default');
+                await s.page.$eval('[data-testid=heights-toggle]', (i) => i.click());
+                await s.page.waitForFunction(() => !document.querySelector('[data-testid=height-label]'), { timeout: 3000 });
+                await s.page.$eval('[data-testid=heights-toggle]', (i) => i.click());
+                await s.page.waitForSelector('[data-testid=height-label]', { timeout: 3000 });
+                // the Fate deck button does not look pressed on a tab that keeps its panel shut
+                await s.page.$eval('[data-testid=fate-open]', (b) => b.click());
+                await s.page.waitForSelector('[data-testid=fate-docked], [data-testid=fate-sheet]', { timeout: 5000 });
+                await s.page.click('[data-testid=mode-terrain]');
+                await L.sleep(400);
+                const pressed = await s.page.$eval('[data-testid=fate-open]', (b) => b.getAttribute('aria-expanded'));
+                if (pressed !== 'false') throw new Error(`the Fate deck button should not look open on the Terrain tab: ${pressed}`);
+            },
+        );
+        await L.step(
+            `tabletop (${label}): the side column is grouped: tabs for Models, Terrain and Table, the tools above the board, Help beside the tabs`,
+            s,
+            async () => {
+                await openSandbox();
+                await s.page.waitForSelector('[data-testid=mode-tabs]');
+                const tabsNow = await s.page.$$eval('[data-testid=mode-tabs] [role=tab]', (t) => t.map((x) => x.innerText.trim()));
+                if (tabsNow.join(',') !== 'Models,Terrain,Table') throw new Error(`the tabs should be Models, Terrain, Table: ${tabsNow}`);
+                // the tools sit with the board, not in the side column, and Help is an icon next to the tabs
+                const where = await s.page.evaluate(() => {
+                    const tools = document.querySelector('[data-testid=move-tools]');
+                    return {
+                        toolsUnderBoard: !!tools?.closest('[data-testid=board-column]'),
+                        toolsInSide: !!tools?.closest('[data-testid=side-column]'),
+                        helpInTabRow: !!document.querySelector('[data-testid=tab-row] [data-testid=tabletop-help-open]'),
+                        tableSettingsShown: !!document.querySelector('[data-testid=table-panel]')?.checkVisibility?.(),
+                    };
+                });
+                if (!where.toolsUnderBoard || where.toolsInSide) throw new Error(`the tools should be with the board: ${JSON.stringify(where)}`);
+                if (!where.helpInTabRow) throw new Error('Help should sit beside the tabs');
+                if (where.tableSettingsShown) throw new Error('the table settings belong to the Table tab');
+                // the Table tab holds the saved tables and the surface and zones; the models tab then has no table settings
+                await s.page.click('[data-testid=mode-table]');
+                await s.page.waitForSelector('[data-testid=table-panel]', { visible: true, timeout: 3000 });
+                for (const id of ['table-select', 'deployment-select', 'table-lines-toggle', 'badges-toggle', 'heights-toggle', 'table-save']) {
+                    const shown = await s.page.$eval(`[data-testid=${id}]`, (e) => !!e.checkVisibility?.());
+                    if (!shown) throw new Error(`${id} should be on the Table tab`);
+                }
+                if (await s.page.$eval('[data-testid=crew-list]', (e) => !!e.checkVisibility?.()).catch(() => false))
+                    throw new Error('the model list belongs to the Models tab');
+                // the arrow keys move through the three tabs and wrap
+                await s.page.$eval('[data-testid=mode-table]', (b) => b.focus());
+                await s.page.keyboard.press('ArrowRight');
+                await s.page.waitForFunction(() => document.querySelector('[data-testid=mode-move]')?.getAttribute('aria-selected') === 'true', {
+                    timeout: 3000,
+                });
+                await s.page.keyboard.press('ArrowLeft');
+                await s.page.waitForFunction(() => document.querySelector('[data-testid=mode-table]')?.getAttribute('aria-selected') === 'true', {
+                    timeout: 3000,
+                });
+            },
+        );
+        await L.step(`tabletop (${label}): terrain is edited in a sheet on a phone, with the board still in view above it`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            await s.page.click('[data-testid=mode-terrain]');
+            await s.page.waitForSelector('[data-testid=terrain-editor]', { timeout: 4000 });
+            const sheet = await s.page.$('[data-testid=terrain-sheet]');
+            if (label === 'desktop') {
+                if (sheet) throw new Error('on a wide screen the terrain editor stays in the side column');
+                return;
+            }
+            if (!sheet) throw new Error('on a phone the terrain editor should be a sheet');
+            // the Fate button has nothing to open on this tab, so it does not float over the sheet
+            if (await s.page.$eval('[data-testid=fate-open]', (b) => !!b.checkVisibility?.()))
+                throw new Error('the floating Fate button should be hidden while the terrain sheet is up');
+            await L.sleep(900); // the board scrolls into view
+            const fit = await s.page.evaluate(() => {
+                const board = document.querySelector('[data-testid=tabletop-board]').getBoundingClientRect();
+                const sheetEl = document.querySelector('[data-testid=terrain-sheet]').getBoundingClientRect();
+                return { boardTop: Math.round(board.top), boardBottom: Math.round(board.bottom), sheetTop: Math.round(sheetEl.top) };
+            });
+            if (fit.boardBottom > fit.sheetTop + 2 || fit.boardTop < -2)
+                throw new Error(`the whole board should show above the sheet: ${JSON.stringify(fit)}`);
+            // Done puts the sheet away and returns to the models
+            await s.page.$eval('[data-testid=terrain-sheet-done]', (b) => b.click());
+            await s.page.waitForFunction(() => !document.querySelector('[data-testid=terrain-sheet]'), { timeout: 3000 });
+            if ((await s.page.$eval('[data-testid=mode-move]', (b) => b.getAttribute('aria-selected'))) !== 'true')
+                throw new Error('Done should return to the Models tab');
+        });
         await L.step(`tabletop (${label}): a model can be chosen and moved from the keyboard alone, with the same rules and notes`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
@@ -1831,7 +1971,9 @@ const L = require('./lib.cjs');
                 });
             const click = async (testid) => {
                 await centreOn(testid);
-                await s.page.click(`[data-testid=${testid}]`);
+                await s.page.click(`[data-testid=${testid}]`).catch((e) => {
+                    throw new Error(`could not click ${testid}: ${e.message}`);
+                });
             };
             const stats = () => s.page.$eval('[data-testid=terrain-stats]', (e) => e.innerText);
             const levels = () => s.page.$$eval('[data-testid=terrain-level]', (e) => e.length);
@@ -1915,7 +2057,7 @@ const L = require('./lib.cjs');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
             if (/Covered: [1-9]/.test(await stats())) throw new Error(`an empty table has no coverage: ${await stats()}`);
             // A ready-made table fills it in one go and is undoable.
-            await click('table-load');
+            await hit('[data-testid=table-load]');
             await s.page.waitForSelector('[data-testid=load-dialog]');
             await s.page.$eval('[data-testid=load-default][data-key=hills]', (b) => b.click());
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', {
@@ -1927,7 +2069,7 @@ const L = require('./lib.cjs');
             await L.shot(s, `358-terrain-layout-${label}`);
             await click('terrain-undo');
             await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
-            await click('table-load');
+            await hit('[data-testid=table-load]');
             await s.page.waitForSelector('[data-testid=load-dialog]');
             await s.page.$eval('[data-testid=load-default][data-key=demo]', (b) => b.click());
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=load-dialog]') && document.body.style.pointerEvents !== 'none', {

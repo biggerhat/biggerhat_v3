@@ -96,3 +96,11 @@ Gotchas it taught: the app keeps its theme in `localStorage.appearance` (set it 
 Not a test: it writes the screenshots used in the in-app help (`public/images/help`, `resources/js/lib/help/images.json`) and only runs with `HELP_SHOTS=1`:
 `HELP_SHOTS=1 FLOWS=flows38.cjs CHROME=... scripts/ui-audit/tournaments/run.sh`. It also needs `public/hot` moved aside and a fresh `npm run build`. Details,
 how to add a picture and what to check afterwards: [docs/features/help.md](features/help.md).
+
+## Debugging one step (`ONLY`, `TIGHT_LIST`)
+
+`ONLY="part of a step name"` makes `L.step` skip every other step, so one step can be rerun in about a minute:
+`ONLY="a stepped move" FLOWS=flows35.cjs CHROME=... scripts/ui-audit/tournaments/run.sh` (the setup still runs; each step opens its own page). `TIGHT_LIST=1` makes
+`flows37.cjs` print, for each audited state, the controls under 44px grouped by name (the app's own sidebar and header left out). Steps that click a control on the Table tab call `L.revealTable`
+(see `lib.cjs`); `hit` does it for them.
+

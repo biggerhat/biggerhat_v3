@@ -94,6 +94,7 @@ import {
     Maximize,
     Minus,
     Mountain,
+    Settings2,
     Plus,
     Route,
     Ruler,
@@ -108,6 +109,7 @@ import { useFactionColor } from '@/composables/useFactionColor';
 import HelpDialog from '@/components/Help/HelpDialog.vue';
 import { GAME_ICONS } from '@/lib/gameIcons';
 import { RED_JOKER, SUITS, cardFace, cardLabel, cardSuit, type FateFeed, type FateFlip } from '@/lib/fate/fate';
+import { useMediaQuery } from '@vueuse/core';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowReactive, shallowRef, watch } from 'vue';
 
 /** A crew member in the shape the play screen's row reads (typed loosely, like the row itself). */
@@ -349,37 +351,47 @@ watch(
 const selectedId = ref<string | null>(null);
 const mode = ref<Mode>(props.initialMode ?? 'move');
 watch(mode, (m) => {
+    // on a phone, bring the board into view when the editor sheet opens, so the edits are seen as they are made (a jump, not an animation)
+    if (m === 'terrain' && compactScreen.value) {
+        void nextTick(() => document.querySelector('[data-testid=board-bar]')?.scrollIntoView({ block: 'start' }));
+    }
+    // the terrain tab and the table tab are never open together
+    if (m === 'terrain') showTable.value = false;
     if (m !== 'terrain') outline.value = null;
     // The ruler is a tool: when it is switched off, what it measured goes with it.
     if (m !== 'ruler') ruler.value = null;
 });
-/** The two tabs at the top of the side column: working with models, or with terrain. The ruler and the aim are tools of the models tab. */
-const activeTab = computed<'move' | 'terrain'>(() => (mode.value === 'terrain' ? 'terrain' : 'move'));
-const openTab = (tab: 'move' | 'terrain') => {
-    mode.value = tab;
+/** The tabs at the top of the side column: the models, the terrain, and the table itself (its saved copies and settings). The ruler and the aim are tools of the board. */
+type TabId = 'move' | 'terrain' | 'table';
+const showTable = ref(false);
+/** On a phone the terrain editor is a sheet over the lower part of the screen, so the board stays in view while you edit. */
+const compactScreen = useMediaQuery('(max-width: 1023px)');
+const terrainSheet = computed(() => compactScreen.value && mode.value === 'terrain' && !props.readOnly);
+const activeTab = computed<TabId>(() => (showTable.value ? 'table' : mode.value === 'terrain' ? 'terrain' : 'move'));
+/** A watcher cannot change the terrain, so has no Terrain tab. */
+const tabs = computed<{ id: TabId; label: string; icon: unknown }[]>(() => [
+    { id: 'move', label: 'Models', icon: Users },
+    ...(props.readOnly ? [] : [{ id: 'terrain' as const, label: 'Terrain', icon: Mountain }]),
+    { id: 'table', label: 'Table', icon: Settings2 },
+]);
+const openTab = (tab: TabId) => {
+    showTable.value = tab === 'table';
+    // the Models tab always returns to plain moving (it is how a tool such as the ruler or the aim is put away)
+    if (tab === 'terrain') mode.value = 'terrain';
+    else if (tab === 'move' || mode.value === 'terrain') mode.value = 'move';
 };
+/** The arrow keys move between the tabs (and wrap round), taking focus with them. */
+function stepTab(by: 1 | -1) {
+    const list = tabs.value;
+    const i = list.findIndex((t) => t.id === activeTab.value);
+    const next = list[(i + by + list.length) % list.length];
+    openTab(next.id);
+    void nextTick(() => document.querySelector<HTMLElement>(`[data-testid="mode-${next.id}"]`)?.focus());
+}
 const tabClass = (active: boolean) =>
     `flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
         active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
     }`;
-/** The Table section's open state is kept on this device; its closed line says what is set. */
-const TABLE_OPEN_KEY = 'tabletop-table-settings-open';
-const tableOpen = ref(false);
-onMounted(() => {
-    try {
-        tableOpen.value = localStorage.getItem(TABLE_OPEN_KEY) === '1';
-    } catch {
-        // storage unavailable: closed
-    }
-});
-function onTableToggle(e: Event) {
-    tableOpen.value = (e.target as HTMLDetailsElement).open;
-    try {
-        localStorage.setItem(TABLE_OPEN_KEY, tableOpen.value ? '1' : '0');
-    } catch {
-        // ignore
-    }
-}
 const tableSummary = computed(() =>
     [
         tableChoice.value?.name ?? 'Grass',
@@ -449,12 +461,23 @@ watch(tableLines, (on) => {
 });
 /** Status badges (token chips, the activation tick, engaged) on the bases: on by default, and can be put away when a crowded table gets busy. */
 const BADGES_KEY = 'tabletop-badges';
+/** The height labels on the terrain ("Ht 3"): on by default, and can be put away when they crowd the models. */
+const HEIGHTS_KEY = 'tabletop-heights';
+const showHeights = ref(true);
 const showBadges = ref(true);
 onMounted(() => {
     try {
         showBadges.value = localStorage.getItem(BADGES_KEY) !== '0';
+        showHeights.value = localStorage.getItem(HEIGHTS_KEY) !== '0';
     } catch {
         // storage unavailable: on
+    }
+});
+watch(showHeights, (on) => {
+    try {
+        localStorage.setItem(HEIGHTS_KEY, on ? '1' : '0');
+    } catch {
+        // ignore
     }
 });
 watch(showBadges, (on) => {
@@ -2070,6 +2093,101 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         <!-- on a wide screen the table stays in view while the side column scrolls, so the list and the options never leave it behind -->
         <div class="group/board lg:sticky lg:top-4 lg:self-start" data-testid="board-column">
+            <div class="mb-2 flex flex-wrap items-center gap-2 rounded-md border p-2" role="toolbar" aria-label="Board tools" data-testid="board-bar">
+                <template v-if="activeTab === 'move'">
+                    <div class="contents" data-testid="move-tools">
+                        <Button
+                            :variant="mode === 'ruler' ? 'default' : 'outline'"
+                            size="sm"
+                            title="Measure edge to edge: press on a model or a spot on the table and drag to another"
+                            data-testid="mode-ruler"
+                            :aria-pressed="mode === 'ruler'"
+                            @click="toggleRuler"
+                            ><Ruler class="mr-1 size-4" />Ruler</Button
+                        >
+                        <Button
+                            v-if="guidedId"
+                            :variant="mode === 'sight' ? 'default' : 'outline'"
+                            size="sm"
+                            title="Aim the sight guidelines: press on the table, or on the model or marker they should point at"
+                            data-testid="mode-sight"
+                            @click="mode = 'sight'"
+                            ><Eye class="mr-1 size-4" />Aim</Button
+                        >
+                        <Button
+                            v-if="mode === 'move'"
+                            :variant="stepMove ? 'default' : 'outline'"
+                            size="sm"
+                            :aria-pressed="stepMove"
+                            title="Step move: grab the same model again to add another leg to the move"
+                            data-testid="step-toggle"
+                            @click="stepMove = !stepMove"
+                            ><Route class="mr-1 size-4" />Step</Button
+                        >
+
+                        <div
+                            v-if="mode === 'move'"
+                            role="radiogroup"
+                            aria-label="How the model moves"
+                            class="inline-flex rounded-md border p-0.5 max-sm:order-last max-sm:w-full max-sm:[&>button]:flex-1"
+                            data-testid="move-kind"
+                        >
+                            <button
+                                v-for="o in MOVE_KINDS"
+                                :key="o.value"
+                                type="button"
+                                role="radio"
+                                :aria-checked="moveKind === o.value"
+                                :title="o.hint"
+                                :class="[
+                                    'rounded px-2 py-1 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+                                    moveKind === o.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                                ]"
+                                :data-testid="`move-kind-${o.value}`"
+                                @click="moveKind = o.value"
+                            >
+                                {{ o.label }}
+                            </button>
+                        </div>
+                        <template v-if="mode === 'move' && moveKind === 'place'">
+                            <label class="flex items-center gap-1 text-sm max-sm:order-last"
+                                >Within
+                                <input
+                                    v-model.number="placeRange"
+                                    type="number"
+                                    min="0.5"
+                                    max="36"
+                                    step="0.5"
+                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                    aria-label="Place range in inches"
+                                    data-testid="place-range"
+                                />"</label
+                            >
+                            <Button
+                                size="sm"
+                                class="max-sm:order-last"
+                                :variant="placeWhole ? 'default' : 'outline'"
+                                :aria-pressed="placeWhole"
+                                title="Some effects need the whole base within range rather than a single point of it"
+                                data-testid="place-whole"
+                                @click="placeWhole = !placeWhole"
+                                >Whole base</Button
+                            >
+                        </template>
+                    </div>
+                </template>
+                <div class="ml-auto flex shrink-0 gap-1" data-testid="zoom-controls">
+                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Zoom in" @click="zoomBy(0.8)"
+                        ><Plus class="size-4"
+                    /></Button>
+                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Zoom out" @click="zoomBy(1.25)"
+                        ><Minus class="size-4"
+                    /></Button>
+                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Fit the whole table" @click="resetView"
+                        ><Maximize class="size-4"
+                    /></Button>
+                </div>
+            </div>
             <div
                 class="mx-auto aspect-square w-full max-w-[min(100%,calc(100vh-14rem))] overflow-hidden rounded-lg border bg-card"
                 data-testid="tabletop-board"
@@ -2143,6 +2261,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         :d="`M${n} 0V${TABLE_SIZE}M0 ${n}H${TABLE_SIZE}`"
                         stroke="hsl(var(--border))"
                         :stroke-width="n === 18 ? 0.06 : 0.03"
+                        :stroke-opacity="n === 18 ? 0.7 : 0.45"
                     />
                     <g v-if="zones" data-testid="deployment-zones" :data-kind="deployment">
                         <!-- zones are clipped to the table, which cuts the corner circles into quarters -->
@@ -2212,12 +2331,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 data-testid="archway"
                             />
                             <text
-                                v-if="surface.top > 0"
                                 :x="labelAt(surface.shape).x"
                                 :y="labelAt(surface.shape).y"
-                                font-size="0.9"
+                                v-if="surface.top > 0 && showHeights"
+                                font-size="0.62"
                                 fill="hsl(var(--foreground))"
+                                stroke="hsl(var(--background) / 0.7)"
+                                stroke-width="0.12"
+                                paint-order="stroke"
                                 pointer-events="none"
+                                data-testid="height-label"
                             >
                                 Ht {{ surface.top }}
                                 <template v-if="surface.under !== undefined">· arch {{ surface.under }}</template>
@@ -2873,17 +2996,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             </p>
             <div class="mt-2 flex items-start gap-2">
                 <p class="min-h-5 flex-1 text-center text-sm" role="status" data-testid="tabletop-note">{{ note }}</p>
-                <div class="flex shrink-0 gap-1" data-testid="zoom-controls">
-                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Zoom in" @click="zoomBy(0.8)"
-                        ><Plus class="size-4"
-                    /></Button>
-                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Zoom out" @click="zoomBy(1.25)"
-                        ><Minus class="size-4"
-                    /></Button>
-                    <Button variant="outline" size="icon" class="size-8 max-lg:size-11" aria-label="Fit the whole table" @click="resetView"
-                        ><Maximize class="size-4"
-                    /></Button>
-                </div>
             </div>
         </div>
 
@@ -2891,330 +3003,49 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             class="space-y-4 max-lg:[&_button]:min-h-11 max-lg:[&_input:not([type=checkbox])]:min-h-11 max-lg:[&_select]:min-h-11"
             data-testid="side-column"
         >
-            <div class="flex justify-end">
-                <Button size="sm" variant="ghost" data-testid="tabletop-help-open" @click="openHelp(mode === 'terrain' ? 'terrain' : 'start')"
-                    ><CircleHelp class="mr-1.5 size-4" />Help and shortcuts</Button
-                >
-            </div>
-            <!-- What to work on: models, or terrain -->
-            <div
-                v-if="!readOnly"
-                role="tablist"
-                aria-label="What to work on"
-                class="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 max-lg:sticky max-lg:top-1 max-lg:z-20 max-lg:shadow-md"
-                data-testid="mode-tabs"
-                @keydown.right.prevent="openTab('terrain')"
-                @keydown.left.prevent="openTab('move')"
+            <a
+                v-if="crewRows.length && activeTab === 'move'"
+                href="#tabletop-models"
+                class="sr-only rounded-md bg-background px-3 py-2 text-sm font-medium focus:not-sr-only focus:ring-2 focus:ring-primary"
+                data-testid="skip-to-models"
+                @click.prevent="($event.target as HTMLElement).ownerDocument.getElementById('tabletop-models')?.focus()"
+                >Skip to the models</a
             >
-                <button
-                    type="button"
-                    role="tab"
-                    :aria-selected="activeTab === 'move'"
-                    :tabindex="activeTab === 'move' ? 0 : -1"
-                    :class="tabClass(activeTab === 'move')"
-                    data-testid="mode-move"
-                    @click="openTab('move')"
-                >
-                    <Users class="mr-1.5 size-4" />Models
-                </button>
-                <button
-                    type="button"
-                    role="tab"
-                    :aria-selected="activeTab === 'terrain'"
-                    :tabindex="activeTab === 'terrain' ? 0 : -1"
-                    :class="tabClass(activeTab === 'terrain')"
-                    data-testid="mode-terrain"
-                    @click="openTab('terrain')"
-                >
-                    <Mountain class="mr-1.5 size-4" />Terrain
-                </button>
-            </div>
-
-            <!-- The table: load or keep one, then its settings in one place -->
-            <div v-if="layouts !== undefined || layoutTarget" class="flex flex-wrap gap-2" data-testid="table-actions">
-                <Button
-                    v-if="layouts !== undefined"
-                    size="sm"
-                    variant="outline"
-                    class="flex-1"
-                    :disabled="readOnly"
-                    data-testid="table-load"
-                    @click="loadOpen = true"
-                    ><FolderOpen class="mr-1.5 size-4" />Load table</Button
-                >
-                <Button v-if="layoutTarget" size="sm" variant="outline" class="flex-1" data-testid="table-save" @click="saveOpen = true"
-                    ><Save class="mr-1.5 size-4" />Save table</Button
-                >
-            </div>
-            <details class="group rounded-md border" :open="tableOpen" data-testid="table-settings" @toggle="onTableToggle">
-                <summary class="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-sm [&::-webkit-details-marker]:hidden">
-                    <span class="font-semibold">Table</span>
-                    <span class="min-w-0 flex-1 truncate text-right text-muted-foreground" data-testid="table-summary">{{ tableSummary }}</span>
-                    <ChevronDown class="size-4 shrink-0 transition-transform group-open:rotate-180" />
-                </summary>
-                <div class="space-y-3 border-t p-3">
-                    <label v-if="tableImages?.length" class="block text-sm">
-                        <span class="mb-1 block font-medium">Table surface</span>
-                        <select
-                            :value="tableChoice?.key ?? ''"
-                            class="w-full rounded-md border bg-background px-2 py-1.5"
-                            :disabled="readOnly"
-                            data-testid="table-select"
-                            @change="chooseTable(($event.target as HTMLSelectElement).value)"
-                        >
-                            <option v-for="t in tableImages" :key="t.key" :value="t.key">{{ t.name }}</option>
-                        </select>
-                    </label>
-                    <label v-if="levels.length > 2" class="block text-sm">
-                        <span class="mb-1 block font-medium">Level shown</span>
-                        <select v-model="level" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="level-select">
-                            <option value="all">All levels</option>
-                            <option v-for="l in levels" :key="l" :value="l">{{ l === 0 ? 'Table only' : `Up to Ht ${l}` }}</option>
-                        </select>
-                    </label>
-                    <div class="space-y-2">
-                        <label class="block text-sm">
-                            <span class="mb-1 block font-medium">Deployment</span>
-                            <select
-                                v-model="deployment"
-                                class="w-full rounded-md border bg-background px-2 py-1.5"
-                                data-testid="deployment-select"
-                                @change="deploymentVariant === undefined && (variant = 0)"
-                            >
-                                <option value="none">None</option>
-                                <option v-for="d in DEPLOYMENT_KINDS" :key="d.value" :value="d.value">{{ d.label }}</option>
-                            </select>
-                        </label>
-                        <label
-                            class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
-                            title="The two centre axes and the middle of each 18-inch quarter"
-                        >
-                            <input v-model="tableLines" type="checkbox" class="size-6 shrink-0" data-testid="table-lines-toggle" />
-                            <span>Show table lines <span class="text-muted-foreground">(centre axes and quarter centres)</span></span>
-                        </label>
-                        <label
-                            class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
-                            title="Token chips, the activation tick and the engaged mark on each base"
-                        >
-                            <input v-model="showBadges" type="checkbox" class="size-6 shrink-0" data-testid="badges-toggle" />
-                            <span>Show status badges <span class="text-muted-foreground">(tokens, activated, engaged)</span></span>
-                        </label>
-                        <label v-if="variants.length" class="block text-sm">
-                            <span class="mb-1 block font-medium">Which side</span>
-                            <select
-                                :value="variant"
-                                class="w-full rounded-md border bg-background px-2 py-1.5"
-                                data-testid="deployment-variant"
-                                @change="chooseVariant(Number(($event.target as HTMLSelectElement).value))"
-                            >
-                                <option v-for="v in variants" :key="v.value" :value="v.value">{{ v.label }}</option>
-                            </select>
-                        </label>
-                    </div>
-
-                    <Button
-                        v-if="anyEnterable"
-                        :variant="showAllInsides ? 'default' : 'outline'"
-                        size="sm"
-                        :aria-pressed="showAllInsides"
-                        title="Fade the roofs of enterable buildings so the inside shows"
-                        data-testid="show-insides"
-                        @click="showAllInsides = !showAllInsides"
-                        >Show insides of buildings</Button
-                    >
-                    <Button v-if="sandbox" size="sm" variant="ghost" class="text-muted-foreground" data-testid="reset-table" @click="resetTable"
-                        >Reset table</Button
-                    >
-                </div>
-            </details>
-
-            <!-- The Fate deck, when the page offers one (a game's, or the sandbox's practice deck) -->
-            <slot name="fate" :terrain="mode === 'terrain'" />
-            <!-- Tools for working with models -->
-            <div
-                v-if="activeTab === 'move'"
-                role="tabpanel"
-                aria-label="Models"
-                class="flex flex-wrap items-center gap-2 rounded-md border p-2"
-                data-testid="move-tools"
-            >
-                <Button
-                    :variant="mode === 'ruler' ? 'default' : 'outline'"
-                    size="sm"
-                    title="Measure edge to edge: press on a model or a spot on the table and drag to another"
-                    data-testid="mode-ruler"
-                    :aria-pressed="mode === 'ruler'"
-                    @click="toggleRuler"
-                    ><Ruler class="mr-1 size-4" />Ruler</Button
-                >
-                <Button
-                    v-if="guidedId"
-                    :variant="mode === 'sight' ? 'default' : 'outline'"
-                    size="sm"
-                    title="Aim the sight guidelines: press on the table, or on the model or marker they should point at"
-                    data-testid="mode-sight"
-                    @click="mode = 'sight'"
-                    ><Eye class="mr-1 size-4" />Aim</Button
-                >
-                <Button
-                    v-if="mode === 'move'"
-                    :variant="stepMove ? 'default' : 'outline'"
-                    size="sm"
-                    :aria-pressed="stepMove"
-                    title="Step move: grab the same model again to add another leg to the move"
-                    data-testid="step-toggle"
-                    @click="stepMove = !stepMove"
-                    ><Route class="mr-1 size-4" />Step</Button
-                >
-                <span v-if="mode === 'move'" class="text-xs text-muted-foreground" aria-hidden="true">Move as</span>
+            <!-- What to work on: the models, the terrain, or the table itself (its saved copies and its settings) -->
+            <div class="flex items-center gap-1 max-lg:sticky max-lg:top-1 max-lg:z-20" data-testid="tab-row">
                 <div
-                    v-if="mode === 'move'"
-                    role="radiogroup"
-                    aria-label="How the model moves"
-                    class="inline-flex rounded-md border p-0.5"
-                    data-testid="move-kind"
+                    role="tablist"
+                    aria-label="What to work on"
+                    :class="['grid flex-1 gap-1 rounded-lg bg-muted p-1 max-lg:shadow-md', readOnly ? 'grid-cols-2' : 'grid-cols-3']"
+                    data-testid="mode-tabs"
+                    @keydown.right.prevent="stepTab(1)"
+                    @keydown.left.prevent="stepTab(-1)"
                 >
                     <button
-                        v-for="o in MOVE_KINDS"
-                        :key="o.value"
+                        v-for="t in tabs"
+                        :key="t.id"
                         type="button"
-                        role="radio"
-                        :aria-checked="moveKind === o.value"
-                        :title="o.hint"
-                        :class="[
-                            'rounded px-2.5 py-1 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
-                            moveKind === o.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-                        ]"
-                        :data-testid="`move-kind-${o.value}`"
-                        @click="moveKind = o.value"
+                        role="tab"
+                        :aria-selected="activeTab === t.id"
+                        :tabindex="activeTab === t.id ? 0 : -1"
+                        :class="tabClass(activeTab === t.id)"
+                        :data-testid="`mode-${t.id === 'move' ? 'move' : t.id}`"
+                        @click="openTab(t.id)"
                     >
-                        {{ o.label }}
+                        <component :is="t.icon" class="mr-1.5 size-4 max-sm:hidden" />{{ t.label }}
                     </button>
                 </div>
-                <template v-if="mode === 'move' && moveKind === 'place'">
-                    <label class="flex items-center gap-1 text-sm"
-                        >Within
-                        <input
-                            v-model.number="placeRange"
-                            type="number"
-                            min="0.5"
-                            max="36"
-                            step="0.5"
-                            class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                            aria-label="Place range in inches"
-                            data-testid="place-range"
-                        />"</label
-                    >
-                    <Button
-                        size="sm"
-                        :variant="placeWhole ? 'default' : 'outline'"
-                        :aria-pressed="placeWhole"
-                        title="Some effects need the whole base within range rather than a single point of it"
-                        data-testid="place-whole"
-                        @click="placeWhole = !placeWhole"
-                        >Whole base</Button
-                    >
-                </template>
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    class="size-10 shrink-0"
+                    aria-label="Help and shortcuts"
+                    title="Help and shortcuts"
+                    data-testid="tabletop-help-open"
+                    @click="openHelp(mode === 'terrain' ? 'terrain' : 'start')"
+                    ><CircleHelp class="size-5"
+                /></Button>
             </div>
-
-            <TerrainEditor
-                v-if="mode === 'terrain'"
-                @help="openHelp('terrain')"
-                :pieces="terrain"
-                :selected-id="selectedPieceId"
-                :anchor="viewCentre"
-                :can-undo="undoStack.length > 0"
-                @change="commitTerrain($event)"
-                @select="selectedPieceId = $event"
-                @undo="undoTerrain"
-                @clear="commitTerrain([])"
-                :terrain-images="terrainImages"
-                :zones="zones"
-                :inside-shown="!!selectedPiece && cutaway(selectedPiece)"
-                @toggle-inside="toggleInside"
-                :active-surface-id="activeSurface?.id ?? null"
-                :vertex-selected="pickedVertex !== null"
-                @select-surface="activeSurfaceId = $event"
-                @remove-corner="removePickedCorner"
-                :drawing="outline ? outline.length : null"
-                @draw="startOutline"
-                @finish-draw="finishOutline"
-                @cancel-draw="cancelOutline"
-                @undo-corner="undoCorner"
-            />
-
-            <div
-                v-if="mode === 'move' && moveKind !== 'walk'"
-                class="rounded-md border p-3 text-sm text-muted-foreground"
-                data-testid="move-kind-help"
-            >
-                <template v-if="moveKind === 'jump'"
-                    >Jump: drag the model across a gap. It may end at the same height or up to 1" lower, never higher, and nothing between may be
-                    taller than where it began. The distance counts as movement, so it is measured against its Walk. Use Walk and Step to reach the
-                    edge first.</template
-                >
-                <template v-else-if="moveKind === 'place'"
-                    >Place: drag a model to where it may be put down. It is picked up, so terrain and sight in between are ignored and nothing is
-                    spent climbing or falling, but it has to fit where it lands and be within the range, measured from the closest point of its base.
-                    A place that cannot fit does not happen. If it begins or ends in terrain, it counts as having moved through it.</template
-                >
-                <template v-else-if="moveKind === 'charge'"
-                    >Charge: once per activation, and not while engaged. Move up to its Sp in a straight line (terrain costs what it does for a Walk).
-                    It may then declare a melee action that does not count against its action limit.</template
-                >
-                <template v-else
-                    >Flight: the model walks but ignores terrain, so climbing costs no movement and a drop does no damage. Only the ground distance
-                    counts against its Walk.</template
-                >
-            </div>
-            <div v-if="mode === 'move' && stepMove" class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm" data-testid="step-help">
-                <span class="min-w-0 flex-1 text-muted-foreground"
-                    >Step move: drag a model, let go, then drag the same model again. The legs add up. Tap empty ground to start over.</span
-                >
-                <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
-            </div>
-            <div v-if="guidedId && (mode === 'sight' || sideLines.length)" class="space-y-2 rounded-md border p-3 text-sm" data-testid="guide-panel">
-                <p v-if="mode === 'sight'" class="text-muted-foreground" data-testid="guide-hint">
-                    Press or drag on the board to aim {{ tokens.find((t) => t.id === guidedId)?.name }}'s guidelines, or press a model or marker to
-                    point at it. The Models tab goes back to moving models.
-                </p>
-                <div v-if="sideLines.length" data-testid="side-readout">
-                    <div v-for="l in sideLines" :key="l.side" data-testid="side-summary">
-                        <span class="font-semibold capitalize">{{ l.side }} side:</span> {{ describeSide(l) }}
-                    </div>
-                    <details class="mt-1 text-muted-foreground">
-                        <summary class="cursor-pointer text-xs">How to read the lines</summary>
-                        <p class="mt-1 text-xs">
-                            Green is clear; red dashes start where terrain or an enemy at least as tall as the model stops the line. Rings show which
-                            models a line reaches. Cover and concealment come from the model-to-model check below.
-                        </p>
-                    </details>
-                </div>
-            </div>
-            <div v-if="sightForward && sightBack && sightFrom && sightTo" class="space-y-1 rounded-md border p-3 text-sm" data-testid="sight-readout">
-                <div
-                    :class="sightForward.clear ? 'font-semibold text-green-600 dark:text-green-400' : 'font-semibold text-red-600 dark:text-red-400'"
-                >
-                    {{ describeSight(sightForward, sightFrom.name, sightTo.name) }}
-                </div>
-                <div class="text-muted-foreground">{{ describeSight(sightBack, sightTo.name, sightFrom.name) }}</div>
-                <div class="text-muted-foreground">
-                    Effective Sz: {{ sightFrom.name }} {{ sightForward.initiator.sz + sightForward.initiator.elevation }}, {{ sightTo.name }}
-                    {{ sightForward.target.sz + sightForward.target.elevation }}. Terrain heights are compared with these.
-                    <span v-if="unknownSz">A model without a Sz is counted as Sz 1.</span>
-                </div>
-            </div>
-            <div v-if="measure" class="rounded-md border p-3 text-sm" data-testid="ruler-readout">
-                <div class="font-semibold">
-                    {{ fmt(measure.inches) }}" <span class="font-normal text-muted-foreground">horizontal, edge to edge</span>
-                </div>
-                <div v-if="measure.rise !== null" class="text-muted-foreground">
-                    Elevation difference {{ measure.rise > 0 ? '+' : '' }}{{ measure.rise }}"<span v-if="measure.cover"
-                        >. The higher model gets cover.</span
-                    >
-                </div>
-            </div>
-
             <div
                 v-for="r in remainsFor"
                 :key="`remains-${r.id}`"
@@ -3239,7 +3070,314 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     <Button size="sm" variant="ghost" data-testid="remains-skip" @click="skipRemains(r.id)">Skip</Button>
                 </div>
             </div>
-            <div v-if="crewRows.length && mode !== 'terrain'" class="space-y-3" data-testid="crew-list">
+
+            <div v-show="activeTab === 'move'" class="space-y-3" data-testid="board-tools">
+                <div
+                    v-if="mode === 'move' && moveKind !== 'walk'"
+                    class="rounded-md border p-3 text-sm text-muted-foreground"
+                    data-testid="move-kind-help"
+                >
+                    <template v-if="moveKind === 'jump'"
+                        >Jump: drag the model across a gap. It may end at the same height or up to 1" lower, never higher, and nothing between may be
+                        taller than where it began. The distance counts as movement, so it is measured against its Walk. Use Walk and Step to reach
+                        the edge first.</template
+                    >
+                    <template v-else-if="moveKind === 'place'"
+                        >Place: drag a model to where it may be put down. It is picked up, so terrain and sight in between are ignored and nothing is
+                        spent climbing or falling, but it has to fit where it lands and be within the range, measured from the closest point of its
+                        base. A place that cannot fit does not happen. If it begins or ends in terrain, it counts as having moved through
+                        it.</template
+                    >
+                    <template v-else-if="moveKind === 'charge'"
+                        >Charge: once per activation, and not while engaged. Move up to its Sp in a straight line (terrain costs what it does for a
+                        Walk). It may then declare a melee action that does not count against its action limit.</template
+                    >
+                    <template v-else
+                        >Flight: the model walks but ignores terrain, so climbing costs no movement and a drop does no damage. Only the ground
+                        distance counts against its Walk.</template
+                    >
+                </div>
+                <div
+                    v-if="mode === 'move' && stepMove"
+                    class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm"
+                    data-testid="step-help"
+                >
+                    <span class="min-w-0 flex-1 text-muted-foreground"
+                        >Step move: drag a model, let go, then drag the same model again. The legs add up. Tap empty ground to start over.</span
+                    >
+                    <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
+                </div>
+                <div
+                    v-if="guidedId && (mode === 'sight' || sideLines.length)"
+                    class="space-y-2 rounded-md border p-3 text-sm"
+                    data-testid="guide-panel"
+                >
+                    <p v-if="mode === 'sight'" class="text-muted-foreground" data-testid="guide-hint">
+                        Press or drag on the board to aim {{ tokens.find((t) => t.id === guidedId)?.name }}'s guidelines, or press a model or marker
+                        to point at it. The Models tab goes back to moving models.
+                    </p>
+                    <div v-if="sideLines.length" data-testid="side-readout">
+                        <div v-for="l in sideLines" :key="l.side" data-testid="side-summary">
+                            <span class="font-semibold capitalize">{{ l.side }} side:</span> {{ describeSide(l) }}
+                        </div>
+                        <details class="mt-1 text-muted-foreground">
+                            <summary class="cursor-pointer text-xs">How to read the lines</summary>
+                            <p class="mt-1 text-xs">
+                                Green is clear; red dashes start where terrain or an enemy at least as tall as the model stops the line. Rings show
+                                which models a line reaches. Cover and concealment come from the model-to-model check below.
+                            </p>
+                        </details>
+                    </div>
+                </div>
+                <div
+                    v-if="sightForward && sightBack && sightFrom && sightTo"
+                    class="space-y-1 rounded-md border p-3 text-sm"
+                    data-testid="sight-readout"
+                >
+                    <div
+                        :class="
+                            sightForward.clear ? 'font-semibold text-green-600 dark:text-green-400' : 'font-semibold text-red-600 dark:text-red-400'
+                        "
+                    >
+                        {{ describeSight(sightForward, sightFrom.name, sightTo.name) }}
+                    </div>
+                    <div class="text-muted-foreground">{{ describeSight(sightBack, sightTo.name, sightFrom.name) }}</div>
+                    <div class="text-muted-foreground">
+                        Effective Sz: {{ sightFrom.name }} {{ sightForward.initiator.sz + sightForward.initiator.elevation }}, {{ sightTo.name }}
+                        {{ sightForward.target.sz + sightForward.target.elevation }}. Terrain heights are compared with these.
+                        <span v-if="unknownSz">A model without a Sz is counted as Sz 1.</span>
+                    </div>
+                </div>
+                <div v-if="measure" class="rounded-md border p-3 text-sm" data-testid="ruler-readout">
+                    <div class="font-semibold">
+                        {{ fmt(measure.inches) }}" <span class="font-normal text-muted-foreground">horizontal, edge to edge</span>
+                    </div>
+                    <div v-if="measure.rise !== null" class="text-muted-foreground">
+                        Elevation difference {{ measure.rise > 0 ? '+' : '' }}{{ measure.rise }}"<span v-if="measure.cover"
+                            >. The higher model gets cover.</span
+                        >
+                    </div>
+                </div>
+            </div>
+            <div v-show="activeTab !== 'table'" data-testid="fate-wrap">
+                <slot name="fate" :terrain="mode === 'terrain'" />
+            </div>
+
+            <Teleport to="body" :disabled="!terrainSheet">
+                <div
+                    v-if="mode === 'terrain'"
+                    :class="
+                        terrainSheet
+                            ? 'fixed inset-x-0 bottom-14 z-40 flex max-h-[40vh] flex-col rounded-t-xl border border-b-0 bg-background shadow-[0_-8px_24px_rgba(0,0,0,0.25)]'
+                            : ''
+                    "
+                    :data-testid="terrainSheet ? 'terrain-sheet' : undefined"
+                    :role="terrainSheet ? 'region' : undefined"
+                    :aria-label="terrainSheet ? 'Terrain editor' : undefined"
+                    @keydown.escape.stop="terrainSheet && openTab('move')"
+                >
+                    <div v-if="terrainSheet" class="flex items-center justify-between gap-2 border-b px-3 py-1.5">
+                        <span class="flex items-center gap-2 text-sm font-semibold"><Mountain class="size-4" />Terrain</span>
+                        <Button size="sm" variant="ghost" data-testid="terrain-sheet-done" @click="openTab('move')">Done</Button>
+                    </div>
+                    <div :class="terrainSheet ? 'overflow-y-auto overscroll-contain p-3' : ''">
+                        <TerrainEditor
+                            :pieces="terrain"
+                            :selected-id="selectedPieceId"
+                            :anchor="viewCentre"
+                            :can-undo="undoStack.length > 0"
+                            @change="commitTerrain($event)"
+                            @select="selectedPieceId = $event"
+                            @undo="undoTerrain"
+                            @clear="commitTerrain([])"
+                            :terrain-images="terrainImages"
+                            :zones="zones"
+                            :inside-shown="!!selectedPiece && cutaway(selectedPiece)"
+                            @toggle-inside="toggleInside"
+                            :active-surface-id="activeSurface?.id ?? null"
+                            :vertex-selected="pickedVertex !== null"
+                            @select-surface="activeSurfaceId = $event"
+                            @remove-corner="removePickedCorner"
+                            :drawing="outline ? outline.length : null"
+                            @draw="startOutline"
+                            @finish-draw="finishOutline"
+                            @cancel-draw="cancelOutline"
+                            @undo-corner="undoCorner"
+                        />
+                    </div>
+                </div>
+            </Teleport>
+            <div v-show="activeTab === 'table'" role="tabpanel" aria-label="Table" class="space-y-4" data-testid="table-panel">
+                <section class="space-y-2" aria-labelledby="table-saved-h">
+                    <h3 id="table-saved-h" class="text-sm font-semibold">Saved tables</h3>
+                    <div v-if="layouts !== undefined || layoutTarget" class="flex flex-wrap gap-2" data-testid="table-actions">
+                        <Button
+                            v-if="layouts !== undefined"
+                            size="sm"
+                            variant="outline"
+                            class="flex-1"
+                            :disabled="readOnly"
+                            data-testid="table-load"
+                            @click="loadOpen = true"
+                            ><FolderOpen class="mr-1.5 size-4" />Load table</Button
+                        >
+                        <Button v-if="layoutTarget" size="sm" variant="outline" class="flex-1" data-testid="table-save" @click="saveOpen = true"
+                            ><Save class="mr-1.5 size-4" />Save table</Button
+                        >
+                    </div>
+                </section>
+                <section class="space-y-2 rounded-md border" aria-labelledby="table-surface-h">
+                    <div class="flex items-center justify-between gap-2 p-3 pb-0 text-sm">
+                        <h3 id="table-surface-h" class="font-semibold">Surface and zones</h3>
+                        <span class="min-w-0 truncate text-muted-foreground" data-testid="table-summary">{{ tableSummary }}</span>
+                    </div>
+
+                    <div class="space-y-3 border-t p-3">
+                        <label v-if="tableImages?.length" class="block text-sm">
+                            <span class="mb-1 block font-medium">Table surface</span>
+                            <select
+                                :value="tableChoice?.key ?? ''"
+                                class="w-full rounded-md border bg-background px-2 py-1.5"
+                                :disabled="readOnly"
+                                data-testid="table-select"
+                                @change="chooseTable(($event.target as HTMLSelectElement).value)"
+                            >
+                                <option v-for="t in tableImages" :key="t.key" :value="t.key">{{ t.name }}</option>
+                            </select>
+                        </label>
+                        <label v-if="levels.length > 2" class="block text-sm">
+                            <span class="mb-1 block font-medium">Level shown</span>
+                            <select v-model="level" class="w-full rounded-md border bg-background px-2 py-1.5" data-testid="level-select">
+                                <option value="all">All levels</option>
+                                <option v-for="l in levels" :key="l" :value="l">{{ l === 0 ? 'Table only' : `Up to Ht ${l}` }}</option>
+                            </select>
+                        </label>
+                        <div class="space-y-2">
+                            <label class="block text-sm">
+                                <span class="mb-1 block font-medium">Deployment</span>
+                                <select
+                                    v-model="deployment"
+                                    class="w-full rounded-md border bg-background px-2 py-1.5"
+                                    data-testid="deployment-select"
+                                    @change="deploymentVariant === undefined && (variant = 0)"
+                                >
+                                    <option value="none">None</option>
+                                    <option v-for="d in DEPLOYMENT_KINDS" :key="d.value" :value="d.value">{{ d.label }}</option>
+                                </select>
+                            </label>
+                            <label
+                                class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
+                                title="The two centre axes and the middle of each 18-inch quarter"
+                            >
+                                <input v-model="tableLines" type="checkbox" class="size-6 shrink-0" data-testid="table-lines-toggle" />
+                                <span>Show table lines <span class="text-muted-foreground">(centre axes and quarter centres)</span></span>
+                            </label>
+                            <label
+                                class="flex min-h-10 cursor-pointer items-center gap-2 text-sm"
+                                title="Token chips, the activation tick and the engaged mark on each base"
+                            >
+                                <input v-model="showBadges" type="checkbox" class="size-6 shrink-0" data-testid="badges-toggle" />
+                                <span>Show status badges <span class="text-muted-foreground">(tokens, activated, engaged)</span></span>
+                            </label>
+                            <label class="flex min-h-10 cursor-pointer items-center gap-2 text-sm" title="The 'Ht 3' labels on the terrain">
+                                <input v-model="showHeights" type="checkbox" class="size-6 shrink-0" data-testid="heights-toggle" />
+                                <span>Show terrain heights <span class="text-muted-foreground">(Ht 1, Ht 2...)</span></span>
+                            </label>
+                            <label v-if="variants.length" class="block text-sm">
+                                <span class="mb-1 block font-medium">Which side</span>
+                                <select
+                                    :value="variant"
+                                    class="w-full rounded-md border bg-background px-2 py-1.5"
+                                    data-testid="deployment-variant"
+                                    @change="chooseVariant(Number(($event.target as HTMLSelectElement).value))"
+                                >
+                                    <option v-for="v in variants" :key="v.value" :value="v.value">{{ v.label }}</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <Button
+                            v-if="anyEnterable"
+                            :variant="showAllInsides ? 'default' : 'outline'"
+                            size="sm"
+                            :aria-pressed="showAllInsides"
+                            title="Fade the roofs of enterable buildings so the inside shows"
+                            data-testid="show-insides"
+                            @click="showAllInsides = !showAllInsides"
+                            >Show insides of buildings</Button
+                        >
+                        <Button v-if="sandbox" size="sm" variant="ghost" class="text-muted-foreground" data-testid="reset-table" @click="resetTable"
+                            >Reset table</Button
+                        >
+                    </div>
+                </section>
+            </div>
+
+            <div
+                v-if="activeTab === 'move' && (sandbox || (markers && markerSides.length))"
+                class="space-y-2 rounded-md border p-2"
+                data-testid="add-panel"
+            >
+                <div class="flex items-center justify-between gap-2">
+                    <div class="text-sm font-medium">Add to the table</div>
+                    <DropdownMenu :modal="false">
+                        <DropdownMenuTrigger as-child>
+                            <Button size="sm" data-testid="add-menu"><Plus class="mr-1 size-4" />Add</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem v-if="sandbox && characterSearchUrl" data-testid="character-open" @select="openCharacterDialog"
+                                ><User class="mr-2 size-4" />Character</DropdownMenuItem
+                            >
+                            <DropdownMenuItem v-if="markers && markerSides.length" data-testid="marker-open" @select="openMarkerDialog"
+                                ><MapPin class="mr-2 size-4" />Marker</DropdownMenuItem
+                            >
+                            <DropdownMenuItem v-if="sandbox" data-testid="add-terrain" @select="mode = 'terrain'"
+                                ><Mountain class="mr-2 size-4" />Terrain piece</DropdownMenuItem
+                            >
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                <div
+                    v-if="sandbox && !tokens.some((t) => !t.marker)"
+                    class="space-y-2 rounded-md border border-dashed p-3 text-sm"
+                    data-testid="empty-table"
+                >
+                    <p class="font-medium">Start here</p>
+                    <ol class="list-decimal space-y-1 pl-5 text-muted-foreground">
+                        <li>Add a character: its model goes on the table at its real base size, with its Sz, Sp and health.</li>
+                        <li>Drag it. The note under the board says how far it went and what it crossed.</li>
+                        <li>Press Ruler, then drag from one model to another to measure.</li>
+                    </ol>
+                    <div class="flex flex-wrap gap-2">
+                        <Button v-if="characterSearchUrl" size="sm" data-testid="empty-add" @click="openCharacterDialog"
+                            ><User class="mr-1.5 size-4" />Add a character</Button
+                        >
+                        <Button size="sm" variant="ghost" data-testid="empty-help" @click="openHelp('start')">How the table works</Button>
+                    </div>
+                </div>
+                <div v-if="markers && markerSides.length" class="flex flex-wrap items-center gap-2 text-sm">
+                    <span class="text-muted-foreground" data-testid="marker-count"
+                        >{{ markerSides.map((s) => `${markerSides.length > 1 ? `${s.label}: ` : ''}${markersOut(s.side)}`).join(', ') }} on the
+                        table</span
+                    >
+                </div>
+                <div v-if="sandbox" class="flex flex-wrap items-end gap-2 text-sm">
+                    <label>
+                        <span class="mb-1 block font-medium">Side</span>
+                        <select v-model="newSide" class="rounded-md border bg-background px-2 py-1.5">
+                            <option value="a">{{ sideNames.a }}</option>
+                            <option value="b">{{ sideNames.b }}</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <div
+                v-if="crewRows.length && activeTab === 'move'"
+                id="tabletop-models"
+                tabindex="-1"
+                class="space-y-3 focus:outline-none"
+                data-testid="crew-list"
+            >
                 <template v-for="side in crewSides" :key="side.slot">
                     <div class="space-y-1">
                         <div class="text-xs font-medium text-muted-foreground">{{ side.name }}</div>
@@ -3374,7 +3512,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
 
             <Teleport :to="panelTarget ?? 'body'" :disabled="!panelTarget">
                 <div
-                    v-if="mode !== 'terrain'"
+                    v-if="activeTab === 'move'"
                     class="border p-3 text-sm"
                     :class="panelTarget ? '-mt-1 rounded-b-md border-t-0 bg-muted/30' : 'rounded-md'"
                     data-testid="selected-panel"
@@ -3394,11 +3532,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
                             <div
                                 v-if="engagement.get(selected.id)?.length"
-                                class="mt-2 flex gap-2 rounded-md border border-red-500/40 bg-red-500/10 p-2 text-red-800 dark:text-red-200"
+                                class="mt-1.5 flex gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs leading-snug text-red-800 dark:text-red-200"
                                 role="status"
                                 data-testid="engaged-note"
                             >
-                                <Swords class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                <Swords class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                                 <p>
                                     Engaged with
                                     {{
@@ -3412,11 +3550,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             </div>
                             <div
                                 v-if="problems.get(selected.id)?.length"
-                                class="mt-2 flex gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-amber-900 dark:text-amber-200"
+                                class="mt-1.5 flex gap-1.5 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1.5 text-xs leading-snug text-amber-900 dark:text-amber-200"
                                 role="status"
                                 data-testid="placement-warning"
                             >
-                                <TriangleAlert class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                <TriangleAlert class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                                 <div class="space-y-1.5">
                                     <p>
                                         {{ selected.name }}
@@ -3475,7 +3613,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     title="Draw lines from each side of the base of this model, to check line of sight, cover and concealment"
                                     data-testid="model-guide"
                                     @click="toggleGuide(selected)"
-                                    ><Eye class="mr-1 size-4" />Sight guidelines {{ guidedId === selected.id ? 'on' : 'off' }}</Button
+                                    ><Eye class="mr-1 size-4" />Sight guidelines</Button
                                 >
                                 <Button
                                     v-if="schemeSlot(selected) !== null && !selected.locked"
@@ -3809,51 +3947,6 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     </div>
                 </div>
             </Teleport>
-
-            <div
-                v-if="mode !== 'terrain' && (sandbox || (markers && markerSides.length))"
-                class="space-y-2 rounded-md border p-2"
-                data-testid="add-panel"
-            >
-                <div class="flex items-center justify-between gap-2">
-                    <div class="text-sm font-medium">Add to the table</div>
-                    <DropdownMenu :modal="false">
-                        <DropdownMenuTrigger as-child>
-                            <Button size="sm" data-testid="add-menu"><Plus class="mr-1 size-4" />Add</Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem v-if="sandbox && characterSearchUrl" data-testid="character-open" @select="openCharacterDialog"
-                                ><User class="mr-2 size-4" />Character</DropdownMenuItem
-                            >
-                            <DropdownMenuItem v-if="markers && markerSides.length" data-testid="marker-open" @select="openMarkerDialog"
-                                ><MapPin class="mr-2 size-4" />Marker</DropdownMenuItem
-                            >
-                            <DropdownMenuItem v-if="sandbox" data-testid="add-terrain" @select="mode = 'terrain'"
-                                ><Mountain class="mr-2 size-4" />Terrain piece</DropdownMenuItem
-                            >
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <p v-if="sandbox && !tokens.some((t) => !t.marker)" class="text-sm text-muted-foreground" data-testid="empty-table">
-                    The table has no models yet. Add a character to put its model on the table at its real base size, with its Sz, Sp and health.
-                    <button type="button" class="underline" data-testid="empty-help" @click="openHelp('start')">How the table works</button>.
-                </p>
-                <div v-if="markers && markerSides.length" class="flex flex-wrap items-center gap-2 text-sm">
-                    <span class="text-muted-foreground" data-testid="marker-count"
-                        >{{ markerSides.map((s) => `${markerSides.length > 1 ? `${s.label}: ` : ''}${markersOut(s.side)}`).join(', ') }} on the
-                        table</span
-                    >
-                </div>
-                <div v-if="sandbox" class="flex flex-wrap items-end gap-2 text-sm">
-                    <label>
-                        <span class="mb-1 block font-medium">Side</span>
-                        <select v-model="newSide" class="rounded-md border bg-background px-2 py-1.5">
-                            <option value="a">{{ sideNames.a }}</option>
-                            <option value="b">{{ sideNames.b }}</option>
-                        </select>
-                    </label>
-                </div>
-            </div>
 
             <GameCrewMemberDrawer
                 :open="cardDrawer"

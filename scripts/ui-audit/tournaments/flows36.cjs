@@ -30,6 +30,8 @@ const L = require('./lib.cjs');
         ['phone', { width: 390, height: 844 }],
     ]) {
         const carol = await L.session(browser, 'carol@example.test', vp);
+        // the play screen asks before it is left; accept, so the next page loads
+        carol.page.on('dialog', (d) => d.accept().catch(() => {}));
         await L.step(`board (${label}): the game's crews are on the table with a Back link`, carol, async () => {
             await L.visit(carol, `/games/${L.ids.play_game}/board`);
             await carol.page.waitForSelector('[data-testid^=token-]');
@@ -91,13 +93,21 @@ const L = require('./lib.cjs');
             await L.sleep(1200);
         });
         await L.step(`board (${label}): a marker from the list is placed at its base size and saved with the game`, carol, async () => {
-            const hit = async (selector) => {
+            const hitRaw = async (selector) => {
                 await carol.page.$eval(selector, (b) => {
                     const d = b.closest('details');
                     if (d && !d.open) d.open = true;
                     b.scrollIntoView({ block: 'center' });
                 });
                 await carol.page.click(selector);
+            };
+            const hit = async (selector) => {
+                const back = await L.revealTable(carol.page, selector);
+                try {
+                    await hitRaw(selector);
+                } finally {
+                    await back();
+                }
             };
             const addItem = async (id) => {
                 await carol.page.waitForFunction(() => document.body.style.pointerEvents !== 'none', { timeout: 5000 });
@@ -596,13 +606,21 @@ const L = require('./lib.cjs');
             await L.sleep(1200);
         });
         await L.step(`board (${label}): an aura shown to the other player is saved with the game`, carol, async () => {
-            const hit = async (selector) => {
+            const hitRaw = async (selector) => {
                 await carol.page.$eval(selector, (b) => {
                     const d = b.closest('details');
                     if (d && !d.open) d.open = true;
                     b.scrollIntoView({ block: 'center' });
                 });
                 await carol.page.click(selector);
+            };
+            const hit = async (selector) => {
+                const back = await L.revealTable(carol.page, selector);
+                try {
+                    await hitRaw(selector);
+                } finally {
+                    await back();
+                }
             };
             const open = async () => {
                 await L.visit(carol, `/games/${L.ids.play_game}/board`);
@@ -646,6 +664,13 @@ const L = require('./lib.cjs');
             await L.sleep(1200);
             await open();
             if (await carol.page.$('[data-shared=true]')) throw new Error('withdrawing the aura was not saved');
+        });
+        await L.step(`play screen (${label}): a model's row still offers Upgrades`, carol, async () => {
+            if (label === 'phone') return; // the row's Upgrades button is for wider screens
+            await L.visit(carol, `/games/${L.ids.play_game}`);
+            await carol.page.waitForSelector('[aria-label^="Decrease health"]', { timeout: 9000 });
+            const has = await carol.page.evaluate(() => [...document.querySelectorAll('button[title=Upgrades]')].some((b) => b.offsetParent));
+            if (!has) throw new Error('the play screen row should offer Upgrades (a Boolean prop that is absent must not switch it off)');
         });
         await L.step(`board (${label}): an upgrade is attached from the board, kept, and listed again after a reload`, carol, async () => {
             if (label === 'phone') return; // the row's Upgrades button is for wider screens

@@ -34,24 +34,28 @@ import {
  * The component owns no game state: every change is emitted and Games/Show.vue performs it, exactly as it did before the extraction.
  * Typed `any` for the member like the rest of the play screen (Show.vue has two shadowing CrewMember interfaces).
  */
-const props = defineProps<{
-    member: any;
-    /** The owning player's faction, used for the row colour when the model carries none. */
-    fallbackFaction?: string | null;
-    editable: boolean;
-    /** The inline card preview is open for this model. */
-    cardOpen: boolean;
-    isCampaign: boolean;
-    /** On the tabletop board: the row is trimmed for the board (no attached-upgrade chips or loot). */
-    boardMode?: boolean;
-    /** Offer the Upgrades (and, in a Campaign game, Attach Injury) controls. On by default, and off on the board unless the page can attach them. */
-    allowAttach?: boolean;
-    /** On the board: the tabletop options are rolled down under this row. */
-    optionsOpen?: boolean;
-    upgradePowerMax: (upgradeId: number) => number;
-    lootCardById: (id: number) => { value_label?: string; suit?: string | null } | null;
-    lootCardSuitIcon: (suit: string | null | undefined) => string | null;
-}>();
+const props = withDefaults(
+    defineProps<{
+        member: any;
+        /** The owning player's faction, used for the row colour when the model carries none. */
+        fallbackFaction?: string | null;
+        editable: boolean;
+        /** The inline card preview is open for this model. */
+        cardOpen: boolean;
+        isCampaign: boolean;
+        /** On the tabletop board: the row is trimmed for the board (no attached-upgrade chips or loot). */
+        boardMode?: boolean;
+        /** Offer the Upgrades (and, in a Campaign game, Attach Injury) controls. On by default, and off on the board unless the page can attach them. */
+        allowAttach?: boolean;
+        /** On the board: the tabletop options are rolled down under this row. */
+        optionsOpen?: boolean;
+        upgradePowerMax: (upgradeId: number) => number;
+        lootCardById: (id: number) => { value_label?: string; suit?: string | null } | null;
+        lootCardSuitIcon: (suit: string | null | undefined) => string | null;
+    }>(),
+    // an absent Boolean prop would be `false` in Vue: keep it undefined so the row can tell "not said" from "no"
+    { allowAttach: undefined },
+);
 
 defineEmits<{
     'toggle-activated': [];

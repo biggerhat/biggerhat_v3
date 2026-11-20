@@ -698,27 +698,25 @@ function moved(t: Token) {
     <Head title="Game board (preview)" />
     <PageBanner title="Game board">
         <template #subtitle>
-            <div v-if="read_only" class="line-clamp-1 px-2 text-sm text-muted-foreground sm:line-clamp-none" data-testid="watch-note">
-                You are watching. The board refreshes by itself every few seconds and cannot be changed from here.
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 text-sm text-muted-foreground">
+                <Button as-child variant="outline" size="sm" class="max-sm:min-h-11">
+                    <Link :href="read_only ? route('games.observe', game.uuid) : route('games.show', game.uuid)"
+                        ><ArrowLeft class="mr-1 size-4" />Back to the game</Link
+                    >
+                </Button>
+                <span v-if="read_only" class="line-clamp-1 sm:line-clamp-none" data-testid="watch-note">
+                    You are watching: the board refreshes by itself and cannot be changed from here.
+                </span>
+                <span v-else class="max-sm:hidden">Drag your own models; the other crew is locked. Everything is saved to the game.</span>
             </div>
-            <div v-else class="line-clamp-1 px-2 text-sm text-muted-foreground sm:line-clamp-none">
-                Your crew is on the table. Drag your own models; the other crew is locked. Either player can lay out the terrain. Everything is saved
-                to the game.
-            </div>
-        </template>
-        <template #actions>
-            <Button as-child variant="outline" size="sm" class="max-sm:min-h-11">
-                <Link :href="read_only ? route('games.observe', game.uuid) : route('games.show', game.uuid)"
-                    ><ArrowLeft class="mr-1 size-4" />Back to the game</Link
-                >
-            </Button>
         </template>
     </PageBanner>
     <div class="container mx-auto mt-2 px-2 max-lg:pb-24 sm:mt-4 sm:px-4 lg:px-6">
-        <div v-if="clock || turn || historyTurns.length" class="mb-3 space-y-2">
-            <GameRoundClock v-if="clock" :clock="clock" />
+        <div v-if="clock || turn || historyTurns.length" class="mb-3 flex flex-wrap items-start gap-2">
+            <GameRoundClock v-if="clock" class="basis-full" :clock="clock" />
             <GameTurnBar
                 v-if="turn && !viewing"
+                class="min-w-[18rem] flex-1"
                 :turn="turn"
                 :names="Object.fromEntries(players.map((p) => [p.slot, p.name]))"
                 :mine="players.filter((p) => p.mine).map((p) => p.slot)"
@@ -727,7 +725,7 @@ function moved(t: Token) {
                 @initiative="chooseInitiative"
             />
             <!-- a look back at where everything stood at the end of each turn -->
-            <div v-if="historyTurns.length" class="flex flex-wrap items-center gap-2 text-sm" data-testid="history-bar">
+            <div v-if="historyTurns.length" class="flex shrink-0 flex-wrap items-center gap-2 py-1 text-sm" data-testid="history-bar">
                 <label class="flex items-center gap-2">
                     <span class="text-muted-foreground">Look back</span>
                     <select

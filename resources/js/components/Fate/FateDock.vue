@@ -45,12 +45,12 @@ function toggle() {
 
 <template>
     <div data-testid="fate-section">
-        <!-- the button: a row in the column, or (on a phone) a floating button that goes away while the sheet is up -->
+        <!-- the button: a row in the column, or (on a phone) a floating button that goes away while the sheet is up, and while the panel is kept shut (the Terrain tab) -->
         <Button
-            v-show="!(open && !wide)"
+            v-show="!(open && !wide) && !(collapsed && floating && !wide)"
             type="button"
-            :variant="open ? 'default' : 'outline'"
-            :aria-expanded="open"
+            :variant="open && !collapsed ? 'default' : 'outline'"
+            :aria-expanded="open && !collapsed"
             :class="
                 floating
                     ? 'max-lg:fixed max-lg:bottom-20 max-lg:right-3 max-lg:z-30 max-lg:rounded-full max-lg:shadow-lg lg:w-full lg:justify-between'

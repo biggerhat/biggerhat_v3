@@ -389,16 +389,28 @@ class CombinedCrewCardEffects
             }
         }
 
+        // The token/marker picked for a starting crew card or a borrowed Tier-4 one (e.g. Unusual Speciality) is a deliberate grant, so it goes on
+        // the back whatever the roster links, and (like a manual pin) it bypasses the "general" filter below.
+        $picks = collect([$crew->crew_card_choice])
+            ->merge($crew->crewCardAdvancements->map(fn ($adv) => $adv->crew_card_choice))
+            ->filter(fn ($choice) => is_array($choice));
+        $pickedTokens = Token::query()->whereIn('id', $picks->where('type', 'token')->pluck('id')->all())->get();
+        $pickedMarkers = Marker::query()->whereIn('id', $picks->where('type', 'marker')->pluck('id')->all())->get();
+        $pickedTokenIds = $pickedTokens->pluck('id');
+        $pickedMarkerIds = $pickedMarkers->pluck('id');
+        $tokens = $tokens->concat($pickedTokens);
+        $markers = $markers->concat($pickedMarkers);
+
         // "General" tokens/markers (Focus, Shielded, Scheme, Strategy,
         // Remains, …) are universal Malifaux game pieces, not something this
         // specific crew grants — excluded from its own quick-reference even
         // when the heuristic linker (LinkTokensAndMarkers) attached one via
         // a text-mention match rather than an actual grant.
-        $tokenItems = $tokens->reject(fn (Token $t) => $t->is_general)->unique('id')->sortBy('name')->values()->map(fn (Token $t) => [
+        $tokenItems = $tokens->reject(fn (Token $t) => $t->is_general && ! $pickedTokenIds->contains($t->id))->unique('id')->sortBy('name')->values()->map(fn (Token $t) => [
             'type' => 'token', 'id' => $t->id, 'name' => $t->name, 'description' => $t->description, 'base' => null, 'manual' => false,
         ]);
 
-        $markerItems = $markers->reject(fn (Marker $m) => $m->is_general)->unique('id')->sortBy('name')->values()->map(fn (Marker $m) => [
+        $markerItems = $markers->reject(fn (Marker $m) => $m->is_general && ! $pickedMarkerIds->contains($m->id))->unique('id')->sortBy('name')->values()->map(fn (Marker $m) => [
             'type' => 'marker', 'id' => $m->id, 'name' => $m->name, 'description' => $m->description, 'base' => (string) $m->base, 'manual' => false,
         ]);
 

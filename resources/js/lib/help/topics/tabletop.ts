@@ -49,7 +49,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'The model list',
-                    body: 'Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table: sight guidelines, scheme target, what it ignores, and notes. Add characters, markers and terrain with the Add button above the list. With a large crew, turn on Compact model list (Table tab, under Surface and zones) for one line per model: its name, health, Options and a menu with Tokens, Upgrades and Replace. The choice is kept on this device.',
+                    body: "Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table, in groups: Check (sight guidelines, your scheme's model), Movement (what it ignores, and going under or on top of terrain), Fate (a flip for the model), and Notes and auras, with Mark killed and Remove together at the end. Add characters, markers and terrain with the Add button above the list. With a large crew, turn on Compact model list (Table tab, under Surface and zones) for one line per model: its name, health, Options and a menu with Tokens, Upgrades and Replace. The choice is kept on this device.",
                     image: {
                         src: 'tabletop/model-options.webp',
                         alt: "A model's options panel: its size and position, a Sight guidelines button, a Mark killed button, the Ignores terrain, Fate flip and Notes sections, and Add aura.",
@@ -65,7 +65,7 @@ const tabletop: HelpTopic = {
             items: [
                 {
                     title: 'Walk, Charge, Jump, Flight, Place',
-                    body: 'Choose how the model moves with the buttons in the bar above the board (next to Ruler and Step). Walk spends movement and is stopped by terrain. Charge is a straight line up to its Sp, once per activation and not while engaged. Jump crosses a gap. Flight is a Walk that ignores terrain height. Place puts a model down within a range with no movement. Hover a button for its short description.',
+                    body: 'Choose how the model moves with the buttons in the bar above the board (next to Ruler and Step). Walk spends movement and is stopped by terrain. Charge is a straight line up to its Sp, once per activation and not while engaged. Jump crosses a gap. Flight is a Walk that ignores terrain height. Place puts a model down within a range with no movement. Hover a button for its short description. For Place, its range and Whole base are in the note that opens under the tabs. Pressing Ruler or Step does not rearrange the toolbar: choosing a move button simply goes back to moving models.',
                 },
                 {
                     title: 'Step',
@@ -96,7 +96,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Sight guidelines',
-                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why.",
+                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again.",
                 },
                 {
                     title: 'Auras and markers',

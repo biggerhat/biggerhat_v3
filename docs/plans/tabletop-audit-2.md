@@ -103,9 +103,10 @@ Each batch needs the help topics and the pictures remade (a layout change moves 
 
 **Batch 3 (done, 2026-11):** 2. On a phone the terrain editor is a bottom sheet (`terrain-sheet`, Done button) with the board scrolled into view above it; the floating Fate button is hidden while it is up.
 
-**Batch 4 (part, 2026-11):** 12 as smaller, tighter alerts (the wording is unchanged); 11 as an opt-in **Compact model list** (Table tab): one line per model on the board (`GameCrewMemberRow` `compact`, board only; the play screen is unchanged), a menu for Tokens, Card, Upgrades and Replace, six models in about 300px instead of about 500. **Not done:** 13/16 (group the Options panel), 14.
+**Batch 4 (part, 2026-11):** 12 as smaller, tighter alerts (the wording is unchanged); 11 as an opt-in **Compact model list** (Table tab): one line per model on the board (`GameCrewMemberRow` `compact`, board only; the play screen is unchanged), a menu for Tokens, Card, Upgrades and Replace, six models in about 300px instead of about 500. 13/16 the Options panel is grouped: **Check** (sight guidelines, scheme target), **Movement** (what it ignores, under/on top), the Fate flip, **Notes and auras**, then one footer (`model-danger`) with Mark killed and Remove. 8 (follow-up): the Add card is shorter: the Side picker sits beside the Add button, and the marker count shows only when markers are out.
+**Not done:** 14 (similar-looking icon buttons: left alone; Tokens and Replace have titles and the compact list moves them into a menu).
 
-**Batch 5 (part, 2026-11):** 23. An empty sandbox says "Start here" with three steps and an Add a character button. **Not done:** 21 (a dismissible first-visit strip for the gestures).
+**Batch 5 (part, 2026-11):** 23. An empty sandbox says "Start here" with three steps and an Add a character button. 21 is covered by what is already there: the hint at the end of the list ("Tap a model to select it. Drag it to move. Drag the board to pan; pinch or scroll to zoom.") and the "Start here" card; a separate strip would only repeat them.
 
 Measured after batches 1 to 3 (desktop 1280x900 sandbox): the toolbar is one row above the board, the board still fits the screen, and the first model row is at about y=513 (was 603).
 Phone controls under 44px: sandbox 15 and board 14 in the audit's list, most of them the 40px buttons the side column used to give (the list now includes small secondary controls and the skip link).

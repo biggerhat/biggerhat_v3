@@ -342,7 +342,7 @@ const click = (s, spec) => s.page.evaluate(`(${FIND})(${JSON.stringify(spec)})?.
             region: '[data-testid=selected-panel]',
             scrollTo: '[data-testid=selected-panel]',
             callouts: ['[data-testid=model-guide]', { sel: '[data-testid=ignores-section]', at: 'right' }, '[data-testid=model-kill]'],
-            maxHeight: 620,
+            maxHeight: 820,
         });
     });
     await L.step('help picture: Tabletop, the terrain editor', carol, async () => {

@@ -438,6 +438,18 @@ function showPanel() {
 const loadOpen = ref(false);
 const saveOpen = ref(false);
 /** The Ruler button is a switch: on to measure, off to put the ruler away and go back to moving models. */
+/** The move buttons stay on the toolbar in every mode (so it never changes height and moves the board): pressing one goes back to moving models. */
+function chooseKind(kind: MoveKind) {
+    moveKind.value = kind;
+    mode.value = 'move';
+}
+function chooseStep() {
+    if (mode.value !== 'move') {
+        mode.value = 'move';
+        return;
+    }
+    stepMove.value = !stepMove.value;
+}
 const toggleRuler = () => (mode.value = mode.value === 'ruler' ? 'move' : 'ruler');
 
 const level = ref<number | 'all'>('all');
@@ -1419,6 +1431,8 @@ function placeWithinRule(token: Token, rule: { from: string; range: number }, ta
     }
     finishPlacing(token, spot, `${token.name} placed within ${rule.range}" of ${from.name}.`);
 }
+/** Whether the chosen model can be marked killed (or brought back) from its options. */
+const canKill = computed(() => !!selected.value && !selected.value.marker && !selected.value.locked && (crewRows.value.length > 0 || props.sandbox));
 const keepWhereItIs = (token: Token) => finishPlacing(token, null, `${token.name} stays where it is.`);
 function placeAt(token: Token, p: Point) {
     if (token.locked) return;
@@ -2123,27 +2137,16 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             ><Ruler class="mr-1 size-4" />Ruler</Button
                         >
                         <Button
-                            v-if="guidedId"
-                            :variant="mode === 'sight' ? 'default' : 'outline'"
+                            :variant="mode === 'move' && stepMove ? 'default' : 'outline'"
                             size="sm"
-                            title="Aim the sight guidelines: press on the table, or on the model or marker they should point at"
-                            data-testid="mode-sight"
-                            @click="mode = 'sight'"
-                            ><Eye class="mr-1 size-4" />Aim</Button
-                        >
-                        <Button
-                            v-if="mode === 'move'"
-                            :variant="stepMove ? 'default' : 'outline'"
-                            size="sm"
-                            :aria-pressed="stepMove"
+                            :aria-pressed="mode === 'move' && stepMove"
                             title="Step move: grab the same model again to add another leg to the move"
                             data-testid="step-toggle"
-                            @click="stepMove = !stepMove"
+                            @click="chooseStep"
                             ><Route class="mr-1 size-4" />Step</Button
                         >
 
                         <div
-                            v-if="mode === 'move'"
                             role="radiogroup"
                             aria-label="How the model moves"
                             class="inline-flex rounded-md border p-0.5 max-sm:order-last max-sm:w-full max-sm:[&>button]:flex-1"
@@ -2154,43 +2157,20 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 :key="o.value"
                                 type="button"
                                 role="radio"
-                                :aria-checked="moveKind === o.value"
+                                :aria-checked="mode === 'move' && moveKind === o.value"
                                 :title="o.hint"
                                 :class="[
                                     'rounded px-2 py-1 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
-                                    moveKind === o.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                                    mode === 'move' && moveKind === o.value
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'text-muted-foreground hover:text-foreground',
                                 ]"
                                 :data-testid="`move-kind-${o.value}`"
-                                @click="moveKind = o.value"
+                                @click="chooseKind(o.value)"
                             >
                                 {{ o.label }}
                             </button>
                         </div>
-                        <template v-if="mode === 'move' && moveKind === 'place'">
-                            <label class="flex items-center gap-1 text-sm max-sm:order-last"
-                                >Within
-                                <input
-                                    v-model.number="placeRange"
-                                    type="number"
-                                    min="0.5"
-                                    max="36"
-                                    step="0.5"
-                                    class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
-                                    aria-label="Place range in inches"
-                                    data-testid="place-range"
-                                />"</label
-                            >
-                            <Button
-                                size="sm"
-                                class="max-sm:order-last"
-                                :variant="placeWhole ? 'default' : 'outline'"
-                                :aria-pressed="placeWhole"
-                                title="Some effects need the whole base within range rather than a single point of it"
-                                data-testid="place-whole"
-                                @click="placeWhole = !placeWhole"
-                                >Whole base</Button
-                            >
-                        </template>
                     </div>
                 </template>
                 <div class="ml-auto flex shrink-0 gap-1" data-testid="zoom-controls">
@@ -3113,6 +3093,31 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         >Flight: the model walks but ignores terrain, so climbing costs no movement and a drop does no damage. Only the ground
                         distance counts against its Walk.</template
                     >
+                    <div v-if="moveKind === 'place'" class="mt-2 flex flex-wrap items-center gap-2 text-foreground" data-testid="place-controls">
+                        <label class="flex items-center gap-1 text-sm max-sm:order-last"
+                            >Within
+                            <input
+                                v-model.number="placeRange"
+                                type="number"
+                                min="0.5"
+                                max="36"
+                                step="0.5"
+                                class="w-16 rounded-md border bg-background px-2 py-1.5 text-center"
+                                aria-label="Place range in inches"
+                                data-testid="place-range"
+                            />"</label
+                        >
+                        <Button
+                            size="sm"
+                            class="max-sm:order-last"
+                            :variant="placeWhole ? 'default' : 'outline'"
+                            :aria-pressed="placeWhole"
+                            title="Some effects need the whole base within range rather than a single point of it"
+                            data-testid="place-whole"
+                            @click="placeWhole = !placeWhole"
+                            >Whole base</Button
+                        >
+                    </div>
                 </div>
                 <div
                     v-if="mode === 'move' && stepMove"
@@ -3124,11 +3129,18 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     >
                     <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
                 </div>
-                <div
-                    v-if="guidedId && (mode === 'sight' || sideLines.length)"
-                    class="space-y-2 rounded-md border p-3 text-sm"
-                    data-testid="guide-panel"
-                >
+                <div v-if="guidedId" class="space-y-2 rounded-md border p-3 text-sm" data-testid="guide-panel">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-medium">Sight guidelines on for {{ tokens.find((t) => t.id === guidedId)?.name }}</span>
+                        <Button
+                            :variant="mode === 'sight' ? 'default' : 'outline'"
+                            size="sm"
+                            title="Aim the sight guidelines: press on the table, or on the model or marker they should point at"
+                            data-testid="mode-sight"
+                            @click="mode = 'sight'"
+                            ><Eye class="mr-1 size-4" />Aim</Button
+                        >
+                    </div>
                     <p v-if="mode === 'sight'" class="text-muted-foreground" data-testid="guide-hint">
                         Press or drag on the board to aim {{ tokens.find((t) => t.id === guidedId)?.name }}'s guidelines, or press a model or marker
                         to point at it. The Models tab goes back to moving models.
@@ -3344,22 +3356,35 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             >
                 <div class="flex items-center justify-between gap-2">
                     <div class="text-sm font-medium">Add to the table</div>
-                    <DropdownMenu :modal="false">
-                        <DropdownMenuTrigger as-child>
-                            <Button size="sm" data-testid="add-menu"><Plus class="mr-1 size-4" />Add</Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem v-if="sandbox && characterSearchUrl" data-testid="character-open" @select="openCharacterDialog"
-                                ><User class="mr-2 size-4" />Character</DropdownMenuItem
-                            >
-                            <DropdownMenuItem v-if="markers && markerSides.length" data-testid="marker-open" @select="openMarkerDialog"
-                                ><MapPin class="mr-2 size-4" />Marker</DropdownMenuItem
-                            >
-                            <DropdownMenuItem v-if="sandbox" data-testid="add-terrain" @select="mode = 'terrain'"
-                                ><Mountain class="mr-2 size-4" />Terrain piece</DropdownMenuItem
-                            >
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div class="flex items-center gap-2">
+                        <select
+                            v-if="sandbox"
+                            v-model="newSide"
+                            class="rounded-md border bg-background px-2 py-1.5 text-sm"
+                            aria-label="Side for the models you add"
+                            title="Which side the next model you add is on"
+                            data-testid="new-side"
+                        >
+                            <option value="a">{{ sideNames.a }}</option>
+                            <option value="b">{{ sideNames.b }}</option>
+                        </select>
+                        <DropdownMenu :modal="false">
+                            <DropdownMenuTrigger as-child>
+                                <Button size="sm" data-testid="add-menu"><Plus class="mr-1 size-4" />Add</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem v-if="sandbox && characterSearchUrl" data-testid="character-open" @select="openCharacterDialog"
+                                    ><User class="mr-2 size-4" />Character</DropdownMenuItem
+                                >
+                                <DropdownMenuItem v-if="markers && markerSides.length" data-testid="marker-open" @select="openMarkerDialog"
+                                    ><MapPin class="mr-2 size-4" />Marker</DropdownMenuItem
+                                >
+                                <DropdownMenuItem v-if="sandbox" data-testid="add-terrain" @select="mode = 'terrain'"
+                                    ><Mountain class="mr-2 size-4" />Terrain piece</DropdownMenuItem
+                                >
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
                 <div
                     v-if="sandbox && !tokens.some((t) => !t.marker)"
@@ -3379,20 +3404,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         <Button size="sm" variant="ghost" data-testid="empty-help" @click="openHelp('start')">How the table works</Button>
                     </div>
                 </div>
-                <div v-if="markers && markerSides.length" class="flex flex-wrap items-center gap-2 text-sm">
+                <div v-if="markers && markerSides.some((s) => markersOut(s.side) > 0)" class="flex flex-wrap items-center gap-2 text-sm">
                     <span class="text-muted-foreground" data-testid="marker-count"
                         >{{ markerSides.map((s) => `${markerSides.length > 1 ? `${s.label}: ` : ''}${markersOut(s.side)}`).join(', ') }} on the
                         table</span
                     >
-                </div>
-                <div v-if="sandbox" class="flex flex-wrap items-end gap-2 text-sm">
-                    <label>
-                        <span class="mb-1 block font-medium">Side</span>
-                        <select v-model="newSide" class="rounded-md border bg-background px-2 py-1.5">
-                            <option value="a">{{ sideNames.a }}</option>
-                            <option value="b">{{ sideNames.b }}</option>
-                        </select>
-                    </label>
                 </div>
             </div>
             <div
@@ -3629,7 +3645,13 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             <p v-if="selected.marker && selected.strategy" class="mt-1 text-xs text-muted-foreground" data-testid="strategy-note">
                                 Strategy marker: neutral to every crew. A model may move through it but not end a move on it.
                             </p>
-                            <div class="mt-2 flex flex-wrap gap-1" data-testid="model-actions">
+                            <p
+                                v-if="!selected.marker || (schemeSlot(selected) !== null && !selected.locked)"
+                                class="mt-3 text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+                            >
+                                Check
+                            </p>
+                            <div class="mt-1.5 flex flex-wrap gap-1" data-testid="model-actions">
                                 <Button
                                     v-if="!selected.marker"
                                     size="sm"
@@ -3650,16 +3672,14 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     >{{ isSchemeTarget(selected, schemeSlot(selected)!) ? "This is your scheme's" : "Use as your scheme's" }}
                                     {{ selected.marker ? 'marker' : 'model' }}</Button
                                 >
-                                <Button
-                                    v-if="!selected.marker && !selected.locked && (crewRows.length || sandbox)"
-                                    size="sm"
-                                    variant="outline"
-                                    :data-testid="selected.killed ? 'model-revive' : 'model-kill'"
-                                    @click="emit('killChange', selected.id, !selected.killed)"
-                                    >{{ selected.killed ? 'Bring it back' : 'Mark killed' }}</Button
-                                >
                             </div>
-                            <details v-if="!selected.marker" class="group mt-2" :open="!!selected.ignores?.length" data-testid="ignores-section">
+                            <p
+                                v-if="!selected.marker || (selectedCover && !selected.locked)"
+                                class="mt-3 text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+                            >
+                                Movement
+                            </p>
+                            <details v-if="!selected.marker" class="group mt-1.5" :open="!!selected.ignores?.length" data-testid="ignores-section">
                                 <summary
                                     class="flex cursor-pointer list-none items-center justify-between text-sm text-muted-foreground [&::-webkit-details-marker]:hidden"
                                 >
@@ -3715,9 +3735,12 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 >
                             </div>
                             <!-- a Fate flip for this model: the result shows beside it on the table -->
+                            <p v-if="fate && !selected.marker" class="mt-3 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Fate
+                            </p>
                             <details
                                 v-if="fate && !selected.marker"
-                                class="group mt-2 rounded-md border"
+                                class="group mt-1.5 rounded-md border"
                                 :open="!!modelFlip"
                                 data-testid="model-fate"
                             >
@@ -3809,6 +3832,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     </div>
                                 </div>
                             </details>
+                            <p class="mt-3 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Notes and auras</p>
                             <ModelInfoPanel
                                 v-if="!selected.marker"
                                 :token="selected"
@@ -3955,8 +3979,21 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     </p>
                                 </div>
                             </div>
-                            <div v-if="sandbox || (selected.marker && !selected.locked)" class="mt-3 border-t pt-3">
+                            <div
+                                v-if="canKill || sandbox || (selected.marker && !selected.locked)"
+                                class="mt-3 flex flex-wrap items-center gap-1 border-t pt-3"
+                                data-testid="model-danger"
+                            >
                                 <Button
+                                    v-if="canKill"
+                                    size="sm"
+                                    variant="outline"
+                                    :data-testid="selected.killed ? 'model-revive' : 'model-kill'"
+                                    @click="emit('killChange', selected.id, !selected.killed)"
+                                    >{{ selected.killed ? 'Bring it back' : 'Mark killed' }}</Button
+                                >
+                                <Button
+                                    v-if="sandbox || (selected.marker && !selected.locked)"
                                     variant="ghost"
                                     size="sm"
                                     class="text-destructive hover:text-destructive"

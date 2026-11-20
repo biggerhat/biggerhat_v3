@@ -300,12 +300,23 @@ const L = require('./lib.cjs');
                 // too far for the range
                 await toBoardTop();
                 await dragTo([12, 28], [12, 18]);
+                // the note is cleared when a drag starts and set as it ends: wait for it rather than read it at once
+                await s.page
+                    .waitForFunction(() => /beyond the 6" place/.test(document.querySelector('[data-testid=tabletop-note]')?.innerText ?? ''), {
+                        timeout: 4000,
+                    })
+                    .catch(() => {});
                 t = await note();
                 if (!/beyond the 6" place/.test(t)) throw new Error(`expected the place to be too far: ${t}`);
                 // the whole base must be within range: the same short drop still passes, and the toggle is pressed
-                await hit('[data-testid=place-whole]');
-                if ((await s.page.$eval('[data-testid=place-whole]', (b) => b.getAttribute('aria-pressed'))) !== 'true')
-                    throw new Error('whole base did not toggle');
+                await s.page.$eval('[data-testid=place-whole]', (b) => b.click());
+                await s.page
+                    .waitForFunction(() => document.querySelector('[data-testid=place-whole]')?.getAttribute('aria-pressed') === 'true', {
+                        timeout: 3000,
+                    })
+                    .catch(() => {
+                        throw new Error('whole base did not toggle');
+                    });
                 // a Flight walk: height is ignored, the Walk still counts
                 await hit('[data-testid=move-kind-fly]');
                 await toBoardTop();
@@ -1723,6 +1734,87 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=compact-toggle]');
             if (!(await s.page.$eval('[data-testid=compact-toggle]', (i) => i.checked))) throw new Error('the compact list should be remembered');
             await s.page.$eval('[data-testid=compact-toggle]', (i) => i.click());
+        });
+        await L.step(`tabletop (${label}): a model's options are grouped, with Mark killed and Remove together at the end`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=crew-list]', { timeout: 6000 });
+            // the Add card keeps the side picker beside the Add button, and shows no marker count while there are no markers
+            const add = await s.page.evaluate(() => {
+                const panel = document.querySelector('[data-testid=add-panel]');
+                return {
+                    side: !!panel.querySelector('[data-testid=new-side]'),
+                    sideLabel: /(^|\n)Side(\n|$)/.test(panel.innerText),
+                    markerCount: !!panel.querySelector('[data-testid=marker-count]'),
+                    h: Math.round(panel.getBoundingClientRect().height),
+                };
+            });
+            if (!add.side || add.sideLabel)
+                throw new Error(`the side picker should sit beside Add, with no label of its own: ${JSON.stringify(add)}`);
+            if (add.markerCount) throw new Error('there is no marker count while no markers are out');
+            await toBoardTop();
+            const m = await pixel(18, 4);
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=selected-panel] [data-testid=model-guide]', { timeout: 4000 });
+            const grouped = await s.page.evaluate(() => {
+                const panel = document.querySelector('[data-testid=selected-panel]');
+                const text = panel.innerText;
+                const danger = panel.querySelector('[data-testid=model-danger]');
+                const actions = panel.querySelector('[data-testid=model-actions]');
+                return {
+                    headings: ['Check', 'Movement', 'Notes and auras'].filter((h) => new RegExp(`(^|\\n)${h}(\\n|$)`, 'i').test(text)),
+                    killInDanger: !!danger?.querySelector('[data-testid=model-kill]'),
+                    removeInDanger: !!danger?.querySelector('[data-testid=remove-token]'),
+                    killInActions: !!actions?.querySelector('[data-testid=model-kill]'),
+                    dangerLast:
+                        !!danger &&
+                        !panel.querySelector('[data-testid=aura-controls]')?.compareDocumentPosition(danger).toString().includes('0') &&
+                        !!(panel.querySelector('[data-testid=aura-controls]').compareDocumentPosition(danger) & Node.DOCUMENT_POSITION_FOLLOWING),
+                };
+            });
+            if (grouped.headings.length !== 3)
+                throw new Error(`the options should have the headings Check, Movement and Notes and auras: ${JSON.stringify(grouped)}`);
+            if (!grouped.killInDanger || !grouped.removeInDanger || grouped.killInActions)
+                throw new Error(`Mark killed and Remove belong together at the end: ${JSON.stringify(grouped)}`);
+            if (!grouped.dangerLast) throw new Error('the destructive actions come after the auras');
+        });
+        await L.step(`tabletop (${label}): choosing a tool never moves the board (the toolbar keeps its height)`, s, async () => {
+            await openSandbox();
+            await s.page.waitForSelector('[data-testid=tabletop-board] svg');
+            const boardY = () =>
+                s.page.evaluate(() => Math.round(document.querySelector('[data-testid=tabletop-board]').getBoundingClientRect().top + scrollY));
+            const before = await boardY();
+            // Place has its own controls, and sight guidelines an Aim button: both appear in the side column, not in the toolbar above the board
+            await s.page.$eval('[data-testid=move-kind-place]', (b) => b.click());
+            await s.page.waitForSelector('[data-testid=place-range]');
+            if ((await boardY()) !== before) throw new Error(`choosing Place moved the board from ${before} to ${await boardY()}`);
+            if (await s.page.$eval('[data-testid=place-range]', (e) => !!e.closest('[data-testid=board-bar]')))
+                throw new Error('the Place controls belong in the side column');
+            await s.page.$eval('[data-testid=move-kind-walk]', (b) => b.click());
+            // the Ruler keeps the move buttons and Step in place (so the toolbar does not change height), and pressing one goes back to moving
+            await s.page.$eval('[data-testid=mode-ruler]', (b) => b.click());
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=mode-ruler]')?.getAttribute('aria-pressed') === 'true', {
+                timeout: 3000,
+            });
+            if ((await boardY()) !== before) throw new Error('turning on the Ruler moved the board');
+            if (!(await s.page.$('[data-testid=move-kind-jump]')) || !(await s.page.$('[data-testid=step-toggle]')))
+                throw new Error('the move buttons and Step stay on the toolbar in Ruler mode');
+            await s.page.$eval('[data-testid=move-kind-jump]', (b) => b.click());
+            await s.page.waitForFunction(() => document.querySelector('[data-testid=mode-ruler]')?.getAttribute('aria-pressed') === 'false', {
+                timeout: 3000,
+            });
+            await s.page.$eval('[data-testid=move-kind-walk]', (b) => b.click());
+            await toBoardTop();
+            const m = await pixel(18, 4);
+            await s.page.mouse.click(m.x, m.y);
+            await s.page.waitForSelector('[data-testid=model-guide]');
+            await toBoardTop();
+            const guided = await boardY();
+            await s.page.$eval('[data-testid=model-guide]', (b) => b.click());
+            await s.page.waitForSelector('[data-testid=guide-panel]');
+            await s.page.waitForSelector('[data-testid=mode-sight]');
+            if ((await boardY()) !== guided) throw new Error('switching on sight guidelines moved the board');
+            if (await s.page.$eval('[data-testid=mode-sight]', (e) => !!e.closest('[data-testid=board-bar]')))
+                throw new Error('the Aim button belongs in the guide panel');
         });
         await L.step(`tabletop (${label}): a model can be chosen and moved from the keyboard alone, with the same rules and notes`, s, async () => {
             await openSandbox();

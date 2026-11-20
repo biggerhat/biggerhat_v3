@@ -37,9 +37,9 @@ class CharacterController extends Controller
             ->when($request->query('faction'), fn ($q, $faction) => $q->where('faction', $faction))
             ->when($request->query('station'), fn ($q, $station) => $q->where('station', $station))
             ->when($search, fn ($q) => $q->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('display_name', 'LIKE', "%{$search}%")
-                    ->orWhere('nicknames', 'LIKE', "%{$search}%");
+                $q->whereSearch('name', $search)
+                    ->orWhereSearch('display_name', $search)
+                    ->orWhereSearch('nicknames', $search);
             }));
 
         // When searching, prioritize exact name/display_name matches, then prefix matches, then substring.

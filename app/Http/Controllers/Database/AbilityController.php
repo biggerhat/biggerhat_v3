@@ -24,7 +24,7 @@ class AbilityController extends Controller
 
         // Name text search (LIKE)
         if ($request->filled('name_search')) {
-            $query->where('name', 'LIKE', Search::wildcardLike($request->get('name_search')));
+            $query->whereSearch('name', $request->get('name_search'));
         }
 
         if ($request->filled('suits')) {
@@ -40,7 +40,7 @@ class AbilityController extends Controller
         }
 
         if ($request->filled('description')) {
-            $query->where('description', 'LIKE', Search::wildcardLike($request->get('description')));
+            $query->whereSearch('description', $request->get('description'));
         }
 
         $pageView = $request->get('page_view', 'cards');

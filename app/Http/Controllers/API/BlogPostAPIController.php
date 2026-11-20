@@ -18,11 +18,11 @@ class BlogPostAPIController extends Controller
             ->latest('published_at');
 
         if ($character = $request->get('character')) {
-            $query->whereHas('characters', fn ($q) => $q->where('display_name', 'LIKE', "%{$character}%"));
+            $query->whereHas('characters', fn ($q) => $q->whereSearch('display_name', $character));
         }
 
         if ($keyword = $request->get('keyword')) {
-            $query->whereHas('keywords', fn ($q) => $q->where('name', 'LIKE', "%{$keyword}%"));
+            $query->whereHas('keywords', fn ($q) => $q->whereSearch('name', $keyword));
         }
 
         return BlogPostApiResource::collection($query->limit(25)->get());

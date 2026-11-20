@@ -28,7 +28,7 @@ class AbilityController extends Controller
     {
         $query = Ability::query()
             ->with('allegiance')
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->has('is_general'), fn ($q) => $q->where('is_general', $request->boolean('is_general')))
             ->when($request->query('allegiance'), fn ($q, $slug) => $q->whereHas('allegiance', fn ($qq) => $qq->where('slug', $slug)))
             ->orderBy('name');

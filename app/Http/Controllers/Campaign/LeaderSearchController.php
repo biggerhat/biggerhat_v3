@@ -93,7 +93,7 @@ class LeaderSearchController extends Controller
             // Empty q browses the full (already keyword/cost/station-constrained)
             // pool — the Action Lookup Modal (T3-32) lets a player browse, not
             // just text-search.
-            ->when($q !== '', fn ($qq) => $qq->where('name', 'LIKE', "%{$q}%"))
+            ->when($q !== '', fn ($qq) => $qq->whereSearch('name', $q))
             ->when($typeFilter !== null, fn ($qq) => $qq->where('type', $typeFilter))
             ->whereHas('characters', $sourceFilter)
             // Eager-load one valid source character so the picker can submit it;
@@ -149,7 +149,7 @@ class LeaderSearchController extends Controller
 
         $abilities = Ability::query()
             // Empty q browses the full constrained pool (Ability Lookup Modal, T3-32).
-            ->when($q !== '', fn ($qq) => $qq->where('name', 'LIKE', "%{$q}%"))
+            ->when($q !== '', fn ($qq) => $qq->whereSearch('name', $q))
             ->whereHas('characters', $sourceFilter)
             ->with(['characters' => $sourceFilter])
             ->limit(60)

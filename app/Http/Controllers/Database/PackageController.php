@@ -26,7 +26,7 @@ class PackageController extends Controller
             ->orderBy('name', 'ASC');
 
         if ($request->filled('name_search')) {
-            $query->where('name', 'LIKE', '%'.$request->get('name_search').'%');
+            $query->whereSearch('name', $request->get('name_search'));
         }
 
         if ($request->filled('faction')) {

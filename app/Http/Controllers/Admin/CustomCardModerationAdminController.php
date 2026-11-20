@@ -28,8 +28,8 @@ class CustomCardModerationAdminController extends Controller
                 ->with('user:id,name')
                 ->when($visibility === 'public', fn ($q) => $q->where('is_public', true))
                 ->when($visibility === 'private', fn ($q) => $q->where('is_public', false))
-                ->when($search, fn ($q, $term) => $q->where(fn ($qq) => $qq->where('name', 'LIKE', "%{$term}%")
-                    ->orWhere('display_name', 'LIKE', "%{$term}%")))
+                ->when($search, fn ($q, $term) => $q->where(fn ($qq) => $qq->whereSearch('name', $term)
+                    ->orWhereSearch('display_name', $term)))
                 ->latest()
                 ->limit(100)
                 ->get();
@@ -53,8 +53,8 @@ class CustomCardModerationAdminController extends Controller
                 ->with('user:id,name')
                 ->when($visibility === 'public', fn ($q) => $q->where('is_public', true))
                 ->when($visibility === 'private', fn ($q) => $q->where('is_public', false))
-                ->when($search, fn ($q, $term) => $q->where(fn ($qq) => $qq->where('name', 'LIKE', "%{$term}%")
-                    ->orWhere('display_name', 'LIKE', "%{$term}%")))
+                ->when($search, fn ($q, $term) => $q->where(fn ($qq) => $qq->whereSearch('name', $term)
+                    ->orWhereSearch('display_name', $term)))
                 ->latest()
                 ->limit(100)
                 ->get();

@@ -351,9 +351,9 @@ class SearchController extends Controller
         if ($request->filled('name')) {
             $name = (string) $request->get('name');
             $query->where(function ($q) use ($name) {
-                $q->where('name', 'LIKE', "%{$name}%")
-                    ->orWhere('title', 'LIKE', "%{$name}%")
-                    ->orWhere('description', 'LIKE', "%{$name}%");
+                $q->whereSearch('name', $name)
+                    ->orWhereSearch('title', $name)
+                    ->orWhereSearch('description', $name);
             });
         }
 
@@ -467,7 +467,7 @@ class SearchController extends Controller
         if ($this->anyFilled($request, $actionFilterKeys)) {
             $query->whereHas('sides.actions', function ($q) use ($request) {
                 if ($request->filled('action_name')) {
-                    $q->where('name', 'LIKE', '%'.$request->get('action_name').'%');
+                    $q->whereSearch('name', $request->get('action_name'));
                 }
                 if ($request->filled('action_type')) {
                     $types = array_filter(explode(',', (string) $request->get('action_type')));
@@ -494,7 +494,7 @@ class SearchController extends Controller
                     $q->where('usage_limit', $request->get('action_usage_limit'));
                 }
                 if ($request->filled('action_description')) {
-                    $q->where('body', 'LIKE', Search::wildcardLike($request->get('action_description')));
+                    $q->whereSearch('body', $request->get('action_description'));
                 }
                 foreach (['is_piercing', 'is_accurate', 'is_area'] as $bool) {
                     if ($request->filled("action_{$bool}")) {
@@ -508,10 +508,10 @@ class SearchController extends Controller
         if ($this->anyFilled($request, ['ability_name', 'ability_description'])) {
             $query->whereHas('sides.abilities', function ($q) use ($request) {
                 if ($request->filled('ability_name')) {
-                    $q->where('name', 'LIKE', Search::wildcardLike($request->get('ability_name')));
+                    $q->whereSearch('name', $request->get('ability_name'));
                 }
                 if ($request->filled('ability_description')) {
-                    $q->where('body', 'LIKE', Search::wildcardLike($request->get('ability_description')));
+                    $q->whereSearch('body', $request->get('ability_description'));
                 }
             });
         }
@@ -521,13 +521,13 @@ class SearchController extends Controller
         if ($this->anyFilled($request, ['trigger_name', 'trigger_suits', 'trigger_description'])) {
             $query->whereHas('sides.actions.triggers', function ($q) use ($request) {
                 if ($request->filled('trigger_name')) {
-                    $q->where('name', 'LIKE', Search::wildcardLike($request->get('trigger_name')));
+                    $q->whereSearch('name', $request->get('trigger_name'));
                 }
                 if ($request->filled('trigger_suits')) {
                     $q->where('suits', 'LIKE', '%'.$request->get('trigger_suits').'%');
                 }
                 if ($request->filled('trigger_description')) {
-                    $q->where('body', 'LIKE', Search::wildcardLike($request->get('trigger_description')));
+                    $q->whereSearch('body', $request->get('trigger_description'));
                 }
             });
         }
@@ -535,12 +535,12 @@ class SearchController extends Controller
         // Cross-field description search (matches text in actions, abilities,
         // OR triggers — the common rulebook-keyword case).
         if ($request->filled('description')) {
-            $desc = Search::wildcardLike((string) $request->get('description'));
+            $desc = (string) (string) $request->get('description');
             $query->where(function ($q) use ($desc) {
-                $q->where('description', 'LIKE', $desc)
-                    ->orWhereHas('sides.actions', fn ($aq) => $aq->where('body', 'LIKE', $desc))
-                    ->orWhereHas('sides.abilities', fn ($aq) => $aq->where('body', 'LIKE', $desc))
-                    ->orWhereHas('sides.actions.triggers', fn ($tq) => $tq->where('body', 'LIKE', $desc));
+                $q->whereSearch('description', $desc)
+                    ->orWhereHas('sides.actions', fn ($aq) => $aq->whereSearch('body', $desc))
+                    ->orWhereHas('sides.abilities', fn ($aq) => $aq->whereSearch('body', $desc))
+                    ->orWhereHas('sides.actions.triggers', fn ($tq) => $tq->whereSearch('body', $desc));
             });
         }
 
@@ -570,13 +570,13 @@ class SearchController extends Controller
         $applied = false;
         if ($request->filled('name')) {
             $q->where(function ($qq) use ($request) {
-                $name = Search::wildcardLike((string) $request->get('name'));
-                $qq->where('name', 'LIKE', $name)->orWhere('body', 'LIKE', $name);
+                $name = (string) (string) $request->get('name');
+                $qq->whereSearch('name', $name)->orWhereSearch('body', $name);
             });
             $applied = true;
         }
         if ($request->filled('description')) {
-            $q->where('body', 'LIKE', Search::wildcardLike($request->get('description')));
+            $q->whereSearch('body', $request->get('description'));
             $applied = true;
         }
         if ($request->filled('scrip_min')) {
@@ -605,13 +605,13 @@ class SearchController extends Controller
         $applied = false;
         if ($request->filled('name')) {
             $q->where(function ($qq) use ($request) {
-                $name = Search::wildcardLike((string) $request->get('name'));
-                $qq->where('name', 'LIKE', $name)->orWhere('effect', 'LIKE', $name);
+                $name = (string) (string) $request->get('name');
+                $qq->whereSearch('name', $name)->orWhereSearch('effect', $name);
             });
             $applied = true;
         }
         if ($request->filled('description')) {
-            $q->where('effect', 'LIKE', Search::wildcardLike($request->get('description')));
+            $q->whereSearch('effect', $request->get('description'));
             $applied = true;
         }
         // Stratagems carry tactical_cost (tactics tokens), NOT scrip — but the
@@ -655,13 +655,13 @@ class SearchController extends Controller
         $applied = false;
         if ($request->filled('name')) {
             $q->where(function ($qq) use ($request) {
-                $name = Search::wildcardLike((string) $request->get('name'));
-                $qq->where('name', 'LIKE', $name)->orWhere('body', 'LIKE', $name);
+                $name = (string) (string) $request->get('name');
+                $qq->whereSearch('name', $name)->orWhereSearch('body', $name);
             });
             $applied = true;
         }
         if ($request->filled('description')) {
-            $q->where('body', 'LIKE', Search::wildcardLike($request->get('description')));
+            $q->whereSearch('body', $request->get('description'));
             $applied = true;
         }
 

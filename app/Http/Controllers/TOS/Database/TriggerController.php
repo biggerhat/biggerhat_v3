@@ -16,7 +16,7 @@ class TriggerController extends Controller
 
         $query = Trigger::with('actions:id,name')->orderBy('name');
         if ($nameSearch) {
-            $query->where('name', 'LIKE', "%{$nameSearch}%");
+            $query->whereSearch('name', $nameSearch);
         }
 
         return inertia('TOS/Triggers/Index', [

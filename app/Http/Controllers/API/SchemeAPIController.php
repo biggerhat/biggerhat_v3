@@ -12,6 +12,6 @@ class SchemeAPIController extends Controller
     {
         $name = $request->get('name');
 
-        return Scheme::where('name', 'LIKE', "%{$name}%")->get();
+        return Scheme::whereSearch('name', $name)->get();
     }
 }

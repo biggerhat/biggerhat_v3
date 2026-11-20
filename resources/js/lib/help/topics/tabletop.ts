@@ -186,7 +186,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Reading a base',
-                    body: "The base is filled with the model's faction colour, and the ring around its edge is its side. The ring just inside the edge is its health: one segment per wound (a smooth ring past 12), red when it is low. Bases of 40 mm and up also show the number. Badges show tokens, activation and engagement; turn them off with Show status badges.",
+                    body: "The base is filled with the model's faction colour, and the ring around its edge is its side (in a game the attacker's side is red and the defender's blue; in the practice table side A is blue and side B red). The ring just inside the edge is its health: one segment per wound (a smooth ring past 12), red when it is low. Bases of 40 mm and up also show the number. Badges show tokens, activation and engagement; turn them off with Show status badges.",
                     image: {
                         src: 'tabletop/board.webp',
                         alt: 'Part of the table with four models: two with a red base and a blue ring and two with a blue base and a red ring, each with its name, a ring of health segments inside the edge and its health number.',

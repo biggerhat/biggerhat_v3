@@ -28,6 +28,7 @@ interface Game {
     uuid: string;
     status: string;
     is_solo: boolean;
+    play_mode?: string | null;
     /** 'standard' | 'bonanza_brawl' — drives the format badge in the lists. */
     format: string;
     encounter_size: number;
@@ -63,6 +64,8 @@ const executeDelete = () => {
     deleteDialogOpen.value = false;
     gameToDelete.value = null;
 };
+
+const PLAY_MODES: Record<string, string> = { in_person: 'In person', tabletop: 'Tabletop', online: 'Online', other: 'Other' };
 
 const statusLabel = (status: string, isSolo: boolean = false): string =>
     ({
@@ -229,6 +232,7 @@ const formatDate = (dateStr: string) => {
                                     <span class="tabular-nums">{{ game.encounter_size }}ss</span>
                                     <span v-if="game.format === 'bonanza_brawl'" class="text-purple-700 dark:text-purple-300">· Bonanza Brawl</span>
                                     <span v-if="game.strategy">· {{ game.strategy.name }}</span>
+                                    <span v-if="game.play_mode && PLAY_MODES[game.play_mode]">· {{ PLAY_MODES[game.play_mode] }}</span>
                                     <span v-if="game.completed_at">· {{ formatDate(game.completed_at) }}</span>
                                 </div>
                             </div>

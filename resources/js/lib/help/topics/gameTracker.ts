@@ -16,8 +16,12 @@ const gameTracker: HelpTopic = {
             intro: 'Everything begins at Create Game. After that the game walks you through setup, then play.',
             items: [
                 {
+                    title: 'How will you play?',
+                    body: 'Choose In person, On the tabletop app, Online (not the tabletop app) or Other. It is a label that shows in your games list and on the game, and it is remembered for next time. On the tabletop app you also choose a Table: Empty table, or one of your saved tables. The game starts with a copy of that table, so changing or deleting the saved table later does not change a game. The tabletop choices appear only if you have the tabletop.',
+                },
+                {
                     title: 'Creating a game',
-                    body: 'Press Create Game and fill in the New Encounter card: a name if you like (League Round 3, Casual Tuesday), the format, the encounter size in soulstones, and the season. A strategy, deployment and scheme pool are generated for you when you create it.',
+                    body: 'Press Create Game and fill in the New Encounter card: a name if you like (League Round 3, Casual Tuesday), the format, how you will play, the encounter size in soulstones, and the season. A strategy, deployment and scheme pool are generated for you when you create it.',
                     image: {
                         src: 'game-tracker/create.webp',
                         alt: 'The New Encounter card on the Create Game page, with a game name box, a format list, the encounter size, a Solo Mode switch and the Create Game button.',

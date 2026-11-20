@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\DeploymentEnum;
 use App\Enums\GameFormatEnum;
+use App\Enums\GamePlayModeEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Models\Campaign\CampaignGame;
@@ -24,6 +25,9 @@ use Illuminate\Support\Str;
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
  * @property GameFormatEnum $format
+ * @property GamePlayModeEnum|null $play_mode
+ * @property int|null $tabletop_layout_id
+ * @property-read TabletopLayout|null $tabletopLayout
  *
  * @mixin IdeHelperGame
  */
@@ -48,6 +52,7 @@ class Game extends Model
             'deployment' => DeploymentEnum::class,
             'season' => PoolSeasonEnum::class,
             'format' => GameFormatEnum::class,
+            'play_mode' => GamePlayModeEnum::class,
             'scheme_pool' => 'array',
             'loot_state' => 'array',
             'board_state' => 'array',
@@ -79,6 +84,12 @@ class Game extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
+    }
+
+    /** @return BelongsTo<TabletopLayout, $this> */
+    public function tabletopLayout(): BelongsTo
+    {
+        return $this->belongsTo(TabletopLayout::class);
     }
 
     /** @return HasMany<GamePlayer, $this> */

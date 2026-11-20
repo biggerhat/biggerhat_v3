@@ -85,6 +85,8 @@ class GameBoardController extends Controller
             'character_injuries' => Inertia::defer(fn () => ! $readOnly && $game->status === GameStatusEnum::InProgress ? CrewUpgradeCatalog::injuries($game)->values() : []),
             'players' => $game->players->map(fn (GamePlayer $p) => [
                 'slot' => $p->slot,
+                // attacker or defender (null until the second player has joined and roles are given): the board colours the sides by it
+                'role' => $p->role?->value,
                 'name' => $this->playerName($p),
                 'mine' => ! $readOnly && $this->controls($p, $game),
                 'soulstone_pool' => (int) $p->soulstone_pool,

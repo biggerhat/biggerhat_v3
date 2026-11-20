@@ -44,6 +44,10 @@ Review and rationale: [docs/plans/game-setup-ux.md](../plans/game-setup-ux.md). 
 - **`GET /games/{uuid}` as a non-participant** redirects to `games.join` while a duel is still open (not full, not solo, status Setup); otherwise it stays a 403.
 - **`useGameChannel`** exposes `connected` (down only after 5 s) and refreshes every 30 s while the socket is down; `Show.vue` shows a "Reconnecting" badge. Browser flow `scripts/ui-audit/tournaments/flows29.cjs` drives create -> join -> faction -> master -> skip crew -> scheme -> play at phone width.
 
+## How a game is played (`play_mode`)
+
+`games.play_mode` (`GamePlayModeEnum`: in_person, tabletop, online, other; **null = made before it existed, never guessed**) is chosen on `Games/Create.vue` ("How will you play?"). Only `tabletop` changes behaviour: it needs `TabletopAccess` (the request rejects it, and the form hides it, without access) and may name one of the user's saved tables (`tabletop_layout`, validated to be theirs and prohibited for other modes). The game **copies** the layout's terrain and surface into `board_state` (`Layouts::boardState`), so editing or deleting the layout later does not change it; `tabletop_layout_id` (nullOnDelete) only says which table it began on. The other modes are a label (Games list, the play screen's header). Plan for the rest (a Deployment step on the board, the rulebook's alternating placement, `GameSetupFlow` extraction): [docs/plans/game-play-medium.md](../plans/game-play-medium.md). On the board, sides are coloured by `game_players.role`: attacker red, defender blue (`TabletopBoard` `sideColour`); with no roles (the practice table) side A is blue and B red. Browser flow: `flows39.cjs`.
+
 ## Tests
 
 `tests/Feature/Games/*` (e.g. `BonanzaBrawlTest.php`, `GameModeTypeTest.php`).

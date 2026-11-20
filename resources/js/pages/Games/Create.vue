@@ -23,12 +23,33 @@ interface FormatOption {
     uses_scenario: boolean;
 }
 
+interface PlayModeOption {
+    value: string;
+    label: string;
+    description: string;
+    tabletop: boolean;
+}
+interface TableOption {
+    uuid: string;
+    name: string;
+    pieces: number;
+    table_image: string | null;
+}
+
 const props = defineProps<{
     seasons: Season[];
     default_season: string;
     encounter_sizes: number[];
     formats: FormatOption[];
+    play_modes: PlayModeOption[];
+    tabletop_layouts: TableOption[];
 }>();
+
+const EMPTY_TABLE = '__empty';
+const playMode = ref<string>(props.play_modes.find((m) => m.value === 'in_person')?.value ?? props.play_modes[0]?.value ?? 'in_person');
+const tableChoice = ref<string>(EMPTY_TABLE);
+const activePlayMode = computed(() => props.play_modes.find((m) => m.value === playMode.value));
+const onTabletop = computed(() => activePlayMode.value?.tabletop === true);
 
 const gameName = ref('');
 const encounterSize = ref(50);
@@ -67,6 +88,8 @@ onMounted(async () => {
         if (!saved) return;
         if (props.formats.some((f) => f.value === saved.format)) format.value = saved.format;
         if (props.seasons.some((x) => x.value === saved.season)) season.value = saved.season;
+        if (props.play_modes.some((m) => m.value === saved.playMode)) playMode.value = saved.playMode;
+        if (props.tabletop_layouts.some((l) => l.uuid === saved.table)) tableChoice.value = saved.table;
         // The format watcher snaps the size to the format's default; let it run before restoring the saved size.
         await nextTick();
         if (!isBonanza.value) {
@@ -84,7 +107,14 @@ const submit = () => {
     try {
         localStorage.setItem(
             REMEMBER_KEY,
-            JSON.stringify({ format: format.value, season: season.value, encounterSize: encounterSize.value, isSolo: isSolo.value }),
+            JSON.stringify({
+                format: format.value,
+                season: season.value,
+                encounterSize: encounterSize.value,
+                isSolo: isSolo.value,
+                playMode: playMode.value,
+                table: tableChoice.value,
+            }),
         );
     } catch {
         // Not worth failing the create over.
@@ -102,6 +132,8 @@ const submit = () => {
             season: season.value,
             is_solo: payloadIsSolo,
             format: format.value,
+            play_mode: playMode.value,
+            tabletop_layout: onTabletop.value && tableChoice.value !== EMPTY_TABLE ? tableChoice.value : null,
         },
         { onFinish: () => (submitting.value = false) },
     );
@@ -164,6 +196,38 @@ const submit = () => {
                             </p>
                         </div>
 
+                        <div v-if="play_modes.length" class="space-y-2">
+                            <Label for="play-mode">How will you play?</Label>
+                            <Select v-model="playMode">
+                                <SelectTrigger id="play-mode" data-testid="play-mode">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem v-for="m in play_modes" :key="m.value" :value="m.value">{{ m.label }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p class="text-xs text-muted-foreground">{{ activePlayMode?.description }}</p>
+                        </div>
+                        <div v-if="onTabletop" class="space-y-2">
+                            <Label for="play-table">Table</Label>
+                            <Select v-model="tableChoice">
+                                <SelectTrigger id="play-table" data-testid="play-table">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem :value="EMPTY_TABLE">Empty table (set up terrain in the game)</SelectItem>
+                                    <SelectItem v-for="t in tabletop_layouts" :key="t.uuid" :value="t.uuid">
+                                        {{ t.name }} ({{ t.pieces }} {{ t.pieces === 1 ? 'piece' : 'pieces' }})
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p class="text-xs text-muted-foreground">
+                                The game starts with a copy of this table. Changing the saved table later does not change a game.
+                                <Link v-if="!tabletop_layouts.length" :href="route('tools.tabletop.tables')" class="underline"
+                                    >Save a table first</Link
+                                >
+                            </p>
+                        </div>
                         <div class="space-y-2">
                             <Label>
                                 Encounter Size (Soulstones)

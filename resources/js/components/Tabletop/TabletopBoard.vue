@@ -132,6 +132,8 @@ const props = withDefaults(
         terrain?: TerrainPiece[];
         sandbox?: boolean;
         sideNames?: { a: string; b: string };
+        /** In a game: each side's role, which sets its colour (attacker red, defender blue). Without roles side A is blue and side B red. */
+        sideRoles?: { a?: string | null; b?: string | null };
         /** Markers that can be placed (name and base size from the markers table). Without them the picker is hidden. */
         markers?: MarkerOption[];
         /** The sides this viewer may place markers for. Each side can have MARKERS_PER_KIND of each marker on the table. The sandbox offers both. */
@@ -1143,7 +1145,15 @@ const variants = computed(() =>
           }),
 );
 
-const sideColour = (side: 'a' | 'b' | 'n') => (side === 'a' ? 'hsl(215 70% 50%)' : side === 'b' ? 'hsl(5 70% 48%)' : 'hsl(280 45% 50%)');
+const RED_SIDE = 'hsl(5 70% 48%)';
+const BLUE_SIDE = 'hsl(215 70% 50%)';
+const sideColour = (side: 'a' | 'b' | 'n') => {
+    if (side === 'n') return 'hsl(280 45% 50%)';
+    const role = props.sideRoles?.[side];
+    if (role === 'attacker') return RED_SIDE;
+    if (role === 'defender') return BLUE_SIDE;
+    return side === 'a' ? BLUE_SIDE : RED_SIDE;
+};
 /** Two letters for a marker ("Scheme Marker" is "SM"), one for a model. */
 /**
  * What is written on a base: the first letter of the model's name; two letters where several models start alike; and a number where they

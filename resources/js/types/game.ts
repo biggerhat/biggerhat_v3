@@ -209,6 +209,8 @@ export interface GameData {
     /** Drives whether the scenario panel renders, whether SchemeSelect fires,
      *  and whether the manual-VP widget shows. See {@link GameFormat}. */
     format: GameFormat;
+    /** How it is played (null for games made before this was asked). */
+    play_mode?: 'in_person' | 'tabletop' | 'online' | 'other' | null;
     /** Bonanza per-game loot deck state. Null on standard-format games. */
     loot_state: {
         deck: number[];

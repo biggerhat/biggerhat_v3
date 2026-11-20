@@ -79,6 +79,8 @@ const props = defineProps<{
     read_only?: boolean;
     players: {
         slot: number;
+        /** attacker or defender; null until both players are in */
+        role?: string | null;
         name: string;
         mine: boolean;
         soulstone_pool?: number;
@@ -541,6 +543,7 @@ async function schemeTarget(kind: 'model' | 'marker', slot: number, name: string
 }
 
 const playerFor = (slot: number) => props.players.find((p) => p.slot === slot);
+const sideRoles = computed(() => ({ a: playerFor(1)?.role ?? null, b: playerFor(2)?.role ?? null }));
 const sideNames = computed(() => ({ a: playerFor(1)?.name ?? 'Player 1', b: playerFor(2)?.name ?? 'Player 2' }));
 
 // The game's Fate deck: the server's, loaded when the section is first opened. A watcher sees the public cards and neither hand.
@@ -781,6 +784,7 @@ function moved(t: Token) {
             :storage-key="game.uuid"
             :deployment="game.deployment ?? undefined"
             :side-names="sideNames"
+            :side-roles="sideRoles"
             @moved="moved"
         >
             <template #fate="{ terrain }">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Game;
 use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameFormatEnum;
+use App\Enums\GamePlayModeEnum;
 use App\Enums\GameRoleEnum;
 use App\Enums\GameShowContext;
 use App\Enums\GameStatusEnum;
@@ -36,6 +37,7 @@ use App\Models\LootCard;
 use App\Models\Marker;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\TabletopLayout;
 use App\Models\Token;
 use App\Models\TournamentGame;
 use App\Models\Upgrade;
@@ -45,6 +47,7 @@ use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Game\CrewUpgradeCatalog;
+use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -121,6 +124,15 @@ class GameController extends Controller
             'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_sizes' => [35, 40, 50],
             'formats' => $formats,
+            'play_modes' => collect(GamePlayModeEnum::cases())
+                // the tabletop is offered only to people who have it
+                ->reject(fn (GamePlayModeEnum $m) => $m->usesTabletop() && ! TabletopAccess::allows(Auth::user()))
+                ->map(fn (GamePlayModeEnum $m) => ['value' => $m->value, 'label' => $m->label(), 'description' => $m->description(), 'tabletop' => $m->usesTabletop()])
+                ->values(),
+            'tabletop_layouts' => TabletopAccess::allows(Auth::user())
+                ? TabletopLayout::query()->where('user_id', Auth::id())->latest('updated_at')->get(['uuid', 'name', 'terrain', 'table_image'])
+                    ->map(fn (TabletopLayout $l) => ['uuid' => $l->uuid, 'name' => $l->name, 'pieces' => count($l->terrain), 'table_image' => $l->table_image])->values()
+                : [],
         ]);
     }
 
@@ -165,13 +177,23 @@ class GameController extends Controller
             ? GameFormatEnum::BonanzaBrawl->defaultEncounterSize()
             : $validated['encounter_size'];
 
+        // How it will be played. A saved table is only for the tabletop (the request has checked access and ownership); the game
+        // keeps its own copy of the terrain so the layout can change or go away later.
+        $playMode = GamePlayModeEnum::tryFrom($validated['play_mode'] ?? '');
+        $layout = $playMode?->usesTabletop() && ! empty($validated['tabletop_layout'])
+            ? TabletopLayout::query()->where('uuid', $validated['tabletop_layout'])->where('user_id', Auth::id())->first()
+            : null;
+
         // The game and its seats are made together, so a failure can't leave a game with nobody in it.
-        $game = DB::transaction(function () use ($validated, $encounterSize, $seasonEnum, $format, $strategy, $deployment, $schemePool, $isSolo): Game {
+        $game = DB::transaction(function () use ($validated, $encounterSize, $seasonEnum, $format, $strategy, $deployment, $schemePool, $isSolo, $playMode, $layout): Game {
             $game = Game::create([
                 'name' => $validated['name'] ?? null,
                 'encounter_size' => $encounterSize,
                 'season' => $seasonEnum->value,
                 'format' => $format->value,
+                'play_mode' => $playMode?->value,
+                'tabletop_layout_id' => $layout?->id,
+                'board_state' => $layout ? Layouts::boardState($layout) : null,
                 'strategy_id' => $strategy?->id,
                 'deployment' => $deployment?->value,
                 'scheme_pool' => $schemePool,

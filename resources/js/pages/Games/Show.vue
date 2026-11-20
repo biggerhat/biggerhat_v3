@@ -214,6 +214,8 @@ interface CampaignCrewCardPayload {
     card_generated_at: string | null;
 }
 
+const PLAY_MODE_LABELS = { in_person: 'In person', tabletop: 'Tabletop', online: 'Online', other: 'Other' } as const;
+
 const props = defineProps<{
     game: GameData;
     schemes: SchemeData[];
@@ -2828,7 +2830,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             game.name ||
             `Game - ${game.encounter_size}ss`
         "
-        :description="`${game.encounter_size}ss${game.strategy ? ` · ${game.strategy.name}` : ''} · ${
+        :description="`${game.encounter_size}ss${game.strategy ? ` · ${game.strategy.name}` : ''}${game.play_mode ? ` · ${PLAY_MODE_LABELS[game.play_mode]}` : ''} · ${
             game.status === GameStatus.Completed
                 ? 'Completed'
                 : game.status === GameStatus.Abandoned

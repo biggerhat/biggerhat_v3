@@ -28,6 +28,22 @@ class Layouts
             ->all();
     }
 
+    /**
+     * What a game starts with when it is played on a saved table: a copy of the terrain and the surface (so editing or deleting the
+     * layout later cannot change a game that has started).
+     *
+     * @return array<string, mixed>
+     */
+    public static function boardState(TabletopLayout $layout): array
+    {
+        $state = ['terrain' => array_values($layout->terrain)];
+        if ($layout->table_image !== null) {
+            $state['table_image'] = $layout->table_image;
+        }
+
+        return $state;
+    }
+
     /** @return array<string, mixed> */
     public static function payload(TabletopLayout $layout, ?User $viewer): array
     {

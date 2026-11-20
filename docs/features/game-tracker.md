@@ -12,7 +12,7 @@ tokens, soulstones, schemes/VP, turns. Solo and 2-player (real-time) modes.
 ## Models / Enums
 
 - `Game`, `GamePlayer` (slot 1/2, `crewMembers`, `crewBuild`, `master_id`, `soulstone_pool`), `GameCrewMember` (`character()`, `attached_tokens`), `GameTurn`, `GameLog`.
-- `GameStatusEnum`: Setup, FactionSelect, MasterSelect, CrewSelect, SchemeSelect, InProgress, Completed, Abandoned.
+- `GameStatusEnum`: Setup, FactionSelect, MasterSelect, CrewSelect, SchemeSelect, InProgress, Completed, Abandoned. **The setup order lives in `App\Support\Game\GameSetupFlow`** (`next`, and `advance` inside the `lockForUpdate` transaction); never write the next status by hand. The screen's step indicator reads the server's `setup_steps` prop.
 - `GameFormatEnum`: Standard, BonanzaBrawl (+ Campaign). `usesScenario()`, `defaultEncounterSize()`.
 - `GameModeTypeEnum`: standard / campaign / cooperative / bonanza_brawl / custom.
 

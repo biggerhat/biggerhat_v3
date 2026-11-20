@@ -47,6 +47,7 @@ use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Game\CrewUpgradeCatalog;
+use App\Support\Game\GameSetupFlow;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\RedirectResponse;
@@ -197,7 +198,7 @@ class GameController extends Controller
                 'strategy_id' => $strategy?->id,
                 'deployment' => $deployment?->value,
                 'scheme_pool' => $schemePool,
-                'status' => $isSolo ? GameStatusEnum::FactionSelect : GameStatusEnum::Setup,
+                'status' => GameSetupFlow::startingStatus($isSolo),
                 'started_at' => $isSolo ? now() : null,
                 'creator_id' => Auth::id(),
                 'is_solo' => $isSolo,
@@ -524,6 +525,8 @@ class GameController extends Controller
 
         $props = [
             'game' => $this->withTurn($game),
+            // the setup indicator's steps and the status each is shown on (the sequence lives in GameSetupFlow)
+            'setup_steps' => GameSetupFlow::steps($game),
             'schemes' => $schemes,
             'all_reachable_schemes' => $isSelf ? $this->reachableSchemes($schemeCache, $schemePoolOrder) : [],
             'deployment' => $game->deployment ? (function () use ($game) {
@@ -1236,10 +1239,7 @@ class GameController extends Controller
             ]);
 
             // Advance to faction select now that both players are in
-            $locked->update([
-                'status' => GameStatusEnum::FactionSelect,
-                'started_at' => now(),
-            ]);
+            GameSetupFlow::advance($locked, GameStatusEnum::Setup, ['started_at' => now()]);
 
             return $joined;
         });

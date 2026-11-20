@@ -218,6 +218,8 @@ const PLAY_MODE_LABELS = { in_person: 'In person', tabletop: 'Tabletop', online:
 
 const props = defineProps<{
     game: GameData;
+    /** The setup indicator's steps, from the server: its key, the word shown and the status a game has while on it. */
+    setup_steps: { key: string; label: string; status: GameStatus }[];
     schemes: SchemeData[];
     deployment: DeploymentData | null;
     factions: Record<string, FactionInfo>;
@@ -2797,11 +2799,11 @@ const openAttachedUpgradePreview = (upgrade: any) => {
 
 // Crew display helpers
 
-const setupSteps = ['faction', 'master', 'crew', 'scheme'] as const;
-const stepLabels: Record<string, string> = { faction: 'Faction', master: 'Master', crew: 'Crew', scheme: 'Scheme' };
+// Where the game is among the setup steps (-1 once play has started or it is waiting for an opponent): the server names the steps.
+const currentSetupStep = computed(() => props.setup_steps.findIndex((s) => s.status === props.game.status));
 
 // Friendly label for the observer placeholder card during setup phases. Maps
-// the full status enum (faction_select, etc) — `stepLabels` above is keyed by
+// the full status enum (faction_select, etc) — `setup_steps` (from the server) is keyed by
 // short step name and used elsewhere for the breadcrumb dots.
 const observerSetupLabel = computed(() => {
     switch (props.game.status) {
@@ -2819,8 +2821,6 @@ const observerSetupLabel = computed(() => {
             return 'Game Setup';
     }
 });
-const statusOrder = [GameStatus.FactionSelect, GameStatus.MasterSelect, GameStatus.CrewSelect, GameStatus.SchemeSelect, GameStatus.InProgress];
-const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > statusOrder.indexOf(step + '_select');
 </script>
 
 <template>
@@ -3408,29 +3408,29 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             </div>
 
             <!-- Setup Step Indicator -->
-            <div v-if="game.status.includes('select')" class="mb-6">
+            <div v-if="currentSetupStep >= 0" class="mb-6">
                 <div class="flex items-center justify-center gap-1">
-                    <template v-for="(step, idx) in setupSteps" :key="step">
+                    <template v-for="(step, idx) in setup_steps" :key="step.key">
                         <div v-if="idx > 0" class="h-px w-8 bg-border" />
                         <div
                             class="flex size-8 items-center justify-center rounded-full text-xs font-bold"
                             :class="
-                                game.status === step + '_select'
+                                idx === currentSetupStep
                                     ? 'bg-primary text-primary-foreground'
-                                    : isPastStep(step)
+                                    : idx < currentSetupStep
                                       ? 'bg-green-500 text-white'
                                       : 'bg-muted text-muted-foreground'
                             "
                         >
-                            <Check v-if="isPastStep(step)" class="size-4" />
+                            <Check v-if="idx < currentSetupStep" class="size-4" />
                             <span v-else>{{ idx + 1 }}</span>
                         </div>
                     </template>
                 </div>
                 <div class="mt-1 flex items-center justify-center gap-1">
-                    <template v-for="(step, idx) in setupSteps" :key="step + '-label'">
+                    <template v-for="(step, idx) in setup_steps" :key="step.key + '-label'">
                         <div v-if="idx > 0" class="w-8" />
-                        <span class="w-8 text-center text-2xs text-muted-foreground">{{ stepLabels[step] }}</span>
+                        <span class="w-8 text-center text-2xs text-muted-foreground">{{ step.label }}</span>
                     </template>
                 </div>
             </div>
@@ -3440,7 +3440,7 @@ const isPastStep = (step: string) => statusOrder.indexOf(props.game.status) > st
             <div v-if="!isBonanza && game.status !== GameStatus.InProgress && !GAME_FINISHED_STATUSES.includes(game.status)" class="mb-6">
                 <!-- Mobile: while a setup step is waiting on you the scenario folds into one summary line, so the step itself
                      starts near the top of the screen; it is open in the lobby and a tap away the rest of the time. -->
-                <details class="group sm:hidden" :open="!game.status.includes('select')" data-testid="scenario-summary">
+                <details class="group sm:hidden" :open="currentSetupStep < 0" data-testid="scenario-summary">
                     <summary
                         class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm [&::-webkit-details-marker]:hidden"
                     >

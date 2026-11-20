@@ -83,6 +83,11 @@ Side colours: **attacker is red, defender is blue** on the board (bases, deploym
 - **SSR is enabled** and the tests do not exercise it: check the new Create form and Show states in a real build (the harness in `docs/ui-audit.md`).
 - **Help**: the Game Tracker help topic (`resources/js/lib/help/topics/gameTracker.ts`) and the tabletop topic must be updated in the same change (the project rule), including new pictures if the Create page or a setup screen is shown.
 
+## Progress
+
+- **Phase 1 done** (2026-11): play mode, Create form, saved-table copy, badges, attacker red / defender blue. Commit `1d79b60c`.
+- **Phase 2 done**: `App\Support\Game\GameSetupFlow` (`statuses`, `next`, `advance`, `startingStatus`, `steps`) owns the setup order. `GameSetupController` (six transitions), `GameController::store` and `join` use it; `advance` must be called inside the transaction holding `lockForUpdate` and re-checks the status itself. `Games/Show` gets `setup_steps` and the indicator no longer guesses `step + '_select'`. Left alone on purpose: the tournament tracker factory and `CampaignGameController`, which create games already at MasterSelect, and the label/colour maps in `Games/Index`, `Hub`, `Campaigns/Show` (their wording differs; unify when Deployment adds a status). Bonanza still shows four step dots (unchanged); `GameSetupFlow::steps` is where to make it two.
+
 ## Phases and order
 
 | # | What | Size | Ships alone? |

@@ -34,7 +34,7 @@ class BlogEntitySearchController extends Controller
 
         $results = [];
 
-        $characters = Character::standard()->where('display_name', 'LIKE', "%{$q}%")
+        $characters = Character::standard()->whereSearch('display_name', $q)
             ->limit(5)
             ->get(['id', 'display_name as name', 'slug', 'faction']);
         foreach ($characters as $char) {
@@ -46,7 +46,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $keywords = Keyword::standard()->where('name', 'LIKE', "%{$q}%")
+        $keywords = Keyword::standard()->whereSearch('name', $q)
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($keywords as $kw) {
@@ -70,7 +70,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $upgrades = Upgrade::standard()->where('name', 'LIKE', "%{$q}%")
+        $upgrades = Upgrade::standard()->whereSearch('name', $q)
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($upgrades as $upgrade) {
@@ -82,7 +82,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $actions = Action::standard()->where('name', 'LIKE', "%{$q}%")
+        $actions = Action::standard()->whereSearch('name', $q)
             ->withCount('characters')
             ->with(['characters' => fn ($q) => $q->select('display_name')->limit(1)])
             ->limit(5)
@@ -102,7 +102,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $abilities = Ability::standard()->where('name', 'LIKE', "%{$q}%")
+        $abilities = Ability::standard()->whereSearch('name', $q)
             ->withCount('characters')
             ->with(['characters' => fn ($q) => $q->select('display_name')->limit(1)])
             ->limit(5)
@@ -122,7 +122,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $schemes = Scheme::where('name', 'LIKE', "%{$q}%")
+        $schemes = Scheme::whereSearch('name', $q)
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($schemes as $scheme) {
@@ -134,7 +134,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $strategies = Strategy::where('name', 'LIKE', "%{$q}%")
+        $strategies = Strategy::whereSearch('name', $q)
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($strategies as $strategy) {
@@ -146,7 +146,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $tokens = Token::where('name', 'LIKE', "%{$q}%")
+        $tokens = Token::whereSearch('name', $q)
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($tokens as $token) {
@@ -158,7 +158,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $markers = Marker::where('name', 'LIKE', "%{$q}%")
+        $markers = Marker::whereSearch('name', $q)
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($markers as $marker) {
@@ -170,7 +170,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $packages = Package::where('name', 'LIKE', "%{$q}%")
+        $packages = Package::whereSearch('name', $q)
             ->limit(5)
             ->get(['id', 'name', 'slug']);
         foreach ($packages as $package) {
@@ -194,7 +194,7 @@ class BlogEntitySearchController extends Controller
             ];
         }
 
-        $triggers = Trigger::where('name', 'LIKE', "%{$q}%")
+        $triggers = Trigger::whereSearch('name', $q)
             ->withCount('actions')
             ->with(['actions' => fn ($q) => $q->select('name')->limit(1)])
             ->limit(5)
@@ -215,7 +215,7 @@ class BlogEntitySearchController extends Controller
         }
 
         $crews = CrewBuild::where('is_public', true)
-            ->where('name', 'LIKE', "%{$q}%")
+            ->whereSearch('name', $q)
             ->with('master:id,display_name', 'user:id,name')
             ->limit(5)
             ->get();

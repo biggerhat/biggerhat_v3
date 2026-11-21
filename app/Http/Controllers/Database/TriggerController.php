@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Database;
 use App\Enums\SuitEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Trigger;
-use App\Support\Search;
 use Illuminate\Http\Request;
 
 class TriggerController extends Controller
@@ -26,7 +25,7 @@ class TriggerController extends Controller
         }
 
         if ($request->filled('name_search')) {
-            $query->where('name', 'LIKE', Search::wildcardLike($request->get('name_search')));
+            $query->whereSearch('name', $request->get('name_search'));
         }
 
         if ($request->filled('suits')) {
@@ -39,7 +38,7 @@ class TriggerController extends Controller
         }
 
         if ($request->filled('description')) {
-            $query->where('description', 'LIKE', Search::wildcardLike($request->get('description')));
+            $query->whereSearch('description', $request->get('description'));
         }
 
         $pageView = $request->get('page_view', 'cards');

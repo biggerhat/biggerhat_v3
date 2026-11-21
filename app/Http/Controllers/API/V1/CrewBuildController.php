@@ -26,7 +26,7 @@ class CrewBuildController extends Controller
             ->with('user:id,name', 'master:id,display_name,faction');
 
         if ($request->filled('search')) {
-            $query->where('name', 'LIKE', '%'.$request->get('search').'%');
+            $query->whereSearch('name', $request->get('search'));
         }
 
         if ($request->filled('faction')) {

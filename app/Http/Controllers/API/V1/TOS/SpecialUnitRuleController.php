@@ -24,7 +24,7 @@ class SpecialUnitRuleController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = SpecialUnitRule::query()
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->orderBy('sort_order')
             ->orderBy('name');
 

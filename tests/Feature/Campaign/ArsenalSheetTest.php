@@ -1819,6 +1819,18 @@ it('crew card items: owner pins a token and a marker, they surface as manual, an
     $this->actingAs($owner)->delete(route('campaigns.crews.crew-card-items.destroy', [$campaign, $crew->share_code, 'bogus', 1]))->assertNotFound();
 });
 
+it('crew card back lists the starting crew card\'s chosen token, even a general one', function () {
+    $owner = sheetUser();
+    [, $crew] = crewFor2($owner);
+    $chosen = \App\Models\Token::factory()->create(['name' => 'Chosen', 'is_general' => true]);
+    $crew->update(['crew_card_choice' => ['type' => 'token', 'id' => $chosen->id, 'name' => 'Chosen']]);
+
+    $items = collect(\App\Support\Campaign\CombinedCrewCardEffects::arsenalTokensAndMarkers($crew->fresh()));
+
+    expect($items->where('type', 'token')->pluck('id')->all())->toBe([$chosen->id])
+        ->and($items->first()['manual'])->toBeFalse();
+});
+
 it('leader and totem injuries can be added and removed by hand, with the same guard rails as models', function () {
     $owner = sheetUser();
     [$campaign, $crew] = crewFor2($owner);

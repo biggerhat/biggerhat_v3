@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sameText, textHas } from '@/lib/searchText';
 import HelpButton from '@/components/Help/HelpButton.vue';
 import CharacterCardView from '@/components/CharacterCardView.vue';
 import CrewBuilderReferences from '@/components/CrewBuilderReferences.vue';
@@ -1072,9 +1073,7 @@ const filteredHiringPool = computed(() => {
 
     const filter = debouncedFilterText.value.toLowerCase();
     if (filter) {
-        filtered = filtered.filter(
-            (c) => c.display_name.toLowerCase().includes(filter) || c.keywords.some((k) => k.name.toLowerCase().includes(filter)),
-        );
+        filtered = filtered.filter((c) => textHas(c.display_name, filter) || c.keywords.some((k) => textHas(k.name, filter)));
     }
 
     // Sort
@@ -1925,8 +1924,7 @@ const parseAndImportCrew = () => {
     const factionName = headerMatch[2].trim();
 
     // Find the faction (normalize by stripping apostrophes/special chars for comparison)
-    const normalizeName = (s: string) => s.toLowerCase().replace(/['']/g, '').replace(/\s+/g, ' ').trim();
-    const faction = Object.values(props.factions).find((f) => normalizeName(f.name) === normalizeName(factionName));
+    const faction = Object.values(props.factions).find((f) => sameText(f.name, factionName));
     if (!faction) {
         importError.value = `Unknown faction: ${factionName}`;
         return;
@@ -1935,7 +1933,7 @@ const parseAndImportCrew = () => {
 
     // Find the master by display_name match
     const allChars = props.characters;
-    const masterChar = allChars.find((c) => c.display_name?.toLowerCase() === masterTitle.toLowerCase() && c.station === 'master');
+    const masterChar = allChars.find((c) => sameText(c.display_name, masterTitle) && c.station === 'master');
     if (!masterChar) {
         importError.value = `Master not found: ${masterTitle}`;
         return;
@@ -1943,7 +1941,7 @@ const parseAndImportCrew = () => {
 
     // Get totem name(s) to skip (auto-added with master)
     const totemId = masterChar.has_totem_id;
-    const totemName = totemId ? allChars.find((c) => c.id === totemId)?.display_name?.toLowerCase() : null;
+    const totemName = totemId ? allChars.find((c) => c.id === totemId)?.display_name : null;
 
     // Parse crew members (skip header, labels, master, and totems)
     const crewNames: string[] = [];
@@ -1960,10 +1958,10 @@ const parseAndImportCrew = () => {
         }
         if (line.match(/^Crew Card:/i)) continue;
         // Skip the master itself (leader, added automatically)
-        if (line.toLowerCase() === masterTitle.toLowerCase()) continue;
+        if (sameText(line, masterTitle)) continue;
         // Skip totems (added automatically with master)
         if (inTotemSection) continue;
-        if (totemName && line.toLowerCase() === totemName) continue;
+        if (totemName && sameText(line, totemName)) continue;
         crewNames.push(line);
     }
 
@@ -1971,7 +1969,7 @@ const parseAndImportCrew = () => {
     const crewChars: CharacterData[] = [];
     const notFound: string[] = [];
     for (const name of crewNames) {
-        const char = allChars.find((c) => c.display_name?.toLowerCase() === name.toLowerCase());
+        const char = allChars.find((c) => sameText(c.display_name, name));
         if (char) {
             crewChars.push(char);
         } else {

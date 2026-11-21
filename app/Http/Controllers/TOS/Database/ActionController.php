@@ -19,7 +19,7 @@ class ActionController extends Controller
             ->withCount('unitSides')
             ->orderBy('name');
         if ($nameSearch) {
-            $query->where('name', 'LIKE', "%{$nameSearch}%");
+            $query->whereSearch('name', $nameSearch);
         }
 
         return inertia('TOS/Actions/Index', [

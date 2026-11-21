@@ -26,7 +26,7 @@ class LoreMediaController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = LoreMedia::query()
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->query('type'), function ($q, $type) {
                 $enum = LoreMediaTypeEnum::tryFrom($type);
 

@@ -13,7 +13,9 @@ class MiniatureObserver
 
     public function updated(Miniature $miniature): void
     {
-        if ($miniature->isDirty('character_id') || $miniature->isDirty('name') || $miniature->isDirty('title') || $miniature->isDirty('version')) {
+        // display_name / slug count too: the admin form rebuilds both from the base name on every save, which strips "(Sculpt N)",
+        // so a save that only touches (say) an image must renumber as well.
+        if ($miniature->isDirty(['character_id', 'name', 'title', 'version', 'display_name', 'slug'])) {
             static::refreshSculptSuffixes($miniature->character_id);
 
             if ($miniature->isDirty('character_id')) {

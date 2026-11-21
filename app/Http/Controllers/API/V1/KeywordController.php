@@ -28,7 +28,7 @@ class KeywordController extends Controller
         $gameMode = GameModeTypeEnum::tryFrom($request->query('game_mode_type', 'standard')) ?? GameModeTypeEnum::Standard;
 
         $keywords = Keyword::forGameMode($gameMode)
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->orderBy('name')
             ->paginate(min((int) $request->query('per_page', 15), 100));
 

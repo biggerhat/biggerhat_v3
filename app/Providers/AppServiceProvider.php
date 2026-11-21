@@ -66,6 +66,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::shouldBeStrict();
 
+        \App\Support\Search::registerMacros();
+
         // 30 req/min per IP keeps bots polite. In the test environment we
         // disable the limit entirely — Pest workers fire many API hits in
         // quick succession (card-creator search tests, character API tests),

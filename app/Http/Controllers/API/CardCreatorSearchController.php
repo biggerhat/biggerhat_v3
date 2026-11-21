@@ -35,7 +35,7 @@ class CardCreatorSearchController extends Controller
         $type = (string) $request->get('type', '');
         $typeFilter = in_array($type, [ActionTypeEnum::Attack->value, ActionTypeEnum::Tactical->value], true) ? $type : null;
 
-        $actions = Action::where('name', 'LIKE', "%{$q}%")
+        $actions = Action::whereSearch('name', $q)
             ->when($typeFilter !== null, fn ($qq) => $qq->where('type', $typeFilter))
             ->with('triggers')
             ->orderBy('name')
@@ -76,7 +76,7 @@ class CardCreatorSearchController extends Controller
             return response()->json([]);
         }
 
-        $abilities = Ability::where('name', 'LIKE', "%{$q}%")
+        $abilities = Ability::whereSearch('name', $q)
             ->orderBy('name')
             ->limit(30)
             ->get();
@@ -99,7 +99,7 @@ class CardCreatorSearchController extends Controller
             return response()->json([]);
         }
 
-        $triggers = Trigger::where('name', 'LIKE', "%{$q}%")
+        $triggers = Trigger::whereSearch('name', $q)
             ->limit(15)
             ->get();
 
@@ -120,7 +120,7 @@ class CardCreatorSearchController extends Controller
             return response()->json([]);
         }
 
-        $keywords = Keyword::where('name', 'LIKE', "%{$q}%")
+        $keywords = Keyword::whereSearch('name', $q)
             ->limit(15)
             ->get();
 
@@ -141,7 +141,7 @@ class CardCreatorSearchController extends Controller
 
         // Official crew upgrades
         $official = Upgrade::forCrews()
-            ->where('name', 'LIKE', "%{$q}%")
+            ->whereSearch('name', $q)
             ->limit(10)
             ->get();
 
@@ -157,7 +157,7 @@ class CardCreatorSearchController extends Controller
         if (Auth::check()) {
             $custom = CustomUpgrade::where('user_id', Auth::id())
                 ->where('domain', 'crew')
-                ->where('name', 'LIKE', "%{$q}%")
+                ->whereSearch('name', $q)
                 ->limit(5)
                 ->get();
 
@@ -183,7 +183,7 @@ class CardCreatorSearchController extends Controller
         $results = collect();
 
         // Official characters
-        $official = Character::where('display_name', 'LIKE', "%{$q}%")
+        $official = Character::whereSearch('display_name', $q)
             ->limit(10)
             ->get();
 
@@ -198,7 +198,7 @@ class CardCreatorSearchController extends Controller
         // User's custom characters
         if (Auth::check()) {
             $custom = CustomCharacter::where('user_id', Auth::id())
-                ->where('display_name', 'LIKE', "%{$q}%")
+                ->whereSearch('display_name', $q)
                 ->limit(5)
                 ->get();
 
@@ -223,7 +223,7 @@ class CardCreatorSearchController extends Controller
             return response()->json([]);
         }
 
-        $tokens = Token::where('name', 'LIKE', "%{$q}%")
+        $tokens = Token::whereSearch('name', $q)
             ->limit(15)
             ->get();
 
@@ -242,7 +242,7 @@ class CardCreatorSearchController extends Controller
             return response()->json([]);
         }
 
-        $markers = Marker::where('name', 'LIKE', "%{$q}%")
+        $markers = Marker::whereSearch('name', $q)
             ->limit(15)
             ->get();
 
@@ -307,7 +307,7 @@ class CardCreatorSearchController extends Controller
         return response()->json(
             Upgrade::standard()
                 ->where('domain', $domain->value)
-                ->where('name', 'LIKE', "%{$q}%")
+                ->whereSearch('name', $q)
                 ->orderBy('name')
                 ->limit(15)
                 ->get(['id', 'name', 'type', 'faction'])

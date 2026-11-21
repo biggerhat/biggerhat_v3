@@ -23,7 +23,7 @@ class PackageController extends Controller
             ->orderBy('name', 'ASC');
 
         if ($nameSearch) {
-            $query->where('name', 'LIKE', "%{$nameSearch}%");
+            $query->whereSearch('name', $nameSearch);
         }
 
         if ($allegiance) {

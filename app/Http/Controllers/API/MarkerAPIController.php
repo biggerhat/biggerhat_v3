@@ -12,7 +12,7 @@ class MarkerAPIController extends Controller
     {
         $name = $request->get('name');
 
-        return Marker::where('name', 'LIKE', "%{$name}%")->get()->map(function (Marker $marker) {
+        return Marker::whereSearch('name', $name)->get()->map(function (Marker $marker) {
             $marker->description = str_replace(['{{', '}}'], '**', $marker->description);
 
             return $marker;

@@ -16,8 +16,8 @@
     },
     "game-tracker/create.webp": {
         "w": 532,
-        "h": 722,
-        "callouts": 5
+        "h": 830,
+        "callouts": 6
     },
     "game-tracker/crew-row.webp": {
         "w": 354,
@@ -37,6 +37,11 @@
     "tabletop/board.webp": {
         "w": 669,
         "h": 541,
+        "callouts": 4
+    },
+    "tabletop/deploying.webp": {
+        "w": 1000,
+        "h": 295,
         "callouts": 4
     },
     "tabletop/fate-deck.webp": {

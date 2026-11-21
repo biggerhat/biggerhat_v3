@@ -24,10 +24,11 @@ const gameTracker: HelpTopic = {
                     body: 'Press Create Game and fill in the New Encounter card: a name if you like (League Round 3, Casual Tuesday), the format, how you will play, the encounter size in soulstones, and the season. A strategy, deployment and scheme pool are generated for you when you create it.',
                     image: {
                         src: 'game-tracker/create.webp',
-                        alt: 'The New Encounter card on the Create Game page, with a game name box, a format list, the encounter size, a Solo Mode switch and the Create Game button.',
+                        alt: 'The New Encounter card on the Create Game page, with a game name box, a format list, a How will you play list, the encounter size, a Solo Mode switch and the Create Game button.',
                         callouts: [
                             'Game name (optional).',
                             'The format.',
+                            'How you will play: in person, on the tabletop app, online or other.',
                             'The encounter size, in soulstones.',
                             'The Solo Mode switch.',
                             'Create Game.',

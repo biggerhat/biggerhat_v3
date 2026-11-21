@@ -183,6 +183,16 @@ const tabletop: HelpTopic = {
                 {
                     title: 'Dividing the crew',
                     body: 'First the defender divides their crew into two groups. Tick the models to deploy second and press the button, or tick none and press Keep the crew together. Then the attacker chooses which group is deployed first (Deploy this group first).',
+                    image: {
+                        src: 'tabletop/deploying.webp',
+                        alt: 'The Deployment panel above the table as the defender sees it: a line saying what to do, a list of the crew with a tick box each, a button to divide the crew, and a Start without deploying button.',
+                        callouts: [
+                            'What is happening and whose move it is.',
+                            'Tick the models to deploy second.',
+                            'Divide the crew (or keep it together if none are ticked).',
+                            'Start without deploying, if both players agree.',
+                        ],
+                    },
                 },
                 {
                     title: 'Placing the groups',

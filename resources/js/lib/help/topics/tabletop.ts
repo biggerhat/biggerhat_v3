@@ -96,7 +96,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Sight guidelines',
-                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again.",
+                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again. They stay on until you turn them off: press G, press Escape (with no model chosen), double click or double tap the table, or use the button again.",
                 },
                 {
                     title: 'Auras and markers',
@@ -237,7 +237,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Killing, Remains markers and soulstones',
-                    body: 'Use Mark killed in a model\'s options. The crew gets a soulstone as in the game tracker, and a prompt offers the Remains marker: "Choose the spot" and tap inside the dashed line, or "Place it for me". A model that replaces itself on death offers its replacements.',
+                    body: 'Use Mark killed in a model\'s options. The crew gets a soulstone as in the game tracker, and a prompt offers the Remains marker: "Choose the spot" and tap inside the dashed line, or "Place it for me". The marker is made before the model is removed, so it goes beside the model, touching its base, never under it. A model that replaces itself on death offers its replacements.',
                 },
                 {
                     title: 'Replacing a model',
@@ -298,7 +298,8 @@ const tabletop: HelpTopic = {
                 },
                 { keys: ['Shift', '+ arrow'], does: 'Move it 0.1 inch.' },
                 { keys: ['Alt', '+ arrow'], does: 'Move it 2 inches.' },
-                { keys: ['Esc'], does: 'Let go of the chosen model.' },
+                { keys: ['G'], does: 'Turn Sight guidelines on for the chosen model, or off again (when no model is chosen, it turns them off).' },
+                { keys: ['Esc'], does: 'Let go of the chosen model. Press it again to turn Sight guidelines off.' },
                 { keys: ['?'], does: 'Open this help.' },
             ],
         },
@@ -329,6 +330,7 @@ const tabletop: HelpTopic = {
             shortcuts: [
                 { keys: ['Wheel'], does: 'Zoom the table. On a phone, pinch.' },
                 { keys: ['Drag'], does: 'Drag a model or terrain piece to move it; drag empty table to move the view.' },
+                { keys: ['Double click', 'Double tap'], does: 'Turn Sight guidelines off.' },
                 { keys: ['Click'], does: 'Choose a model. Click empty table to let go, or to place a model that is waiting to be set down.' },
             ],
         },

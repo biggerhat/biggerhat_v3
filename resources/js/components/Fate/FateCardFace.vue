@@ -25,6 +25,8 @@ const props = withDefaults(
         note?: string;
         /** The hand's size: big enough to read and tap. */
         large?: boolean;
+        /** Value and suit in the top corner, so a card with others stacked over it can still be read. */
+        corner?: boolean;
     }>(),
     { card: undefined, jokerSuit: null },
 );
@@ -41,8 +43,9 @@ const spoken = computed(() => {
 
 <template>
     <span
-        class="relative inline-flex shrink-0 select-none flex-col items-center justify-center rounded-md border font-semibold shadow-sm"
+        class="relative inline-flex shrink-0 select-none flex-col rounded-md border font-semibold shadow-sm"
         :class="[
+            corner ? 'items-start justify-start px-1.5 pt-1' : 'items-center justify-center',
             large ? 'h-[4.5rem] w-[3.25rem] text-lg' : small ? 'h-10 w-7 text-xs' : 'h-14 w-10 text-sm',
             back || card === undefined
                 ? 'border-slate-500 bg-gradient-to-br from-slate-700 to-slate-900 text-slate-300'

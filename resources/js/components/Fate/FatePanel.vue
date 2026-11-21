@@ -19,6 +19,7 @@ import {
     type FatePrompt,
 } from '@/lib/fate/fate';
 import { ChevronDown, Minus, Plus } from 'lucide-vue-next';
+import { useElementSize } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 
 /**
@@ -54,6 +55,21 @@ const run = (name: string, body: Record<string, unknown> = {}) => props.feed.act
 
 // ----- a hand card picked for the action bar -----
 const picked = ref<number | null>(null);
+
+// The hand is a fan, not a scroller: the cards overlap just enough to fit the width, and each shows its corner (value and suit) so one
+// under another can still be read. A roomy hand sits side by side.
+const HAND_CARD_W = 52; // a large card, 3.25rem
+const HAND_GAP = 6;
+const HAND_MIN_STEP = 20; // never less of a card than its corner
+const handEl = ref<HTMLElement | null>(null);
+const { width: handWidth } = useElementSize(handEl);
+/** How far each card sits from the one before it. */
+const handStep = computed(() => {
+    const n = mine.value?.hand?.length ?? 0;
+    if (n < 2 || handWidth.value === 0) return HAND_CARD_W + HAND_GAP;
+    return Math.max(HAND_MIN_STEP, Math.min(HAND_CARD_W + HAND_GAP, (handWidth.value - HAND_CARD_W) / (n - 1)));
+});
+const handOverlaps = computed(() => handStep.value < HAND_CARD_W);
 function pick(card: number) {
     picked.value = picked.value === card ? null : card;
 }
@@ -597,20 +613,21 @@ const pileOpen = computed({
                 <p v-if="mine.over_max" class="text-xs text-amber-600 dark:text-amber-400" data-testid="fate-over-max">
                     {{ mine.over_max }} over the hand limit: discard down at the end of the action.
                 </p>
-                <div class="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1 pt-2" data-testid="fate-hand">
+                <div ref="handEl" class="flex min-h-[5.5rem] pb-1 pt-2" data-testid="fate-hand">
                     <button
-                        v-for="c in mine.hand"
+                        v-for="(c, i) in mine.hand"
                         :key="c"
                         type="button"
-                        class="snap-start rounded-md transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                        :class="picked === c ? '-translate-y-1.5' : ''"
+                        class="relative shrink-0 rounded-md transition-transform focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                        :class="picked === c ? 'z-10 -translate-y-1.5' : ''"
+                        :style="{ marginLeft: i === 0 ? '0' : `${handStep - HAND_CARD_W}px` }"
                         :aria-pressed="picked === c"
                         data-testid="fate-hand-card"
                         :data-card="c"
                         :data-slot="mine.slot"
                         @click="pick(c)"
                     >
-                        <FateCardFace :card="c" large note="in hand" :highlight="picked === c" />
+                        <FateCardFace :card="c" large note="in hand" :highlight="picked === c" :corner="handOverlaps" />
                     </button>
                     <span v-if="!mine.hand?.length" class="py-5 text-xs text-muted-foreground">No cards in hand. Tap the deck to draw.</span>
                 </div>

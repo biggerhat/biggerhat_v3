@@ -172,6 +172,33 @@ const tabletop: HelpTopic = {
             ],
         },
         {
+            id: 'deploying',
+            title: 'Deploying a game',
+            intro: 'In a game played on the tabletop app, the crews are placed on the table before schemes are chosen, in the order the rulebook gives. A panel above the table says whose move it is.',
+            items: [
+                {
+                    title: 'Attacker and defender',
+                    body: "The attacker is red and the defender is blue, on the table and in the zones. The defender's zone is the blue one. The attacker chooses which zone is theirs: press Turn the zones until the zones sit the way you want.",
+                },
+                {
+                    title: 'Dividing the crew',
+                    body: 'First the defender divides their crew into two groups. Tick the models to deploy second and press the button, or tick none and press Keep the crew together. Then the attacker chooses which group is deployed first (Deploy this group first).',
+                },
+                {
+                    title: 'Placing the groups',
+                    body: 'Placing goes defender, attacker, defender: the defender places the group chosen first, the attacker places their whole crew in the opposite zone, then the defender places the rest. Drag your models completely inside your zone. The line under the panel names any model that is not completely inside, and Finished placing stays off until every model is. Only the group being placed can be moved, and only by the player placing it.',
+                },
+                {
+                    title: 'Starting without deploying',
+                    body: 'If the crews are already set up somewhere else, press Start without deploying. Both players need to press it. In a solo game one press is enough, and you do every part yourself.',
+                },
+                {
+                    title: 'When deployment is finished',
+                    body: 'After the last group is placed the panel offers Choose your scheme, which takes you back to the game to choose schemes. Then play starts.',
+                },
+            ],
+        },
+        {
             id: 'game',
             title: 'On the board of a game',
             intro: 'The board and the game tracker are the same game: health, activation, tokens and kills are shared.',

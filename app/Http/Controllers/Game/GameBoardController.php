@@ -111,7 +111,10 @@ class GameBoardController extends Controller
             'shared_auras' => $game->board_state['auras'] ?? [],
             'deployment_variant' => (int) ($game->board_state['deployment_variant'] ?? 0),
             // the deployment step: whose turn, what is being placed; null once play (or an earlier step) is under way
-            'deploy' => $game->status === GameStatusEnum::Deployment ? GameDeployment::summary($game) : null,
+            // (and, just after it, the "finished: choose schemes" state)
+            'deploy' => $game->status === GameStatusEnum::Deployment || ($game->status === GameStatusEnum::SchemeSelect && isset($game->board_state['deploy']))
+                ? GameDeployment::summary($game)
+                : null,
             'table_image' => $game->board_state['table_image'] ?? null,
             'table_images' => TabletopImages::tables(),
             'terrain_images' => TabletopImages::terrain(),

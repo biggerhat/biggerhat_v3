@@ -117,6 +117,7 @@ const gameStatusLabel = (status: string): string =>
         ({
             master_select: 'Selecting Master',
             crew_select: 'Selecting Crew',
+            deployment: 'Deploying',
             scheme_select: 'Selecting Schemes',
             in_progress: 'In Progress',
         }) as Record<string, string>

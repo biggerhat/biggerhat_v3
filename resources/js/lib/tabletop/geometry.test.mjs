@@ -12,6 +12,7 @@ import {
     auraOrigin,
     auraRadius,
     auraTerrain,
+    baseInsideZone,
     baseRadius,
     clampSize,
     clampToTable,
@@ -1516,4 +1517,20 @@ test('contact spots all touch the anchor and start on the tapped side', () => {
     // nearer spots come first: the next two are either side of the first
     const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
     assert.ok(d(spots[1], spots[0]) < d(spots[10], spots[0]));
+});
+
+test('a base is in its zone only when all of it is (Encounters, step I: "completely within")', () => {
+    const standard = deploymentZones('standard');
+    // 30 mm base: radius about 0.59"
+    assert.ok(baseInsideZone(standard.a, 18, 4, 30), 'well inside the 8" strip');
+    assert.ok(baseInsideZone(standard.a, 18, 7.4, 30), 'its edge just inside the 8" line');
+    assert.ok(!baseInsideZone(standard.a, 18, 7.6, 30), 'centre inside, edge over the line');
+    assert.ok(!baseInsideZone(standard.a, 18, 0.3, 30), 'sticking off the table edge');
+    assert.ok(!baseInsideZone(standard.b, 18, 4, 30), "the other side's zone");
+    assert.ok(baseInsideZone(standard.b, 18, 32, 30));
+    // a bigger base needs more room
+    assert.ok(baseInsideZone(standard.a, 18, 6.5, 30) && !baseInsideZone(standard.a, 18, 6.5, 80));
+    const corner = deploymentZones('corner');
+    assert.ok(baseInsideZone(corner.a, 33, 3, 30), 'inside the 12" arc in the corner');
+    assert.ok(!baseInsideZone(corner.a, 25, 11, 30), 'the far corner of a 12" square is outside the arc');
 });

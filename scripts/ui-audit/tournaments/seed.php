@@ -193,5 +193,15 @@ foreach ([['Scheme Marker', 30], ['Strategy Marker', 30], ['Blast Marker', 50], 
     App\Models\Marker::factory()->create(['name' => $markerName, 'base' => $markerBase, 'is_strategy' => $markerName === 'Strategy Marker']);
 }
 
+// --- A two-player tabletop game at the Deployment step: Carol attacks (slot 1), Dave defends (slot 2, three models)
+$deployGame = App\Models\Game::factory()->create(['creator_id' => $carol->id, 'is_solo' => false, 'strategy_id' => $strategy->id, 'status' => App\Enums\GameStatusEnum::Deployment, 'play_mode' => App\Enums\GamePlayModeEnum::Tabletop, 'deployment' => 'standard', 'is_observable' => false]);
+$dp1 = App\Models\GamePlayer::factory()->create(['game_id' => $deployGame->id, 'user_id' => $carol->id, 'slot' => 1, 'faction' => 'bayou', 'role' => App\Enums\GameRoleEnum::Attacker, 'master_name' => 'Pandora', 'soulstone_pool' => 5]);
+$dp2 = App\Models\GamePlayer::factory()->create(['game_id' => $deployGame->id, 'user_id' => $dave->id, 'slot' => 2, 'faction' => 'guild', 'role' => App\Enums\GameRoleEnum::Defender, 'master_name' => 'Lady Justice', 'soulstone_pool' => 4]);
+foreach ([[$dp1, 'bayou', ['Pandora', 'Silurid']], [$dp2, 'guild', ['Lady Justice', 'Guild Guard', 'Guild Hound']]] as [$pl, $fac, $names]) {
+    foreach ($names as $i => $nm) {
+        App\Models\GameCrewMember::factory()->create(['game_id' => $deployGame->id, 'game_player_id' => $pl->id, 'character_id' => null, 'display_name' => $nm, 'faction' => $fac, 'station' => $i === 0 ? 'master' : 'minion', 'hiring_category' => $i === 0 ? 'leader' : 'in-keyword', 'cost' => $i === 0 ? 0 : 5, 'current_health' => 6, 'max_health' => 6, 'sort_order' => $i]);
+    }
+}
+
 echo "seeded: T1={$t1->uuid} T2={$t2->uuid} T3={$t3->uuid}\n";
-file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'play_game' => $playGame->uuid, 'summon_game' => $summonGame->uuid, 'crew_build' => $crewBuild->share_code, 'help_build' => $helpBuild->id, 'g1' => $r1->games()->first()->id]));
+file_put_contents(getenv('SEEDOUT'), json_encode(['t1' => $t1->uuid, 't2' => $t2->uuid, 't3' => $t3->uuid, 't4' => $t4->uuid, 't5' => $t5->uuid, 't6' => $t6->uuid, 't7' => $t7->uuid, 't8' => $t8->uuid, 't9' => $t9->uuid, 't10' => $t10->uuid, 't11' => $t11->uuid, 'crew_game' => $crewGame->uuid, 'play_game' => $playGame->uuid, 'deploy_game' => $deployGame->uuid, 'summon_game' => $summonGame->uuid, 'crew_build' => $crewBuild->share_code, 'help_build' => $helpBuild->id, 'g1' => $r1->games()->first()->id]));

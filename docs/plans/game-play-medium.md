@@ -88,6 +88,9 @@ Side colours: **attacker is red, defender is blue** on the board (bases, deploym
 - **Phase 1 done** (2026-11): play mode, Create form, saved-table copy, badges, attacker red / defender blue. Commit `1d79b60c`.
 - **Phase 2 done**: `App\Support\Game\GameSetupFlow` (`statuses`, `next`, `advance`, `startingStatus`, `steps`) owns the setup order. `GameSetupController` (six transitions), `GameController::store` and `join` use it; `advance` must be called inside the transaction holding `lockForUpdate` and re-checks the status itself. `Games/Show` gets `setup_steps` and the indicator no longer guesses `step + '_select'`. Left alone on purpose: the tournament tracker factory and `CampaignGameController`, which create games already at MasterSelect, and the label/colour maps in `Games/Index`, `Hub`, `Campaigns/Show` (their wording differs; unify when Deployment adds a status). Bonanza still shows four step dots (unchanged); `GameSetupFlow::steps` is where to make it two.
 
+- **Phase 3 done** (server + board + play screen): `GameStatusEnum::Deployment`, `GameDeployment`, `GameDeployController`, `DeploymentPanel`, `GameDeploymentCard`, help text, `flows40` (9 steps, two players, axe clean, phone tap targets). Not built: server-side zone containment (client only), a real-websocket check (the harness has none: each player reloads), and the help pictures for Create and the Deployment panel (text only).
+- **Phase 4/5 not started**: choosing the deployment on the table (it is rolled at creation today; the attacker can turn the zones), the Fate-flip for attacker/defender, and pulling more out of `Games/Show.vue`.
+
 ## Phases and order
 
 | # | What | Size | Ships alone? |

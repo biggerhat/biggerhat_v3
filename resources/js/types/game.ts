@@ -10,6 +10,7 @@ export const GameStatus = {
     FactionSelect: 'faction_select',
     MasterSelect: 'master_select',
     CrewSelect: 'crew_select',
+    Deployment: 'deployment',
     SchemeSelect: 'scheme_select',
     InProgress: 'in_progress',
     Completed: 'completed',
@@ -32,6 +33,7 @@ export const GAME_SETUP_STATUSES: readonly GameStatus[] = [
     GameStatus.FactionSelect,
     GameStatus.MasterSelect,
     GameStatus.CrewSelect,
+    GameStatus.Deployment,
     GameStatus.SchemeSelect,
 ];
 

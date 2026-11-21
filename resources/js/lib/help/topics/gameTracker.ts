@@ -55,7 +55,7 @@ const gameTracker: HelpTopic = {
         {
             id: 'setup',
             title: 'Setting up',
-            intro: 'Setup goes through four steps: faction, master, crew and scheme. Each player does their own.',
+            intro: 'Setup goes through four steps: faction, master, crew and scheme, with a fifth, Deploy, between crew and scheme in a game played on the tabletop app. Each player does their own.',
             items: [
                 {
                     title: 'Faction and master',
@@ -70,8 +70,12 @@ const gameTracker: HelpTopic = {
                     body: 'Playing from a paper list? Skip the crew: you track victory points, schemes and turns only, with no model health or tokens. You can still Summon a model later if you want one on screen.',
                 },
                 {
+                    title: 'Deploying on the tabletop',
+                    body: 'In a game you chose to play On the tabletop app, a Deploy step comes after the crews, because the rulebook deploys before schemes are chosen. The game shows "Set up the table" and a button that opens the table. Deployment itself happens there: see Deploying a game in the Tabletop help. If you are playing at a real table, choose In person and there is no Deploy step.',
+                },
+                {
                     title: 'Choosing a scheme',
-                    body: 'On Select Your Scheme, choose one scheme from the pool for Turn 1. Some schemes ask for more: a model from your crew, a target marker, or a terrain note. What you choose stays hidden from your opponent.',
+                    body: 'On Select Your Scheme (after deployment, in a tabletop game), choose one scheme from the pool for Turn 1. Some schemes ask for more: a model from your crew, a target marker, or a terrain note. What you choose stays hidden from your opponent.',
                 },
                 {
                     title: 'Starting play',

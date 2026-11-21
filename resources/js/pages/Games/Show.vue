@@ -16,6 +16,7 @@ import GameCompleteDialog from '@/components/Game/GameCompleteDialog.vue';
 import GameCrewMemberDrawer from '@/components/Game/GameCrewMemberDrawer.vue';
 import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
 import GameCrewSelectPanel from '@/components/Game/GameCrewSelectPanel.vue';
+import GameDeploymentCard from '@/components/Game/GameDeploymentCard.vue';
 import GameEditScenarioDrawer from '@/components/Game/GameEditScenarioDrawer.vue';
 import GameFactionSelectPanel from '@/components/Game/GameFactionSelectPanel.vue';
 import GameLeaveDialog from '@/components/Game/GameLeaveDialog.vue';
@@ -60,6 +61,7 @@ import { useToast } from '@/composables/useToast';
 import { cacheBustedImagePath } from '@/lib/cacheBustedImage';
 import { CARD_HOVER_PROMINENT, CARD_HOVER_QUIET } from '@/lib/cardHover';
 import { playerName } from '@/lib/gameDisplay';
+import type { DeployState } from '@/lib/tabletop/deployment';
 import { MAX_SCHEME_PER_TURN, MAX_SCHEME_POOL, TURN_BANNER_VISIBLE_MS } from '@/pages/Games/constants';
 import { type SharedData } from '@/types';
 import {
@@ -220,6 +222,8 @@ const props = defineProps<{
     game: GameData;
     /** The setup indicator's steps, from the server: its key, the word shown and the status a game has while on it. */
     setup_steps: { key: string; label: string; status: GameStatus }[];
+    /** A tabletop game's deployment: whose turn it is and what is being placed (null at any other time). */
+    deploy?: DeployState | null;
     schemes: SchemeData[];
     deployment: DeploymentData | null;
     factions: Record<string, FactionInfo>;
@@ -532,6 +536,7 @@ const postSetup = async (endpoint: string, body: Record<string, unknown>) => {
         router.reload({
             only: [
                 'game',
+                'deploy',
                 'schemes',
                 'all_reachable_schemes',
                 'deployment',
@@ -2799,6 +2804,15 @@ const openAttachedUpgradePreview = (upgrade: any) => {
 
 // Crew display helpers
 
+// Who is who for the deployment card: your own slots (both, in a solo game) say "you".
+const deployPlayers = computed(() =>
+    props.game.players.map((p: any) => ({
+        slot: p.slot,
+        name: p.user?.name ?? p.opponent_name ?? `Player ${p.slot}`,
+        mine: isSolo.value || p.slot === mySlot.value,
+    })),
+);
+
 // Where the game is among the setup steps (-1 once play has started or it is waiting for an opponent): the server names the steps.
 const currentSetupStep = computed(() => props.setup_steps.findIndex((s) => s.status === props.game.status));
 
@@ -2815,6 +2829,8 @@ const observerSetupLabel = computed(() => {
             return 'Selecting Masters';
         case GameStatus.CrewSelect:
             return 'Building Crews';
+        case GameStatus.Deployment:
+            return 'Deploying';
         case GameStatus.SchemeSelect:
             return 'Selecting Schemes';
         default:
@@ -3750,6 +3766,14 @@ const observerSetupLabel = computed(() => {
                 "
                 @skip-opponent-crew="onSkipOpponentCrew"
                 @skip-crew="onSkipMyCrew"
+            />
+
+            <!-- ═══ DEPLOYMENT (tabletop games) ═══ -->
+            <GameDeploymentCard
+                v-if="game.status === GameStatus.Deployment && !isObserver && deploy"
+                :deploy="deploy"
+                :players="deployPlayers"
+                :game-uuid="game.uuid"
             />
 
             <!-- ═══ SCHEME SELECT ═══ -->

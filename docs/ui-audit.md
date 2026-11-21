@@ -104,3 +104,4 @@ how to add a picture and what to check afterwards: [docs/features/help.md](featu
 `flows37.cjs` print, for each audited state, the controls under 44px grouped by name (the app's own sidebar and header left out). Steps that click a control on the Table tab call `L.revealTable`
 (see `lib.cjs`); `hit` does it for them.
 
+Play mode and deployment flows: `flows39.cjs` (Create Game asks how it will be played, red/blue by role) and `flows40.cjs` (a two-player tabletop game through Deployment, with axe and phone tap-target checks; it uses the seeded `deploy_game`).

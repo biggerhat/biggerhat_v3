@@ -6,6 +6,7 @@ import GameReplaceOnDeathDialog from '@/components/Game/GameReplaceOnDeathDialog
 import GameRoundClock, { type RoundClock } from '@/components/Game/GameRoundClock.vue';
 import GameTurnBar, { type TurnState } from '@/components/Game/GameTurnBar.vue';
 import PageBanner from '@/components/PageBanner.vue';
+import DeploymentPanel from '@/components/Tabletop/DeploymentPanel.vue';
 import TabletopBoard from '@/components/Tabletop/TabletopBoard.vue';
 import { Button } from '@/components/ui/button';
 import { useFateGame } from '@/composables/useFateGame';
@@ -13,7 +14,9 @@ import { useGameApi } from '@/composables/useGameApi';
 import { useToast } from '@/composables/useToast';
 import {
     TABLE_SIZE,
+    baseInsideZone,
     baseRadius,
+    deploymentZones,
     type Aura,
     type ModelInfo,
     type DeploymentKind,
@@ -23,6 +26,7 @@ import {
 } from '@/lib/tabletop/geometry';
 import type { SharedData } from '@/types';
 import type { SavedLayout } from '@/lib/tabletop/layouts';
+import type { DeployState } from '@/lib/tabletop/deployment';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowLeft } from 'lucide-vue-next';
 import { loadEcho } from '@/lib/echo';
@@ -74,7 +78,14 @@ interface BoardModel {
 }
 
 const props = defineProps<{
-    game: { uuid: string; is_solo: boolean; deployment: DeploymentKind | null; auto_soulstone_on_kill?: boolean; is_campaign?: boolean };
+    game: {
+        uuid: string;
+        is_solo: boolean;
+        deployment: DeploymentKind | null;
+        auto_soulstone_on_kill?: boolean;
+        is_campaign?: boolean;
+        status?: string;
+    };
     /** Someone watching an observable game: nothing can be changed, and the page refreshes itself. */
     read_only?: boolean;
     players: {
@@ -112,6 +123,8 @@ const props = defineProps<{
     shared_auras: SharedAura[];
     token_options: { id: number; name: string }[];
     deployment_variant: number;
+    /** The deployment step (a tabletop game between crew and scheme): whose turn, what is being placed; null at any other time. */
+    deploy?: DeployState | null;
     table_image: string | null;
     table_images: { key: string; name: string; url: string; fit: 'tile' | 'cover' }[];
     terrain_images: Record<string, string>;
@@ -165,6 +178,24 @@ function variantChanged(next: number) {
     );
 }
 
+// Deployment: the server keeps the order; the other player's progress arrives as it happens.
+const deployState = ref<DeployState | null>(props.deploy ?? null);
+watch(
+    () => props.deploy,
+    (next) => (deployState.value = next ?? null),
+);
+const deployBusy = ref(false);
+function deployPost(name: string, body: Record<string, unknown> = {}) {
+    if (deployBusy.value || props.read_only) return;
+    deployBusy.value = true;
+    router.post(route(name, props.game.uuid), body as never, {
+        preserveScroll: true,
+        preserveState: true,
+        only: ['deploy', 'positions', 'game', 'models', 'flash'],
+        onFinish: () => (deployBusy.value = false),
+    });
+}
+
 // The table surface, agreed by both players like the deployment orientation.
 const tableImage = ref<string | null>(props.table_image);
 watch(
@@ -187,7 +218,7 @@ let listening: { stopListening: (e: string) => unknown } | null = null;
 const resync = () =>
     document.visibilityState === 'visible' &&
     router.reload({
-        only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'table_image', 'models', 'turn', 'clock'],
+        only: ['positions', 'terrain', 'placed_markers', 'shared_auras', 'deployment_variant', 'table_image', 'models', 'turn', 'clock', 'deploy'],
     });
 
 let poll: ReturnType<typeof setInterval> | null = null;
@@ -227,6 +258,12 @@ onMounted(async () => {
         })
         .listen('.GameBoardAurasChanged', (e: { auras: SharedAura[] }) => {
             sharedAuras.value = e.auras.map(toAura);
+        })
+        .listen('.GameDeployChanged', (e: { deploy: DeployState; positions: Record<string, { x: number; y: number }> }) => {
+            deployState.value = e.deploy;
+            live.value = { ...live.value, ...e.positions };
+            // the last group placed moves the game on to schemes: look again so the page knows
+            if (e.deploy.phase === 'done') router.reload({ only: ['deploy', 'game'] });
         });
     // a safety net for a watcher whose socket drops quietly
     if (props.read_only) poll = setInterval(resync, 30000);
@@ -244,6 +281,7 @@ onUnmounted(() => {
             '.GameCrewMemberUpdated',
             '.GameBoardSetupChanged',
             '.GameBoardAurasChanged',
+            '.GameDeployChanged',
         ])
             listening?.stopListening(e);
     } else if (joined) window.Echo?.leave(`game.${props.game.uuid}`);
@@ -599,6 +637,9 @@ const placeAs = computed(() =>
     props.players.filter((p) => p.mine).map((p) => ({ side: p.slot === 1 ? ('a' as const) : ('b' as const), label: p.name })),
 );
 
+/** A group of models is being placed (the first, the attacker's crew, or the rest). */
+const isPlacing = computed(() => !!deployState.value && ['first', 'attacker', 'second'].includes(deployState.value.phase));
+
 const tokens = computed<Token[]>(() => [
     // markers first, so they draw underneath the models and a model on top of one is the one you pick up
     ...markerTokens.value,
@@ -626,10 +667,37 @@ const tokens = computed<Token[]>(() => [
                 tokens: m.tokens,
                 notes: m.notes ?? undefined,
             },
-            locked: props.read_only || viewing.value || !playerFor(m.slot)?.mine,
+            // while the crews are being deployed only the group being placed can be picked up
+            locked: props.read_only || viewing.value || !playerFor(m.slot)?.mine || (isPlacing.value && !deployState.value!.placing.includes(m.id)),
         };
     }),
 ]);
+
+// The models of this phase that are not completely inside their own zone (the rulebook deploys "completely within"). Side A is slot 1's zone.
+const deployZones = computed(() => (props.game.deployment ? deploymentZones(props.game.deployment, variant.value) : null));
+const outsideIds = computed<number[]>(() => {
+    const d = deployState.value;
+    const zones = deployZones.value;
+    if (!d || !zones || !isPlacing.value) return [];
+    return tokens.value
+        .filter((t) => !t.marker && d.placing.includes(Number(t.id)))
+        .filter((t) => !baseInsideZone(t.side === 'a' ? zones.a : zones.b, t.x, t.y, t.baseMm))
+        .map((t) => Number(t.id));
+});
+const deployModels = computed(() => liveModels.value.map((m) => ({ id: m.id, name: m.name, slot: m.slot })));
+const splitCrew = (later: number[]) => deployPost('games.deploy.split', { later });
+const chooseFirst = (first: 'now' | 'later') => deployPost('games.deploy.choose', { first });
+const finishPlacing = () => {
+    const d = deployState.value;
+    if (!d) return;
+    const positions = Object.fromEntries(
+        tokens.value
+            .filter((t) => !t.marker && d.placing.includes(Number(t.id)))
+            .map((t) => [t.id, { x: Math.round(t.x * 100) / 100, y: Math.round(t.y * 100) / 100 }]),
+    );
+    deployPost('games.deploy.done', { positions });
+};
+const skipDeployment = () => deployPost('games.deploy.skip');
 
 function terrainChanged(pieces: TerrainPiece[]) {
     liveTerrain.value = pieces;
@@ -746,6 +814,20 @@ function moved(t: Token) {
                 </span>
             </div>
         </div>
+        <DeploymentPanel
+            v-if="deployState && !read_only"
+            :state="deployState"
+            :players="players"
+            :models="deployModels"
+            :outside="outsideIds"
+            :busy="deployBusy"
+            :game-uuid="game.uuid"
+            @split="splitCrew"
+            @choose="chooseFirst"
+            @done="finishPlacing"
+            @skip="skipDeployment"
+            @rotate="variantChanged((variant + 1) % 4)"
+        />
         <TabletopBoard
             :can-attach="canAttach"
             :is-campaign="!!game.is_campaign"

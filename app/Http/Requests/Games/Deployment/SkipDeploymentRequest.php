@@ -15,6 +15,7 @@ class SkipDeploymentRequest extends FormRequest
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
-        return [];
+        // nothing is needed: the action is the whole request (the optional flag is only there so a client may say it was confirmed)
+        return ['confirmed' => ['sometimes', 'boolean']];
     }
 }

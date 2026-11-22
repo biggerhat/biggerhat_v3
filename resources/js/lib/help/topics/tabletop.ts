@@ -223,7 +223,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Reading a base',
-                    body: "The base is filled with the model's faction colour, and the ring around its edge is its side (in a game the attacker's side is red and the defender's blue; in the practice table side A is blue and side B red). The ring just inside the edge is its health: one segment per wound (a smooth ring past 12), red when it is low. Bases of 40 mm and up also show the number. Badges show tokens, activation and engagement; turn them off with Show status badges.",
+                    body: "The base is filled with the model's faction colour, and the ring around its edge is its side (in a game the attacker's side is red and the defender's blue; in the practice table side A is blue and side B red). The ring just inside the edge is its health: one segment per wound (a smooth ring past 12, full all the way round at full health), red when it is low. Bases of 40 mm and up also show the number. Badges show tokens, activation and engagement; turn them off with Show status badges.",
                     image: {
                         src: 'tabletop/board.webp',
                         alt: 'Part of the table with four models: two with a red base and a blue ring and two with a blue base and a red ring, each with its name, a ring of health segments inside the edge and its health number.',
@@ -264,7 +264,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Draw, discard and look',
-                    body: 'Tap your deck to draw. Tap a hand card for its menu (discard, and more). Tap your discard pile to look through it. "Up to" draws to your hand size, and "Start phase" runs the discard-then-draw routine.',
+                    body: 'Tap your deck to draw. Your hand sits in one row that fits the width: when there are many cards they overlap, and each shows its value and suit in its top corner, so nothing scrolls sideways. Tap a hand card for its menu (discard, and more). Tap your discard pile to look through it. "Up to" draws to your hand size, and "Start phase" runs the discard-then-draw routine.',
                     image: {
                         src: 'tabletop/fate-deck.webp',
                         alt: "The Fate deck: the other player's strip, your deck and discard pile, the flip controls, a hand of two cards, and the Up to and Start phase buttons.",

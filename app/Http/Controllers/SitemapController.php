@@ -65,6 +65,7 @@ class SitemapController extends Controller
                 ['url' => route('tools.compare'), 'priority' => '0.5', 'changefreq' => 'monthly'],
                 ['url' => route('tools.scenario_generator'), 'priority' => '0.5', 'changefreq' => 'monthly'],
                 ['url' => route('tools.crew_builder.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
+                ['url' => route('roadmap'), 'priority' => '0.3', 'changefreq' => 'monthly'],
                 ['url' => route('privacy'), 'priority' => '0.2', 'changefreq' => 'yearly'],
             ] as $row) {
                 $urls->push($row);

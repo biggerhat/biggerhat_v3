@@ -195,6 +195,8 @@ Route::get('/command', CommandController::class)->name('command')->withoutMiddle
 
 Route::get('/privacy', [PrivacyController::class, 'show'])->name('privacy');
 
+Route::get('/roadmap', [\App\Http\Controllers\RoadmapController::class, 'show'])->name('roadmap');
+
 Route::get('/supporters', [SupportersController::class, 'index'])->name('supporters.index');
 
 Route::get('/feedback', [FeedbackController::class, 'show'])->name('feedback.show');

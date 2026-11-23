@@ -1718,6 +1718,11 @@ const deleting = ref(false);
 const confirmDeleteBuild = async () => {
     if (!deleteTarget.value) return;
     deleting.value = true;
+    // a save waiting on its timer would write the crew back (or fail) after it is deleted
+    if (currentBuildId.value === deleteTarget.value.id && saveDebounceTimer) {
+        clearTimeout(saveDebounceTimer);
+        saveDebounceTimer = null;
+    }
     try {
         const response = await fetch(route('tools.crew_builder.destroy', { crewBuild: deleteTarget.value.id }), {
             method: 'DELETE',
@@ -2322,7 +2327,7 @@ onUnmounted(() => {
                                             <ExternalLink class="size-3.5" />
                                             View
                                         </Button>
-                                        <DropdownMenu>
+                                        <DropdownMenu :modal="false">
                                             <DropdownMenuTrigger as-child>
                                                 <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${build.name}`">
                                                     <MoreHorizontal class="size-4" />
@@ -2473,7 +2478,7 @@ onUnmounted(() => {
                                             <ExternalLink class="size-3.5" />
                                             View
                                         </Button>
-                                        <DropdownMenu>
+                                        <DropdownMenu :modal="false">
                                             <DropdownMenuTrigger as-child>
                                                 <Button variant="ghost" size="icon" class="size-8" :aria-label="`More actions for ${build.name}`">
                                                     <MoreHorizontal class="size-4" />

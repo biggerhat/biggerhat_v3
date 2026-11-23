@@ -639,6 +639,8 @@ const placeAs = computed(() =>
 
 /** A group of models is being placed (the first, the attacker's crew, or the rest). */
 const isPlacing = computed(() => !!deployState.value && ['first', 'attacker', 'second'].includes(deployState.value.phase));
+/** The crew is being divided or a group chosen: no model can be moved yet (the server would refuse it). */
+const deployHoldsAll = computed(() => !!deployState.value && ['split', 'choose'].includes(deployState.value.phase));
 
 const tokens = computed<Token[]>(() => [
     // markers first, so they draw underneath the models and a model on top of one is the one you pick up
@@ -668,7 +670,12 @@ const tokens = computed<Token[]>(() => [
                 notes: m.notes ?? undefined,
             },
             // while the crews are being deployed only the group being placed can be picked up
-            locked: props.read_only || viewing.value || !playerFor(m.slot)?.mine || (isPlacing.value && !deployState.value!.placing.includes(m.id)),
+            locked:
+                props.read_only ||
+                viewing.value ||
+                !playerFor(m.slot)?.mine ||
+                deployHoldsAll.value ||
+                (isPlacing.value && !deployState.value!.placing.includes(m.id)),
         };
     }),
 ]);

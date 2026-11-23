@@ -15,6 +15,7 @@ use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Support\Game\DeploymentRefused;
 use App\Support\Game\GameDeployment;
+use App\Support\Game\SafeBroadcast;
 use App\Support\Tabletop\TabletopAccess;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -99,10 +100,12 @@ class GameDeployController extends Controller
         }
 
         $fresh = $game->fresh(['players.crewMembers']);
-        broadcast(new GameDeployChanged($fresh, GameDeployment::summary($fresh), $this->placed($positions)))->toOthers();
-        if ($advanced) {
-            broadcast(new GameStatusChanged($fresh))->toOthers();
-        }
+        SafeBroadcast::send(function () use ($fresh, $positions, $advanced) {
+            broadcast(new GameDeployChanged($fresh, GameDeployment::summary($fresh), $this->placed($positions)))->toOthers();
+            if ($advanced) {
+                broadcast(new GameStatusChanged($fresh))->toOthers();
+            }
+        });
 
         return redirect()->back();
     }

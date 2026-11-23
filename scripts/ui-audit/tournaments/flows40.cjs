@@ -84,6 +84,11 @@ const axePath = process.env.AXE || path.resolve('node_modules/axe-core/axe.min.j
         if ((await phase(carol)) !== 'split') throw new Error(`phase was ${await phase(carol)}`);
         if (await carol.page.$('[data-testid=deploy-split]')) throw new Error("the attacker was offered the defender's split");
         if (!(await carol.page.$('[data-testid=deploy-rotate]'))) throw new Error('the attacker cannot turn the zones');
+        // touching a model while the crew is being divided must not ask the server (which would answer 403): the models are locked
+        const refused = [];
+        carol.page.on('response', (r) => r.status() === 403 && refused.push(r.url()));
+        await drag(carol, await modelId(carol, 'Pandora'), 10, 4);
+        if (refused.length) throw new Error(`the server refused a move (403): ${refused.join(', ')}`);
     });
 
     await L.step('board (phone, defender): the split fits the screen and its controls are tap-sized', dave, async () => {

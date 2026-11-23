@@ -24,6 +24,7 @@ use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Game\CrewUpgradeCatalog;
 use App\Support\Game\GameDeployment;
+use App\Support\Game\SafeBroadcast;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
@@ -193,7 +194,7 @@ class GameBoardController extends Controller
             $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['positions' => $positions])]);
         });
 
-        broadcast(new GameBoardMoved($game, $incoming->all()))->toOthers();
+        SafeBroadcast::send(fn () => broadcast(new GameBoardMoved($game, $incoming->all()))->toOthers());
 
         return redirect()->back();
     }

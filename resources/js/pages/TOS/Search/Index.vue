@@ -393,7 +393,7 @@ const exportUrl = computed(() => {
                 >
                     <Bookmark class="size-3" /><span class="hidden sm:inline">Save</span>
                 </Button>
-                <DropdownMenu v-if="isLoggedIn && saved_searches.length">
+                <DropdownMenu v-if="isLoggedIn && saved_searches.length" :modal="false">
                     <DropdownMenuTrigger as-child>
                         <Button variant="outline" size="sm" class="h-7 gap-1 text-xs">
                             <Sparkles class="size-3" /><span class="hidden sm:inline">Saved</span> ({{ saved_searches.length }})

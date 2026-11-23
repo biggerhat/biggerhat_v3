@@ -49,6 +49,7 @@ use App\Support\Campaign\AftermathCatalog;
 use App\Support\Game\CrewUpgradeCatalog;
 use App\Support\Game\GameDeployment;
 use App\Support\Game\GameSetupFlow;
+use App\Support\Game\SafeBroadcast;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\RedirectResponse;
@@ -1257,8 +1258,8 @@ class GameController extends Controller
 
         $game->refresh();
 
-        broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers();
-        broadcast(new GameStatusChanged($game))->toOthers();
+        SafeBroadcast::send(fn () => broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers());
+        SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
         User::find($game->creator_id)?->notify(new GameOpponentJoined($game, $player->user->name));
 
         return redirect()->route('games.show', $game->uuid);
@@ -1344,7 +1345,7 @@ class GameController extends Controller
             $game->delete();
 
             if ($trackerLinkedTournament) {
-                broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers());
             }
 
             return redirect()->route('games.index')
@@ -1362,7 +1363,7 @@ class GameController extends Controller
             $game->delete();
 
             if ($trackerLinkedTournament) {
-                broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers());
             }
         }
 
@@ -1624,14 +1625,14 @@ class GameController extends Controller
         $game->refresh();
 
         if (! $game->is_solo) {
-            broadcast(new GameStatusChanged($game))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
         }
 
         // Surface abandon to a linked tournament — the TO's badge flips to
         // "abandoned" in real time so they can intervene (forfeit, re-enter score).
         $tg = TournamentGame::with('round.tournament')->where('game_id', $game->id)->first();
         if ($tg && $tg->round && $tg->round->tournament) {
-            broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_abandoned'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_abandoned'))->toOthers());
         }
 
         if (request()->wantsJson()) {

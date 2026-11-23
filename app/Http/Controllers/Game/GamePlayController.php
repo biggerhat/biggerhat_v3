@@ -47,6 +47,7 @@ use App\Services\Fate\FateDeckService;
 use App\Services\Game\BoardHistory;
 use App\Services\Game\TurnSequence;
 use App\Services\LootDeckService;
+use App\Support\Game\SafeBroadcast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -760,9 +761,9 @@ class GamePlayController extends Controller
 
         if (! $game->is_solo || $game->is_observable) {
             if ($result['game_complete']) {
-                broadcast(new GameStatusChanged($game->fresh()));
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game->fresh())));
             } else {
-                broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameTurnAdvanced($game->fresh()))->toOthers());
             }
         }
 
@@ -1043,13 +1044,13 @@ class GamePlayController extends Controller
         }
 
         if ($result['both_done']) {
-            broadcast(new GameTurnAdvanced($game->fresh()))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameTurnAdvanced($game->fresh()))->toOthers());
             if (! empty($result['fate_shuffled'])) {
-                broadcast(new GameFateChanged($game, 'end_phase'))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameFateChanged($game, 'end_phase'))->toOthers());
             }
         }
 
-        broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers();
+        SafeBroadcast::send(fn () => broadcast(new GameCrewMemberUpdated($game, 'turn_scored'))->toOthers());
 
         return response()->json([
             'success' => true,
@@ -1122,7 +1123,7 @@ class GamePlayController extends Controller
         }
 
         // Solo games already returned above — this is always multiplayer.
-        broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers();
+        SafeBroadcast::send(fn () => broadcast(new GameCrewMemberUpdated($game, 'mark_complete'))->toOthers());
 
         return response()->json(['success' => true, 'game_complete' => $bothDone]);
     }
@@ -1203,7 +1204,7 @@ class GamePlayController extends Controller
         }
 
         if (! $game->is_solo || $game->is_observable) {
-            broadcast(new GameStatusChanged($game));
+            SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game)));
         }
     }
 
@@ -1379,7 +1380,7 @@ class GamePlayController extends Controller
 
         // Broadcast so any open Manage/View page refreshes live.
         if ($tg->round && $tg->round->tournament) {
-            broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_synced'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_synced'))->toOthers());
         }
     }
 }

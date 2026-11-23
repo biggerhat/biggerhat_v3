@@ -35,6 +35,7 @@ use App\Models\Upgrade;
 use App\Services\LootDeckService;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Game\GameSetupFlow;
+use App\Support\Game\SafeBroadcast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -81,9 +82,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'faction'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'faction'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -179,9 +180,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($statusChanged) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'master'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'master'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -277,9 +278,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -401,9 +402,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -464,9 +465,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -551,9 +552,9 @@ class GameSetupController extends Controller
                     return $done;
                 });
                 if ($bothDone) {
-                    broadcast(new GameStatusChanged($game->fresh()))->toOthers();
+                    SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game->fresh()))->toOthers());
                 }
-                broadcast(new GameSetupStepCompleted($game, $player, 'scheme'))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'scheme'))->toOthers());
             }
         }
 

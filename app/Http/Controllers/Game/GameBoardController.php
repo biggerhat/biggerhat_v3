@@ -11,6 +11,7 @@ use App\Events\GameBoardMoved;
 use App\Events\GameBoardSetupChanged;
 use App\Events\GameBoardTerrainChanged;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
 use App\Http\Requests\Games\UpdateAurasRequest;
 use App\Http\Requests\Games\UpdateBoardRequest;
 use App\Http\Requests\Games\UpdateBoardSetupRequest;
@@ -24,7 +25,6 @@ use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Game\CrewUpgradeCatalog;
 use App\Support\Game\GameDeployment;
-use App\Support\Game\SafeBroadcast;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
@@ -40,6 +40,8 @@ use Inertia\ResponseFactory;
 
 class GameBoardController extends Controller
 {
+    use BroadcastsGameEvents;
+
     /** Each player can have this many of each kind of marker on the table at once. */
     private const MARKERS_PER_PLAYER = 5;
 
@@ -194,7 +196,7 @@ class GameBoardController extends Controller
             $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['positions' => $positions])]);
         });
 
-        SafeBroadcast::send(fn () => broadcast(new GameBoardMoved($game, $incoming->all()))->toOthers());
+        $this->broadcastToOpponents($game, new GameBoardMoved($game, $incoming->all()));
 
         return redirect()->back();
     }
@@ -211,7 +213,7 @@ class GameBoardController extends Controller
             $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['terrain' => $terrain])]);
         });
 
-        broadcast(new GameBoardTerrainChanged($game, $terrain))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardTerrainChanged($game, $terrain));
 
         return redirect()->back();
     }
@@ -244,7 +246,7 @@ class GameBoardController extends Controller
             $tableImage = $board['table_image'] ?? null;
         });
 
-        broadcast(new GameBoardSetupChanged($game, $variant, $tableImage))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardSetupChanged($game, $variant, $tableImage));
 
         return redirect()->back();
     }
@@ -315,7 +317,7 @@ class GameBoardController extends Controller
             throw ValidationException::withMessages(['upsert' => 'Each player can have up to '.self::MARKERS_PER_PLAYER.' of each marker on the table.']);
         }
 
-        broadcast(new GameBoardMarkersChanged($game, $result))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardMarkersChanged($game, $result));
 
         return redirect()->back();
     }
@@ -396,7 +398,7 @@ class GameBoardController extends Controller
             throw ValidationException::withMessages(['upsert' => 'A model can show up to '.self::AURAS_PER_TOKEN.' auras.']);
         }
 
-        broadcast(new GameBoardAurasChanged($game, $result))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardAurasChanged($game, $result));
 
         return redirect()->back();
     }

@@ -7,6 +7,7 @@ use App\Enums\MessageTypeEnum;
 use App\Events\GameDeployChanged;
 use App\Events\GameStatusChanged;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
 use App\Http\Requests\Games\Deployment\ChooseFirstGroupRequest;
 use App\Http\Requests\Games\Deployment\FinishPlacingRequest;
 use App\Http\Requests\Games\Deployment\SkipDeploymentRequest;
@@ -15,7 +16,6 @@ use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Support\Game\DeploymentRefused;
 use App\Support\Game\GameDeployment;
-use App\Support\Game\SafeBroadcast;
 use App\Support\Tabletop\TabletopAccess;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +28,8 @@ use Illuminate\Support\Facades\DB;
  */
 class GameDeployController extends Controller
 {
+    use BroadcastsGameEvents;
+
     public function split(SplitCrewRequest $request, Game $game): RedirectResponse
     {
         $later = array_map('intval', $request->validated('later'));
@@ -100,12 +102,10 @@ class GameDeployController extends Controller
         }
 
         $fresh = $game->fresh(['players.crewMembers']);
-        SafeBroadcast::send(function () use ($fresh, $positions, $advanced) {
-            broadcast(new GameDeployChanged($fresh, GameDeployment::summary($fresh), $this->placed($positions)))->toOthers();
-            if ($advanced) {
-                broadcast(new GameStatusChanged($fresh))->toOthers();
-            }
-        });
+        $this->broadcastToOpponents($fresh, new GameDeployChanged($fresh, GameDeployment::summary($fresh), $this->placed($positions)));
+        if ($advanced) {
+            $this->broadcastToOpponents($fresh, new GameStatusChanged($fresh));
+        }
 
         return redirect()->back();
     }

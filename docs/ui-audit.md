@@ -105,3 +105,5 @@ how to add a picture and what to check afterwards: [docs/features/help.md](featu
 (see `lib.cjs`); `hit` does it for them.
 
 Play mode and deployment flows: `flows39.cjs` (Create Game asks how it will be played, red/blue by role) and `flows40.cjs` (a two-player tabletop game through Deployment, with axe and phone tap-target checks; it uses the seeded `deploy_game`).
+
+Logged games and analytics: `flows43.cjs` (quick and detailed logging at desktop and phone, the invited opponent confirming from their own stats page, the games list badge, the analytics page with its source filter at both widths, a private logged game found by nobody else, axe on the form and the analytics page). The Radix selects open on a real pointer press, so the flow clicks them with `page.click`.

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HelpButton from '@/components/Help/HelpButton.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import RecordTable, { type RecordRow } from '@/components/Stats/RecordTable.vue';
@@ -256,8 +257,9 @@ const noMatch = computed(() => !noData.value && o.value.games === 0);
     <Head :title="`${user.name}: game analytics`" />
     <PageBanner :title="`${user.name}'s analytics`">
         <template #subtitle>
-            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+            <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                 Every finished game: tracked, logged by hand and tournament rounds.
+                <HelpButton topic="game-tracker" />
             </div>
         </template>
         <template #actions>

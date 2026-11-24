@@ -98,9 +98,11 @@ function pick(c: FoundCharacter) {
             role="listbox"
             class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border bg-popover p-1 text-sm shadow-md"
         >
-            <li v-for="c in results" :key="c.id" role="option" :aria-selected="false">
+            <li v-for="c in results" :key="c.id" role="presentation">
                 <button
                     type="button"
+                    role="option"
+                    :aria-selected="false"
                     class="flex min-h-11 w-full items-center justify-between gap-2 rounded px-2 text-left hover:bg-accent sm:min-h-8"
                     @mousedown.prevent="pick(c)"
                 >

@@ -307,7 +307,14 @@ final class GameAnalytics
      */
     private function schemes(Collection $games): array
     {
-        $rows = $games->flatMap(fn (PlayedGame $g) => collect($g->turns)->filter(fn ($t) => $t['scheme_name'] !== null)->map(fn ($t) => $t + ['won' => $g->result === 'win']));
+        $rows = collect();
+        foreach ($games as $g) {
+            foreach ($g->turns as $t) {
+                if ($t['scheme_name'] !== null) {
+                    $rows->push($t);
+                }
+            }
+        }
 
         return $rows->groupBy('scheme_name')->map(function (Collection $turns, string $name) {
             $scored = $turns->filter(fn ($t) => $t['action'] === 'scored' || ($t['action'] === null && $t['scheme'] > 0));

@@ -72,6 +72,7 @@ export const ROADMAP: Record<RoadmapStage, RoadmapItem[]> = {
 
 /** Newest first. */
 export const SHIPPED: ShippedItem[] = [
+    { when: 'November 2026', title: 'Log a game played elsewhere, and in-depth analytics over every game you have finished' },
     { when: 'November 2026', title: 'Search ignores apostrophes, so "this actions damage" finds "this action\'s damage"' },
     { when: 'November 2026', title: 'Play mode and deployment: set up a game on the tabletop' },
     { when: 'November 2026', title: 'Attacker is red and defender is blue on the board' },

@@ -8,7 +8,7 @@ defineProps<{ tiles: { label: string; value: string | number; hint?: string }[] 
         <div v-for="t in tiles" :key="t.label" class="rounded-md border bg-muted/30 p-2.5 text-center">
             <dt class="text-2xs uppercase text-muted-foreground">{{ t.label }}</dt>
             <dd class="text-lg font-bold tabular-nums">{{ t.value }}</dd>
-            <p v-if="t.hint" class="text-2xs text-muted-foreground">{{ t.hint }}</p>
+            <dd v-if="t.hint" class="text-2xs text-muted-foreground">{{ t.hint }}</dd>
         </div>
     </dl>
 </template>

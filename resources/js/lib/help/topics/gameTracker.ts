@@ -225,6 +225,56 @@ const gameTracker: HelpTopic = {
                 },
             ],
         },
+        {
+            id: 'log',
+            title: 'Logging a game played elsewhere',
+            intro: 'Played on paper, in another app or at an event? Press Log a game (on the Game Tracker page, or on your stats page) and enter it afterwards. It counts in your stats like any other game.',
+            items: [
+                {
+                    title: 'The quick log',
+                    body: 'The top of the page is all you need: the Day played, the Format and Encounter size, Who won? (I won, I lost or A tie), and for you and your opponent the Faction, Master and Victory points. The opponent is a name you type. Log game stays off until the result, both factions and both point totals are in. The master box searches the models as you type; if yours is not listed, what you typed is kept.',
+                },
+                {
+                    title: 'The same details the tracker keeps',
+                    body: 'Under the quick log are sections you can open and fill in: Strategy, deployment and schemes (and the scheme pool); Turn by turn (Add a turn, then strategy points, scheme points, the scheme played and whether it was scored, held or discarded, and the strategy bonus point); Crews (Start from a saved crew, or Add a model, and tick killed for the ones that died); and Notes, event and who can see it. All of them are optional. When you fill in the turns, the victory point totals are added up from them. If the points and the result disagree (a win with fewer points), the page says so: that is fine for a concession.',
+                },
+                {
+                    title: 'Inviting your opponent',
+                    body: 'If your opponent has a BiggerHat account, search for them under Link their BiggerHat account. They are sent a notification and a card on their stats page, Games waiting for you. Until they press It was me, the game is only in your stats; when they do, it counts in theirs too, from their side. Not me removes it from their list and adds nothing.',
+                },
+                {
+                    title: 'Who can see it',
+                    body: 'A logged game is private: only you, and a player you invited, can open it, and it counts only in your own stats. Turn on Anyone can see this game (under Notes, event and who can see it) and anyone with the link can open it and it counts on your public stats page too.',
+                },
+                {
+                    title: 'Changing or deleting it',
+                    body: 'Open the game from your games list (it has a Logged label) and press Edit to change anything, or Delete to remove it from your stats. Only the person who logged it can do either. A logged game has no play screen or table, because the game was already played.',
+                },
+            ],
+        },
+        {
+            id: 'stats',
+            title: 'Your stats and analytics',
+            intro: 'Your stats page (My Stats) shows how you do. Full analytics goes deeper, over every game you have finished: ones from the tracker, ones you logged, and your tournament rounds.',
+            items: [
+                {
+                    title: 'The stats page',
+                    body: 'My Stats counts the games you played in the tracker and the ones you logged. Games where you played both sides (solo games) count too: press Leave out solo games to take them out, and Include solo games to put them back. Full analytics opens the deeper page; Log a game is there too.',
+                },
+                {
+                    title: 'Full analytics',
+                    body: 'The top shows your games, record, win rate, average points and margin, and your current streak. Under it, in order: Over time; By faction, By master, Against each faction, and Attacker and defender; Matchups (faction against faction, and master against master); Head to head against each opponent; By strategy, deployment, encounter size, season, how it was played, event and where the game came from; Turn by turn; Schemes; Models; and a table of Games with the day, result, factions and points of each, linking to the game.',
+                },
+                {
+                    title: 'Filters and sharing a view',
+                    body: 'Press Filters to narrow everything to a date range, a result, a faction or master, an opponent, a strategy, a size, a season, how it was played or an event, and to choose where the games come from (Game Tracker, Logged by hand, Tournaments). Include solo games (playing both sides) is a switch there. The count beside the button says how many games are in view, and Clear filters resets them. The filters are in the address, so you can send someone the same view. CSV downloads the games in view as a spreadsheet.',
+                },
+                {
+                    title: 'Reading the numbers',
+                    body: 'A win rate counts a tie as not a win, and shows only once there are 5 games behind it; below that you see a dash and the record. Hover a win rate to see the range it likely sits in. Turn by turn, Schemes and Models use only the games that recorded turns, schemes or a crew, and say how many that was. Another player looking at your page sees your tracker games and tournament rounds, and the logged games you made public.',
+                },
+            ],
+        },
     ],
 };
 

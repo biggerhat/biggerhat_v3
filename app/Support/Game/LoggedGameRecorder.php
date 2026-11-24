@@ -131,7 +131,7 @@ final class LoggedGameRecorder
         return [
             'faction' => $side['faction'],
             'master_id' => $master?->id,
-            'master_name' => $master?->display_name ?? ($side['master_name'] ?? null),
+            'master_name' => $master ? $master->display_name : ($side['master_name'] ?? null),
             'crew_build_id' => $side['crew_build_id'] ?? null,
             'role' => $side['role'] ?? null,
             'total_points' => (int) $side['total_points'],

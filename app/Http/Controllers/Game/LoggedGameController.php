@@ -15,7 +15,9 @@ use App\Http\Requests\Games\Logged\UpdateLoggedGameRequest;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Game;
+use App\Models\GameCrewMember;
 use App\Models\GamePlayer;
+use App\Models\GameTurn;
 use App\Models\Scheme;
 use App\Models\Strategy;
 use App\Models\User;
@@ -90,7 +92,9 @@ class LoggedGameController extends Controller
         $isOwner = $viewer !== null && $game->creator_id === $viewer->id;
         $invited = $viewer !== null && $them?->linked_user_id === $viewer->id;
 
+        /** @var \Illuminate\Support\Collection<int, GameTurn> $turns */
         $turns = $game->turns()->with('scheme:id,name')->orderBy('turn_number')->get();
+        /** @var \Illuminate\Support\Collection<int, GameCrewMember> $crews */
         $crews = $game->crewMembers()->orderBy('sort_order')->get(['id', 'game_player_id', 'display_name', 'station', 'cost', 'is_killed']);
 
         return inertia('Games/LoggedShow', [
@@ -115,7 +119,7 @@ class LoggedGameController extends Controller
             'players' => $game->players->map(fn (GamePlayer $p) => [
                 'slot' => $p->slot,
                 'name' => $p->slot === 1 ? $game->creator->name : ($p->opponent_name ?: 'Opponent'),
-                'profile' => $p->slot === 1 ? $game->creator->slug : ($p->link_status === 'confirmed' ? $p->user?->slug : null),
+                'profile' => $p->slot === 1 ? $game->creator->slug : ($p->link_status === 'confirmed' ? data_get($p, 'user.slug') : null),
                 'faction' => $p->getRawOriginal('faction'),
                 'master' => $p->master_name,
                 'role' => $p->role?->value,
@@ -140,7 +144,7 @@ class LoggedGameController extends Controller
                 'killed' => (bool) $m->is_killed,
             ])->values(),
             'can_edit' => $isOwner,
-            'can_confirm' => $invited && $them?->link_status === 'pending',
+            'can_confirm' => $invited && $them->link_status === 'pending',
             'is_guest' => $viewer === null,
         ]);
     }
@@ -277,6 +281,35 @@ class LoggedGameController extends Controller
     }
 
     /**
+     * One side of a logged game as the form edits it.
+     *
+     * @return array<string, mixed>
+     */
+    private function sideShape(Game $game, GamePlayer $p): array
+    {
+        return [
+            'faction' => $p->getRawOriginal('faction'),
+            'master_id' => $p->master_id,
+            'master_name' => $p->master_name,
+            'role' => $p->role?->value,
+            'total_points' => $p->total_points,
+            'soulstone_pool' => $p->soulstone_pool,
+            'crew_build_id' => $p->crew_build_id,
+            'opponent_name' => $p->opponent_name,
+            'linked_user_id' => $p->linked_user_id,
+            'linked_user_name' => data_get($p, 'linkedUser.name'),
+            'link_status' => $p->link_status,
+            'models' => $game->crewMembers->where('game_player_id', $p->id)->sortBy('sort_order')->map(fn ($m) => [
+                'character_id' => $m->character_id,
+                'name' => $m->display_name,
+                'killed' => (bool) $m->is_killed,
+                'cost' => $m->cost,
+                'hiring_category' => $m->hiring_category,
+            ])->values(),
+        ];
+    }
+
+    /**
      * A logged game in the shape the form edits.
      *
      * @return array<string, mixed>
@@ -284,28 +317,7 @@ class LoggedGameController extends Controller
     private function formShape(Game $game): array
     {
         $game->load(['players.linkedUser:id,name', 'turns', 'crewMembers']);
-        $side = function (GamePlayer $p) use ($game): array {
-            return [
-                'faction' => $p->getRawOriginal('faction'),
-                'master_id' => $p->master_id,
-                'master_name' => $p->master_name,
-                'role' => $p->role?->value,
-                'total_points' => $p->total_points,
-                'soulstone_pool' => $p->soulstone_pool,
-                'crew_build_id' => $p->crew_build_id,
-                'opponent_name' => $p->opponent_name,
-                'linked_user_id' => $p->linked_user_id,
-                'linked_user_name' => $p->linkedUser?->name,
-                'link_status' => $p->link_status,
-                'models' => $game->crewMembers->where('game_player_id', $p->id)->sortBy('sort_order')->map(fn ($m) => [
-                    'character_id' => $m->character_id,
-                    'name' => $m->display_name,
-                    'killed' => (bool) $m->is_killed,
-                    'cost' => $m->cost,
-                    'hiring_category' => $m->hiring_category,
-                ])->values(),
-            ];
-        };
+        $side = fn (GamePlayer $p): array => $this->sideShape($game, $p);
         $turnRow = fn ($t) => $t === null ? [] : [
             'strategy_points' => $t->strategy_points,
             'scheme_points' => $t->scheme_points,

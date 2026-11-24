@@ -86,7 +86,7 @@ final class PlayedGames
                 oppSlug: $theirs?->user?->slug,
                 oppFaction: $theirs?->getRawOriginal('faction'),
                 oppMaster: $theirs?->master_name,
-                oppVp: (int) ($theirs?->total_points ?? 0),
+                oppVp: (int) $theirs?->total_points,
                 strategy: $game->strategy?->name,
                 deployment: $game->deployment?->label(),
                 encounterSize: $game->encounter_size,
@@ -96,13 +96,13 @@ final class PlayedGames
                 format: $game->format->label(),
                 turns: $mineTurns->keys()->merge($theirTurns->keys())->unique()->sort()->values()->map(fn ($n) => [
                     'turn' => (int) $n,
-                    'strategy' => (int) ($mineTurns->get($n)?->strategy_points ?? 0),
-                    'scheme' => (int) ($mineTurns->get($n)?->scheme_points ?? 0),
+                    'strategy' => (int) $mineTurns->get($n)?->strategy_points,
+                    'scheme' => (int) $mineTurns->get($n)?->scheme_points,
                     'scheme_id' => $mineTurns->get($n)?->scheme_id,
                     'scheme_name' => $mineTurns->get($n)?->scheme?->name,
                     'action' => $mineTurns->get($n)?->scheme_action,
-                    'opp_strategy' => (int) ($theirTurns->get($n)?->strategy_points ?? 0),
-                    'opp_scheme' => (int) ($theirTurns->get($n)?->scheme_points ?? 0),
+                    'opp_strategy' => (int) $theirTurns->get($n)?->strategy_points,
+                    'opp_scheme' => (int) $theirTurns->get($n)?->scheme_points,
                 ])->all(),
                 models: $crews->get($mine->id, collect())->map(fn ($m) => ['name' => $m->display_name, 'killed' => (bool) $m->is_killed, 'cost' => $m->cost])->all(),
                 strategyVp: $mineTurns->isEmpty() ? null : (int) $mineTurns->sum('strategy_points'),
@@ -164,7 +164,7 @@ final class PlayedGames
                         strategy: $round->strategy?->name,
                         deployment: $round->deployment?->label(),
                         encounterSize: $tournament->encounter_size,
-                        season: $tournament->season?->label(),
+                        season: $tournament->season->label(),
                         playMode: null,
                         venue: $tournament->name,
                         format: null,
@@ -199,7 +199,7 @@ final class PlayedGames
             return $theirs->opponent_name ?: 'Playing both sides';
         }
 
-        return $theirs->user?->name ?? $theirs->opponent_name ?: $theirs->linkedUser?->name;
+        return data_get($theirs, 'user.name') ?? ($theirs->opponent_name ?: data_get($theirs, 'linkedUser.name'));
     }
 
     private function tournamentResult(TournamentGame $game, int $playerId): ?string

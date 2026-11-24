@@ -1,6 +1,6 @@
 # Logging games played elsewhere, and in-depth game stats
 
-Status: **plan, nothing built** (2026-11-23). Branch `game-log-and-stats`, from `nov23-updates`.
+Status: **built** (2026-11-23) on `game-log-and-stats`, from `nov23-updates`, as one branch and PR. What was built and where: [docs/features/game-tracker.md](../features/game-tracker.md) ("Logged games and game analytics"). The decisions below were settled with the maintainer: optional account linking (the other person confirms), formats are not limited to Standard (Standard, Campaign and Bonanza Brawl are all allowed as a label), logged games are private unless made public (the stats page itself is public), quick log plus optional detail, tournament games are in the analytics, solo games count by default with a way to leave them out. Differences from the plan below: the day played is `completed_at` (no separate `played_on` column) and there is no `opponent_kind` column (solo is `is_solo`; a logged game's opponent is a named or linked player); concessions are not a field (the tracker has none), the notes carry it; the work is one PR, not five.
 
 ## Goal
 

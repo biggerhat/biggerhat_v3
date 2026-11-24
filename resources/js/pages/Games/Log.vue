@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HelpButton from '@/components/Help/HelpButton.vue';
 import CharacterSearch, { type FoundCharacter } from '@/components/Games/CharacterSearch.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
@@ -358,8 +359,9 @@ const resultOptions = [
     <Head :title="editing ? 'Edit logged game' : 'Log a game'" />
     <PageBanner :title="editing ? 'Edit logged game' : 'Log a game'">
         <template #subtitle>
-            <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
+            <div class="my-auto flex items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">
                 A game you played and tracked somewhere else. It counts in your stats like any other.
+                <HelpButton topic="game-tracker" />
             </div>
         </template>
     </PageBanner>
@@ -455,6 +457,16 @@ const resultOptions = [
                             @update:model-value="typedMaster('me', $event)"
                         />
                         <div class="space-y-1.5">
+                            <Label for="me-role">Attacker or defender</Label>
+                            <Select v-model="form.me.role">
+                                <SelectTrigger id="me-role" data-testid="me-role"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem :value="NONE">Not recorded</SelectItem>
+                                    <SelectItem v-for="r in options.roles" :key="r.value" :value="r.value">{{ r.label }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-1.5">
                             <Label for="me-vp">Victory points</Label>
                             <Input
                                 id="me-vp"
@@ -496,6 +508,16 @@ const resultOptions = [
                             @update:model-value="typedMaster('opponent', $event)"
                         />
                         <div class="space-y-1.5">
+                            <Label for="opp-role">Attacker or defender</Label>
+                            <Select v-model="form.opponent.role">
+                                <SelectTrigger id="opp-role" data-testid="opp-role"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem :value="NONE">Not recorded</SelectItem>
+                                    <SelectItem v-for="r in options.roles" :key="r.value" :value="r.value">{{ r.label }}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-1.5">
                             <Label for="opp-vp">Victory points</Label>
                             <Input
                                 id="opp-vp"
@@ -534,9 +556,11 @@ const resultOptions = [
                                     class="absolute z-20 mt-1 w-full rounded-md border bg-popover p-1 text-sm shadow-md"
                                     role="listbox"
                                 >
-                                    <li v-for="u in userResults" :key="u.id" role="option" :aria-selected="false">
+                                    <li v-for="u in userResults" :key="u.id" role="presentation">
                                         <button
                                             type="button"
+                                            role="option"
+                                            :aria-selected="false"
                                             class="flex min-h-11 w-full items-center rounded px-2 text-left hover:bg-accent sm:min-h-8"
                                             @mousedown.prevent="linkUser(u)"
                                         >

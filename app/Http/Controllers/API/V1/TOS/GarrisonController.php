@@ -28,7 +28,7 @@ class GarrisonController extends Controller
         $query = Garrison::query()
             ->where('is_public', true)
             ->with(['user:id,name', 'allegiance:id,name,slug'])
-            ->when($request->filled('search'), fn ($q) => $q->where('name', 'LIKE', '%'.$request->get('search').'%'))
+            ->when($request->filled('search'), fn ($q) => $q->whereSearch('name', $request->get('search')))
             ->when($request->filled('allegiance'), fn ($q) => $q->whereHas(
                 'allegiance',
                 fn ($a) => $a->where('slug', $request->get('allegiance'))

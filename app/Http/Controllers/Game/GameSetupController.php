@@ -34,6 +34,8 @@ use App\Models\Trigger;
 use App\Models\Upgrade;
 use App\Services\LootDeckService;
 use App\Support\Campaign\AftermathCatalog;
+use App\Support\Game\GameSetupFlow;
+use App\Support\Game\SafeBroadcast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -71,8 +73,8 @@ class GameSetupController extends Controller
             $done = $locked->format === GameFormatEnum::BonanzaBrawl
                 ? $locked->players()->where('slot', 1)->whereNotNull('faction')->exists()
                 : $locked->players()->whereNotNull('faction')->count() === 2;
-            if ($done && $locked->status === GameStatusEnum::FactionSelect) {
-                $locked->update(['status' => GameStatusEnum::MasterSelect]);
+            if ($done) {
+                GameSetupFlow::advance($locked, GameStatusEnum::FactionSelect);
             }
 
             return $done;
@@ -80,9 +82,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'faction'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'faction'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -167,14 +169,9 @@ class GameSetupController extends Controller
                     if ($needsInit) {
                         $locked->update(['loot_state' => app(LootDeckService::class)->initialState()]);
                     }
-                    $locked->update([
-                        'status' => GameStatusEnum::InProgress,
-                        'current_turn' => 1,
-                        'started_at' => $locked->started_at ?? now(),
-                    ]);
-                } else {
-                    $locked->update(['status' => GameStatusEnum::CrewSelect]);
                 }
+                // Bonanza goes on to play, everything else to the crew step: the flow knows which.
+                GameSetupFlow::advance($locked, GameStatusEnum::MasterSelect, $locked->format === GameFormatEnum::BonanzaBrawl ? ['started_at' => $locked->started_at ?? now()] : []);
                 $changed = true;
             }
 
@@ -183,9 +180,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($statusChanged) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'master'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'master'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -272,8 +269,8 @@ class GameSetupController extends Controller
             $done = $locked->players()
                 ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
                 ->count() === 2;
-            if ($done && $locked->status === GameStatusEnum::CrewSelect) {
-                $locked->update(['status' => GameStatusEnum::SchemeSelect]);
+            if ($done) {
+                GameSetupFlow::advance($locked, GameStatusEnum::CrewSelect);
             }
 
             return $done;
@@ -281,9 +278,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -396,8 +393,8 @@ class GameSetupController extends Controller
             $done = $locked->players()
                 ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
                 ->count() === 2;
-            if ($done && $locked->status === GameStatusEnum::CrewSelect) {
-                $locked->update(['status' => GameStatusEnum::SchemeSelect]);
+            if ($done) {
+                GameSetupFlow::advance($locked, GameStatusEnum::CrewSelect);
             }
 
             return $done;
@@ -405,9 +402,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -456,7 +453,7 @@ class GameSetupController extends Controller
                 ->where(fn ($q) => $q->whereNotNull('crew_build_id')->orWhere('crew_skipped', true))
                 ->count() === 2;
             if ($done) {
-                $locked->update(['status' => GameStatusEnum::SchemeSelect]);
+                GameSetupFlow::advance($locked, GameStatusEnum::CrewSelect);
             }
 
             return $done;
@@ -468,9 +465,9 @@ class GameSetupController extends Controller
 
         if (! $game->is_solo) {
             if ($bothDone) {
-                broadcast(new GameStatusChanged($game))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
             }
-            broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'crew'))->toOthers());
         }
 
         return response()->json(['success' => true, 'both_done' => $bothDone]);
@@ -536,10 +533,9 @@ class GameSetupController extends Controller
         if ($game->status === GameStatusEnum::SchemeSelect) {
             // Solo: advance immediately when the user picks their own scheme — opponent scheme is set during gameplay
             if ($game->is_solo) {
-                $game->update([
-                    'status' => GameStatusEnum::InProgress,
-                    'current_turn' => 1,
-                ]);
+                DB::transaction(function () use ($game) {
+                    GameSetupFlow::advance(Game::lockForUpdate()->findOrFail($game->id), GameStatusEnum::SchemeSelect);
+                });
                 // Initialize opponent's scheme pool to the game pool. Using model
                 // update() (vs query builder) so the 'array' cast handles encoding.
                 $opponent = $game->players()->where('slot', 2)->first();
@@ -549,19 +545,16 @@ class GameSetupController extends Controller
                     /** @var Game $locked */
                     $locked = Game::lockForUpdate()->find($game->id);
                     $done = $locked->players()->whereNotNull('current_scheme_id')->count() === 2;
-                    if ($done && $locked->status === GameStatusEnum::SchemeSelect) {
-                        $locked->update([
-                            'status' => GameStatusEnum::InProgress,
-                            'current_turn' => 1,
-                        ]);
+                    if ($done) {
+                        GameSetupFlow::advance($locked, GameStatusEnum::SchemeSelect);
                     }
 
                     return $done;
                 });
                 if ($bothDone) {
-                    broadcast(new GameStatusChanged($game->fresh()))->toOthers();
+                    SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game->fresh()))->toOthers());
                 }
-                broadcast(new GameSetupStepCompleted($game, $player, 'scheme'))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new GameSetupStepCompleted($game, $player, 'scheme'))->toOthers());
             }
         }
 

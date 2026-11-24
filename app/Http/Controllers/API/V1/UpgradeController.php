@@ -41,11 +41,11 @@ class UpgradeController extends Controller
             ->when($request->query('type'), fn ($q, $type) => $q->where('type', $type))
             ->when($search, function ($q) use ($search, $domain) {
                 $q->where(function ($inner) use ($search, $domain) {
-                    $inner->where('name', 'LIKE', "%{$search}%");
+                    $inner->whereSearch('name', $search);
                     if ($domain === 'crew') {
                         $inner->orWhereHas('characters', function ($charQuery) use ($search) {
-                            $charQuery->where('display_name', 'LIKE', "%{$search}%")
-                                ->orWhere('nicknames', 'LIKE', "%{$search}%");
+                            $charQuery->whereSearch('display_name', $search)
+                                ->orWhereSearch('nicknames', $search);
                         });
                     }
                 });

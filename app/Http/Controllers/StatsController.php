@@ -2,20 +2,34 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\GameStatusEnum;
+use App\Models\BattleReport;
 use App\Models\CrewBuild;
 use App\Models\Game;
 use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\User;
 use App\Services\AchievementService;
+use App\Support\Stats\PlayedGames;
 use App\Tournaments\TournamentHistory;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Response;
 
 class StatsController extends Controller
 {
-    public function __construct(private readonly AchievementService $achievements, private readonly TournamentHistory $tournamentHistory) {}
+    public function __construct(private readonly AchievementService $achievements, private readonly TournamentHistory $tournamentHistory, private readonly PlayedGames $played) {}
+
+    /**
+     * The person's public battle reports, newest first (a handful; the full list is on the Battle reports page).
+     *
+     * @return list<array{uuid: string, title: string, excerpt: string, date: string|null}>
+     */
+    private function battleReports(User $user): array
+    {
+        return BattleReport::public()->where('user_id', $user->id)->latest('published_at')->limit(6)->get()
+            ->map(fn (BattleReport $r) => ['uuid' => $r->uuid, 'title' => $r->title, 'excerpt' => $r->excerpt(140), 'date' => $r->published_at?->toDateString()])
+            ->all();
+    }
 
     public function myStats(): \Illuminate\Http\RedirectResponse
     {
@@ -25,13 +39,18 @@ class StatsController extends Controller
         return redirect()->route('stats.show', $user->slug);
     }
 
-    public function show(User $user): Response
+    public function show(Request $request, User $user): Response
     {
-        // Get all completed game player records for this user
-        $playerRecords = GamePlayer::where('user_id', $user->id)
-            ->whereHas('game', fn ($q) => $q->where('status', GameStatusEnum::Completed))
-            ->with(['game:id,uuid,status,encounter_size,is_solo,is_tie,winner_id,winner_slot,completed_at,strategy_id', 'game.strategy:id,name'])
-            ->get();
+        // Every finished game the person played: tracked, and logged by hand (another person's private logged games are not in it).
+        // `?solo=0` leaves out games played against yourself; they count by default.
+        $isOwn = Auth::id() === $user->id;
+        $playerRecords = $this->played->records($user, $isOwn);
+        $withSolo = $request->query('solo', '1') !== '0';
+        if (! $withSolo) {
+            $playerRecords = $playerRecords->reject(fn (GamePlayer $pr) => $pr->game->is_solo)->values();
+        }
+        $loggedCount = $playerRecords->filter(fn (GamePlayer $pr) => $pr->game->isLogged())->count();
+        $awaiting = $isOwn ? $this->awaitingConfirmation($user) : [];
 
         if ($playerRecords->isEmpty()) {
             return inertia('Profile/Stats', [
@@ -39,7 +58,11 @@ class StatsController extends Controller
                 'stats' => $this->emptyStats(),
                 'profile' => fn () => $this->buildProfile($user, 0, 0, []),
                 'tournament_history' => fn () => $this->tournamentHistory->forUser($user),
-                'is_own_profile' => Auth::id() === $user->id,
+                'is_own_profile' => $isOwn,
+                'with_solo' => $withSolo,
+                'logged_games' => $loggedCount,
+                'awaiting_confirmation' => $awaiting,
+                'battle_reports' => $this->battleReports($user),
             ]);
         }
 
@@ -177,8 +200,28 @@ class StatsController extends Controller
             ],
             'profile' => fn () => $this->buildProfile($user, $totalGames, $wins, $factionStats),
             'tournament_history' => fn () => $this->tournamentHistory->forUser($user),
-            'is_own_profile' => Auth::id() === $user->id,
+            'is_own_profile' => $isOwn,
+            'with_solo' => $withSolo,
+            'logged_games' => $loggedCount,
+            'awaiting_confirmation' => $awaiting,
+            'battle_reports' => $this->battleReports($user),
         ]);
+    }
+
+    /**
+     * Games someone logged against this person that wait for them to say it was them.
+     *
+     * @return list<array{uuid: string, by: string, date: string|null}>
+     */
+    private function awaitingConfirmation(User $user): array
+    {
+        return GamePlayer::query()
+            ->where('linked_user_id', $user->id)->where('link_status', 'pending')
+            ->whereHas('game')
+            ->with('game.creator:id,name')
+            ->get()
+            ->map(fn (GamePlayer $p) => ['uuid' => $p->game->uuid, 'by' => $p->game->creator->name, 'date' => $p->game->completed_at?->toDateString()])
+            ->values()->all();
     }
 
     private function buildKeywordMatchups(User $user, $playerRecords): array

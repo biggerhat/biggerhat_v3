@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CARD_HOVER, CARD_HOVER_GROUP } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, ChevronRight, Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
+import { BarChart3, ChevronRight, ClipboardList, Eye, PenLine, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface GamePlayer {
@@ -28,6 +28,10 @@ interface Game {
     uuid: string;
     status: string;
     is_solo: boolean;
+    play_mode?: string | null;
+    /** 'tracked' (played in the tracker) or 'logged' (entered by hand after being played elsewhere). */
+    origin?: string;
+    creator_id?: number;
     /** 'standard' | 'bonanza_brawl' — drives the format badge in the lists. */
     format: string;
     encounter_size: number;
@@ -44,6 +48,8 @@ defineProps<{
     active_games: Game[];
     recent_games: Game[];
     observable_games: Game[];
+    /** Your battle reports, by the id of the game each is about. */
+    battle_reports?: Record<number, string>;
 }>();
 
 const page = usePage<SharedData>();
@@ -59,10 +65,12 @@ const confirmDelete = (game: Game) => {
 
 const executeDelete = () => {
     if (!gameToDelete.value) return;
-    router.delete(route('games.destroy', gameToDelete.value.uuid));
+    router.delete(route(gameToDelete.value.origin === 'logged' ? 'games.logged.destroy' : 'games.destroy', gameToDelete.value.uuid));
     deleteDialogOpen.value = false;
     gameToDelete.value = null;
 };
+
+const PLAY_MODES: Record<string, string> = { in_person: 'In person', tabletop: 'Tabletop', online: 'Online', other: 'Other' };
 
 const statusLabel = (status: string, isSolo: boolean = false): string =>
     ({
@@ -70,6 +78,7 @@ const statusLabel = (status: string, isSolo: boolean = false): string =>
         faction_select: 'Selecting Factions',
         master_select: 'Selecting Masters',
         crew_select: 'Selecting Crews',
+        deployment: 'Deploying',
         scheme_select: 'Selecting Schemes',
         in_progress: 'In Progress',
         completed: 'Completed',
@@ -82,6 +91,7 @@ const statusColor = (status: string): string =>
         faction_select: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
         master_select: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
         crew_select: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+        deployment: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
         scheme_select: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
         in_progress: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
         completed: 'bg-muted text-muted-foreground',
@@ -129,6 +139,9 @@ const formatDate = (dateStr: string) => {
                 <div class="my-auto flex flex-wrap gap-2 px-2 pb-2 md:pb-0 md:pr-4">
                     <Button as-child size="sm" variant="outline">
                         <Link :href="route('stats.my')"><BarChart3 class="mr-1.5 size-4" /> My stats</Link>
+                    </Button>
+                    <Button as-child size="sm" variant="outline" data-testid="games-log">
+                        <Link :href="route('games.logged.create')"><ClipboardList class="mr-1.5 size-4" /> Log a game</Link>
                     </Button>
                     <Button as-child size="sm">
                         <Link :href="route('games.create')"><Plus class="mr-1.5 size-4" /> New game</Link>
@@ -210,7 +223,7 @@ const formatDate = (dateStr: string) => {
                 <ul class="space-y-2">
                     <li v-for="game in recent_games" :key="game.id" class="flex items-center gap-1">
                         <Link
-                            :href="route('games.show', game.uuid)"
+                            :href="route(game.origin === 'logged' ? 'games.logged.show' : 'games.show', game.uuid)"
                             class="flex min-w-0 flex-1 items-center gap-3 rounded-lg border px-3 py-2.5 transition-all duration-200 ease-out hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                             <Trophy v-if="game.status === 'completed' && !game.is_tie" class="size-4 shrink-0 text-amber-700 dark:text-amber-400" />
@@ -224,11 +237,15 @@ const formatDate = (dateStr: string) => {
                                         <span class="tabular-nums text-muted-foreground"> ({{ player.total_points }})</span>
                                     </span>
                                     <Badge v-if="game.is_solo" variant="outline" class="px-1 py-0 text-2xs">Solo</Badge>
+                                    <Badge v-if="game.origin === 'logged'" variant="outline" class="px-1 py-0 text-2xs" data-testid="logged-badge"
+                                        >Logged</Badge
+                                    >
                                 </div>
                                 <div class="flex flex-wrap items-center gap-x-2 text-2xs text-muted-foreground">
                                     <span class="tabular-nums">{{ game.encounter_size }}ss</span>
                                     <span v-if="game.format === 'bonanza_brawl'" class="text-purple-700 dark:text-purple-300">· Bonanza Brawl</span>
                                     <span v-if="game.strategy">· {{ game.strategy.name }}</span>
+                                    <span v-if="game.play_mode && PLAY_MODES[game.play_mode]">· {{ PLAY_MODES[game.play_mode] }}</span>
                                     <span v-if="game.completed_at">· {{ formatDate(game.completed_at) }}</span>
                                 </div>
                             </div>
@@ -236,7 +253,21 @@ const formatDate = (dateStr: string) => {
                                 {{ statusLabel(game.status, game.is_solo) }}
                             </Badge>
                         </Link>
+                        <Link
+                            :href="
+                                battle_reports?.[game.id]
+                                    ? route('battle-reports.edit', battle_reports[game.id])
+                                    : route('battle-reports.create', { game: game.uuid })
+                            "
+                            class="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            :aria-label="battle_reports?.[game.id] ? 'Edit battle report' : 'Write a battle report'"
+                            :title="battle_reports?.[game.id] ? 'Edit battle report' : 'Write a battle report'"
+                            data-testid="game-report"
+                        >
+                            <PenLine class="size-4" />
+                        </Link>
                         <button
+                            v-if="game.origin !== 'logged' || game.creator_id === meId"
                             aria-label="Delete game"
                             class="shrink-0 rounded-md p-2 text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
                             @click="confirmDelete(game)"

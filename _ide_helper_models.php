@@ -13,6 +13,121 @@
 
 namespace App\Models{
 /**
+ * @property int $id
+ * @property string $uuid
+ * @property int $user_id
+ * @property int|null $game_id
+ * @property int|null $crew_build_id
+ * @property string $title
+ * @property array<array-key, mixed>|null $content
+ * @property bool $show_game
+ * @property bool $allow_comments
+ * @property int|null $tournament_game_id
+ * @property \App\Enums\BattleReportStatusEnum $status
+ * @property int|null $moderated_by
+ * @property \Illuminate\Support\Carbon|null $moderated_at
+ * @property string|null $moderation_note
+ * @property array<array-key, mixed>|null $approved_snapshot
+ * @property string|null $appeal_note
+ * @property \Illuminate\Support\Carbon|null $published_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User $author
+ * @property-read \App\Models\User|null $moderator
+ * @property-read \App\Models\Game|null $game
+ * @property-read \App\Models\CrewBuild|null $crew
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BattleReportFlag> $flags
+ * @property-read int|null $flags_count
+ * @method static \Database\Factories\BattleReportFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReport newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReport newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReport public()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReport query()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBattleReport {}
+}
+
+namespace App\Models{
+/**
+ * @property int $id
+ * @property int $battle_report_id
+ * @property int $user_id
+ * @property string $reason
+ * @property \Illuminate\Support\Carbon|null $resolved_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\BattleReport $report
+ * @property-read \App\Models\User $reporter
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportFlag newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportFlag newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportFlag query()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBattleReportFlag {}
+}
+
+namespace App\Models{
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property int|null $battle_report_id
+ * @property string $title
+ * @property string $decision
+ * @property int|null $moderator_id
+ * @property string|null $note
+ * @property \Illuminate\Support\Carbon|null $overturned_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User|null $moderator
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportDecision newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportDecision newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportDecision query()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBattleReportDecision {}
+}
+
+namespace App\Models{
+/**
+ * @property int $id
+ * @property int $battle_report_id
+ * @property int $user_id
+ * @property string $body
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User $author
+ * @property-read \App\Models\BattleReport $report
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportComment newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportComment newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportComment query()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBattleReportComment {}
+}
+
+namespace App\Models{
+/**
+ * @property int $id
+ * @property int $battle_report_id
+ * @property int $user_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportReaction newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportReaction newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BattleReportReaction query()
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperBattleReportReaction {}
+}
+
+namespace App\Models{
+/**
  * 
  *
  * @property int $id

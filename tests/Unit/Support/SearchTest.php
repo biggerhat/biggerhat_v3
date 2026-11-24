@@ -23,3 +23,9 @@ test('escapes backslashes before translating wildcards', function () {
 test('empty input produces a match-all pattern', function () {
     expect(Search::wildcardLike(''))->toBe('%%');
 });
+
+test('apostrophes of every kind are dropped from typed text', function () {
+    expect(Search::pattern("this action's damage"))->toBe('%this actions damage%')
+        ->and(Search::pattern('this action’s damage'))->toBe('%this actions damage%')
+        ->and(Search::pattern('this action‘s *'))->toBe('%this actions %%');
+});

@@ -11,6 +11,7 @@ use App\Events\GameBoardMoved;
 use App\Events\GameBoardSetupChanged;
 use App\Events\GameBoardTerrainChanged;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
 use App\Http\Requests\Games\UpdateAurasRequest;
 use App\Http\Requests\Games\UpdateBoardRequest;
 use App\Http\Requests\Games\UpdateBoardSetupRequest;
@@ -23,6 +24,7 @@ use App\Models\Marker;
 use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Game\CrewUpgradeCatalog;
+use App\Support\Game\GameDeployment;
 use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\MarkerCatalogue;
 use App\Support\Tabletop\TabletopAccess;
@@ -38,6 +40,8 @@ use Inertia\ResponseFactory;
 
 class GameBoardController extends Controller
 {
+    use BroadcastsGameEvents;
+
     /** Each player can have this many of each kind of marker on the table at once. */
     private const MARKERS_PER_PLAYER = 5;
 
@@ -77,6 +81,7 @@ class GameBoardController extends Controller
                 'auto_soulstone_on_kill' => ($game->settings['auto_soulstone_on_kill'] ?? true) !== false,
                 // Campaign games offer injuries as well as upgrades to attach to a model
                 'is_campaign' => $game->format === GameFormatEnum::Campaign,
+                'status' => $game->status->value,
             ],
             'read_only' => $readOnly,
             'token_options' => TokenCatalogue::options(),
@@ -85,6 +90,8 @@ class GameBoardController extends Controller
             'character_injuries' => Inertia::defer(fn () => ! $readOnly && $game->status === GameStatusEnum::InProgress ? CrewUpgradeCatalog::injuries($game)->values() : []),
             'players' => $game->players->map(fn (GamePlayer $p) => [
                 'slot' => $p->slot,
+                // attacker or defender (null until the second player has joined and roles are given): the board colours the sides by it
+                'role' => $p->role?->value,
                 'name' => $this->playerName($p),
                 'mine' => ! $readOnly && $this->controls($p, $game),
                 'soulstone_pool' => (int) $p->soulstone_pool,
@@ -106,6 +113,11 @@ class GameBoardController extends Controller
             'placed_markers' => $game->board_state['markers'] ?? [],
             'shared_auras' => $game->board_state['auras'] ?? [],
             'deployment_variant' => (int) ($game->board_state['deployment_variant'] ?? 0),
+            // the deployment step: whose turn, what is being placed; null once play (or an earlier step) is under way
+            // (and, just after it, the "finished: choose schemes" state)
+            'deploy' => $game->status === GameStatusEnum::Deployment || ($game->status === GameStatusEnum::SchemeSelect && isset($game->board_state['deploy']))
+                ? GameDeployment::summary($game)
+                : null,
             'table_image' => $game->board_state['table_image'] ?? null,
             'table_images' => TabletopImages::tables(),
             'terrain_images' => TabletopImages::terrain(),
@@ -164,6 +176,12 @@ class GameBoardController extends Controller
             ->map(fn ($id) => (string) $id)
             ->all();
 
+        // While the crews are being deployed only the group being placed may be moved (and only by the player placing it)
+        $deployMovable = GameDeployment::movable($game);
+        if ($deployMovable !== null) {
+            $movable = array_values(array_intersect($movable, array_map('strval', $deployMovable)));
+        }
+
         $incoming = collect($request->validated('positions'))
             ->filter(fn ($_, $id) => in_array((string) $id, $movable, true))
             ->map(fn (array $p) => ['x' => round((float) $p['x'], 2), 'y' => round((float) $p['y'], 2)] + (! empty($p['under']) ? ['under' => true] : [])
@@ -178,7 +196,7 @@ class GameBoardController extends Controller
             $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['positions' => $positions])]);
         });
 
-        broadcast(new GameBoardMoved($game, $incoming->all()))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardMoved($game, $incoming->all()));
 
         return redirect()->back();
     }
@@ -195,7 +213,7 @@ class GameBoardController extends Controller
             $locked->update(['board_state' => array_merge($locked->board_state ?? [], ['terrain' => $terrain])]);
         });
 
-        broadcast(new GameBoardTerrainChanged($game, $terrain))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardTerrainChanged($game, $terrain));
 
         return redirect()->back();
     }
@@ -228,7 +246,7 @@ class GameBoardController extends Controller
             $tableImage = $board['table_image'] ?? null;
         });
 
-        broadcast(new GameBoardSetupChanged($game, $variant, $tableImage))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardSetupChanged($game, $variant, $tableImage));
 
         return redirect()->back();
     }
@@ -299,7 +317,7 @@ class GameBoardController extends Controller
             throw ValidationException::withMessages(['upsert' => 'Each player can have up to '.self::MARKERS_PER_PLAYER.' of each marker on the table.']);
         }
 
-        broadcast(new GameBoardMarkersChanged($game, $result))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardMarkersChanged($game, $result));
 
         return redirect()->back();
     }
@@ -380,7 +398,7 @@ class GameBoardController extends Controller
             throw ValidationException::withMessages(['upsert' => 'A model can show up to '.self::AURAS_PER_TOKEN.' auras.']);
         }
 
-        broadcast(new GameBoardAurasChanged($game, $result))->toOthers();
+        $this->broadcastToOpponents($game, new GameBoardAurasChanged($game, $result));
 
         return redirect()->back();
     }

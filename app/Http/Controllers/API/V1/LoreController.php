@@ -29,7 +29,7 @@ class LoreController extends Controller
     {
         $query = Lore::query()
             ->with(['media', 'characters'])
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->query('media_type'), fn ($q, $type) => $q->whereHas('media', fn ($qq) => $qq->where('type', $type)))
             ->when($request->query('lore_media'), fn ($q, $id) => $q->whereHas('media', fn ($qq) => $qq->where('lore_media.id', $id)))
             ->when($request->query('character'), fn ($q, $slug) => $q->whereHas('characters', fn ($qq) => $qq->where('characters.slug', $slug)))

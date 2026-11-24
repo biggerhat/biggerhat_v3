@@ -12,6 +12,6 @@ class StrategyAPIController extends Controller
     {
         $name = $request->get('name');
 
-        return Strategy::where('name', 'LIKE', "%{$name}%")->get();
+        return Strategy::whereSearch('name', $name)->get();
     }
 }

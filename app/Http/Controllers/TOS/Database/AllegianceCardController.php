@@ -19,7 +19,7 @@ class AllegianceCardController extends Controller
         // without tripping strict-attribute mode (mirrors CompanyController::view).
         $query = AllegianceCard::with('allegiance:id,name,slug,color_slug,type,secondary_type', 'abilities')->orderBy('name');
         if ($nameSearch) {
-            $query->where('name', 'LIKE', "%{$nameSearch}%");
+            $query->whereSearch('name', $nameSearch);
         }
 
         return inertia('TOS/AllegianceCards/Index', [

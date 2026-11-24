@@ -26,7 +26,7 @@ class AllegianceController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name');
         if ($nameSearch) {
-            $query->where('name', 'LIKE', "%{$nameSearch}%");
+            $query->whereSearch('name', $nameSearch);
         }
 
         return inertia('TOS/Allegiances/Index', [

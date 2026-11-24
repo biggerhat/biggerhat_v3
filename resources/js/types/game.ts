@@ -10,6 +10,7 @@ export const GameStatus = {
     FactionSelect: 'faction_select',
     MasterSelect: 'master_select',
     CrewSelect: 'crew_select',
+    Deployment: 'deployment',
     SchemeSelect: 'scheme_select',
     InProgress: 'in_progress',
     Completed: 'completed',
@@ -32,6 +33,7 @@ export const GAME_SETUP_STATUSES: readonly GameStatus[] = [
     GameStatus.FactionSelect,
     GameStatus.MasterSelect,
     GameStatus.CrewSelect,
+    GameStatus.Deployment,
     GameStatus.SchemeSelect,
 ];
 
@@ -209,6 +211,8 @@ export interface GameData {
     /** Drives whether the scenario panel renders, whether SchemeSelect fires,
      *  and whether the manual-VP widget shows. See {@link GameFormat}. */
     format: GameFormat;
+    /** How it is played (null for games made before this was asked). */
+    play_mode?: 'in_person' | 'tabletop' | 'online' | 'other' | null;
     /** Bonanza per-game loot deck state. Null on standard-format games. */
     loot_state: {
         deck: number[];

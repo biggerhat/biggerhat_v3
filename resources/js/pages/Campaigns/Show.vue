@@ -117,6 +117,7 @@ const gameStatusLabel = (status: string): string =>
         ({
             master_select: 'Selecting Master',
             crew_select: 'Selecting Crew',
+            deployment: 'Deploying',
             scheme_select: 'Selecting Schemes',
             in_progress: 'In Progress',
         }) as Record<string, string>
@@ -352,7 +353,7 @@ const deleteCampaign = async (id: number) => {
                 Advance Week
             </Button>
             <!-- Rarely used and/or destructive organizer actions live in a menu so they can't be hit by accident. -->
-            <DropdownMenu v-if="is_organizer">
+            <DropdownMenu v-if="is_organizer" :modal="false">
                 <DropdownMenuTrigger as-child>
                     <Button variant="outline" size="icon" aria-label="More campaign actions">
                         <MoreHorizontal class="size-4" />

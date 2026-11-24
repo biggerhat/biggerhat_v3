@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Game;
 use App\Enums\DeploymentEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameFormatEnum;
+use App\Enums\GamePlayModeEnum;
 use App\Enums\GameRoleEnum;
 use App\Enums\GameShowContext;
 use App\Enums\GameStatusEnum;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\StoreGameRequest;
 use App\Http\Requests\Games\UpdateGameSettingsRequest;
 use App\Http\Requests\Games\UpdateScenarioRequest;
+use App\Models\BattleReport;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignArsenalModelInjury;
@@ -36,6 +38,7 @@ use App\Models\LootCard;
 use App\Models\Marker;
 use App\Models\Scheme;
 use App\Models\Strategy;
+use App\Models\TabletopLayout;
 use App\Models\Token;
 use App\Models\TournamentGame;
 use App\Models\Upgrade;
@@ -45,6 +48,10 @@ use App\Services\Game\RoundClock;
 use App\Services\Game\TurnSequence;
 use App\Support\Campaign\AftermathCatalog;
 use App\Support\Game\CrewUpgradeCatalog;
+use App\Support\Game\GameDeployment;
+use App\Support\Game\GameSetupFlow;
+use App\Support\Game\SafeBroadcast;
+use App\Support\Tabletop\Layouts;
 use App\Support\Tabletop\TabletopAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -59,8 +66,10 @@ class GameController extends Controller
     public function index(): Response|ResponseFactory
     {
         $userId = Auth::id();
+        $reports = BattleReport::where('user_id', $userId)->whereNotNull('game_id')->pluck('uuid', 'game_id');
 
         return inertia('Games/Index', [
+            'battle_reports' => $reports->all(),
             'active_games' => Game::forUser($userId)->active()
                 ->with(['players.user:id,name', 'strategy:id,name'])
                 ->latest()
@@ -121,6 +130,15 @@ class GameController extends Controller
             'default_season' => PoolSeasonEnum::defaultSeason()->value,
             'encounter_sizes' => [35, 40, 50],
             'formats' => $formats,
+            'play_modes' => collect(GamePlayModeEnum::cases())
+                // the tabletop is offered only to people who have it
+                ->reject(fn (GamePlayModeEnum $m) => $m->usesTabletop() && ! TabletopAccess::allows(Auth::user()))
+                ->map(fn (GamePlayModeEnum $m) => ['value' => $m->value, 'label' => $m->label(), 'description' => $m->description(), 'tabletop' => $m->usesTabletop()])
+                ->values(),
+            'tabletop_layouts' => TabletopAccess::allows(Auth::user())
+                ? TabletopLayout::query()->where('user_id', Auth::id())->latest('updated_at')->get(['uuid', 'name', 'terrain', 'table_image'])
+                    ->map(fn (TabletopLayout $l) => ['uuid' => $l->uuid, 'name' => $l->name, 'pieces' => count($l->terrain), 'table_image' => $l->table_image])->values()
+                : [],
         ]);
     }
 
@@ -165,17 +183,27 @@ class GameController extends Controller
             ? GameFormatEnum::BonanzaBrawl->defaultEncounterSize()
             : $validated['encounter_size'];
 
+        // How it will be played. A saved table is only for the tabletop (the request has checked access and ownership); the game
+        // keeps its own copy of the terrain so the layout can change or go away later.
+        $playMode = GamePlayModeEnum::tryFrom($validated['play_mode'] ?? '');
+        $layout = $playMode?->usesTabletop() && ! empty($validated['tabletop_layout'])
+            ? TabletopLayout::query()->where('uuid', $validated['tabletop_layout'])->where('user_id', Auth::id())->first()
+            : null;
+
         // The game and its seats are made together, so a failure can't leave a game with nobody in it.
-        $game = DB::transaction(function () use ($validated, $encounterSize, $seasonEnum, $format, $strategy, $deployment, $schemePool, $isSolo): Game {
+        $game = DB::transaction(function () use ($validated, $encounterSize, $seasonEnum, $format, $strategy, $deployment, $schemePool, $isSolo, $playMode, $layout): Game {
             $game = Game::create([
                 'name' => $validated['name'] ?? null,
                 'encounter_size' => $encounterSize,
                 'season' => $seasonEnum->value,
                 'format' => $format->value,
+                'play_mode' => $playMode?->value,
+                'tabletop_layout_id' => $layout?->id,
+                'board_state' => $layout ? Layouts::boardState($layout) : null,
                 'strategy_id' => $strategy?->id,
                 'deployment' => $deployment?->value,
                 'scheme_pool' => $schemePool,
-                'status' => $isSolo ? GameStatusEnum::FactionSelect : GameStatusEnum::Setup,
+                'status' => GameSetupFlow::startingStatus($isSolo),
                 'started_at' => $isSolo ? now() : null,
                 'creator_id' => Auth::id(),
                 'is_solo' => $isSolo,
@@ -251,8 +279,8 @@ class GameController extends Controller
         }
 
         if ($context === GameShowContext::SelfView) {
-            // Participants also need crews during Scheme Select.
-            if (in_array($game->status, [GameStatusEnum::SchemeSelect, ...$postSetup])) {
+            // Participants also need crews during Deployment and Scheme Select (the crews are revealed before they are placed).
+            if (in_array($game->status, [GameStatusEnum::Deployment, GameStatusEnum::SchemeSelect, ...$postSetup])) {
                 $loads[] = 'players.crewMembers.customCharacter:id,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at';
                 $loads[] = 'players.crewBuild';
                 $loads[] = 'players.master.crewUpgrades';
@@ -502,6 +530,10 @@ class GameController extends Controller
 
         $props = [
             'game' => $this->withTurn($game),
+            // the setup indicator's steps and the status each is shown on (the sequence lives in GameSetupFlow)
+            'setup_steps' => GameSetupFlow::steps($game),
+            // a tabletop game's deployment: whose turn it is, what is being placed (null at any other time)
+            'deploy' => $game->status === GameStatusEnum::Deployment ? GameDeployment::summary($game) : null,
             'schemes' => $schemes,
             'all_reachable_schemes' => $isSelf ? $this->reachableSchemes($schemeCache, $schemePoolOrder) : [],
             'deployment' => $game->deployment ? (function () use ($game) {
@@ -616,6 +648,7 @@ class GameController extends Controller
         // narrative), same ownership check as CampaignAftermathController.
         if ($context === GameShowContext::Summary) {
             $props['campaign_aftermath_recap'] = fn () => $this->buildCampaignAftermathRecapProp($game);
+            $props['battle_report'] = fn () => $this->battleReportFor($game);
         }
 
         // A participant in a live two-player game must not be able to read the other side's hidden schemes out of the page
@@ -1214,10 +1247,7 @@ class GameController extends Controller
             ]);
 
             // Advance to faction select now that both players are in
-            $locked->update([
-                'status' => GameStatusEnum::FactionSelect,
-                'started_at' => now(),
-            ]);
+            GameSetupFlow::advance($locked, GameStatusEnum::Setup, ['started_at' => now()]);
 
             return $joined;
         });
@@ -1232,8 +1262,8 @@ class GameController extends Controller
 
         $game->refresh();
 
-        broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers();
-        broadcast(new GameStatusChanged($game))->toOthers();
+        SafeBroadcast::send(fn () => broadcast(new GamePlayerJoined($game, $player->load('user')))->toOthers());
+        SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
         User::find($game->creator_id)?->notify(new GameOpponentJoined($game, $player->user->name));
 
         return redirect()->route('games.show', $game->uuid);
@@ -1319,7 +1349,7 @@ class GameController extends Controller
             $game->delete();
 
             if ($trackerLinkedTournament) {
-                broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers());
             }
 
             return redirect()->route('games.index')
@@ -1337,7 +1367,7 @@ class GameController extends Controller
             $game->delete();
 
             if ($trackerLinkedTournament) {
-                broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers();
+                SafeBroadcast::send(fn () => broadcast(new TournamentUpdated($trackerLinkedTournament, 'tracker_deleted'))->toOthers());
             }
         }
 
@@ -1393,6 +1423,17 @@ class GameController extends Controller
             title: $players !== '' ? $players : ($game->name ?? 'Game'),
             description: $description,
         );
+    }
+
+    /** For a player in a finished game: their battle report about it (its id), or whether they can start one. Null for everyone else. */
+    private function battleReportFor(Game $game): ?array
+    {
+        $userId = Auth::id();
+        if ($userId === null || $game->status !== GameStatusEnum::Completed || ! $game->players->contains('user_id', $userId)) {
+            return null;
+        }
+
+        return ['uuid' => BattleReport::where('user_id', $userId)->where('game_id', $game->id)->value('uuid'), 'game_uuid' => $game->uuid];
     }
 
     public function summary(Game $game): Response|ResponseFactory
@@ -1599,14 +1640,14 @@ class GameController extends Controller
         $game->refresh();
 
         if (! $game->is_solo) {
-            broadcast(new GameStatusChanged($game))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new GameStatusChanged($game))->toOthers());
         }
 
         // Surface abandon to a linked tournament — the TO's badge flips to
         // "abandoned" in real time so they can intervene (forfeit, re-enter score).
         $tg = TournamentGame::with('round.tournament')->where('game_id', $game->id)->first();
         if ($tg && $tg->round && $tg->round->tournament) {
-            broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_abandoned'))->toOthers();
+            SafeBroadcast::send(fn () => broadcast(new TournamentUpdated($tg->round->tournament, 'tracker_abandoned'))->toOthers());
         }
 
         if (request()->wantsJson()) {

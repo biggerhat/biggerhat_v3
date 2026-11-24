@@ -162,6 +162,7 @@ const STATUS_LABELS: Record<string, string> = {
     faction_select: 'Choosing factions',
     master_select: 'Choosing masters',
     crew_select: 'Building crews',
+    deployment: 'Deploying',
     scheme_select: 'Choosing schemes',
     in_progress: 'In progress',
 };

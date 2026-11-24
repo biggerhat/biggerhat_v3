@@ -1890,7 +1890,7 @@ const L = require('./lib.cjs');
             });
             await s.page.waitForFunction(() => /none/.test(document.querySelector('[data-testid=marker-neighbours-b]').innerText), { timeout: 4000 });
         });
-        await L.step(`tabletop (${label}): a killed model offers a Remains marker within 1", and a peon makes none`, s, async () => {
+        await L.step(`tabletop (${label}): a killed model offers a Remains marker, placed touching it, and a peon makes none`, s, async () => {
             await openSandbox([
                 { id: 'k1', sp: 6, sz: 1, name: 'Fallen', side: 'a', baseMm: 30, x: 18, y: 18 },
                 { id: 'k2', sp: 6, sz: 1, name: 'Peon', side: 'a', baseMm: 30, x: 26, y: 18, peon: true },
@@ -1916,7 +1916,7 @@ const L = require('./lib.cjs');
             await s.page.$eval('[data-testid=remains-place]', (b) => b.click());
             await s.page.waitForFunction((n) => document.querySelectorAll('[data-marker=true]').length === n, { timeout: 4000 }, start + 1);
             await s.page.waitForFunction(() => !document.querySelector('[data-testid=remains-prompt]'), { timeout: 4000 });
-            // the Remains marker is within 1" of the fallen model's base
+            // the model is still on the table when the marker is made, so "Place it for me" puts it touching the fallen model's base (not under it)
             const near = await s.page.evaluate(() => {
                 const m = [...document.querySelectorAll('[data-marker=true]')].pop();
                 const base = document.querySelector('[data-testid=token-k1] > circle');
@@ -1924,7 +1924,7 @@ const L = require('./lib.cjs');
                 const dy = Number(m.getAttribute('cy')) - Number(base.getAttribute('cy'));
                 return Math.hypot(dx, dy) - Number(m.getAttribute('r')) - Number(base.getAttribute('r'));
             });
-            if (near > 1.0001) throw new Error(`the Remains marker is ${near}" from the fallen model, not within 1"`);
+            if (Math.abs(near) > 0.02) throw new Error(`the Remains marker is ${near}" from the fallen model's base, not touching it`);
             // a peon is killed: no Remains marker
             await pick(26, 18);
             await kill();

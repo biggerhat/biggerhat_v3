@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\DeploymentEnum;
 use App\Enums\GameFormatEnum;
+use App\Enums\GameOriginEnum;
+use App\Enums\GamePlayModeEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\PoolSeasonEnum;
 use App\Models\Campaign\CampaignGame;
@@ -24,6 +26,9 @@ use Illuminate\Support\Str;
  * @property DeploymentEnum|null $deployment
  * @property PoolSeasonEnum $season
  * @property GameFormatEnum $format
+ * @property GamePlayModeEnum|null $play_mode
+ * @property int|null $tabletop_layout_id
+ * @property-read TabletopLayout|null $tabletopLayout
  *
  * @mixin IdeHelperGame
  */
@@ -48,6 +53,8 @@ class Game extends Model
             'deployment' => DeploymentEnum::class,
             'season' => PoolSeasonEnum::class,
             'format' => GameFormatEnum::class,
+            'origin' => GameOriginEnum::class,
+            'play_mode' => GamePlayModeEnum::class,
             'scheme_pool' => 'array',
             'loot_state' => 'array',
             'board_state' => 'array',
@@ -56,6 +63,7 @@ class Game extends Model
             'is_tie' => 'boolean',
             'is_solo' => 'boolean',
             'is_observable' => 'boolean',
+            'is_public' => 'boolean',
             'settings' => 'array',
         ];
     }
@@ -79,6 +87,12 @@ class Game extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
+    }
+
+    /** @return BelongsTo<TabletopLayout, $this> */
+    public function tabletopLayout(): BelongsTo
+    {
+        return $this->belongsTo(TabletopLayout::class);
     }
 
     /** @return HasMany<GamePlayer, $this> */
@@ -170,6 +184,17 @@ class Game extends Model
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->whereIn('status', [GameStatusEnum::Completed->value, GameStatusEnum::Abandoned->value]);
+    }
+
+    /** Games entered by hand after being played somewhere else. */
+    public function scopeLogged(Builder $query): Builder
+    {
+        return $query->where('origin', GameOriginEnum::Logged->value);
+    }
+
+    public function isLogged(): bool
+    {
+        return $this->origin === GameOriginEnum::Logged;
     }
 
     /** Recently-active games opted into public observation, excluding abandoned. */

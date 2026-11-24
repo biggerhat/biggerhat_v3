@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Enums\BattleReportStatusEnum;
+use App\Models\BattleReport;
 use App\Models\BlogPost;
 use App\Models\Character;
 use App\Models\Feedback;
@@ -111,6 +113,7 @@ class AdminNav
                     ['key' => 'content_article_categories', 'title' => 'Article Categories', 'href' => route('admin.blog.categories.index'), 'icon' => 'Newspaper', 'permission' => 'create_posts|edit_posts', 'external' => false, 'count' => null],
                     ['key' => 'content_site_news', 'title' => 'Site News', 'href' => route('admin.news.posts.index'), 'icon' => 'Megaphone', 'permission' => 'manage_news', 'external' => false, 'count' => null],
                     ['key' => 'content_news_categories', 'title' => 'News Categories', 'href' => route('admin.news.categories.index'), 'icon' => 'Megaphone', 'permission' => 'manage_news', 'external' => false, 'count' => null],
+                    ['key' => 'content_battle_reports', 'title' => 'Battle Reports', 'href' => route('admin.battle_reports.index'), 'icon' => 'Newspaper', 'permission' => 'approve_battle_reports', 'external' => false, 'count' => fn () => BattleReport::where('status', BattleReportStatusEnum::Pending->value)->count() + BattleReport::whereHas('flags', fn ($q) => $q->whereNull('resolved_at'))->count()],
                     ['key' => 'content_lore', 'title' => 'Lore', 'href' => route('admin.lores.index'), 'icon' => 'BookOpen', 'permission' => 'view_lore', 'external' => false, 'count' => null],
                     ['key' => 'content_lore_media', 'title' => 'Lore Media', 'href' => route('admin.lore_media.index'), 'icon' => 'BookOpen', 'permission' => 'view_lore', 'external' => false, 'count' => null],
                     ['key' => 'content_blueprints', 'title' => 'Blueprints', 'href' => route('admin.blueprints.index'), 'icon' => 'FileImage', 'permission' => 'view_blueprint', 'external' => false, 'count' => null],

@@ -43,7 +43,7 @@ class EnsureHasAdminPermission
         $permissions = array_filter(
             array_map(fn (PermissionEnum $case) => $case->value, PermissionEnum::cases()),
             fn (string $value) => str_starts_with($value, 'view_')
-                || in_array($value, ['create_posts', 'edit_posts', 'manage_all_posts', 'manage_news'], true),
+                || in_array($value, ['create_posts', 'edit_posts', 'manage_all_posts', 'manage_news', 'approve_battle_reports'], true),
         );
 
         return array_values($permissions);

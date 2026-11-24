@@ -16,14 +16,19 @@ const gameTracker: HelpTopic = {
             intro: 'Everything begins at Create Game. After that the game walks you through setup, then play.',
             items: [
                 {
+                    title: 'How will you play?',
+                    body: 'Choose In person, On the tabletop app, Online (not the tabletop app) or Other. It is a label that shows in your games list and on the game, and it is remembered for next time. On the tabletop app you also choose a Table: Empty table, or one of your saved tables. The game starts with a copy of that table, so changing or deleting the saved table later does not change a game. The tabletop choices appear only if you have the tabletop.',
+                },
+                {
                     title: 'Creating a game',
-                    body: 'Press Create Game and fill in the New Encounter card: a name if you like (League Round 3, Casual Tuesday), the format, the encounter size in soulstones, and the season. A strategy, deployment and scheme pool are generated for you when you create it.',
+                    body: 'Press Create Game and fill in the New Encounter card: a name if you like (League Round 3, Casual Tuesday), the format, how you will play, the encounter size in soulstones, and the season. A strategy, deployment and scheme pool are generated for you when you create it.',
                     image: {
                         src: 'game-tracker/create.webp',
-                        alt: 'The New Encounter card on the Create Game page, with a game name box, a format list, the encounter size, a Solo Mode switch and the Create Game button.',
+                        alt: 'The New Encounter card on the Create Game page, with a game name box, a format list, a How will you play list, the encounter size, a Solo Mode switch and the Create Game button.',
                         callouts: [
                             'Game name (optional).',
                             'The format.',
+                            'How you will play: in person, on the tabletop app, online or other.',
                             'The encounter size, in soulstones.',
                             'The Solo Mode switch.',
                             'Create Game.',
@@ -51,7 +56,7 @@ const gameTracker: HelpTopic = {
         {
             id: 'setup',
             title: 'Setting up',
-            intro: 'Setup goes through four steps: faction, master, crew and scheme. Each player does their own.',
+            intro: 'Setup goes through four steps: faction, master, crew and scheme, with a fifth, Deploy, between crew and scheme in a game played on the tabletop app. Each player does their own.',
             items: [
                 {
                     title: 'Faction and master',
@@ -66,8 +71,12 @@ const gameTracker: HelpTopic = {
                     body: 'Playing from a paper list? Skip the crew: you track victory points, schemes and turns only, with no model health or tokens. You can still Summon a model later if you want one on screen.',
                 },
                 {
+                    title: 'Deploying on the tabletop',
+                    body: 'In a game you chose to play On the tabletop app, a Deploy step comes after the crews, because the rulebook deploys before schemes are chosen. The game shows "Set up the table" and a button that opens the table. Deployment itself happens there: see Deploying a game in the Tabletop help. If you are playing at a real table, choose In person and there is no Deploy step.',
+                },
+                {
                     title: 'Choosing a scheme',
-                    body: 'On Select Your Scheme, choose one scheme from the pool for Turn 1. Some schemes ask for more: a model from your crew, a target marker, or a terrain note. What you choose stays hidden from your opponent.',
+                    body: 'On Select Your Scheme (after deployment, in a tabletop game), choose one scheme from the pool for Turn 1. Some schemes ask for more: a model from your crew, a target marker, or a terrain note. What you choose stays hidden from your opponent.',
                 },
                 {
                     title: 'Starting play',
@@ -213,6 +222,83 @@ const gameTracker: HelpTopic = {
                 {
                     title: 'Marking the game complete',
                     body: 'Mark Game Complete finalises the scores and ends the game, and the summary shows how it went. Abandon Game ends it without scoring.',
+                },
+            ],
+        },
+        {
+            id: 'log',
+            title: 'Logging a game played elsewhere',
+            intro: 'Played on paper, in another app or at an event? Press Log a game (on the Game Tracker page, or on your stats page) and enter it afterwards. It counts in your stats like any other game.',
+            items: [
+                {
+                    title: 'The quick log',
+                    body: 'The top of the page is all you need: a name for the game if you want one (Name this game, just for you), the Day played, the Format and Encounter size, Who won? (I won, I lost or A tie), and for you and your opponent the Faction, Master and Victory points. The opponent is a name you type. Log game stays off until the result, both factions and both point totals are in. The master box searches the models as you type; if yours is not listed, what you typed is kept.',
+                },
+                {
+                    title: 'The same details the tracker keeps',
+                    body: 'Under the quick log are sections you can open and fill in: Strategy, deployment and schemes (and the scheme pool); Turn by turn (Add a turn, then strategy points, scheme points, the scheme played and whether it was scored, held or discarded, and the strategy bonus point); Crews (Start from a saved crew, or Add a model, and tick killed for the ones that died); and Notes, event and who can see it. All of them are optional. When you fill in the turns, the victory point totals are added up from them. If the points and the result disagree (a win with fewer points), the page says so: that is fine for a concession.',
+                },
+                {
+                    title: 'Inviting your opponent',
+                    body: 'If your opponent has a BiggerHat account, search for them under Link their BiggerHat account. They are sent a notification and a card on their stats page, Games waiting for you. Until they press It was me, the game is only in your stats; when they do, it counts in theirs too, from their side. Not me removes it from their list and adds nothing.',
+                },
+                {
+                    title: 'Who can see it',
+                    body: 'A logged game is private: only you, and a player you invited, can open it, and it counts only in your own stats. Turn on Anyone can see this game (under Notes, event and who can see it) and anyone with the link can open it and it counts on your public stats page too.',
+                },
+                {
+                    title: 'Changing or deleting it',
+                    body: 'The name you give a game is what it is called in your lists; left empty, it is shown as the two players. Open the game from your games list (it has a Logged label) and press Edit to change anything, or Delete to remove it from your stats. Only the person who logged it can do either. A logged game has no play screen or table, because the game was already played.',
+                },
+            ],
+        },
+        {
+            id: 'stats',
+            title: 'Your stats and analytics',
+            intro: 'Your stats page (My Stats) shows how you do. Full analytics goes deeper, over every game you have finished: ones from the tracker, ones you logged, and your tournament rounds.',
+            items: [
+                {
+                    title: 'The stats page',
+                    body: 'My Stats counts the games you played in the tracker and the ones you logged. Games where you played both sides (solo games) count too: press Leave out solo games to take them out, and Include solo games to put them back. Full analytics opens the deeper page; Log a game is there too.',
+                },
+                {
+                    title: 'Full analytics',
+                    body: 'The top shows your games, record, win rate, average points and margin, and your current streak. Under it, in order: Over time; By faction, By master, Against each faction, and Attacker and defender; Matchups (faction against faction, and master against master); Head to head against each opponent; By strategy, deployment, encounter size, season, how it was played, event and where the game came from; Turn by turn; Schemes; Models; and a table of Games with the day, result, factions and points of each, linking to the game.',
+                },
+                {
+                    title: 'Filters and sharing a view',
+                    body: 'Press Filters to narrow everything to a date range, a result, a faction or master, an opponent, a strategy, a size, a season, how it was played or an event, and to choose where the games come from (Game Tracker, Logged by hand, Tournaments). Include solo games (playing both sides) is a switch there. The count beside the button says how many games are in view, and Clear filters resets them. The filters are in the address, so you can send someone the same view. CSV downloads the games in view as a spreadsheet.',
+                },
+                {
+                    title: 'Reading the numbers',
+                    body: 'A win rate counts a tie as not a win, and shows only once there are 5 games behind it; below that you see a dash and the record. Hover a win rate to see the range it likely sits in. Turn by turn, Schemes and Models use only the games that recorded turns, schemes or a crew, and say how many that was. Another player looking at your page sees your tracker games and tournament rounds, and the logged games you made public.',
+                },
+            ],
+        },
+        {
+            id: 'reports',
+            title: 'Battle reports',
+            intro: 'Write up a game in the same editor the articles use: the story, the turning point, photos of the table. A report can be about a game from the tracker or one you logged, or stand on its own.',
+            items: [
+                {
+                    title: 'Starting a report',
+                    body: 'On a finished game, press Write a battle report: it is on the game summary and on a logged game, and the pen beside each game in your list does the same. Battle reports in the footer opens the list, where Write a report starts one with no game. Pick the game under The game it is about (your finished games, from the tracker or logged by hand, and rounds you played in finished tournaments that were not tracked), give it a Title, and write. A game has one report from you; it shows as Edit in your list once written.',
+                },
+                {
+                    title: 'The editor',
+                    body: 'Headings, bold, italic, underline, strike, highlight, lists, quotes, links, tables, alignment and the game symbols work as in articles, and the image button adds a photo (up to 5 MB). Links to other pages and the card embeds the articles have are left out of reports. Press Save report when you are done: you come back to the report, and Edit changes it.',
+                },
+                {
+                    title: 'Who can read it',
+                    body: 'A report starts private: only you can open it. Turn on Ask to make this report public and a moderator reads it first; it shows as Waiting for a moderator and you are told when they decide. Once approved it is listed on the Battle reports page and anyone with the link can read it. If it is not approved you see the reason on the report, and it stays yours: change it and save to ask again. Fixing typos or adding a few words keeps an approved report public; a new image or link, a new title or game, or a lot of new text sends it back to a moderator, and it is hidden until they approve it again, so what is public is what they read. If a moderator did not approve it, Ask for a second look on the report sends it back to them once with your reason. Once a moderator has approved three of your reports and turned none down, your reports go public as soon as you ask. If a public report by someone else should not be there, press Report this under it and say why. Turn the switch off at any time to take it back to private. Public reports are also listed on the stats page of the person who wrote them. If you delete the game, the report stays.',
+                },
+                {
+                    title: 'The crew list and comments',
+                    body: "Under The crew you played, pick one of your crew lists from the Crew Builder: readers see its master and models, not the crew's name or notes, and it follows the list if you change it. Once a report is public, signed-in readers can leave a comment and press Nice report. Let readers comment turns comments off; you can remove any comment under your report, and so can the moderators.",
+                },
+                {
+                    title: 'The scoreboard',
+                    body: "Above your text a report shows the players, factions, masters and points of the game it is about. Turn off Show the game's scoreboard above the report to show only your text. It needs a game picked.",
                 },
             ],
         },

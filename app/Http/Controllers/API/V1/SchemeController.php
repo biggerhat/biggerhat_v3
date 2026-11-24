@@ -26,7 +26,7 @@ class SchemeController extends Controller
     {
         $schemes = Scheme::query()
             ->when($request->query('season'), fn ($q, $season) => $q->where('season', $season))
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->orderBy('name')
             ->paginate(min((int) $request->query('per_page', 15), 100));
 

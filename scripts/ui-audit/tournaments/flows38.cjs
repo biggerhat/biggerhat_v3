@@ -181,11 +181,31 @@ const click = (s, spec) => s.page.evaluate(`(${FIND})(${JSON.stringify(spec)})?.
             callouts: [
                 'input[placeholder^="e.g. League"]',
                 '[role=combobox]',
+                '[data-testid=play-mode]',
                 '[aria-label="Encounter size (soulstones)"]',
                 '[aria-label="Solo mode"]',
                 { text: 'Create Game', tag: 'button' },
             ],
-            maxHeight: 780,
+            maxHeight: 880,
+        });
+    });
+    // a tabletop game waiting on the defender to divide the crew (Dave), seen by the defender
+    const dave = await session('dave@example.test');
+    dave.page.on('dialog', (d) => d.accept().catch(() => {}));
+    await L.step('help picture: Tabletop, deploying a game', dave, async () => {
+        await L.visit(dave, `/games/${L.ids.deploy_game}/board`);
+        await dave.page.waitForSelector('[data-testid=deploy-split]', { timeout: 9000 });
+        await L.sleep(500);
+        await snap(dave, 'tabletop/deploying.webp', {
+            region: '[data-testid=deploy-panel]',
+            pad: 12,
+            callouts: [
+                '[data-testid=deploy-headline]',
+                '[data-testid^=deploy-later-]',
+                '[data-testid=deploy-split-confirm]',
+                '[data-testid=deploy-skip]',
+            ],
+            maxHeight: 520,
         });
     });
     await L.step('help picture: Game Tracker, the play screen', carol, async () => {

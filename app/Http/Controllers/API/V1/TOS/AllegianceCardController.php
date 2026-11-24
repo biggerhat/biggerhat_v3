@@ -28,7 +28,7 @@ class AllegianceCardController extends Controller
     {
         $query = AllegianceCard::query()
             ->with(['allegiance', 'abilities'])
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->query('allegiance'), fn ($q, $slug) => $q->whereHas('allegiance', fn ($qq) => $qq->where('slug', $slug)))
             ->when($request->query('type'), function ($q, $type) {
                 $enum = AllegianceTypeEnum::tryFrom($type);

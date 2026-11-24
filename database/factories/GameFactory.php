@@ -41,6 +41,18 @@ class GameFactory extends Factory
         return $this->state(['status' => GameStatusEnum::InProgress, 'current_turn' => 1, 'started_at' => now()]);
     }
 
+    /** A game entered by hand after being played elsewhere: completed, with no play. */
+    public function logged(): static
+    {
+        return $this->state([
+            'origin' => \App\Enums\GameOriginEnum::Logged->value,
+            'status' => GameStatusEnum::Completed,
+            'started_at' => now()->subDay(),
+            'completed_at' => now()->subDay(),
+            'current_turn' => 5,
+        ]);
+    }
+
     public function completed(): static
     {
         return $this->state(['status' => GameStatusEnum::Completed, 'started_at' => now(), 'completed_at' => now()]);

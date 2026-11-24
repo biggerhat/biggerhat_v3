@@ -23,7 +23,7 @@ class AssetController extends Controller
             ->with('allegiances:id,slug,name', 'limits')
             ->orderBy('name');
         if ($nameSearch) {
-            $query->where('name', 'LIKE', "%{$nameSearch}%");
+            $query->whereSearch('name', $nameSearch);
         }
 
         return inertia('TOS/Assets/Index', [

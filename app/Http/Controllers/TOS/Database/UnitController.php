@@ -53,8 +53,8 @@ class UnitController extends Controller
 
         if ($nameSearch) {
             $query->where(function ($q) use ($nameSearch) {
-                $q->where('name', 'LIKE', "%{$nameSearch}%")
-                    ->orWhere('title', 'LIKE', "%{$nameSearch}%");
+                $q->whereSearch('name', $nameSearch)
+                    ->orWhereSearch('title', $nameSearch);
             });
         }
 

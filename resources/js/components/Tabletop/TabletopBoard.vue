@@ -132,6 +132,8 @@ const props = withDefaults(
         terrain?: TerrainPiece[];
         sandbox?: boolean;
         sideNames?: { a: string; b: string };
+        /** In a game: each side's role, which sets its colour (attacker red, defender blue). Without roles side A is blue and side B red. */
+        sideRoles?: { a?: string | null; b?: string | null };
         /** Markers that can be placed (name and base size from the markers table). Without them the picker is hidden. */
         markers?: MarkerOption[];
         /** The sides this viewer may place markers for. Each side can have MARKERS_PER_KIND of each marker on the table. The sandbox offers both. */
@@ -658,11 +660,15 @@ function defaultAim(t: Token): Point {
     if (near) return { x: near.x, y: near.y };
     return { x: TABLE_SIZE / 2, y: t.y < TABLE_SIZE / 2 ? t.y + 8 : t.y - 8 };
 }
+/** Switch the guidelines off. */
+function endGuide() {
+    guidedId.value = null;
+    sight.value = null;
+    if (mode.value === 'sight') mode.value = 'move';
+}
 function toggleGuide(t: Token) {
     if (guidedId.value === t.id) {
-        guidedId.value = null;
-        sight.value = null;
-        if (mode.value === 'sight') mode.value = 'move';
+        endGuide();
         return;
     }
     guidedId.value = t.id;
@@ -1071,8 +1077,11 @@ function placeRemains(r: { id: string; name: string; side: 'a' | 'b'; x: number;
         y: r.y,
     };
     if (tap) {
-        // the controller chose: it must be within 1" of the killed model, and a place a marker may stand
-        const chosen = constrainWithin(tap, r, marker.base_mm, 1);
+        // the controller chose: it must be within 1" of the killed model, and a place a marker may stand. The model is still on the table
+        // (the marker is made before it is removed, CRG p.41), so a tap on its base puts the marker beside it, touching, not under it.
+        let chosen = constrainWithin(tap, r, marker.base_mm, 1);
+        if (Math.hypot(chosen.x - r.x, chosen.y - r.y) < baseRadius(r.baseMm) + baseRadius(marker.base_mm))
+            chosen = constrainToContact(chosen, r, marker.base_mm);
         const why = whyNotHere({ ...probe, ...chosen });
         if (why) {
             note.value = `${why} Tap another place within 1" of ${r.name}.`;
@@ -1083,14 +1092,18 @@ function placeRemains(r: { id: string; name: string; side: 'a' | 'b'; x: number;
         note.value = `A Remains marker was made within 1" of ${r.name}.`;
         return;
     }
-    const spot = legalSpotNear(probe, 1 + baseRadius(r.baseMm) + baseRadius(marker.base_mm));
+    // For the player: touching the killed model's base (it is still on the table, so the marker cannot go under it), from the side facing the
+    // middle of the table; if every touching spot is unusable, the nearest legal place within 1".
+    const centre = { x: TABLE_SIZE / 2, y: TABLE_SIZE / 2 };
+    const touching = contactSpots(r, marker.base_mm, centre).find((c) => !whyNotHere({ ...probe, ...c }));
+    const spot = touching ?? legalSpotNear(probe, 1 + baseRadius(r.baseMm) + baseRadius(marker.base_mm));
     skipRemains(r.id);
     if (!spot) {
         note.value = `${r.name}'s Remains marker could not be made within 1", so it is not made.`;
         return;
     }
     emit('addMarker', { markerId: marker.id, name: marker.name, baseMm: marker.base_mm, side: r.side, x: spot.x, y: spot.y });
-    note.value = `A Remains marker was made beside ${r.name}.`;
+    note.value = `A Remains marker was made ${touching ? 'touching' : 'beside'} ${r.name}.`;
 }
 
 // ----- Fate flips made for a model: the result is drawn beside it, and the model's options can flip -----
@@ -1143,7 +1156,15 @@ const variants = computed(() =>
           }),
 );
 
-const sideColour = (side: 'a' | 'b' | 'n') => (side === 'a' ? 'hsl(215 70% 50%)' : side === 'b' ? 'hsl(5 70% 48%)' : 'hsl(280 45% 50%)');
+const RED_SIDE = 'hsl(5 70% 48%)';
+const BLUE_SIDE = 'hsl(215 70% 50%)';
+const sideColour = (side: 'a' | 'b' | 'n') => {
+    if (side === 'n') return 'hsl(280 45% 50%)';
+    const role = props.sideRoles?.[side];
+    if (role === 'attacker') return RED_SIDE;
+    if (role === 'defender') return BLUE_SIDE;
+    return side === 'a' ? BLUE_SIDE : RED_SIDE;
+};
 /** Two letters for a marker ("Scheme Marker" is "SM"), one for a model. */
 /**
  * What is written on a base: the first letter of the model's name; two letters where several models start alike; and a number where they
@@ -1192,6 +1213,22 @@ const healthNumber = (t: Token): number | null => (!t.marker && t.info?.maxHealt
 const HEALTH_PIPS_MAX = 12;
 const healthRing = (t: Token) => ({ r: baseRadius(t.baseMm) - 0.11, width: 0.16 });
 const healthFraction = (t: Token) => Math.max(0, Math.min(1, (t.info?.health ?? t.info?.maxHealth ?? 0) / (t.info?.maxHealth || 1)));
+/**
+ * The lit part of the smooth ring (past 12 wounds): an arc clockwise from the top. It is drawn as a path, not as a dashed circle: a dash
+ * of "the whole ring" on a circle with a pathLength leaves a visible gap in Chrome, so a full-health model of 13 or more looked wounded.
+ * Null when there is nothing to draw; "full" is a whole circle.
+ */
+function smoothHealth(t: Token): { full: boolean; d: string } | null {
+    const f = healthFraction(t);
+    if (f <= 0) return null;
+    if (f >= 1) return { full: true, d: '' };
+    const { r } = healthRing(t);
+    const end = -Math.PI / 2 + f * Math.PI * 2;
+    return {
+        full: false,
+        d: `M${t.x} ${t.y - r} A${r} ${r} 0 ${f > 0.5 ? 1 : 0} 1 ${t.x + r * Math.cos(end)} ${t.y + r * Math.sin(end)}`,
+    };
+}
 const healthColour = (t: Token) => (healthFraction(t) <= 0.34 ? 'hsl(0 85% 60%)' : 'hsl(145 65% 50%)');
 /** One arc per wound, clockwise from the top; the first ones are lit (the wounds left), the last are dark (the wounds taken). */
 function healthArcs(t: Token): { d: string; on: boolean }[] {
@@ -1574,11 +1611,28 @@ function onKey(e: KeyboardEvent) {
     } else if (e.key === ']' || e.key === '[') {
         e.preventDefault();
         chooseNext(e.key === ']' ? 1 : -1);
+    } else if (e.key === 'g' || e.key === 'G') {
+        // sight guidelines for the selected model, or off when they are on and nothing else is selected
+        const t = selectedId.value ? tokens.value.find((x) => x.id === selectedId.value && !x.marker && !x.killed) : undefined;
+        if (t) {
+            e.preventDefault();
+            toggleGuide(t);
+        } else if (guidedId.value) {
+            e.preventDefault();
+            endGuide();
+        }
     } else if (e.key === 'Escape' && selectedId.value) {
         e.preventDefault();
         endKeyMove();
         selectedId.value = null;
+    } else if (e.key === 'Escape' && guidedId.value) {
+        e.preventDefault();
+        endGuide();
     }
+}
+/** A double click or double tap on the table switches the sight guidelines off (they otherwise stay until turned off). */
+function onDblClick() {
+    if (guidedId.value) endGuide();
 }
 function onKeyUp(e: KeyboardEvent) {
     if (e.key.startsWith('Arrow')) {
@@ -1588,6 +1642,9 @@ function onKeyUp(e: KeyboardEvent) {
 }
 
 function onDown(e: PointerEvent) {
+    // pressing the table gives it the keyboard (its mouse-down default is cancelled, which is what would otherwise focus it), so the
+    // shortcuts work after a click as the help says
+    svg.value?.focus({ preventScroll: true });
     try {
         svg.value?.setPointerCapture(e.pointerId);
     } catch {
@@ -2201,6 +2258,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     @keydown="onKey"
                     @keyup="onKeyUp"
                     @pointerdown="onDown"
+                    @dblclick="onDblClick"
                     @pointermove="onMove"
                     @pointerup="onUp"
                     @pointercancel="onUp"
@@ -2582,17 +2640,25 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     :stroke-width="healthRing(t).width"
                                     stroke="rgb(0 0 0 / 0.5)"
                                 />
-                                <circle
-                                    :cx="t.x"
-                                    :cy="t.y"
-                                    :r="healthRing(t).r"
-                                    fill="none"
-                                    :stroke-width="healthRing(t).width"
-                                    :stroke="healthColour(t)"
-                                    pathLength="100"
-                                    :stroke-dasharray="`${healthFraction(t) * 100} 100`"
-                                    :transform="`rotate(-90 ${t.x} ${t.y})`"
-                                />
+                                <template v-if="smoothHealth(t)">
+                                    <circle
+                                        v-if="smoothHealth(t)!.full"
+                                        :cx="t.x"
+                                        :cy="t.y"
+                                        :r="healthRing(t).r"
+                                        fill="none"
+                                        :stroke-width="healthRing(t).width"
+                                        :stroke="healthColour(t)"
+                                    />
+                                    <path
+                                        v-else
+                                        :d="smoothHealth(t)!.d"
+                                        fill="none"
+                                        stroke-linecap="butt"
+                                        :stroke-width="healthRing(t).width"
+                                        :stroke="healthColour(t)"
+                                    />
+                                </template>
                             </template>
                         </g>
                         <g v-if="showBadges && badgesOf(t.info).chips.length" pointer-events="none" :data-testid="`badges-${t.id}`">
@@ -3051,7 +3117,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 data-testid="remains-prompt"
             >
                 <p>
-                    {{ r.name }} was killed. Its controller makes a friendly 30mm Remains marker anywhere within 1" of it (peons do not).
+                    {{ r.name }} was killed. Its controller makes a friendly 30mm Remains marker anywhere within 1" of it, before it is removed, so
+                    beside its base and not under it (peons do not).
                     {{ remainsArmed === r.id ? 'Tap the table inside the dashed line.' : 'Choose the spot, or let it be placed for you.' }}
                 </p>
                 <div class="flex flex-wrap gap-1">

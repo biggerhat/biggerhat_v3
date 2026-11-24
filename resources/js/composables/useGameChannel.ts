@@ -62,6 +62,9 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
                         'campaign_leader_option',
                         'campaign_context',
                     ]);
+                } else if (status === 'deployment') {
+                    // a tabletop game's crews are placed on the table: the play screen only needs to know whose turn it is
+                    reload([...base, 'deploy']);
                 } else if (status === 'scheme_select') {
                     // all_markers is empty during crew_select (server only emits it
                     // for scheme_select + in_progress). The receiving-side player
@@ -89,6 +92,10 @@ export function useGameChannel(gameUuid: string, isObserver: boolean = false) {
                 } else {
                     reload(base);
                 }
+            })
+            .listen('.GameDeployChanged', () => {
+                // someone divided a crew, chose a group or finished placing: the play screen's card follows
+                reload(['deploy']);
             })
             .listen('.GameSetupStepCompleted', (e: any) => {
                 if (import.meta.env.DEV) console.log('[GameChannel] Event: GameSetupStepCompleted', e);

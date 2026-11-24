@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BattleReportController;
 use App\Http\Controllers\BonanzaLootDeckController;
 use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\CollectionController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\Game\GameController;
 use App\Http\Controllers\Game\GameFateController;
 use App\Http\Controllers\Game\GamePlayController;
 use App\Http\Controllers\Game\GameSetupController;
+use App\Http\Controllers\Game\LoggedGameController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\NotificationController;
@@ -194,6 +196,8 @@ Route::get('/command', CommandController::class)->name('command')->withoutMiddle
 ]);
 
 Route::get('/privacy', [PrivacyController::class, 'show'])->name('privacy');
+
+Route::get('/roadmap', [\App\Http\Controllers\RoadmapController::class, 'show'])->name('roadmap');
 
 Route::get('/supporters', [SupportersController::class, 'index'])->name('supporters.index');
 
@@ -420,18 +424,51 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
 
 // Public game routes (no auth required)
 Route::get('/games/public', [GameController::class, 'publicIndex'])->name('games.public');
-Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
-Route::get('/games/{game:uuid}/board/watch', [GameBoardController::class, 'watch'])->name('games.board.watch');
-Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary');
+Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe')->middleware('tracked.game');
+Route::get('/games/{game:uuid}/board/watch', [GameBoardController::class, 'watch'])->name('games.board.watch')->middleware('tracked.game');
+Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary')->middleware('tracked.game');
 
 // Game join — outside auth so we can show a login prompt with return URL
-Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('games.join');
+Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('games.join')->middleware('tracked.game');
+
+// Battle reports: public to read once the writer publishes; writing needs an account. /create and /image come before {report}.
+Route::get('/battle-reports', [BattleReportController::class, 'index'])->name('battle-reports.index');
+Route::middleware('auth')->prefix('battle-reports')->name('battle-reports.')->group(function () {
+    Route::get('/create', [BattleReportController::class, 'create'])->name('create');
+    Route::post('/', [BattleReportController::class, 'store'])->name('store')->middleware('throttle:30,60');
+    Route::post('/image', [BattleReportController::class, 'uploadImage'])->name('image')->middleware('throttle:30,60');
+    Route::get('/{report:uuid}/edit', [BattleReportController::class, 'edit'])->name('edit');
+    Route::put('/{report:uuid}', [BattleReportController::class, 'update'])->name('update')->middleware('throttle:30,60');
+    Route::delete('/{report:uuid}', [BattleReportController::class, 'destroy'])->name('destroy');
+    Route::post('/{report:uuid}/appeal', [BattleReportController::class, 'appeal'])->name('appeal')->middleware('throttle:10,60');
+    Route::post('/{report:uuid}/comments', [BattleReportController::class, 'comment'])->name('comment')->middleware('throttle:10,60');
+    Route::post('/{report:uuid}/react', [BattleReportController::class, 'react'])->name('react')->middleware('throttle:60,60');
+    Route::delete('/{report:uuid}/comments/{comment}', [BattleReportController::class, 'deleteComment'])->name('comment.destroy')->middleware('throttle:60,60');
+    Route::post('/{report:uuid}/flag', [BattleReportController::class, 'flag'])->name('flag')->middleware('throttle:20,60');
+});
+Route::get('/battle-reports/{report:uuid}', [BattleReportController::class, 'show'])->name('battle-reports.show');
 
 // Stats (public view, auth shortcut)
 Route::get('/my-stats', [StatsController::class, 'myStats'])->name('stats.my')->middleware('auth');
 Route::get('/stats/{user:slug}', [StatsController::class, 'show'])->name('stats.show');
+Route::get('/stats/{user:slug}/analytics', [\App\Http\Controllers\GameAnalyticsController::class, 'show'])->name('stats.analytics');
+Route::get('/stats/{user:slug}/analytics.csv', [\App\Http\Controllers\GameAnalyticsController::class, 'csv'])->name('stats.analytics_csv')->middleware('throttle:30,60');
 
-Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
+// Games played elsewhere and entered by hand. Registered before the tracker's {game} routes so /games/log is not read as a game.
+// A logged game's summary is public when its owner made it so; the rest needs an account.
+Route::get('/games/logged/{game:uuid}', [LoggedGameController::class, 'show'])->name('games.logged.show');
+Route::middleware('auth')->prefix('games')->name('games.logged.')->group(function () {
+    Route::get('/log', [LoggedGameController::class, 'create'])->name('create');
+    Route::get('/logged-characters', [LoggedGameController::class, 'characters'])->name('characters')->middleware('throttle:120,1');
+    Route::post('/logged', [LoggedGameController::class, 'store'])->name('store')->middleware('throttle:30,60');
+    Route::get('/logged/{game:uuid}/edit', [LoggedGameController::class, 'edit'])->name('edit');
+    Route::put('/logged/{game:uuid}', [LoggedGameController::class, 'update'])->name('update')->middleware('throttle:30,60');
+    Route::delete('/logged/{game:uuid}', [LoggedGameController::class, 'destroy'])->name('destroy');
+    Route::post('/logged/{game:uuid}/confirm', [LoggedGameController::class, 'confirmLink'])->name('confirm');
+    Route::post('/logged/{game:uuid}/decline', [LoggedGameController::class, 'declineLink'])->name('decline');
+});
+
+Route::prefix('games')->name('games.')->middleware(['auth', 'tracked.game'])->group(function () {
     Route::get('/', [GameController::class, 'index'])->name('index');
     Route::get('/create', [GameController::class, 'create'])->name('create');
     Route::post('/', [GameController::class, 'store'])->name('store')->middleware('throttle:30,60');
@@ -461,6 +498,14 @@ Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
         Route::post('/scheme', [GameSetupController::class, 'submitScheme'])->name('scheme');
         Route::post('/swap-roles', [GameSetupController::class, 'swapRoles'])->name('swap_roles');
         Route::post('/opponent-name', [GameSetupController::class, 'updateOpponentName'])->name('opponent_name');
+    });
+
+    // Deployment of a tabletop game (the setup step between crew and schemes); its own throttle bucket like the other board routes
+    Route::prefix('/{game:uuid}/deploy')->name('deploy.')->middleware('throttle:60,1,deploy')->group(function () {
+        Route::post('/split', [\App\Http\Controllers\Game\GameDeployController::class, 'split'])->name('split');
+        Route::post('/choose', [\App\Http\Controllers\Game\GameDeployController::class, 'choose'])->name('choose');
+        Route::post('/done', [\App\Http\Controllers\Game\GameDeployController::class, 'done'])->name('done');
+        Route::post('/skip', [\App\Http\Controllers\Game\GameDeployController::class, 'skip'])->name('skip');
     });
 
     // The Fate deck and hands of a full game (pre-release): the server shuffles and deals, a hand goes only to its owner

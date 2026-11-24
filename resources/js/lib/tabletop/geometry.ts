@@ -674,6 +674,21 @@ export function describeZone(shape: Shape): string {
 /** Is a point inside a zone, on the table? */
 export const inZone = (shape: Shape, x: number, y: number): boolean => x >= 0 && x <= T && y >= 0 && y <= T && pointInShape(shape, x, y);
 
+/**
+ * Is the whole base inside a zone? The rulebook deploys models "completely within" their zone (Encounters, step I), so touching the edge
+ * counts and sticking out of it, or off the table, does not. A base is tested at its centre and at points around its edge, which is exact
+ * for the straight and circular zone shapes the guide draws to well under a hundredth of an inch.
+ */
+export function baseInsideZone(shape: Shape, x: number, y: number, baseMm: number): boolean {
+    const r = Math.max(0, baseRadius(baseMm) - 1e-6);
+    if (!inZone(shape, x, y)) return false;
+    for (let i = 0; i < 32; i++) {
+        const a = (i / 32) * Math.PI * 2;
+        if (!inZone(shape, x + r * Math.cos(a), y + r * Math.sin(a))) return false;
+    }
+    return true;
+}
+
 // ---- terrain editing -------------------------------------------------------------------------------------------------------------
 
 export const TERRAIN_TRAITS = ['blocking', 'climbable', 'impassable', 'concealing', 'dense', 'hazardous', 'destructible', 'severe', 'ramp'] as const;

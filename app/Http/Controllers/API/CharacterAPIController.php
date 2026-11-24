@@ -20,9 +20,9 @@ class CharacterAPIController extends Controller
             ->with('character')->get();
 
         if ($miniatures->count() === 0) {
-            $miniatures = Miniature::where('display_name', 'LIKE', "%{$name}%")
+            $miniatures = Miniature::whereSearch('display_name', $name)
                 ->orWhereHas('character', function ($query) use ($name) {
-                    $query->where('nicknames', 'LIKE', "%{$name}%");
+                    $query->whereSearch('nicknames', $name);
                 })
                 ->with('character')->get();
         }
@@ -38,8 +38,8 @@ class CharacterAPIController extends Controller
         }
 
         $characters = Character::standard()->where(function ($query) use ($q) {
-            $query->where('display_name', 'LIKE', "%{$q}%")
-                ->orWhere('name', 'LIKE', "%{$q}%");
+            $query->whereSearch('display_name', $q)
+                ->orWhereSearch('name', $q);
         })
             ->with('miniatures')
             ->limit(15)

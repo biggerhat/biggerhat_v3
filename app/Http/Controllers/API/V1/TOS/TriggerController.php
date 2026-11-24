@@ -26,7 +26,7 @@ class TriggerController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Trigger::query()
-            ->when($request->query('search'), fn ($q, $search) => $q->where('name', 'LIKE', "%{$search}%"))
+            ->when($request->query('search'), fn ($q, $search) => $q->whereSearch('name', $search))
             ->when($request->query('timing'), fn ($q, $timing) => $q->where('timing', $timing))
             ->orderBy('name');
 

@@ -96,7 +96,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Sight guidelines',
-                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again.",
+                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again. They stay on until you turn them off: press G, press Escape (with no model chosen), double click or double tap the table, or use the button again.",
                 },
                 {
                     title: 'Auras and markers',
@@ -172,6 +172,43 @@ const tabletop: HelpTopic = {
             ],
         },
         {
+            id: 'deploying',
+            title: 'Deploying a game',
+            intro: 'In a game played on the tabletop app, the crews are placed on the table before schemes are chosen, in the order the rulebook gives. A panel above the table says whose move it is.',
+            items: [
+                {
+                    title: 'Attacker and defender',
+                    body: "The attacker is red and the defender is blue, on the table and in the zones. The defender's zone is the blue one. The attacker chooses which zone is theirs: press Turn the zones until the zones sit the way you want.",
+                },
+                {
+                    title: 'Dividing the crew',
+                    body: 'First the defender divides their crew into two groups. Until the groups are chosen no model can be moved: they are locked on the table. Tick the models to deploy second and press the button, or tick none and press Keep the crew together. Then the attacker chooses which group is deployed first (Deploy this group first).',
+                    image: {
+                        src: 'tabletop/deploying.webp',
+                        alt: 'The Deployment panel above the table as the defender sees it: a line saying what to do, a list of the crew with a tick box each, a button to divide the crew, and a Start without deploying button.',
+                        callouts: [
+                            'What is happening and whose move it is.',
+                            'Tick the models to deploy second.',
+                            'Divide the crew (or keep it together if none are ticked).',
+                            'Start without deploying, if both players agree.',
+                        ],
+                    },
+                },
+                {
+                    title: 'Placing the groups',
+                    body: 'Placing goes defender, attacker, defender: the defender places the group chosen first, the attacker places their whole crew in the opposite zone, then the defender places the rest. Drag your models completely inside your zone. The line under the panel names any model that is not completely inside, and Finished placing stays off until every model is. Only the group being placed can be moved, and only by the player placing it.',
+                },
+                {
+                    title: 'Starting without deploying',
+                    body: 'If the crews are already set up somewhere else, press Start without deploying. Both players need to press it. In a solo game one press is enough, and you do every part yourself.',
+                },
+                {
+                    title: 'When deployment is finished',
+                    body: 'After the last group is placed the panel offers Choose your scheme, which takes you back to the game to choose schemes. Then play starts.',
+                },
+            ],
+        },
+        {
             id: 'game',
             title: 'On the board of a game',
             intro: 'The board and the game tracker are the same game: health, activation, tokens and kills are shared.',
@@ -186,7 +223,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Reading a base',
-                    body: "The base is filled with the model's faction colour, and the ring around its edge is its side. The ring just inside the edge is its health: one segment per wound (a smooth ring past 12), red when it is low. Bases of 40 mm and up also show the number. Badges show tokens, activation and engagement; turn them off with Show status badges.",
+                    body: "The base is filled with the model's faction colour, and the ring around its edge is its side (in a game the attacker's side is red and the defender's blue; in the practice table side A is blue and side B red). The ring just inside the edge is its health: one segment per wound (a smooth ring past 12, full all the way round at full health), red when it is low. Bases of 40 mm and up also show the number. Badges show tokens, activation and engagement; turn them off with Show status badges.",
                     image: {
                         src: 'tabletop/board.webp',
                         alt: 'Part of the table with four models: two with a red base and a blue ring and two with a blue base and a red ring, each with its name, a ring of health segments inside the edge and its health number.',
@@ -200,7 +237,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Killing, Remains markers and soulstones',
-                    body: 'Use Mark killed in a model\'s options. The crew gets a soulstone as in the game tracker, and a prompt offers the Remains marker: "Choose the spot" and tap inside the dashed line, or "Place it for me". A model that replaces itself on death offers its replacements.',
+                    body: 'Use Mark killed in a model\'s options. The crew gets a soulstone as in the game tracker, and a prompt offers the Remains marker: "Choose the spot" and tap inside the dashed line, or "Place it for me". The marker is made before the model is removed, so it goes beside the model, touching its base, never under it. A model that replaces itself on death offers its replacements.',
                 },
                 {
                     title: 'Replacing a model',
@@ -227,7 +264,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Draw, discard and look',
-                    body: 'Tap your deck to draw. Tap a hand card for its menu (discard, and more). Tap your discard pile to look through it. "Up to" draws to your hand size, and "Start phase" runs the discard-then-draw routine.',
+                    body: 'Tap your deck to draw. Your hand sits in one row that fits the width: when there are many cards they overlap, and each shows its value and suit in its top corner, so nothing scrolls sideways. Tap a hand card for its menu (discard, and more). Tap your discard pile to look through it. "Up to" draws to your hand size, and "Start phase" runs the discard-then-draw routine.',
                     image: {
                         src: 'tabletop/fate-deck.webp',
                         alt: "The Fate deck: the other player's strip, your deck and discard pile, the flip controls, a hand of two cards, and the Up to and Start phase buttons.",
@@ -261,7 +298,8 @@ const tabletop: HelpTopic = {
                 },
                 { keys: ['Shift', '+ arrow'], does: 'Move it 0.1 inch.' },
                 { keys: ['Alt', '+ arrow'], does: 'Move it 2 inches.' },
-                { keys: ['Esc'], does: 'Let go of the chosen model.' },
+                { keys: ['G'], does: 'Turn Sight guidelines on for the chosen model, or off again (when no model is chosen, it turns them off).' },
+                { keys: ['Esc'], does: 'Let go of the chosen model. Press it again to turn Sight guidelines off.' },
                 { keys: ['?'], does: 'Open this help.' },
             ],
         },
@@ -292,6 +330,7 @@ const tabletop: HelpTopic = {
             shortcuts: [
                 { keys: ['Wheel'], does: 'Zoom the table. On a phone, pinch.' },
                 { keys: ['Drag'], does: 'Drag a model or terrain piece to move it; drag empty table to move the view.' },
+                { keys: ['Double click', 'Double tap'], does: 'Turn Sight guidelines off.' },
                 { keys: ['Click'], does: 'Choose a model. Click empty table to let go, or to place a model that is waiting to be set down.' },
             ],
         },

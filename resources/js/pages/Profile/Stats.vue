@@ -91,6 +91,12 @@ defineProps<{
     };
     is_own_profile: boolean;
     tournament_history?: TournamentHistory;
+    /** Games played against yourself are counted unless this is off (?solo=0). */
+    with_solo: boolean;
+    /** How many of the counted games were logged by hand. */
+    logged_games: number;
+    /** Games someone logged against this player, waiting for them to say it was them. */
+    awaiting_confirmation: { uuid: string; by: string; date: string | null }[];
 }>();
 
 const badgeIcon = (icon: string) => {
@@ -155,9 +161,32 @@ const winRateColor = (rate: number) => {
         </PageBanner>
 
         <div class="container mx-auto px-4 pb-12 pt-4">
-            <!-- Share -->
-            <div class="mb-6 flex justify-end">
-                <Button variant="outline" size="sm" class="gap-1.5 text-xs" @click="copyLink">
+            <!-- Awaiting your answer -->
+            <Card v-if="awaiting_confirmation.length" class="mb-6 border-primary/40" data-testid="awaiting-confirmation">
+                <CardContent class="space-y-2 p-4">
+                    <h2 class="font-semibold">Games waiting for you</h2>
+                    <p class="text-xs text-muted-foreground">
+                        Someone logged a game against you. Open it to confirm it was you (it then counts in your stats) or decline.
+                    </p>
+                    <ul class="space-y-1 text-sm">
+                        <li v-for="a in awaiting_confirmation" :key="a.uuid">
+                            <Link :href="route('games.logged.show', a.uuid)" class="underline underline-offset-2"
+                                >{{ a.by }}<span v-if="a.date"> on {{ a.date }}</span></Link
+                            >
+                        </li>
+                    </ul>
+                </CardContent>
+            </Card>
+
+            <!-- Share and analytics -->
+            <div class="mb-6 flex flex-wrap items-center justify-end gap-2">
+                <Button as-child variant="outline" size="sm" class="gap-1.5 text-xs max-sm:min-h-11" data-testid="stats-analytics">
+                    <Link :href="route('stats.analytics', user.slug)"><TrendingUp class="size-3" />Full analytics</Link>
+                </Button>
+                <Button v-if="is_own_profile" as-child size="sm" class="gap-1.5 text-xs max-sm:min-h-11" data-testid="stats-log">
+                    <Link :href="route('games.logged.create')">Log a game</Link>
+                </Button>
+                <Button variant="outline" size="sm" class="gap-1.5 text-xs max-sm:min-h-11" @click="copyLink">
                     <Copy class="size-3" />
                     {{ linkCopied ? 'Copied!' : 'Share Profile' }}
                 </Button>
@@ -236,7 +265,7 @@ const winRateColor = (rate: number) => {
                 v-if="stats.total_games === 0"
                 :icon="Trophy"
                 title="No completed games yet"
-                description="Stats will appear after completing games in the Game Tracker."
+                description="Stats will appear after completing games in the Game Tracker, or logging one you played somewhere else."
             />
 
             <template v-else>
@@ -247,8 +276,17 @@ const winRateColor = (rate: number) => {
                             <div class="text-3xl font-bold tabular-nums">{{ stats.total_games }}</div>
                             <div class="text-xs text-muted-foreground">Games Played</div>
                             <div class="mt-1 text-2xs tabular-nums text-muted-foreground">
-                                {{ stats.duel_games }} duel · {{ stats.solo_games }} solo
+                                {{ stats.duel_games }} duel · {{ stats.solo_games }} solo<span v-if="logged_games"> · {{ logged_games }} logged</span>
                             </div>
+                            <Link
+                                v-if="stats.solo_games > 0 || !with_solo"
+                                :href="route('stats.show', { user: user.slug, ...(with_solo ? { solo: 0 } : {}) })"
+                                class="mt-1 block text-2xs underline underline-offset-2"
+                                data-testid="stats-solo-toggle"
+                                preserve-scroll
+                            >
+                                {{ with_solo ? 'Leave out solo games' : 'Include solo games' }}
+                            </Link>
                         </CardContent>
                     </Card>
                     <Card>

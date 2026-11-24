@@ -125,6 +125,35 @@ App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Ali
 App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Alice Guild 40', 'faction' => 'guild', 'encounter_size' => 40]);
 App\Models\CrewBuild::factory()->create(['user_id' => $alice->id, 'name' => 'Alice Arcanists 50', 'faction' => 'arcanists', 'encounter_size' => 50]);
 App\Models\CrewBuild::factory()->create(['user_id' => $bob->id, 'name' => 'Bob Guild 50', 'faction' => 'guild', 'encounter_size' => 50]);
+// A collection written the old way (one row per miniature, a quantity and built/painted flags), for the collection flow (flows45)
+$collA = \App\Models\Character::factory()->create(['name' => 'Collection Guard Alpha', 'title' => null, 'station' => 'minion', 'faction' => 'guild']);
+$collB = \App\Models\Character::factory()->create(['name' => 'Collection Guard Beta', 'title' => null, 'station' => 'minion', 'faction' => 'guild']);
+$collMiniA = \App\Models\Miniature::factory()->create(['character_id' => $collA->id]);
+$collMiniB = \App\Models\Miniature::factory()->create(['character_id' => $collB->id]);
+// a 40-miniature collection for Alice, in mixed states, to see the page with a lot in it
+foreach (range(1, 40) as $n) {
+    $bigChar = \App\Models\Character::factory()->create(['name' => sprintf('Big Squad %02d', $n), 'title' => null, 'station' => 'minion', 'faction' => ['guild', 'bayou', 'arcanists', 'neverborn'][$n % 4]]);
+    $bigMini = \App\Models\Miniature::factory()->create(['character_id' => $bigChar->id]);
+    DB::table('user_miniatures')->insert(['user_id' => $alice->id, 'miniature_id' => $bigMini->id, 'quantity' => 1 + $n % 5, 'is_built' => $n % 3 === 0, 'is_painted' => $n % 6 === 0, 'created_at' => now(), 'updated_at' => now()]);
+}
+// Packages and keywords for the Packages / Keywords tabs: one package with contents, one with a long name and no factions, a keyword the
+// collection completes (2 of 2), a keyword with a single character (1 of 1), and a bigger keyword it only partly has (1 of 6)
+$collPkg = \App\Models\Package::factory()->create(['name' => 'Guard Starter Box', 'factions' => ['guild'], 'game_system' => \App\Enums\GameSystemEnum::Malifaux]);
+$collPkg->characters()->attach([$collA->id => ['quantity' => 2], $collB->id => ['quantity' => 1]]);
+$collPkgLong = \App\Models\Package::factory()->create(['name' => 'An Exceptionally Long Package Name For A Limited Edition Crew Box', 'factions' => [], 'game_system' => \App\Enums\GameSystemEnum::Malifaux]);
+$kwDone = \App\Models\Keyword::factory()->create(['name' => 'Collection Guard Corps']);
+$kwTiny = \App\Models\Keyword::factory()->create(['name' => 'Lone Sentry']);
+$kwBig = \App\Models\Keyword::factory()->create(['name' => 'Collection Big Keyword']);
+foreach ([$collA, $collB] as $c) { $c->keywords()->attach($kwDone->id); }
+$collA->keywords()->attach([$kwTiny->id, $kwBig->id]);
+foreach (range(1, 5) as $n) { \App\Models\Character::factory()->create(['name' => "Keyword Filler $n", 'title' => null, 'station' => 'minion', 'faction' => 'guild'])->keywords()->attach($kwBig->id); }
+foreach ([$carol, $dave] as $pkgUser) { DB::table('user_packages')->insert([['user_id' => $pkgUser->id, 'package_id' => $collPkg->id, 'created_at' => now(), 'updated_at' => now()], ['user_id' => $pkgUser->id, 'package_id' => $collPkgLong->id, 'created_at' => now(), 'updated_at' => now()]]); }
+foreach ([$carol, $dave] as $collUser) {
+    DB::table('user_miniatures')->insert([
+        ['user_id' => $collUser->id, 'miniature_id' => $collMiniA->id, 'quantity' => 3, 'is_built' => true, 'is_painted' => true, 'created_at' => now(), 'updated_at' => now()],
+        ['user_id' => $collUser->id, 'miniature_id' => $collMiniB->id, 'quantity' => 2, 'is_built' => false, 'is_painted' => false, 'created_at' => now(), 'updated_at' => now()],
+    ]);
+}
 // --- T9: Swiss finished, ready for a top cut. T10: a top 4 whose semifinals are played, ready to advance.
 // Created by another account: an organizer may own at most 5 unfinished events, and the org account is already at that limit.
 $mkField = function (string $name, int $count) use ($org, $dave) {

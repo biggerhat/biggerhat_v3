@@ -88,7 +88,7 @@ it('marks many miniatures built in one request via update-status-bulk', function
     expect($built)->toBe([$this->miniature1->id, $this->miniature2->id]);
 });
 
-it('marks many miniatures painted (and leaves is_built untouched) via update-status-bulk', function () {
+it('marks many miniatures painted (a painted model counts as built) via update-status-bulk', function () {
     $this->user->collectionMiniatures()->attach([
         $this->miniature1->id => ['quantity' => 1, 'is_built' => true, 'is_painted' => false],
         $this->miniature2->id => ['quantity' => 1, 'is_built' => false, 'is_painted' => false],
@@ -104,7 +104,7 @@ it('marks many miniatures painted (and leaves is_built untouched) via update-sta
     expect((bool) $m1->is_painted)->toBeTrue();
     expect((bool) $m1->is_built)->toBeTrue();   // preserved
     expect((bool) $m2->is_painted)->toBeTrue();
-    expect((bool) $m2->is_built)->toBeFalse();  // preserved
+    expect((bool) $m2->is_built)->toBeTrue();   // painted implies built now that models have ordered stages
 });
 
 it('no-ops update-status-bulk when neither flag is provided', function () {

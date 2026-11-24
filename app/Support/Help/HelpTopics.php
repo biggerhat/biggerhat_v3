@@ -13,7 +13,7 @@ use App\Support\Tabletop\TabletopAccess;
 class HelpTopics
 {
     /** @var list<string> */
-    public const SLUGS = ['crew-builder', 'game-tracker', 'tabletop'];
+    public const SLUGS = ['crew-builder', 'game-tracker', 'collection', 'tabletop'];
 
     /** @return list<string> */
     public static function visibleTo(?User $user): array
@@ -26,7 +26,7 @@ class HelpTopics
         return match ($slug) {
             // Pre-release: the tabletop's help is hidden (404) exactly as the tabletop is.
             'tabletop' => TabletopAccess::allows($user),
-            'crew-builder', 'game-tracker' => true,
+            'crew-builder', 'game-tracker', 'collection' => true,
             default => false,
         };
     }

@@ -5,20 +5,27 @@ namespace App\Http\Controllers;
 use App\Enums\CharacterStationEnum;
 use App\Enums\FactionEnum;
 use App\Enums\GameSystemEnum;
+use App\Enums\ModelStageEnum;
 use App\Http\Requests\Collection\CollectionAddCharacterRequest;
 use App\Http\Requests\Collection\CollectionAddCharactersRequest;
+use App\Http\Requests\Collection\CollectionAddModelRequest;
 use App\Http\Requests\Collection\CollectionAddPackageRequest;
+use App\Http\Requests\Collection\CollectionDeleteModelRequest;
 use App\Http\Requests\Collection\CollectionRemoveBulkRequest;
 use App\Http\Requests\Collection\CollectionRemoveRequest;
+use App\Http\Requests\Collection\CollectionSetStageBulkRequest;
 use App\Http\Requests\Collection\CollectionTogglePackageRequest;
 use App\Http\Requests\Collection\CollectionToggleRequest;
+use App\Http\Requests\Collection\CollectionUpdateModelRequest;
 use App\Http\Requests\Collection\CollectionUpdateStatusBulkRequest;
 use App\Http\Requests\Collection\CollectionUpdateStatusRequest;
 use App\Models\Character;
+use App\Models\CollectionModel;
 use App\Models\Keyword;
 use App\Models\Miniature;
 use App\Models\Package;
 use App\Models\User;
+use App\Support\Collection\CollectionModels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +45,7 @@ class CollectionController extends Controller
         }
 
         return inertia('Collection/Index', [
-            ...$this->collectionPropsFor($user),
+            ...$this->collectionPropsFor($user, true),
             'is_owner' => true,
             'share_code' => $user->collection_share_code,
             'is_public' => (bool) $user->collection_is_public,
@@ -120,7 +127,7 @@ class CollectionController extends Controller
         }
 
         return inertia('Collection/Index', [
-            ...$this->collectionPropsFor($user),
+            ...$this->collectionPropsFor($user, Auth::id() === $user->id),
             'is_owner' => Auth::id() === $user->id,
             'share_code' => $user->collection_share_code,
             'is_public' => (bool) $user->collection_is_public,
@@ -150,22 +157,12 @@ class CollectionController extends Controller
         $miniatureId = $validated['miniature_id'];
         $quantity = $validated['quantity'] ?? null;
 
-        $existing = $user->collectionMiniatures()->where('miniature_id', $miniatureId)->first();
+        $existing = $user->collectionMiniatures()->where('miniature_id', $miniatureId)->exists();
 
-        if ($quantity === 0) {
-            $user->collectionMiniatures()->detach($miniatureId);
-
-            return back();
-        }
-
-        if ($existing) {
-            if ($quantity !== null) {
-                $user->collectionMiniatures()->updateExistingPivot($miniatureId, ['quantity' => $quantity]);
-            } else {
-                $user->collectionMiniatures()->detach($miniatureId);
-            }
+        if ($quantity === 0 || ($existing && $quantity === null)) {
+            CollectionModels::remove($user, [$miniatureId]);
         } else {
-            $user->collectionMiniatures()->attach($miniatureId, ['quantity' => $quantity ?? 1]);
+            CollectionModels::setQuantity($user, $miniatureId, $quantity ?? 1);
         }
 
         return back();
@@ -183,12 +180,7 @@ class CollectionController extends Controller
         // addPackage which already do this.
         DB::transaction(function () use ($user, $character) {
             $miniatureIds = $character->standardMiniatures->pluck('id');
-            $existing = $user->collectionMiniatures()->whereIn('miniature_id', $miniatureIds)->pluck('miniature_id');
-            $toAttach = $miniatureIds->diff($existing)->mapWithKeys(fn ($id) => [$id => ['quantity' => 1]]);
-
-            if ($toAttach->isNotEmpty()) {
-                $user->collectionMiniatures()->attach($toAttach);
-            }
+            CollectionModels::addMissing($user, $miniatureIds);
         });
 
         return back();
@@ -203,12 +195,7 @@ class CollectionController extends Controller
         DB::transaction(function () use ($user, $validated) {
             $characters = Character::with('standardMiniatures')->whereIn('id', $validated['character_ids'])->get();
             $miniatureIds = $characters->flatMap(fn ($c) => $c->standardMiniatures->pluck('id'));
-            $existing = $user->collectionMiniatures()->whereIn('miniature_id', $miniatureIds)->pluck('miniature_id');
-            $toAttach = $miniatureIds->diff($existing)->mapWithKeys(fn ($id) => [$id => ['quantity' => 1]]);
-
-            if ($toAttach->isNotEmpty()) {
-                $user->collectionMiniatures()->attach($toAttach);
-            }
+            CollectionModels::addMissing($user, $miniatureIds);
         });
 
         return back();
@@ -227,12 +214,7 @@ class CollectionController extends Controller
             }
 
             $miniatureIds = $package->characters->flatMap(fn ($c) => $c->standardMiniatures->pluck('id'));
-            $existing = $user->collectionMiniatures()->whereIn('miniature_id', $miniatureIds)->pluck('miniature_id');
-            $toAttach = $miniatureIds->diff($existing)->mapWithKeys(fn ($id) => [$id => ['quantity' => 1]]);
-
-            if ($toAttach->isNotEmpty()) {
-                $user->collectionMiniatures()->attach($toAttach);
-            }
+            CollectionModels::addMissing($user, $miniatureIds);
         });
 
         return back();
@@ -261,17 +243,7 @@ class CollectionController extends Controller
         $user = Auth::user();
         $miniatureId = $validated['miniature_id'];
 
-        $data = [];
-        if (isset($validated['is_built'])) {
-            $data['is_built'] = $validated['is_built'];
-        }
-        if (isset($validated['is_painted'])) {
-            $data['is_painted'] = $validated['is_painted'];
-        }
-
-        if (! empty($data)) {
-            $user->collectionMiniatures()->updateExistingPivot($miniatureId, $data);
-        }
+        CollectionModels::mark($user, [(int) $miniatureId], $validated['is_built'] ?? null, $validated['is_painted'] ?? null);
 
         return back();
     }
@@ -280,7 +252,7 @@ class CollectionController extends Controller
     {
         $validated = $request->validated();
 
-        Auth::user()->collectionMiniatures()->detach($validated['miniature_id']);
+        CollectionModels::remove(Auth::user(), [(int) $validated['miniature_id']]);
 
         return back();
     }
@@ -289,7 +261,7 @@ class CollectionController extends Controller
     {
         $validated = $request->validated();
 
-        Auth::user()->collectionMiniatures()->detach($validated['miniature_ids']);
+        CollectionModels::remove(Auth::user(), array_map('intval', $validated['miniature_ids']));
 
         return back();
     }
@@ -298,21 +270,52 @@ class CollectionController extends Controller
     {
         $validated = $request->validated();
 
-        $data = array_filter(
-            ['is_built' => $validated['is_built'] ?? null, 'is_painted' => $validated['is_painted'] ?? null],
-            fn ($v) => $v !== null,
+        CollectionModels::mark(Auth::user(), array_map('intval', $validated['miniature_ids']), $validated['is_built'] ?? null, $validated['is_painted'] ?? null);
+
+        return back();
+    }
+
+    /** Every copy of the chosen miniatures to one stage. */
+    public function setStageBulk(CollectionSetStageBulkRequest $request)
+    {
+        $validated = $request->validated();
+        CollectionModels::setStage(Auth::user(), array_map('intval', $validated['miniature_ids']), ModelStageEnum::from($validated['stage']));
+
+        return back();
+    }
+
+    /** One more copy of a miniature, with its own stage and note. */
+    public function addModel(CollectionAddModelRequest $request)
+    {
+        $validated = $request->validated();
+        $model = CollectionModels::addModel(
+            Auth::user(),
+            (int) $validated['miniature_id'],
+            isset($validated['stage']) ? ModelStageEnum::from($validated['stage']) : ModelStageEnum::Unbuilt,
+            $validated['note'] ?? null,
         );
 
-        if (empty($data)) {
-            return back();
-        }
+        return back()->withMessage($model === null ? 'That is the most copies one collection can hold.' : 'Model added.');
+    }
 
-        // Single UPDATE against the pivot — much cheaper than looping
-        // updateExistingPivot when bulk-marking dozens of rows.
-        DB::table('user_miniatures')
-            ->where('user_id', Auth::id())
-            ->whereIn('miniature_id', $validated['miniature_ids'])
-            ->update($data);
+    /** One copy's stage or note. */
+    public function updateModel(CollectionUpdateModelRequest $request, CollectionModel $collectionModel)
+    {
+        $validated = $request->validated();
+        CollectionModels::updateModel(
+            $collectionModel,
+            isset($validated['stage']) ? ModelStageEnum::from($validated['stage']) : null,
+            array_key_exists('note', $validated),
+            $validated['note'] ?? null,
+        );
+
+        return back();
+    }
+
+    /** Takes one copy out of the collection. The last copy takes the miniature out. */
+    public function deleteModel(CollectionDeleteModelRequest $request, CollectionModel $collectionModel)
+    {
+        CollectionModels::deleteModel($collectionModel);
 
         return back();
     }
@@ -331,10 +334,10 @@ class CollectionController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function collectionPropsFor(User $user): array
+    private function collectionPropsFor(User $user, bool $withNotes = false): array
     {
         return [
-            ...$this->buildCoreCollectionData($user),
+            ...$this->buildCoreCollectionData($user, $withNotes),
             'keyword_stats' => Inertia::defer(fn () => $this->buildKeywordStats($user), 'collection_extras'),
             'owned_packages' => Inertia::defer(fn () => $this->buildOwnedPackages($user), 'collection_extras'),
         ];
@@ -346,23 +349,42 @@ class CollectionController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function buildCoreCollectionData(User $user): array
+    private function buildCoreCollectionData(User $user, bool $withNotes = false): array
     {
-        $ownedMiniatureIds = $user->collectionMiniatures()->pluck('miniatures.id')->toArray();
+        $totals = CollectionModels::totals($user);
 
-        $allCharacters = Character::standard()->with('miniatures:id,character_id')
-            ->where('is_hidden', false)
-            ->get();
+        // Characters in the catalogue and how many the user has at least one miniature of, per faction (two grouped counts).
+        $standard = fn () => Character::standard()->where('is_hidden', false);
+        $totalByFaction = $standard()->selectRaw('faction, COUNT(*) as c')->groupBy('faction')->pluck('c', 'faction');
+        $ownedCharacterIds = DB::table('user_miniatures')
+            ->join('miniatures', 'miniatures.id', '=', 'user_miniatures.miniature_id')
+            ->where('user_miniatures.user_id', $user->id)
+            ->pluck('miniatures.character_id')->unique()->values()->all();
+        $ownedByFaction = $ownedCharacterIds === []
+            ? collect()
+            : $standard()->whereIn('id', $ownedCharacterIds)->selectRaw('faction, COUNT(*) as c')->groupBy('faction')->pluck('c', 'faction');
 
-        $ownedCharacters = $allCharacters->filter(function ($character) use ($ownedMiniatureIds) {
-            return $character->miniatures->pluck('id')->intersect($ownedMiniatureIds)->isNotEmpty();
-        });
+        // The models owned in each faction, and how many of them are built and painted.
+        $built = ModelStageEnum::builtValues();
+        $painted = ModelStageEnum::paintedValues();
+        $modelsByFaction = DB::table('collection_models')
+            ->join('miniatures', 'miniatures.id', '=', 'collection_models.miniature_id')
+            ->join('characters', 'characters.id', '=', 'miniatures.character_id')
+            ->where('collection_models.user_id', $user->id)
+            ->selectRaw(
+                'characters.faction as faction, COUNT(*) as models, SUM(CASE WHEN collection_models.stage IN ('.implode(',', array_fill(0, count($built), '?')).') THEN 1 ELSE 0 END) as built, SUM(CASE WHEN collection_models.stage IN ('.implode(',', array_fill(0, count($painted), '?')).') THEN 1 ELSE 0 END) as painted',
+                [...$built, ...$painted],
+            )
+            ->groupBy('characters.faction')->get()->keyBy('faction');
 
         $factionStats = [];
         foreach (FactionEnum::cases() as $faction) {
-            $total = $allCharacters->where('faction', $faction)->count();
-            $owned = $ownedCharacters->where('faction', $faction)->count();
+            $total = (int) ($totalByFaction[$faction->value] ?? 0);
+            $owned = (int) ($ownedByFaction[$faction->value] ?? 0);
             $factionStats[] = [
+                'models' => (int) ($modelsByFaction[$faction->value]->models ?? 0),
+                'built' => (int) ($modelsByFaction[$faction->value]->built ?? 0),
+                'painted' => (int) ($modelsByFaction[$faction->value]->painted ?? 0),
                 'faction' => $faction->value,
                 'name' => $faction->label(),
                 'color' => $faction->color(),
@@ -372,12 +394,19 @@ class CollectionController extends Controller
                 'percent' => $total > 0 ? round(($owned / $total) * 100, 1) : 0,
             ];
         }
+        $allCount = (int) $totalByFaction->sum();
+        $ownedCount = (int) $ownedByFaction->sum();
+
+        $models = CollectionModel::where('user_id', $user->id)->orderBy('id')->get(['id', 'miniature_id', 'stage', 'note'])->groupBy('miniature_id');
 
         $collectionItems = $user->collectionMiniatures()
             ->with(['character.keywords', 'character.standardMiniatures'])
             ->get()
-            ->map(function (Miniature $m) {
+            ->map(function (Miniature $m) use ($models, $withNotes) {
                 $character = $m->character;
+                $copies = $models[$m->id] ?? collect();
+                $built = $copies->filter(fn (CollectionModel $c) => $c->stage->isBuilt())->count();
+                $painted = $copies->filter(fn (CollectionModel $c) => $c->stage->isPainted())->count();
 
                 return [
                     'miniature_id' => $m->id,
@@ -390,33 +419,37 @@ class CollectionController extends Controller
                     'faction' => $character->faction->value,
                     'station' => $character->station?->value,
                     'keywords' => $character->keywords->pluck('name')->toArray(),
-                    'quantity' => $m->pivot->quantity ?? 1,
-                    'is_built' => (bool) ($m->pivot->is_built ?? false),
-                    'is_painted' => (bool) ($m->pivot->is_painted ?? false),
+                    'quantity' => $copies->count(),
+                    'is_built' => $copies->isNotEmpty() && $built === $copies->count(),
+                    'is_painted' => $copies->isNotEmpty() && $painted === $copies->count(),
+                    'built_count' => $built,
+                    'painted_count' => $painted,
+                    // Each copy: its stage, and its note when the owner is looking.
+                    'models' => $copies->map(fn (CollectionModel $c) => [
+                        'id' => $c->id,
+                        'stage' => $c->stage->value,
+                        'note' => $withNotes ? $c->note : null,
+                    ])->values()->all(),
                     'standard_miniature_id' => $character->standardMiniatures->first()?->id,
                 ];
             });
 
-        $totalMiniatures = $collectionItems->count();
-        $builtCount = $collectionItems->where('is_built', '===', true)->count();
-        $paintedCount = $collectionItems->where('is_painted', '===', true)->count();
         $ownedPackagesCount = $user->collectionPackages()->whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])->count();
 
         return [
             'collection' => $collectionItems,
             'faction_stats' => $factionStats,
+            'stages' => collect(ModelStageEnum::cases())->map(fn (ModelStageEnum $s) => ['value' => $s->value, 'label' => $s->label(), 'count' => $totals['stages'][$s->value]])->all(),
             'totals' => [
-                'characters' => $allCharacters->count(),
-                'owned_characters' => $ownedCharacters->count(),
-                'owned_miniatures' => (int) $user->collectionMiniatures()->sum('quantity'),
+                'characters' => $allCount,
+                'owned_characters' => $ownedCount,
+                'owned_miniatures' => $totals['models'],
                 'owned_packages' => $ownedPackagesCount,
-                'percent' => $allCharacters->count() > 0
-                    ? round(($ownedCharacters->count() / $allCharacters->count()) * 100, 1)
-                    : 0,
-                'built' => $builtCount,
-                'painted' => $paintedCount,
-                'built_percent' => $totalMiniatures > 0 ? round(($builtCount / $totalMiniatures) * 100, 1) : 0,
-                'painted_percent' => $totalMiniatures > 0 ? round(($paintedCount / $totalMiniatures) * 100, 1) : 0,
+                'percent' => $allCount > 0 ? round(($ownedCount / $allCount) * 100, 1) : 0,
+                'built' => $totals['built'],
+                'painted' => $totals['painted'],
+                'built_percent' => $totals['models'] > 0 ? round(($totals['built'] / $totals['models']) * 100, 1) : 0,
+                'painted_percent' => $totals['models'] > 0 ? round(($totals['painted'] / $totals['models']) * 100, 1) : 0,
             ],
         ];
     }
@@ -466,21 +499,54 @@ class CollectionController extends Controller
      */
     private function buildOwnedPackages(User $user): array
     {
-        return $user->collectionPackages()
+        $packages = $user->collectionPackages()
             ->whereIn('game_system', [GameSystemEnum::Malifaux, GameSystemEnum::Both])
-            ->get()
-            ->map(fn (Package $p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'slug' => $p->slug,
-                'front_image' => $p->front_image,
-                'factions' => collect($p->factions ?? [])->map(fn (string $f) => [
-                    'value' => $f,
-                    'label' => FactionEnum::from($f)->label(),
-                    'color' => FactionEnum::from($f)->color(),
-                    'logo' => FactionEnum::from($f)->logo(),
-                ]),
-            ])
+            ->with('characters')
+            ->get();
+
+        // The stage of every model the user owns, by character, furthest along first.
+        $mine = DB::table('collection_models')
+            ->join('miniatures', 'miniatures.id', '=', 'collection_models.miniature_id')
+            ->where('collection_models.user_id', $user->id)
+            ->get(['miniatures.character_id', 'collection_models.stage'])
+            ->groupBy('character_id')
+            ->map(fn ($rows) => $rows->map(fn ($r) => ModelStageEnum::from($r->stage))->sortByDesc(fn (ModelStageEnum $s) => $s->rank())->values());
+
+        return $packages
+            ->map(function (Package $p) use ($mine) {
+                $contents = $p->characters->map(function (Character $c) use ($mine) {
+                    $needed = max(1, (int) ($c->pivot->quantity ?? 1));
+                    // The models of this character stand in for what the package holds, best ones first.
+                    $have = ($mine[$c->id] ?? collect())->take($needed);
+
+                    return [
+                        'slug' => $c->slug,
+                        'name' => $c->display_name,
+                        'quantity' => $needed,
+                        'owned' => $have->count(),
+                        'built' => $have->filter(fn (ModelStageEnum $s) => $s->isBuilt())->count(),
+                        'painted' => $have->filter(fn (ModelStageEnum $s) => $s->isPainted())->count(),
+                    ];
+                })->sortBy('name')->values();
+
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'slug' => $p->slug,
+                    'front_image' => $p->front_image,
+                    'factions' => collect($p->factions ?? [])->map(fn (string $f) => [
+                        'value' => $f,
+                        'label' => FactionEnum::from($f)->label(),
+                        'color' => FactionEnum::from($f)->color(),
+                        'logo' => FactionEnum::from($f)->logo(),
+                    ]),
+                    'models' => $contents->sum('quantity'),
+                    'owned' => $contents->sum('owned'),
+                    'built' => $contents->sum('built'),
+                    'painted' => $contents->sum('painted'),
+                    'contents' => $contents->all(),
+                ];
+            })
             ->all();
     }
 }

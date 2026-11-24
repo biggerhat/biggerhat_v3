@@ -15,6 +15,7 @@ file locations, models/enums, conventions, and gotchas (saves re-discovery):
 - [malifaux-database.md](docs/features/malifaux-database.md) — characters/abilities/actions/etc. browse + admin
 - [tos-database.md](docs/features/tos-database.md) — TOS browse + Company Builder (see also [docs/tos-conventions.md](docs/tos-conventions.md))
 - [bonanza-loot.md](docs/features/bonanza-loot.md) — loot deck, Browsershot print PDF (hash-busted cache), tracker mode
+- [collection.md](docs/features/collection.md) — owned miniatures, per-model stage and notes (`CollectionModels` is the only writer)
 - [crew-builder.md](docs/features/crew-builder.md) — `CrewBuild` + references payload
 - [custom-card-creator.md](docs/features/custom-card-creator.md) — homebrew cards, client-side render
 - [campaign-mode.md](docs/features/campaign-mode.md) — feature-flagged multi-week campaign

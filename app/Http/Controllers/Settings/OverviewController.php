@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Models\Wishlist;
 use App\Models\WishlistItem;
 use App\Services\AchievementService;
+use App\Support\Collection\CollectionModels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -98,10 +99,11 @@ class OverviewController extends Controller
         $gameRecord = $this->achievements->gameRecordForUser($user->id);
         $tournamentRecord = $this->achievements->tournamentRecordForUser($user->id);
 
-        $collection = $user->collectionMiniatures()->get();
-        $collectionTotal = $collection->count();
-        $collectionBuilt = $collection->where('pivot.is_built', true)->count();
-        $collectionPainted = $collection->where('pivot.is_painted', true)->count();
+        // Counted by model, not by miniature: three painted copies of one miniature are three painted models.
+        $collectionTotals = CollectionModels::totals($user);
+        $collectionTotal = $collectionTotals['models'];
+        $collectionBuilt = $collectionTotals['built'];
+        $collectionPainted = $collectionTotals['painted'];
 
         $publicCrews = CrewBuild::where('user_id', $user->id)
             ->where('is_public', true)

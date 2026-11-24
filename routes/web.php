@@ -683,6 +683,11 @@ Route::prefix('collection')->name('collection.')->group(function () {
         Route::post('/toggle-package', [CollectionController::class, 'togglePackage'])->name('toggle_package');
         Route::post('/update-status', [CollectionController::class, 'updateStatus'])->name('update_status');
         Route::post('/update-status-bulk', [CollectionController::class, 'updateStatusBulk'])->name('update_status_bulk');
+        Route::post('/set-stage-bulk', [CollectionController::class, 'setStageBulk'])->name('set_stage_bulk');
+        // One physical model of a miniature: add a copy, change its stage or note, take it out.
+        Route::post('/models', [CollectionController::class, 'addModel'])->name('models.store')->middleware('throttle:120,1');
+        Route::put('/models/{collectionModel}', [CollectionController::class, 'updateModel'])->name('models.update')->middleware('throttle:240,1');
+        Route::delete('/models/{collectionModel}', [CollectionController::class, 'deleteModel'])->name('models.destroy')->middleware('throttle:120,1');
         Route::post('/remove', [CollectionController::class, 'remove'])->name('remove');
         Route::post('/remove-bulk', [CollectionController::class, 'removeBulk'])->name('remove_bulk');
     });

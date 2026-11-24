@@ -36,6 +36,7 @@ it('builds rules for every form request', function () {
         App\Http\Requests\Campaign\RemoveCrewCardItemRequest::class,
         App\Http\Requests\Campaign\RemoveLeaderTotemInjuryRequest::class,
         App\Http\Requests\BattleReports\DismissBattleReportFlagsRequest::class, // a moderator only: authorization, no input
+        App\Http\Requests\Collection\CollectionDeleteModelRequest::class, // the owner of the model only: authorization, no input
         App\Http\Requests\Games\SwapRolesRequest::class, // creator of a solo game only: authorization, no input
     ];
 

@@ -9,6 +9,7 @@ use App\Models\GamePlayer;
 use App\Models\GameTurn;
 use App\Models\User;
 use App\Services\AchievementService;
+use App\Support\Collection\CollectionModels;
 use App\Support\Stats\PlayedGames;
 use App\Tournaments\TournamentHistory;
 use Illuminate\Http\Request;
@@ -308,10 +309,11 @@ class StatsController extends Controller
     private function buildProfile(User $user, int $totalGames, int $wins, array $factionStats): array
     {
         // Collection stats
-        $collection = $user->collectionMiniatures()->get();
-        $collectionTotal = $collection->count();
-        $collectionBuilt = $collection->where('pivot.is_built', true)->count();
-        $collectionPainted = $collection->where('pivot.is_painted', true)->count();
+        // Counted by model, not by miniature: three painted copies of one miniature are three painted models.
+        $collectionTotals = CollectionModels::totals($user);
+        $collectionTotal = $collectionTotals['models'];
+        $collectionBuilt = $collectionTotals['built'];
+        $collectionPainted = $collectionTotals['painted'];
 
         // Tournament stats
         $tournamentRecord = $this->achievements->tournamentRecordForUser($user->id);

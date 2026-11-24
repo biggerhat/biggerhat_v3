@@ -21,7 +21,7 @@ class CollectionToggleRequest extends FormRequest
     {
         return [
             'miniature_id' => 'required|exists:miniatures,id',
-            'quantity' => 'nullable|integer|min:0',
+            'quantity' => 'nullable|integer|min:0|max:200',
 
         ];
     }

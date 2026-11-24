@@ -35,6 +35,12 @@ class GamePlayer extends Model
         ];
     }
 
+    /** The opponent's account, when the person who logged the game linked one (it counts once confirmed). */
+    public function linkedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'linked_user_id');
+    }
+
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);

@@ -33,6 +33,7 @@ use App\Http\Controllers\Game\GameController;
 use App\Http\Controllers\Game\GameFateController;
 use App\Http\Controllers\Game\GamePlayController;
 use App\Http\Controllers\Game\GameSetupController;
+use App\Http\Controllers\Game\LoggedGameController;
 use App\Http\Controllers\HatGaminController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\NotificationController;
@@ -422,18 +423,32 @@ Route::prefix('wishlists')->name('wishlists.')->group(function () {
 
 // Public game routes (no auth required)
 Route::get('/games/public', [GameController::class, 'publicIndex'])->name('games.public');
-Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe');
-Route::get('/games/{game:uuid}/board/watch', [GameBoardController::class, 'watch'])->name('games.board.watch');
-Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary');
+Route::get('/games/{game:uuid}/observe', [GameController::class, 'observe'])->name('games.observe')->middleware('tracked.game');
+Route::get('/games/{game:uuid}/board/watch', [GameBoardController::class, 'watch'])->name('games.board.watch')->middleware('tracked.game');
+Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->name('games.summary')->middleware('tracked.game');
 
 // Game join — outside auth so we can show a login prompt with return URL
-Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('games.join');
+Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('games.join')->middleware('tracked.game');
 
 // Stats (public view, auth shortcut)
 Route::get('/my-stats', [StatsController::class, 'myStats'])->name('stats.my')->middleware('auth');
 Route::get('/stats/{user:slug}', [StatsController::class, 'show'])->name('stats.show');
 
-Route::prefix('games')->name('games.')->middleware('auth')->group(function () {
+// Games played elsewhere and entered by hand. Registered before the tracker's {game} routes so /games/log is not read as a game.
+// A logged game's summary is public when its owner made it so; the rest needs an account.
+Route::get('/games/logged/{game:uuid}', [LoggedGameController::class, 'show'])->name('games.logged.show');
+Route::middleware('auth')->prefix('games')->name('games.logged.')->group(function () {
+    Route::get('/log', [LoggedGameController::class, 'create'])->name('create');
+    Route::get('/logged-characters', [LoggedGameController::class, 'characters'])->name('characters')->middleware('throttle:120,1');
+    Route::post('/logged', [LoggedGameController::class, 'store'])->name('store')->middleware('throttle:30,60');
+    Route::get('/logged/{game:uuid}/edit', [LoggedGameController::class, 'edit'])->name('edit');
+    Route::put('/logged/{game:uuid}', [LoggedGameController::class, 'update'])->name('update')->middleware('throttle:30,60');
+    Route::delete('/logged/{game:uuid}', [LoggedGameController::class, 'destroy'])->name('destroy');
+    Route::post('/logged/{game:uuid}/confirm', [LoggedGameController::class, 'confirmLink'])->name('confirm');
+    Route::post('/logged/{game:uuid}/decline', [LoggedGameController::class, 'declineLink'])->name('decline');
+});
+
+Route::prefix('games')->name('games.')->middleware(['auth', 'tracked.game'])->group(function () {
     Route::get('/', [GameController::class, 'index'])->name('index');
     Route::get('/create', [GameController::class, 'create'])->name('create');
     Route::post('/', [GameController::class, 'store'])->name('store')->middleware('throttle:30,60');

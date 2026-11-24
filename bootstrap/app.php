@@ -45,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'admin.any' => EnsureHasAdminPermission::class,
+            'tracked.game' => \App\Http\Middleware\EnsureTrackedGame::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

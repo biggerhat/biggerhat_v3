@@ -125,3 +125,13 @@ it('tells the tabletop which markers are Strategy markers', function () {
         ->where('markers', fn ($markers) => collect($markers)->firstWhere('name', 'Turf Marker')['strategy'] === true
             && collect($markers)->firstWhere('name', 'Scheme Marker')['strategy'] === false));
 });
+
+it('has a texture the server accepts for every terrain preset', function () {
+    // A preset's `kind` (or its key) is saved with the piece; one the server does not list fails the whole layout save.
+    preg_match_all("/^        key: '(\w+)',\n(?:        kind: '(\w+)',\n)?/m", file_get_contents(base_path('resources/js/lib/tabletop/terrainPresets.ts')), $m, PREG_SET_ORDER);
+    expect($m)->not->toBeEmpty();
+    foreach ($m as $row) {
+        $kind = ($row[2] ?? '') !== '' ? $row[2] : $row[1];
+        expect(isset(\App\Support\Tabletop\TabletopImages::TERRAIN_KINDS[$kind]))->toBeTrue("preset {$row[1]} uses kind {$kind}, which the server does not accept");
+    }
+});

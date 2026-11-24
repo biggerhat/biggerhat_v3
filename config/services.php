@@ -44,6 +44,11 @@ return [
         'offline_after_minutes' => (int) env('BOT_OFFLINE_AFTER_MINUTES', 3),
     ],
 
+    // Battle report moderation: a line goes to this Discord webhook when a report needs a moderator (falls back to the bot alert webhook).
+    'battle_reports' => [
+        'alert_webhook' => env('BATTLE_REPORT_ALERT_WEBHOOK'),
+    ],
+
     // Headless-Chrome (Browsershot) binary overrides for PDF rendering. Leave
     // null to use Browsershot's auto-detection; set on servers where node /
     // chrome live at non-standard paths.

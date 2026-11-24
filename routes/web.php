@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BattleReportController;
 use App\Http\Controllers\BonanzaLootDeckController;
 use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\CollectionController;
@@ -429,6 +430,23 @@ Route::get('/games/{game:uuid}/summary', [GameController::class, 'summary'])->na
 
 // Game join — outside auth so we can show a login prompt with return URL
 Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('games.join')->middleware('tracked.game');
+
+// Battle reports: public to read once the writer publishes; writing needs an account. /create and /image come before {report}.
+Route::get('/battle-reports', [BattleReportController::class, 'index'])->name('battle-reports.index');
+Route::middleware('auth')->prefix('battle-reports')->name('battle-reports.')->group(function () {
+    Route::get('/create', [BattleReportController::class, 'create'])->name('create');
+    Route::post('/', [BattleReportController::class, 'store'])->name('store')->middleware('throttle:30,60');
+    Route::post('/image', [BattleReportController::class, 'uploadImage'])->name('image')->middleware('throttle:30,60');
+    Route::get('/{report:uuid}/edit', [BattleReportController::class, 'edit'])->name('edit');
+    Route::put('/{report:uuid}', [BattleReportController::class, 'update'])->name('update')->middleware('throttle:30,60');
+    Route::delete('/{report:uuid}', [BattleReportController::class, 'destroy'])->name('destroy');
+    Route::post('/{report:uuid}/appeal', [BattleReportController::class, 'appeal'])->name('appeal')->middleware('throttle:10,60');
+    Route::post('/{report:uuid}/comments', [BattleReportController::class, 'comment'])->name('comment')->middleware('throttle:10,60');
+    Route::post('/{report:uuid}/react', [BattleReportController::class, 'react'])->name('react')->middleware('throttle:60,60');
+    Route::delete('/{report:uuid}/comments/{comment}', [BattleReportController::class, 'deleteComment'])->name('comment.destroy')->middleware('throttle:60,60');
+    Route::post('/{report:uuid}/flag', [BattleReportController::class, 'flag'])->name('flag')->middleware('throttle:20,60');
+});
+Route::get('/battle-reports/{report:uuid}', [BattleReportController::class, 'show'])->name('battle-reports.show');
 
 // Stats (public view, auth shortcut)
 Route::get('/my-stats', [StatsController::class, 'myStats'])->name('stats.my')->middleware('auth');

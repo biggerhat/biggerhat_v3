@@ -1,4 +1,4 @@
-import { Award, Bell, CalendarCheck, Flag, Swords, Timer, Trophy, UserCheck, UserPlus, Users, type LucideIcon } from 'lucide-vue-next';
+import { Award, Bell, CalendarCheck, Flag, ScrollText, Swords, Timer, Trophy, UserCheck, UserPlus, Users, type LucideIcon } from 'lucide-vue-next';
 
 /** Icon shown next to a notification, keyed by the `type` each Notification class stores. */
 const ICONS: Record<string, LucideIcon> = {
@@ -13,6 +13,11 @@ const ICONS: Record<string, LucideIcon> = {
     campaign_invitation_received: CalendarCheck,
     campaign_game_started: Swords,
     custom_card_moderated: Award,
+    battle_report_approval_requested: ScrollText,
+    battle_report_moderated: ScrollText,
+    battle_report_flagged: ScrollText,
+    battle_report_appealed: ScrollText,
+    battle_report_commented: ScrollText,
 };
 
 export function notificationIcon(type: string): LucideIcon {

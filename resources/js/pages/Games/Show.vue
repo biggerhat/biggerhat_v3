@@ -325,6 +325,8 @@ const props = defineProps<{
     /** Summary view only — the viewing user's own Aftermath recap for this
      *  completed Campaign game (null for an opponent, spectator, or a game
      *  with no logged Aftermath yet). See AftermathCatalog::recapPayload(). */
+    /** On a finished game's summary, for a player in it: their battle report about it, or the way to start one. */
+    battle_report?: { uuid: string | null; game_uuid: string } | null;
     campaign_aftermath_recap?: {
         aftermath_id: number;
         crew_name: string;
@@ -3013,6 +3015,27 @@ const observerSetupLabel = computed(() => {
                         </template>
                     </template>
                 </div>
+            </div>
+
+            <!-- Battle report: write up this game, or open the report already written. -->
+            <div
+                v-if="battle_report"
+                class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                data-testid="game-battle-report"
+            >
+                <span class="text-muted-foreground">{{
+                    battle_report.uuid ? 'You wrote a report about this game.' : 'Want to tell the story of this game?'
+                }}</span>
+                <Button as-child size="sm" variant="outline" class="max-sm:min-h-11">
+                    <Link
+                        :href="
+                            battle_report.uuid
+                                ? route('battle-reports.show', battle_report.uuid)
+                                : route('battle-reports.create', { game: battle_report.game_uuid })
+                        "
+                        >{{ battle_report.uuid ? 'Open the report' : 'Write a battle report' }}</Link
+                    >
+                </Button>
             </div>
 
             <!-- Campaign Aftermath recap — only for a completed/abandoned Campaign

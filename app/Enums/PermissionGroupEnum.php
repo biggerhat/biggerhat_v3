@@ -15,6 +15,7 @@ enum PermissionGroupEnum: string implements HasDefaultEnumMethods
     case Role = 'role';
     case Blog = 'blog';
     case News = 'news';
+    case BattleReport = 'battle_report';
     case Keyword = 'keyword';
     case Characteristic = 'characteristic';
     case Character = 'character';

@@ -7,6 +7,9 @@ $alice = $mk('Alice', 'alice@example.test');
 $bob = $mk('Bob', 'bob@example.test');
 $carol = $mk('Carol', 'carol@example.test');
 $dave = $mk('Dave', 'dave@example.test');
+// A moderator: may approve battle reports (the only admin permission they hold).
+\Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'approve_battle_reports']);
+$mk('Mona Moderator', 'mod@example.test')->givePermissionTo('approve_battle_reports');
 
 // A master with a title, so score entry has leaders to pick (the picker lists masters of the player's faction).
 \App\Models\Token::factory()->create(['name' => 'Focus']);

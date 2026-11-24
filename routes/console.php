@@ -18,3 +18,4 @@ Schedule::command('queue:prune-batches', ['--hours' => 48])->daily();
 Schedule::command('notifications:prune')->daily();
 // Two-player games that never got an opponent.
 Schedule::command('games:prune-stale-lobbies')->daily();
+Schedule::command('battle-reports:prune-images')->daily();

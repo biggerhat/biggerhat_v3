@@ -50,6 +50,8 @@ const props = defineProps<{
         notes: string | null;
     }[];
     crews: { slot: number | null; name: string; station: string | null; cost: number | null; killed: boolean }[];
+    /** The viewer's own battle report about this game (its id), or the way to start one. Null when the viewer was not a player. */
+    battle_report: { uuid: string | null; game_uuid: string } | null;
     can_edit: boolean;
     can_confirm: boolean;
     is_guest: boolean;
@@ -97,14 +99,26 @@ const declineLink = () => router.post(route('games.logged.decline', props.game.u
                 <span>· logged by {{ game.logged_by }}</span>
             </div>
         </template>
-        <template v-if="can_edit" #actions>
+        <template v-if="can_edit || battle_report" #actions>
             <div class="flex flex-wrap gap-2 px-2 pb-2 sm:pb-0">
-                <Button as-child size="sm" variant="outline" class="max-sm:min-h-11" data-testid="logged-edit">
-                    <Link :href="route('games.logged.edit', game.uuid)">Edit</Link>
+                <Button v-if="battle_report" as-child size="sm" variant="outline" class="max-sm:min-h-11" data-testid="logged-report">
+                    <Link
+                        :href="
+                            battle_report.uuid
+                                ? route('battle-reports.show', battle_report.uuid)
+                                : route('battle-reports.create', { game: battle_report.game_uuid })
+                        "
+                        >{{ battle_report.uuid ? 'Battle report' : 'Write a battle report' }}</Link
+                    >
                 </Button>
-                <Button size="sm" variant="outline" class="text-destructive max-sm:min-h-11" data-testid="logged-delete" @click="remove"
-                    >Delete</Button
-                >
+                <template v-if="can_edit">
+                    <Button as-child size="sm" variant="outline" class="max-sm:min-h-11" data-testid="logged-edit">
+                        <Link :href="route('games.logged.edit', game.uuid)">Edit</Link>
+                    </Button>
+                    <Button size="sm" variant="outline" class="text-destructive max-sm:min-h-11" data-testid="logged-delete" @click="remove"
+                        >Delete</Button
+                    >
+                </template>
             </div>
         </template>
     </PageBanner>

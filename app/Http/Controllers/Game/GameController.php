@@ -18,6 +18,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\StoreGameRequest;
 use App\Http\Requests\Games\UpdateGameSettingsRequest;
 use App\Http\Requests\Games\UpdateScenarioRequest;
+use App\Models\BattleReport;
 use App\Models\Campaign\CampaignAftermath;
 use App\Models\Campaign\CampaignArsenalModel;
 use App\Models\Campaign\CampaignArsenalModelInjury;
@@ -65,8 +66,10 @@ class GameController extends Controller
     public function index(): Response|ResponseFactory
     {
         $userId = Auth::id();
+        $reports = BattleReport::where('user_id', $userId)->whereNotNull('game_id')->pluck('uuid', 'game_id');
 
         return inertia('Games/Index', [
+            'battle_reports' => $reports->all(),
             'active_games' => Game::forUser($userId)->active()
                 ->with(['players.user:id,name', 'strategy:id,name'])
                 ->latest()
@@ -645,6 +648,7 @@ class GameController extends Controller
         // narrative), same ownership check as CampaignAftermathController.
         if ($context === GameShowContext::Summary) {
             $props['campaign_aftermath_recap'] = fn () => $this->buildCampaignAftermathRecapProp($game);
+            $props['battle_report'] = fn () => $this->battleReportFor($game);
         }
 
         // A participant in a live two-player game must not be able to read the other side's hidden schemes out of the page
@@ -1419,6 +1423,17 @@ class GameController extends Controller
             title: $players !== '' ? $players : ($game->name ?? 'Game'),
             description: $description,
         );
+    }
+
+    /** For a player in a finished game: their battle report about it (its id), or whether they can start one. Null for everyone else. */
+    private function battleReportFor(Game $game): ?array
+    {
+        $userId = Auth::id();
+        if ($userId === null || $game->status !== GameStatusEnum::Completed || ! $game->players->contains('user_id', $userId)) {
+            return null;
+        }
+
+        return ['uuid' => BattleReport::where('user_id', $userId)->where('game_id', $game->id)->value('uuid'), 'game_uuid' => $game->uuid];
     }
 
     public function summary(Game $game): Response|ResponseFactory

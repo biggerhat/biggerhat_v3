@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\FactionEnum;
 use App\Enums\TournamentStatusEnum;
+use App\Models\BattleReport;
 use App\Models\BlogPost;
 use App\Models\Blueprint;
 use App\Models\Channel;
@@ -65,6 +66,7 @@ class SitemapController extends Controller
                 ['url' => route('tools.compare'), 'priority' => '0.5', 'changefreq' => 'monthly'],
                 ['url' => route('tools.scenario_generator'), 'priority' => '0.5', 'changefreq' => 'monthly'],
                 ['url' => route('tools.crew_builder.index'), 'priority' => '0.6', 'changefreq' => 'weekly'],
+                ['url' => route('battle-reports.index'), 'priority' => '0.4', 'changefreq' => 'daily'],
                 ['url' => route('roadmap'), 'priority' => '0.3', 'changefreq' => 'monthly'],
                 ['url' => route('privacy'), 'priority' => '0.2', 'changefreq' => 'yearly'],
             ] as $row) {
@@ -133,6 +135,22 @@ class SitemapController extends Controller
                             'url' => route('blog.view', $post->slug),
                             'lastmod' => $this->lastmod($post),
                             'priority' => '0.7',
+                            'changefreq' => 'monthly',
+                        ]);
+                    }
+                });
+
+            // Battle reports a moderator approved (private, waiting and turned-down ones are never listed).
+            BattleReport::query()
+                ->public()
+                ->orderByDesc('published_at')
+                ->chunk(500, function ($reports) use ($urls) {
+                    foreach ($reports as $report) {
+                        /** @var BattleReport $report */
+                        $urls->push([
+                            'url' => route('battle-reports.show', $report),
+                            'lastmod' => $this->lastmod($report),
+                            'priority' => '0.5',
                             'changefreq' => 'monthly',
                         ]);
                     }

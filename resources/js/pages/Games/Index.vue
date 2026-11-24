@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CARD_HOVER, CARD_HOVER_GROUP } from '@/lib/cardHover';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, ChevronRight, ClipboardList, Eye, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
+import { BarChart3, ChevronRight, ClipboardList, Eye, PenLine, Plus, Swords, Trash2, Trophy } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface GamePlayer {
@@ -48,6 +48,8 @@ defineProps<{
     active_games: Game[];
     recent_games: Game[];
     observable_games: Game[];
+    /** Your battle reports, by the id of the game each is about. */
+    battle_reports?: Record<number, string>;
 }>();
 
 const page = usePage<SharedData>();
@@ -250,6 +252,19 @@ const formatDate = (dateStr: string) => {
                             <Badge :class="['shrink-0 border-0 text-2xs', statusColor(game.status)]" variant="outline">
                                 {{ statusLabel(game.status, game.is_solo) }}
                             </Badge>
+                        </Link>
+                        <Link
+                            :href="
+                                battle_reports?.[game.id]
+                                    ? route('battle-reports.edit', battle_reports[game.id])
+                                    : route('battle-reports.create', { game: game.uuid })
+                            "
+                            class="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            :aria-label="battle_reports?.[game.id] ? 'Edit battle report' : 'Write a battle report'"
+                            :title="battle_reports?.[game.id] ? 'Edit battle report' : 'Write a battle report'"
+                            data-testid="game-report"
+                        >
+                            <PenLine class="size-4" />
                         </Link>
                         <button
                             v-if="game.origin !== 'logged' || game.creator_id === meId"

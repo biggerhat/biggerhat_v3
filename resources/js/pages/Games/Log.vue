@@ -384,6 +384,21 @@ const resultOptions = [
         <Card>
             <CardContent class="space-y-4 p-4">
                 <h2 class="font-semibold">The game</h2>
+                <div class="space-y-1.5">
+                    <Label for="log-name">Name this game (optional)</Label>
+                    <Input
+                        id="log-name"
+                        v-model="form.name"
+                        type="text"
+                        maxlength="255"
+                        placeholder="League round 3"
+                        autocomplete="off"
+                        data-testid="log-name"
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        Just for you: it is what the game is called in your lists. Left empty, it is shown as the two players.
+                    </p>
+                </div>
                 <div class="grid gap-3 sm:grid-cols-3">
                     <div class="space-y-1.5">
                         <Label for="log-date">Day played</Label>
@@ -826,11 +841,7 @@ const resultOptions = [
                     >
                 </button>
                 <div v-show="open.extras" class="space-y-3">
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="space-y-1.5">
-                            <Label for="log-name">Name for the game</Label>
-                            <Input id="log-name" v-model="form.name" type="text" maxlength="255" placeholder="League round 3" />
-                        </div>
+                    <div class="grid gap-3">
                         <div class="space-y-1.5">
                             <Label for="log-venue">Event or venue</Label>
                             <Input

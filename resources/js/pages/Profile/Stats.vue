@@ -7,7 +7,7 @@ import TournamentHistoryCard from '@/components/Tournament/TournamentHistoryCard
 import type { TournamentHistory } from '@/types/tournament';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Head, Link } from '@inertiajs/vue3';
 import { BarChart3, Copy, Crown, Hammer, Medal, Package, Paintbrush, Share2, Shield, Swords, TrendingUp, Trophy } from 'lucide-vue-next';
 import { ref } from 'vue';
@@ -97,6 +97,7 @@ defineProps<{
     logged_games: number;
     /** Games someone logged against this player, waiting for them to say it was them. */
     awaiting_confirmation: { uuid: string; by: string; date: string | null }[];
+    battle_reports: { uuid: string; title: string; excerpt: string; date: string | null }[];
 }>();
 
 const badgeIcon = (icon: string) => {
@@ -259,6 +260,24 @@ const winRateColor = (rate: number) => {
             </Card>
 
             <TournamentHistoryCard v-if="tournament_history" :history="tournament_history" />
+
+            <Card v-if="battle_reports.length" data-testid="profile-battle-reports">
+                <CardHeader>
+                    <CardTitle class="flex items-center justify-between gap-2 text-lg">
+                        Battle reports
+                        <Link :href="route('battle-reports.index')" class="text-sm font-normal underline">All reports</Link>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ul class="space-y-3">
+                        <li v-for="r in battle_reports" :key="r.uuid">
+                            <Link :href="route('battle-reports.show', r.uuid)" class="font-medium hover:underline">{{ r.title }}</Link>
+                            <span v-if="r.date" class="ml-2 text-xs text-muted-foreground">{{ r.date }}</span>
+                            <p v-if="r.excerpt" class="text-sm text-muted-foreground">{{ r.excerpt }}</p>
+                        </li>
+                    </ul>
+                </CardContent>
+            </Card>
 
             <!-- No games -->
             <EmptyState

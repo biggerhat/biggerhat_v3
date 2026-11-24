@@ -232,7 +232,7 @@ const gameTracker: HelpTopic = {
             items: [
                 {
                     title: 'The quick log',
-                    body: 'The top of the page is all you need: the Day played, the Format and Encounter size, Who won? (I won, I lost or A tie), and for you and your opponent the Faction, Master and Victory points. The opponent is a name you type. Log game stays off until the result, both factions and both point totals are in. The master box searches the models as you type; if yours is not listed, what you typed is kept.',
+                    body: 'The top of the page is all you need: a name for the game if you want one (Name this game, just for you), the Day played, the Format and Encounter size, Who won? (I won, I lost or A tie), and for you and your opponent the Faction, Master and Victory points. The opponent is a name you type. Log game stays off until the result, both factions and both point totals are in. The master box searches the models as you type; if yours is not listed, what you typed is kept.',
                 },
                 {
                     title: 'The same details the tracker keeps',
@@ -248,7 +248,7 @@ const gameTracker: HelpTopic = {
                 },
                 {
                     title: 'Changing or deleting it',
-                    body: 'Open the game from your games list (it has a Logged label) and press Edit to change anything, or Delete to remove it from your stats. Only the person who logged it can do either. A logged game has no play screen or table, because the game was already played.',
+                    body: 'The name you give a game is what it is called in your lists; left empty, it is shown as the two players. Open the game from your games list (it has a Logged label) and press Edit to change anything, or Delete to remove it from your stats. Only the person who logged it can do either. A logged game has no play screen or table, because the game was already played.',
                 },
             ],
         },
@@ -272,6 +272,33 @@ const gameTracker: HelpTopic = {
                 {
                     title: 'Reading the numbers',
                     body: 'A win rate counts a tie as not a win, and shows only once there are 5 games behind it; below that you see a dash and the record. Hover a win rate to see the range it likely sits in. Turn by turn, Schemes and Models use only the games that recorded turns, schemes or a crew, and say how many that was. Another player looking at your page sees your tracker games and tournament rounds, and the logged games you made public.',
+                },
+            ],
+        },
+        {
+            id: 'reports',
+            title: 'Battle reports',
+            intro: 'Write up a game in the same editor the articles use: the story, the turning point, photos of the table. A report can be about a game from the tracker or one you logged, or stand on its own.',
+            items: [
+                {
+                    title: 'Starting a report',
+                    body: 'On a finished game, press Write a battle report: it is on the game summary and on a logged game, and the pen beside each game in your list does the same. Battle reports in the footer opens the list, where Write a report starts one with no game. Pick the game under The game it is about (your finished games, from the tracker or logged by hand, and rounds you played in finished tournaments that were not tracked), give it a Title, and write. A game has one report from you; it shows as Edit in your list once written.',
+                },
+                {
+                    title: 'The editor',
+                    body: 'Headings, bold, italic, underline, strike, highlight, lists, quotes, links, tables, alignment and the game symbols work as in articles, and the image button adds a photo (up to 5 MB). Links to other pages and the card embeds the articles have are left out of reports. Press Save report when you are done: you come back to the report, and Edit changes it.',
+                },
+                {
+                    title: 'Who can read it',
+                    body: 'A report starts private: only you can open it. Turn on Ask to make this report public and a moderator reads it first; it shows as Waiting for a moderator and you are told when they decide. Once approved it is listed on the Battle reports page and anyone with the link can read it. If it is not approved you see the reason on the report, and it stays yours: change it and save to ask again. Fixing typos or adding a few words keeps an approved report public; a new image or link, a new title or game, or a lot of new text sends it back to a moderator, and it is hidden until they approve it again, so what is public is what they read. If a moderator did not approve it, Ask for a second look on the report sends it back to them once with your reason. Once a moderator has approved three of your reports and turned none down, your reports go public as soon as you ask. If a public report by someone else should not be there, press Report this under it and say why. Turn the switch off at any time to take it back to private. Public reports are also listed on the stats page of the person who wrote them. If you delete the game, the report stays.',
+                },
+                {
+                    title: 'The crew list and comments',
+                    body: "Under The crew you played, pick one of your crew lists from the Crew Builder: readers see its master and models, not the crew's name or notes, and it follows the list if you change it. Once a report is public, signed-in readers can leave a comment and press Nice report. Let readers comment turns comments off; you can remove any comment under your report, and so can the moderators.",
+                },
+                {
+                    title: 'The scoreboard',
+                    body: "Above your text a report shows the players, factions, masters and points of the game it is about. Turn off Show the game's scoreboard above the report to show only your text. It needs a game picked.",
                 },
             ],
         },

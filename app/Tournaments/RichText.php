@@ -15,6 +15,9 @@ class RichText
     /** Where organizer-uploaded tournament images live (a path prefix on the public disk). */
     public const IMAGE_PREFIX = '/storage/tournaments/';
 
+    /** Where players' battle report images live. */
+    public const REPORT_IMAGE_PREFIX = '/storage/battle-reports/';
+
     public const MAX_DEPTH = 8;
 
     private const BLOCKS = ['paragraph', 'heading', 'bulletList', 'orderedList', 'listItem', 'blockquote', 'codeBlock', 'horizontalRule', 'image', 'table', 'tableRow', 'tableCell', 'tableHeader'];
@@ -189,9 +192,61 @@ class RichText
 
     public static function isOwnImage(string $src): bool
     {
-        return str_starts_with($src, self::IMAGE_PREFIX)
-            && ! str_contains($src, '..')
-            && preg_match('#^/storage/tournaments/[A-Za-z0-9/_\-.]+\.(?:jpe?g|png|gif|webp)$#i', $src) === 1;
+        return ! str_contains($src, '..')
+            && preg_match('#^/storage/(?:tournaments|battle-reports)/[A-Za-z0-9/_\-.]+\.(?:jpe?g|png|gif|webp)$#i', $src) === 1;
+    }
+
+    /**
+     * The words of a document as one line of plain text (search results, page descriptions).
+     *
+     * @param  array<string, mixed>|null  $doc
+     */
+    public static function plainText(?array $doc): string
+    {
+        $collect = function (mixed $node) use (&$collect): string {
+            if (! is_array($node)) {
+                return '';
+            }
+            if (is_string($node['text'] ?? null)) {
+                return $node['text'];
+            }
+
+            return implode(' ', array_map($collect, (array) ($node['content'] ?? [])));
+        };
+
+        return trim((string) preg_replace('/\s+/', ' ', $collect($doc)));
+    }
+
+    /**
+     * Every image source and link address in a document, sorted and without repeats: what a moderator checks besides the words.
+     *
+     * @param  array<string, mixed>|null  $doc
+     * @return list<string>
+     */
+    public static function media(?array $doc): array
+    {
+        $found = [];
+        $walk = function (mixed $node) use (&$walk, &$found): void {
+            if (! is_array($node)) {
+                return;
+            }
+            if (($node['type'] ?? null) === 'image' && is_string($node['attrs']['src'] ?? null)) {
+                $found[] = $node['attrs']['src'];
+            }
+            foreach ((array) ($node['marks'] ?? []) as $mark) {
+                if (is_array($mark) && ($mark['type'] ?? null) === 'link' && is_string($mark['attrs']['href'] ?? null)) {
+                    $found[] = $mark['attrs']['href'];
+                }
+            }
+            foreach ((array) ($node['content'] ?? []) as $child) {
+                $walk($child);
+            }
+        };
+        $walk($doc);
+        $found = array_values(array_unique($found));
+        sort($found);
+
+        return $found;
     }
 
     /** @param  list<array<string, mixed>>  $nodes */

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ActivityAdminController;
 use App\Http\Controllers\Admin\AdminSearchController;
 use App\Http\Controllers\Admin\AnnouncementsAdminController;
 use App\Http\Controllers\Admin\ApiTokensAdminController;
+use App\Http\Controllers\Admin\BattleReportAdminController;
 use App\Http\Controllers\Admin\BlogCategoryAdminController;
 use App\Http\Controllers\Admin\BlogPostAdminController;
 use App\Http\Controllers\Admin\BlueprintAdminController;
@@ -76,6 +77,14 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
     Route::get('/', [DashboardAdminController::class, 'index'])->name('dashboard');
     // Per-type permissions are enforced inside the controller (see AdminSearchController).
     Route::get('/search', AdminSearchController::class)->name('search');
+    // Battle report approval: a permission rather than the super_admin role (super admins pass it too).
+    Route::controller(BattleReportAdminController::class)->prefix('battle-reports')->name('battle_reports.')->middleware('role_or_permission:super_admin|approve_battle_reports')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/{report:uuid}/approve', 'approve')->name('approve')->middleware('throttle:60,1');
+        Route::post('/{report:uuid}/reject', 'reject')->name('reject')->middleware('throttle:60,1');
+        Route::post('/{report:uuid}/dismiss-flags', 'dismissFlags')->name('dismiss_flags')->middleware('throttle:60,1');
+    });
+
     Route::post('/refresh-analytics', [DashboardAdminController::class, 'refreshAnalytics'])->name('refresh_analytics')->middleware('role:super_admin');
 
     // Super-admin-only diagnostics + tooling.

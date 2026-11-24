@@ -43,6 +43,10 @@ enum PermissionEnum: string implements HasDefaultEnumMethods
     #[PermissionGroup(PermissionGroupEnum::News)]
     case ManageNews = 'manage_news';
 
+    /** Read battle reports that writers ask to make public, and approve or turn them down. */
+    #[PermissionGroup(PermissionGroupEnum::BattleReport)]
+    case ApproveBattleReports = 'approve_battle_reports';
+
     #[PermissionGroup(PermissionGroupEnum::Keyword)]
     case ViewKeyword = 'view_keyword';
     #[PermissionGroup(PermissionGroupEnum::Keyword)]

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BattleReport;
 use App\Models\CrewBuild;
 use App\Models\Game;
 use App\Models\GamePlayer;
@@ -17,6 +18,18 @@ use Inertia\Response;
 class StatsController extends Controller
 {
     public function __construct(private readonly AchievementService $achievements, private readonly TournamentHistory $tournamentHistory, private readonly PlayedGames $played) {}
+
+    /**
+     * The person's public battle reports, newest first (a handful; the full list is on the Battle reports page).
+     *
+     * @return list<array{uuid: string, title: string, excerpt: string, date: string|null}>
+     */
+    private function battleReports(User $user): array
+    {
+        return BattleReport::public()->where('user_id', $user->id)->latest('published_at')->limit(6)->get()
+            ->map(fn (BattleReport $r) => ['uuid' => $r->uuid, 'title' => $r->title, 'excerpt' => $r->excerpt(140), 'date' => $r->published_at?->toDateString()])
+            ->all();
+    }
 
     public function myStats(): \Illuminate\Http\RedirectResponse
     {
@@ -49,6 +62,7 @@ class StatsController extends Controller
                 'with_solo' => $withSolo,
                 'logged_games' => $loggedCount,
                 'awaiting_confirmation' => $awaiting,
+                'battle_reports' => $this->battleReports($user),
             ]);
         }
 
@@ -190,6 +204,7 @@ class StatsController extends Controller
             'with_solo' => $withSolo,
             'logged_games' => $loggedCount,
             'awaiting_confirmation' => $awaiting,
+            'battle_reports' => $this->battleReports($user),
         ]);
     }
 

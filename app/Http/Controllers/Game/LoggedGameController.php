@@ -12,6 +12,7 @@ use App\Enums\PoolSeasonEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Games\Logged\StoreLoggedGameRequest;
 use App\Http\Requests\Games\Logged\UpdateLoggedGameRequest;
+use App\Models\BattleReport;
 use App\Models\Character;
 use App\Models\CrewBuild;
 use App\Models\Game;
@@ -143,6 +144,9 @@ class LoggedGameController extends Controller
                 'cost' => $m->cost,
                 'killed' => (bool) $m->is_killed,
             ])->values(),
+            'battle_report' => $viewer !== null && $game->players->contains('user_id', $viewer->id)
+                ? ['uuid' => BattleReport::where('user_id', $viewer->id)->where('game_id', $game->id)->value('uuid'), 'game_uuid' => $game->uuid]
+                : null,
             'can_edit' => $isOwner,
             'can_confirm' => $invited && $them->link_status === 'pending',
             'is_guest' => $viewer === null,

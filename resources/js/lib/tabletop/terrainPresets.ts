@@ -105,6 +105,7 @@ const RAW_PRESETS: TerrainPreset[] = [
     },
     {
         key: 'stairs',
+        kind: 'tower',
         label: 'Stairs (steps Ht 1 to 3, free to climb)',
         // three steps, each a level inside the one below; the trait says a model goes up or down it without climbing or falling
         make: (id, x, y) =>
@@ -121,6 +122,7 @@ const RAW_PRESETS: TerrainPreset[] = [
     },
     {
         key: 'ramp',
+        kind: 'block',
         label: 'Ramp (Ht 1, free to climb)',
         make: (id, x, y) => piece(id, 'Ramp', ['ramp'], [{ id: `${id}-1`, shape: rect(x - 2, y - 1, 4, 2), top: 1 }]),
     },

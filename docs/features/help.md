@@ -11,6 +11,7 @@ option, a renamed label, a removed feature, a changed shortcut, or a flow that w
 |---|---|---|
 | Crew Builder | `resources/js/lib/help/topics/crewBuilder.ts` | `/help/crew-builder` |
 | Game Tracker | `resources/js/lib/help/topics/gameTracker.ts` | `/help/game-tracker` |
+| Collection (Malifaux) | `resources/js/lib/help/topics/collection.ts` | `/help/collection` |
 | Tabletop (sandbox and a game's board) | `resources/js/lib/help/topics/tabletop.ts` | `/help/tabletop` (behind the tabletop flag) |
 
 Use the names that are on the screen (the button says "Submit Turn", so the help says "Submit Turn"). If you are unsure how something

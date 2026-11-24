@@ -8,19 +8,19 @@ use Laravel\Pennant\Feature;
 it('lists the help topics a visitor may open, without the pre-release ones', function () {
     $this->get(route('help.index'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Help/Index')->where('topics', ['crew-builder', 'game-tracker']));
+        ->assertInertia(fn (Assert $page) => $page->component('Help/Index')->where('topics', ['crew-builder', 'game-tracker', 'collection']));
 });
 
 it('adds the tabletop topic once the tabletop is open to the viewer', function () {
     Feature::for(null)->activate('experiment-tabletop');
 
     $this->get(route('help.index'))
-        ->assertInertia(fn (Assert $page) => $page->where('topics', ['crew-builder', 'game-tracker', 'tabletop']));
+        ->assertInertia(fn (Assert $page) => $page->where('topics', ['crew-builder', 'game-tracker', 'collection', 'tabletop']));
 });
 
 it('shows a topic page for each public topic', function (string $slug) {
     $this->get(route('help.show', $slug))->assertOk()->assertInertia(fn (Assert $page) => $page->component('Help/Show')->where('slug', $slug));
-})->with(['crew-builder', 'game-tracker']);
+})->with(['crew-builder', 'game-tracker', 'collection']);
 
 it('hides the tabletop help (404) until the tabletop is open, as the tabletop is', function () {
     $this->get(route('help.show', 'tabletop'))->assertNotFound();

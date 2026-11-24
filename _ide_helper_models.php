@@ -4353,5 +4353,32 @@ namespace App\Models{
  */
 	#[\AllowDynamicProperties]
 	class IdeHelperWishlistItem {}
+
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property int $miniature_id
+ * @property \App\Enums\ModelStageEnum $stage
+ * @property string|null $note
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Miniature $miniature
+ * @property-read \App\Models\User $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel whereMiniatureId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel whereNote($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel whereStage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CollectionModel whereUserId($value)
+ * @mixin \Eloquent
+ */
+	#[\AllowDynamicProperties]
+	class IdeHelperCollectionModel {}
 }
 

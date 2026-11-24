@@ -433,6 +433,8 @@ Route::get('/games/{game:uuid}/join', [GameController::class, 'join'])->name('ga
 // Stats (public view, auth shortcut)
 Route::get('/my-stats', [StatsController::class, 'myStats'])->name('stats.my')->middleware('auth');
 Route::get('/stats/{user:slug}', [StatsController::class, 'show'])->name('stats.show');
+Route::get('/stats/{user:slug}/analytics', [\App\Http\Controllers\GameAnalyticsController::class, 'show'])->name('stats.analytics');
+Route::get('/stats/{user:slug}/analytics.csv', [\App\Http\Controllers\GameAnalyticsController::class, 'csv'])->name('stats.analytics_csv')->middleware('throttle:30,60');
 
 // Games played elsewhere and entered by hand. Registered before the tracker's {game} routes so /games/log is not read as a game.
 // A logged game's summary is public when its owner made it so; the rest needs an account.

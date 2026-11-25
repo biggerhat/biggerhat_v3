@@ -76,7 +76,7 @@ The real-browser pass over the site (`scripts/ui-audit/tournaments`, `docs/ui-au
 
 ## Dependencies
 
-`.github/dependabot.yml`: weekly Composer and npm updates (minor and patch grouped into one PR each) and monthly GitHub Actions updates. Security fixes arrive separately.
+`.github/dependabot.yml`: weekly Composer and npm updates (minor and patch grouped into one PR each) and monthly GitHub Actions updates. Security fixes arrive separately. Major versions of packages that must move together (eslint and its plugins, Node types, the Inertia server and client) are ignored, so they never arrive as a PR that is red by construction; upgrade those on purpose, in one PR.
 
 ## Pull request template
 

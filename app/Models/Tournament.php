@@ -19,7 +19,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 /**
@@ -106,7 +105,8 @@ class Tournament extends Model
      */
     public function tiebreakerKeys(): array
     {
-        $override = Arr::get((array) ($this->scoring_config ?? []), 'tiebreakers');
+        $config = $this->scoring_config;
+        $override = is_array($config) ? ($config['tiebreakers'] ?? null) : null;
         if (is_array($override) && $override !== []) {
             return self::sanitizeTiebreakers($override);
         }

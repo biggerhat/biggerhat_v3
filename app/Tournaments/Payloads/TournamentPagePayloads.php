@@ -307,7 +307,7 @@ class TournamentPagePayloads
                 ];
             }
 
-            return $grouped; // @phpstan-ignore return.type
+            return $grouped;
         }, 'masters');
     }
 

@@ -41,7 +41,6 @@ class CharacterCrewBuilderResource extends JsonResource
                 'slug' => $k->slug,
             ])),
             'characteristics' => $this->whenLoaded('characteristics', fn () => $this->characteristics->pluck('name')->map(fn ($name) => strtolower($name))),
-            /** @phpstan-ignore-next-line */
             'crew_upgrades' => $this->whenLoaded('crewUpgrades', fn () => $this->crewUpgrades->map(fn ($u) => [
                 'id' => $u->id,
                 'name' => $u->name,
@@ -70,7 +69,6 @@ class CharacterCrewBuilderResource extends JsonResource
                 return $suits;
             }),
             'totem_slug' => $this->when($this->relationLoaded('totem'), fn () => $this->totem?->slug),
-            /** @phpstan-ignore-next-line */
             'miniatures' => $this->whenLoaded('miniatures', fn () => $this->miniatures->map(fn ($m) => [
                 'id' => $m->id,
                 'name' => $m->name,

@@ -130,7 +130,7 @@ class WishlistController extends Controller
         $validated = $request->validated();
 
         $keyword = Keyword::standard()->with(['characters' => function ($q) {
-            $q->standard()->where('is_hidden', false)
+            $q->standard()->where('is_hidden', false) // @phpstan-ignore method.notFound
                 ->with('packages');
         }])->findOrFail($validated['keyword_id']);
 
@@ -171,7 +171,7 @@ class WishlistController extends Controller
     {
         /** @var \Illuminate\Database\Eloquent\Collection<int, WishlistItem> $items */
         $items = $wishlist->items()->with(['wishlistable' => function ($morphTo) {
-            $morphTo->morphWith([
+            $morphTo->morphWith([ // @phpstan-ignore method.notFound
                 Character::class => ['standardMiniatures'],
                 Miniature::class => ['character'],
                 Unit::class => ['sculpts', 'allegiances'],

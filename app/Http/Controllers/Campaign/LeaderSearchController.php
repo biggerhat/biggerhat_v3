@@ -107,7 +107,7 @@ class LeaderSearchController extends Controller
             'id' => $a->id,
             'name' => $a->name,
             'type' => $a->type,
-            'is_signature' => (bool) ($a->characters->first()?->pivot->is_signature_action ?? false),
+            'is_signature' => (bool) (data_get($a->characters->first(), 'pivot.is_signature_action') ?? false),
             'stone_cost' => $a->stone_cost ?? 0,
             'range' => $a->range,
             'range_type' => $a->range_type,

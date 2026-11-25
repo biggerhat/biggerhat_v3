@@ -411,8 +411,9 @@ const pileOpen = computed({
                             }}
                         </p>
                         <p v-if="f.chosen" class="text-xs" data-testid="fate-result">
-                            Result <span class="font-semibold">{{ cardLabel(f.chosen.card) }}</span
-                            ><span v-if="f.chosen.joker_suit"> as {{ f.chosen.joker_suit }}</span>
+                            Result <span class="font-semibold">{{ cardLabel(f.chosen.card) }}</span><span v-if="f.chosen.joker_suit">
+                                as {{ f.chosen.joker_suit }}</span
+                            >
                             <span v-if="f.cheaters.length" class="text-muted-foreground">
                                 · passed or cheated: {{ f.cheaters.map(nameOf).join(', ') }}</span
                             >
@@ -786,8 +787,9 @@ const pileOpen = computed({
                         />
                     </div>
                     <p v-if="f.chosen" class="text-xs" data-testid="fate-result">
-                        Result <span class="font-semibold">{{ cardLabel(f.chosen.card) }}</span
-                        ><span v-if="f.chosen.joker_suit"> as {{ f.chosen.joker_suit }}</span>
+                        Result <span class="font-semibold">{{ cardLabel(f.chosen.card) }}</span><span v-if="f.chosen.joker_suit">
+                            as {{ f.chosen.joker_suit }}</span
+                        >
                     </p>
                 </div>
             </section>

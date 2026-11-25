@@ -208,7 +208,7 @@ class SearchController extends Controller
             $allegianceCardCount = $allegianceCardResults->count();
         } else {
             $results = $query->orderBy($sort, $direction)->orderBy('name')->paginate($perPage)->withQueryString();
-            $results->setCollection($results->getCollection()->map(function ($u) { // @phpstan-ignore argument.type
+            $results->setCollection($results->getCollection()->map(function ($u) {
                 $row = $u->toArray();
                 $row['result_type'] = 'unit';
 

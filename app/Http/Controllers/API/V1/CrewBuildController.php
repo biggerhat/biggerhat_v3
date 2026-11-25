@@ -41,7 +41,7 @@ class CrewBuildController extends Controller
             'name' => $b->name,
             'share_code' => $b->share_code,
             'faction' => $b->getRawOriginal('faction'),
-            'master' => $b->master?->display_name, // @phpstan-ignore-line
+            'master' => $b->master?->display_name,
             'encounter_size' => $b->encounter_size,
             'model_count' => count($b->crew_data ?? []),
             'user' => $b->user?->name,

@@ -137,7 +137,7 @@ const L = require('./lib.cjs');
             await dragTo([24, 31.3], [12, 32]); // put it back
             await s.page.waitForFunction(() => !document.querySelector('[data-problem=true]'), { timeout: 5000 });
         });
-        await L.step(`tabletop (${label}): a stepped move adds its legs: 2 inches then 5 inches is 7`, s, async () => {
+        await L.step(`tabletop (${label}): a stepped move adds its legs, and stops at the Sp: 2 inches then 5 asked for is 2 then 3`, s, async () => {
             await openSandbox();
             await s.page.waitForSelector('[data-testid=tabletop-board] svg');
             await s.page.click('[data-testid=mode-move]');
@@ -149,17 +149,17 @@ const L = require('./lib.cjs');
             await s.page.click('[data-testid=step-toggle]');
             await s.page.waitForSelector('[data-testid=step-help]');
             await dragTo([18, 4], [18, 6]); // the master: 2" down
-            await dragTo([18, 6], [18, 11]); // then 5" more
+            await dragTo([18, 6], [18, 11]); // then 5" more asked for: only the 3" that are left
             await s.page.waitForSelector('[data-testid=move-trail-path]');
             const legs = await s.page.$$eval('[data-testid=move-trail-leg]', (e) => e.map((x) => x.textContent.trim()));
             if (legs.length !== 2) throw new Error(`expected two leg labels, saw ${legs}`);
             const total = await s.page.$eval('[data-testid=move-trail-label]', (e) => e.textContent.trim());
-            if (!/^7(\.\d)?" of 5"$/.test(total)) throw new Error(`the stepped total should be 7" of 5", saw ${total}`);
-            await L.expectText(s, /moved 7(\.\d)?" \(2(\.\d)?" \+ 5(\.\d)?"\)/);
-            await L.expectText(s, /more than a Walk \(Sp 5\)/i);
+            if (!/^5(\.0)?" of 5"$/.test(total)) throw new Error(`the stepped total should stop at 5" of 5", saw ${total}`);
+            await L.expectText(s, /moved 5(\.\d)?" \(2(\.\d)?" \+ 3(\.\d)?"\)/);
+            await L.expectText(s, /left of a Walk \(Sp 5\)/i);
             // without Step, a second drag starts a fresh measure (a script click: on a phone the sticky tab bar can sit over the button after a scroll)
             await s.page.$eval('[data-testid=step-toggle]', (b) => b.click());
-            await dragTo([18, 11], [18, 13]);
+            await dragTo([18, 9], [18, 11]); // the model stopped at y 9
             await L.expectText(s, /moved 2(\.\d)?"/);
             if ((await s.page.$$('[data-testid=move-trail-leg]')).length) throw new Error('a plain drag should not keep earlier legs');
             await hit('[data-testid=reset-table]');

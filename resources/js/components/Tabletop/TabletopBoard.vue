@@ -26,6 +26,7 @@ import {
     placeReach,
     walkBudget,
     heightCover,
+    terrainChips,
     dragShapeHandle,
     engagedSp,
     engagedWith,
@@ -589,8 +590,10 @@ const trail = ref<{
     inside: string | null;
     range: number;
     whole: boolean;
-    /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. */
-    path: { x: number; y: number; elev: number }[];
+    /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. `spent` is what the move had cost on reaching that point. */
+    path: { x: number; y: number; elev: number; spent?: number }[];
+    /** Whether the model began the move beneath a bridge (so Cancel can put it back as it was). */
+    startUnder?: boolean;
 } | null>(null);
 type MoveKind = 'walk' | 'charge' | 'jump' | 'fly' | 'place';
 /** Walking spends movement and is stopped by terrain; flying walks but ignores terrain's height; placing picks the model up and puts it down within a range (p.17). */
@@ -640,11 +643,15 @@ const trailLength = computed(() =>
 const trailLegLabels = computed(() => {
     const pts = trailPoints.value;
     if (pts.length < 3) return [];
-    return pts.slice(1).map((q, i) => ({
-        x: (q.x + pts[i].x) / 2,
-        y: (q.y + pts[i].y) / 2 - 0.35,
-        length: Math.hypot(q.x - pts[i].x, q.y - pts[i].y),
-    }));
+    // A leg under an inch is too short to label without the text piling up on the model; the total still counts it.
+    return pts
+        .slice(1)
+        .map((q, i) => ({
+            x: (q.x + pts[i].x) / 2,
+            y: (q.y + pts[i].y) / 2 - 0.35,
+            length: Math.hypot(q.x - pts[i].x, q.y - pts[i].y),
+        }))
+        .filter((l) => l.length >= 1);
 });
 /** Line of sight: press on a model and drag to another. Each model draws its own sight lines, so both directions are checked. */
 const sight = ref<{ fromId: string; toId: string | null; aim: Point | null } | null>(null);
@@ -1003,10 +1010,26 @@ const cardNotes = (payload: { notes: string | null }) => {
 const noUpgradePower = () => 0;
 /** The model whose row the pointer is on: a ring on its base, so a row can be found on the table. */
 const hoverId = ref<string | null>(null);
+/**
+ * Bring a row into view in the list it is in, by scrolling that list only. Scrolling the page (scrollIntoView does) moves the board
+ * under the player's hand every time a model is chosen; a list that does not scroll on its own is left alone.
+ */
+function scrollWithinList(row: Element | null) {
+    for (let box = row?.parentElement ?? null; row && box && box !== document.body; box = box.parentElement) {
+        const overflow = getComputedStyle(box).overflowY;
+        if ((overflow === 'auto' || overflow === 'scroll') && box.scrollHeight > box.clientHeight) {
+            const r = row.getBoundingClientRect();
+            const b = box.getBoundingClientRect();
+            if (r.top < b.top) box.scrollTop -= b.top - r.top;
+            else if (r.bottom > b.bottom) box.scrollTop += r.bottom - b.bottom;
+            return;
+        }
+    }
+}
 // on a wide screen the table stays put, so choosing a model on it brings its row into view in the list
 watch(selectedId, (id) => {
     if (!id || !crewRows.value.length || typeof window === 'undefined' || !window.matchMedia('(min-width: 1024px)').matches) return;
-    void nextTick(() => document.querySelector(`[data-testid="crew-${id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    void nextTick(() => scrollWithinList(document.querySelector(`[data-testid="crew-${id}"]`)));
 });
 
 // ----- a scheme's model or marker, picked on the board (the notes are private to their player) -----
@@ -1341,7 +1364,12 @@ let drag:
           centre?: Point;
           bearing?: number;
       }
-    | { kind: 'pan'; last: Point }
+    | {
+          kind: 'pan';
+          last: Point;
+          /** A press on bare table that lets go of the chosen model, unless it turns out to be a pan. */ tap?: boolean;
+          travel?: number;
+      }
     | { kind: 'ruler' }
     | { kind: 'sight' }
     | null = null;
@@ -1596,8 +1624,58 @@ function onTerrainKey(e: KeyboardEvent) {
         selectedPieceId.value = null;
     }
 }
+/** A leg of a move is being dragged: the ring then stays where the leg began, and once it is dropped the ring moves to where it ended. */
+const legActive = ref(false);
+/** The ring of what a Walk can still reach: out from the edge of the base, around where the model stands (or began the leg), and in a step move smaller by what is spent. */
+const walkRing = computed(() => {
+    const tr = trail.value;
+    if (!tr || tr.sp === undefined) return null;
+    const rim = baseRadius(tr.baseMm);
+    if (!stepMove.value) return { x: tr.from.x, y: tr.from.y, r: tr.sp + rim };
+    const at = legActive.value ? (tr.path.at(-1) ?? { ...tr.from, spent: 0 }) : { x: tr.to.x, y: tr.to.y, spent: trailCost.value?.cost.total ?? 0 };
+    return { x: at.x, y: at.y, r: Math.max(0, tr.sp - (at.spent ?? 0)) + rim };
+});
+/** Step move: put the model back where it began, and forget the move. */
+function cancelMove() {
+    const tr = trail.value;
+    if (!tr) return;
+    const t = tokens.value.find((x) => x.id === tr.id);
+    if (t && Math.hypot(t.x - tr.from.x, t.y - tr.from.y) >= 0.05) {
+        t.x = tr.from.x;
+        t.y = tr.from.y;
+        if (tr.startUnder) t.under = true;
+        else delete t.under;
+        emit('moved', { ...t });
+        note.value = `${t.name} is back where it began.`;
+    }
+    trail.value = null;
+}
+/** Step move: take back the last leg (the first leg's undo is the same as cancelling the move). */
+function undoStep() {
+    const tr = trail.value;
+    if (!tr) return;
+    if (tr.path.length < 2) return cancelMove();
+    const t = tokens.value.find((x) => x.id === tr.id);
+    const back = tr.path[tr.path.length - 1];
+    if (t) {
+        t.x = back.x;
+        t.y = back.y;
+        if (settleUnder(t, back.elev, terrain.value)) t.under = true;
+        else delete t.under;
+        emit('moved', { ...t });
+    }
+    trail.value = { ...tr, path: tr.path.slice(0, -1), to: { x: back.x, y: back.y } };
+    note.value = 'Last step taken back.';
+}
+/** The space bar is held: a drag moves the view, whatever mode the board is in. */
+let spaceHeld = false;
 function onKey(e: KeyboardEvent) {
     if (e.ctrlKey || e.metaKey) return;
+    if (e.key === ' ' && mode.value !== 'terrain') {
+        e.preventDefault();
+        spaceHeld = true;
+        return;
+    }
     if (e.key === '?') {
         e.preventDefault();
         return openHelp('shortcuts');
@@ -1621,6 +1699,11 @@ function onKey(e: KeyboardEvent) {
             e.preventDefault();
             endGuide();
         }
+    } else if (e.key === 'Escape' && stepMove.value && trail.value && mode.value === 'move') {
+        // a step move in progress: Escape puts the model back where it began (press it again to let go of the model)
+        e.preventDefault();
+        endKeyMove();
+        cancelMove();
     } else if (e.key === 'Escape' && selectedId.value) {
         e.preventDefault();
         endKeyMove();
@@ -1630,11 +1713,8 @@ function onKey(e: KeyboardEvent) {
         endGuide();
     }
 }
-/** A double click or double tap on the table switches the sight guidelines off (they otherwise stay until turned off). */
-function onDblClick() {
-    if (guidedId.value) endGuide();
-}
 function onKeyUp(e: KeyboardEvent) {
+    if (e.key === ' ') spaceHeld = false;
     if (e.key.startsWith('Arrow')) {
         if (keyIdle) clearTimeout(keyIdle);
         keyIdle = setTimeout(endKeyMove, 350);
@@ -1655,6 +1735,11 @@ function onDown(e: PointerEvent) {
         const [a, b] = [...pointers.values()];
         pinch = { distance: Math.hypot(a.x - b.x, a.y - b.y), width: view.value.w, centre: toBoard((a.x + b.x) / 2, (a.y + b.y) / 2) };
         drag = null;
+        return;
+    }
+    // the middle or right button, or the space bar held down, always moves the view: Sight guidelines and the ruler use a plain drag for themselves
+    if (e.button === 1 || e.button === 2 || spaceHeld) {
+        drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
         return;
     }
     const p = toBoard(e.clientX, e.clientY);
@@ -1720,11 +1805,16 @@ function onDown(e: PointerEvent) {
             return;
         }
         drag = { kind: 'token', id: hit.id, dx: hit.x - p.x, dy: hit.y - p.y, startElevation: elevationOf(hit) };
+        legActive.value = true;
         const here = { x: hit.x, y: hit.y, elev: elevationOf(hit) };
         if (carryOn && trail.value) {
             const last = trail.value.path[trail.value.path.length - 1];
             const moved = !last || Math.hypot(last.x - here.x, last.y - here.y) >= 0.05;
-            trail.value = { ...trail.value, path: moved ? [...trail.value.path, here] : trail.value.path, to: { x: hit.x, y: hit.y } };
+            trail.value = {
+                ...trail.value,
+                path: moved ? [...trail.value.path, { ...here, spent: trailCost.value?.cost.total ?? 0 }] : trail.value.path,
+                to: { x: hit.x, y: hit.y },
+            };
         } else {
             trail.value = {
                 id: hit.id,
@@ -1745,12 +1835,13 @@ function onDown(e: PointerEvent) {
                 inside: buildingOf(hit, terrain.value)?.id ?? null,
                 range: placeRange.value,
                 whole: placeWhole.value,
-                path: [here],
+                path: [{ ...here, spent: 0 }],
+                startUnder: !!hit.under,
             };
         }
     } else {
-        selectedId.value = null;
-        drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY } };
+        // empty table: drag to move the view; a still click lets go of the model (see onUp)
+        drag = { kind: 'pan', last: { x: e.clientX, y: e.clientY }, tap: true, travel: 0 };
     }
 }
 
@@ -1784,7 +1875,16 @@ function flushMove() {
         const t = tokens.value.find((x) => x.id === id);
         if (!t) return;
         const p = toBoard(e.clientX, e.clientY);
-        Object.assign(t, clampToTable({ ...t, x: p.x + drag.dx, y: p.y + drag.dy }));
+        let to = { x: p.x + drag.dx, y: p.y + drag.dy };
+        // In a step move a Walk cannot go past what is left of it: the leg stops at the edge of the ring
+        const tr = trail.value;
+        if (stepMove.value && tr && tr.id === id && tr.sp !== undefined && (tr.kind === 'walk' || tr.kind === 'fly')) {
+            const anchor = tr.path.at(-1) ?? { ...tr.from, spent: 0 };
+            const left = Math.max(0, tr.sp - (anchor.spent ?? 0));
+            const d = Math.hypot(to.x - anchor.x, to.y - anchor.y);
+            if (d > left && d > 0) to = { x: anchor.x + ((to.x - anchor.x) * left) / d, y: anchor.y + ((to.y - anchor.y) * left) / d };
+        }
+        Object.assign(t, clampToTable({ ...t, ...to }));
         if (trail.value) trail.value = { ...trail.value, to: { x: t.x, y: t.y } };
     } else if (drag.kind === 'piece') {
         const p = toBoard(e.clientX, e.clientY);
@@ -1826,6 +1926,7 @@ function flushMove() {
     } else if (drag.kind === 'pan') {
         const rect = svg.value!.getBoundingClientRect();
         const k = view.value.w / rect.width;
+        drag.travel = (drag.travel ?? 0) + Math.hypot(e.clientX - drag.last.x, e.clientY - drag.last.y);
         view.value = { ...view.value, x: view.value.x - (e.clientX - drag.last.x) * k, y: view.value.y - (e.clientY - drag.last.y) * k };
         keepInside();
         drag.last = { x: e.clientX, y: e.clientY };
@@ -1848,6 +1949,8 @@ function flushMove() {
 }
 
 /** What the selected model overlaps that it could be beneath: an archway, or the roof of an enterable building. It is under (inside) it or on top of it. */
+/** Terrain chips for the selected model: concealment, cover, hazardous and the like, from where its base is. */
+const selectedChips = computed(() => (selected.value && !selected.value.marker ? terrainChips(selected.value, worldTerrain.value) : []));
 const selectedCover = computed(() => (selected.value && !selected.value.marker ? coverAt(selected.value, terrain.value) : null));
 /** The gaps in an enterable building's walls, ready to draw: where each runs and what it is. */
 const openingSpans = (piece: TerrainPiece) =>
@@ -1974,6 +2077,7 @@ function onUp(e: PointerEvent) {
     flushMove();
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
+    legActive.value = false;
     if (drag?.kind === 'token') {
         const id = drag.id;
         const t = tokens.value.find((x) => x.id === id);
@@ -2049,6 +2153,8 @@ function onUp(e: PointerEvent) {
         turning.value = 0;
         if (typeof drag.grip === 'object' && drag.grip.kind === 'vertex') pickedVertex.value = drag.grip.index;
     }
+    // a still click on bare table lets go of the chosen model; a drag (moving the view) does not, and neither does a click while Sight guidelines are on
+    if (drag?.kind === 'pan' && drag.tap && (drag.travel ?? 0) < 4 && !guidedId.value) selectedId.value = null;
     if (pointers.size === 0) drag = null;
 }
 
@@ -2258,7 +2364,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     @keydown="onKey"
                     @keyup="onKeyUp"
                     @pointerdown="onDown"
-                    @dblclick="onDblClick"
+                    @contextmenu.prevent
+                    @blur="spaceHeld = false"
                     @pointermove="onMove"
                     @pointerup="onUp"
                     @pointercancel="onUp"
@@ -2861,10 +2968,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             data-testid="place-reach"
                         />
                         <circle
-                            v-else-if="trail.sp !== undefined"
-                            :cx="trail.from.x"
-                            :cy="trail.from.y"
-                            :r="trail.sp"
+                            v-else-if="walkRing"
+                            :cx="walkRing.x"
+                            :cy="walkRing.y"
+                            :r="walkRing.r"
                             fill="hsl(145 65% 42% / 0.06)"
                             stroke="hsl(145 65% 42%)"
                             stroke-width="0.08"
@@ -2964,7 +3071,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             stroke-width="0.1"
                         />
                     </g>
-                    <g v-if="sightForward && sightBack" pointer-events="none" data-testid="sight-line">
+                    <!-- The two side lines already show the check when they are drawn; a third line between the centres only looked like a stray one. -->
+                    <g v-if="sightForward && sightBack && !sideLines.length" pointer-events="none" data-testid="sight-line">
                         <line
                             v-if="sightBack.clear && !sightForward.clear"
                             :x1="sightBack.line.to.x"
@@ -3192,8 +3300,11 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     data-testid="step-help"
                 >
                     <span class="min-w-0 flex-1 text-muted-foreground"
-                        >Step move: drag a model, let go, then drag the same model again. The legs add up. Tap empty ground to start over.</span
+                        >Step move: drag a model, let go, then drag the same model again. The ring shows what is left of its Walk, and a leg stops at
+                        its edge. Escape puts the model back where it began.</span
                     >
+                    <Button v-if="trail" size="sm" variant="outline" data-testid="step-undo" @click="undoStep">Undo step</Button>
+                    <Button v-if="trail" size="sm" variant="outline" data-testid="step-cancel" @click="cancelMove">Cancel move</Button>
                     <Button v-if="trail" size="sm" variant="outline" data-testid="step-reset" @click="trail = null">Start over</Button>
                 </div>
                 <div v-if="guidedId" class="space-y-2 rounded-md border p-3 text-sm" data-testid="guide-panel">
@@ -3641,6 +3752,22 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                 >.
                             </div>
                             <div class="text-xs text-muted-foreground" data-testid="whereabouts">{{ whereText }}</div>
+                            <ul
+                                v-if="selectedChips.length"
+                                class="mt-1.5 flex flex-wrap gap-1"
+                                aria-label="Terrain effects on this model"
+                                data-testid="terrain-chips"
+                            >
+                                <li
+                                    v-for="chip in selectedChips"
+                                    :key="chip.key"
+                                    :title="chip.hint"
+                                    class="rounded-full border bg-background px-2 py-0.5 text-xs font-medium"
+                                    :data-testid="`terrain-chip-${chip.key}`"
+                                >
+                                    {{ chip.label }}
+                                </li>
+                            </ul>
                             <div
                                 v-if="engagement.get(selected.id)?.length"
                                 class="mt-1.5 flex gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-xs leading-snug text-red-800 dark:text-red-200"

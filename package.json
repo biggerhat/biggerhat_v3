@@ -7,7 +7,7 @@
         "dev": "vite",
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
-        "test:tabletop": "node --test resources/js/lib/tabletop/geometry.test.mjs resources/js/lib/fate/fate.test.mjs resources/js/lib/help/help.test.mjs resources/js/lib/tabletop/deployment.test.mjs resources/js/lib/searchText.test.mjs",
+        "test:tabletop": "node --test resources/js/lib/tabletop/geometry.test.mjs resources/js/lib/fate/fate.test.mjs resources/js/lib/help/help.test.mjs resources/js/lib/tabletop/deployment.test.mjs resources/js/lib/tabletop/randomTable.test.mjs resources/js/lib/searchText.test.mjs",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
         "test:js": "npm run test:tabletop",

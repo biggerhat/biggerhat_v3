@@ -41,7 +41,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'The sandbox',
-                    body: 'Open Tabletop from the Play menu. Add a character to put its model on the table at its real base size, with its Sz, Sp and health. The sandbox keeps your table on this device. Use Save table (on the Table tab) to keep one in My tables and share it by link; Load table brings one back.',
+                    body: 'Open Tabletop from the Play menu. Add a character to put its model on the table at its real base size, with its Sz, Sp and health. The sandbox keeps your table on this device. Use Save table (on the Table tab) to keep one in My tables and share it by link; Load table brings one back, and at the top of its window a Random table is rolled for you: it is built to the table guide (about half covered, lanes at least 50mm wide, nothing walled off, the same on both sides). Press Roll again for another, or type a Table number to get the same table someone else rolled, then Use this table. The board keeps your deployment in mind when it checks the lanes.',
                 },
                 {
                     title: 'The board of a game',
@@ -96,7 +96,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Sight guidelines',
-                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again. They stay on until you turn them off: press G, press Escape (with no model chosen), or use the button again. To move the view while they are on, hold Space and drag, or drag with the middle or right mouse button.",
+                    body: "If the lines are aimed at something off the part of the table you can see, an arrow at the edge of the view points toward it and the panel has a Show it button. In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again. They stay on until you turn them off: press G, press Escape (with no model chosen), or use the button again. To move the view while they are on, hold Space and drag, or drag with the middle or right mouse button.",
                 },
                 {
                     title: 'Auras and markers',

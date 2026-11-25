@@ -63,8 +63,17 @@ jobs:
       - name: ESLint
         run: npm run lint:check
 
+      # The output is also posted as an annotation, so the reason for a failure is on the check run page without opening the log.
       - name: PHPStan
-        run: composer stan
+        run: |
+          set +e
+          composer stan -- --no-progress --error-format=github > phpstan.out 2>&1
+          code=$?
+          cat phpstan.out
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=PHPStan failed::$(head -c 1800 phpstan.out | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')"
+          fi
+          exit "$code"
 
       # Type-check the Vue/TS sources with vue-tsc. The findings that predate the check are recorded per file in
       # scripts/typecheck-baseline.json; the build fails if any file gets MORE errors than its baseline (new files start at 0).

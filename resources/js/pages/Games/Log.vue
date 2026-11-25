@@ -146,9 +146,11 @@ const form = reactive({
     is_public: !!g?.is_public,
     me: g ? sideFrom(g.me) : blankSide(),
     opponent: g ? sideFrom(g.opponent) : blankSide(),
-    turns: (g?.turns ?? []).map(
-        (t: Record<string, any>): Turn => ({ turn_number: t.turn_number, me: turnSideFrom(t.me), opponent: turnSideFrom(t.opponent) }),
-    ) as Turn[],
+    turns: (g?.turns ?? []).map((t: Record<string, any>): Turn => ({
+        turn_number: t.turn_number,
+        me: turnSideFrom(t.me),
+        opponent: turnSideFrom(t.opponent),
+    })) as Turn[],
 });
 
 const format = computed(() => props.options.formats.find((f) => f.value === form.format));

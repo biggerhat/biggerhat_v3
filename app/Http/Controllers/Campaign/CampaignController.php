@@ -127,7 +127,7 @@ class CampaignController extends Controller
             'players.user:id,name',
             'crews:id,campaign_id,user_id,name,share_code,faction,keyword_1_id,keyword_2_id,scrip,crew_card_effect_id',
             'crews.user:id,name',
-            'invitations' => fn ($q) => $q->pending(),
+            'invitations' => fn ($q) => $q->pending(), // @phpstan-ignore method.notFound
             'invitations.user:id,name,email',
         ]);
 

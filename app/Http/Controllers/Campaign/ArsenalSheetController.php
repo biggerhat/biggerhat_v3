@@ -106,7 +106,7 @@ class ArsenalSheetController extends Controller
         $leader = $crew->leader;
         $totem = $crew->totem;
 
-        $crew->load(['arsenalModels' => fn ($q) => $q->active()->with([
+        $crew->load(['arsenalModels' => fn ($q) => $q->active()->with([ // @phpstan-ignore method.notFound
             'character:id,display_name,cost,station',
             'customCharacter:id,display_name,cost,station',
         ])]);
@@ -538,7 +538,7 @@ class ArsenalSheetController extends Controller
             // Keywords have no faction column — the crew's faction is separate.
             'keywordOne:id,name',
             'keywordTwo:id,name',
-            'arsenalModels' => fn ($q) => $q->active()->with([
+            'arsenalModels' => fn ($q) => $q->active()->with([ // @phpstan-ignore method.notFound
                 'character:id,slug,display_name,cost,faction,station,size',
                 // First standard miniature provides the card image for CharacterCardView.
                 'character.standardMiniatures:id,display_name,front_image,back_image,character_id,slug',

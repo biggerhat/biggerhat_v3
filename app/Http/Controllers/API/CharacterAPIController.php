@@ -45,7 +45,7 @@ class CharacterAPIController extends Controller
             ->limit(15)
             ->get();
 
-        return $characters->map(fn (Character $c) => [ // @phpstan-ignore return.type, argument.type
+        return $characters->map(fn (Character $c) => [
             'id' => $c->id,
             'display_name' => $c->display_name,
             'slug' => $c->slug,
@@ -108,7 +108,7 @@ class CharacterAPIController extends Controller
                 'willpower_suit' => $c->getRawOriginal('willpower_suit'),
                 'speed' => $c->speed,
                 'size' => $c->size,
-                'base' => $c->base?->value, // @phpstan-ignore nullsafe.neverNull
+                'base' => $c->base?->value,
                 'count' => $c->count,
                 'miniature_id' => $c->miniatures->first()?->id,
                 'miniature_slug' => $c->miniatures->first()?->slug,

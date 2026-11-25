@@ -3590,7 +3590,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     data-testid="place-contact-auto"
                                     @click="
                                         tokens.find((t) => t.id === String(m.id)) &&
-                                        placeInContact(tokens.find((t) => t.id === String(m.id))!, anchorOf(String(m.id))!)
+                                        placeInContact(
+                                            tokens.find((t) => t.id === String(m.id))!,
+                                            anchorOf(String(m.id))!,
+                                        )
                                     "
                                     >Place it for me</Button
                                 >

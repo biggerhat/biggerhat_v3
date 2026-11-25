@@ -41,7 +41,6 @@ class CharacterController extends Controller
         return inertia('Characters/View', [
             'character' => $character,
             'miniature' => $miniature,
-            /** @phpstan-ignore return.type */
             'related_characters' => fn () => Character::standard()
                 ->where('id', '!=', $character->id)
                 ->where('is_hidden', false)

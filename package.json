@@ -53,7 +53,7 @@
         "html-to-image": "^1.11.13",
         "jspdf": "^4.2.1",
         "laravel-vite-plugin": "^1.0",
-        "lucide-vue-next": "^0.468.0",
+        "lucide-vue-next": "^1.0.0",
         "puppeteer": "^25.18.1",
         "qrcode": "^1.5.4",
         "radix-vue": "^1.9.11",

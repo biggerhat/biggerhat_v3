@@ -68,7 +68,7 @@ class GameBoardController extends Controller
         return $this->render($game, readOnly: true);
     }
 
-    private function render(Game $game, bool $readOnly): Response|ResponseFactory
+    private function render(Game $game, bool $readOnly)
     {
         $game->load(['players.user:id,name', 'players.crewBuild:id,references', 'players.crewMembers.character:id,base,size,speed', 'players.crewMembers.customCharacter:id,base,size,speed,faction,actions,abilities,display_name,front_image,back_image,card_image_generated_at']);
 

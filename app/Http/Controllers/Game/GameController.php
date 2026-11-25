@@ -1881,7 +1881,7 @@ class GameController extends Controller
             ->get();
 
         // One big character load — avoids N+1 per-build when shaping members below.
-        $totemIds = $builds->map(fn (CrewBuild $b) => $b->master?->has_totem_id)->filter()->unique(); // @phpstan-ignore nullsafe.neverNull
+        $totemIds = $builds->map(fn (CrewBuild $b) => $b->master?->has_totem_id)->filter()->unique();
         $allCharIds = $builds->flatMap(fn (CrewBuild $b) => $b->crew_data ?? [])->unique()->merge($totemIds)->unique();
         $characters = Character::with('keywords', 'characteristics')
             ->whereIn('id', $allCharIds)->get()->keyBy('id');

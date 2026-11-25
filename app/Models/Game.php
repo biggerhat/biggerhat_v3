@@ -43,7 +43,7 @@ class Game extends Model
 
     public function getSeasonLabelAttribute(): string
     {
-        return $this->season?->label() ?? ''; // @phpstan-ignore nullsafe.neverNull
+        return $this->season?->label() ?? '';
     }
 
     public function casts(): array

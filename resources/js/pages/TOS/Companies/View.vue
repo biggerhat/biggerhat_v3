@@ -868,8 +868,7 @@ async function deleteCompany() {
                     <DialogTitle>Attach Asset</DialogTitle>
                     <DialogDescription>
                         <span v-if="assetDialogTarget">
-                            Pick an Asset to attach to <strong>{{ assetDialogTarget.unit.name }}</strong
-                            >.
+                            Pick an Asset to attach to <strong>{{ assetDialogTarget.unit.name }}</strong>.
                         </span>
                     </DialogDescription>
                 </DialogHeader>

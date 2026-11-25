@@ -4779,8 +4779,10 @@ const observerSetupLabel = computed(() => {
                         </div>
                         <div v-else class="mb-2 text-2xs text-muted-foreground">
                             Activations:
-                            <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span
-                            >/<span>{{ myCrewMembers.length }}</span> remaining
+                            <span class="font-medium text-foreground">{{ myCrewMembers.filter((m: any) => !m.is_activated).length }}</span>/<span>{{
+                                myCrewMembers.length
+                            }}</span>
+                            remaining
                             <span
                                 v-if="turnState && myPlayer && turnState.active === myPlayer.slot"
                                 class="ml-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"
@@ -5108,8 +5110,9 @@ const observerSetupLabel = computed(() => {
                         </Transition>
                         <div v-if="opponentCrewMembers.length" class="mb-2 text-2xs text-muted-foreground">
                             Activations:
-                            <span class="font-medium text-foreground">{{ opponentCrewMembers.filter((m: any) => !m.is_activated).length }}</span
-                            >/<span>{{ opponentCrewMembers.length }}</span> remaining
+                            <span class="font-medium text-foreground">{{
+                                opponentCrewMembers.filter((m: any) => !m.is_activated).length
+                            }}</span>/<span>{{ opponentCrewMembers.length }}</span> remaining
                             <span
                                 v-if="turnState && opponent && turnState.active === opponent.slot"
                                 class="ml-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-primary-foreground"

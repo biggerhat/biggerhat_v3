@@ -783,8 +783,7 @@ const stationLabel = (station: string | null) => {
             <DialogHeader>
                 <DialogTitle>Delete Custom {{ deleteTarget?.type === 'upgrade' ? 'Card' : 'Character' }}</DialogTitle>
                 <DialogDescription>
-                    Are you sure you want to delete <strong>{{ deleteTarget?.display_name }}</strong
-                    >? This cannot be undone.
+                    Are you sure you want to delete <strong>{{ deleteTarget?.display_name }}</strong>? This cannot be undone.
                 </DialogDescription>
             </DialogHeader>
             <DialogFooter>

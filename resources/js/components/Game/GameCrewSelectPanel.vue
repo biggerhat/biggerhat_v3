@@ -364,8 +364,8 @@ const confirmCampaignCrew = () => {
                 </template>
                 <template v-else>
                     <p class="mb-2 text-xs text-muted-foreground">
-                        Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name?.split(',')[0] }}</strong
-                        >, build a new one, or skip the crew to track points only.
+                        Choose a saved crew for <strong class="text-foreground">{{ myPlayer?.master_name?.split(',')[0] }}</strong>, build a new one,
+                        or skip the crew to track points only.
                     </p>
                     <div v-if="masterTitleOptions.length > 1" class="mb-4 flex flex-wrap items-center gap-1.5">
                         <span class="text-2xs text-muted-foreground">Filter:</span>
@@ -724,8 +724,7 @@ const confirmCampaignCrew = () => {
                 </div>
                 <p class="mb-3 text-xs text-muted-foreground">
                     Optionally select a saved crew for
-                    <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong
-                    >, or skip to track points only.
+                    <strong class="text-foreground">{{ opponentPlayer?.master_name?.split(',')[0] }}</strong>, or skip to track points only.
                 </p>
                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <span class="text-xs text-muted-foreground">{{ opponentMatchingCrews.length }} saved crews</span>

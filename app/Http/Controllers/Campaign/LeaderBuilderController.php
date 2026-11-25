@@ -68,7 +68,7 @@ class LeaderBuilderController extends Controller
             'all_keywords' => fn () => Keyword::query()
                 ->select('id', 'name')
                 ->with(['characters' => function ($q) {
-                    $q->standard()
+                    $q->standard() // @phpstan-ignore method.notFound
                         ->where(fn ($q) => $q->whereNull('station')->orWhere('station', '!=', CharacterStationEnum::Master->value))
                         ->whereDoesntHave('isTotemFor')
                         ->whereNotNull('cost')

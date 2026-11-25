@@ -302,7 +302,7 @@ class CombinedCrewCardEffects
      */
     public static function eagerLoad(CampaignCrew $crew): CampaignCrew
     {
-        return $crew->load([
+        return $crew->load([ // @phpstan-ignore argument.type
             'crewCardEffect.actions' => fn ($q) => $q->with('triggers:id,name,suits,stone_cost,description'),
             'crewCardEffect.abilities',
             'crewCardAdvancements.crewCardEffect' => function (MorphTo $morphTo) {

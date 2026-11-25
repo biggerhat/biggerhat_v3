@@ -78,8 +78,7 @@ const signedIn = computed(() => !!usePage<SharedData>().props.auth.user);
                                         :variant="r.status === 'approved' ? 'default' : 'outline'"
                                         class="mr-1 px-1 py-0 text-2xs"
                                         data-testid="my-report-status"
-                                        >{{ r.status_label }}</Badge
-                                    >{{ r.date }}
+                                        >{{ r.status_label }}</Badge>{{ r.date }}
                                 </p>
                             </div>
                             <Button as-child size="sm" variant="outline" class="shrink-0 max-sm:min-h-11">

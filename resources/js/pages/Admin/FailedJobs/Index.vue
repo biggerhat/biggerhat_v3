@@ -115,8 +115,11 @@ const formatDate = (s: string) => new Date(s).toLocaleString(undefined, { dateSt
                                 <span class="text-xs text-muted-foreground">{{ formatDate(job.failed_at) }}</span>
                             </div>
                             <p v-if="job.exception_summary.class" class="mt-1 truncate font-mono text-xs">
-                                <span class="text-red-700 dark:text-red-400">{{ job.exception_summary.class }}</span
-                                ><span v-if="job.exception_summary.message" class="text-muted-foreground">: {{ job.exception_summary.message }}</span>
+                                <span class="text-red-700 dark:text-red-400">{{ job.exception_summary.class }}</span><span
+                                    v-if="job.exception_summary.message"
+                                    class="text-muted-foreground"
+                                    >: {{ job.exception_summary.message }}</span
+                                >
                             </p>
                         </div>
                         <div class="flex shrink-0 gap-1.5">

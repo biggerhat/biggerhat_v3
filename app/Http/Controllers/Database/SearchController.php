@@ -415,7 +415,7 @@ class SearchController extends Controller
             $results = $query->orderBy($sort, $sortType)->paginate($perPage)->withQueryString();
 
             // Wrap paginated characters with result_type for consistent frontend shape
-            $results->setCollection($results->getCollection()->map(function ($c) { // @phpstan-ignore argument.type
+            $results->setCollection($results->getCollection()->map(function ($c) {
                 $data = $c->toArray();
                 $data['result_type'] = 'character';
 

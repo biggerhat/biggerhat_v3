@@ -53,6 +53,15 @@ jobs:
           composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
           npm ci --prefer-offline --no-audit --no-fund
 
+      # What README.md tells a new contributor to do: every migration, from nothing, on the SQLite file .env.example points at. The test suite
+      # migrates an in-memory database, which once hid a migration that only failed here.
+      - name: Migrate a fresh local database
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+          touch database/database.sqlite
+          php artisan migrate --force --no-interaction
+
       # These CHECK. (`composer lint`, `npm run format` and `npm run lint` rewrite files and pass, so a style problem never failed the build.)
       - name: Pint
         run: vendor/bin/pint --test

@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureHasAdminPermission;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -33,6 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['api/bot/heartbeat']);
 
         $middleware->encryptCookies(except: ['appearance', 'theme', 'text_size', 'preferred_game_system', 'cookie_consent']);
+
+        // Global, so 404s, the JSON API and /up get the headers as well as web pages.
+        $middleware->append(SecurityHeaders::class);
 
         $middleware->web(append: [
             HandleAppearance::class,

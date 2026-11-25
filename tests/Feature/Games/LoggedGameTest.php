@@ -189,7 +189,7 @@ it('needs an account to log and searches models for the form', function () {
     $this->get(route('games.logged.create'))->assertRedirect(route('login'));
     $this->getJson(route('games.logged.characters', ['q' => 'nec']))->assertUnauthorized();
 
-    Character::factory()->create(['name' => 'Rogue Necromancy', 'display_name' => 'Rogue Necromancy']);
+    Character::factory()->create(['name' => 'Rogue Necromancy', 'display_name' => 'Rogue Necromancy', 'title' => null]);
     $this->actingAs(User::factory()->create())->getJson(route('games.logged.characters', ['q' => 'necro']))->assertOk()->assertJsonPath('characters.0.name', 'Rogue Necromancy');
     $this->getJson(route('games.logged.characters', ['q' => 'n']))->assertOk()->assertJsonPath('characters', []);
 });

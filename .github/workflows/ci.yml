@@ -133,31 +133,12 @@ jobs:
   mysql:
     name: Migrations and tests on MySQL
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    # The suite runs on in-memory SQLite everywhere else, and production is MySQL. This job runs the migrations and the tests against a real
-    # MySQL. It does not block a merge yet (continue-on-error) so that anything it finds can be fixed first; once it has been green for a
-    # while, delete the line below and add "mysql" to the needs of ci-pass.
+    timeout-minutes: 25
+    # The suite runs on in-memory SQLite everywhere else, and production is MySQL. This job migrates a fresh MySQL 8 and runs the tests on it,
+    # through scripts/test-mysql.sh (the same thing to run on your own machine): the database lives in memory with fsync off, which is what keeps
+    # this to a few minutes. It does not block a merge yet (continue-on-error) until it has been green for a while; then delete the line below
+    # and add "mysql" to the needs of ci-pass.
     continue-on-error: true
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: secret
-          MYSQL_DATABASE: biggerhat_test
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -psecret"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-    env:
-      DB_CONNECTION: mysql
-      DB_HOST: 127.0.0.1
-      DB_PORT: 3306
-      DB_DATABASE: biggerhat_test
-      DB_USERNAME: root
-      DB_PASSWORD: secret
     steps:
       - uses: actions/checkout@v4
 
@@ -192,11 +173,8 @@ jobs:
       - name: Build assets
         run: npm run build
 
-      - name: Migrate a fresh MySQL database
-        run: php artisan migrate:fresh --force
-
-      - name: Tests on MySQL
-        run: php artisan test -p
+      - name: Migrate a fresh MySQL and run the tests
+        run: scripts/test-mysql.sh
 
   audit:
     name: Dependency audit (informational)
@@ -220,10 +198,11 @@ jobs:
           node-version: '22'
 
       - name: Composer audit
-        run: composer audit --no-interaction
+        # Advisories are reported as a warning annotation, not a red check: this job exists to be read, and a red mark on every PR is noise.
+        run: composer audit --no-interaction || echo "::warning title=Composer audit::Known advisories in PHP dependencies, see the log above"
 
       - name: npm audit (what ships to the browser)
-        run: npm audit --omit=dev
+        run: npm audit --omit=dev || echo "::warning title=npm audit::Known advisories in shipped JS dependencies, see the log above"
 
   # The one check to require in branch protection (Settings > Branches > main > Require status checks): it is red when any job above failed
   # or was cancelled, and it keeps the same name when jobs are renamed or added.

@@ -39,7 +39,7 @@ it('fireteam state attaches the Fireteam rule with parameters JSON', function ()
     $rule = $unit->specialUnitRules->firstWhere('slug', SpecialUnitRuleEnum::Fireteam->value);
 
     expect($rule)->not->toBeNull()
-        ->and($rule->pivot->parameters)->toBe([
+        ->and($rule->pivot->parameters)->toEqual([
             'base_mm' => 30,
             'models_per_team' => 3,
             'model_size_mm' => 30,

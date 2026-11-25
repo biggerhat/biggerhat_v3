@@ -97,7 +97,7 @@ it('preserves existing power-bar map when updating one entry', function () {
     )->assertOk();
 
     $this->player->refresh();
-    expect($this->player->crew_upgrade_power_bars)->toBe([
+    expect($this->player->crew_upgrade_power_bars)->toEqual([
         '999' => 1,
         (string) $this->upgrade->id => 2,
     ]);

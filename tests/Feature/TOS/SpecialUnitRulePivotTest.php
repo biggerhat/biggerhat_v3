@@ -8,7 +8,7 @@ it('Fireteam parameters JSON round-trips intact', function () {
 
     $params = $unit->fresh()->specialUnitRules->firstWhere('slug', SpecialUnitRuleEnum::Fireteam->value)?->pivot->parameters;
 
-    expect($params)->toBe(['base_mm' => 50, 'models_per_team' => 4, 'model_size_mm' => 40]);
+    expect($params)->toEqual(['base_mm' => 50, 'models_per_team' => 4, 'model_size_mm' => 40]);
 });
 
 it('Squad parameters JSON round-trips intact', function () {
@@ -48,7 +48,7 @@ it('a unit can carry multiple special rules with distinct parameters', function 
     $squadParams = $rules->firstWhere('slug', SpecialUnitRuleEnum::Squad->value)->pivot->parameters;
     $uniqueParams = $rules->firstWhere('slug', SpecialUnitRuleEnum::Unique->value)->pivot->parameters;
 
-    expect($fireteamParams)->toBe(['base_mm' => 30, 'models_per_team' => 3, 'model_size_mm' => 30])
+    expect($fireteamParams)->toEqual(['base_mm' => 30, 'models_per_team' => 3, 'model_size_mm' => 30])
         ->and($squadParams)->toBe(['fireteam_count' => 2])
         ->and($uniqueParams)->toBeNull();
 });

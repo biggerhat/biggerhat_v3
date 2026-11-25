@@ -22,6 +22,18 @@ Run the same commands before pushing: `vendor/bin/pint --test`, `npm run format:
 locally. The 8.2 job catches a newer-PHP-only function or syntax; the MySQL job catches what SQLite allows and MySQL does not (identifier length,
 foreign-key order, case-sensitive collations). Once `mysql` has been green for a while, remove its `continue-on-error` line and add it to `ci-pass`'s `needs`.
 
+**Running the suite on MySQL yourself:** `scripts/test-mysql.sh` (needs Docker; anything after the name goes to `php artisan test`, e.g. `--filter=BattleReport`).
+It starts a throwaway MySQL 8 with its data in memory and fsync off, migrates it, runs the suite in parallel and removes the container. About 4 minutes
+for everything; on a disk-backed container the same run spent more than 18 minutes just migrating, because every parallel worker migrates its own database.
+CI runs this same script.
+
+**What MySQL does differently (found when the job first ran, all now fixed):**
+- **JSON columns come back with their keys re-ordered** (shortest key first, then alphabetical). Never compare JSON by its text (`json_encode($a) !== json_encode($b)`)
+  or by key order in a test (`toBe(['b' => 1, 'a' => 2])`): compare the arrays (`==`, `toEqual`). The battle report editor did compare text, so on MySQL an
+  unchanged report counted as edited and was sent back to a moderator.
+- **Ids do not go back to 1 between tests.** A test that hard-codes `1, 2, 3` for rows it just created finds nothing; use the ids of the rows.
+- **Foreign keys and column lengths are enforced.** SQLite takes a `share_code` of any length and a `campaign_crew_id` that is not there.
+
 ## Branch protection (done in GitHub, not in the repo)
 
 Settings > Branches > `main` > require a pull request and status checks: **`ci-pass`** (and "branches up to date"). Because the host deploys on merge, this is

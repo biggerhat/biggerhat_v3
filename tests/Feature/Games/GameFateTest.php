@@ -379,7 +379,7 @@ it('arranges the peeked cards: top in order, bottom, discard and hand, and nothi
         ->and($response->json('state.players.0.discard'))->toBe([33])
         ->and($response->json('state.players.0.hand'))->toBe([44]);
     expect($response->json('state'))->not->toHaveKey('deck');
-    expect(GameLog::query()->where('action', 'fate.arrange')->first()->payload)->toBe(['looked_at' => 4, 'discarded' => [33], 'to_hand' => 1, 'top' => 1, 'bottom' => 1]);
+    expect(GameLog::query()->where('action', 'fate.arrange')->first()->payload)->toEqual(['looked_at' => 4, 'discarded' => [33], 'to_hand' => 1, 'top' => 1, 'bottom' => 1]);
 });
 
 it('refuses to arrange cards that are not the top of the deck', function () {

@@ -65,12 +65,12 @@ it('draw pops the top of the deck and persists state', function () {
 });
 
 it('draw reshuffles discard back into deck when deck runs dry', function () {
-    makeLootCardSet(3);
+    $cards = makeLootCardSet(3); // ids are not 1, 2, 3 on MySQL: the counter does not go back to 1 between tests
     $service = new LootDeckService;
     $game = Game::factory()->bonanza()->inProgress()->create([
         'loot_state' => [
             'deck' => [],
-            'discard' => [1, 2, 3],
+            'discard' => $cards->pluck('id')->all(),
             'dropped_markers' => [],
         ],
     ]);

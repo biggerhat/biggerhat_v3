@@ -439,13 +439,14 @@ it('index flags campaign_still_live=true only while the linked campaign is genui
         'is_campaign_leader' => true,
     ]));
 
+    // The character exists before its campaign goes, as in real life (a database with foreign keys will not take a crew id that is gone).
     $deletedCrew = ccCrewWithStatus($user, CampaignStatusEnum::Active);
-    $deletedCrew->campaign->delete();
     $deletedCampaignTotem = CustomCharacter::create(array_merge(ccValidPayload(['name' => 'Deleted Campaign Totem']), [
         'user_id' => $user->id,
         'campaign_crew_id' => $deletedCrew->id,
         'is_campaign_totem' => true,
     ]));
+    $deletedCrew->campaign->delete();
 
     $unlinked = CustomCharacter::create(array_merge(ccValidPayload(['name' => 'Never Linked']), ['user_id' => $user->id]));
 

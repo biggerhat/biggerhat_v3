@@ -259,7 +259,7 @@ it('does not overwrite a Card-Creator-edited crew card on an unrelated re-save',
         ])
         ->assertRedirect();
 
-    expect($upgrade->fresh()->content_blocks)->toBe([['type' => 'text', 'text' => 'Player-added note']]);
+    expect($upgrade->fresh()->content_blocks)->toEqual([['type' => 'text', 'text' => 'Player-added note']]);
 });
 
 it('blocks deleting the saved crew card from the generic Card Creator editor', function () {

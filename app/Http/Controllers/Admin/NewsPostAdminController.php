@@ -7,8 +7,11 @@ use App\Enums\PermissionEnum;
 use App\Http\Controllers\Admin\Concerns\ManagesBlogPostForm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BlogPostRequest;
+use App\Http\Requests\Admin\PostNewsToDiscordRequest;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
+use App\Services\Discord\NewsBroadcast;
+use App\Support\AdminAudit;
 use Illuminate\Http\Request;
 
 /**
@@ -24,7 +27,7 @@ class NewsPostAdminController extends Controller
     public function index(Request $request): \Inertia\Response|\Inertia\ResponseFactory
     {
         $posts = BlogPost::news()
-            ->select('id', 'title', 'slug', 'status', 'user_id', 'blog_category_id', 'published_at', 'created_at')
+            ->select('id', 'title', 'slug', 'status', 'user_id', 'blog_category_id', 'published_at', 'discord_posted_at', 'created_at')
             ->with(['author:id,name', 'category:id,name'])
             ->orderBy('created_at', 'DESC')
             ->get();
@@ -32,6 +35,7 @@ class NewsPostAdminController extends Controller
         return inertia('Admin/Blog/Posts/Index', [
             'posts' => $posts,
             'postType' => 'news',
+            'discord_ready' => app(NewsBroadcast::class)->configured(),
         ]);
     }
 
@@ -97,6 +101,27 @@ class NewsPostAdminController extends Controller
      * only thing to guard against is a Blog-only post reached via a News
      * admin URL.
      */
+    /** Sends a published news post to the site's Discord channel, by hand. */
+    public function discord(PostNewsToDiscordRequest $request, BlogPost $blogPost, NewsBroadcast $broadcast)
+    {
+        $this->authorizePostAccess($blogPost);
+
+        if ($blogPost->status !== BlogPostStatusEnum::Published || $blogPost->published_at === null || $blogPost->published_at->isFuture()) {
+            return back()->withMessage('Only a published news post can be posted to Discord.');
+        }
+        if (! $broadcast->configured()) {
+            return back()->withMessage('Discord is not set up for the site yet (DISCORD_NEWS_WEBHOOK).');
+        }
+        if (! $broadcast->send($blogPost, $request->validated()['message'] ?? null)) {
+            return back()->withMessage('Discord did not take the post. Try again in a moment.');
+        }
+
+        $blogPost->forceFill(['discord_posted_at' => now()])->save();
+        AdminAudit::log('Posted news to Discord: '.$blogPost->title, $blogPost);
+
+        return back()->withMessage('Posted to Discord.');
+    }
+
     private function authorizePostAccess(BlogPost $blogPost): void
     {
         $blogPost->loadMissing('category');

@@ -4,12 +4,15 @@ import AdminActions from '@/components/AdminActions.vue';
 import PageBanner from '@/components/PageBanner.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { valueUpdater } from '@/lib/utils';
 import { Head, router } from '@inertiajs/vue3';
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/vue-table';
 import { FlexRender, getCoreRowModel, getSortedRowModel, getFilteredRowModel, getPaginationRowModel, useVueTable } from '@tanstack/vue-table';
+import { Send } from 'lucide-vue-next';
 import { h, ref } from 'vue';
 
 interface BlogPost {
@@ -20,12 +23,15 @@ interface BlogPost {
     author: { name: string } | null;
     category: { name: string } | null;
     published_at: string | null;
+    discord_posted_at?: string | null;
     created_at: string;
 }
 
 const props = defineProps<{
     posts: BlogPost[];
     postType?: 'blog' | 'news';
+    /** News only: the site has a Discord channel set up, so a published post can be sent to it. */
+    discord_ready?: boolean;
 }>();
 
 const routeFor = (suffix: string, param?: string) => route(`admin.${props.postType ?? 'blog'}.posts.${suffix}`, param);
@@ -84,19 +90,56 @@ const columns: ColumnDef<BlogPost>[] = [
         header: () => h('div', { class: 'text-right' }, 'Actions'),
         cell: ({ row }) => {
             const post = row.original;
-            return h(
-                'div',
-                { class: 'relative' },
+            const canPost = props.postType === 'news' && props.discord_ready && post.status === 'published';
+            return h('div', { class: 'relative flex items-center justify-end gap-1' }, [
+                canPost
+                    ? h(
+                          Button,
+                          {
+                              variant: 'ghost',
+                              size: 'sm',
+                              class: 'h-8 gap-1 px-2 text-xs',
+                              'data-testid': 'news-discord',
+                              title: post.discord_posted_at
+                                  ? `Posted to Discord ${new Date(post.discord_posted_at).toLocaleDateString()}`
+                                  : 'Post to Discord',
+                              onClick: () => {
+                                  discordMessage.value = '';
+                                  discordPost.value = post;
+                              },
+                          },
+                          () => [h(Send, { class: 'size-3.5' }), post.discord_posted_at ? 'Posted' : 'Post to Discord'],
+                      )
+                    : null,
                 h(AdminActions, {
                     name: post.title,
                     previewRoute: routeFor('preview', post.slug),
                     editRoute: routeFor('edit', post.slug),
                     deleteRoute: routeFor('delete', post.slug),
                 }),
-            );
+            ]);
         },
     },
 ];
+
+// Post to Discord (news): an optional line of your own goes above the post.
+const discordPost = ref<BlogPost | null>(null);
+const discordMessage = ref('');
+const discordSending = ref(false);
+const sendToDiscord = () => {
+    const post = discordPost.value;
+    if (!post) return;
+    discordSending.value = true;
+    router.post(
+        routeFor('discord', post.slug),
+        { message: discordMessage.value.trim() },
+        {
+            preserveScroll: true,
+            onSuccess: () => (discordPost.value = null),
+            onFinish: () => (discordSending.value = false),
+        },
+    );
+};
 
 const columnFilters = ref<ColumnFiltersState>([]);
 
@@ -170,4 +213,27 @@ const table = useVueTable({
             <Button variant="outline" size="sm" :disabled="!table.getCanNextPage()" @click="table.nextPage()">Next</Button>
         </div>
     </div>
+
+    <Dialog :open="discordPost !== null" @update:open="(v) => !v && (discordPost = null)">
+        <DialogContent data-testid="news-discord-dialog">
+            <DialogHeader>
+                <DialogTitle>Post to Discord</DialogTitle>
+                <DialogDescription>
+                    Sends "{{ discordPost?.title }}" to the site's Discord channel with a link.
+                    <template v-if="discordPost?.discord_posted_at">
+                        It was already posted on {{ new Date(discordPost.discord_posted_at).toLocaleDateString() }}; posting again adds another
+                        message.
+                    </template>
+                </DialogDescription>
+            </DialogHeader>
+            <div class="space-y-1.5">
+                <label for="discord-message" class="text-sm font-medium">A line of your own (optional)</label>
+                <Textarea id="discord-message" v-model="discordMessage" maxlength="300" rows="3" placeholder="Shown above the post." />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" @click="discordPost = null">Cancel</Button>
+                <Button :disabled="discordSending" data-testid="news-discord-send" @click="sendToDiscord">Post</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 </template>

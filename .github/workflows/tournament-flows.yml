@@ -1,14 +1,21 @@
 name: tournament browser flows
 
-# The tournament tracker's real-browser pass (scripts/ui-audit/tournaments, see docs/ui-audit.md). Manual only: it
-# needs a built frontend and a Chrome, and takes several minutes. Run it from the Actions tab before a release.
+# The real-browser pass over the whole site (scripts/ui-audit/tournaments, see docs/ui-audit.md): every flows*.cjs, desktop and phone, with
+# accessibility scans. It needs a built frontend and a Chrome and takes a while, so it runs every night on main (an issue is opened, or
+# commented on, when it fails) and can be started by hand from the Actions tab before a release.
 on:
+  schedule:
+    - cron: '0 5 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   flows:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -55,3 +62,18 @@ jobs:
         with:
           name: tournament-flow-screenshots
           path: /tmp/ui-audit-tournaments/shots
+
+      - name: Report a failure as an issue
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly browser flows are failing"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number // empty')
+          body="The nightly browser flows failed on $(date -u +%F): $RUN_URL (the screenshots are attached to the run)."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

@@ -183,6 +183,21 @@ Route::get('/', function () {
     ]);
 })->name('index');
 
+// The commit this site is running, so a deploy can be told from the old code (the post-deploy check in .github/workflows/deploy-notify.yml polls it).
+// Session-less and never cached; it says nothing but the hash.
+Route::get('/version', fn () => response()->json(['sha' => \App\Support\Release::sha()])->header('Cache-Control', 'no-store'))
+    ->name('version')
+    ->middleware('throttle:60,1')
+    ->withoutMiddleware([
+        EncryptCookies::class,
+        AddQueuedCookiesToResponse::class,
+        StartSession::class,
+        ShareErrorsFromSession::class,
+        ValidateCsrfToken::class,
+        HandleAppearance::class,
+        HandleInertiaRequests::class,
+    ]);
+
 // Public and cacheable, so it must not start a session: a cacheable response that carries Set-Cookie (session, XSRF) can be stored by a
 // proxy/CDN and replayed to other visitors, which swaps their session cookie.
 Route::get('/command', CommandController::class)->name('command')->withoutMiddleware([

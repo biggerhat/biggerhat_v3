@@ -27,6 +27,7 @@ file locations, models/enums, conventions, and gotchas (saves re-discovery):
 Other docs: [ssr.md](docs/ssr.md) — what Inertia SSR needs on the server and what has broken it;
 [ui-audit.md](docs/ui-audit.md) — local harness for browsing logged-in screens and running accessibility/layout checks.
 [design-system.md](docs/design-system.md) — surfaces, faction spine, feature cards, navigation (breadcrumbs, phone tab bar), accessibility defaults, type scale.
+[ci.md](docs/ci.md) — what GitHub checks on a PR, the deploy post to Discord (PR "Release notes"), branch protection, the secrets it needs;
 [performance.md](docs/performance.md) — query/payload profiler, what has been measured and fixed, nginx caching config, open items.
 
 Shared gotchas: SSR is enabled (tests don't catch SSR-path 500s); the
@@ -132,7 +133,7 @@ words on the screen; say in the PR description that you did. A new major feature
 
 ### Verification before reporting
 
-Run `composer prepush` before claiming work is done. Verify reviewer findings against actual code before acting.
+Run `composer prepush` before claiming work is done. CI checks style (`pint --test`, `prettier --check`, `eslint`), PHPStan, the typecheck, the JS unit tests and the PHP suite on 8.2 and 8.4; run those the same way, not the fixing versions. Verify reviewer findings against actual code before acting.
 
 ## The Other Side (TOS)
 

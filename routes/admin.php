@@ -428,6 +428,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'admin.any', WrapAdminWr
             Route::get('/edit/{blogPost}', 'edit')->name('edit');
             Route::get('/create', 'create')->name('create');
             Route::post('/store', 'store')->name('store');
+            Route::post('/discord/{blogPost}', 'discord')->name('discord')->middleware('throttle:10,1');
             Route::post('/update/{blogPost}', 'update')->name('update');
             Route::post('/delete/{blogPost}', 'delete')->name('delete');
             Route::post('/upload-image', 'uploadImage')->name('upload-image');

@@ -103,6 +103,7 @@
             "@composer stan",
             "@composer lint",
             "@php -d memory_limit=-1 -d opcache.enable_cli=1 artisan test --parallel --processes=4",
+            "npm run test:js",
             "sed -i 's/APP_KEY=.*/APP_KEY=/g' .env.testing"
         ]
     },

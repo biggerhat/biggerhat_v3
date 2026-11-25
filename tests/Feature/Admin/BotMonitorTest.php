@@ -48,7 +48,7 @@ it('stores a heartbeat for the bot', function () {
 
     $beat = BotHeartbeat::first();
     expect($beat->guild_count)->toBe(9)
-        ->and($beat->commands)->toBe(['mini' => 2, 'crew' => 1])
+        ->and($beat->commands)->toEqual(['mini' => 2, 'crew' => 1])
         ->and($beat->reported_at->isToday())->toBeTrue();
 });
 

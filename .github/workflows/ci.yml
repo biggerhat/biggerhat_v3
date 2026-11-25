@@ -1,0 +1,227 @@
+name: CI
+
+# One workflow for every check on a pull request or a push to main/develop. The jobs are listed in the aggregate "ci-pass" job below, which is
+# the one check to require in the branch protection rules: a job can be renamed or added here without the rules needing to change.
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Style, static analysis and unit tests (JS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # PHP 8.2: what production runs (composer.json pins config.platform.php to it), so a newer-PHP-only feature fails here, not after the deploy.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-8.2-
+
+      - name: Install dependencies
+        run: |
+          composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+          npm ci --prefer-offline --no-audit --no-fund
+
+      # These CHECK. (`composer lint`, `npm run format` and `npm run lint` rewrite files and pass, so a style problem never failed the build.)
+      - name: Pint
+        run: vendor/bin/pint --test
+
+      - name: Prettier
+        run: npm run format:check
+
+      - name: ESLint
+        run: npm run lint:check
+
+      # The output is also posted as an annotation, so the reason for a failure is on the check run page without opening the log.
+      - name: PHPStan
+        run: |
+          set +e
+          composer stan -- --no-progress --error-format=github > phpstan.out 2>&1
+          code=$?
+          cat phpstan.out
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=PHPStan failed::$(head -c 1800 phpstan.out | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')"
+          fi
+          exit "$code"
+
+      # Type-check the Vue/TS sources with vue-tsc. The findings that predate the check are recorded per file in
+      # scripts/typecheck-baseline.json; the build fails if any file gets MORE errors than its baseline (new files start at 0).
+      # vue-tsc is installed under node_modules/.cache by the script, not into package.json, because having it resolvable
+      # switches on prettier's organize-imports plugin and reorders imports across the frontend.
+      - name: Type check (vue-tsc against baseline)
+        run: npm run typecheck
+
+      # Geometry, Fate deck, deployment, search text and the help registry (node --test).
+      - name: JavaScript unit tests
+        run: npm run test:js
+
+  tests:
+    name: Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.4'] # production, and what the team develops on
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-${{ matrix.php }}-
+
+      - name: Install Node dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy environment file
+        run: cp .env.example .env
+
+      - name: Generate application key
+        run: APP_ENV=testing php artisan key:generate
+
+      - name: Publish Ziggy configuration
+        run: php artisan ziggy:generate
+
+      # Production builds with SSR (docs/ssr.md); the plain build alone would not notice a break in the server bundle.
+      - name: Build assets (client and SSR)
+        run: npm run build:ssr
+
+      - name: Tests
+        run: php artisan test -p
+
+  mysql:
+    name: Migrations and tests on MySQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # The suite runs on in-memory SQLite everywhere else, and production is MySQL. This job migrates a fresh MySQL 8 and runs the tests on it,
+    # through scripts/test-mysql.sh (the same thing to run on your own machine): the database lives in memory with fsync off, which is what keeps
+    # this to a few minutes. It does not block a merge yet (continue-on-error) until it has been green for a while; then delete the line below
+    # and add "mysql" to the needs of ci-pass.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-8.2-
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline --no-audit --no-fund
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+          cp .env.example .env
+          APP_ENV=testing php artisan key:generate
+          php artisan ziggy:generate
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Migrate a fresh MySQL and run the tests
+        run: scripts/test-mysql.sh
+
+  audit:
+    name: Dependency audit (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Reports known vulnerabilities in what we ship. It never blocks a merge (an advisory with no fix yet would block everything); read the log.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Composer audit
+        # Advisories are reported as a warning annotation, not a red check: this job exists to be read, and a red mark on every PR is noise.
+        run: composer audit --no-interaction || echo "::warning title=Composer audit::Known advisories in PHP dependencies, see the log above"
+
+      - name: npm audit (what ships to the browser)
+        run: npm audit --omit=dev || echo "::warning title=npm audit::Known advisories in shipped JS dependencies, see the log above"
+
+  # The one check to require in branch protection (Settings > Branches > main > Require status checks): it is red when any job above failed
+  # or was cancelled, and it keeps the same name when jobs are renamed or added.
+  ci-pass:
+    name: ci-pass
+    if: always()
+    needs: [quality, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every required job passed
+        run: |
+          echo "quality: ${{ needs.quality.result }}, tests: ${{ needs.tests.result }}"
+          [ "${{ needs.quality.result }}" = "success" ] && [ "${{ needs.tests.result }}" = "success" ]

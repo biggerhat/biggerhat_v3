@@ -65,7 +65,7 @@ it('reads score components for rulesets that split the score', function () {
     $this->actingAs($this->user)->post(route('tournaments.import.store'), ($this->meta)($body))->assertSessionHasNoErrors();
 
     $game = Tournament::firstOrFail()->rounds()->first()->games()->first();
-    expect($game->player_one_vp)->toBe(7)->and($game->player_two_vp)->toBe(3)->and($game->score_breakdown['player_one'])->toBe(['strategy' => 4, 'scheme' => 3]);
+    expect($game->player_one_vp)->toBe(7)->and($game->player_two_vp)->toBe(3)->and($game->score_breakdown['player_one'])->toEqual(['strategy' => 4, 'scheme' => 3]);
 });
 
 it('reports every kind of problem with a line number and creates nothing', function (string $body, string $expected) {
@@ -130,6 +130,6 @@ it('imports a file that was exported from another event (round trip)', function 
 
     $copy = Tournament::where('name', 'Imported Open')->firstOrFail();
     $game = $copy->rounds()->first()->games()->first();
-    expect($game->player_one_vp)->toBe(7)->and($game->score_breakdown['player_two'])->toBe(['strategy' => 2, 'scheme' => 1])
+    expect($game->player_one_vp)->toBe(7)->and($game->score_breakdown['player_two'])->toEqual(['strategy' => 2, 'scheme' => 1])
         ->and($copy->players()->pluck('display_name')->sort()->values()->all())->toBe(['Yan', 'Zed']);
 });

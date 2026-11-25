@@ -15,6 +15,7 @@ Produce a review-ready PR description for the current branch.
 2. Write the description:
    - **One-paragraph intro** — what the branch does and why.
    - **Grouped changes** — use a table or bulleted groups. For rulebook/spec work, split *Correctness* vs *Architecture/quality*. For feature work, group by user-facing feature. Reference files as `path:line` where it helps a reviewer.
+   - **Release notes** — a `## Release notes` section, written for players (not developers): a few short bullets in plain words, or `none` for a change players should not hear about (refactors, CI, tests). When the PR deploys, `.github/workflows/deploy-notify.yml` posts this section to Discord. Keep deploy steps, test results and file names out of it.
    - **Verification line** — state the actual gate results (e.g. "Pint/PHPStan/ESLint clean; full suite N passed, M skipped"). Only claim green if you (or the verify-changes skill) actually ran them.
    - **Call-outs** — list anything intentionally deferred or not implemented, honestly.
    - **Help docs** — if the diff touches the Crew Builder, Game Tracker or Tabletop (or any feature with a topic in `resources/js/lib/help/topics/`), say whether its help topic was updated; if it was not, flag it. See `docs/features/help.md`.

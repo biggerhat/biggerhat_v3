@@ -10,6 +10,10 @@ $dave = $mk('Dave', 'dave@example.test');
 // A moderator: may approve battle reports (the only admin permission they hold).
 \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'approve_battle_reports']);
 $mk('Mona Moderator', 'mod@example.test')->givePermissionTo('approve_battle_reports');
+// A news editor and a published news post, for the "Post to Discord" button (flows47)
+\Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'manage_news']);
+$mk('Nina News', 'news@example.test')->givePermissionTo('manage_news');
+\App\Models\BlogPost::factory()->published()->create(['blog_category_id' => \App\Models\BlogCategory::factory()->news()->create()->id, 'title' => 'Collection tracking is here', 'excerpt' => 'Mark each model as built or painted.']);
 
 // A master with a title, so score entry has leaders to pick (the picker lists masters of the player's faction).
 \App\Models\Token::factory()->create(['name' => 'Focus']);

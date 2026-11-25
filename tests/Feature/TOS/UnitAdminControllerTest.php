@@ -83,7 +83,7 @@ it('admin store persists JSON parameters on the special-rule pivot', function ()
     $unit = Unit::with('specialUnitRules')->where('name', 'Riflemen')->first();
 
     expect($unit->specialUnitRules->firstWhere('id', $this->fireteamRule->id)->pivot->parameters)
-        ->toBe(['base_mm' => 30, 'models_per_team' => 3, 'model_size_mm' => 30]);
+        ->toEqual(['base_mm' => 30, 'models_per_team' => 3, 'model_size_mm' => 30]);
 });
 
 it('admin store validation rejects when sides count is not exactly 2', function () {

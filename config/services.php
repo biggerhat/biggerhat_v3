@@ -49,6 +49,11 @@ return [
         'alert_webhook' => env('BATTLE_REPORT_ALERT_WEBHOOK'),
     ],
 
+    // The site's own Discord channel: the admin "Post to Discord" button on a news post sends it here (a channel webhook; unset disables the button).
+    'discord_news' => [
+        'webhook' => env('DISCORD_NEWS_WEBHOOK'),
+    ],
+
     // Headless-Chrome (Browsershot) binary overrides for PDF rendering. Leave
     // null to use Browsershot's auto-detection; set on servers where node /
     // chrome live at non-standard paths.

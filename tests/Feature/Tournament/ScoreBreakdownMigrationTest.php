@@ -28,6 +28,6 @@ it('round-trips strategy/scheme VP between the legacy columns and score_breakdow
     // Up: legacy columns → JSON, legacy columns dropped, unscored games stay null.
     $migration->up();
     expect(Schema::hasColumn('tournament_games', 'player_one_strategy_vp'))->toBeFalse();
-    expect(TournamentGame::find($game->id)->breakdownFor('player_two'))->toBe(['strategy' => 1, 'scheme' => 2]);
+    expect(TournamentGame::find($game->id)->breakdownFor('player_two'))->toEqual(['strategy' => 1, 'scheme' => 2]);
     expect(TournamentGame::find($unscored->id)->score_breakdown)->toBeNull();
 });

@@ -28,7 +28,7 @@ it('scores a Gaining Grounds game from strategy + scheme components', function (
 
     $game->refresh();
     expect($game->player_one_vp)->toBe(7)->and($game->player_two_vp)->toBe(3);
-    expect($game->breakdownFor('player_one'))->toBe(['strategy' => 4, 'scheme' => 3]);
+    expect($game->breakdownFor('player_one'))->toEqual(['strategy' => 4, 'scheme' => 3]);
 });
 
 it('rejects a missing or out-of-range Gaining Grounds component', function () {

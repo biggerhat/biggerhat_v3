@@ -82,7 +82,7 @@ class UserAdminController extends Controller
     public function generatePasswordResetLink(Request $request, User $user)
     {
         AdminAudit::log('Generated password reset link for '.$user->name, $user);
-        $token = Password::broker()->createToken($user);
+        $token = Password::createToken($user);
         $resetUrl = url(route('password.reset', ['token' => $token, 'email' => $user->email], false));
 
         return back()->with('reset_link', $resetUrl);

@@ -28,7 +28,7 @@ it('lets a player submit a result that waits for the opponent and does not count
     $game = $this->game->fresh();
     expect($game->report_status)->toBe(TournamentReportStatusEnum::Pending)
         ->and($game->reported_by_player_id)->toBe($this->pa->id)
-        ->and($game->reported_score['player_one'])->toBe(['strategy' => 4, 'scheme' => 3])
+        ->and($game->reported_score['player_one'])->toEqual(['strategy' => 4, 'scheme' => 3])
         ->and($game->result)->toBe(TournamentGameResultEnum::Pending);
 
     $row = collect(app(TournamentStandingsService::class)->compute($this->tournament))->firstWhere('player_id', $this->pa->id);

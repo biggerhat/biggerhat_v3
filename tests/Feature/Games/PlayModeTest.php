@@ -56,7 +56,7 @@ it('starts a tabletop game on a copy of the chosen saved table', function () {
     $this->actingAs($user)->post(route('games.store'), newGameInput(['play_mode' => 'tabletop', 'tabletop_layout' => $layout->uuid]))->assertRedirect();
 
     $game = Game::latest('id')->first();
-    expect($game->tabletop_layout_id)->toBe($layout->id)->and($game->board_state['terrain'])->toBe($layout->terrain);
+    expect($game->tabletop_layout_id)->toBe($layout->id)->and($game->board_state['terrain'])->toEqual($layout->terrain);
 
     // editing or deleting the layout later does not touch the game
     $layout->update(['terrain' => []]);

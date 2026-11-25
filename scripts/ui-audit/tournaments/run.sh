@@ -12,6 +12,8 @@ PORT=${PORT:-8765}
 mkdir -p "$WORKDIR"
 
 export TELESCOPE_ENABLED=false DB_CONNECTION=sqlite DB_DATABASE="$WORKDIR/browser.sqlite" SESSION_DRIVER=file CACHE_STORE=database QUEUE_CONNECTION=sync BROADCAST_CONNECTION=log MAIL_MAILER=log
+# a webhook address that looks real, so the news "Post to Discord" button shows; the flows only open its dialog and never send
+export DISCORD_NEWS_WEBHOOK=https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyzABCDEFGH-_12345
 export APP_URL="http://127.0.0.1:$PORT" BASE="http://127.0.0.1:$PORT" IDS="$WORKDIR/ids.json" SHOTS=${SHOTS:-$WORKDIR/shots} CHROME
 
 # Each flows file mutates the data it works on, so every file starts from a freshly migrated + seeded database.

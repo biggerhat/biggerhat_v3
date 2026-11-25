@@ -332,6 +332,7 @@ namespace App\Models{
  * @property int|null $blog_category_id
  * @property int $user_id
  * @property \Illuminate\Support\Carbon|null $published_at
+ * @property \Illuminate\Support\Carbon|null $discord_posted_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -358,6 +359,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereBlogCategoryId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereContent($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereDiscordPostedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereDeletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereExcerpt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BlogPost whereFeaturedImage($value)

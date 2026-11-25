@@ -22,7 +22,7 @@ it('stores enabled variants, dropping those switched off and keeping parameter v
         'variants' => ['alternating_leaders' => true, 'blind_battle' => false, 'bans' => 1],
     ]))->assertRedirect();
 
-    expect(Tournament::latest('id')->first()->variants)->toBe(['alternating_leaders' => true, 'bans' => 1]);
+    expect(Tournament::latest('id')->first()->variants)->toEqual(['alternating_leaders' => true, 'bans' => 1]);
 });
 
 it('rejects a variant that does not exist for the ruleset, or an out-of-range parameter', function () {

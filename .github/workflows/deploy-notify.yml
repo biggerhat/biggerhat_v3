@@ -1,0 +1,132 @@
+name: deploy notify
+
+# After CI passes on main, wait for the live site to report this commit (it serves it at /version; the host deploys on merge), check that it is up
+# and serving server-rendered pages, then post the merged pull request's "Release notes" to Discord. If the deploy is not seen, or the checks
+# fail, a warning goes to Discord instead and this workflow fails (so it shows red on the commit).
+#
+# Needs, in Settings > Secrets and variables > Actions:
+#   secret DISCORD_DEPLOY_WEBHOOK   the channel that gets the release notes (a channel webhook URL)
+#   secret DISCORD_ALERT_WEBHOOK    optional: where a failed or unconfirmed deploy is reported (defaults to the one above)
+#   variable PROD_URL               optional: the live site (defaults to https://biggerhat.net)
+# With no webhook set it still checks the deploy and just skips the posting. See docs/ci.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to announce (defaults to the tip of main)
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: deploy-notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PROD_URL: ${{ vars.PROD_URL || 'https://biggerhat.net' }}
+      DEPLOY_WEBHOOK: ${{ secrets.DISCORD_DEPLOY_WEBHOOK }}
+      ALERT_WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK || secrets.DISCORD_DEPLOY_WEBHOOK }}
+      INPUT_SHA: ${{ github.event.inputs.sha }}
+      RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Work out the commit
+        id: sha
+        run: |
+          sha="${RUN_SHA:-$INPUT_SHA}"
+          if [ -z "$sha" ]; then sha=$(gh api "repos/$REPO/commits/main" --jq .sha); fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=${sha:0:7}" >> "$GITHUB_OUTPUT"
+
+      # The deploy runs on the host, so poll until /version shows this commit (or a later one, if another merge has already deployed over it).
+      - name: Wait for the deploy
+        id: wait
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          for i in $(seq 1 60); do
+            live=$(curl -fsS --max-time 10 "$PROD_URL/version" 2>/dev/null | jq -r '.sha // empty' || true)
+            if [ -n "$live" ]; then
+              if [ "$live" = "$SHA" ]; then echo "Live is $SHA"; echo "deployed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+              status=$(gh api "repos/$REPO/compare/$SHA...$live" --jq .status 2>/dev/null || true)
+              if [ "$status" = "ahead" ]; then echo "Live ($live) is already past $SHA"; echo "deployed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            fi
+            echo "Waiting for the deploy (live: ${live:-unknown})... $i/60"
+            sleep 20
+          done
+          echo "deployed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Check the live site
+        id: smoke
+        if: steps.wait.outputs.deployed == 'true'
+        run: |
+          ok=true
+          curl -fsS --max-time 15 "$PROD_URL/up" > /dev/null || { echo "::error::/up failed"; ok=false; }
+          # server-side rendering is on in production (docs/ssr.md): a rendered page has its <h1> in the HTML
+          curl -fsS --max-time 15 "$PROD_URL/privacy" | grep -q '<h1' || { echo "::error::/privacy has no server-rendered <h1>"; ok=false; }
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+
+      - name: Find the merged pull request and its release notes
+        id: pr
+        if: steps.wait.outputs.deployed == 'true' && steps.smoke.outputs.ok == 'true'
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)][0] // empty' > pr.json || true
+          if [ ! -s pr.json ]; then echo "found=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          jq -r '.title' pr.json > title.txt
+          jq -r '.number' pr.json > number.txt
+          jq -r '.html_url' pr.json > url.txt
+          # The "## Release notes" section of the description: written for players, short. HTML comments (the template's hint) and the
+          # trailer line are dropped. "none" means do not announce this one.
+          jq -r '.body // ""' pr.json \
+            | awk 'tolower($0) ~ /^##[ \t]+release notes/ {f=1; next} /^##[ \t]/ {if (f) exit} f {print}' \
+            | perl -0pe 's/<!--.*?-->//gs' \
+            | sed '/🤖/d' \
+            | sed '/./,$!d' \
+            | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > notes.txt
+          if [ "$(tr -d '[:space:]' < notes.txt | tr 'A-Z' 'a-z')" = "none" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Post the release notes to Discord
+        if: steps.pr.outputs.found == 'true' && steps.pr.outputs.skip == 'false'
+        env:
+          SHORT: ${{ steps.sha.outputs.short }}
+        run: |
+          if [ -z "$DEPLOY_WEBHOOK" ]; then echo "No DISCORD_DEPLOY_WEBHOOK set: not posting"; exit 0; fi
+          jq -n \
+            --arg title "Deployed: $(cat title.txt)" \
+            --arg url "$(cat url.txt)" \
+            --arg notes "$(head -c 1800 notes.txt)" \
+            --arg footer "PR #$(cat number.txt) · $SHORT" \
+            '{username: "BiggerHat Deploys", allowed_mentions: {parse: []},
+              embeds: [{title: ($title | .[0:250]), url: $url, color: 13148455, footer: {text: $footer},
+                        description: (if $notes == "" then "Live now." else $notes end)}]}' > payload.json
+          curl -fsS -H 'Content-Type: application/json' -d @payload.json "$DEPLOY_WEBHOOK"
+
+      - name: Warn about a deploy that was not confirmed, or a site that is not healthy
+        if: always() && (steps.wait.outputs.deployed == 'false' || steps.smoke.outputs.ok == 'false')
+        env:
+          SHORT: ${{ steps.sha.outputs.short }}
+        run: |
+          if [ -n "$ALERT_WEBHOOK" ]; then
+            msg="Deploy of $SHORT: "
+            [ "${{ steps.wait.outputs.deployed }}" = "false" ] && msg+="the live site never reported this commit within 20 minutes. Check the deploy. " || true
+            [ "${{ steps.smoke.outputs.ok }}" = "false" ] && msg+="the live site failed its checks (/up or server-rendered pages). " || true
+            jq -n --arg content "$msg" --arg url "$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" \
+              '{username: "BiggerHat Deploys", allowed_mentions: {parse: []}, content: ($content + $url)}' > alert.json
+            curl -fsS -H 'Content-Type: application/json' -d @alert.json "$ALERT_WEBHOOK" || true
+          fi
+          exit 1

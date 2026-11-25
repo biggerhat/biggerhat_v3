@@ -46,6 +46,7 @@ class BlogPost extends Model
             'content' => 'array',
             'status' => BlogPostStatusEnum::class,
             'published_at' => 'datetime',
+            'discord_posted_at' => 'datetime',
         ];
     }
 

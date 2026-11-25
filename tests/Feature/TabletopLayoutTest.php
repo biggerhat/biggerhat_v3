@@ -131,7 +131,7 @@ it('opens a shared layout by link and lets anyone signed in save a copy, but kee
 
     $this->actingAs($other)->post(route('tools.tabletop.layouts.copy', $shared->uuid))->assertRedirect();
     $copy = TabletopLayout::where('user_id', $other->id)->firstOrFail();
-    expect($copy->name)->toBe('Shared table')->and($copy->is_shared)->toBeFalse()->and($copy->copied_from)->toBe($shared->uuid)->and($copy->terrain)->toBe($shared->terrain);
+    expect($copy->name)->toBe('Shared table')->and($copy->is_shared)->toBeFalse()->and($copy->copied_from)->toBe($shared->uuid)->and($copy->terrain)->toEqual($shared->terrain);
 
     $this->actingAs($other)->post(route('tools.tabletop.layouts.copy', $private->uuid))->assertNotFound();
     expect(TabletopLayout::where('user_id', $other->id)->count())->toBe(1);

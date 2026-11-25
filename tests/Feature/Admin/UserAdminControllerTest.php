@@ -188,3 +188,20 @@ it('denies delete without the delete_user permission', function () {
 
     $this->actingAs($this->admin)->post(route('admin.users.delete', $target->slug))->assertForbidden();
 });
+
+it('generates a password reset link for a user and flashes it back', function () {
+    $target = User::factory()->create();
+
+    $response = $this->actingAs($this->admin)->post(route('admin.users.password_reset_link', $target->slug));
+
+    $response->assertRedirect()->assertSessionHas('reset_link');
+    expect(session('reset_link'))->toContain('/reset-password/')->toContain(rawurlencode($target->email));
+});
+
+it('does not generate a password reset link without the edit permission', function () {
+    $viewer = User::factory()->create();
+    $viewer->givePermissionTo(PermissionEnum::ViewUser->value);
+    $target = User::factory()->create();
+
+    $this->actingAs($viewer)->post(route('admin.users.password_reset_link', $target->slug))->assertForbidden();
+});

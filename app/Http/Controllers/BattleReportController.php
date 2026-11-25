@@ -171,7 +171,8 @@ class BattleReportController extends Controller
 
         // What counts as a change depends on where the report stands: an approved one is only read again for a change that matters
         // (see ApprovedSnapshot); a turned-down one is asked about again for any change.
-        $anyChange = $report->title !== $data['title'] || json_encode($report->content) !== json_encode($content) || $report->show_game !== $showGame || $report->linkKey() !== $link;
+        // Compared as arrays, not as JSON text: MySQL stores JSON with its keys re-ordered, so the text of an unchanged report differs.
+        $anyChange = $report->title !== $data['title'] || $report->content != $content || $report->show_game !== $showGame || $report->linkKey() !== $link;
         $changed = $report->status === BattleReportStatusEnum::Approved
             ? ApprovedSnapshot::needsReview($report->approved_snapshot, $data['title'], $link, $showGame, $content)
             : $anyChange;

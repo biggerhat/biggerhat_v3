@@ -45,7 +45,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Blueprint::macro('dropForeignSafe', function ($args) {
-            if (app()->runningUnitTests() && \DB::getDriverName() === 'sqlite') {
+            if (\DB::getDriverName() === 'sqlite') {
                 // Do nothing
                 /** @see Blueprint::ensureCommandsAreValid */
             } else {

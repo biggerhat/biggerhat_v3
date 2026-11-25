@@ -172,7 +172,7 @@ it('re-renders every card using the art when its image is replaced', function ()
 
 it('links art to an official character, shows it in the admin, and offers it to the editors', function () {
     $admin = artSuperAdmin();
-    $character = \App\Models\Character::factory()->create(['name' => 'Lady Justice', 'display_name' => 'Lady Justice']);
+    $character = \App\Models\Character::factory()->create(['name' => 'Lady Justice', 'display_name' => 'Lady Justice', 'title' => null]);
     $payload = ['name' => 'Justice Portrait', 'is_active' => 1, 'character_id' => $character->id, 'image' => UploadedFile::fake()->image('a.png', 400, 300)];
 
     $this->actingAs($admin)->post(route('admin.card_arts.store'), $payload)->assertRedirect(route('admin.card_arts.index'));

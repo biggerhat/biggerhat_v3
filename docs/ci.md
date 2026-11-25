@@ -76,7 +76,7 @@ The real-browser pass over the site (`scripts/ui-audit/tournaments`, `docs/ui-au
 
 ## Dependencies
 
-`.github/dependabot.yml`: weekly Composer and npm updates (minor and patch grouped into one PR each) and monthly GitHub Actions updates. Security fixes arrive separately. Major versions of packages that must move together (eslint and its plugins, Node types, the Inertia server and client) are ignored, so they never arrive as a PR that is red by construction; upgrade those on purpose, in one PR.
+`.github/dependabot.yml`: weekly Composer and npm updates (minor and patch grouped into one PR each) and monthly GitHub Actions updates. Security fixes arrive separately. Major versions of Composer and npm packages are ignored: each one so far needed its own migration or was red by construction (eslint and its plugins, Node types, tailwind-merge 3 needing Tailwind 4, the Inertia server and client together). Check for majors by hand now and then (`composer outdated --direct`, `npm outdated`) and upgrade each on purpose, in its own PR.
 
 ## Pull request template
 

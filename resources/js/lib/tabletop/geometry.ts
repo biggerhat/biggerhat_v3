@@ -1319,6 +1319,62 @@ export function placementProblems(token: Token, tokens: Token[], pieces: Terrain
     return problems;
 }
 
+export interface TerrainChip {
+    key: string;
+    label: string;
+    /** What it means for this model, shown as the chip's tooltip. */
+    hint: string;
+}
+
+/**
+ * What the ground around a model does to it, as short chips for its panel: the terrain its base is on (concealing, hazardous, severe,
+ * blocking, dense), blocking terrain within 2" that gives it cover against shots across it (p.56), and cover from height. Terrain it ignores
+ * (p.57) is left out. Cover and concealment also depend on who is shooting, which the sight guidelines answer.
+ */
+export function terrainChips(token: Token, pieces: TerrainPiece[]): TerrainChip[] {
+    const ignored = new Set(token.ignores ?? []);
+    const chips = new Map<string, TerrainChip>();
+    const add = (c: TerrainChip) => {
+        if (!chips.has(c.key)) chips.set(c.key, c);
+    };
+    const r = baseRadius(token.baseMm);
+    const elevation = restingSupport(token, pieces).elevation;
+    for (const piece of pieces) {
+        const on = piece.surfaces.some((s) => (s.under === undefined || !token.under) && supportFraction(token, s.shape) > 0);
+        const nearBlocking =
+            piece.traits.includes('blocking') &&
+            !ignored.has('blocking') &&
+            piece.surfaces.some((s) => s.top >= 1 && distanceToShape(s.shape, token.x, token.y) - r <= SIGHT_NEAR + 1e-9);
+        if (on) {
+            if (piece.traits.includes('concealing') && !ignored.has('concealing'))
+                add({
+                    key: 'concealing',
+                    label: 'Concealment',
+                    hint: `In ${piece.name}: concealing terrain hides it from attackers who are not close`,
+                });
+            if (piece.traits.includes('hazardous') && !ignored.has('hazardous'))
+                add({ key: 'hazardous', label: 'Hazardous', hint: `${piece.name} is hazardous: suffered once per activation` });
+            if (piece.traits.includes('severe') && !ignored.has('severe'))
+                add({ key: 'severe', label: 'Severe', hint: `${piece.name} is severe: movement through it costs double` });
+            if (piece.traits.includes('dense') && !ignored.has('dense'))
+                add({ key: 'dense', label: 'Dense', hint: `${piece.name} is dense: it blocks sight lines that cross it` });
+        }
+        if (nearBlocking)
+            add({
+                key: 'cover-terrain',
+                label: 'Cover (terrain)',
+                hint: `Within 2" of ${piece.name}: blocking terrain gives cover against clear shots across it`,
+            });
+    }
+    if (elevation >= 2)
+        add({
+            key: 'high',
+            label: `High ground ${fmtNum(elevation)}"`,
+            hint: 'Attackers standing 2" or more lower shoot at it through cover (p.19)',
+        });
+    return [...chips.values()];
+}
+
 // ---- enterable buildings: inside, walls, doors and windows (Advanced Building Rules, p.58) ---------------------------------------------
 
 /** The inside of an enterable building: the outline of its lowest level. null when the piece cannot be entered. */

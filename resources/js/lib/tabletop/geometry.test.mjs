@@ -72,6 +72,7 @@ import {
     tallClimbablePieces,
     terrainAlongLeg,
     terrainAlongPath,
+    terrainChips,
     terrainCoverage,
     traceLine,
     translateShape,
@@ -1533,4 +1534,19 @@ test('a base is in its zone only when all of it is (Encounters, step I: "complet
     const corner = deploymentZones('corner');
     assert.ok(baseInsideZone(corner.a, 33, 3, 30), 'inside the 12" arc in the corner');
     assert.ok(!baseInsideZone(corner.a, 25, 11, 30), 'the far corner of a 12" square is outside the arc');
+});
+
+test('terrain chips: what the ground does to a model standing on or beside it', () => {
+    const wood = { id: 'w', name: 'Wood', traits: ['concealing', 'severe'], surfaces: [{ id: 'w-s', shape: rect(10, 10, 6, 6), top: 0 }] };
+    const keys = (t, pieces) => terrainChips(t, pieces).map((c) => c.key);
+    assert.deepEqual(keys(tok(13, 13), [wood]).sort(), ['concealing', 'severe']);
+    assert.deepEqual(keys(tok(30, 30), [wood]), []);
+    // a model that ignores a trait is not told about it
+    assert.deepEqual(keys({ ...tok(13, 13), ignores: ['severe'] }, [wood]), ['concealing']);
+    // blocking terrain within 2" of the base gives cover; further away it does not
+    const wall = { id: 'b', name: 'Wall', traits: ['blocking'], surfaces: [{ id: 'b-s', shape: rect(10, 10, 6, 1), top: 2 }] };
+    assert.deepEqual(keys(tok(13, 12.5), [wall]), ['cover-terrain']);
+    assert.deepEqual(keys(tok(13, 16), [wall]), []);
+    // high ground of 2" or more
+    assert.deepEqual(keys(tok(13, 13), [piece('hill', rect(10, 10, 6, 6), 3)]), ['high']);
 });

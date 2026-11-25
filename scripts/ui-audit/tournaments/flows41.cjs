@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- standalone CommonJS script, not part of the app bundle */
 const L = require('./lib.cjs');
 // Board feedback of 2026-11: the Fate hand fits its width without a scroll bar (cards fan over one another and each shows its corner), and the
-// sight guidelines can be switched off with G, Escape or a double click instead of staying on.
+// sight guidelines can be switched off with G or Escape instead of staying on (a double click no longer does: it was too easy to do by accident).
 (async () => {
     const browser = await L.launch();
     for (const [label, vp] of [
@@ -56,7 +56,7 @@ const L = require('./lib.cjs');
             await s.page.waitForSelector('[data-testid=fate-card-menu]', { timeout: 4000 });
         });
 
-        await L.step(`sight guidelines (${label}): G turns them on and off, Escape ends them, a double click ends them`, s, async () => {
+        await L.step(`sight guidelines (${label}): G turns them on and off, Escape ends them, a double click leaves them on`, s, async () => {
             await L.visit(s, `/games/${L.ids.play_game}/board`);
             await s.page.waitForSelector('[data-testid^=token-]');
             const point = (testid) =>
@@ -112,7 +112,7 @@ const L = require('./lib.cjs');
             await s.page.mouse.up({ clickCount: 1 });
             await s.page.mouse.down({ clickCount: 2 });
             await s.page.mouse.up({ clickCount: 2 });
-            await want(false, 'a double click on the table');
+            await want(true, 'a double click on the table (it no longer ends them)');
             await L.shot(s, `410-sight-off-${label}`);
         });
     }

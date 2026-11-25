@@ -49,7 +49,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'The model list',
-                    body: "Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table, in groups: Check (sight guidelines, your scheme's model), Movement (what it ignores, and going under or on top of terrain), Fate (a flip for the model), and Notes and auras, with Mark killed and Remove together at the end. Add characters, markers and terrain with the Add button above the list. With a large crew, turn on Compact model list (Table tab, under Surface and zones) for one line per model: its name, health, Options and a menu with Tokens, Upgrades and Replace. The choice is kept on this device.",
+                    body: "Each model has the same row as the game tracker: health, activation, tokens and its card (tap the name). Choose a row, or tap the model, and the Options button opens what is specific to the table, in groups: Check (sight guidelines, your scheme's model), Movement (what it ignores, and going under or on top of terrain), Fate (a flip for the model), and Notes and auras, with Mark killed and Remove together at the end. Under the model's name, small chips say what the ground does to it: Concealment, Hazardous, Severe or Dense when its base is on that terrain, Cover (terrain) when blocking terrain is within 2 inches, and High ground when it stands 2 inches or more up. Hover a chip for the reason. Whether a particular shot gets cover or concealment depends on who is shooting, which the sight guidelines show. Add characters, markers and terrain with the Add button above the list. With a large crew, turn on Compact model list (Table tab, under Surface and zones) for one line per model: its name, health, Options and a menu with Tokens, Upgrades and Replace. The choice is kept on this device.",
                     image: {
                         src: 'tabletop/model-options.webp',
                         alt: "A model's options panel: its size and position, a Sight guidelines button, a Mark killed button, the Ignores terrain, Fate flip and Notes sections, and Add aura.",
@@ -69,7 +69,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Step',
-                    body: 'Turn on Step, then grab the same model again to carry on from where you dropped it: 2" one way and 5" another is 7". Without Step, a new drag starts a fresh measure.',
+                    body: 'Turn on Step, then grab the same model again to carry on from where you dropped it: 2" one way and 5" another is 7". Without Step, a new drag starts a fresh measure. In Step, a Walk or Flight can go no further than its Sp: the green ring is what is left, measured out from the edge of the base, and it shrinks and moves to the new spot after every step. Undo step takes back the last leg, Cancel move (or Escape) puts the model back where it began, and Start over keeps it where it is and gives it a fresh measure.',
                 },
                 {
                     title: 'What the note tells you',
@@ -96,7 +96,7 @@ const tabletop: HelpTopic = {
                 },
                 {
                     title: 'Sight guidelines',
-                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again. They stay on until you turn them off: press G, press Escape (with no model chosen), double click or double tap the table, or use the button again.",
+                    body: "In a model's Options, turn on Sight guidelines. Lines leave each side of its base in the direction you drag; the board says whether line of sight is clear or blocked, whether the target has cover or concealment, and why. While they are on, the Sight guidelines note under the tabs has an Aim button for aiming them again. They stay on until you turn them off: press G, press Escape (with no model chosen), or use the button again. To move the view while they are on, hold Space and drag, or drag with the middle or right mouse button.",
                 },
                 {
                     title: 'Auras and markers',
@@ -299,7 +299,10 @@ const tabletop: HelpTopic = {
                 { keys: ['Shift', '+ arrow'], does: 'Move it 0.1 inch.' },
                 { keys: ['Alt', '+ arrow'], does: 'Move it 2 inches.' },
                 { keys: ['G'], does: 'Turn Sight guidelines on for the chosen model, or off again (when no model is chosen, it turns them off).' },
-                { keys: ['Esc'], does: 'Let go of the chosen model. Press it again to turn Sight guidelines off.' },
+                {
+                    keys: ['Esc'],
+                    does: 'In a Step move, put the model back where it began. Otherwise, let go of the chosen model; press it again to turn Sight guidelines off.',
+                },
                 { keys: ['?'], does: 'Open this help.' },
             ],
         },
@@ -330,8 +333,11 @@ const tabletop: HelpTopic = {
             shortcuts: [
                 { keys: ['Wheel'], does: 'Zoom the table. On a phone, pinch.' },
                 { keys: ['Drag'], does: 'Drag a model or terrain piece to move it; drag empty table to move the view.' },
-                { keys: ['Double click', 'Double tap'], does: 'Turn Sight guidelines off.' },
-                { keys: ['Click'], does: 'Choose a model. Click empty table to let go, or to place a model that is waiting to be set down.' },
+                { keys: ['Space + drag', 'Middle or right button + drag'], does: 'Move the view, even with Sight guidelines or the ruler on.' },
+                {
+                    keys: ['Click'],
+                    does: 'Choose a model. Click empty table to let go of it (not while Sight guidelines are on), or to place a model that is waiting to be set down. Dragging empty table moves the view and keeps the model chosen.',
+                },
             ],
         },
     ],

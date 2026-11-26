@@ -728,6 +728,36 @@ const sideLines = computed(() => {
         return { ...l, trace, reached };
     });
 });
+/**
+ * Whether the guidelines are aimed at something outside the part of the table in view, and if so an arrow at the edge of the view that points
+ * toward it. Without one the lines just run off the screen and it looks as if nothing is there.
+ */
+const aimOffscreen = computed(() => {
+    const aim = sight.value?.aim;
+    if (!guidedId.value || !aim || !sideLines.value.length) return null;
+    const v = view.value;
+    const inside = aim.x >= v.x && aim.x <= v.x + v.w && aim.y >= v.y && aim.y <= v.y + v.w;
+    if (inside) return null;
+    // from the middle of the view toward the aim, stopped a little inside the edge
+    const cx = v.x + v.w / 2;
+    const cy = v.y + v.w / 2;
+    const dx = aim.x - cx;
+    const dy = aim.y - cy;
+    const inset = pxToUnits(22);
+    const half = v.w / 2 - inset;
+    const k = half / Math.max(Math.abs(dx), Math.abs(dy));
+    return { x: cx + dx * k, y: cy + dy * k, angle: (Math.atan2(dy, dx) * 180) / Math.PI, size: pxToUnits(11) };
+});
+/** Zoom and move the view so the model with the guidelines and the point they aim at are both in it. */
+function showAim() {
+    const from = sightFrom.value;
+    const aim = sight.value?.aim;
+    if (!from || !aim) return;
+    const span = Math.max(Math.abs(aim.x - from.x), Math.abs(aim.y - from.y)) + 8;
+    const w = Math.min(TABLE_SIZE, Math.max(MIN_WIDTH, span));
+    view.value = { x: (from.x + aim.x) / 2 - w / 2, y: (from.y + aim.y) / 2 - w / 2, w };
+    keepInside();
+}
 function describeSide(l: (typeof sideLines.value)[number]): string {
     const parts = l.reached.length
         ? 'Reaches ' + l.reached.map((m) => (m.blockedBy ? `${m.name} (hidden by ${m.blockedBy})` : `${m.name} (in sight)`)).join(', ') + '.'
@@ -3133,6 +3163,19 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                         </template>
                         <circle v-if="sight?.aim" :cx="sight.aim.x" :cy="sight.aim.y" r="0.25" fill="hsl(var(--foreground))" />
                     </g>
+                    <g
+                        v-if="aimOffscreen"
+                        pointer-events="none"
+                        :transform="`translate(${aimOffscreen.x} ${aimOffscreen.y}) rotate(${aimOffscreen.angle})`"
+                        data-testid="aim-offscreen-arrow"
+                    >
+                        <polygon
+                            :points="`${aimOffscreen.size},0 ${-aimOffscreen.size},${aimOffscreen.size * 0.8} ${-aimOffscreen.size * 0.4},0 ${-aimOffscreen.size},${-aimOffscreen.size * 0.8}`"
+                            fill="hsl(145 65% 42%)"
+                            stroke="hsl(var(--background))"
+                            :stroke-width="aimOffscreen.size * 0.15"
+                        />
+                    </g>
                     <g v-if="ruler" pointer-events="none">
                         <line
                             :x1="ruler.from.x"
@@ -3322,6 +3365,10 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     <p v-if="mode === 'sight'" class="text-muted-foreground" data-testid="guide-hint">
                         Press or drag on the board to aim {{ tokens.find((t) => t.id === guidedId)?.name }}'s guidelines, or press a model or marker
                         to point at it. The Models tab goes back to moving models.
+                    </p>
+                    <p v-if="aimOffscreen" class="flex flex-wrap items-center gap-2 text-muted-foreground" role="status" data-testid="aim-offscreen">
+                        The guidelines are aimed at something off the part of the table you can see (the arrow at the edge points to it).
+                        <Button size="sm" variant="outline" data-testid="aim-show" @click="showAim">Show it</Button>
                     </p>
                     <div v-if="sideLines.length" data-testid="side-readout">
                         <div v-for="l in sideLines" :key="l.side" data-testid="side-summary">
@@ -4284,6 +4331,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                 :layouts="layouts"
                 :loading="layoutsLoading"
                 :signed-in="!!signedIn"
+                :zones="zones"
                 :table-images="tableImages"
                 :terrain-images="terrainImages"
                 @load="loadTable"

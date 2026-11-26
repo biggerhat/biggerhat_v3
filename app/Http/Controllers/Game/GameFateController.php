@@ -89,7 +89,7 @@ class GameFateController extends Controller
 
     public function refill(FateRefillRequest $request, Game $game): JsonResponse
     {
-        return $this->act($request, $game, fn (GamePlayer $p) => ['drawn' => $this->fate->refill($p, $request->validated('discard'))]);
+        return $this->act($request, $game, fn (GamePlayer $p) => ['drawn' => $this->fate->refill($p, $request->validated('discard'), $request->validated('max'), (bool) $request->validated('shuffle'))]);
     }
 
     public function discard(FateCardsRequest $request, Game $game): JsonResponse

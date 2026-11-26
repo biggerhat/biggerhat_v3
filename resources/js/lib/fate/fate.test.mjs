@@ -307,3 +307,34 @@ test('a tied duel total: the resister goes first; a plain flip has no total and 
     assert.match(plain.act('total', { flip, total: 8 }).error, /Only a duel flip has a total/);
     assert.equal(plain.state().flips[0].duel, null);
 });
+
+test('refill: a lower hand limit, and an optional shuffle of the discard pile into the deck first', () => {
+    const fate = local();
+    fate.act('draw', { slot: 1, n: 7 });
+    const h = hand(fate);
+    fate.act('discard', { slot: 1, cards: h.slice(0, 2) });
+    // a master that lowers the hand to 5: draw up to 5, not 7
+    const r = fate.act('refill', { slot: 1, discard: [], max: 5 });
+    assert.equal(r.drawn.length, 0);
+    assert.equal(r.state.players[0].hand_count, 5);
+    const more = fate.act('refill', { slot: 1, discard: [h[2]], max: 6, shuffle: true });
+    assert.equal(more.state.players[0].hand_count, 6);
+    assert.equal(more.state.players[0].discard.length, 0, 'the shuffle put the discard pile back in the deck');
+    assert.ok(more.drawn.length >= 1);
+});
+
+test('undo takes the practice deck back one action at a time, and says when there is nothing left', () => {
+    const fate = local();
+    assert.equal(fate.state().can_undo, false);
+    assert.match(fate.act('undo').error, /nothing to undo/);
+    fate.act('draw', { slot: 1, n: 3 });
+    fate.act('draw', { slot: 1, n: 2 });
+    assert.equal(hand(fate).length, 5);
+    assert.equal(fate.act('undo').state.players[0].hand_count, 3);
+    assert.equal(fate.log().length, 1, 'the history line goes with it');
+    assert.equal(fate.act('undo').state.players[0].hand_count, 0);
+    assert.equal(fate.state().can_undo, false);
+    // a refused action is not something to undo
+    assert.ok(fate.act('discard', { slot: 1, cards: [99] }).error);
+    assert.equal(fate.state().can_undo, false);
+});

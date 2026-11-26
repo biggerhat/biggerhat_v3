@@ -176,19 +176,26 @@ class FateDeckService
     /**
      * Start phase (CRG p.31): discard any number of cards from the hand (they are shown), then draw until the hand is at the maximum.
      *
+     * `$max` is a lower hand limit than the game's (a master or effect that shrinks the hand); it can never raise it. `$shuffle` puts the
+     * discard pile back into the deck, shuffled, after the discards and before the draw.
+     *
      * @param  list<int>  $discard
      * @return list<int> the cards drawn
      */
-    public function refill(GamePlayer $player, array $discard): array
+    public function refill(GamePlayer $player, array $discard, ?int $max = null, bool $shuffle = false): array
     {
-        return $this->locked($player, function () use ($player, $discard) {
+        return $this->locked($player, function () use ($player, $discard, $max, $shuffle) {
             $rows = $discard === [] ? collect() : $this->inZone($player, FateZoneEnum::Hand, $discard);
             foreach ($rows as $row) {
                 $this->move($row, FateZoneEnum::Discard, $this->bottom($player, FateZoneEnum::Discard));
             }
-            $room = $this->handMax($player->game) - $this->zone($player, FateZoneEnum::Hand)->count();
+            $limit = min($this->handMax($player->game), $max ?? PHP_INT_MAX);
+            if ($shuffle) {
+                $this->reshuffle($player);
+            }
+            $room = $limit - $this->zone($player, FateZoneEnum::Hand)->count();
             $drawn = $room > 0 ? $this->drawInto($player, $room) : [];
-            $this->log($player, 'fate.refill', ['discarded' => $rows->pluck('card')->all(), 'drawn' => count($drawn)]);
+            $this->log($player, 'fate.refill', ['discarded' => $rows->pluck('card')->all(), 'drawn' => count($drawn), 'shuffled' => $shuffle]);
 
             return $drawn;
         });

@@ -118,6 +118,8 @@ export interface FateAnswer {
 export interface FateState {
     started: boolean;
     hand_max: number;
+    /** The practice deck can take back its last action; a game's deck cannot, so this is absent there. */
+    can_undo?: boolean;
     players: FatePlayer[];
     conflict: FateConflictCard[];
     flips: FateFlip[];
@@ -169,7 +171,7 @@ export function describeFate(action: string, p: Record<string, unknown>, who: st
         case 'fate.draw':
             return `${who} drew ${n(num(p.count))}.`;
         case 'fate.refill':
-            return `${who} discarded ${labels(p.discarded)} and drew up to the hand limit (${n(num(p.drawn))} drawn).`;
+            return `${who} discarded ${labels(p.discarded)}${p.shuffled ? ', shuffled the discard pile into the deck' : ''} and drew up to the hand limit (${n(num(p.drawn))} drawn).`;
         case 'fate.discard':
             return `${who} discarded ${labels(p.cards)}.`;
         case 'fate.flip':
@@ -294,6 +296,32 @@ export function createLocalFate(
     let nextLog = 1;
     /** What the running action wants written to the history (set by the actions that name hidden or private details). */
     let note: Record<string, unknown> = {};
+    /** One snapshot per action that changed something, newest last, so the practice deck can take actions back. */
+    const undo: string[] = [];
+    const READ_ONLY = new Set(['peek', 'search', 'undo']);
+    const snapshot = () => JSON.stringify({ rows, flips, nextFlip, prompts, nextPrompt, history, nextLog });
+    function restore(text: string) {
+        const saved = JSON.parse(text) as {
+            rows: Row[];
+            flips: Flip[];
+            nextFlip: number;
+            prompts: Prompt[];
+            nextPrompt: number;
+            history: FateLogLine[];
+            nextLog: number;
+        };
+        rows = saved.rows;
+        // a flip's chosen card is one of the rows, not a copy
+        flips = saved.flips.map((f) => ({
+            ...f,
+            chosen: f.chosen ? (rows.find((r) => r.slot === f.chosen!.slot && r.card === f.chosen!.card) ?? null) : null,
+        }));
+        nextFlip = saved.nextFlip;
+        prompts = saved.prompts;
+        nextPrompt = saved.nextPrompt;
+        history = saved.history;
+        nextLog = saved.nextLog;
+    }
 
     function ensure() {
         if (rows.length) return;
@@ -364,6 +392,7 @@ export function createLocalFate(
         return {
             started: rows.length > 0,
             hand_max: handMax,
+            can_undo: undo.length > 0,
             players: slots.map((slot) => ({
                 slot,
                 deck_count: zone(slot, 'deck').length,
@@ -450,7 +479,10 @@ export function createLocalFate(
         refill: (slot, b) => {
             const discard = (b.discard as number[]) ?? [];
             for (const r of discard.length ? inZone(slot, ['hand'], discard) : []) move(r, 'discard', bottom(slot, 'discard'));
-            const room = handMax - zone(slot, 'hand').length;
+            // the player's own hand limit (a master can lower it), else the game's
+            const limit = b.max === undefined || b.max === null ? handMax : Math.max(1, Math.min(handMax, Math.trunc(Number(b.max)) || handMax));
+            if (b.shuffle) reshuffle(slot);
+            const room = limit - zone(slot, 'hand').length;
             return { drawn: room > 0 ? drawInto(slot, room) : [] };
         },
         discard: (slot, b) => {
@@ -556,6 +588,11 @@ export function createLocalFate(
             f.resolved = true;
         },
         shuffle: (slot) => reshuffle(slot),
+        undo: () => {
+            const last = undo.pop();
+            if (!last) throw new FateError('There is nothing to undo.');
+            restore(last);
+        },
         end_phase: () => {
             for (const s of slots) reshuffle(s);
         },
@@ -673,7 +710,7 @@ export function createLocalFate(
         const n = note;
         const table: Record<string, [string, Record<string, unknown>]> = {
             draw: ['fate.draw', { count: result.drawn?.length ?? 0 }],
-            refill: ['fate.refill', { discarded: body.discard ?? [], drawn: result.drawn?.length ?? 0 }],
+            refill: ['fate.refill', { discarded: body.discard ?? [], drawn: result.drawn?.length ?? 0, shuffled: !!body.shuffle }],
             discard: ['fate.discard', { cards: body.cards }],
             flip: ['fate.flip', n],
             choose: ['fate.choose', n],
@@ -715,6 +752,7 @@ export function createLocalFate(
             nextPrompt = 1;
             history = [];
             nextLog = 1;
+            undo.length = 0;
         },
         /** The history, newest first (a game reads the same from the server). */
         log: (): FateLogLine[] => history,
@@ -724,24 +762,18 @@ export function createLocalFate(
             const fn = actions[name];
             if (!fn) return { error: `Unknown Fate action: ${name}` };
             // run on a copy so a refused action changes nothing (the server rolls its transaction back)
-            const before = JSON.stringify({ rows, flips, nextFlip, prompts, nextPrompt });
+            ensure();
+            const before = snapshot();
             note = {};
             try {
-                ensure();
                 const result = fn(slot, body) ?? {};
                 record(name, slot, body, result);
+                if (!READ_ONLY.has(name)) undo.push(before);
+                if (undo.length > 50) undo.shift();
 
                 return { ...result, state: state() };
             } catch (e) {
-                const saved = JSON.parse(before) as { rows: Row[]; flips: Flip[]; nextFlip: number; prompts: Prompt[]; nextPrompt: number };
-                rows = saved.rows;
-                flips = saved.flips.map((f) => ({
-                    ...f,
-                    chosen: f.chosen ? (rows.find((r) => r.slot === f.chosen!.slot && r.card === f.chosen!.card) ?? null) : null,
-                }));
-                nextFlip = saved.nextFlip;
-                prompts = saved.prompts;
-                nextPrompt = saved.nextPrompt;
+                restore(before);
                 if (e instanceof FateError) return { error: e.message, state: state() };
                 throw e;
             }

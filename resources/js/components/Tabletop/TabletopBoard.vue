@@ -1183,6 +1183,15 @@ function flipBadge(id: string): { text: string; glyph: string; fill: string } | 
         fill: suit ? (SUIT_FILL[suit] ?? 'hsl(220 10% 25%)') : 'hsl(220 10% 25%)',
     };
 }
+/** A colour for each kind of terrain chip, so the one that matters is seen at a glance: sight in purple, cover in green, danger in red or amber. */
+const CHIP_TONE: Record<string, string> = {
+    concealing: 'border-purple-500/50 bg-purple-500/15 text-purple-900 dark:text-purple-200',
+    'cover-terrain': 'border-emerald-500/50 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200',
+    hazardous: 'border-red-500/50 bg-red-500/15 text-red-900 dark:text-red-200',
+    severe: 'border-amber-500/50 bg-amber-500/15 text-amber-900 dark:text-amber-200',
+    dense: 'border-slate-500/50 bg-slate-500/15 text-slate-900 dark:text-slate-200',
+    high: 'border-sky-500/50 bg-sky-500/15 text-sky-900 dark:text-sky-200',
+};
 const fateMod = ref(0);
 const fateSuit = ref('rams');
 const slotOfToken = (t: { side: string }) => (t.side === 'b' ? 2 : 1);
@@ -1191,7 +1200,11 @@ async function flipForModel(t: Token) {
     if (!props.fate) return;
     await props.fate.start?.();
     const r = await props.fate.act('flip', { slot: slotOfToken(t), modifier: fateMod.value, label: t.name, subject: t.id });
-    if (!r.error) fateMod.value = 0;
+    if (!r.error) {
+        fateMod.value = 0;
+        // the flip's cards, and the hand to cheat from, are on the Fate mat: bring it into view if it is open but off screen (nothing moves if it is already visible)
+        void nextTick(() => document.querySelector('[data-testid=fate-conflict-zone]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    }
 }
 const chooseForModel = (t: Token, flip: FateFlip, card: number) =>
     props.fate?.act('choose', { slot: slotOfToken(t), flip: flip.id, card, suit: card === RED_JOKER ? fateSuit.value : undefined });
@@ -3342,7 +3355,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     class="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm"
                     data-testid="step-help"
                 >
-                    <span class="min-w-0 flex-1 text-muted-foreground"
+                    <span class="w-full text-muted-foreground"
                         >Step move: drag a model, let go, then drag the same model again. The ring shows what is left of its Walk, and a leg stops at
                         its edge. Escape puts the model back where it began.</span
                     >
@@ -3809,7 +3822,8 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                     v-for="chip in selectedChips"
                                     :key="chip.key"
                                     :title="chip.hint"
-                                    class="rounded-full border bg-background px-2 py-0.5 text-xs font-medium"
+                                    class="rounded-full border px-2 py-0.5 text-xs font-medium"
+                                    :class="CHIP_TONE[chip.key] ?? 'bg-background'"
                                     :data-testid="`terrain-chip-${chip.key}`"
                                 >
                                     {{ chip.label }}
@@ -3982,23 +3996,13 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                             <p v-if="fate && !selected.marker" class="mt-3 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Fate
                             </p>
-                            <details
-                                v-if="fate && !selected.marker"
-                                class="group mt-1.5 rounded-md border"
-                                :open="!!modelFlip"
-                                data-testid="model-fate"
-                            >
-                                <summary
-                                    class="flex cursor-pointer list-none items-center justify-between gap-2 px-2 py-2 [&::-webkit-details-marker]:hidden"
-                                >
-                                    <span class="font-medium">Fate flip</span>
-                                    <span class="text-xs text-muted-foreground">{{
-                                        modelFlip ? (modelFlip.flip.chosen ? 'result in' : 'open') : 'for this model'
-                                    }}</span>
-                                    <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
-                                </summary>
-                                <div class="space-y-1.5 border-t p-2">
-                                    <div class="flex flex-wrap items-center gap-1">
+                            <div v-if="fate && !selected.marker" class="mt-1.5 space-y-1.5 rounded-md border p-2" data-testid="model-fate">
+                                <div class="space-y-1.5">
+                                    <div class="flex items-center gap-1">
+                                        <span class="mr-auto font-medium">Fate flip</span>
+                                        <span v-if="modelFlip" class="text-xs text-muted-foreground">{{
+                                            modelFlip.flip.chosen ? 'result in' : 'open'
+                                        }}</span>
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -4075,7 +4079,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                                         >
                                     </div>
                                 </div>
-                            </details>
+                            </div>
                             <p class="mt-3 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Notes and auras</p>
                             <ModelInfoPanel
                                 v-if="!selected.marker"

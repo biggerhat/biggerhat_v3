@@ -2,6 +2,7 @@
 
 namespace App\Support\Game;
 
+use App\Enums\DeploymentEnum;
 use App\Enums\GameRoleEnum;
 use App\Enums\GameStatusEnum;
 use App\Models\Game;
@@ -195,7 +196,7 @@ final class GameDeployment
     /**
      * What the screens are told: the phase, who acts, which models are being placed, and the split.
      *
-     * @return array{phase: string, actor_slot: int|null, placing: list<int>, later: list<int>, first: string|null, skipped: list<int>, defender_slot: int|null, attacker_slot: int|null}
+     * @return array{phase: string, actor_slot: int|null, placing: list<int>, later: list<int>, first: string|null, skipped: list<int>, defender_slot: int|null, attacker_slot: int|null, deployment: string|null}
      */
     public static function summary(Game $game): array
     {
@@ -210,7 +211,31 @@ final class GameDeployment
             'skipped' => $state['skipped'],
             'defender_slot' => self::player($game, GameRoleEnum::Defender)?->slot,
             'attacker_slot' => self::player($game, GameRoleEnum::Attacker)?->slot,
+            'deployment' => $game->deployment?->value,
         ];
+    }
+
+    /**
+     * Change which deployment the table uses (standard, corner, flank, wedge) while nothing has been placed: the zones are drawn on the
+     * table, so the players can see them before they choose. Once the first group is being placed the zones are fixed. The orientation goes
+     * back to its first position, because the new zones are laid out differently.
+     *
+     * @return array<string, mixed> the summary after the change
+     */
+    public static function setType(Game $game, DeploymentEnum $type): array
+    {
+        $state = self::state($game);
+        if (! in_array($state['phase'], [self::SPLIT, self::CHOOSE], true)) {
+            throw new DeploymentRefused('The deployment cannot be changed once a crew has been placed.');
+        }
+
+        if ($game->deployment !== $type) {
+            $board = $game->board_state ?? [];
+            $board['deployment_variant'] = 0;
+            $game->update(['deployment' => $type->value, 'board_state' => $board]);
+        }
+
+        return self::summary($game->fresh(['players.crewMembers']));
     }
 
     /**

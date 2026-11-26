@@ -18,7 +18,17 @@ export interface DeployState {
     skipped: number[];
     defender_slot: number | null;
     attacker_slot: number | null;
+    /** Which deployment the table uses (standard, corner, flank, wedge); the players may change it until a crew is placed. */
+    deployment?: string | null;
 }
+
+/** The deployment types a player can pick, with what they are called on screen. */
+export const DEPLOYMENT_TYPES: { value: string; label: string }[] = [
+    { value: 'standard', label: 'Standard' },
+    { value: 'corner', label: 'Corner' },
+    { value: 'flank', label: 'Flank' },
+    { value: 'wedge', label: 'Wedge' },
+];
 
 export interface DeployPlayer {
     slot: number;

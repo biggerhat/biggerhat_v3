@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Game;
 
+use App\Enums\DeploymentEnum;
 use App\Enums\GameStatusEnum;
 use App\Enums\MessageTypeEnum;
 use App\Events\GameDeployChanged;
 use App\Events\GameStatusChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Game\Concerns\BroadcastsGameEvents;
+use App\Http\Requests\Games\Deployment\ChooseDeploymentTypeRequest;
 use App\Http\Requests\Games\Deployment\ChooseFirstGroupRequest;
 use App\Http\Requests\Games\Deployment\FinishPlacingRequest;
 use App\Http\Requests\Games\Deployment\SkipDeploymentRequest;
@@ -35,6 +37,13 @@ class GameDeployController extends Controller
         $later = array_map('intval', $request->validated('later'));
 
         return $this->act($game, true, fn (Game $locked) => GameDeployment::split($locked, $later));
+    }
+
+    public function type(ChooseDeploymentTypeRequest $request, Game $game): RedirectResponse
+    {
+        $type = DeploymentEnum::from((string) $request->validated('deployment'));
+
+        return $this->act($game, false, fn (Game $locked) => GameDeployment::setType($locked, $type));
     }
 
     public function choose(ChooseFirstGroupRequest $request, Game $game): RedirectResponse

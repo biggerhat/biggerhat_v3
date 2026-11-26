@@ -191,7 +191,7 @@ function deployPost(name: string, body: Record<string, unknown> = {}) {
     router.post(route(name, props.game.uuid), body as never, {
         preserveScroll: true,
         preserveState: true,
-        only: ['deploy', 'positions', 'game', 'models', 'flash'],
+        only: ['deploy', 'positions', 'game', 'models', 'flash', 'deployment_variant'],
         onFinish: () => (deployBusy.value = false),
     });
 }
@@ -260,6 +260,8 @@ onMounted(async () => {
             sharedAuras.value = e.auras.map(toAura);
         })
         .listen('.GameDeployChanged', (e: { deploy: DeployState; positions: Record<string, { x: number; y: number }> }) => {
+            // a new kind of deployment lays the zones out afresh, from their first position
+            if (e.deploy.deployment && e.deploy.deployment !== deploymentType.value) variant.value = 0;
             deployState.value = e.deploy;
             live.value = { ...live.value, ...e.positions };
             // the last group placed moves the game on to schemes: look again so the page knows
@@ -681,7 +683,9 @@ const tokens = computed<Token[]>(() => [
 ]);
 
 // The models of this phase that are not completely inside their own zone (the rulebook deploys "completely within"). Side A is slot 1's zone.
-const deployZones = computed(() => (props.game.deployment ? deploymentZones(props.game.deployment, variant.value) : null));
+/** The deployment the table uses: while it is being chosen the players may change it, so the deployment step's own copy is the newest. */
+const deploymentType = computed(() => (deployState.value?.deployment ?? props.game.deployment) as DeploymentKind | null);
+const deployZones = computed(() => (deploymentType.value ? deploymentZones(deploymentType.value, variant.value) : null));
 const outsideIds = computed<number[]>(() => {
     const d = deployState.value;
     const zones = deployZones.value;
@@ -694,6 +698,7 @@ const outsideIds = computed<number[]>(() => {
 const deployModels = computed(() => liveModels.value.map((m) => ({ id: m.id, name: m.name, slot: m.slot })));
 const splitCrew = (later: number[]) => deployPost('games.deploy.split', { later });
 const chooseFirst = (first: 'now' | 'later') => deployPost('games.deploy.choose', { first });
+const chooseType = (deployment: string) => deployPost('games.deploy.type', { deployment });
 const finishPlacing = () => {
     const d = deployState.value;
     if (!d) return;
@@ -834,6 +839,7 @@ function moved(t: Token) {
             @done="finishPlacing"
             @skip="skipDeployment"
             @rotate="variantChanged((variant + 1) % 4)"
+            @type="chooseType"
         />
         <TabletopBoard
             :can-attach="canAttach"
@@ -871,7 +877,7 @@ function moved(t: Token) {
             @remove="removeToken"
             @terrain-changed="terrainChanged"
             :storage-key="game.uuid"
-            :deployment="game.deployment ?? undefined"
+            :deployment="deploymentType ?? undefined"
             :side-names="sideNames"
             :side-roles="sideRoles"
             @moved="moved"

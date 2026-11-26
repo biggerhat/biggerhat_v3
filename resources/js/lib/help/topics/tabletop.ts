@@ -178,7 +178,7 @@ const tabletop: HelpTopic = {
             items: [
                 {
                     title: 'Attacker and defender',
-                    body: "The attacker is red and the defender is blue, on the table and in the zones. The defender's zone is the blue one. The attacker chooses which zone is theirs: press Turn the zones until the zones sit the way you want.",
+                    body: "The attacker is red and the defender is blue, on the table and in the zones. The defender's zone is the blue one. The attacker chooses which zone is theirs: press Turn the zones until the zones sit the way you want. Either player can change the kind of deployment (Standard, Corner, Flank or Wedge) with the buttons in the Deployment panel, as long as no crew is being placed yet; the zones on the table change as you choose, and start again from their first position.",
                 },
                 {
                     title: 'Dividing the crew',

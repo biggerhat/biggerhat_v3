@@ -6,7 +6,7 @@
  * the "outside the zone" line is one fixed line.
  */
 import { Button } from '@/components/ui/button';
-import { deployWords, type DeployPlayer, type DeployState } from '@/lib/tabletop/deployment';
+import { DEPLOYMENT_TYPES, deployWords, type DeployPlayer, type DeployState } from '@/lib/tabletop/deployment';
 import { Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -27,6 +27,7 @@ const emit = defineEmits<{
     (e: 'done'): void;
     (e: 'skip'): void;
     (e: 'rotate'): void;
+    (e: 'type', deployment: string): void;
 }>();
 
 const words = computed(() => deployWords(props.state, props.players));
@@ -37,6 +38,9 @@ const myRole = computed(() => {
 const iAttack = computed(() => props.players.some((p) => p.mine && p.slot === props.state.attacker_slot));
 const iSpeakFor = computed(() => props.players.filter((p) => p.mine).map((p) => p.slot));
 const iSkipped = computed(() => iSpeakFor.value.length > 0 && iSpeakFor.value.every((s) => props.state.skipped.includes(s)));
+
+/** Either player may pick the kind of deployment until a crew is being placed: the zones are drawn on the table as they choose. */
+const canPickType = computed(() => (props.state.phase === 'split' || props.state.phase === 'choose') && props.players.some((p) => p.mine));
 
 const nameOf = (id: number) => props.models.find((m) => m.id === id)?.name ?? 'Model';
 const defenderModels = computed(() => props.models.filter((m) => m.slot === props.state.defender_slot));
@@ -77,6 +81,24 @@ const outsideNames = computed(() => names(props.outside));
                 @click="emit('rotate')"
             >
                 Turn the zones
+            </Button>
+        </div>
+
+        <!-- which deployment: seen on the table as it is chosen -->
+        <div v-if="canPickType" class="mt-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Deployment type" data-testid="deploy-type">
+            <span class="mr-1 text-xs text-muted-foreground">Deployment</span>
+            <Button
+                v-for="t in DEPLOYMENT_TYPES"
+                :key="t.value"
+                size="sm"
+                class="max-sm:min-h-11"
+                :variant="state.deployment === t.value ? 'default' : 'outline'"
+                :aria-pressed="state.deployment === t.value"
+                :disabled="busy"
+                :data-testid="`deploy-type-${t.value}`"
+                @click="state.deployment !== t.value && emit('type', t.value)"
+            >
+                {{ t.label }}
             </Button>
         </div>
 

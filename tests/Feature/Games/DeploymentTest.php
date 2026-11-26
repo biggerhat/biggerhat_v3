@@ -183,3 +183,46 @@ it('puts a tabletop game on a Deployment step between crew and scheme, and the b
         ->where('game.status', 'deployment')
         ->where('deploy.actor_slot', 2));
 });
+
+it('lets either player pick the deployment type before anyone has placed a model, and says so to the board', function () {
+    [$game, $attacker, $defender, $theirs] = deploymentGame();
+    $game->update(['deployment' => 'standard', 'board_state' => ['deployment_variant' => 2]]);
+
+    // the attacker, before the defender has split the crew; the zones go back to their first position
+    $this->actingAs($attacker)->post(route('games.deploy.type', $game->uuid), ['deployment' => 'corner'])->assertRedirect();
+    $fresh = $game->fresh();
+    expect($fresh->deployment->value)->toBe('corner')
+        ->and($fresh->board_state['deployment_variant'])->toBe(0)
+        ->and(GameDeployment::summary($fresh)['deployment'])->toBe('corner');
+
+    // the defender may too, including after splitting and while the attacker is choosing
+    $this->actingAs($defender)->post(route('games.deploy.split', $game->uuid), ['later' => [$theirs[2]]])->assertRedirect();
+    $this->actingAs($defender)->post(route('games.deploy.type', $game->uuid), ['deployment' => 'wedge'])->assertRedirect();
+    expect($game->fresh()->deployment->value)->toBe('wedge');
+});
+
+it('fixes the deployment type once a crew is being placed, and refuses anything but a real type', function () {
+    [$game, $attacker, $defender, $theirs] = deploymentGame();
+    $game->update(['deployment' => 'standard']);
+    $this->actingAs($defender)->post(route('games.deploy.split', $game->uuid), ['later' => [$theirs[2]]])->assertRedirect();
+    $this->actingAs($attacker)->post(route('games.deploy.choose', $game->uuid), ['first' => 'later'])->assertRedirect();
+
+    // the first group is being placed: the zones are fixed
+    $this->actingAs($attacker)->post(route('games.deploy.type', $game->uuid), ['deployment' => 'flank'])->assertRedirect();
+    expect($game->fresh()->deployment->value)->toBe('standard');
+
+    $this->actingAs($attacker)->post(route('games.deploy.type', $game->uuid), ['deployment' => 'nonsense'])->assertSessionHasErrors('deployment');
+    $this->actingAs($attacker)->post(route('games.deploy.type', $game->uuid), [])->assertSessionHasErrors('deployment');
+});
+
+it('keeps the deployment type to people in the game and to those who have the tabletop', function () {
+    [$game] = deploymentGame();
+    $game->update(['deployment' => 'standard']);
+    $stranger = User::factory()->create();
+
+    $this->actingAs($stranger)->post(route('games.deploy.type', $game->uuid), ['deployment' => 'flank'])->assertForbidden();
+
+    Feature::for(null)->deactivate('experiment-tabletop');
+    $this->actingAs($game->creator)->post(route('games.deploy.type', $game->uuid), ['deployment' => 'flank'])->assertNotFound();
+    expect($game->fresh()->deployment->value)->toBe('standard');
+});

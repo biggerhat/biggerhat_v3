@@ -517,6 +517,7 @@ Route::prefix('games')->name('games.')->middleware(['auth', 'tracked.game'])->gr
 
     // Deployment of a tabletop game (the setup step between crew and schemes); its own throttle bucket like the other board routes
     Route::prefix('/{game:uuid}/deploy')->name('deploy.')->middleware('throttle:60,1,deploy')->group(function () {
+        Route::post('/type', [\App\Http\Controllers\Game\GameDeployController::class, 'type'])->name('type');
         Route::post('/split', [\App\Http\Controllers\Game\GameDeployController::class, 'split'])->name('split');
         Route::post('/choose', [\App\Http\Controllers\Game\GameDeployController::class, 'choose'])->name('choose');
         Route::post('/done', [\App\Http\Controllers\Game\GameDeployController::class, 'done'])->name('done');

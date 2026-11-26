@@ -1,0 +1,13 @@
+name: Feature request or task
+description: Suggest an improvement or track a piece of work
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: "**Do not include passwords, tokens, or personal data.**"
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like, and why?
+    validations:
+      required: true

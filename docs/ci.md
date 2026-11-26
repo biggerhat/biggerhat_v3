@@ -34,11 +34,19 @@ CI runs this same script.
 - **Ids do not go back to 1 between tests.** A test that hard-codes `1, 2, 3` for rows it just created finds nothing; use the ids of the rows.
 - **Foreign keys and column lengths are enforced.** SQLite takes a `share_code` of any length and a `campaign_crew_id` that is not there.
 
-## Branch protection (done in GitHub, not in the repo)
+## Branch protection and repo security (done in GitHub, not in the repo)
 
-Settings > Branches > `main` > require a pull request and status checks: **`ci-pass`** (and "branches up to date"). Because the host deploys on merge, this is
-also what stops a red build deploying. If the old checks `linter / quality` and `tests / ci` are still listed as required, remove them: those workflows were
-merged into `ci.yml` and the names no longer exist.
+The repo is public and the host deploys on every merge to `main`, so `main` is the thing to protect. As set on 2026-11-26:
+
+- **`main` branch protection:** a pull request with 1 approval (stale approvals dismissed) and the **`ci-pass`** check; no force pushes, no deletion. Admins are
+  not forced to follow it (so the owner can merge their own PRs). The old checks `linter / quality` and `tests / ci` no longer exist: do not require them.
+- **`.github/CODEOWNERS`:** the owner owns everything, with the workflows, routes, middleware, config, migrations and dependency files named. To make it bite,
+  turn on "Require review from Code Owners" in the `main` protection (once it is merged), so a collaborator with write access cannot get these through alone.
+- **Settings > Actions:** the default token is read-only; Actions cannot approve PRs; a first-time contributor's fork PR waits for approval. Workflows use
+  `pull_request` (never `pull_request_target`), so a fork's PR runs with no secrets. Actions are pinned to a commit SHA (Dependabot keeps them current).
+- **Code security:** secret scanning with push protection, Dependabot alerts and security updates, and private vulnerability reporting (what `SECURITY.md` links to)
+  are all on. The only secret is `DISCORD_DEPLOY_WEBHOOK`.
+- **The "Main Ruleset"** (PR, `ci-pass`, linear history, no deletion) exists but is switched off; the classic protection above is what is enforced. Use one or the other.
 
 ## After a merge (`deploy-notify.yml`)
 

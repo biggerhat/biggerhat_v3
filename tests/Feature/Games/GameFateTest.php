@@ -183,6 +183,27 @@ it('refills the hand to seven after the start phase discard', function () {
     $this->actingAs($a)->postJson(fateUrl($game, 'refill'), ['discard' => []])->assertOk()->assertJsonPath('drawn', []);
 });
 
+it('refills to a lower hand limit when asked (a master that shrinks the hand), never a higher one', function () {
+    [$game, $p1, , $a] = fateGame();
+    $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 3])->assertOk();
+
+    $this->actingAs($a)->postJson(fateUrl($game, 'refill'), ['discard' => [], 'max' => 5])->assertOk()
+        ->assertJsonPath('state.players.0.hand_count', 5);
+    $this->actingAs($a)->postJson(fateUrl($game, 'refill'), ['discard' => [], 'max' => 9])->assertUnprocessable();
+    expect(inZone($p1, 'hand'))->toHaveCount(5);
+});
+
+it('can shuffle the discard pile into the deck before the start phase draw', function () {
+    [$game, $p1, , $a] = fateGame();
+    $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 7])->assertOk();
+    $hand = inZone($p1, 'hand');
+
+    $response = $this->actingAs($a)->postJson(fateUrl($game, 'refill'), ['discard' => [$hand[0], $hand[1]], 'shuffle' => true])->assertOk();
+    expect($response->json('state.players.0.discard'))->toBe([])
+        ->and($response->json('state.players.0.hand_count'))->toBe(7)
+        ->and($response->json('state.players.0.deck_count'))->toBe(47);
+});
+
 it('lets an effect draw past the hand maximum and reports how many must go', function () {
     [$game, , , $a] = fateGame();
     $this->actingAs($a)->postJson(fateUrl($game, 'draw'), ['n' => 7])->assertOk();

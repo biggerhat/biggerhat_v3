@@ -9,13 +9,18 @@ import { computed, ref, watch } from 'vue';
  * picked here are shown to everyone as they go to the discard pile; what is drawn is only the owner's to see.
  */
 const props = defineProps<{ open: boolean; hand: number[]; handMax: number; busy?: boolean }>();
-const emit = defineEmits<{ 'update:open': [open: boolean]; apply: [discard: number[]] }>();
+const emit = defineEmits<{ 'update:open': [open: boolean]; apply: [discard: number[], shuffle: boolean] }>();
 
 const picked = ref<number[]>([]);
+/** The rules shuffle the discard pile into the deck at the end phase; this does it now, after the discards and before the draw. */
+const shuffle = ref(false);
 watch(
     () => props.open,
     (open) => {
-        if (open) picked.value = [];
+        if (open) {
+            picked.value = [];
+            shuffle.value = false;
+        }
     },
 );
 const toggle = (card: number) => (picked.value = picked.value.includes(card) ? picked.value.filter((c) => c !== card) : [...picked.value, card]);
@@ -49,10 +54,19 @@ const draws = computed(() => Math.max(0, props.handMax - (props.hand.length - pi
                     </button>
                     <span v-if="!hand.length" class="py-3 text-sm text-muted-foreground">No cards in hand.</span>
                 </div>
+                <label class="flex items-start gap-2 text-sm" data-testid="fate-start-shuffle-label">
+                    <input v-model="shuffle" type="checkbox" class="mt-1" data-testid="fate-start-shuffle" />
+                    <span
+                        >Shuffle my discard pile into the deck first
+                        <span class="block text-xs text-muted-foreground"
+                            >The rules do this at the end of each turn. Use it here if the turn did not end on the app.</span
+                        ></span
+                    >
+                </label>
                 <p class="text-sm text-muted-foreground" data-testid="fate-start-summary">Discard {{ picked.length }}, draw {{ draws }}.</p>
                 <DialogFooter>
                     <Button variant="outline" @click="emit('update:open', false)">Cancel</Button>
-                    <Button :disabled="busy" data-testid="fate-start-apply" @click="emit('apply', picked)">Discard and draw</Button>
+                    <Button :disabled="busy" data-testid="fate-start-apply" @click="emit('apply', picked, shuffle)">Discard and draw</Button>
                 </DialogFooter>
             </div>
         </DialogContent>

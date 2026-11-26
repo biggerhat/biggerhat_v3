@@ -49,7 +49,7 @@ final class FateLog
 
         return match ($action) {
             'fate.draw' => "{$who} drew ".$n((int) ($p['count'] ?? 0)).'.',
-            'fate.refill' => "{$who} discarded ".$cards($p['discarded'] ?? []).' and drew up to the hand limit ('.$n((int) ($p['drawn'] ?? 0)).' drawn).',
+            'fate.refill' => "{$who} discarded ".$cards($p['discarded'] ?? []).(($p['shuffled'] ?? false) ? ', shuffled the discard pile into the deck' : '').' and drew up to the hand limit ('.$n((int) ($p['drawn'] ?? 0)).' drawn).',
             'fate.discard' => "{$who} discarded ".$cards($p['cards'] ?? []).'.',
             'fate.flip' => "{$who} flipped ".$mod((int) ($p['modifier'] ?? 0)).(isset($p['duel']) ? " as the {$p['duel']} in a duel" : '').': '.$cards($p['revealed'] ?? []).'.',
             'fate.total' => "{$who} set their duel total to ".(int) ($p['total'] ?? 0).'.',

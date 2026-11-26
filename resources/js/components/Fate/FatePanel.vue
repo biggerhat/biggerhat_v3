@@ -18,7 +18,7 @@ import {
     type FatePlayer,
     type FatePrompt,
 } from '@/lib/fate/fate';
-import { ChevronDown, Minus, Plus } from 'lucide-vue-next';
+import { ChevronDown, Minus, Plus, Undo2 } from 'lucide-vue-next';
 import { useElementSize } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 
@@ -50,6 +50,19 @@ const strips = computed(() => players.value.filter((p) => p.slot !== actingSlot.
 const nameOf = (slot: number | null) => (slot === null ? 'Someone' : (props.names?.[slot] ?? `Player ${slot}`));
 const deckSize = (p: { deck_count: number }) => (state.value?.started ? p.deck_count : COUNT);
 const topOf = (p: FatePlayer) => p.discard[p.discard.length - 1];
+
+/** A hand limit lower than the game's, per player (a master or effect can shrink the hand). Not kept past a reload. */
+const limits = ref<Record<number, number>>({});
+const handLimit = computed(() => Math.min(state.value?.hand_max ?? 7, limits.value[actingSlot.value ?? 0] ?? state.value?.hand_max ?? 7));
+const lowered = computed(() => handLimit.value < (state.value?.hand_max ?? 7));
+function changeLimit(by: number) {
+    if (actingSlot.value === null) return;
+    limits.value = { ...limits.value, [actingSlot.value]: Math.max(1, Math.min(state.value?.hand_max ?? 7, handLimit.value + by)) };
+}
+/** How far over the limit this player's hand is, by their own limit. */
+const overMax = computed(() => Math.max(0, (mine.value?.hand_count ?? 0) - handLimit.value));
+/** What a refill sends: only a limit that is lower than the game's. */
+const maxBody = () => (lowered.value ? { max: handLimit.value } : {});
 
 const run = (name: string, body: Record<string, unknown> = {}) => props.feed.act(name, { slot: actingSlot.value, ...body });
 
@@ -208,8 +221,8 @@ watch(state, () => historyOpen.value && void loadLog());
 
 // ----- the start phase: discard any, then draw up to the maximum -----
 const startOpen = ref(false);
-async function startPhase(discard: number[]) {
-    const r = await run('refill', { discard });
+async function startPhase(discard: number[], shuffle: boolean) {
+    const r = await run('refill', { discard, shuffle, ...maxBody() });
     if (!r.error) startOpen.value = false;
 }
 
@@ -350,6 +363,7 @@ const pileOpen = computed({
                         >
                     </button>
                     <span class="text-[0.7rem] uppercase tracking-wide text-muted-foreground">Deck</span>
+                    <span class="-mt-1 text-center text-[0.65rem] leading-tight text-muted-foreground" data-testid="fate-draw-hint">tap to draw</span>
                 </div>
 
                 <!-- the conflict: flips in progress, and the flip control -->
@@ -389,7 +403,7 @@ const pileOpen = computed({
                                     :card="c.card"
                                     :joker-suit="c.joker_suit"
                                     :highlight="isResult(f, c)"
-                                    :dim="!f.chosen && !f.legal.includes(c.card)"
+                                    :dim="f.chosen ? !isResult(f, c) : !f.legal.includes(c.card)"
                                     data-testid="fate-conflict-card"
                                     :data-card="c.card"
                                 />
@@ -416,6 +430,9 @@ const pileOpen = computed({
                             >
                             <span v-if="f.cheaters.length" class="text-muted-foreground">
                                 · passed or cheated: {{ f.cheaters.map(nameOf).join(', ') }}</span
+                            >
+                            <span v-if="revealed(f).length > 1" class="text-muted-foreground" data-testid="fate-result-all">
+                                · Done discards all {{ revealed(f).length }} cards</span
                             >
                         </p>
                         <div v-if="f.duel" class="space-y-1 text-xs" data-testid="fate-duel">
@@ -581,15 +598,40 @@ const pileOpen = computed({
 
             <div v-if="mine" class="flex flex-wrap items-center gap-1.5" data-testid="fate-draw-row">
                 <span class="text-xs text-muted-foreground">Draw</span>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    :disabled="busy"
-                    :title="`Draw until the hand is at ${state.hand_max}`"
-                    data-testid="fate-refill"
-                    @click="run('refill', { discard: [] })"
-                    >Up to {{ state.hand_max }}</Button
-                >
+                <div class="flex items-center" role="group" aria-label="Draw up to the hand limit">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        class="rounded-r-none px-2"
+                        aria-label="Lower the hand limit"
+                        title="A master or effect that shrinks your hand: lower the limit"
+                        :disabled="busy || handLimit <= 1"
+                        data-testid="fate-limit-minus"
+                        @click="changeLimit(-1)"
+                        ><Minus class="size-3.5"
+                    /></Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        class="rounded-none border-x-0"
+                        :disabled="busy"
+                        :title="`Draw until the hand is at ${handLimit}`"
+                        data-testid="fate-refill"
+                        @click="run('refill', { discard: [], ...maxBody() })"
+                        >Up to {{ handLimit }}</Button
+                    >
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        class="rounded-l-none px-2"
+                        aria-label="Raise the hand limit"
+                        title="Back towards the game's limit"
+                        :disabled="busy || !lowered"
+                        data-testid="fate-limit-plus"
+                        @click="changeLimit(1)"
+                        ><Plus class="size-3.5"
+                    /></Button>
+                </div>
                 <Button
                     size="sm"
                     variant="outline"
@@ -599,6 +641,25 @@ const pileOpen = computed({
                     @click="startOpen = true"
                     >Start phase: discard, then draw</Button
                 >
+                <Button
+                    size="sm"
+                    variant="outline"
+                    :disabled="busy"
+                    title="Put your discard pile back into your deck and shuffle it"
+                    data-testid="fate-shuffle-quick"
+                    @click="run('shuffle')"
+                    >Shuffle</Button
+                >
+                <Button
+                    v-if="state.can_undo !== undefined"
+                    size="sm"
+                    variant="ghost"
+                    :disabled="busy || !state.can_undo"
+                    title="Take back the last thing done to the deck: a draw, a flip, a discard, a shuffle"
+                    data-testid="fate-undo"
+                    @click="run('undo')"
+                    ><Undo2 class="mr-1 size-3.5" />Undo</Button
+                >
             </div>
 
             <!-- my hand, along the bottom -->
@@ -606,13 +667,13 @@ const pileOpen = computed({
                 <div class="flex items-baseline justify-between">
                     <span class="font-medium">{{ nameOf(mine.slot) }}'s hand</span>
                     <span class="text-xs text-muted-foreground">
-                        <span :class="mine.over_max ? 'font-semibold text-amber-600 dark:text-amber-400' : ''" data-testid="fate-hand-count"
-                            >{{ mine.hand_count }}/{{ state.hand_max }}</span
+                        <span :class="overMax ? 'font-semibold text-amber-600 dark:text-amber-400' : ''" data-testid="fate-hand-count"
+                            >{{ mine.hand_count }}/{{ handLimit }}</span
                         >
                     </span>
                 </div>
-                <p v-if="mine.over_max" class="text-xs text-amber-600 dark:text-amber-400" data-testid="fate-over-max">
-                    {{ mine.over_max }} over the hand limit: discard down at the end of the action.
+                <p v-if="overMax" class="text-xs text-amber-600 dark:text-amber-400" data-testid="fate-over-max">
+                    {{ overMax }} over the hand limit: discard down at the end of the action.
                 </p>
                 <div ref="handEl" class="flex min-h-[5.5rem] pb-1 pt-2" data-testid="fate-hand">
                     <button
@@ -818,7 +879,7 @@ const pileOpen = computed({
 
         <FatePeekDialog v-model:open="peekOpen" :cards="peeked" :busy="busy" @arrange="arrange" />
         <FateSearchDialog v-model:open="searchOpen" :cards="searched" :busy="busy" @take="take" />
-        <FateStartDialog v-model:open="startOpen" :hand="mine?.hand ?? []" :hand-max="state?.hand_max ?? 7" :busy="busy" @apply="startPhase" />
+        <FateStartDialog v-model:open="startOpen" :hand="mine?.hand ?? []" :hand-max="handLimit" :busy="busy" @apply="startPhase" />
         <FatePileDialog
             v-model:open="pileOpen"
             :title="`${nameOf(pileSlot)}'s discard pile`"

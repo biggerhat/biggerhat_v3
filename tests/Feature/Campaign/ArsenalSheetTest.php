@@ -1771,7 +1771,7 @@ it('removeManualInjury deletes the injury and cascades across a titled group', f
     expect($two->injuries()->count())->toBe(1);
 
     $this->actingAs($owner)
-        ->delete(route('campaigns.crews.arsenal.injuries.destroy', [$campaign, $crew->share_code, $one, $injury]))
+        ->delete(route('campaigns.crews.arsenal.injuries.destroy', [$campaign, $crew->share_code, $one, $injury->id]))
         ->assertRedirect();
 
     expect($one->injuries()->count())->toBe(0)->and($two->injuries()->count())->toBe(0);
@@ -1854,7 +1854,7 @@ it('leader and totem injuries can be added and removed by hand, with the same gu
     expect($count())->toBe(2);
 
     $this->actingAs($owner)
-        ->delete(route('campaigns.crews.arsenal.custom-injuries.destroy', [$campaign, $crew->share_code, $leader, $a]))
+        ->delete(route('campaigns.crews.arsenal.custom-injuries.destroy', [$campaign, $crew->share_code, $leader, $a->id]))
         ->assertRedirect();
     expect($count())->toBe(1);
 });

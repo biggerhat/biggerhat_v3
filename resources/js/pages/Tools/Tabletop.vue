@@ -13,7 +13,8 @@ import type { SharedData } from '@/types';
 import type { SavedLayout } from '@/lib/tabletop/layouts';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed, onMounted, ref, watch } from 'vue';
+import { useDebounceFn, useEventListener } from '@vueuse/core';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps<{
     markers: MarkerOption[];
@@ -142,18 +143,30 @@ watch(
     },
     { deep: true, flush: 'post' },
 );
+// The whole table is written to this device. A drag changes it many times a second, so wait for a pause; a change still waiting is written
+// at once when the page is left, so the last move is never lost. Nothing is written when nothing changed here (another tab's table is left alone).
+let unsaved = false;
+function saveNow() {
+    if (!unsaved) return;
+    unsaved = false;
+    if (previewing.value) return;
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ tokens: tokens.value, terrain: terrain.value, tableImage: tableImage.value }));
+    } catch {
+        // ignore
+    }
+}
+const saveSoon = useDebounceFn(saveNow, 400);
 watch(
     [tokens, terrain, tableImage],
     () => {
-        if (previewing.value) return;
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tokens: tokens.value, terrain: terrain.value, tableImage: tableImage.value }));
-        } catch {
-            // ignore
-        }
+        unsaved = true;
+        void saveSoon();
     },
     { deep: true },
 );
+useEventListener(window, 'pagehide', saveNow);
+onBeforeUnmount(saveNow);
 
 const moved = (t: Token) => (tokens.value = tokens.value.map((x) => (x.id === t.id ? t : x)));
 const add = (t: Omit<Token, 'id'>) => tokens.value.push({ ...t, id: `n${Date.now().toString(36)}` });

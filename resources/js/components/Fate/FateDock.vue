@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import FatePanel from '@/components/Fate/FatePanel.vue';
 import { Button } from '@/components/ui/button';
 import type { FateFeed } from '@/lib/fate/fate';
 import { useMediaQuery } from '@vueuse/core';
 import { ChevronDown, Layers, X } from 'lucide-vue-next';
-import { nextTick, ref } from 'vue';
+import { defineAsyncComponent, nextTick, ref } from 'vue';
+
+// The mat is only fetched when the Fate deck is first opened.
+const FatePanel = defineAsyncComponent(() => import('@/components/Fate/FatePanel.vue'));
 
 /**
  * Where the Fate mat lives. A visible "Fate deck" button:

@@ -33,6 +33,7 @@ const L = require('./lib.cjs');
     await L.step('random table: roll, pick a number, and put it on the board', s, async () => {
         await openSandbox();
         await hit('[data-testid=mode-terrain]');
+        await s.page.waitForSelector('[data-testid=terrain-clear]', { timeout: 8000 });
         await hit('[data-testid=terrain-clear]');
         await s.page.waitForFunction(() => /0 pieces/.test(document.querySelector('[data-testid=terrain-stats]').innerText), { timeout: 5000 });
         await hit('[data-testid=table-load]');

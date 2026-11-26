@@ -77,12 +77,20 @@ import FateCardFace from '@/components/Fate/FateCardFace.vue';
 import GameCrewMemberRow from '@/components/Game/GameCrewMemberRow.vue';
 import ModelInfoPanel from '@/components/Tabletop/ModelInfoPanel.vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import TableLoadDialog from '@/components/Tabletop/TableLoadDialog.vue';
-import TableSaveDialog from '@/components/Tabletop/TableSaveDialog.vue';
-import TerrainEditor from '@/components/Tabletop/TerrainEditor.vue';
 import type { LayoutSaveTarget, SavedLayout } from '@/lib/tabletop/layouts';
 import { sampleTerrain } from '@/lib/tabletop/sampleTable';
 import { shapeAttrs, shapeTag } from '@/lib/tabletop/shapeDraw';
+import {
+    capLeg,
+    defaultAim,
+    legLabels,
+    pathLength,
+    trailPoints as trailPointsOf,
+    walkRing as ringFor,
+    withoutLastLeg,
+    type MoveKind,
+    type Trail,
+} from '@/lib/tabletop/stepMove';
 import { newPieceId } from '@/lib/tabletop/terrainPresets';
 import {
     ChevronDown,
@@ -107,11 +115,18 @@ import {
     Users,
 } from 'lucide-vue-next';
 import { useFactionColor } from '@/composables/useFactionColor';
-import HelpDialog from '@/components/Help/HelpDialog.vue';
 import { GAME_ICONS } from '@/lib/gameIcons';
 import { RED_JOKER, SUITS, cardFace, cardLabel, cardSuit, type FateFeed, type FateFlip } from '@/lib/fate/fate';
 import { useMediaQuery } from '@vueuse/core';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowReactive, shallowRef, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, shallowReactive, shallowRef, watch } from 'vue';
+
+// Opened on demand, so they are split out of the board's own chunk and loaded in the background: the terrain editor (its own tab), the table
+// dialogs (with the random table maker), and the help.
+const loadTerrainEditor = () => import('@/components/Tabletop/TerrainEditor.vue');
+const TerrainEditor = defineAsyncComponent(loadTerrainEditor);
+const TableLoadDialog = defineAsyncComponent(() => import('@/components/Tabletop/TableLoadDialog.vue'));
+const TableSaveDialog = defineAsyncComponent(() => import('@/components/Tabletop/TableSaveDialog.vue'));
+const HelpDialog = defineAsyncComponent(() => import('@/components/Help/HelpDialog.vue'));
 
 /** A crew member in the shape the play screen's row reads (typed loosely, like the row itself). */
 type CrewMember = {
@@ -369,6 +384,9 @@ type TabId = 'move' | 'terrain' | 'table';
 const showTable = ref(false);
 /** On a phone the terrain editor is a sheet over the lower part of the screen, so the board stays in view while you edit. */
 const compactScreen = useMediaQuery('(max-width: 1023px)');
+/** The OS "reduce motion" setting: the CSS in app.css covers transitions, but a script's smooth scroll has to ask. */
+const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+const scrollBehavior = (): ScrollBehavior => (reduceMotion.value ? 'auto' : 'smooth');
 const terrainSheet = computed(() => compactScreen.value && mode.value === 'terrain' && !props.readOnly);
 const activeTab = computed<TabId>(() => (showTable.value ? 'table' : mode.value === 'terrain' ? 'terrain' : 'move'));
 /** A watcher cannot change the terrain, so has no Terrain tab. */
@@ -435,7 +453,7 @@ onBeforeUnmount(() => {
 function showPanel() {
     document
         .querySelector('[data-testid=side-column] [data-testid=selected-panel], [data-testid=side-column] [data-testid=terrain-piece]')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        ?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
 }
 /** Load table and Save table: dialogs. */
 const loadOpen = ref(false);
@@ -466,6 +484,8 @@ onMounted(() => {
     } catch {
         // storage unavailable: off
     }
+    // the Terrain tab is the next thing most people open: fetch its editor once the table is up, so the tab does not open empty
+    if (!props.readOnly) setTimeout(() => void loadTerrainEditor(), 1200);
 });
 watch(tableLines, (on) => {
     try {
@@ -573,29 +593,7 @@ const svg = ref<SVGSVGElement | null>(null);
 const newSide = ref<'a' | 'b'>('a');
 
 /** Where the model being moved started, and where it is now: a dashed line with the movement it has cost, kept after the drop until the next touch. */
-const trail = ref<{
-    id: string;
-    from: Point;
-    to: Point;
-    baseMm: number;
-    startElevation: number;
-    sp?: number;
-    /** The Sp was halved because the model started engaged (CRG, Engagement). */
-    halved?: boolean;
-    /** A Charge cannot be declared while engaged. */
-    chargeBlocked?: boolean;
-    /** How it is moving: a Walk, a Walk that ignores terrain (Flight), or a place within `range` (Leap) that is not movement at all. */
-    kind: MoveKind;
-    /** The building it started inside, if any (a place cannot cross a wall). */
-    inside: string | null;
-    range: number;
-    whole: boolean;
-    /** The points the move has passed through so far (the start, then where each earlier leg ended); `to` is where the model is now. `spent` is what the move had cost on reaching that point. */
-    path: { x: number; y: number; elev: number; spent?: number }[];
-    /** Whether the model began the move beneath a bridge (so Cancel can put it back as it was). */
-    startUnder?: boolean;
-} | null>(null);
-type MoveKind = 'walk' | 'charge' | 'jump' | 'fly' | 'place';
+const trail = ref<Trail | null>(null);
 /** Walking spends movement and is stopped by terrain; flying walks but ignores terrain's height; placing picks the model up and puts it down within a range (p.17). */
 const moveKind = ref<MoveKind>('walk');
 const placeRange = ref(6);
@@ -635,24 +633,9 @@ const trailCost = computed(() => {
     // A place is not movement, so it is never measured against a Walk.
     return { cost, crossed, walk: t.sp !== undefined && t.kind !== 'place' ? walkBudget(t.sp, cost) : null };
 });
-const trailPoints = computed<Point[]>(() => (trail.value ? [...trail.value.path.map((q) => ({ x: q.x, y: q.y })), { ...trail.value.to }] : []));
-const trailLength = computed(() =>
-    trailPoints.value.reduce((sum, q, i, all) => (i ? sum + Math.hypot(q.x - all[i - 1].x, q.y - all[i - 1].y) : 0), 0),
-);
-/** A small length on each leg once there is more than one. */
-const trailLegLabels = computed(() => {
-    const pts = trailPoints.value;
-    if (pts.length < 3) return [];
-    // A leg under an inch is too short to label without the text piling up on the model; the total still counts it.
-    return pts
-        .slice(1)
-        .map((q, i) => ({
-            x: (q.x + pts[i].x) / 2,
-            y: (q.y + pts[i].y) / 2 - 0.35,
-            length: Math.hypot(q.x - pts[i].x, q.y - pts[i].y),
-        }))
-        .filter((l) => l.length >= 1);
-});
+const trailPoints = computed<Point[]>(() => trailPointsOf(trail.value));
+const trailLength = computed(() => pathLength(trailPoints.value));
+const trailLegLabels = computed(() => legLabels(trailPoints.value));
 /** Line of sight: press on a model and drag to another. Each model draws its own sight lines, so both directions are checked. */
 const sight = ref<{ fromId: string; toId: string | null; aim: Point | null } | null>(null);
 /**
@@ -660,13 +643,6 @@ const sight = ref<{ fromId: string; toId: string | null; aim: Point | null } | n
  * are aimed by dragging in Sight mode. Without it they only show while a finger is down in Sight mode.
  */
 const guidedId = ref<string | null>(null);
-/** Where the lines first point: the nearest model on the other side, or else across the table. */
-function defaultAim(t: Token): Point {
-    const foes = tokens.value.filter((o) => !o.marker && !o.killed && o.id !== t.id && o.side !== t.side && o.side !== 'n');
-    const near = foes.sort((a, b) => Math.hypot(a.x - t.x, a.y - t.y) - Math.hypot(b.x - t.x, b.y - t.y))[0];
-    if (near) return { x: near.x, y: near.y };
-    return { x: TABLE_SIZE / 2, y: t.y < TABLE_SIZE / 2 ? t.y + 8 : t.y - 8 };
-}
 /** Switch the guidelines off. */
 function endGuide() {
     guidedId.value = null;
@@ -679,7 +655,7 @@ function toggleGuide(t: Token) {
         return;
     }
     guidedId.value = t.id;
-    const aim = defaultAim(t);
+    const aim = defaultAim(t, tokens.value);
     sight.value = { fromId: t.id, toId: null, aim };
     mode.value = 'sight';
 }
@@ -1203,7 +1179,9 @@ async function flipForModel(t: Token) {
     if (!r.error) {
         fateMod.value = 0;
         // the flip's cards, and the hand to cheat from, are on the Fate mat: bring it into view if it is open but off screen (nothing moves if it is already visible)
-        void nextTick(() => document.querySelector('[data-testid=fate-conflict-zone]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+        void nextTick(() =>
+            document.querySelector('[data-testid=fate-conflict-zone]')?.scrollIntoView({ block: 'nearest', behavior: scrollBehavior() }),
+        );
     }
 }
 const chooseForModel = (t: Token, flip: FateFlip, card: number) =>
@@ -1670,14 +1648,7 @@ function onTerrainKey(e: KeyboardEvent) {
 /** A leg of a move is being dragged: the ring then stays where the leg began, and once it is dropped the ring moves to where it ended. */
 const legActive = ref(false);
 /** The ring of what a Walk can still reach: out from the edge of the base, around where the model stands (or began the leg), and in a step move smaller by what is spent. */
-const walkRing = computed(() => {
-    const tr = trail.value;
-    if (!tr || tr.sp === undefined) return null;
-    const rim = baseRadius(tr.baseMm);
-    if (!stepMove.value) return { x: tr.from.x, y: tr.from.y, r: tr.sp + rim };
-    const at = legActive.value ? (tr.path.at(-1) ?? { ...tr.from, spent: 0 }) : { x: tr.to.x, y: tr.to.y, spent: trailCost.value?.cost.total ?? 0 };
-    return { x: at.x, y: at.y, r: Math.max(0, tr.sp - (at.spent ?? 0)) + rim };
-});
+const walkRing = computed(() => ringFor(trail.value, stepMove.value, legActive.value, trailCost.value?.cost.total ?? 0));
 /** Step move: put the model back where it began, and forget the move. */
 function cancelMove() {
     const tr = trail.value;
@@ -1697,9 +1668,10 @@ function cancelMove() {
 function undoStep() {
     const tr = trail.value;
     if (!tr) return;
-    if (tr.path.length < 2) return cancelMove();
+    const undone = withoutLastLeg(tr);
+    if (!undone) return cancelMove();
     const t = tokens.value.find((x) => x.id === tr.id);
-    const back = tr.path[tr.path.length - 1];
+    const { back } = undone;
     if (t) {
         t.x = back.x;
         t.y = back.y;
@@ -1707,7 +1679,7 @@ function undoStep() {
         else delete t.under;
         emit('moved', { ...t });
     }
-    trail.value = { ...tr, path: tr.path.slice(0, -1), to: { x: back.x, y: back.y } };
+    trail.value = undone.trail;
     note.value = 'Last step taken back.';
 }
 /** The space bar is held: a drag moves the view, whatever mode the board is in. */
@@ -1920,13 +1892,7 @@ function flushMove() {
         const p = toBoard(e.clientX, e.clientY);
         let to = { x: p.x + drag.dx, y: p.y + drag.dy };
         // In a step move a Walk cannot go past what is left of it: the leg stops at the edge of the ring
-        const tr = trail.value;
-        if (stepMove.value && tr && tr.id === id && tr.sp !== undefined && (tr.kind === 'walk' || tr.kind === 'fly')) {
-            const anchor = tr.path.at(-1) ?? { ...tr.from, spent: 0 };
-            const left = Math.max(0, tr.sp - (anchor.spent ?? 0));
-            const d = Math.hypot(to.x - anchor.x, to.y - anchor.y);
-            if (d > left && d > 0) to = { x: anchor.x + ((to.x - anchor.x) * left) / d, y: anchor.y + ((to.y - anchor.y) * left) / d };
-        }
+        to = capLeg(trail.value, id, stepMove.value, to);
         Object.assign(t, clampToTable({ ...t, ...to }));
         if (trail.value) trail.value = { ...trail.value, to: { x: t.x, y: t.y } };
     } else if (drag.kind === 'piece') {
@@ -2034,6 +2000,23 @@ const whereText = computed(() => {
     if (w.half) parts.push(w.half === 'line' ? 'on the centerline' : `${props.sideNames[w.half]}'s half`);
     if (w.zone) parts.push(`in ${props.sideNames[w.zone]}'s deployment zone`);
     return parts.filter(Boolean).join(' · ');
+});
+/**
+ * What a screen reader hears when a model is chosen by touch or click (choosing by keyboard already says it through the note below). Where it
+ * stands and what the ground does to it, in the words of its panel.
+ */
+const announcement = ref('');
+watch(selectedId, () => {
+    void nextTick(() => {
+        const t = selected.value;
+        if (!t) {
+            announcement.value = '';
+            return;
+        }
+        if (note.value.startsWith(t.name)) return; // the keyboard path has just said it
+        const chips = selectedChips.value.map((c) => c.label).join(', ');
+        announcement.value = `${t.name} chosen. ${whereText.value}.${chips ? ` ${chips}.` : ''}`;
+    });
 });
 /** The terrain traits a model is unaffected by, switched on and off from its panel. */
 function toggleIgnore(t: Token, trait: string) {
@@ -3217,17 +3200,23 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
                     </g>
                 </svg>
             </div>
-            <p id="board-keys" class="mt-1 hidden text-center text-xs text-muted-foreground group-focus-within/board:block" data-testid="board-keys">
+            <!-- keyboard help: for a keyboard, read out but not shown on a touch screen, where it only takes room -->
+            <p
+                id="board-keys"
+                class="mt-1 hidden text-center text-xs text-muted-foreground group-focus-within/board:block [@media(hover:none)]:sr-only"
+                data-testid="board-keys"
+            >
                 Keyboard: [ and ] choose a model, the arrow keys move it 0.5" (Shift 0.1", Alt 2"), Esc lets go. On the Terrain tab the same keys move
                 a piece, and , . turn it.
             </p>
             <div class="mt-2 flex items-start gap-2">
                 <p class="min-h-5 flex-1 text-center text-sm" role="status" data-testid="tabletop-note">{{ note }}</p>
+                <p class="sr-only" role="status" aria-live="polite" data-testid="tabletop-announce">{{ announcement }}</p>
             </div>
         </div>
 
         <div
-            class="space-y-4 max-lg:[&_button]:min-h-11 max-lg:[&_input:not([type=checkbox])]:min-h-11 max-lg:[&_select]:min-h-11"
+            class="space-y-4 max-lg:pb-24 max-lg:[&_button]:min-h-11 max-lg:[&_input:not([type=checkbox])]:min-h-11 max-lg:[&_select]:min-h-11"
             data-testid="side-column"
         >
             <a
@@ -4323,7 +4312,7 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
             <button
                 v-if="selectionLabel && !panelVisible"
                 type="button"
-                class="fixed bottom-20 left-1/2 z-30 max-w-[80vw] -translate-x-1/2 truncate rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg lg:hidden"
+                class="fixed bottom-20 left-3 z-30 max-w-[calc(100vw-7.5rem)] truncate rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg lg:hidden"
                 data-testid="selection-chip"
                 @click="showPanel"
             >

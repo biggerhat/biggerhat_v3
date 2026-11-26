@@ -10,14 +10,19 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   flows:
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    # Only this job may write: it opens (or comments on) an issue when the nightly run fails.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2

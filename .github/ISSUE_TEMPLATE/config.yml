@@ -1,0 +1,6 @@
+# Blank issues are off so every report arrives in a form that has the details needed to act on it.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/biggerhat/biggerhat_v3/security/advisories/new
+    about: Please report security problems privately here. Do not open a public issue.

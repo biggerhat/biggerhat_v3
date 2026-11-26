@@ -45,7 +45,7 @@ The repo is public and the host deploys on every merge to `main`, so `main` is t
 - **Settings > Actions:** the default token is read-only; Actions cannot approve PRs; a first-time contributor's fork PR waits for approval. Workflows use
   `pull_request` (never `pull_request_target`), so a fork's PR runs with no secrets. Actions are pinned to a commit SHA (Dependabot keeps them current).
 - **Code security:** secret scanning with push protection, Dependabot alerts and security updates, and private vulnerability reporting (what `SECURITY.md` links to)
-  are all on. The only secret is `DISCORD_DEPLOY_WEBHOOK`.
+  are all on. The Discord webhooks are secrets of the **`production` environment**, which only deploys from `main`, so a branch cannot read them; `deploy-notify.yml` runs in that environment.
 - **The "Main Ruleset"** (PR, `ci-pass`, linear history, no deletion) exists but is switched off; the classic protection above is what is enforced. Use one or the other.
 
 ## After a merge (`deploy-notify.yml`)
@@ -65,7 +65,7 @@ Set up once, in Settings > Secrets and variables > Actions:
 
 | Name | Kind | Purpose |
 |---|---|---|
-| `DISCORD_DEPLOY_WEBHOOK` | secret | the channel that gets the release notes (Discord: channel > Integrations > Webhooks). Unset: the checks run, nothing is posted |
+| `DISCORD_DEPLOY_WEBHOOK` | secret (in the `production` environment) | the channel that gets the release notes (Discord: channel > Integrations > Webhooks). Unset: the checks run, nothing is posted |
 | `DISCORD_ALERT_WEBHOOK` | secret, optional | where a failed or unconfirmed deploy is reported; defaults to the one above |
 | `PROD_URL` | variable, optional | the live site; defaults to `https://biggerhat.net` |
 

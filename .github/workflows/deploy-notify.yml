@@ -4,7 +4,7 @@ name: deploy notify
 # and serving server-rendered pages, then post the merged pull request's "Release notes" to Discord. If the deploy is not seen, or the checks
 # fail, a warning goes to Discord instead and this workflow fails (so it shows red on the commit).
 #
-# Needs, in Settings > Secrets and variables > Actions:
+# Needs, in Settings > Environments > production (secrets) and Settings > Secrets and variables > Actions (variable):
 #   secret DISCORD_DEPLOY_WEBHOOK   the channel that gets the release notes (a channel webhook URL)
 #   secret DISCORD_ALERT_WEBHOOK    optional: where a failed or unconfirmed deploy is reported (defaults to the one above)
 #   variable PROD_URL               optional: the live site (defaults to https://biggerhat.net)
@@ -32,6 +32,8 @@ jobs:
   notify:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
+    # The webhooks live in the "production" environment, which only runs from main: a branch (from anyone with write access) cannot read them.
+    environment: production
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}

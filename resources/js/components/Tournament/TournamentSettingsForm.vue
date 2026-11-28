@@ -26,6 +26,9 @@ const props = defineProps<{
         description: string | null;
         event_date: string;
         location: string | null;
+        start_time?: string | null;
+        timezone?: string | null;
+        is_unlisted?: boolean;
         encounter_size: number;
         encounter_type: string;
         planned_rounds: number;
@@ -55,6 +58,8 @@ const editName = ref(props.tournament.name);
 const editDescription = ref(props.tournament.description ?? '');
 const editEventDate = ref(toDateInput(props.tournament.event_date));
 const editLocation = ref(props.tournament.location ?? '');
+const editStartTime = ref(props.tournament.start_time ?? '');
+const editUnlisted = ref(props.tournament.is_unlisted ?? false);
 const editEncounterSize = ref(props.tournament.encounter_size);
 const editEncounterType = ref(props.tournament.encounter_type ?? 'traditional');
 const editPlannedRounds = ref(props.tournament.planned_rounds);
@@ -88,6 +93,11 @@ const saveSettings = async () => {
         description: editDescription.value.trim() || null,
         event_date: editEventDate.value,
         location: editLocation.value.trim() || null,
+        start_time: editStartTime.value || null,
+        timezone: editStartTime.value
+            ? (props.tournament.timezone ?? (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null))
+            : null,
+        is_unlisted: editUnlisted.value,
         encounter_size: editEncounterSize.value,
         encounter_type: editEncounterType.value,
         planned_rounds: editPlannedRounds.value,
@@ -132,6 +142,11 @@ const saveSettings = async () => {
                     <div class="space-y-1">
                         <Label class="text-xs" for="settings-date">Event Date</Label>
                         <Input id="settings-date" v-model="editEventDate" type="date" class="h-9 text-sm" />
+                    </div>
+                    <div class="space-y-1">
+                        <Label class="text-xs" for="settings-start">Start time</Label>
+                        <Input id="settings-start" v-model="editStartTime" type="time" class="h-9 text-sm" />
+                        <p class="text-2xs text-muted-foreground">Optional. {{ tournament.timezone ?? 'In your time zone' }}.</p>
                     </div>
                     <div class="space-y-1">
                         <Label class="text-xs" for="settings-location">Location</Label>
@@ -214,6 +229,15 @@ const saveSettings = async () => {
                         <p class="text-2xs text-muted-foreground">After this, new RSVPs are refused (cancelling still works).</p>
                     </div>
                 </div>
+                <label class="flex items-start gap-2 text-sm">
+                    <input v-model="editUnlisted" type="checkbox" class="mt-1 size-3.5" data-testid="settings-unlisted" />
+                    <span>
+                        <span class="font-medium">Unlisted</span>
+                        <span class="block text-2xs text-muted-foreground">
+                            Keep it out of the public event list, search and sitemap. Anyone with the link can still open it.
+                        </span>
+                    </span>
+                </label>
                 <label v-if="editTeamSize === 1" class="flex items-start gap-2 text-sm">
                     <input v-model="editInstantSignup" type="checkbox" class="mt-1 size-3.5" />
                     <span>

@@ -14,6 +14,7 @@ use App\Http\Requests\Tournaments\TournamentGameToggleForfeitRequest;
 use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\TournamentGame;
+use App\Models\TournamentGameEvent;
 use App\Models\TournamentPlayer;
 use App\Models\TournamentRound;
 use App\Services\TournamentScoreRecorder;
@@ -339,6 +340,9 @@ class TournamentGameController extends Controller
             ], 422);
         }
 
+        $before = TournamentGameEvent::snapshot($game);
+        $wasForfeit = (bool) $game->is_forfeit;
+
         if ($game->is_forfeit) {
             $game->update([
                 'is_forfeit' => false,
@@ -360,8 +364,28 @@ class TournamentGameController extends Controller
             ]);
         }
 
+        TournamentGameEvent::record($game, $wasForfeit ? 'forfeit_cleared' : 'forfeited', $before);
+
         $this->broadcastUpdate($tournament, 'forfeit_updated');
 
         return response()->json(['success' => true]);
+    }
+
+    /** The change history of one game, newest first, for the score dialog. Organizers and scorekeepers only. */
+    public function events(Tournament $tournament, TournamentGame $game): JsonResponse
+    {
+        $this->authorize('score', $tournament);
+        abort_unless($game->round()->value('tournament_id') === $tournament->id, 404);
+
+        return response()->json([
+            'events' => $game->events()->with('user:id,name')->latest('created_at')->latest('id')->limit(50)->get()->map(fn (TournamentGameEvent $e) => [
+                'id' => $e->id,
+                'action' => $e->action,
+                'by' => $e->user?->name,
+                'at' => $e->created_at->toIso8601String(),
+                'before' => $e->before,
+                'after' => $e->after,
+            ])->values(),
+        ]);
     }
 }

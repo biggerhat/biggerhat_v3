@@ -26,6 +26,16 @@ const tiedRanks = computed(() => {
     return new Set([...counts].filter(([, n]) => n > 1).map(([rank]) => rank));
 });
 const rankLabel = (rank: number | null) => (rank === null ? '-' : tiedRanks.value.has(rank) ? `T-${rank}` : String(rank));
+// Once play has started, registered players who never played sit under a "Did not play" line instead of reading as ranked rows.
+const ordered = computed(() => {
+    const anyPlayed = props.standings.some((e) => e.rounds_played > 0);
+    if (!anyPlayed) return props.standings;
+    return [...props.standings.filter((e) => e.rounds_played > 0), ...props.standings.filter((e) => e.rounds_played === 0)];
+});
+const firstDidNotPlayId = computed(() => {
+    if (!props.standings.some((e) => e.rounds_played > 0)) return null;
+    return ordered.value.find((e) => e.rounds_played === 0)?.player_id ?? null;
+});
 const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlightPlayerId;
 </script>
 
@@ -55,71 +65,82 @@ const isMe = (id: number) => !!props.highlightPlayerId && id === props.highlight
                         <tr v-if="!props.standings.length">
                             <td colspan="8" class="px-3 py-8 text-center text-muted-foreground">No results yet</td>
                         </tr>
-                        <tr
-                            v-for="entry in props.standings"
-                            :key="entry.player_id"
-                            :class="[
-                                factionSpine(entry.faction, { row: true }),
-                                'border-b last:border-0',
-                                entry.is_ringer ? 'italic text-muted-foreground' : '',
-                                isMe(entry.player_id) ? 'ring-2 ring-inset ring-primary/60' : '',
-                            ]"
-                        >
-                            <td class="whitespace-nowrap px-2 py-2 font-bold tabular-nums sm:px-3">{{ rankLabel(entry.rank) }}</td>
-                            <td class="px-2 py-2 sm:px-3">
-                                <div class="flex items-center gap-1.5">
-                                    <FactionLogo
-                                        v-if="entry.faction"
-                                        :faction="entry.faction"
-                                        class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
-                                    />
-                                    <AllegianceLogo
-                                        v-else-if="entry.allegiance"
-                                        :allegiance="entry.allegiance.slug"
-                                        class-name="size-4 shrink-0"
-                                        :title="entry.allegiance.name"
-                                    />
-                                    <Crown
-                                        v-if="entry.rank === 1 && entry.rounds_played > 0 && !entry.is_ringer"
-                                        class="size-3.5 shrink-0 text-amber-600 dark:text-amber-300"
-                                    />
-                                    <span class="truncate text-xs font-medium sm:text-sm" :title="entry.members?.join(' · ')">{{
-                                        entry.display_name
-                                    }}</span>
-                                    <Badge v-if="entry.cut_finish" variant="outline" class="shrink-0 px-1.5 py-0 text-2xs" data-testid="cut-finish">{{
-                                        entry.cut_finish
-                                    }}</Badge>
-                                    <Badge
-                                        v-if="isMe(entry.player_id)"
-                                        variant="outline"
-                                        class="shrink-0 border-transparent bg-primary px-1.5 py-0 text-2xs font-semibold text-primary-foreground"
-                                        >You</Badge
-                                    >
-                                    <Badge
-                                        v-if="entry.is_ringer"
-                                        variant="outline"
-                                        class="hidden shrink-0 px-1 py-0 text-2xs text-muted-foreground sm:inline-flex"
-                                        >Ringer</Badge
-                                    >
-                                    <Badge
-                                        v-if="entry.is_dropped"
-                                        variant="outline"
-                                        class="hidden shrink-0 px-1 py-0 text-2xs text-muted-foreground sm:inline-flex"
-                                        >Dropped</Badge
-                                    >
-                                </div>
-                            </td>
-                            <td class="px-1 py-2 text-center font-bold tabular-nums sm:px-3">{{ entry.total_tp }}</td>
-                            <td class="hidden whitespace-nowrap px-1 py-2 text-center font-medium tabular-nums sm:table-cell sm:px-3">
-                                {{ entry.wins ?? 0 }}-{{ entry.losses ?? 0 }}-{{ entry.ties ?? 0 }}
-                            </td>
-                            <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_sos }}</td>
-                            <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">
-                                {{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}
-                            </td>
-                            <td class="px-1 py-2 text-center tabular-nums sm:px-3">{{ entry.total_vp }}</td>
-                            <td class="hidden px-3 py-2 text-center tabular-nums opacity-70 sm:table-cell">{{ entry.rounds_played }}</td>
-                        </tr>
+                        <template v-for="entry in ordered" :key="entry.player_id">
+                            <tr v-if="entry.player_id === firstDidNotPlayId" data-testid="did-not-play">
+                                <td colspan="8" class="bg-muted/30 px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Did not play
+                                </td>
+                            </tr>
+                            <tr
+                                :class="[
+                                    factionSpine(entry.faction, { row: true }),
+                                    'border-b last:border-0',
+                                    entry.is_ringer ? 'italic text-muted-foreground' : '',
+                                    isMe(entry.player_id) ? 'ring-2 ring-inset ring-primary/60' : '',
+                                ]"
+                            >
+                                <td class="whitespace-nowrap px-2 py-2 font-bold tabular-nums sm:px-3">
+                                    {{ entry.rounds_played === 0 && firstDidNotPlayId !== null ? '-' : rankLabel(entry.rank) }}
+                                </td>
+                                <td class="px-2 py-2 sm:px-3">
+                                    <div class="flex items-center gap-1.5">
+                                        <FactionLogo
+                                            v-if="entry.faction"
+                                            :faction="entry.faction"
+                                            class-name="size-4 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                                        />
+                                        <AllegianceLogo
+                                            v-else-if="entry.allegiance"
+                                            :allegiance="entry.allegiance.slug"
+                                            class-name="size-4 shrink-0"
+                                            :title="entry.allegiance.name"
+                                        />
+                                        <Crown
+                                            v-if="entry.rank === 1 && entry.rounds_played > 0 && !entry.is_ringer"
+                                            class="size-3.5 shrink-0 text-amber-600 dark:text-amber-300"
+                                        />
+                                        <span class="truncate text-xs font-medium sm:text-sm" :title="entry.members?.join(' · ')">{{
+                                            entry.display_name
+                                        }}</span>
+                                        <Badge
+                                            v-if="entry.cut_finish"
+                                            variant="outline"
+                                            class="shrink-0 px-1.5 py-0 text-2xs"
+                                            data-testid="cut-finish"
+                                            >{{ entry.cut_finish }}</Badge
+                                        >
+                                        <Badge
+                                            v-if="isMe(entry.player_id)"
+                                            variant="outline"
+                                            class="shrink-0 border-transparent bg-primary px-1.5 py-0 text-2xs font-semibold text-primary-foreground"
+                                            >You</Badge
+                                        >
+                                        <Badge
+                                            v-if="entry.is_ringer"
+                                            variant="outline"
+                                            class="hidden shrink-0 px-1 py-0 text-2xs text-muted-foreground sm:inline-flex"
+                                            >Ringer</Badge
+                                        >
+                                        <Badge
+                                            v-if="entry.is_dropped"
+                                            variant="outline"
+                                            class="hidden shrink-0 px-1 py-0 text-2xs text-muted-foreground sm:inline-flex"
+                                            >Dropped</Badge
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-1 py-2 text-center font-bold tabular-nums sm:px-3">{{ entry.total_tp }}</td>
+                                <td class="hidden whitespace-nowrap px-1 py-2 text-center font-medium tabular-nums sm:table-cell sm:px-3">
+                                    {{ entry.wins ?? 0 }}-{{ entry.losses ?? 0 }}-{{ entry.ties ?? 0 }}
+                                </td>
+                                <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">{{ entry.total_sos }}</td>
+                                <td class="px-1 py-2 text-center font-medium tabular-nums sm:px-3">
+                                    {{ entry.total_diff > 0 ? '+' : '' }}{{ entry.total_diff }}
+                                </td>
+                                <td class="px-1 py-2 text-center tabular-nums sm:px-3">{{ entry.total_vp }}</td>
+                                <td class="hidden px-3 py-2 text-center tabular-nums opacity-70 sm:table-cell">{{ entry.rounds_played }}</td>
+                            </tr>
+                        </template>
                     </tbody>
                 </table>
             </div>

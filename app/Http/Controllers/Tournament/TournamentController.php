@@ -61,6 +61,7 @@ class TournamentController extends Controller
 
         // Drafts stay private to their organizers (reachable by link for RSVPs) so open creation can't clutter the public list.
         $publicTournaments = Tournament::where('status', '!=', TournamentStatusEnum::Draft->value)
+            ->where('is_unlisted', false)
             ->when($userId, fn ($q) => $q->where('creator_id', '!=', $userId))
             ->with('creator:id,name')
             ->withCount('players')
@@ -162,6 +163,8 @@ class TournamentController extends Controller
                     'team_size' => (int) $source->team_size,
                     'max_players' => $source->max_players,
                     'instant_signup' => $source->instant_signup,
+                    'is_unlisted' => (bool) $source->is_unlisted,
+                    'timezone' => $source->timezone,
                     'require_crew_lists' => (bool) $source->require_crew_lists,
                     'scoring_config' => $source->scoring_config,
                 ];

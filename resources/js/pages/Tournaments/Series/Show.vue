@@ -4,9 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useConfirm } from '@/composables/useConfirm';
-import { Head, Link, router } from '@inertiajs/vue3';
+import SeoHead from '@/components/SeoHead.vue';
+import { Link, router } from '@inertiajs/vue3';
 import { BarChart3, ArrowLeft, Medal, Pencil, Trash2 } from 'lucide-vue-next';
-import { computed } from 'vue';
 
 /** One league: the cumulative leaderboard, how points work, and the events in it. */
 interface Result {
@@ -45,10 +45,6 @@ const props = defineProps<{
 const confirm = useConfirm();
 const ordinal = (n: number) =>
     n % 10 === 1 && n % 100 !== 11 ? `${n}st` : n % 10 === 2 && n % 100 !== 12 ? `${n}nd` : n % 10 === 3 && n % 100 !== 13 ? `${n}rd` : `${n}th`;
-const pointsLine = computed(() => {
-    const places = props.series.points_table.map((p, i) => `${ordinal(i + 1)} ${p}`).join(' · ');
-    return `${places}${props.series.participation_points ? ` · everyone else who played ${props.series.participation_points}` : ''}`;
-});
 const resultFor = (row: Row, eventId: number) => row.results.find((r) => r.tournament_id === eventId);
 
 const remove = async () => {
@@ -67,7 +63,13 @@ const statusLabel = (s: string) => ({ draft: 'Draft', registration: 'Open', acti
 </script>
 
 <template>
-    <Head :title="series.name" />
+    <SeoHead
+        :title="series.name"
+        :description="
+            series.description?.trim() || `${series.name}: a tournament league by ${series.creator} with ${events.length} events and standings.`
+        "
+        type="website"
+    />
     <PageBanner :title="series.name" class="mb-2">
         <template #subtitle>
             <div class="my-auto px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm md:text-foreground">League by {{ series.creator }}</div>
@@ -117,14 +119,17 @@ const statusLabel = (s: string) => ({ draft: 'Draft', registration: 'Open', acti
                                     <Link :href="route('tournaments.view', e.uuid)" class="underline-offset-2 hover:underline">{{
                                         e.name.length > 14 ? e.name.slice(0, 13) + '…' : e.name
                                     }}</Link>
+                                    <span class="block text-2xs">{{ e.event_date }}</span>
                                 </th>
                                 <th class="px-2 py-1.5 text-right">Wins</th>
                                 <th class="py-1.5 pl-2 text-right">Points</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="row in standings" :key="row.key" class="border-b last:border-0">
-                                <td class="py-1.5 pr-2 tabular-nums">{{ row.rank }}</td>
+                            <tr v-for="row in standings" :key="row.key" class="border-b last:border-0" :class="row.rank <= 3 ? 'bg-amber-500/5' : ''">
+                                <td class="py-1.5 pr-2 tabular-nums" :class="row.rank <= 3 ? 'font-bold text-amber-700 dark:text-amber-300' : ''">
+                                    {{ row.rank }}
+                                </td>
                                 <td class="py-1.5 pr-2 font-medium">{{ row.name }}</td>
                                 <td v-for="e in scored_events" :key="e.id" class="px-2 py-1.5 text-right tabular-nums">
                                     <template v-if="resultFor(row, e.id)">
@@ -142,11 +147,18 @@ const statusLabel = (s: string) => ({ draft: 'Draft', registration: 'Open', acti
                         </tbody>
                     </table>
                 </div>
-                <p class="text-xs text-muted-foreground">
-                    Points: {{ pointsLine }}.<template v-if="series.best_of">
-                        Only each player's best {{ series.best_of }} {{ series.best_of === 1 ? 'event counts' : 'events count' }} (struck-through
-                        results don't).</template
+                <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground" data-testid="series-points">
+                    <span>Points per event:</span>
+                    <Badge v-for="(p, i) in series.points_table" :key="i" variant="outline" class="text-2xs font-medium"
+                        >{{ ordinal(i + 1) }} {{ p }}</Badge
                     >
+                    <Badge v-if="series.participation_points" variant="outline" class="text-2xs font-medium"
+                        >Played +{{ series.participation_points }}</Badge
+                    >
+                </div>
+                <p v-if="series.best_of" class="text-xs text-muted-foreground">
+                    Only each player's best {{ series.best_of }} {{ series.best_of === 1 ? 'event counts' : 'events count' }} (struck-through results
+                    don't).
                 </p>
             </CardContent>
         </Card>

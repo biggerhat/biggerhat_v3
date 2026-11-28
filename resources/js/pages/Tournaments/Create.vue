@@ -56,6 +56,7 @@ const form = useForm({
     name: props.template?.name ?? '',
     description: props.template?.description ?? '',
     event_date: '',
+    start_time: '',
     location: props.template?.location ?? '',
     encounter_size: props.template?.encounter_size ?? initialRuleset.game_size.default,
     encounter_type: props.template?.encounter_type ?? 'traditional',
@@ -71,6 +72,7 @@ const form = useForm({
     max_players: (props.template?.max_players ?? '') as number | '',
     registration_closes_at: '',
     instant_signup: false,
+    is_unlisted: false,
     require_crew_lists: props.template?.require_crew_lists ?? false,
     variants: (props.template?.variants ?? {}) as Record<string, boolean | number>,
     // Scoring overrides on top of the ruleset (only keys that differ), e.g. { win_tp: 4 }.
@@ -149,6 +151,9 @@ const submit = () => {
         ...data,
         description: data.description.trim() || null,
         location: data.location.trim() || null,
+        start_time: data.start_time || null,
+        // The time zone is the organizer's own, so a start time reads right for everyone who opens the calendar file.
+        timezone: data.start_time ? (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null) : null,
         // Store bye values only when they differ from the ruleset's, so the ruleset stays the source of truth.
         bye_tp: data.bye_tp === defaults.bye_tp ? null : data.bye_tp,
         bye_diff: data.bye_diff === defaults.bye_diff ? null : data.bye_diff,
@@ -254,6 +259,14 @@ const submit = () => {
                                         <Label for="t-date">Event Date</Label>
                                         <Input id="t-date" v-model="form.event_date" type="date" />
                                         <InputError :message="form.errors.event_date" />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <Label for="t-start">Start time <span class="text-xs text-muted-foreground">(optional)</span></Label>
+                                        <Input id="t-start" v-model="form.start_time" type="time" />
+                                        <p class="text-2xs text-muted-foreground">
+                                            In your time zone. Used in the calendar file and shown on the page.
+                                        </p>
+                                        <InputError :message="form.errors.start_time" />
                                     </div>
                                     <div class="space-y-2">
                                         <Label for="t-location">Location <span class="text-xs text-muted-foreground">(optional)</span></Label>
@@ -371,6 +384,16 @@ const submit = () => {
                                         <InputError :message="form.errors.registration_closes_at" />
                                     </div>
                                 </div>
+
+                                <label class="flex items-start gap-2 text-sm">
+                                    <input v-model="form.is_unlisted" type="checkbox" class="mt-1 size-3.5" data-testid="unlisted" />
+                                    <span>
+                                        <span class="font-medium">Unlisted</span>
+                                        <span class="block text-2xs text-muted-foreground">
+                                            Keep it out of the public event list, search and sitemap. Anyone with the link can still open it.
+                                        </span>
+                                    </span>
+                                </label>
 
                                 <label v-if="form.team_size === 1" class="flex items-start gap-2 text-sm">
                                     <input v-model="form.instant_signup" type="checkbox" class="mt-1 size-3.5" />

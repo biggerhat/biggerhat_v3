@@ -11,7 +11,7 @@ import type { TableDetail } from '@/types/tournament';
 import { Textarea } from '@/components/ui/textarea';
 import type { SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { Gamepad2, Loader2, Swords } from 'lucide-vue-next';
+import { Gamepad2, HandHelping, Loader2, Swords } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Side {
@@ -111,6 +111,7 @@ const scoreLine = computed(() => {
 const fields = computed(() => props.scoreFields ?? []);
 const opponentName = computed(() => opponent.value.name ?? 'your opponent');
 const canUseTabletop = computed(() => !!usePage<SharedData>().props.auth?.can_use_tabletop);
+const judgeError = computed(() => (usePage().props.errors as Record<string, string> | undefined)?.judge ?? null);
 const reportError = computed(() => (usePage().props.errors as Record<string, string> | undefined)?.report ?? null);
 const canReport = computed(
     () =>
@@ -164,6 +165,12 @@ const submitReport = () =>
 const confirmReport = () => send('post', 'tournaments.games.report.confirm');
 const submitDispute = () =>
     send('post', 'tournaments.games.report.dispute', { note: disputeNote.value.trim() || null }, () => (disputing.value = false));
+const judgeCalled = ref(false);
+const callJudge = () =>
+    send('post', 'tournaments.games.judge', {}, () => {
+        judgeCalled.value = true;
+        setTimeout(() => (judgeCalled.value = false), 180_000);
+    });
 const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw');
 </script>
 
@@ -247,6 +254,18 @@ const withdrawReport = () => send('delete', 'tournaments.games.report.withdraw')
                 </p>
                 <p v-else-if="game.is_forfeit" class="text-xs text-muted-foreground">This game was recorded as a forfeit.</p>
                 <p v-else class="text-xs text-muted-foreground">Result recorded.</p>
+                <Button
+                    v-if="inProgress && !game.is_bye && !finished"
+                    size="sm"
+                    variant="outline"
+                    class="gap-1.5"
+                    :disabled="busy || judgeCalled"
+                    data-testid="call-judge"
+                    @click="callJudge"
+                >
+                    <HandHelping class="size-4" /> {{ judgeCalled ? 'Judge called' : 'Call a judge' }}
+                </Button>
+                <p v-if="judgeError" class="w-full text-xs text-destructive" role="alert">{{ judgeError }}</p>
             </div>
 
             <!-- Player self-reporting: propose → opponent confirms/disputes → official -->

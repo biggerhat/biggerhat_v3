@@ -50,6 +50,11 @@ class TournamentUpdateRequest extends FormRequest
             'max_players' => ['sometimes', 'nullable', 'integer', 'min:2', 'max:512'],
             'registration_closes_at' => ['sometimes', 'nullable', 'date'],
             'instant_signup' => ['sometimes', 'boolean'],
+            // Unlisted events skip the public list, search and sitemap; the link still works.
+            'is_unlisted' => ['sometimes', 'boolean'],
+            // Optional local start time and time zone, so the calendar file and the page can say "10:00".
+            'start_time' => ['sometimes', 'nullable', 'date_format:H:i'],
+            'timezone' => ['sometimes', 'nullable', 'timezone:all'],
             // Players attach a Crew Builder list before the event starts (faction-declaring rulesets, individual play).
             'require_crew_lists' => ['sometimes', 'boolean'],
             // 1 = individuals; 2–4 = teams of that size (the ruleset must support teams).

@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Tournament;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
+use Carbon\Carbon;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 
 /**
- * "Add to calendar": a one-event iCalendar file for a tournament (an all-day event on its date — the tracker
- * records a day, not a start time), with the venue and a link back to the page. Public, like the page.
+ * "Add to calendar": a one-event iCalendar file for a tournament (all-day on its date, or timed when the organizer set a start time and zone), with the venue and a link back to the page. Public, like the page.
  */
 class TournamentCalendarController extends Controller
 {
@@ -18,6 +18,13 @@ class TournamentCalendarController extends Controller
         $date = $tournament->event_date;
         $url = route('tournaments.view', $tournament);
         $description = trim(($tournament->description ? $tournament->description."\n\n" : '').$tournament->rulesetDefinition()->label."\n".$url);
+
+        // With a start time and zone the event is timed (the length is a guess: a day of Swiss rounds runs long); otherwise all-day.
+        $timed = $tournament->start_time && $tournament->timezone;
+        $start = $timed ? Carbon::parse($date->format('Y-m-d').' '.$tournament->start_time, $tournament->timezone) : null;
+        $when = $start
+            ? ['DTSTART;TZID='.$tournament->timezone.':'.$start->format('Ymd\THis'), 'DTEND;TZID='.$tournament->timezone.':'.$start->copy()->addHours(8)->format('Ymd\THis')]
+            : ['DTSTART;VALUE=DATE:'.$date->format('Ymd'), 'DTEND;VALUE=DATE:'.$date->copy()->addDay()->format('Ymd')];
 
         $lines = [
             'BEGIN:VCALENDAR',
@@ -28,8 +35,7 @@ class TournamentCalendarController extends Controller
             'BEGIN:VEVENT',
             'UID:'.$tournament->uuid.'@'.parse_url(config('app.url'), PHP_URL_HOST),
             'DTSTAMP:'.now()->utc()->format('Ymd\THis\Z'),
-            'DTSTART;VALUE=DATE:'.$date->format('Ymd'),
-            'DTEND;VALUE=DATE:'.$date->copy()->addDay()->format('Ymd'),
+            ...$when,
             'SUMMARY:'.$this->escape($tournament->name),
             ...($tournament->location ? ['LOCATION:'.$this->escape($tournament->location)] : []),
             'DESCRIPTION:'.$this->escape($description),

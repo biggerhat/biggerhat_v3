@@ -113,7 +113,7 @@ const scoreTone = (winning: boolean) => (winning ? 'font-bold text-green-600 dar
 </script>
 
 <template>
-    <div class="rounded-md border text-sm" :class="sides.some((s) => s.isMe) ? 'border-primary/40 bg-primary/5' : ''">
+    <div class="mx-auto w-full max-w-3xl rounded-md border text-sm" :class="sides.some((s) => s.isMe) ? 'border-primary/40 bg-primary/5' : ''">
         <!-- Phones: a stacked card, one line per side -->
         <div class="flex flex-col gap-1 p-2.5 sm:hidden">
             <div class="flex items-center gap-2 text-2xs text-muted-foreground">

@@ -60,6 +60,7 @@ use App\Http\Controllers\Tournament\TournamentGameCrewController;
 use App\Http\Controllers\Tournament\TournamentGameReportController;
 use App\Http\Controllers\Tournament\TournamentImportController;
 use App\Http\Controllers\Tournament\TournamentInsightsExportController;
+use App\Http\Controllers\Tournament\TournamentJudgeCallController;
 use App\Http\Controllers\Tournament\TournamentOrganizerController;
 use App\Http\Controllers\Tournament\TournamentPlayerController;
 use App\Http\Controllers\Tournament\TournamentResultsController;
@@ -603,7 +604,7 @@ Route::get('/tournaments/series/{series}', [TournamentSeriesController::class, '
 Route::get('/tournaments/{tournament}/view', [TournamentController::class, 'view'])->name('tournaments.view');
 Route::get('/tournaments/{tournament}/display', [TournamentController::class, 'display'])->name('tournaments.display');
 Route::get('/tournaments/{tournament}/event.ics', [TournamentCalendarController::class, 'ics'])->name('tournaments.calendar');
-Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController::class, 'pdf'])->name('tournaments.results_pdf');
+Route::get('/tournaments/{tournament}/results.pdf', [TournamentResultsController::class, 'pdf'])->name('tournaments.results_pdf')->middleware('throttle:20,1');
 Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBindings()->group(function () {
     Route::get('/create', [TournamentController::class, 'create'])->name('create');
     Route::get('/analytics', TournamentAnalyticsController::class)->name('analytics');
@@ -616,13 +617,13 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::post('/', [TournamentController::class, 'store'])->name('store')->middleware('throttle:20,60');
     Route::get('/{tournament}', [TournamentController::class, 'manage'])->name('manage');
     Route::get('/{tournament}/score', [TournamentController::class, 'score'])->name('score');
-    Route::post('/{tournament}/scorers', [TournamentScorerController::class, 'store'])->name('scorers.add');
+    Route::post('/{tournament}/scorers', [TournamentScorerController::class, 'store'])->name('scorers.add')->middleware('throttle:30,1');
     Route::delete('/{tournament}/scorers/{userId}', [TournamentScorerController::class, 'destroy'])->name('scorers.remove')->whereNumber('userId');
     Route::put('/{tournament}', [TournamentController::class, 'update'])->name('update');
     Route::delete('/{tournament}', [TournamentController::class, 'destroy'])->name('destroy');
     Route::put('/{tournament}/status', [TournamentController::class, 'updateStatus'])->name('status');
     Route::put('/{tournament}/announcement', [TournamentAnnouncementController::class, 'update'])->name('announcement');
-    Route::post('/{tournament}/awards', [TournamentAwardController::class, 'store'])->name('awards.store');
+    Route::post('/{tournament}/awards', [TournamentAwardController::class, 'store'])->name('awards.store')->middleware('throttle:30,1');
     Route::put('/{tournament}/awards/{award}', [TournamentAwardController::class, 'update'])->name('awards.update');
     Route::delete('/{tournament}/awards/{award}', [TournamentAwardController::class, 'destroy'])->name('awards.destroy');
     Route::put('/{tournament}/discord', [TournamentDiscordController::class, 'update'])->name('discord');
@@ -634,7 +635,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::delete('/{tournament}/tables/{number}', [TournamentTableController::class, 'destroy'])->name('tables.destroy')->whereNumber('number');
 
     // Organizers
-    Route::post('/{tournament}/organizers', [TournamentOrganizerController::class, 'store'])->name('organizers.add');
+    Route::post('/{tournament}/organizers', [TournamentOrganizerController::class, 'store'])->name('organizers.add')->middleware('throttle:30,1');
     Route::delete('/{tournament}/organizers/{userId}', [TournamentOrganizerController::class, 'destroy'])->name('organizers.remove');
 
     // RSVPs
@@ -650,7 +651,7 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::get('/{tournament}/users/search', TournamentUserSearchController::class)->name('users.search');
 
     // Players
-    Route::post('/{tournament}/players', [TournamentPlayerController::class, 'store'])->name('players.add');
+    Route::post('/{tournament}/players', [TournamentPlayerController::class, 'store'])->name('players.add')->middleware('throttle:60,1');
     Route::put('/{tournament}/players/{player}', [TournamentPlayerController::class, 'update'])->name('players.update');
     Route::post('/{tournament}/players/check-in-all', [TournamentPlayerController::class, 'checkInAll'])->name('players.check_in_all');
     Route::delete('/{tournament}/players/{player}', [TournamentPlayerController::class, 'destroy'])->name('players.remove');
@@ -672,9 +673,11 @@ Route::prefix('tournaments')->name('tournaments.')->middleware('auth')->scopeBin
     Route::post('/{tournament}/rounds/{round}/swap-tables', [TournamentGameController::class, 'swapTables'])->name('games.swap_tables');
     Route::put('/{tournament}/games/{game}', [TournamentGameController::class, 'updateScore'])->name('games.update');
     Route::delete('/{tournament}/games/{game}', [TournamentGameController::class, 'destroy'])->name('games.delete');
+    Route::get('/{tournament}/games/{game}/events', [TournamentGameController::class, 'events'])->name('games.events');
     Route::post('/{tournament}/games/{game}/forfeit', [TournamentGameController::class, 'toggleForfeit'])->name('games.forfeit');
     // Player self-reporting (the opponent confirms or disputes; the TO's score entry always wins)
     Route::put('/{tournament}/games/{game}/crew', [TournamentGameCrewController::class, 'update'])->name('games.crew');
+    Route::post('/{tournament}/games/{game}/judge', [TournamentJudgeCallController::class, 'store'])->name('games.judge')->middleware('throttle:10,1');
     Route::post('/{tournament}/games/{game}/report', [TournamentGameReportController::class, 'store'])->name('games.report');
     Route::post('/{tournament}/games/{game}/report/confirm', [TournamentGameReportController::class, 'confirm'])->name('games.report.confirm');
     Route::post('/{tournament}/games/{game}/report/dispute', [TournamentGameReportController::class, 'dispute'])->name('games.report.dispute');

@@ -207,6 +207,7 @@ class SitemapController extends Controller
             // tournament schema cleanup; visibility is governed by status.)
             Tournament::query()
                 ->where('status', '!=', TournamentStatusEnum::Draft)
+                ->where('is_unlisted', false)
                 ->chunk(200, function ($tournaments) use ($urls) {
                     foreach ($tournaments as $tournament) {
                         /** @var Tournament $tournament */

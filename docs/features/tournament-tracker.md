@@ -241,3 +241,13 @@ Shared pieces: `InsightBars`, `InsightTiles`, `InsightBreakdown` (plain div bars
 ## Table layouts (Tabletop)
 
 An organizer can attach one of their saved Tabletop layouts to a table (`tournament_tables.tabletop_layout_id`, chosen in `TableEditor.vue`, only offered when they can use Tabletop). Attaching shares the layout by link; players with Tabletop access see an "Open this table in Tabletop" link on their match card (`MyMatchCard.vue`). A table row with only a layout is kept.
+
+## Listing, start time, score history and judge calls (second audit)
+
+- **Unlisted events** (`tournaments.is_unlisted`): skipped by the public list and the sitemap; the link still works. Set on Create and in the settings form.
+- **Start time** (`start_time` "HH:MM" and `timezone`, an IANA name taken from the organizer's browser): shown on the page, and the calendar file (`TournamentCalendarController`) becomes a timed event (8 hours long) instead of all-day.
+- **Score history** (`tournament_game_events`, `TournamentGameEvent`): every score entry, correction and forfeit change is logged by `TournamentScoreRecorder::record()` and the forfeit toggle, with who and the before/after result. The score dialog loads it from `tournaments.games.events` (organizers and scorekeepers only), not from the page payload.
+- **Call a judge** (`TournamentJudgeCallController`, `TournamentJudgeCalled`): a player in a game in progress notifies the organizers and scorekeepers with the table number; one call per table every three minutes.
+- **Share**: the public page has `SeoHead`, Event JSON-LD and a Share menu (copy link, QR code); the league page has `SeoHead`.
+- Standings fold players with no games played under "Did not play" once play has started.
+- Not built yet from `docs/plans/tournament-audit-2.md`: lazy finished rounds (P1), push/email notifications (J2), offline scoring (J7), round-robin pools (J9), organizer insights (J10), following an event (J11), invite accept/decline and muting (S2).

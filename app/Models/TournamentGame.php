@@ -7,6 +7,7 @@ use App\Enums\TournamentReportStatusEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @mixin IdeHelperTournamentGame
@@ -40,6 +41,12 @@ class TournamentGame extends Model
     public function breakdownFor(string $side): array
     {
         return (array) (((array) $this->score_breakdown)[$side] ?? []);
+    }
+
+    /** @return HasMany<TournamentGameEvent, $this> */
+    public function events(): HasMany
+    {
+        return $this->hasMany(TournamentGameEvent::class);
     }
 
     public function round(): BelongsTo

@@ -63,3 +63,32 @@ it('lists upcoming events soonest first and paginates the public list', function
 
     $this->get(route('tournaments.index', ['when' => 'upcoming', 'page' => 2]))->assertInertia(fn (Assert $page) => $page->has('public_tournaments', 3));
 });
+
+it('keeps unlisted events out of the public list but reachable by link', function () {
+    Tournament::factory()->inRegistration()->create(['name' => 'Open Cup', 'is_unlisted' => false]);
+    $private = Tournament::factory()->inRegistration()->create(['name' => 'League Night', 'is_unlisted' => true]);
+
+    $names = collect($this->get(route('tournaments.index'))->assertOk()->viewData('page')['props']['public_tournaments'])->pluck('name')->all();
+
+    expect($names)->toBe(['Open Cup']);
+    $this->get(route('tournaments.view', $private->uuid))->assertOk();
+});
+
+it('writes a timed calendar event when the organizer set a start time and zone', function () {
+    $t = Tournament::factory()->inRegistration()->create(['event_date' => '2026-11-18', 'start_time' => '10:00', 'timezone' => 'America/Denver']);
+
+    $body = $this->get(route('tournaments.calendar', $t->uuid))->assertOk()->getContent();
+
+    expect($body)->toContain("DTSTART;TZID=America/Denver:20261118T100000\r\n")
+        ->toContain("DTEND;TZID=America/Denver:20261118T180000\r\n")
+        ->not->toContain('VALUE=DATE');
+});
+
+it('validates the start time and time zone', function () {
+    $t = Tournament::factory()->inRegistration()->create();
+    $this->actingAs($t->creator)->putJson(route('tournaments.update', $t->uuid), ['start_time' => '25:99', 'timezone' => 'Mars/Olympus'])
+        ->assertStatus(422)->assertJsonValidationErrors(['start_time', 'timezone']);
+
+    $this->actingAs($t->creator)->putJson(route('tournaments.update', $t->uuid), ['start_time' => '09:30', 'timezone' => 'Europe/London', 'is_unlisted' => true])->assertOk();
+    expect($t->fresh())->start_time->toBe('09:30')->timezone->toBe('Europe/London')->is_unlisted->toBeTrue();
+});

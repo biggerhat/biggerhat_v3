@@ -116,3 +116,24 @@ it('lets a scorekeeper record each side\'s master and title with the score', fun
 
     expect($this->game->fresh())->player_one_master->toBe('Rasputina')->player_one_title->toBe('Winter Witch')->player_two_master->toBe('Lady Justice');
 });
+
+it('keeps a history of who changed a game result', function () {
+    $url = route('tournaments.games.update', [$this->tournament, $this->game]);
+    $this->actingAs($this->scorer)->putJson($url, ($this->score)())->assertOk();
+    $this->actingAs($this->owner)->putJson($url, ['player_one_score' => ['strategy' => 1, 'scheme' => 0], 'player_two_score' => ['strategy' => 4, 'scheme' => 1]])->assertOk();
+
+    $events = $this->actingAs($this->scorer)->getJson(route('tournaments.games.events', [$this->tournament, $this->game]))->assertOk()->json('events');
+
+    expect($events)->toHaveCount(2)
+        ->and($events[0]['action'])->toBe('corrected')->and($events[0]['by'])->toBe($this->owner->name)
+        ->and($events[0]['before']['player_one_vp'])->toBe(5)->and($events[0]['after']['player_one_vp'])->toBe(1)
+        ->and($events[1]['action'])->toBe('scored')->and($events[1]['by'])->toBe($this->scorer->name);
+
+    $this->actingAs($this->stranger)->getJson(route('tournaments.games.events', [$this->tournament, $this->game]))->assertForbidden();
+});
+
+it('records a forfeit in the history', function () {
+    $this->actingAs($this->scorer)->postJson(route('tournaments.games.forfeit', [$this->tournament, $this->game]), ['forfeit_player_id' => $this->game->player_two_id])->assertOk();
+
+    expect($this->game->events()->pluck('action')->all())->toBe(['forfeited']);
+});

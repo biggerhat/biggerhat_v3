@@ -26,18 +26,36 @@ import ResultsCard from '@/components/Tournament/ResultsCard.vue';
 import PairingRow from '@/components/Tournament/PairingRow.vue';
 import RoundClock from '@/components/Tournament/RoundClock.vue';
 import StandingsTable from '@/components/Tournament/StandingsTable.vue';
+import JsonLd from '@/components/JsonLd.vue';
+import QRCodeDialog from '@/components/QRCodeDialog.vue';
+import SeoHead from '@/components/SeoHead.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 import { useTournamentChannel } from '@/composables/useTournamentChannel';
 import { formatDateOnly } from '@/lib/utils';
 import { type SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, CalendarDays, CalendarPlus, ClipboardCheck, MapPin, MonitorPlay, Printer, Trophy, UserPlus } from 'lucide-vue-next';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import {
+    BarChart3,
+    CalendarDays,
+    CalendarPlus,
+    ClipboardCheck,
+    Copy,
+    MapPin,
+    MonitorPlay,
+    Printer,
+    QrCode,
+    Share2,
+    Trophy,
+    UserPlus,
+} from 'lucide-vue-next';
 import { computed, nextTick, ref } from 'vue';
 
 interface TournamentPlayer {
@@ -146,6 +164,8 @@ const props = defineProps<{
         season_label: string;
         event_date: string;
         location: string | null;
+        start_time?: string | null;
+        timezone?: string | null;
         round_time_limit: number;
         allow_self_report?: boolean;
         max_players?: number | null;
@@ -362,6 +382,34 @@ const cancelRsvp = () => {
 
 const formatDate = (d: string) => formatDateOnly(d);
 
+const toast = useToast();
+const qrOpen = ref(false);
+const pageUrl = computed(() => route('tournaments.view', props.tournament.uuid));
+const copyLink = async () => {
+    try {
+        await navigator.clipboard.writeText(pageUrl.value);
+        toast.success('Link copied');
+    } catch {
+        toast.error('Could not copy the link');
+    }
+};
+const seoDescription = computed(() => {
+    const parts = [formatDate(props.tournament.event_date), props.tournament.location, `${props.tournament.players.length} players`].filter(Boolean);
+    const lead = props.tournament.description?.trim();
+    return lead ? `${lead.slice(0, 160)} (${parts.join(' · ')})` : `${props.ruleset.label} tournament on BiggerHat: ${parts.join(' · ')}.`;
+});
+const eventLd = computed(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: props.tournament.name,
+    startDate: props.tournament.event_date,
+    eventStatus: 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    ...(props.tournament.location ? { location: { '@type': 'Place', name: props.tournament.location, address: props.tournament.location } } : {}),
+    ...(props.tournament.description ? { description: props.tournament.description } : {}),
+    url: pageUrl.value,
+}));
+
 const isMyGame = (game: ViewGame): boolean => {
     if (!myPlayerId.value) return false;
     return game.player_one_id === myPlayerId.value || game.player_two_id === myPlayerId.value;
@@ -444,7 +492,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
 </script>
 
 <template>
-    <Head :title="tournament.name" />
+    <SeoHead :title="tournament.name" :description="seoDescription" type="website" />
+    <JsonLd head-key="tournament-event" :data="eventLd" />
     <div class="relative">
         <div
             class="pointer-events-none absolute inset-x-0 top-0 h-64 opacity-[0.07] dark:opacity-[0.12]"
@@ -452,6 +501,19 @@ const openCard = (title: string, image?: string | null, description?: string | n
         />
 
         <PageBanner :title="tournament.name" class="mb-2">
+            <template #actions>
+                <DropdownMenu :modal="false">
+                    <DropdownMenuTrigger as-child>
+                        <Button variant="outline" size="sm" class="gap-1.5" data-testid="tournament-share">
+                            <Share2 class="size-3.5" /> Share
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem @select="copyLink"> <Copy class="mr-2 size-4" /> Copy link </DropdownMenuItem>
+                        <DropdownMenuItem @select="qrOpen = true"> <QrCode class="mr-2 size-4" /> Show QR code </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </template>
             <template #subtitle>
                 <div class="my-auto flex flex-wrap items-center gap-2 px-2 py-0 text-xs text-muted-foreground md:py-2 md:text-sm">
                     <Badge variant="outline" class="text-2xs">{{
@@ -470,7 +532,8 @@ const openCard = (title: string, image?: string | null, description?: string | n
                         }}{{ ruleset.uses_encounter_type ? ' ' + encounterTypeLabel : '' }}</span
                     >
                     <span v-if="tournament.event_date" class="flex items-center gap-1"
-                        ><CalendarDays class="size-3" />{{ formatDate(tournament.event_date) }}</span
+                        ><CalendarDays class="size-3" />{{ formatDate(tournament.event_date)
+                        }}<template v-if="tournament.start_time"> · {{ tournament.start_time }}</template></span
                     >
                     <span v-if="tournament.location" class="flex items-center gap-1"><MapPin class="size-3" />{{ tournament.location }}</span>
                     <span>{{ tournament.players.length }} {{ (tournament.team_size ?? 1) > 1 ? 'teams' : 'players' }}</span>
@@ -1070,4 +1133,5 @@ const openCard = (title: string, image?: string | null, description?: string | n
             </div>
         </DrawerContent>
     </Drawer>
+    <QRCodeDialog v-if="qrOpen" v-model:open="qrOpen" :url="pageUrl" title="Tournament Link" />
 </template>

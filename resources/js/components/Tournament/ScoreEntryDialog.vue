@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useConfirm } from '@/composables/useConfirm';
 import { useTournament } from '@/composables/useTournament';
 import type { TournamentRuleset } from '@/types/tournament';
-import { Loader2 } from 'lucide-vue-next';
+import { Loader2, Minus, Plus } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
 
 /**
@@ -78,6 +78,9 @@ const editDropP2 = ref(false);
 const scoreError = ref<string | null>(null);
 
 const sumScore = (score: Record<string, number>) => props.ruleset.score_fields.reduce((sum, f) => sum + (Number(score[f.key]) || 0), 0);
+const bump = (score: Record<string, number>, field: { key: string; min: number; max: number }, delta: number) => {
+    score[field.key] = Math.min(field.max, Math.max(field.min, (Number(score[field.key]) || 0) + delta));
+};
 const editP1Vp = computed(() => sumScore(editP1Score.value));
 const editP2Vp = computed(() => sumScore(editP2Score.value));
 // One input per ruleset score field (Malifaux: strategy + scheme; Fields of Glory: a single VP total).
@@ -282,12 +285,40 @@ watch(
     },
 );
 
+// Who changed this result, and what it was: loaded when a game opens (and again after a save), not carried in the page payload.
+interface HistoryEvent {
+    id: number;
+    action: string;
+    by: string | null;
+    at: string;
+    before: { player_one_vp: number | null; player_two_vp: number | null } | null;
+    after: { player_one_vp: number | null; player_two_vp: number | null } | null;
+}
+const history = ref<HistoryEvent[]>([]);
+const loadHistory = async (game: ScoreEntryGame | null) => {
+    history.value = [];
+    if (!game) return;
+    try {
+        const res = await fetch(route('tournaments.games.events', { tournament: props.tournament.uuid, game: game.id }), {
+            headers: { Accept: 'application/json' },
+        });
+        if (res.ok && editingGame.value?.id === game.id) history.value = (await res.json()).events ?? [];
+    } catch {
+        // the history is a nicety; the score form works without it
+    }
+};
+const ACTION_LABEL: Record<string, string> = { scored: 'Scored', corrected: 'Changed', forfeited: 'Forfeit set', forfeit_cleared: 'Forfeit cleared' };
+const scoreText = (r: HistoryEvent['after']) =>
+    r && r.player_one_vp !== null && r.player_two_vp !== null ? `${r.player_one_vp} – ${r.player_two_vp}` : 'no score';
+const whenText = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+
 // Hydrate the form whenever the page opens a (different) game.
 watch(
     () => props.game,
     (g) => {
         editingGame.value = g;
         if (g) hydrate(g);
+        void loadHistory(g);
     },
     { immediate: true },
 );
@@ -441,16 +472,37 @@ watch(
                             <Label class="text-2xs"
                                 >{{ field.label }} <span class="text-muted-foreground">/ {{ field.max }}</span></Label
                             >
-                            <Input
-                                v-model.number="editP1Score[field.key]"
-                                type="number"
-                                :min="field.min"
-                                :max="field.max"
-                                class="h-8 text-center text-sm font-bold"
-                                data-score-input
-                                @focus="($event.target as HTMLInputElement).select()"
-                                @keydown.enter.prevent="saveScore()"
-                            />
+                            <div class="flex items-center gap-1">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    class="size-8 shrink-0 sm:hidden"
+                                    :aria-label="`Decrease ${field.label}`"
+                                    @click="bump(editP1Score, field, -1)"
+                                    ><Minus class="size-3.5"
+                                /></Button>
+                                <Input
+                                    v-model.number="editP1Score[field.key]"
+                                    type="number"
+                                    inputmode="numeric"
+                                    :min="field.min"
+                                    :max="field.max"
+                                    class="h-8 text-center text-sm font-bold"
+                                    data-score-input
+                                    @focus="($event.target as HTMLInputElement).select()"
+                                    @keydown.enter.prevent="saveScore()"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    class="size-8 shrink-0 sm:hidden"
+                                    :aria-label="`Increase ${field.label}`"
+                                    @click="bump(editP1Score, field, 1)"
+                                    ><Plus class="size-3.5"
+                                /></Button>
+                            </div>
                         </div>
                     </div>
                     <div class="text-right text-xs text-muted-foreground">
@@ -498,16 +550,37 @@ watch(
                             <Label class="text-2xs"
                                 >{{ field.label }} <span class="text-muted-foreground">/ {{ field.max }}</span></Label
                             >
-                            <Input
-                                v-model.number="editP2Score[field.key]"
-                                type="number"
-                                :min="field.min"
-                                :max="field.max"
-                                class="h-8 text-center text-sm font-bold"
-                                data-score-input
-                                @focus="($event.target as HTMLInputElement).select()"
-                                @keydown.enter.prevent="saveScore()"
-                            />
+                            <div class="flex items-center gap-1">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    class="size-8 shrink-0 sm:hidden"
+                                    :aria-label="`Decrease ${field.label}`"
+                                    @click="bump(editP2Score, field, -1)"
+                                    ><Minus class="size-3.5"
+                                /></Button>
+                                <Input
+                                    v-model.number="editP2Score[field.key]"
+                                    type="number"
+                                    inputmode="numeric"
+                                    :min="field.min"
+                                    :max="field.max"
+                                    class="h-8 text-center text-sm font-bold"
+                                    data-score-input
+                                    @focus="($event.target as HTMLInputElement).select()"
+                                    @keydown.enter.prevent="saveScore()"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    class="size-8 shrink-0 sm:hidden"
+                                    :aria-label="`Increase ${field.label}`"
+                                    @click="bump(editP2Score, field, 1)"
+                                    ><Plus class="size-3.5"
+                                /></Button>
+                            </div>
                         </div>
                     </div>
                     <div class="text-right text-xs text-muted-foreground">
@@ -520,13 +593,26 @@ watch(
                 </div>
 
                 <!-- Score summary -->
-                <div class="flex items-center justify-center gap-3 text-lg font-bold">
+                <div class="flex items-center justify-center gap-3 text-lg font-bold" aria-label="Total score">
+                    <span class="text-xs font-normal text-muted-foreground">Total</span>
                     <span>{{ editP1Vp }}</span>
                     <span class="text-sm text-muted-foreground">-</span>
                     <span>{{ editP2Vp }}</span>
                 </div>
             </div>
             <p v-if="scoreError" class="text-xs text-destructive">{{ scoreError }}</p>
+            <details v-if="history.length" class="rounded-md border bg-muted/30 px-3 py-2 text-xs" data-testid="score-history">
+                <summary class="cursor-pointer font-medium">History ({{ history.length }})</summary>
+                <ul class="mt-2 space-y-1">
+                    <li v-for="e in history" :key="e.id" class="text-muted-foreground">
+                        <span class="font-medium text-foreground">{{ ACTION_LABEL[e.action] ?? e.action }}</span>
+                        <template v-if="e.action === 'scored' || e.action === 'corrected'">
+                            <template v-if="e.action === 'corrected'"> {{ scoreText(e.before) }} →</template> {{ scoreText(e.after) }}
+                        </template>
+                        by {{ e.by ?? 'someone' }}, {{ whenText(e.at) }}
+                    </li>
+                </ul>
+            </details>
             <DialogFooter class="gap-2 sm:gap-0">
                 <Button variant="outline" @click="close">Cancel</Button>
                 <Button :variant="nextGame ? 'outline' : 'default'" :disabled="submitting" @click="saveScore()">

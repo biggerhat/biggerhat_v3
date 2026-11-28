@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\TournamentGameResultEnum;
 use App\Models\TournamentGame;
+use App\Models\TournamentGameEvent;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -25,6 +26,8 @@ class TournamentScoreRecorder
             throw ValidationException::withMessages(['score' => 'Elimination games need a winner — a tied score cannot be recorded.']);
         }
 
+        $before = TournamentGameEvent::snapshot($game);
+
         $game->update([
             ...$attributes,
             'player_one_vp' => array_sum($one),
@@ -34,6 +37,8 @@ class TournamentScoreRecorder
             'result' => $agreed ? TournamentGameResultEnum::Agreed : TournamentGameResultEnum::Completed,
             ...$this->clearedReport(),
         ]);
+
+        TournamentGameEvent::record($game, $before['result'] === 'pending' ? 'scored' : 'corrected', $before);
     }
 
     /**
